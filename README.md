@@ -5,6 +5,7 @@ A command-line interface for Atlassian Confluence Cloud, inspired by [jira-cli](
 ## Features
 
 - Manage Confluence pages from the command line
+- **Markdown-first**: Write pages in markdown, auto-converted to Confluence format
 - List and browse spaces
 - Create and view pages
 - Multiple output formats (table, JSON, plain)
@@ -178,15 +179,23 @@ Content can be provided via:
 - Standard input (pipe content)
 - Interactive editor (default)
 
+**Markdown is the default format.** Content is automatically converted to Confluence storage format.
+
 ```bash
-# Open editor to write content
+# Open markdown editor
 cfl page create --space DEV --title "My Page"
 
-# Create from file
+# Create from markdown file
+cfl page create -s DEV -t "My Page" --file content.md
+
+# Create from markdown stdin
+echo "# Hello World" | cfl page create -s DEV -t "My Page"
+
+# Create from XHTML file (auto-detected by extension)
 cfl page create -s DEV -t "My Page" --file content.html
 
-# Create from stdin
-echo "<p>Hello</p>" | cfl page create -s DEV -t "My Page"
+# Create from XHTML stdin (disable markdown conversion)
+echo "<p>Hello</p>" | cfl page create -s DEV -t "My Page" --no-markdown
 
 # Create as child of another page
 cfl page create -s DEV -t "Child Page" --parent 12345
@@ -199,8 +208,12 @@ cfl page create -s DEV -t "Child Page" --parent 12345
 | `--parent` | `-p` | | Parent page ID (for nested pages) |
 | `--file` | `-f` | | Read content from file |
 | `--editor` | | `false` | Force open in $EDITOR |
+| `--no-markdown` | | `false` | Disable markdown conversion (use raw XHTML) |
 
-**Note:** Content should be in Confluence storage format (XHTML). Markdown support coming soon.
+**Format detection:**
+- `.md`, `.markdown` files → markdown (converted to XHTML)
+- `.html`, `.xhtml`, `.htm` files → XHTML (used as-is)
+- stdin, editor → markdown by default (use `--no-markdown` for XHTML)
 
 ---
 

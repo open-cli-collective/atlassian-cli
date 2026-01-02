@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -13,6 +14,7 @@ import (
 	"github.com/rianjs/confluence-cli/api"
 	"github.com/rianjs/confluence-cli/internal/config"
 	"github.com/rianjs/confluence-cli/internal/view"
+	"github.com/rianjs/confluence-cli/pkg/md"
 )
 
 type createOptions struct {
@@ -21,6 +23,7 @@ type createOptions struct {
 	parent   string
 	file     string
 	editor   bool
+	markdown *bool // nil = auto-detect, true = force markdown, false = force storage format
 	output   string
 	noColor  bool
 }
@@ -39,21 +42,38 @@ Content can be provided via:
 - Standard input (pipe content)
 - Interactive editor (default, or with --editor flag)
 
-Content should be in Confluence storage format (XHTML).`,
-		Example: `  # Create a page with title (opens editor)
+Content format:
+- Markdown is the default for stdin, editor, and .md files
+- Use --no-markdown to provide Confluence storage format (XHTML)
+- Files with .html/.xhtml extensions are treated as storage format`,
+		Example: `  # Create a page with title (opens markdown editor)
   cfl page create --space DEV --title "My Page"
 
-  # Create from file
+  # Create from markdown file
+  cfl page create -s DEV -t "My Page" --file content.md
+
+  # Create from XHTML file
   cfl page create -s DEV -t "My Page" --file content.html
 
-  # Create from stdin
-  echo "<p>Hello</p>" | cfl page create -s DEV -t "My Page"
+  # Create from stdin (markdown)
+  echo "# Hello World" | cfl page create -s DEV -t "My Page"
+
+  # Create from stdin (XHTML)
+  echo "<p>Hello</p>" | cfl page create -s DEV -t "My Page" --no-markdown
 
   # Create as child of another page
   cfl page create -s DEV -t "Child Page" --parent 12345`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			opts.output, _ = cmd.Flags().GetString("output")
 			opts.noColor, _ = cmd.Flags().GetBool("no-color")
+
+			// Handle markdown flag
+			if cmd.Flags().Changed("no-markdown") {
+				noMd, _ := cmd.Flags().GetBool("no-markdown")
+				useMd := !noMd
+				opts.markdown = &useMd
+			}
+
 			return runCreate(opts)
 		},
 	}
@@ -63,6 +83,7 @@ Content should be in Confluence storage format (XHTML).`,
 	cmd.Flags().StringVarP(&opts.parent, "parent", "p", "", "Parent page ID")
 	cmd.Flags().StringVarP(&opts.file, "file", "f", "", "Read content from file")
 	cmd.Flags().BoolVar(&opts.editor, "editor", false, "Open editor for content")
+	cmd.Flags().Bool("no-markdown", false, "Disable markdown conversion (use raw XHTML)")
 
 	cmd.MarkFlagRequired("title")
 
@@ -98,10 +119,19 @@ func runCreate(opts *createOptions) error {
 		return fmt.Errorf("failed to find space '%s': %w", spaceKey, err)
 	}
 
-	// Get content
-	content, err := getContent(opts)
+	// Get content and determine if markdown conversion is needed
+	content, isMarkdown, err := getContent(opts)
 	if err != nil {
 		return err
+	}
+
+	// Convert markdown to storage format if needed
+	if isMarkdown {
+		converted, err := md.ToConfluenceStorage([]byte(content))
+		if err != nil {
+			return fmt.Errorf("failed to convert markdown: %w", err)
+		}
+		content = converted
 	}
 
 	// Create page
@@ -140,14 +170,36 @@ func runCreate(opts *createOptions) error {
 	return nil
 }
 
-func getContent(opts *createOptions) (string, error) {
+// getContent reads content and returns (content, isMarkdown, error).
+// isMarkdown indicates whether the content should be converted from markdown.
+func getContent(opts *createOptions) (string, bool, error) {
+	// Determine if we should use markdown based on explicit flag or file extension
+	useMarkdown := func(filename string) bool {
+		// If explicitly set via flag, use that
+		if opts.markdown != nil {
+			return *opts.markdown
+		}
+		// Auto-detect based on file extension
+		if filename != "" {
+			ext := strings.ToLower(filepath.Ext(filename))
+			switch ext {
+			case ".html", ".xhtml", ".htm":
+				return false
+			case ".md", ".markdown":
+				return true
+			}
+		}
+		// Default to markdown for stdin and editor
+		return true
+	}
+
 	// Read from file
 	if opts.file != "" {
 		data, err := os.ReadFile(opts.file)
 		if err != nil {
-			return "", fmt.Errorf("failed to read file: %w", err)
+			return "", false, fmt.Errorf("failed to read file: %w", err)
 		}
-		return string(data), nil
+		return string(data), useMarkdown(opts.file), nil
 	}
 
 	// Check if stdin has data
@@ -155,29 +207,43 @@ func getContent(opts *createOptions) (string, error) {
 	if (stat.Mode() & os.ModeCharDevice) == 0 {
 		data, err := io.ReadAll(os.Stdin)
 		if err != nil {
-			return "", fmt.Errorf("failed to read stdin: %w", err)
+			return "", false, fmt.Errorf("failed to read stdin: %w", err)
 		}
-		return string(data), nil
+		return string(data), useMarkdown(""), nil
 	}
 
-	// Open editor
-	return openEditor("")
+	// Open editor (markdown mode)
+	isMarkdown := useMarkdown("")
+	content, err := openEditor(isMarkdown)
+	return content, isMarkdown, err
 }
 
-func openEditor(initialContent string) (string, error) {
+func openEditor(isMarkdown bool) (string, error) {
+	// Determine file extension and template based on format
+	ext := ".html"
+	template := `<p>Enter your page content here.</p>
+`
+	if isMarkdown {
+		ext = ".md"
+		template = `# Page Title
+
+Enter your content here using markdown.
+
+## Section
+
+- List item 1
+- List item 2
+`
+	}
+
 	// Create temp file
-	tmpfile, err := os.CreateTemp("", "cfl-*.html")
+	tmpfile, err := os.CreateTemp("", "cfl-*"+ext)
 	if err != nil {
 		return "", fmt.Errorf("failed to create temp file: %w", err)
 	}
 	defer os.Remove(tmpfile.Name())
 
 	// Write initial content
-	template := initialContent
-	if template == "" {
-		template = `<p>Enter your page content here.</p>
-`
-	}
 	if _, err := tmpfile.WriteString(template); err != nil {
 		return "", err
 	}

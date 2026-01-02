@@ -17,6 +17,7 @@ func NewCmdPage() *cobra.Command {
 	cmd.AddCommand(NewCmdList())
 	cmd.AddCommand(NewCmdView())
 	cmd.AddCommand(NewCmdCreate())
+	cmd.AddCommand(NewCmdDelete())
 
 	return cmd
 }

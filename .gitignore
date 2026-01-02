@@ -34,3 +34,18 @@ go.work.sum
 # Build outputs
 bin/
 dist/
+cfl
+
+# Debug files
+*.dSYM/
+__debug_bin*
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*~
+
+# OS files
+.DS_Store
+Thumbs.db

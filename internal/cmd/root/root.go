@@ -4,6 +4,7 @@ package root
 import (
 	"github.com/spf13/cobra"
 
+	"github.com/rianjs/confluence-cli/internal/cmd/attachment"
 	initcmd "github.com/rianjs/confluence-cli/internal/cmd/init"
 	"github.com/rianjs/confluence-cli/internal/cmd/page"
 	"github.com/rianjs/confluence-cli/internal/cmd/space"
@@ -38,8 +39,7 @@ Get started by running: cfl init`,
 	cmd.AddCommand(initcmd.NewCmdInit())
 	cmd.AddCommand(page.NewCmdPage())
 	cmd.AddCommand(space.NewCmdSpace())
-	// cmd.AddCommand(attachment.NewCmdAttachment())
-	// cmd.AddCommand(completion.NewCmdCompletion())
+	cmd.AddCommand(attachment.NewCmdAttachment())
 
 	return cmd
 }

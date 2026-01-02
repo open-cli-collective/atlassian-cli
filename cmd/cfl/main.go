@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/rianjs/confluence-cli/internal/cmd/root"
@@ -9,6 +10,7 @@ import (
 func main() {
 	cmd := root.NewCmdRoot()
 	if err := cmd.Execute(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
 		os.Exit(1)
 	}
 }

@@ -6,9 +6,9 @@ A command-line interface for Atlassian Confluence Cloud, inspired by [jira-cli](
 
 - Manage Confluence pages from the command line
 - List and browse spaces
-- Create and edit pages
+- Create and view pages
 - Multiple output formats (table, JSON, plain)
-- Markdown-first approach for content editing
+- Open pages in browser
 
 ## Installation
 
@@ -71,24 +71,138 @@ cfl page view 12345
 cfl page create --space DEV --title "My New Page"
 ```
 
-## Commands
+---
 
-### Spaces
+## Command Reference
+
+### Global Flags
+
+These flags are available on all commands:
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--config` | `-c` | `~/.config/cfl/config.yml` | Path to config file |
+| `--output` | `-o` | `table` | Output format: `table`, `json`, `plain` |
+| `--no-color` | | `false` | Disable colored output |
+| `--help` | `-h` | | Show help for command |
+| `--version` | `-v` | | Show version (root command only) |
+
+---
+
+### `cfl init`
+
+Initialize cfl with your Confluence Cloud credentials.
 
 ```bash
-cfl space list              # List all spaces
-cfl space list --type global # List only global spaces
-cfl space list -o json      # Output as JSON
+cfl init
+cfl init --url https://mycompany.atlassian.net
+cfl init --url https://mycompany.atlassian.net --email you@example.com
 ```
 
-### Pages
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--url` | | | Pre-populate Confluence URL |
+| `--email` | | | Pre-populate email address |
+| `--no-verify` | | `false` | Skip connection verification |
+
+---
+
+### `cfl space list`
+
+List Confluence spaces.
+
+**Aliases:** `cfl space ls`
 
 ```bash
-cfl page list -s DEV        # List pages in a space
-cfl page view 12345         # View a page
-cfl page view 12345 --web   # Open in browser
-cfl page create -s DEV -t "Title"  # Create a page
+cfl space list
+cfl space list --type global
+cfl space list --type personal
+cfl space list -l 50 -o json
 ```
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--limit` | `-l` | `25` | Maximum number of spaces to return |
+| `--type` | `-t` | | Filter by type: `global` or `personal` |
+
+---
+
+### `cfl page list`
+
+List pages in a space.
+
+**Aliases:** `cfl page ls`, `cfl page search`
+
+```bash
+cfl page list --space DEV
+cfl page list -s DEV -l 50
+cfl page list -s DEV --status archived
+cfl page list -s DEV -o json
+```
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--space` | `-s` | (from config) | Space key (**required** if no default) |
+| `--limit` | `-l` | `25` | Maximum number of pages to return |
+| `--status` | | `current` | Filter by status: `current`, `archived`, `draft` |
+
+---
+
+### `cfl page view <page-id>`
+
+View a Confluence page.
+
+```bash
+cfl page view 12345
+cfl page view 12345 --raw
+cfl page view 12345 --web
+cfl page view 12345 -o json
+```
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--raw` | | `false` | Show raw Confluence storage format (XHTML) |
+| `--web` | `-w` | `false` | Open page in browser instead of displaying |
+
+**Arguments:**
+- `<page-id>` - The page ID (**required**)
+
+---
+
+### `cfl page create`
+
+Create a new Confluence page.
+
+Content can be provided via:
+- `--file` flag to read from a file
+- Standard input (pipe content)
+- Interactive editor (default)
+
+```bash
+# Open editor to write content
+cfl page create --space DEV --title "My Page"
+
+# Create from file
+cfl page create -s DEV -t "My Page" --file content.html
+
+# Create from stdin
+echo "<p>Hello</p>" | cfl page create -s DEV -t "My Page"
+
+# Create as child of another page
+cfl page create -s DEV -t "Child Page" --parent 12345
+```
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--space` | `-s` | (from config) | Space key (**required** if no default) |
+| `--title` | `-t` | | Page title (**required**) |
+| `--parent` | `-p` | | Parent page ID (for nested pages) |
+| `--file` | `-f` | | Read content from file |
+| `--editor` | | `false` | Force open in $EDITOR |
+
+**Note:** Content should be in Confluence storage format (XHTML). Markdown support coming soon.
+
+---
 
 ## Configuration
 
@@ -104,22 +218,28 @@ output_format: table
 
 ### Environment Variables
 
-You can override configuration with environment variables:
+Environment variables override config file values:
 
-- `CFL_URL` - Confluence URL
-- `CFL_EMAIL` - Email address
-- `CFL_API_TOKEN` - API token
-- `CFL_DEFAULT_SPACE` - Default space key
+| Variable | Description |
+|----------|-------------|
+| `CFL_URL` | Confluence instance URL |
+| `CFL_EMAIL` | Your Atlassian email |
+| `CFL_API_TOKEN` | Your API token |
+| `CFL_DEFAULT_SPACE` | Default space key |
+
+---
 
 ## Output Formats
 
-Use the `--output` or `-o` flag to change output format:
+Use `--output` or `-o` to change output format:
 
 ```bash
-cfl space list -o table  # Default table format
-cfl space list -o json   # JSON format
-cfl space list -o plain  # Plain text (for scripting)
+cfl space list -o table  # Default: human-readable table
+cfl space list -o json   # JSON for scripting/automation
+cfl space list -o plain  # Tab-separated for piping to other tools
 ```
+
+---
 
 ## Development
 
@@ -145,6 +265,8 @@ make test
 ```bash
 make lint
 ```
+
+---
 
 ## Contributing
 

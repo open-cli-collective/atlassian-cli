@@ -14,11 +14,11 @@ A command-line interface for Atlassian Confluence Cloud, inspired by [jira-cli](
 
 ## Installation
 
-### Homebrew (macOS/Linux)
+### Homebrew (macOS)
 
 ```bash
 brew tap rianjs/confluence-cli
-brew install cfl
+brew install --cask cfl
 ```
 
 ### Go Install

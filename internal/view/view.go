@@ -14,6 +14,7 @@ import (
 // Format represents an output format.
 type Format string
 
+// Output format constants.
 const (
 	FormatTable Format = "table"
 	FormatJSON  Format = "json"
@@ -75,21 +76,21 @@ func (r *Renderer) RenderTable(headers []string, rows [][]string) {
 	// Print header
 	for i, h := range headers {
 		if i > 0 {
-			fmt.Fprint(r.writer, "  ")
+			_, _ = fmt.Fprint(r.writer, "  ")
 		}
-		fmt.Fprint(r.writer, h)
+		_, _ = fmt.Fprint(r.writer, h)
 	}
-	fmt.Fprintln(r.writer)
+	_, _ = fmt.Fprintln(r.writer)
 
 	// Print rows
 	for _, row := range rows {
 		for i, val := range row {
 			if i > 0 {
-				fmt.Fprint(r.writer, "  ")
+				_, _ = fmt.Fprint(r.writer, "  ")
 			}
-			fmt.Fprint(r.writer, val)
+			_, _ = fmt.Fprint(r.writer, val)
 		}
-		fmt.Fprintln(r.writer)
+		_, _ = fmt.Fprintln(r.writer)
 	}
 }
 
@@ -106,18 +107,18 @@ func (r *Renderer) renderTableAsJSON(headers []string, rows [][]string) {
 	}
 
 	data, _ := json.MarshalIndent(result, "", "  ")
-	fmt.Fprintln(r.writer, string(data))
+	_, _ = fmt.Fprintln(r.writer, string(data))
 }
 
-func (r *Renderer) renderTableAsPlain(headers []string, rows [][]string) {
+func (r *Renderer) renderTableAsPlain(_ []string, rows [][]string) {
 	for _, row := range rows {
 		for i, val := range row {
 			if i > 0 {
-				fmt.Fprint(r.writer, "\t")
+				_, _ = fmt.Fprint(r.writer, "\t")
 			}
-			fmt.Fprint(r.writer, val)
+			_, _ = fmt.Fprint(r.writer, val)
 		}
-		fmt.Fprintln(r.writer)
+		_, _ = fmt.Fprintln(r.writer)
 	}
 }
 
@@ -127,36 +128,36 @@ func (r *Renderer) RenderJSON(v interface{}) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintln(r.writer, string(data))
+	_, _ = fmt.Fprintln(r.writer, string(data))
 	return nil
 }
 
 // RenderText renders plain text.
 func (r *Renderer) RenderText(text string) {
-	fmt.Fprintln(r.writer, text)
+	_, _ = fmt.Fprintln(r.writer, text)
 }
 
 // RenderKeyValue renders a key-value pair.
 func (r *Renderer) RenderKeyValue(key, value string) {
 	if r.format == FormatJSON {
-		fmt.Fprintf(r.writer, `{"%s": "%s"}`+"\n", key, value)
+		_, _ = fmt.Fprintf(r.writer, `{"%s": "%s"}`+"\n", key, value)
 		return
 	}
 	bold := color.New(color.Bold)
-	bold.Fprintf(r.writer, "%s: ", key)
-	fmt.Fprintln(r.writer, value)
+	_, _ = bold.Fprintf(r.writer, "%s: ", key)
+	_, _ = fmt.Fprintln(r.writer, value)
 }
 
 // Success prints a success message.
 func (r *Renderer) Success(msg string) {
 	green := color.New(color.FgGreen)
-	green.Fprintln(r.writer, "✓ "+msg)
+	_, _ = green.Fprintln(r.writer, "✓ "+msg)
 }
 
 // Error prints an error message.
 func (r *Renderer) Error(msg string) {
 	red := color.New(color.FgRed)
-	red.Fprintln(r.writer, "✗ "+msg)
+	_, _ = red.Fprintln(r.writer, "✗ "+msg)
 }
 
 // Truncate truncates a string to the specified length.

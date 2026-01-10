@@ -37,7 +37,7 @@ func NewCmdList() *cobra.Command {
 
   # Output as JSON
   cfl page list -s DEV -o json`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			opts.output, _ = cmd.Flags().GetString("output")
 			opts.noColor, _ = cmd.Flags().GetBool("no-color")
 			return runList(opts)

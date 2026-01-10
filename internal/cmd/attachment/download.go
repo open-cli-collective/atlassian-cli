@@ -76,14 +76,14 @@ func runDownload(attachmentID string, opts *downloadOptions) error {
 	if err != nil {
 		return fmt.Errorf("failed to download attachment: %w", err)
 	}
-	defer reader.Close()
+	defer func() { _ = reader.Close() }()
 
 	// Create output file
 	outFile, err := os.Create(outputPath)
 	if err != nil {
 		return fmt.Errorf("failed to create output file: %w", err)
 	}
-	defer outFile.Close()
+	defer func() { _ = outFile.Close() }()
 
 	// Copy content
 	bytesWritten, err := io.Copy(outFile, reader)

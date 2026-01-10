@@ -30,7 +30,7 @@ func TestClient_ListSpaces(t *testing.T) {
 		assert.Equal(t, "25", r.URL.Query().Get("limit"))
 
 		w.WriteHeader(http.StatusOK)
-		w.Write(testData)
+		_, _ = w.Write(testData)
 	}))
 	defer server.Close()
 
@@ -56,7 +56,7 @@ func TestClient_ListSpaces_WithOptions(t *testing.T) {
 		assert.Equal(t, "current", r.URL.Query().Get("status"))
 
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"results": []}`))
+		_, _ = w.Write([]byte(`{"results": []}`))
 	}))
 	defer server.Close()
 
@@ -76,7 +76,7 @@ func TestClient_GetSpace(t *testing.T) {
 		assert.Equal(t, "GET", r.Method)
 
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{
+		_, _ = w.Write([]byte(`{
 			"id": "123456",
 			"key": "DEV",
 			"name": "Development",
@@ -95,9 +95,9 @@ func TestClient_GetSpace(t *testing.T) {
 }
 
 func TestClient_GetSpace_NotFound(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"message": "Space not found"}`))
+		_, _ = w.Write([]byte(`{"message": "Space not found"}`))
 	}))
 	defer server.Close()
 

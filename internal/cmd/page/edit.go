@@ -277,13 +277,13 @@ func openEditorForEdit(existingPage *api.Page, isMarkdown bool) (string, error) 
 	if err != nil {
 		return "", fmt.Errorf("failed to create temp file: %w", err)
 	}
-	defer os.Remove(tmpfile.Name())
+	defer func() { _ = os.Remove(tmpfile.Name()) }()
 
 	// Write existing content
 	if _, err := tmpfile.WriteString(editContent); err != nil {
 		return "", err
 	}
-	tmpfile.Close()
+	_ = tmpfile.Close()
 
 	// Get editor
 	editor := os.Getenv("EDITOR")

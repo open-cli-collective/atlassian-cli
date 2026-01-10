@@ -63,7 +63,7 @@ Content format:
 
   # Create as child of another page
   cfl page create -s DEV -t "Child Page" --parent 12345`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			opts.output, _ = cmd.Flags().GetString("output")
 			opts.noColor, _ = cmd.Flags().GetBool("no-color")
 
@@ -241,13 +241,13 @@ Enter your content here using markdown.
 	if err != nil {
 		return "", fmt.Errorf("failed to create temp file: %w", err)
 	}
-	defer os.Remove(tmpfile.Name())
+	defer func() { _ = os.Remove(tmpfile.Name()) }()
 
 	// Write initial content
 	if _, err := tmpfile.WriteString(template); err != nil {
 		return "", err
 	}
-	tmpfile.Close()
+	_ = tmpfile.Close()
 
 	// Get editor
 	editor := os.Getenv("EDITOR")

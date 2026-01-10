@@ -32,7 +32,7 @@ func NewCmdList() *cobra.Command {
 
   # List with custom limit
   cfl attachment list --page 12345 --limit 50`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			opts.output, _ = cmd.Flags().GetString("output")
 			opts.noColor, _ = cmd.Flags().GetBool("no-color")
 			return runList(opts)

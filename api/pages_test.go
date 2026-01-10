@@ -205,3 +205,195 @@ func TestClient_DeletePage(t *testing.T) {
 
 	require.NoError(t, err)
 }
+
+func TestClient_CopyPage_Success(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/rest/api/content/12345/copy", r.URL.Path)
+		assert.Equal(t, "POST", r.Method)
+
+		body, err := io.ReadAll(r.Body)
+		require.NoError(t, err)
+
+		var req map[string]interface{}
+		err = json.Unmarshal(body, &req)
+		require.NoError(t, err)
+
+		assert.Equal(t, "New Title", req["pageTitle"])
+		assert.Equal(t, true, req["copyAttachments"])
+		assert.Equal(t, true, req["copyPermissions"])
+		assert.Equal(t, true, req["copyProperties"])
+		assert.Equal(t, true, req["copyLabels"])
+		assert.Equal(t, true, req["copyCustomContents"])
+
+		dest := req["destination"].(map[string]interface{})
+		assert.Equal(t, "space", dest["type"])
+		assert.Equal(t, "TEST", dest["value"])
+
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{
+			"id": "99999",
+			"type": "page",
+			"status": "current",
+			"title": "New Title",
+			"space": {"id": 123, "key": "TEST", "name": "Test Space"},
+			"version": {"number": 1},
+			"_links": {"webui": "/spaces/TEST/pages/99999"}
+		}`))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "user@example.com", "token")
+	opts := &CopyPageOptions{
+		Title:              "New Title",
+		DestinationSpace:   "TEST",
+		CopyAttachments:    true,
+		CopyPermissions:    true,
+		CopyProperties:     true,
+		CopyLabels:         true,
+		CopyCustomContents: true,
+	}
+
+	page, err := client.CopyPage(context.Background(), "12345", opts)
+	require.NoError(t, err)
+	assert.Equal(t, "99999", page.ID)
+	assert.Equal(t, "New Title", page.Title)
+	assert.Equal(t, "TEST", page.SpaceID)
+	assert.Equal(t, 1, page.Version.Number)
+	assert.Equal(t, "/spaces/TEST/pages/99999", page.Links.WebUI)
+}
+
+func TestClient_CopyPage_MissingTitle(t *testing.T) {
+	client := NewClient("http://unused", "user@example.com", "token")
+
+	_, err := client.CopyPage(context.Background(), "12345", &CopyPageOptions{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "title is required")
+}
+
+func TestClient_CopyPage_NilOptions(t *testing.T) {
+	client := NewClient("http://unused", "user@example.com", "token")
+
+	_, err := client.CopyPage(context.Background(), "12345", nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "title is required")
+}
+
+func TestClient_CopyPage_APIError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`{"message": "Page not found"}`))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "user@example.com", "token")
+	opts := &CopyPageOptions{
+		Title:            "New Title",
+		DestinationSpace: "TEST",
+	}
+
+	_, err := client.CopyPage(context.Background(), "99999", opts)
+	require.Error(t, err)
+}
+
+func TestClient_CopyPage_WithoutAttachments(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		require.NoError(t, err)
+
+		var req map[string]interface{}
+		err = json.Unmarshal(body, &req)
+		require.NoError(t, err)
+
+		assert.Equal(t, false, req["copyAttachments"])
+
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{
+			"id": "99999",
+			"title": "New Title",
+			"space": {"key": "TEST"},
+			"version": {"number": 1},
+			"_links": {}
+		}`))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "user@example.com", "token")
+	opts := &CopyPageOptions{
+		Title:            "New Title",
+		DestinationSpace: "TEST",
+		CopyAttachments:  false,
+	}
+
+	_, err := client.CopyPage(context.Background(), "12345", opts)
+	require.NoError(t, err)
+}
+
+func TestClient_CopyPage_ToDifferentSpace(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		require.NoError(t, err)
+
+		var req map[string]interface{}
+		err = json.Unmarshal(body, &req)
+		require.NoError(t, err)
+
+		dest := req["destination"].(map[string]interface{})
+		assert.Equal(t, "space", dest["type"])
+		assert.Equal(t, "OTHERSPACE", dest["value"])
+
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{
+			"id": "99999",
+			"title": "New Title",
+			"space": {"key": "OTHERSPACE"},
+			"version": {"number": 1},
+			"_links": {}
+		}`))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "user@example.com", "token")
+	opts := &CopyPageOptions{
+		Title:            "New Title",
+		DestinationSpace: "OTHERSPACE",
+	}
+
+	page, err := client.CopyPage(context.Background(), "12345", opts)
+	require.NoError(t, err)
+	assert.Equal(t, "OTHERSPACE", page.SpaceID)
+}
+
+func TestClient_CopyPage_WithoutLabels(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		require.NoError(t, err)
+
+		var req map[string]interface{}
+		err = json.Unmarshal(body, &req)
+		require.NoError(t, err)
+
+		assert.Equal(t, false, req["copyLabels"])
+		assert.Equal(t, true, req["copyAttachments"]) // others should still be true
+
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{
+			"id": "99999",
+			"title": "New Title",
+			"space": {"key": "TEST"},
+			"version": {"number": 1},
+			"_links": {}
+		}`))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "user@example.com", "token")
+	opts := &CopyPageOptions{
+		Title:            "New Title",
+		DestinationSpace: "TEST",
+		CopyAttachments:  true, // explicitly set to true
+		CopyLabels:       false,
+	}
+
+	_, err := client.CopyPage(context.Background(), "12345", opts)
+	require.NoError(t, err)
+}

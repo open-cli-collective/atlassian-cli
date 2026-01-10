@@ -19,6 +19,7 @@ func NewCmdPage() *cobra.Command {
 	cmd.AddCommand(NewCmdCreate())
 	cmd.AddCommand(NewCmdEdit())
 	cmd.AddCommand(NewCmdDelete())
+	cmd.AddCommand(NewCmdCopy())
 
 	return cmd
 }

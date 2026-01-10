@@ -34,7 +34,7 @@ func NewCmdUpload() *cobra.Command {
 
   # Upload with a comment (-m for message/comment)
   cfl attachment upload --page 12345 --file image.png -m "Screenshot"`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			opts.output, _ = cmd.Flags().GetString("output")
 			opts.noColor, _ = cmd.Flags().GetBool("no-color")
 			return runUpload(opts)
@@ -67,7 +67,7 @@ func runUpload(opts *uploadOptions) error {
 	if err != nil {
 		return fmt.Errorf("failed to open file: %w", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	// Get filename from path
 	filename := filepath.Base(opts.file)

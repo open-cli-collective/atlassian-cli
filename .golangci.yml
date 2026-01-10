@@ -1,23 +1,22 @@
+version: "2"
+
 linters:
   enable:
     - errcheck
-    - gosimple
     - govet
     - ineffassign
     - staticcheck
     - unused
+    - misspell
+
+formatters:
+  enable:
     - gofmt
     - goimports
-    - misspell
-    - revive
-
-linters-settings:
-  revive:
-    rules:
-      - name: exported
-        disabled: false
-  goimports:
-    local-prefixes: github.com/rianjs/confluence-cli
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/rianjs/confluence-cli
 
 run:
   timeout: 5m

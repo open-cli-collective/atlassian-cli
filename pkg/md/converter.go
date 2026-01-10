@@ -1,3 +1,4 @@
+// Package md provides markdown conversion utilities for Confluence.
 package md
 
 import (

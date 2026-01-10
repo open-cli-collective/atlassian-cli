@@ -21,7 +21,7 @@ func TestClient_ListPages(t *testing.T) {
 		assert.Equal(t, "25", r.URL.Query().Get("limit"))
 
 		w.WriteHeader(http.StatusOK)
-		w.Write(testData)
+		_, _ = w.Write(testData)
 	}))
 	defer server.Close()
 
@@ -46,7 +46,7 @@ func TestClient_ListPages_WithOptions(t *testing.T) {
 		assert.Equal(t, "title", r.URL.Query().Get("sort"))
 
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"results": []}`))
+		_, _ = w.Write([]byte(`{"results": []}`))
 	}))
 	defer server.Close()
 
@@ -68,7 +68,7 @@ func TestClient_GetPage(t *testing.T) {
 		assert.Equal(t, "GET", r.Method)
 
 		w.WriteHeader(http.StatusOK)
-		w.Write(testData)
+		_, _ = w.Write(testData)
 	}))
 	defer server.Close()
 
@@ -90,7 +90,7 @@ func TestClient_GetPage_WithBodyFormat(t *testing.T) {
 		assert.Equal(t, "storage", r.URL.Query().Get("body-format"))
 
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"id": "98765", "title": "Test"}`))
+		_, _ = w.Write([]byte(`{"id": "98765", "title": "Test"}`))
 	}))
 	defer server.Close()
 
@@ -119,7 +119,7 @@ func TestClient_CreatePage(t *testing.T) {
 		assert.Equal(t, "<p>Content</p>", req.Body.Storage.Value)
 
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{
+		_, _ = w.Write([]byte(`{
 			"id": "99999",
 			"title": "New Page",
 			"spaceId": "123456",
@@ -163,7 +163,7 @@ func TestClient_UpdatePage(t *testing.T) {
 		assert.Equal(t, 6, req.Version.Number)
 
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{
+		_, _ = w.Write([]byte(`{
 			"id": "98765",
 			"title": "Updated Title",
 			"version": {"number": 6}

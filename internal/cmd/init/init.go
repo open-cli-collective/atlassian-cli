@@ -38,7 +38,7 @@ To generate an API token:
 
   # Pre-populate URL
   cfl init --url https://mycompany.atlassian.net`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, _ []string) error {
 			return runInit(url, email, noVerify)
 		},
 	}
@@ -177,7 +177,7 @@ func verifyConnection(cfg *config.Config) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode == 401 {
 		return fmt.Errorf("authentication failed - check your email and API token")

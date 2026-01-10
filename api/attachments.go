@@ -77,7 +77,7 @@ func (c *Client) DownloadAttachment(ctx context.Context, attachmentID string) (i
 
 	// Create a client that doesn't follow redirects
 	noRedirectClient := &http.Client{
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+		CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
 			return http.ErrUseLastResponse
 		},
 	}
@@ -96,7 +96,7 @@ func (c *Client) DownloadAttachment(ctx context.Context, attachmentID string) (i
 	// Handle redirect
 	if resp.StatusCode == http.StatusFound || resp.StatusCode == http.StatusTemporaryRedirect {
 		redirectURL := resp.Header.Get("Location")
-		resp.Body.Close()
+		_ = resp.Body.Close()
 
 		// If redirect is relative, make it absolute
 		if redirectURL[0] == '/' {
@@ -116,7 +116,7 @@ func (c *Client) DownloadAttachment(ctx context.Context, attachmentID string) (i
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		return nil, fmt.Errorf("download failed with status %d", resp.StatusCode)
 	}
 
@@ -165,7 +165,7 @@ func (c *Client) UploadAttachment(ctx context.Context, pageID, filename string, 
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {

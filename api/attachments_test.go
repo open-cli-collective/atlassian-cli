@@ -18,7 +18,7 @@ func TestClient_ListAttachments(t *testing.T) {
 		assert.Equal(t, "GET", r.Method)
 
 		w.WriteHeader(http.StatusOK)
-		w.Write(testData)
+		_, _ = w.Write(testData)
 	}))
 	defer server.Close()
 
@@ -42,7 +42,7 @@ func TestClient_ListAttachments_WithOptions(t *testing.T) {
 		assert.Equal(t, "image/png", r.URL.Query().Get("mediaType"))
 
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"results": []}`))
+		_, _ = w.Write([]byte(`{"results": []}`))
 	}))
 	defer server.Close()
 
@@ -61,7 +61,7 @@ func TestClient_GetAttachment(t *testing.T) {
 		assert.Equal(t, "GET", r.Method)
 
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{
+		_, _ = w.Write([]byte(`{
 			"id": "att111",
 			"title": "screenshot.png",
 			"mediaType": "image/png",
@@ -94,7 +94,7 @@ func TestClient_DownloadAttachment(t *testing.T) {
 		if r.URL.Path == "/download/attachments/98765/screenshot.png" {
 			w.Header().Set("Content-Type", "image/png")
 			w.WriteHeader(http.StatusOK)
-			w.Write(fileContent)
+			_, _ = w.Write(fileContent)
 			return
 		}
 
@@ -105,7 +105,7 @@ func TestClient_DownloadAttachment(t *testing.T) {
 	client := NewClient(server.URL, "user@example.com", "token")
 	reader, err := client.DownloadAttachment(context.Background(), "att111")
 	require.NoError(t, err)
-	defer reader.Close()
+	defer func() { _ = reader.Close() }()
 
 	// Read and verify content
 	buf := make([]byte, 100)

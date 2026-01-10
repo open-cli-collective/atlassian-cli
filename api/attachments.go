@@ -194,3 +194,10 @@ func (c *Client) UploadAttachment(ctx context.Context, pageID, filename string, 
 
 	return &result.Results[0], nil
 }
+
+// DeleteAttachment deletes an attachment by ID.
+func (c *Client) DeleteAttachment(ctx context.Context, attachmentID string) error {
+	path := fmt.Sprintf("/api/v2/attachments/%s", attachmentID)
+	_, err := c.Delete(ctx, path)
+	return err
+}

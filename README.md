@@ -8,7 +8,7 @@ A command-line interface for Atlassian Confluence Cloud, inspired by [jira-cli](
 - **Markdown-first**: Write and view pages in markdown, auto-converted to/from Confluence format
 - List and browse spaces
 - Create, view, edit, and delete pages
-- Upload, download, and list attachments
+- Upload, download, list, and delete attachments
 - Multiple output formats (table, JSON, plain)
 - Open pages in browser
 
@@ -322,6 +322,24 @@ cfl attachment download abc123 -O document.pdf
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
 | `--output-file` | `-O` | (original filename) | Output file path |
+
+**Arguments:**
+- `<attachment-id>` - The attachment ID (**required**)
+
+---
+
+### `cfl attachment delete <attachment-id>`
+
+Delete an attachment.
+
+```bash
+cfl attachment delete att123
+cfl attachment delete att123 --force
+```
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--force` | `-f` | `false` | Skip confirmation prompt |
 
 **Arguments:**
 - `<attachment-id>` - The attachment ID (**required**)

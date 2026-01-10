@@ -17,6 +17,7 @@ func NewCmdAttachment() *cobra.Command {
 	cmd.AddCommand(NewCmdList())
 	cmd.AddCommand(NewCmdUpload())
 	cmd.AddCommand(NewCmdDownload())
+	cmd.AddCommand(NewCmdDelete())
 
 	return cmd
 }

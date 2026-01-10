@@ -1,8 +1,11 @@
 package attachment
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"io"
+	"os"
 
 	"github.com/spf13/cobra"
 
@@ -15,11 +18,14 @@ type deleteOptions struct {
 	force   bool
 	output  string
 	noColor bool
+	stdin   io.Reader // For testing; defaults to os.Stdin
 }
 
 // NewCmdDelete creates the attachment delete command.
 func NewCmdDelete() *cobra.Command {
-	opts := &deleteOptions{}
+	opts := &deleteOptions{
+		stdin: os.Stdin,
+	}
 
 	cmd := &cobra.Command{
 		Use:   "delete <attachment-id>",
@@ -34,7 +40,7 @@ func NewCmdDelete() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			opts.output, _ = cmd.Flags().GetString("output")
 			opts.noColor, _ = cmd.Flags().GetBool("no-color")
-			return runDeleteAttachment(args[0], opts)
+			return runDeleteAttachment(args[0], opts, nil)
 		},
 	}
 
@@ -43,19 +49,21 @@ func NewCmdDelete() *cobra.Command {
 	return cmd
 }
 
-func runDeleteAttachment(attachmentID string, opts *deleteOptions) error {
-	// Load config
-	cfg, err := config.LoadWithEnv(config.DefaultConfigPath())
-	if err != nil {
-		return fmt.Errorf("failed to load config: %w (run 'cfl init' to configure)", err)
-	}
+// runDeleteAttachment executes the delete. If client is nil, it creates one from config.
+func runDeleteAttachment(attachmentID string, opts *deleteOptions, client *api.Client) error {
+	// Create client from config if not provided (for testing)
+	if client == nil {
+		cfg, err := config.LoadWithEnv(config.DefaultConfigPath())
+		if err != nil {
+			return fmt.Errorf("failed to load config: %w (run 'cfl init' to configure)", err)
+		}
 
-	if err := cfg.Validate(); err != nil {
-		return fmt.Errorf("invalid config: %w (run 'cfl init' to configure)", err)
-	}
+		if err := cfg.Validate(); err != nil {
+			return fmt.Errorf("invalid config: %w (run 'cfl init' to configure)", err)
+		}
 
-	// Create API client
-	client := api.NewClient(cfg.URL, cfg.Email, cfg.APIToken)
+		client = api.NewClient(cfg.URL, cfg.Email, cfg.APIToken)
+	}
 
 	// Get attachment info first to show what we're deleting
 	attachment, err := client.GetAttachment(context.Background(), attachmentID)
@@ -70,8 +78,11 @@ func runDeleteAttachment(attachmentID string, opts *deleteOptions) error {
 		fmt.Printf("About to delete attachment: %s (ID: %s)\n", attachment.Title, attachment.ID)
 		fmt.Print("Are you sure? [y/N]: ")
 
+		scanner := bufio.NewScanner(opts.stdin)
 		var confirm string
-		_, _ = fmt.Scanln(&confirm)
+		if scanner.Scan() {
+			confirm = scanner.Text()
+		}
 
 		if confirm != "y" && confirm != "Y" {
 			fmt.Println("Deletion cancelled.")

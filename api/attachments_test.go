@@ -112,3 +112,28 @@ func TestClient_DownloadAttachment(t *testing.T) {
 	n, _ := reader.Read(buf)
 	assert.Equal(t, fileContent, buf[:n])
 }
+
+func TestClient_DeleteAttachment(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v2/attachments/att111", r.URL.Path)
+		assert.Equal(t, "DELETE", r.Method)
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "user@example.com", "token")
+	err := client.DeleteAttachment(context.Background(), "att111")
+	require.NoError(t, err)
+}
+
+func TestClient_DeleteAttachment_NotFound(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`{"message": "Attachment not found"}`))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "user@example.com", "token")
+	err := client.DeleteAttachment(context.Background(), "invalid")
+	require.Error(t, err)
+}

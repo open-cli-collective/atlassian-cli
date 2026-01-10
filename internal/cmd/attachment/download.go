@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 
@@ -17,6 +18,7 @@ type downloadOptions struct {
 	output     string
 	outputFile string
 	noColor    bool
+	force      bool
 }
 
 // NewCmdDownload creates the attachment download command.
@@ -41,6 +43,7 @@ func NewCmdDownload() *cobra.Command {
 	}
 
 	cmd.Flags().StringVarP(&opts.outputFile, "output-file", "O", "", "Output file path (default: original filename)")
+	cmd.Flags().BoolVarP(&opts.force, "force", "f", false, "Overwrite existing file without warning")
 
 	return cmd
 }
@@ -68,7 +71,18 @@ func runDownload(attachmentID string, opts *downloadOptions) error {
 	// Determine output filename
 	outputPath := opts.outputFile
 	if outputPath == "" {
-		outputPath = attachment.Title
+		// Sanitize filename to prevent path traversal attacks
+		outputPath = filepath.Base(attachment.Title)
+		if outputPath == "" || outputPath == "." || outputPath == ".." {
+			return fmt.Errorf("invalid attachment filename: %q", attachment.Title)
+		}
+	}
+
+	// Check if file already exists (unless --force is used)
+	if !opts.force {
+		if _, err := os.Stat(outputPath); err == nil {
+			return fmt.Errorf("file already exists: %s (use --force to overwrite)", outputPath)
+		}
 	}
 
 	// Download the attachment

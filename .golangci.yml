@@ -8,6 +8,11 @@ linters:
     - staticcheck
     - unused
     - misspell
+  exclusions:
+    rules:
+      - path: _test\.go
+        linters:
+          - errcheck
 
 formatters:
   enable:
@@ -20,9 +25,3 @@ formatters:
 
 run:
   timeout: 5m
-
-issues:
-  exclude-rules:
-    - path: _test\.go
-      linters:
-        - errcheck

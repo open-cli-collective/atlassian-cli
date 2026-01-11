@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.4](https://github.com/rianjs/confluence-cli/compare/v0.2.3...v0.2.4) (2026-01-11)
+
+
+### Bug Fixes
+
+* preserve code blocks from Confluence UI pages in markdown output ([#24](https://github.com/rianjs/confluence-cli/issues/24)) ([b29653b](https://github.com/rianjs/confluence-cli/commit/b29653bfb37f201181cdb01ca12044719bdfc5f0)), closes [#15](https://github.com/rianjs/confluence-cli/issues/15)
+
 ## [0.2.3](https://github.com/rianjs/confluence-cli/compare/v0.2.2...v0.2.3) (2026-01-11)
 
 

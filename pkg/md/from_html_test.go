@@ -94,6 +94,90 @@ func TestFromConfluenceStorage(t *testing.T) {
 	}
 }
 
+func TestFromConfluenceStorage_ConfluenceCodeMacro(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		contains []string
+	}{
+		{
+			name: "code macro with language",
+			input: `<ac:structured-macro ac:name="code" ac:schema-version="1">
+				<ac:parameter ac:name="language">python</ac:parameter>
+				<ac:plain-text-body><![CDATA[print("Hello World")]]></ac:plain-text-body>
+			</ac:structured-macro>`,
+			contains: []string{"```python", `print("Hello World")`, "```"},
+		},
+		{
+			name: "code macro without language",
+			input: `<ac:structured-macro ac:name="code" ac:schema-version="1">
+				<ac:plain-text-body><![CDATA[some code here]]></ac:plain-text-body>
+			</ac:structured-macro>`,
+			contains: []string{"```", "some code here"},
+		},
+		{
+			name: "code macro with special characters",
+			input: `<ac:structured-macro ac:name="code" ac:schema-version="1">
+				<ac:parameter ac:name="language">go</ac:parameter>
+				<ac:plain-text-body><![CDATA[if x < 10 && y > 5 {
+	fmt.Println("test")
+}]]></ac:plain-text-body>
+			</ac:structured-macro>`,
+			contains: []string{"```go", "if x < 10 && y > 5", "```"},
+		},
+		{
+			name: "multiple code macros",
+			input: `<p>First code:</p>
+			<ac:structured-macro ac:name="code" ac:schema-version="1">
+				<ac:parameter ac:name="language">bash</ac:parameter>
+				<ac:plain-text-body><![CDATA[echo "hello"]]></ac:plain-text-body>
+			</ac:structured-macro>
+			<p>Second code:</p>
+			<ac:structured-macro ac:name="code" ac:schema-version="1">
+				<ac:parameter ac:name="language">python</ac:parameter>
+				<ac:plain-text-body><![CDATA[print("world")]]></ac:plain-text-body>
+			</ac:structured-macro>`,
+			contains: []string{"```bash", `echo "hello"`, "```python", `print("world")`},
+		},
+		{
+			name: "code macro mixed with other content",
+			input: `<h2>Example</h2>
+			<ac:structured-macro ac:name="code" ac:schema-version="1">
+				<ac:parameter ac:name="language">javascript</ac:parameter>
+				<ac:plain-text-body><![CDATA[console.log("test");]]></ac:plain-text-body>
+			</ac:structured-macro>
+			<p>That's the code.</p>`,
+			contains: []string{"## Example", "```javascript", `console.log("test");`, "That's the code"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := FromConfluenceStorage(tt.input)
+			require.NoError(t, err)
+			for _, expected := range tt.contains {
+				assert.Contains(t, result, expected, "should contain: %s", expected)
+			}
+		})
+	}
+}
+
+func TestFromConfluenceStorage_NonCodeMacrosStripped(t *testing.T) {
+	// Non-code macros should still be stripped
+	input := `<p>Before</p>
+	<ac:structured-macro ac:name="toc" ac:schema-version="1">
+		<ac:parameter ac:name="maxLevel">3</ac:parameter>
+	</ac:structured-macro>
+	<p>After</p>`
+
+	result, err := FromConfluenceStorage(input)
+	require.NoError(t, err)
+	assert.Contains(t, result, "Before")
+	assert.Contains(t, result, "After")
+	assert.NotContains(t, result, "toc")
+	assert.NotContains(t, result, "maxLevel")
+}
+
 func TestFromConfluenceStorage_ComplexDocument(t *testing.T) {
 	input := `<h1>Project README</h1>
 <p>This is the <strong>introduction</strong> to the project.</p>

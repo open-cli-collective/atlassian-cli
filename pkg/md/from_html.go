@@ -41,9 +41,17 @@ func FromConfluenceStorageWithOptions(html string, opts ConvertOptions) (string,
 // If showMacros is false, macros are stripped entirely.
 // If showMacros is true, macros are replaced with placeholder text.
 func processConfluenceMacros(html string, showMacros bool) string {
-	// Pattern to match ac:structured-macro elements
+	// First, convert code block macros to HTML pre/code elements
+	// Confluence code blocks look like:
+	// <ac:structured-macro ac:name="code" ...>
+	//   <ac:parameter ac:name="language">python</ac:parameter>
+	//   <ac:plain-text-body><![CDATA[code here]]></ac:plain-text-body>
+	// </ac:structured-macro>
+	html = convertCodeBlockMacros(html)
+
+	// Pattern to match remaining ac:structured-macro elements (non-code macros)
 	// These look like: <ac:structured-macro ac:name="toc" ...>...</ac:structured-macro>
-	macroPattern := regexp.MustCompile(`<ac:structured-macro[^>]*ac:name="([^"]*)"[^>]*>.*?</ac:structured-macro>`)
+	macroPattern := regexp.MustCompile(`(?s)<ac:structured-macro[^>]*ac:name="([^"]*)"[^>]*>.*?</ac:structured-macro>`)
 
 	if !showMacros {
 		// Strip macros entirely
@@ -83,4 +91,46 @@ func processConfluenceMacros(html string, showMacros bool) string {
 	html = paramSelfClosingPattern.ReplaceAllString(html, "")
 
 	return html
+}
+
+// convertCodeBlockMacros converts Confluence code macro elements to HTML pre/code elements.
+// This preserves code blocks when converting to markdown.
+func convertCodeBlockMacros(html string) string {
+	// Match code block macros - use (?s) flag for . to match newlines
+	// Confluence code blocks: <ac:structured-macro ac:name="code" ...>...</ac:structured-macro>
+	codeBlockPattern := regexp.MustCompile(`(?s)<ac:structured-macro[^>]*ac:name="code"[^>]*>(.*?)</ac:structured-macro>`)
+
+	return codeBlockPattern.ReplaceAllStringFunc(html, func(match string) string {
+		// Extract language parameter if present
+		// <ac:parameter ac:name="language">python</ac:parameter>
+		langPattern := regexp.MustCompile(`<ac:parameter[^>]*ac:name="language"[^>]*>([^<]*)</ac:parameter>`)
+		langMatch := langPattern.FindStringSubmatch(match)
+		language := ""
+		if len(langMatch) > 1 {
+			language = strings.TrimSpace(langMatch[1])
+		}
+
+		// Extract code content from CDATA
+		// <ac:plain-text-body><![CDATA[code here]]></ac:plain-text-body>
+		cdataPattern := regexp.MustCompile(`(?s)<ac:plain-text-body><!\[CDATA\[(.*?)\]\]></ac:plain-text-body>`)
+		cdataMatch := cdataPattern.FindStringSubmatch(match)
+		code := ""
+		if len(cdataMatch) > 1 {
+			code = cdataMatch[1]
+		}
+
+		// Convert to HTML pre/code which the markdown converter understands
+		if language != "" {
+			return "<pre><code class=\"language-" + language + "\">" + escapeHTMLInCode(code) + "</code></pre>"
+		}
+		return "<pre><code>" + escapeHTMLInCode(code) + "</code></pre>"
+	})
+}
+
+// escapeHTMLInCode escapes HTML special characters in code content.
+func escapeHTMLInCode(code string) string {
+	code = strings.ReplaceAll(code, "&", "&amp;")
+	code = strings.ReplaceAll(code, "<", "&lt;")
+	code = strings.ReplaceAll(code, ">", "&gt;")
+	return code
 }

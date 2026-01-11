@@ -167,7 +167,7 @@ Pages created in Confluence's web UI use proprietary macros that may not round-t
 | Content Type | View | Edit | Result |
 |--------------|------|------|--------|
 | Tables | Flattened to text | **DESTROYED** | Use --no-markdown |
-| Code blocks (macro) | **STRIPPED** | **STRIPPED** | Use --no-markdown |
+| Code blocks (macro) | Pass | Pass | Preserved (fixed in #24) |
 | Info/warning panels | Stripped | Stripped | Use --no-markdown |
 | Expand macros | Stripped | Stripped | Use --no-markdown |
 | TOC macros | Stripped | Stripped | Use --no-markdown |

@@ -4,7 +4,10 @@ import (
 	"regexp"
 	"strings"
 
-	htmltomarkdown "github.com/JohannesKaufmann/html-to-markdown/v2"
+	"github.com/JohannesKaufmann/html-to-markdown/v2/converter"
+	"github.com/JohannesKaufmann/html-to-markdown/v2/plugin/base"
+	"github.com/JohannesKaufmann/html-to-markdown/v2/plugin/commonmark"
+	"github.com/JohannesKaufmann/html-to-markdown/v2/plugin/table"
 )
 
 // ConvertOptions configures the HTML to markdown conversion.
@@ -28,7 +31,16 @@ func FromConfluenceStorageWithOptions(html string, opts ConvertOptions) (string,
 	// Process Confluence macros before conversion
 	html = processConfluenceMacros(html, opts.ShowMacros)
 
-	markdown, err := htmltomarkdown.ConvertString(html)
+	// Create converter with table support
+	conv := converter.NewConverter(
+		converter.WithPlugins(
+			base.NewBasePlugin(),
+			commonmark.NewCommonmarkPlugin(),
+			table.NewTablePlugin(),
+		),
+	)
+
+	markdown, err := conv.ConvertString(html)
 	if err != nil {
 		return "", err
 	}

@@ -166,13 +166,13 @@ Pages created in Confluence's web UI use proprietary macros that may not round-t
 
 | Content Type | View | Edit | Result |
 |--------------|------|------|--------|
-| Tables | Flattened to text | **DESTROYED** | Use --no-markdown |
+| Tables | Pass | Pass | Preserved (fixed in #25) |
 | Code blocks (macro) | Pass | Pass | Preserved (fixed in #24) |
 | Info/warning panels | Stripped | Stripped | Use --no-markdown |
 | Expand macros | Stripped | Stripped | Use --no-markdown |
 | TOC macros | Stripped | Stripped | Use --no-markdown |
 
-**Workaround**: Always use `--no-markdown` when editing pages with complex Confluence content.
+**Note**: Tables and code blocks now work. Use `--no-markdown` for pages with info panels, expand macros, or TOC.
 
 ---
 

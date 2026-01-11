@@ -83,6 +83,11 @@ func TestFromConfluenceStorage(t *testing.T) {
 			input:    "<blockquote><p>This is a quote</p></blockquote>",
 			expected: "> This is a quote",
 		},
+		{
+			name:     "simple table",
+			input:    "<table><tr><th>Name</th><th>Age</th></tr><tr><td>Alice</td><td>30</td></tr></table>",
+			expected: "| Name  | Age |\n|-------|-----|\n| Alice | 30  |",
+		},
 	}
 
 	for _, tt := range tests {
@@ -148,6 +153,62 @@ func TestFromConfluenceStorage_ConfluenceCodeMacro(t *testing.T) {
 			</ac:structured-macro>
 			<p>That's the code.</p>`,
 			contains: []string{"## Example", "```javascript", `console.log("test");`, "That's the code"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := FromConfluenceStorage(tt.input)
+			require.NoError(t, err)
+			for _, expected := range tt.contains {
+				assert.Contains(t, result, expected, "should contain: %s", expected)
+			}
+		})
+	}
+}
+
+func TestFromConfluenceStorage_Tables(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		contains []string
+	}{
+		{
+			name: "table with thead and tbody",
+			input: `<table>
+				<thead><tr><th>Header 1</th><th>Header 2</th></tr></thead>
+				<tbody><tr><td>Cell 1</td><td>Cell 2</td></tr></tbody>
+			</table>`,
+			contains: []string{"| Header 1", "| Header 2", "| Cell 1", "| Cell 2", "|----------|"},
+		},
+		{
+			name: "table with multiple rows",
+			input: `<table>
+				<tr><th>Name</th><th>Age</th><th>City</th></tr>
+				<tr><td>Alice</td><td>30</td><td>NYC</td></tr>
+				<tr><td>Bob</td><td>25</td><td>LA</td></tr>
+				<tr><td>Charlie</td><td>35</td><td>Chicago</td></tr>
+			</table>`,
+			contains: []string{"| Name", "| Age", "| City", "| Alice", "| Bob", "| Charlie"},
+		},
+		{
+			name: "table mixed with other content",
+			input: `<h2>Data Table</h2>
+			<p>Here is some data:</p>
+			<table>
+				<tr><th>Item</th><th>Price</th></tr>
+				<tr><td>Apple</td><td>$1.00</td></tr>
+			</table>
+			<p>End of table.</p>`,
+			contains: []string{"## Data Table", "Here is some data", "| Item", "| Price", "| Apple", "$1.00", "End of table"},
+		},
+		{
+			name: "empty table cells",
+			input: `<table>
+				<tr><th>A</th><th>B</th></tr>
+				<tr><td></td><td>Value</td></tr>
+			</table>`,
+			contains: []string{"| A", "| B", "| Value"},
 		},
 	}
 

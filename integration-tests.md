@@ -59,8 +59,8 @@ This document catalogs the manual integration test suite for `cfl`. These tests 
 |-----------|---------|-----------------|
 | Edit from file | `cfl page edit <id> --file updated.md` | Page updated, version incremented |
 | Edit with --no-markdown | `cfl page edit <id> --file content.html --no-markdown` | Raw XHTML preserved |
-| Edit page with tables (markdown mode) | Edit without --no-markdown | **WARNING: Tables destroyed** (known bug #16) |
-| Edit page with code blocks (UI-created) | Edit without --no-markdown | **WARNING: Code blocks stripped** (known bug #15) |
+| Edit page with tables (markdown mode) | Edit without --no-markdown | See "Confluence UI-Created Content" section |
+| Edit page with code blocks (UI-created) | Edit without --no-markdown | See "Confluence UI-Created Content" section |
 | Non-existent page | `cfl page edit 99999999999` | Error: 404 not found |
 
 ### page copy
@@ -244,16 +244,6 @@ Before GA release, run through this checklist:
 ### Cleanup
 - [ ] Delete all [Test] prefixed pages
 - [ ] Verify no test data remains
-
----
-
-## Known Issues
-
-| Issue | Severity | Workaround | GitHub Issue |
-|-------|----------|------------|--------------|
-| Tables destroyed on markdown edit | P2 | Use `--no-markdown` | #16 |
-| Code blocks stripped (UI pages) | P2 | Use `--no-markdown` | #15 |
-| `--status draft` invalid | P3 | Don't use draft status | #17 |
 
 ---
 

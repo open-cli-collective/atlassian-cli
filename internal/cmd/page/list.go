@@ -46,15 +46,28 @@ func NewCmdList() *cobra.Command {
 
 	cmd.Flags().StringVarP(&opts.space, "space", "s", "", "Space key or ID (required)")
 	cmd.Flags().IntVarP(&opts.limit, "limit", "l", 25, "Maximum number of pages to return")
-	cmd.Flags().StringVar(&opts.status, "status", "current", "Page status (current, archived, draft)")
+	cmd.Flags().StringVar(&opts.status, "status", "current", "Page status: current, archived, trashed")
 
 	return cmd
+}
+
+// validStatuses are the page statuses accepted by the Confluence API.
+var validStatuses = map[string]bool{
+	"current":  true,
+	"archived": true,
+	"trashed":  true,
+	"deleted":  true,
 }
 
 func runList(opts *listOptions, client *api.Client) error {
 	// Validate output format
 	if err := view.ValidateFormat(opts.output); err != nil {
 		return err
+	}
+
+	// Validate status
+	if !validStatuses[opts.status] {
+		return fmt.Errorf("invalid status %q: must be one of current, archived, trashed", opts.status)
 	}
 
 	// Validate limit

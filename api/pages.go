@@ -12,7 +12,7 @@ import (
 type ListPagesOptions struct {
 	Limit      int
 	Cursor     string
-	Status     string // current, archived, draft
+	Status     string // current, archived, trashed, deleted
 	Sort       string // title, -title, created-date, -created-date, modified-date, -modified-date
 	Title      string // Filter by title (contains)
 	BodyFormat string // storage, atlas_doc_format, view

@@ -63,6 +63,7 @@ func TestRunList_PageList_EmptyResults(t *testing.T) {
 	opts := &listOptions{
 		space:   "DEV",
 		limit:   25,
+		status:  "current",
 		noColor: true,
 	}
 
@@ -82,6 +83,7 @@ func TestRunList_PageList_JSONOutput(t *testing.T) {
 	opts := &listOptions{
 		space:   "DEV",
 		limit:   25,
+		status:  "current",
 		output:  "json",
 		noColor: true,
 	}
@@ -107,6 +109,7 @@ func TestRunList_PageList_NegativeLimit(t *testing.T) {
 	opts := &listOptions{
 		space:   "DEV",
 		limit:   -1,
+		status:  "current",
 		noColor: true,
 	}
 
@@ -119,6 +122,7 @@ func TestRunList_PageList_ZeroLimit(t *testing.T) {
 	opts := &listOptions{
 		space:   "DEV",
 		limit:   0,
+		status:  "current",
 		noColor: true,
 	}
 
@@ -138,6 +142,7 @@ func TestRunList_PageList_MissingSpace(t *testing.T) {
 	opts := &listOptions{
 		space:   "", // No space provided
 		limit:   25,
+		status:  "current",
 		noColor: true,
 	}
 
@@ -158,6 +163,7 @@ func TestRunList_PageList_SpaceNotFound(t *testing.T) {
 	opts := &listOptions{
 		space:   "INVALID",
 		limit:   25,
+		status:  "current",
 		noColor: true,
 	}
 
@@ -178,6 +184,7 @@ func TestRunList_PageList_NullVersion(t *testing.T) {
 	opts := &listOptions{
 		space:   "DEV",
 		limit:   25,
+		status:  "current",
 		noColor: true,
 	}
 
@@ -198,6 +205,7 @@ func TestRunList_PageList_HasMore(t *testing.T) {
 	opts := &listOptions{
 		space:   "DEV",
 		limit:   25,
+		status:  "current",
 		noColor: true,
 	}
 
@@ -218,6 +226,7 @@ func TestRunList_PageList_LongTitle(t *testing.T) {
 	opts := &listOptions{
 		space:   "DEV",
 		limit:   25,
+		status:  "current",
 		noColor: true,
 	}
 
@@ -245,6 +254,47 @@ func TestRunList_PageList_StatusFilter(t *testing.T) {
 		space:   "DEV",
 		limit:   25,
 		status:  "archived",
+		noColor: true,
+	}
+
+	err := runList(opts, client)
+	require.NoError(t, err)
+}
+
+func TestRunList_PageList_InvalidStatus(t *testing.T) {
+	opts := &listOptions{
+		space:   "DEV",
+		limit:   25,
+		status:  "draft",
+		noColor: true,
+	}
+
+	err := runList(opts, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid status")
+	assert.Contains(t, err.Error(), "draft")
+}
+
+func TestRunList_PageList_TrashedStatus(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "/pages") {
+			assert.Equal(t, "trashed", r.URL.Query().Get("status"))
+		}
+		if r.URL.Query().Get("keys") != "" {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"results": [{"id": "123456", "key": "DEV", "name": "Test", "type": "global"}]}`))
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"results": []}`))
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "test@example.com", "token")
+	opts := &listOptions{
+		space:   "DEV",
+		limit:   25,
+		status:  "trashed",
 		noColor: true,
 	}
 

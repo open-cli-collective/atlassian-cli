@@ -37,7 +37,7 @@ func NewCmdUpload() *cobra.Command {
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			opts.output, _ = cmd.Flags().GetString("output")
 			opts.noColor, _ = cmd.Flags().GetBool("no-color")
-			return runUpload(opts)
+			return runUpload(opts, nil)
 		},
 	}
 
@@ -51,15 +51,19 @@ func NewCmdUpload() *cobra.Command {
 	return cmd
 }
 
-func runUpload(opts *uploadOptions) error {
-	// Load config
-	cfg, err := config.LoadWithEnv(config.DefaultConfigPath())
-	if err != nil {
-		return fmt.Errorf("failed to load config: %w (run 'cfl init' to configure)", err)
-	}
+func runUpload(opts *uploadOptions, client *api.Client) error {
+	// Create API client if not provided (allows injection for testing)
+	if client == nil {
+		cfg, err := config.LoadWithEnv(config.DefaultConfigPath())
+		if err != nil {
+			return fmt.Errorf("failed to load config: %w (run 'cfl init' to configure)", err)
+		}
 
-	if err := cfg.Validate(); err != nil {
-		return fmt.Errorf("invalid config: %w (run 'cfl init' to configure)", err)
+		if err := cfg.Validate(); err != nil {
+			return fmt.Errorf("invalid config: %w (run 'cfl init' to configure)", err)
+		}
+
+		client = api.NewClient(cfg.URL, cfg.Email, cfg.APIToken)
 	}
 
 	// Open file
@@ -71,9 +75,6 @@ func runUpload(opts *uploadOptions) error {
 
 	// Get filename from path
 	filename := filepath.Base(opts.file)
-
-	// Create API client
-	client := api.NewClient(cfg.URL, cfg.Email, cfg.APIToken)
 
 	// Upload attachment
 	attachment, err := client.UploadAttachment(context.Background(), opts.pageID, filename, file, opts.comment)

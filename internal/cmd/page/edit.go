@@ -70,7 +70,7 @@ Content format:
 				opts.markdown = &useMd
 			}
 
-			return runEdit(opts)
+			return runEdit(opts, nil)
 		},
 	}
 
@@ -82,19 +82,24 @@ Content format:
 	return cmd
 }
 
-func runEdit(opts *editOptions) error {
-	// Load config
-	cfg, err := config.LoadWithEnv(config.DefaultConfigPath())
-	if err != nil {
-		return fmt.Errorf("failed to load config: %w (run 'cfl init' to configure)", err)
-	}
+func runEdit(opts *editOptions, client *api.Client) error {
+	// Track base URL for output (only available when loading config)
+	var baseURL string
 
-	if err := cfg.Validate(); err != nil {
-		return fmt.Errorf("invalid config: %w (run 'cfl init' to configure)", err)
-	}
+	// Create API client if not provided (allows injection for testing)
+	if client == nil {
+		cfg, err := config.LoadWithEnv(config.DefaultConfigPath())
+		if err != nil {
+			return fmt.Errorf("failed to load config: %w (run 'cfl init' to configure)", err)
+		}
 
-	// Create API client
-	client := api.NewClient(cfg.URL, cfg.Email, cfg.APIToken)
+		if err := cfg.Validate(); err != nil {
+			return fmt.Errorf("invalid config: %w (run 'cfl init' to configure)", err)
+		}
+
+		baseURL = cfg.URL
+		client = api.NewClient(cfg.URL, cfg.Email, cfg.APIToken)
+	}
 
 	// Get existing page
 	existingPage, err := client.GetPage(context.Background(), opts.pageID, &api.GetPageOptions{
@@ -193,7 +198,7 @@ func runEdit(opts *editOptions) error {
 	renderer.Success(fmt.Sprintf("Updated page: %s", page.Title))
 	renderer.RenderKeyValue("ID", page.ID)
 	renderer.RenderKeyValue("Version", strconv.Itoa(page.Version.Number))
-	renderer.RenderKeyValue("URL", cfg.URL+page.Links.WebUI)
+	renderer.RenderKeyValue("URL", baseURL+page.Links.WebUI)
 
 	return nil
 }

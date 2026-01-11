@@ -40,7 +40,7 @@ func NewCmdList() *cobra.Command {
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			opts.output, _ = cmd.Flags().GetString("output")
 			opts.noColor, _ = cmd.Flags().GetBool("no-color")
-			return runList(opts)
+			return runList(opts, nil)
 		},
 	}
 
@@ -51,7 +51,7 @@ func NewCmdList() *cobra.Command {
 	return cmd
 }
 
-func runList(opts *listOptions) error {
+func runList(opts *listOptions, client *api.Client) error {
 	// Validate output format
 	if err := view.ValidateFormat(opts.output); err != nil {
 		return err
@@ -74,27 +74,31 @@ func runList(opts *listOptions) error {
 		return nil
 	}
 
-	// Load config
-	cfg, err := config.LoadWithEnv(config.DefaultConfigPath())
-	if err != nil {
-		return fmt.Errorf("failed to load config: %w (run 'cfl init' to configure)", err)
-	}
-
-	if err := cfg.Validate(); err != nil {
-		return fmt.Errorf("invalid config: %w (run 'cfl init' to configure)", err)
-	}
-
-	// Determine space
+	// Determine space - for testing, opts.space can be provided directly
 	spaceKey := opts.space
-	if spaceKey == "" {
-		spaceKey = cfg.DefaultSpace
+
+	// Create API client if not provided (allows injection for testing)
+	if client == nil {
+		cfg, err := config.LoadWithEnv(config.DefaultConfigPath())
+		if err != nil {
+			return fmt.Errorf("failed to load config: %w (run 'cfl init' to configure)", err)
+		}
+
+		if err := cfg.Validate(); err != nil {
+			return fmt.Errorf("invalid config: %w (run 'cfl init' to configure)", err)
+		}
+
+		// Use default space from config if not specified
+		if spaceKey == "" {
+			spaceKey = cfg.DefaultSpace
+		}
+
+		client = api.NewClient(cfg.URL, cfg.Email, cfg.APIToken)
 	}
+
 	if spaceKey == "" {
 		return fmt.Errorf("space is required: use --space flag or set default_space in config")
 	}
-
-	// Create API client
-	client := api.NewClient(cfg.URL, cfg.Email, cfg.APIToken)
 
 	// Get space ID from key
 	space, err := client.GetSpaceByKey(context.Background(), spaceKey)

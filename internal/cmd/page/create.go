@@ -74,7 +74,7 @@ Content format:
 				opts.markdown = &useMd
 			}
 
-			return runCreate(opts)
+			return runCreate(opts, nil)
 		},
 	}
 
@@ -90,28 +90,36 @@ Content format:
 	return cmd
 }
 
-func runCreate(opts *createOptions) error {
-	// Load config
-	cfg, err := config.LoadWithEnv(config.DefaultConfigPath())
-	if err != nil {
-		return fmt.Errorf("failed to load config: %w (run 'cfl init' to configure)", err)
-	}
-
-	if err := cfg.Validate(); err != nil {
-		return fmt.Errorf("invalid config: %w (run 'cfl init' to configure)", err)
-	}
+func runCreate(opts *createOptions, client *api.Client) error {
+	// Track base URL for output (only available when loading config)
+	var baseURL string
 
 	// Determine space
 	spaceKey := opts.space
-	if spaceKey == "" {
-		spaceKey = cfg.DefaultSpace
+
+	// Create API client if not provided (allows injection for testing)
+	if client == nil {
+		cfg, err := config.LoadWithEnv(config.DefaultConfigPath())
+		if err != nil {
+			return fmt.Errorf("failed to load config: %w (run 'cfl init' to configure)", err)
+		}
+
+		if err := cfg.Validate(); err != nil {
+			return fmt.Errorf("invalid config: %w (run 'cfl init' to configure)", err)
+		}
+
+		// Use default space from config if not specified
+		if spaceKey == "" {
+			spaceKey = cfg.DefaultSpace
+		}
+
+		baseURL = cfg.URL
+		client = api.NewClient(cfg.URL, cfg.Email, cfg.APIToken)
 	}
+
 	if spaceKey == "" {
 		return fmt.Errorf("space is required: use --space flag or set default_space in config")
 	}
-
-	// Create API client
-	client := api.NewClient(cfg.URL, cfg.Email, cfg.APIToken)
 
 	// Get space ID
 	space, err := client.GetSpaceByKey(context.Background(), spaceKey)
@@ -165,7 +173,7 @@ func runCreate(opts *createOptions) error {
 
 	renderer.Success(fmt.Sprintf("Created page: %s", page.Title))
 	renderer.RenderKeyValue("ID", page.ID)
-	renderer.RenderKeyValue("URL", cfg.URL+page.Links.WebUI)
+	renderer.RenderKeyValue("URL", baseURL+page.Links.WebUI)
 
 	return nil
 }

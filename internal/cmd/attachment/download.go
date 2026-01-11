@@ -38,7 +38,7 @@ func NewCmdDownload() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			opts.output, _ = cmd.Flags().GetString("output")
 			opts.noColor, _ = cmd.Flags().GetBool("no-color")
-			return runDownload(args[0], opts)
+			return runDownload(args[0], opts, nil)
 		},
 	}
 
@@ -48,19 +48,20 @@ func NewCmdDownload() *cobra.Command {
 	return cmd
 }
 
-func runDownload(attachmentID string, opts *downloadOptions) error {
-	// Load config
-	cfg, err := config.LoadWithEnv(config.DefaultConfigPath())
-	if err != nil {
-		return fmt.Errorf("failed to load config: %w (run 'cfl init' to configure)", err)
-	}
+func runDownload(attachmentID string, opts *downloadOptions, client *api.Client) error {
+	// Create API client if not provided (allows injection for testing)
+	if client == nil {
+		cfg, err := config.LoadWithEnv(config.DefaultConfigPath())
+		if err != nil {
+			return fmt.Errorf("failed to load config: %w (run 'cfl init' to configure)", err)
+		}
 
-	if err := cfg.Validate(); err != nil {
-		return fmt.Errorf("invalid config: %w (run 'cfl init' to configure)", err)
-	}
+		if err := cfg.Validate(); err != nil {
+			return fmt.Errorf("invalid config: %w (run 'cfl init' to configure)", err)
+		}
 
-	// Create API client
-	client := api.NewClient(cfg.URL, cfg.Email, cfg.APIToken)
+		client = api.NewClient(cfg.URL, cfg.Email, cfg.APIToken)
+	}
 
 	// Get attachment info first to get the filename
 	attachment, err := client.GetAttachment(context.Background(), attachmentID)

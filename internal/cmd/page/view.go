@@ -42,7 +42,7 @@ func NewCmdView() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			opts.output, _ = cmd.Flags().GetString("output")
 			opts.noColor, _ = cmd.Flags().GetBool("no-color")
-			return runView(args[0], opts)
+			return runView(args[0], opts, nil)
 		},
 	}
 
@@ -53,24 +53,29 @@ func NewCmdView() *cobra.Command {
 	return cmd
 }
 
-func runView(pageID string, opts *viewOptions) error {
+func runView(pageID string, opts *viewOptions, client *api.Client) error {
+	// Track base URL for --web flag
+	var baseURL string
+
 	// Validate output format
 	if err := view.ValidateFormat(opts.output); err != nil {
 		return err
 	}
 
-	// Load config
-	cfg, err := config.LoadWithEnv(config.DefaultConfigPath())
-	if err != nil {
-		return fmt.Errorf("failed to load config: %w (run 'cfl init' to configure)", err)
-	}
+	// Create API client if not provided (allows injection for testing)
+	if client == nil {
+		cfg, err := config.LoadWithEnv(config.DefaultConfigPath())
+		if err != nil {
+			return fmt.Errorf("failed to load config: %w (run 'cfl init' to configure)", err)
+		}
 
-	if err := cfg.Validate(); err != nil {
-		return fmt.Errorf("invalid config: %w (run 'cfl init' to configure)", err)
-	}
+		if err := cfg.Validate(); err != nil {
+			return fmt.Errorf("invalid config: %w (run 'cfl init' to configure)", err)
+		}
 
-	// Create API client
-	client := api.NewClient(cfg.URL, cfg.Email, cfg.APIToken)
+		baseURL = cfg.URL
+		client = api.NewClient(cfg.URL, cfg.Email, cfg.APIToken)
+	}
 
 	// Get page with body
 	apiOpts := &api.GetPageOptions{
@@ -84,7 +89,7 @@ func runView(pageID string, opts *viewOptions) error {
 
 	// Open in browser if requested
 	if opts.web {
-		url := cfg.URL + page.Links.WebUI
+		url := baseURL + page.Links.WebUI
 		return openBrowser(url)
 	}
 

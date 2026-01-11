@@ -82,8 +82,17 @@ func TestRunCopy_InfersSourceSpace(t *testing.T) {
 			_, _ = w.Write([]byte(`{
 				"id": "12345",
 				"title": "Original",
-				"spaceId": "SRCSPACE",
+				"spaceId": "123456",
 				"version": {"number": 1}
+			}`))
+		case r.Method == "GET" && r.URL.Path == "/api/v2/spaces/123456":
+			// GetSpace to get space key from numeric ID
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{
+				"id": "123456",
+				"key": "SRCSPACE",
+				"name": "Source Space",
+				"type": "global"
 			}`))
 		case r.Method == "POST" && r.URL.Path == "/rest/api/content/12345/copy":
 			// Copy request
@@ -111,7 +120,7 @@ func TestRunCopy_InfersSourceSpace(t *testing.T) {
 
 	err := runCopy("12345", opts, client)
 	require.NoError(t, err)
-	assert.Equal(t, 2, callCount) // GetPage + CopyPage
+	assert.Equal(t, 3, callCount) // GetPage + GetSpace + CopyPage
 }
 
 func TestRunCopy_PageNotFound(t *testing.T) {
@@ -261,4 +270,38 @@ func TestRunCopy_PermissionDenied(t *testing.T) {
 	err := runCopy("12345", opts, client)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to copy page")
+}
+
+func TestRunCopy_GetSpaceFails(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == "GET" && strings.HasPrefix(r.URL.Path, "/api/v2/pages/"):
+			// GetPage succeeds
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{
+				"id": "12345",
+				"title": "Original",
+				"spaceId": "999999",
+				"version": {"number": 1}
+			}`))
+		case r.Method == "GET" && strings.HasPrefix(r.URL.Path, "/api/v2/spaces/"):
+			// GetSpace fails
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(`{"message": "Space not found"}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "user@example.com", "token")
+	opts := &copyOptions{
+		title:   "Copied Page",
+		space:   "", // Empty - will try to get space
+		noColor: true,
+	}
+
+	err := runCopy("12345", opts, client)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to get space")
 }

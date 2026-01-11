@@ -75,14 +75,19 @@ func runCopy(pageID string, opts *copyOptions, client *api.Client) error {
 		client = api.NewClient(cfg.URL, cfg.Email, cfg.APIToken)
 	}
 
-	// If no destination space specified, get source page's space
+	// If no destination space specified, get source page's space key
 	destSpace := opts.space
 	if destSpace == "" {
 		sourcePage, err := client.GetPage(context.Background(), pageID, nil)
 		if err != nil {
 			return fmt.Errorf("failed to get source page: %w", err)
 		}
-		destSpace = sourcePage.SpaceID
+		// SpaceID is numeric (e.g., "3367829530"), but copy API needs space key
+		space, err := client.GetSpace(context.Background(), sourcePage.SpaceID)
+		if err != nil {
+			return fmt.Errorf("failed to get space: %w", err)
+		}
+		destSpace = space.Key
 	}
 
 	// Copy the page

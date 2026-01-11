@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.3](https://github.com/rianjs/confluence-cli/compare/v0.2.2...v0.2.3) (2026-01-11)
+
+
+### Bug Fixes
+
+* reject invalid --status values with helpful error message ([#22](https://github.com/rianjs/confluence-cli/issues/22)) ([ee58d7f](https://github.com/rianjs/confluence-cli/commit/ee58d7f9a8b708ae9a63c48261e2604c540cefd9))
+
 ## [0.2.2](https://github.com/rianjs/confluence-cli/compare/v0.2.1...v0.2.2) (2026-01-11)
 
 

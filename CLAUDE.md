@@ -120,6 +120,40 @@ type pageAPI interface {
 | Init verify timeout | 10s | `internal/cmd/init/init.go:166` |
 | Config permissions | 0600 | `internal/config/config.go` |
 
+## Issue & PR Workflow
+
+### Issues as Backlog
+GitHub Issues serve as the project backlog. Use labels to categorize:
+- `bug` - Something isn't working
+- `enhancement` - New feature or request
+
+### Creating Issues
+When discovering bugs or planning features:
+1. Create a GitHub issue with clear reproduction steps (for bugs) or use case (for features)
+2. Reference the issue number in related PRs
+
+### PR Workflow
+1. Create a branch from updated `main`: `git checkout -b fix/issue-description`
+2. Make changes, write tests
+3. Run `make test` to verify
+4. Commit with conventional commit message referencing the issue:
+   ```
+   fix: description of fix
+
+   Fixes #123
+   ```
+5. Push and create PR referencing the issue in the body
+6. After merge, the issue will auto-close if using "Fixes #N" syntax
+
+### Conventional Commits
+Use these prefixes for commit messages:
+- `fix:` - Bug fixes (patch version bump)
+- `feat:` - New features (minor version bump)
+- `docs:` - Documentation only
+- `test:` - Adding/updating tests
+- `refactor:` - Code changes that don't fix bugs or add features
+- `BREAKING CHANGE:` or `feat!:` - Breaking changes (major version bump)
+
 ## Release Workflow
 
 Releases are automated via release-please. When PRs merge to main with conventional commits:

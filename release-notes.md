@@ -1,5 +1,32 @@
 # Release Notes
 
+## v0.3.2 (2026-01-12)
+
+Fixes markdown table conversion when creating pages.
+
+### Changes
+- Enable GFM table extension in markdown converter ([#30](https://github.com/rianjs/confluence-cli/issues/30))
+
+---
+
+## v0.3.1 (2026-01-12)
+
+Adds pagination metadata to JSON list output.
+
+### Changes
+- Add `_meta` field to JSON output from list commands with `count` and `hasMore` ([#31](https://github.com/rianjs/confluence-cli/issues/31))
+
+---
+
+## v0.3.0 (2026-01-11)
+
+Adds ability to find orphaned attachments.
+
+### Features
+- Add `--unused` flag to `attachment list` to filter for orphaned attachments ([#18](https://github.com/rianjs/confluence-cli/issues/18))
+
+---
+
 ## v0.2.5 (2026-01-11)
 
 Fixes markdown conversion to preserve tables created in Confluence's web UI.

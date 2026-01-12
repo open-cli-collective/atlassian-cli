@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.2](https://github.com/rianjs/confluence-cli/compare/v0.3.1...v0.3.2) (2026-01-12)
+
+
+### Bug Fixes
+
+* enable GFM table extension in markdown converter ([#34](https://github.com/rianjs/confluence-cli/issues/34)) ([a21ca4f](https://github.com/rianjs/confluence-cli/commit/a21ca4f15a3c6ccc1d9de89c8ccc1c00a49027a8)), closes [#30](https://github.com/rianjs/confluence-cli/issues/30)
+
 ## [0.3.1](https://github.com/rianjs/confluence-cli/compare/v0.3.0...v0.3.1) (2026-01-12)
 
 

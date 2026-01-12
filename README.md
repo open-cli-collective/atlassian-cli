@@ -8,6 +8,7 @@ A command-line interface for Atlassian Confluence Cloud, inspired by [jira-cli](
 - **Markdown-first**: Write and view pages in markdown, auto-converted to/from Confluence format
 - List and browse spaces
 - Create, view, edit, copy, and delete pages
+- **Search content** using CQL (Confluence Query Language)
 - Upload, download, list, and delete attachments
 - Find unused (orphaned) attachments
 - Multiple output formats (table, JSON, plain)
@@ -134,7 +135,7 @@ cfl space list -l 50 -o json
 
 List pages in a space.
 
-**Aliases:** `cfl page ls`, `cfl page search`
+**Aliases:** `cfl page ls`
 
 ```bash
 cfl page list --space DEV
@@ -302,6 +303,61 @@ cfl page delete 12345 --force
 
 **Arguments:**
 - `<page-id>` - The page ID (**required**)
+
+---
+
+### `cfl search [query]`
+
+Search for pages, blog posts, attachments, and comments across Confluence.
+
+Uses Confluence Query Language (CQL) under the hood. Convenient flags handle common
+filters, or use `--cql` for advanced queries.
+
+```bash
+# Full-text search
+cfl search "deployment guide"
+
+# Search within a space
+cfl search "api docs" --space DEV
+
+# Find only pages
+cfl search "meeting notes" --type page
+
+# Filter by label
+cfl search --label documentation
+
+# Search by title
+cfl search --title "Release Notes"
+
+# Combine filters
+cfl search "kubernetes" --space DEV --type page --label infrastructure
+
+# Raw CQL for power users (find pages modified in last 7 days)
+cfl search --cql "type=page AND space=DEV AND lastModified > now('-7d')"
+
+# Output as JSON for scripting
+cfl search "config" -o json
+```
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--cql` | | | Raw CQL query (advanced) |
+| `--space` | `-s` | (from config) | Filter by space key |
+| `--type` | `-t` | | Content type: `page`, `blogpost`, `attachment`, `comment` |
+| `--title` | | | Filter by title (contains) |
+| `--label` | | | Filter by label |
+| `--limit` | `-l` | `25` | Maximum number of results |
+
+**Arguments:**
+- `[query]` - Full-text search terms (optional if using filters)
+
+**CQL Reference:**
+Common CQL operators for `--cql`:
+- `=` exact match: `type=page`
+- `~` contains/fuzzy: `title ~ "meeting"`
+- `AND`, `OR`, `NOT` for combining
+- Date functions: `lastModified > now('-7d')`
+- [Full CQL documentation](https://developer.atlassian.com/cloud/confluence/advanced-searching-using-cql/)
 
 ---
 

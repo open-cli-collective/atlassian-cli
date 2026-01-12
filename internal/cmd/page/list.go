@@ -26,7 +26,7 @@ func NewCmdList() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:     "list",
-		Aliases: []string{"ls", "search"},
+		Aliases: []string{"ls"},
 		Short:   "List pages in a space",
 		Long:    `List pages in a Confluence space.`,
 		Example: `  # List pages in a space

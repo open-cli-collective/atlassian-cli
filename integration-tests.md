@@ -143,6 +143,36 @@ This document catalogs the manual integration test suite for `cfl`. These tests 
 
 ---
 
+## Search Operations
+
+### search
+
+| Test Case | Command | Expected Result |
+|-----------|---------|-----------------|
+| Full-text search | `cfl search "test"` | Shows matching content with ID, TYPE, SPACE, TITLE |
+| Search in space | `cfl search "content" --space DEV` | Only results from specified space |
+| Filter by type | `cfl search --type page` | Only pages returned |
+| Search by title | `cfl search --title "Test"` | Content with "Test" in title |
+| Search by label | `cfl search --label test-label` | Content with specified label |
+| Combined filters | `cfl search "deploy" --space DEV --type page` | Filtered results |
+| Raw CQL | `cfl search --cql "type=page AND space=DEV"` | CQL executed directly |
+| JSON output | `cfl search "test" -o json` | Valid JSON with results and _meta |
+| Plain output | `cfl search "test" -o plain` | Tab-separated values |
+| Limit results | `cfl search "test" --limit 5` | Max 5 results |
+| No results | `cfl search "xyznonexistent123"` | "No results found" message |
+| Invalid type | `cfl search --type invalid` | Error: invalid type |
+
+### Search After Create (End-to-End)
+
+| Test Case | Steps | Expected Result |
+|-----------|-------|-----------------|
+| Search finds new page | 1. `echo "# Test" \| cfl page create -s DEV -t "[Test] Searchable"`<br>2. Wait 5-10s for indexing<br>3. `cfl search "[Test] Searchable"` | New page appears in results |
+| Content search | 1. Create page with unique content "xyzUniqueContent789"<br>2. Wait 5-10s<br>3. `cfl search "xyzUniqueContent789"` | Page found by body content |
+
+**Note:** Confluence search indexing has a delay (typically 5-10 seconds). Integration tests should wait before searching for newly created content.
+
+---
+
 ## Content Fidelity Tests
 
 These tests verify that content survives round-trip conversions.
@@ -235,6 +265,13 @@ Before GA release, run through this checklist:
 - [ ] Download attachment
 - [ ] Verify downloaded content matches
 - [ ] Delete attachment
+
+### Search
+- [ ] Full-text search returns results
+- [ ] Space filter works
+- [ ] Type filter works
+- [ ] JSON output is valid
+- [ ] Raw CQL works
 
 ### Edge Cases
 - [ ] Unicode in titles/content

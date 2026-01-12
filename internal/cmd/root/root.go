@@ -7,6 +7,7 @@ import (
 	"github.com/rianjs/confluence-cli/internal/cmd/attachment"
 	initcmd "github.com/rianjs/confluence-cli/internal/cmd/init"
 	"github.com/rianjs/confluence-cli/internal/cmd/page"
+	"github.com/rianjs/confluence-cli/internal/cmd/search"
 	"github.com/rianjs/confluence-cli/internal/cmd/space"
 	"github.com/rianjs/confluence-cli/internal/version"
 )
@@ -40,6 +41,7 @@ Get started by running: cfl init`,
 	cmd.AddCommand(page.NewCmdPage())
 	cmd.AddCommand(space.NewCmdSpace())
 	cmd.AddCommand(attachment.NewCmdAttachment())
+	cmd.AddCommand(search.NewCmdSearch())
 
 	return cmd
 }

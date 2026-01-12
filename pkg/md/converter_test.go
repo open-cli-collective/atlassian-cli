@@ -98,6 +98,16 @@ func TestToConfluenceStorage(t *testing.T) {
 			input:    "---",
 			expected: "<hr>\n",
 		},
+		{
+			name:     "simple table",
+			input:    "| A | B |\n|---|---|\n| 1 | 2 |",
+			expected: "<table>\n<thead>\n<tr>\n<th>A</th>\n<th>B</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>1</td>\n<td>2</td>\n</tr>\n</tbody>\n</table>\n",
+		},
+		{
+			name:     "table with multiple rows",
+			input:    "| Name | Age |\n|------|-----|\n| Alice | 30 |\n| Bob | 25 |",
+			expected: "<table>\n<thead>\n<tr>\n<th>Name</th>\n<th>Age</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>Alice</td>\n<td>30</td>\n</tr>\n<tr>\n<td>Bob</td>\n<td>25</td>\n</tr>\n</tbody>\n</table>\n",
+		},
 	}
 
 	for _, tt := range tests {

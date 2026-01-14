@@ -658,3 +658,191 @@ func TestRunEdit_ComplexMarkdown_ADF(t *testing.T) {
 	assert.Contains(t, content, `"type":"codeBlock"`)
 	assert.Contains(t, content, `"language":"go"`)
 }
+
+func TestRunEdit_MoveToParent(t *testing.T) {
+	moveCalled := false
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == "GET" && strings.Contains(r.URL.Path, "/api/v2/pages/12345"):
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{
+				"id": "12345",
+				"title": "Test Page",
+				"version": {"number": 1},
+				"body": {"storage": {"value": "<p>Content</p>"}},
+				"_links": {"webui": "/pages/12345"}
+			}`))
+		case r.Method == "PUT" && strings.Contains(r.URL.Path, "/api/v2/pages/12345"):
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{
+				"id": "12345",
+				"title": "Test Page",
+				"version": {"number": 2},
+				"_links": {"webui": "/pages/12345"}
+			}`))
+		case r.Method == "PUT" && strings.Contains(r.URL.Path, "/rest/api/content/12345/move/append/67890"):
+			moveCalled = true
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "test@example.com", "token")
+	opts := &editOptions{
+		pageID:  "12345",
+		title:   "Test Page", // Keep same title to avoid editor
+		parent:  "67890",
+		noColor: true,
+	}
+
+	err := runEdit(opts, client)
+	require.NoError(t, err)
+	assert.True(t, moveCalled, "MovePage should have been called")
+}
+
+func TestRunEdit_MoveAndRename(t *testing.T) {
+	var receivedTitle string
+	moveCalled := false
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == "GET" && strings.Contains(r.URL.Path, "/api/v2/pages/12345"):
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{
+				"id": "12345",
+				"title": "Old Title",
+				"version": {"number": 1},
+				"body": {"storage": {"value": "<p>Content</p>"}},
+				"_links": {"webui": "/pages/12345"}
+			}`))
+		case r.Method == "PUT" && strings.Contains(r.URL.Path, "/api/v2/pages/12345"):
+			body, _ := io.ReadAll(r.Body)
+			var req map[string]interface{}
+			json.Unmarshal(body, &req)
+			receivedTitle = req["title"].(string)
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{
+				"id": "12345",
+				"title": "New Title",
+				"version": {"number": 2},
+				"_links": {"webui": "/pages/12345"}
+			}`))
+		case r.Method == "PUT" && strings.Contains(r.URL.Path, "/rest/api/content/12345/move/append/67890"):
+			moveCalled = true
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "test@example.com", "token")
+	opts := &editOptions{
+		pageID:  "12345",
+		title:   "New Title",
+		parent:  "67890",
+		noColor: true,
+	}
+
+	err := runEdit(opts, client)
+	require.NoError(t, err)
+	assert.True(t, moveCalled, "MovePage should have been called")
+	assert.Equal(t, "New Title", receivedTitle)
+}
+
+func TestRunEdit_MoveFailed(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == "GET" && strings.Contains(r.URL.Path, "/api/v2/pages/12345"):
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{
+				"id": "12345",
+				"title": "Test Page",
+				"version": {"number": 1},
+				"body": {"storage": {"value": "<p>Content</p>"}},
+				"_links": {"webui": "/pages/12345"}
+			}`))
+		case r.Method == "PUT" && strings.Contains(r.URL.Path, "/api/v2/pages/12345"):
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{
+				"id": "12345",
+				"title": "Test Page",
+				"version": {"number": 2},
+				"_links": {"webui": "/pages/12345"}
+			}`))
+		case r.Method == "PUT" && strings.Contains(r.URL.Path, "/rest/api/content/12345/move"):
+			w.WriteHeader(http.StatusNotFound)
+			w.Write([]byte(`{"message": "Target page not found"}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "test@example.com", "token")
+	opts := &editOptions{
+		pageID:  "12345",
+		title:   "Test Page",
+		parent:  "99999", // Invalid parent
+		noColor: true,
+	}
+
+	err := runEdit(opts, client)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to move page to new parent")
+}
+
+func TestRunEdit_MoveWithContent(t *testing.T) {
+	moveCalled := false
+	var receivedBody map[string]interface{}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == "GET" && strings.Contains(r.URL.Path, "/api/v2/pages/12345"):
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{
+				"id": "12345",
+				"title": "Test Page",
+				"version": {"number": 1},
+				"body": {"storage": {"value": "<p>Old</p>"}},
+				"_links": {"webui": "/pages/12345"}
+			}`))
+		case r.Method == "PUT" && strings.Contains(r.URL.Path, "/api/v2/pages/12345"):
+			body, _ := io.ReadAll(r.Body)
+			json.Unmarshal(body, &receivedBody)
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{
+				"id": "12345",
+				"title": "Test Page",
+				"version": {"number": 2},
+				"_links": {"webui": "/pages/12345"}
+			}`))
+		case r.Method == "PUT" && strings.Contains(r.URL.Path, "/rest/api/content/12345/move/append/67890"):
+			moveCalled = true
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "test@example.com", "token")
+	opts := &editOptions{
+		pageID:  "12345",
+		stdin:   strings.NewReader("# New Content"),
+		parent:  "67890",
+		noColor: true,
+	}
+
+	err := runEdit(opts, client)
+	require.NoError(t, err)
+	assert.True(t, moveCalled, "MovePage should have been called")
+
+	// Verify content was also updated
+	bodyMap := receivedBody["body"].(map[string]interface{})
+	adfMap := bodyMap["atlas_doc_format"].(map[string]interface{})
+	assert.NotNil(t, adfMap["value"])
+}

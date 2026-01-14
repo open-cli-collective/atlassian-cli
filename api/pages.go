@@ -126,6 +126,14 @@ func (c *Client) DeletePage(ctx context.Context, pageID string) error {
 	return err
 }
 
+// MovePage moves a page to be a child of the target parent page.
+// Uses the v1 REST API as v2 doesn't support page moves.
+func (c *Client) MovePage(ctx context.Context, pageID, targetParentID string) error {
+	path := fmt.Sprintf("/rest/api/content/%s/move/append/%s", pageID, targetParentID)
+	_, err := c.Put(ctx, path, nil)
+	return err
+}
+
 // CopyPageOptions configures page copy behavior.
 type CopyPageOptions struct {
 	Title              string // Required: new page title

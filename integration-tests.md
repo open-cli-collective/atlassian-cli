@@ -16,6 +16,18 @@ This document catalogs the manual integration test suite for `cfl`. These tests 
 
 ---
 
+## Init
+
+| Test Case | Command | Expected Result |
+|-----------|---------|-----------------|
+| Fresh init | `cfl init` (interactive) | Creates ~/.config/cfl/config.yml with URL, email, token |
+| Init with existing config | `cfl init` when config exists | Prompts to overwrite or skip |
+| Verify connection | After init, run `cfl space list` | Connection works, spaces listed |
+| Invalid credentials | Init with bad API token | Error during verification step |
+| Invalid URL | Init with malformed URL | Error: invalid URL format |
+
+---
+
 ## Page Operations
 
 ### page list
@@ -67,6 +79,11 @@ This document catalogs the manual integration test suite for `cfl`. These tests 
 | Non-existent page | `cfl page edit 99999999999` | Error: 404 not found |
 | Edit (cloud editor) | `cfl page edit <id> --file updated.md` | Page stays in cloud editor format |
 | Edit (legacy editor) | `cfl page edit <id> --file updated.md --legacy` | Page uses legacy storage format |
+| Move to new parent | `cfl page edit <id> --parent <parent-id>` | Page appears under new parent in tree |
+| Move and rename | `cfl page edit <id> --parent <parent-id> --title "New Title"` | Page moved AND renamed |
+| Move with content update | `cfl page edit <id> --parent <parent-id> --file updated.md` | Page moved with new content |
+| Move to invalid parent | `cfl page edit <id> --parent 99999999999` | Error: 404 not found |
+| Move preserves history | Move page, then check version history | Previous versions still visible in UI |
 
 ### page copy
 
@@ -325,6 +342,7 @@ Before GA release, run through this checklist:
 ### Setup
 - [ ] Build latest: `make build`
 - [ ] Verify config: `cfl space list` works
+- [ ] Run `cfl init` (verify config creation works)
 
 ### Page CRUD
 - [ ] Create page from stdin (cloud editor)
@@ -336,6 +354,9 @@ Before GA release, run through this checklist:
 - [ ] View page (raw)
 - [ ] Edit page from file
 - [ ] Edit page with --legacy flag
+- [ ] Move page to new parent (`--parent` flag)
+- [ ] Move and rename page together
+- [ ] Verify page history preserved after move
 - [ ] Copy page (same space)
 - [ ] Copy page (different space)
 - [ ] Delete page (with confirmation)

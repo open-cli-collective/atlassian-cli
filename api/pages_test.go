@@ -206,6 +206,48 @@ func TestClient_DeletePage(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestClient_MovePage_Success(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/rest/api/content/12345/move/append/67890", r.URL.Path)
+		assert.Equal(t, "PUT", r.Method)
+
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "user@example.com", "token")
+	err := client.MovePage(context.Background(), "12345", "67890")
+
+	require.NoError(t, err)
+}
+
+func TestClient_MovePage_NotFound(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`{"message": "Page not found"}`))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "user@example.com", "token")
+	err := client.MovePage(context.Background(), "99999", "67890")
+
+	require.Error(t, err)
+}
+
+func TestClient_MovePage_PermissionDenied(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = w.Write([]byte(`{"message": "You do not have permission to move this page"}`))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "user@example.com", "token")
+	err := client.MovePage(context.Background(), "12345", "67890")
+
+	require.Error(t, err)
+}
+
 func TestClient_CopyPage_Success(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/rest/api/content/12345/copy", r.URL.Path)

@@ -25,6 +25,7 @@ type editOptions struct {
 	editor   bool
 	markdown *bool // nil = auto-detect, true = force markdown, false = force storage format
 	legacy   bool  // Use legacy editor (storage format) instead of cloud editor (ADF)
+	parent   string
 	output   string
 	noColor  bool
 	stdin    io.Reader // For testing; defaults to os.Stdin
@@ -64,7 +65,13 @@ Content format:
   echo "# Updated Content" | cfl page edit 12345
 
   # Update page title only
-  cfl page edit 12345 --title "New Title"`,
+  cfl page edit 12345 --title "New Title"
+
+  # Move page to a new parent
+  cfl page edit 12345 --parent 67890
+
+  # Move page and update title
+  cfl page edit 12345 --parent 67890 --title "New Title"`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			opts.pageID = args[0]
@@ -87,6 +94,7 @@ Content format:
 
 	cmd.Flags().StringVarP(&opts.title, "title", "t", "", "New page title")
 	cmd.Flags().StringVarP(&opts.file, "file", "f", "", "Read content from file")
+	cmd.Flags().StringVarP(&opts.parent, "parent", "p", "", "Move page to new parent page ID")
 	cmd.Flags().BoolVar(&opts.editor, "editor", false, "Open editor for content")
 	cmd.Flags().Bool("no-markdown", false, "Disable markdown conversion (use raw XHTML)")
 	cmd.Flags().Bool("legacy", false, "Edit page in legacy editor format (default: cloud editor)")
@@ -201,6 +209,13 @@ func runEdit(opts *editOptions, client *api.Client) error {
 	page, err := client.UpdatePage(context.Background(), opts.pageID, req)
 	if err != nil {
 		return fmt.Errorf("failed to update page: %w", err)
+	}
+
+	// Move page to new parent if specified
+	if opts.parent != "" {
+		if err := client.MovePage(context.Background(), opts.pageID, opts.parent); err != nil {
+			return fmt.Errorf("failed to move page to new parent: %w", err)
+		}
 	}
 
 	// Render output

@@ -1,5 +1,14 @@
 # Release Notes
 
+## v0.7.0 (2026-01-14)
+
+Move pages to a new parent without losing history.
+
+### Features
+- Add `--parent` flag to `cfl page edit` to move pages to a different parent ([#42](https://github.com/rianjs/confluence-cli/issues/42))
+
+---
+
 ## v0.6.0 (2026-01-14)
 
 Add shell tab completion support for bash, zsh, fish, and PowerShell.

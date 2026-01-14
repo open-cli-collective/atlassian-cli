@@ -397,3 +397,148 @@ func TestClient_CopyPage_WithoutLabels(t *testing.T) {
 	_, err := client.CopyPage(context.Background(), "12345", opts)
 	require.NoError(t, err)
 }
+
+func TestClient_UpdatePage_VersionConflict(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusConflict)
+		_, _ = w.Write([]byte(`{
+			"message": "Version conflict: expected version 5 but page is at version 6",
+			"errors": [{"title": "Version conflict"}]
+		}`))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "user@example.com", "token")
+	req := &UpdatePageRequest{
+		ID:      "98765",
+		Status:  "current",
+		Title:   "Updated Title",
+		Version: &Version{Number: 5}, // Stale version
+	}
+
+	_, err := client.UpdatePage(context.Background(), "98765", req)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "conflict")
+}
+
+func TestClient_GetPage_MissingBody(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{
+			"id": "98765",
+			"title": "Page Without Body",
+			"spaceId": "123456",
+			"version": {"number": 1}
+		}`))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "user@example.com", "token")
+	page, err := client.GetPage(context.Background(), "98765", nil)
+
+	require.NoError(t, err)
+	assert.Equal(t, "98765", page.ID)
+	assert.Equal(t, "Page Without Body", page.Title)
+	assert.Nil(t, page.Body)
+}
+
+func TestClient_GetPage_EmptyBodyStorage(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{
+			"id": "98765",
+			"title": "Page With Empty Body",
+			"spaceId": "123456",
+			"version": {"number": 1},
+			"body": {
+				"storage": null
+			}
+		}`))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "user@example.com", "token")
+	page, err := client.GetPage(context.Background(), "98765", nil)
+
+	require.NoError(t, err)
+	assert.NotNil(t, page.Body)
+	assert.Nil(t, page.Body.Storage)
+}
+
+func TestClient_ListPages_WithCursor(t *testing.T) {
+	callCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		callCount++
+
+		if callCount == 1 {
+			// First call - return results with cursor
+			assert.Empty(t, r.URL.Query().Get("cursor"))
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{
+				"results": [{"id": "1", "title": "Page 1"}],
+				"_links": {"next": "/api/v2/spaces/123/pages?cursor=abc123"}
+			}`))
+		} else {
+			// Second call - verify cursor is passed
+			assert.Equal(t, "abc123", r.URL.Query().Get("cursor"))
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{
+				"results": [{"id": "2", "title": "Page 2"}],
+				"_links": {}
+			}`))
+		}
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "user@example.com", "token")
+
+	// First request
+	result1, err := client.ListPages(context.Background(), "123", nil)
+	require.NoError(t, err)
+	assert.True(t, result1.HasMore())
+
+	// Second request with cursor
+	opts := &ListPagesOptions{Cursor: "abc123"}
+	result2, err := client.ListPages(context.Background(), "123", opts)
+	require.NoError(t, err)
+	assert.False(t, result2.HasMore())
+
+	assert.Equal(t, 2, callCount)
+}
+
+func TestClient_ListPages_EmptyResults(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"results": []}`))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "user@example.com", "token")
+	result, err := client.ListPages(context.Background(), "123", nil)
+
+	require.NoError(t, err)
+	assert.Empty(t, result.Results)
+	assert.False(t, result.HasMore())
+}
+
+func TestClient_ListPages_NullVersion(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{
+			"results": [{
+				"id": "98765",
+				"title": "Page With Null Version",
+				"spaceId": "123456",
+				"version": null
+			}]
+		}`))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "user@example.com", "token")
+	result, err := client.ListPages(context.Background(), "123", nil)
+
+	require.NoError(t, err)
+	require.Len(t, result.Results, 1)
+	assert.Nil(t, result.Results[0].Version)
+}

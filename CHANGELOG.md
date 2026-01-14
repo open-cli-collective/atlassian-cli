@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/rianjs/confluence-cli/compare/v0.6.0...v0.7.0) (2026-01-14)
+
+
+### Features
+
+* add --parent flag to page edit command ([#48](https://github.com/rianjs/confluence-cli/issues/48)) ([a66160d](https://github.com/rianjs/confluence-cli/commit/a66160d4c7d38e333f33d8a1e89cc5692b43c046))
+
 ## [0.6.0](https://github.com/rianjs/confluence-cli/compare/v0.5.0...v0.6.0) (2026-01-14)
 
 

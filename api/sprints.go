@@ -88,3 +88,14 @@ func (c *Client) GetCurrentSprint(boardID int) (*Sprint, error) {
 
 	return &result.Values[0], nil
 }
+
+// MoveIssuesToSprint moves issues to a sprint
+func (c *Client) MoveIssuesToSprint(sprintID int, issueKeys []string) error {
+	urlStr := fmt.Sprintf("%s/sprint/%d/issue", c.AgileURL, sprintID)
+	req := map[string]interface{}{
+		"issues": issueKeys,
+	}
+
+	_, err := c.post(urlStr, req)
+	return err
+}

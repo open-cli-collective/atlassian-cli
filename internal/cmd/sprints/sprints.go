@@ -19,6 +19,7 @@ func Register(parent *cobra.Command, opts *root.Options) {
 	cmd.AddCommand(newListCmd(opts))
 	cmd.AddCommand(newCurrentCmd(opts))
 	cmd.AddCommand(newIssuesCmd(opts))
+	cmd.AddCommand(newAddCmd(opts))
 
 	parent.AddCommand(cmd)
 }
@@ -232,4 +233,48 @@ func runIssues(opts *root.Options, sprintID int, maxResults int) error {
 	}
 
 	return v.Table(headers, rows)
+}
+
+func newAddCmd(opts *root.Options) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "add <sprint-id> <issue-key>...",
+		Short: "Move issues to a sprint",
+		Long:  "Move one or more issues to a specific sprint.",
+		Example: `  # Move a single issue
+  jira-ticket-cli sprints add 123 PROJ-456
+
+  # Move multiple issues
+  jira-ticket-cli sprints add 123 PROJ-456 PROJ-789 PROJ-101`,
+		Args: cobra.MinimumNArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			var sprintID int
+			if _, err := fmt.Sscanf(args[0], "%d", &sprintID); err != nil {
+				return fmt.Errorf("invalid sprint ID: %s", args[0])
+			}
+			return runAdd(opts, sprintID, args[1:])
+		},
+	}
+
+	return cmd
+}
+
+func runAdd(opts *root.Options, sprintID int, issueKeys []string) error {
+	v := opts.View()
+
+	client, err := opts.APIClient()
+	if err != nil {
+		return err
+	}
+
+	if err := client.MoveIssuesToSprint(sprintID, issueKeys); err != nil {
+		return err
+	}
+
+	if len(issueKeys) == 1 {
+		v.Success("Moved %s to sprint %d", issueKeys[0], sprintID)
+	} else {
+		v.Success("Moved %d issues to sprint %d", len(issueKeys), sprintID)
+	}
+
+	return nil
 }

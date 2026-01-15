@@ -9,6 +9,7 @@ import (
 	"github.com/piekstra/jira-ticket-cli/internal/cmd/completion"
 	"github.com/piekstra/jira-ticket-cli/internal/cmd/configcmd"
 	"github.com/piekstra/jira-ticket-cli/internal/cmd/issues"
+	"github.com/piekstra/jira-ticket-cli/internal/cmd/me"
 	"github.com/piekstra/jira-ticket-cli/internal/cmd/root"
 	"github.com/piekstra/jira-ticket-cli/internal/cmd/sprints"
 	"github.com/piekstra/jira-ticket-cli/internal/cmd/transitions"
@@ -32,6 +33,7 @@ func run() error {
 	comments.Register(rootCmd, opts)
 	boards.Register(rootCmd, opts)
 	sprints.Register(rootCmd, opts)
+	me.Register(rootCmd, opts)
 	completion.Register(rootCmd, opts)
 
 	return rootCmd.Execute()

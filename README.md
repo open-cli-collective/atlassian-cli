@@ -454,6 +454,86 @@ cfl attachment delete att123 --force
 
 ---
 
+## Confluence Macro Support
+
+cfl supports roundtrip editing of common Confluence macros using bracket syntax. When viewing pages with `--show-macros`, macros are displayed as readable placeholders that can be edited and re-uploaded.
+
+### Supported Macros
+
+| Macro | Syntax | Description |
+|-------|--------|-------------|
+| TOC | `[TOC]` or `[TOC maxLevel=3]` | Table of contents |
+| Info | `[INFO]content[/INFO]` | Blue info panel |
+| Warning | `[WARNING]content[/WARNING]` | Yellow warning panel |
+| Note | `[NOTE]content[/NOTE]` | Yellow note panel |
+| Tip | `[TIP]content[/TIP]` | Green tip panel |
+| Expand | `[EXPAND title="..."]content[/EXPAND]` | Collapsible section |
+
+### Viewing Pages with Macros
+
+By default, macros are stripped from markdown output. Use `--show-macros` to preserve them:
+
+```bash
+# Without --show-macros: macros are hidden
+cfl page view 12345
+# Output: just the page content, no macro markers
+
+# With --show-macros: macros appear as bracket syntax
+cfl page view 12345 --show-macros
+# Output includes: [TOC maxLevel=3], [INFO]...[/INFO], etc.
+```
+
+### Creating Pages with Macros
+
+Use bracket syntax in your markdown:
+
+```bash
+# Create a page with TOC
+echo '[TOC]
+
+# Introduction
+Some content here.
+
+# Details
+More content.' | cfl page create -s DEV -t "My Doc" --legacy
+
+# Create a page with info panel
+echo '[INFO]
+This is important information that readers should know.
+[/INFO]
+
+Regular content follows.' | cfl page create -s DEV -t "My Guide" --legacy
+```
+
+### Roundtrip Editing
+
+View a page with macros, edit it, and push changes back:
+
+```bash
+# Export page with macros to file
+cfl page view 12345 --show-macros > page.md
+
+# Edit the file (macros appear as [TOC], [INFO]...[/INFO], etc.)
+vim page.md
+
+# Push changes back (macros are converted to Confluence format)
+cat page.md | cfl page edit 12345 --legacy
+```
+
+### Panel Macro Parameters
+
+Panel macros support a `title` parameter:
+
+```markdown
+[WARNING title="Security Notice"]
+Do not share your API tokens.
+[/WARNING]
+```
+
+Values with spaces must be quoted. The content between open and close tags is converted as markdown.
+
+---
+
 ## Configuration
 
 Configuration is stored in `~/.config/cfl/config.yml`:

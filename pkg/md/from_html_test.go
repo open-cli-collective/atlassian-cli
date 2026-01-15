@@ -239,6 +239,141 @@ func TestFromConfluenceStorage_NonCodeMacrosStripped(t *testing.T) {
 	assert.NotContains(t, result, "maxLevel")
 }
 
+func TestFromConfluenceStorage_TOCWithShowMacros(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name: "TOC without parameters",
+			input: `<p>Before</p>
+			<ac:structured-macro ac:name="toc" ac:schema-version="1">
+			</ac:structured-macro>
+			<p>After</p>`,
+			expected: "[TOC]",
+		},
+		{
+			name: "TOC with single parameter",
+			input: `<p>Before</p>
+			<ac:structured-macro ac:name="toc" ac:schema-version="1">
+				<ac:parameter ac:name="maxLevel">3</ac:parameter>
+			</ac:structured-macro>
+			<p>After</p>`,
+			expected: "[TOC maxLevel=3]",
+		},
+		{
+			name: "TOC with multiple parameters",
+			input: `<p>Before</p>
+			<ac:structured-macro ac:name="toc" ac:schema-version="1">
+				<ac:parameter ac:name="maxLevel">3</ac:parameter>
+				<ac:parameter ac:name="minLevel">1</ac:parameter>
+				<ac:parameter ac:name="type">flat</ac:parameter>
+			</ac:structured-macro>
+			<p>After</p>`,
+			expected: "[TOC maxLevel=3 minLevel=1 type=flat]",
+		},
+		{
+			name: "TOC with outline parameter",
+			input: `<ac:structured-macro ac:name="toc" ac:schema-version="1">
+				<ac:parameter ac:name="outline">true</ac:parameter>
+				<ac:parameter ac:name="separator">pipe</ac:parameter>
+			</ac:structured-macro>`,
+			expected: "[TOC outline=true separator=pipe]",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			opts := ConvertOptions{ShowMacros: true}
+			result, err := FromConfluenceStorageWithOptions(tt.input, opts)
+			require.NoError(t, err)
+			assert.Contains(t, result, tt.expected)
+		})
+	}
+}
+
+func TestFromConfluenceStorage_PanelMacrosWithShowMacros(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		contains []string
+	}{
+		{
+			name: "info macro with body",
+			input: `<ac:structured-macro ac:name="info" ac:schema-version="1">
+				<ac:rich-text-body><p>Info content</p></ac:rich-text-body>
+			</ac:structured-macro>`,
+			contains: []string{"[INFO]", "Info content", "[/INFO]"},
+		},
+		{
+			name: "warning macro with title and body",
+			input: `<ac:structured-macro ac:name="warning" ac:schema-version="1">
+				<ac:parameter ac:name="title">Watch out</ac:parameter>
+				<ac:rich-text-body><p>Warning content</p></ac:rich-text-body>
+			</ac:structured-macro>`,
+			// Title with space gets quoted
+			contains: []string{`[WARNING title="Watch out"]`, "Warning content", "[/WARNING]"},
+		},
+		{
+			name: "note macro",
+			input: `<ac:structured-macro ac:name="note" ac:schema-version="1">
+				<ac:rich-text-body><p>Note content</p></ac:rich-text-body>
+			</ac:structured-macro>`,
+			contains: []string{"[NOTE]", "Note content", "[/NOTE]"},
+		},
+		{
+			name: "tip macro",
+			input: `<ac:structured-macro ac:name="tip" ac:schema-version="1">
+				<ac:rich-text-body><p>Tip content</p></ac:rich-text-body>
+			</ac:structured-macro>`,
+			contains: []string{"[TIP]", "Tip content", "[/TIP]"},
+		},
+		{
+			name: "expand macro with title and body",
+			input: `<ac:structured-macro ac:name="expand" ac:schema-version="1">
+				<ac:parameter ac:name="title">Click to expand</ac:parameter>
+				<ac:rich-text-body><p>Hidden content</p></ac:rich-text-body>
+			</ac:structured-macro>`,
+			contains: []string{`[EXPAND title="Click to expand"]`, "Hidden content", "[/EXPAND]"},
+		},
+		{
+			name: "panel with title containing spaces",
+			input: `<ac:structured-macro ac:name="info" ac:schema-version="1">
+				<ac:parameter ac:name="title">Important Information</ac:parameter>
+				<ac:rich-text-body><p>Content here</p></ac:rich-text-body>
+			</ac:structured-macro>`,
+			contains: []string{`[INFO title="Important Information"]`, "Content here", "[/INFO]"},
+		},
+		{
+			name: "panel with empty body",
+			input: `<ac:structured-macro ac:name="info" ac:schema-version="1">
+				<ac:rich-text-body></ac:rich-text-body>
+			</ac:structured-macro>`,
+			contains: []string{"[INFO]", "[/INFO]"},
+		},
+		{
+			name: "panel with formatted body content",
+			input: `<ac:structured-macro ac:name="warning" ac:schema-version="1">
+				<ac:rich-text-body><p>This is <strong>bold</strong> and <em>italic</em> text.</p></ac:rich-text-body>
+			</ac:structured-macro>`,
+			// Body HTML is converted to markdown
+			contains: []string{"[WARNING]", "**bold**", "*italic*", "[/WARNING]"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			opts := ConvertOptions{ShowMacros: true}
+			result, err := FromConfluenceStorageWithOptions(tt.input, opts)
+			require.NoError(t, err)
+			for _, expected := range tt.contains {
+				assert.Contains(t, result, expected, "should contain: %s", expected)
+			}
+		})
+	}
+}
+
 func TestFromConfluenceStorage_ComplexDocument(t *testing.T) {
 	input := `<h1>Project README</h1>
 <p>This is the <strong>introduction</strong> to the project.</p>
@@ -266,4 +401,30 @@ func TestFromConfluenceStorage_ComplexDocument(t *testing.T) {
 	assert.Contains(t, result, "```")
 	assert.Contains(t, result, "fmt.Println")
 	assert.Contains(t, result, "[the docs](https://example.com)")
+}
+
+func TestFromConfluenceStorage_NestedMacros(t *testing.T) {
+	// Test nested TOC inside INFO panel
+	input := `<ac:structured-macro ac:name="info" ac:schema-version="1">
+<ac:rich-text-body>
+<p>Here is the table of contents:</p>
+<p><ac:structured-macro ac:name="toc" ac:schema-version="1">
+<ac:parameter ac:name="maxLevel">2</ac:parameter>
+</ac:structured-macro></p>
+</ac:rich-text-body>
+</ac:structured-macro>
+<h1>Title</h1>`
+
+	opts := ConvertOptions{ShowMacros: true}
+	result, err := FromConfluenceStorageWithOptions(input, opts)
+	require.NoError(t, err)
+
+	// Should have both INFO panel and nested TOC
+	assert.Contains(t, result, "[INFO]")
+	assert.Contains(t, result, "[/INFO]")
+	assert.Contains(t, result, "[TOC maxLevel=2]")
+	assert.Contains(t, result, "# Title")
+
+	// INFO should not have TOC's parameters
+	assert.NotContains(t, result, "[INFO maxLevel=2]")
 }

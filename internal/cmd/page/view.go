@@ -15,11 +15,12 @@ import (
 )
 
 type viewOptions struct {
-	raw        bool
-	web        bool
-	showMacros bool
-	output     string
-	noColor    bool
+	raw         bool
+	web         bool
+	showMacros  bool
+	contentOnly bool
+	output      string
+	noColor     bool
 }
 
 // NewCmdView creates the page view command.
@@ -37,7 +38,10 @@ func NewCmdView() *cobra.Command {
   cfl page view 12345 --raw
 
   # Open in browser
-  cfl page view 12345 --web`,
+  cfl page view 12345 --web
+
+  # Output content only (for piping to edit)
+  cfl page view 12345 --show-macros --content-only | cfl page edit 12345 --legacy`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			opts.output, _ = cmd.Flags().GetString("output")
@@ -49,6 +53,7 @@ func NewCmdView() *cobra.Command {
 	cmd.Flags().BoolVar(&opts.raw, "raw", false, "Show raw Confluence storage format")
 	cmd.Flags().BoolVarP(&opts.web, "web", "w", false, "Open in browser instead of displaying")
 	cmd.Flags().BoolVar(&opts.showMacros, "show-macros", false, "Show Confluence macro placeholders (e.g., [TOC]) instead of stripping them")
+	cmd.Flags().BoolVar(&opts.contentOnly, "content-only", false, "Output only page content (no metadata headers)")
 
 	return cmd
 }
@@ -60,6 +65,16 @@ func runView(pageID string, opts *viewOptions, client *api.Client) error {
 	// Validate output format
 	if err := view.ValidateFormat(opts.output); err != nil {
 		return err
+	}
+
+	// Validate flag combinations
+	if opts.contentOnly {
+		if opts.output == "json" {
+			return fmt.Errorf("--content-only is incompatible with --output json")
+		}
+		if opts.web {
+			return fmt.Errorf("--content-only is incompatible with --web")
+		}
 	}
 
 	// Create API client if not provided (allows injection for testing)
@@ -100,13 +115,15 @@ func runView(pageID string, opts *viewOptions, client *api.Client) error {
 		return renderer.RenderJSON(page)
 	}
 
-	// Show page info
-	renderer.RenderKeyValue("Title", page.Title)
-	renderer.RenderKeyValue("ID", page.ID)
-	if page.Version != nil {
-		renderer.RenderKeyValue("Version", fmt.Sprintf("%d", page.Version.Number))
+	// Show page info (unless content-only mode)
+	if !opts.contentOnly {
+		renderer.RenderKeyValue("Title", page.Title)
+		renderer.RenderKeyValue("ID", page.ID)
+		if page.Version != nil {
+			renderer.RenderKeyValue("Version", fmt.Sprintf("%d", page.Version.Number))
+		}
+		fmt.Println()
 	}
-	fmt.Println()
 
 	// Show content
 	if page.Body != nil && page.Body.Storage != nil {

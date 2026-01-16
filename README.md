@@ -161,6 +161,8 @@ cfl page view 12345
 cfl page view 12345 --raw
 cfl page view 12345 --web
 cfl page view 12345 -o json
+cfl page view 12345 --content-only             # Output only content (no headers)
+cfl page view 12345 --show-macros --content-only | cfl page edit 12345 --legacy  # Roundtrip with macros
 ```
 
 | Flag | Short | Default | Description |
@@ -168,6 +170,7 @@ cfl page view 12345 -o json
 | `--raw` | | `false` | Show raw Confluence storage format (XHTML) instead of markdown |
 | `--web` | `-w` | `false` | Open page in browser instead of displaying |
 | `--show-macros` | | `false` | Show Confluence macro placeholders (e.g., `[TOC]`) instead of stripping them |
+| `--content-only` | | `false` | Output only page content (no Title/ID/Version headers) |
 
 **Arguments:**
 - `<page-id>` - The page ID (**required**)
@@ -510,14 +513,17 @@ Regular content follows.' | cfl page create -s DEV -t "My Guide" --legacy
 View a page with macros, edit it, and push changes back:
 
 ```bash
-# Export page with macros to file
-cfl page view 12345 --show-macros > page.md
+# Export page with macros to file (use --content-only to exclude metadata headers)
+cfl page view 12345 --show-macros --content-only > page.md
 
 # Edit the file (macros appear as [TOC], [INFO]...[/INFO], etc.)
 vim page.md
 
 # Push changes back (macros are converted to Confluence format)
 cat page.md | cfl page edit 12345 --legacy
+
+# Or pipe directly for quick edits
+cfl page view 12345 --show-macros --content-only | cfl page edit 12345 --legacy
 ```
 
 ### Panel Macro Parameters

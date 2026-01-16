@@ -50,6 +50,12 @@ This document catalogs the manual integration test suite for `cfl`. These tests 
 | View raw HTML | `cfl page view <page-id> --raw` | Shows Confluence storage format (XHTML) |
 | JSON output | `cfl page view <page-id> --output json` | Full page object as JSON |
 | Non-existent page | `cfl page view 99999999999` | Error: 404 not found |
+| View content only | `cfl page view <id> --content-only` | Markdown only, no Title/ID/Version headers |
+| Content only with raw | `cfl page view <id> --content-only --raw` | XHTML only, no headers |
+| Content only with macros | `cfl page view <id> --content-only --show-macros` | Markdown with [TOC] etc., no headers |
+| Roundtrip macros (content-only) | `cfl page view <id> --show-macros --content-only \| cfl page edit <id> --legacy` | Macros preserved |
+| Content only JSON error | `cfl page view <id> --content-only -o json` | Error: incompatible flags |
+| Content only web error | `cfl page view <id> --content-only --web` | Error: incompatible flags |
 
 ### page create
 
@@ -381,6 +387,9 @@ Before GA release, run through this checklist:
 - [ ] Create child page
 - [ ] View page (markdown)
 - [ ] View page (raw)
+- [ ] View page (content-only)
+- [ ] View page (content-only with --show-macros for roundtrip)
+- [ ] Roundtrip macro page via pipe (`view --show-macros --content-only | edit --legacy`)
 - [ ] Edit page from file
 - [ ] Edit page with --legacy flag
 - [ ] Move page to new parent (`--parent` flag)

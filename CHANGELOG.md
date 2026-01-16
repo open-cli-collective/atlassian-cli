@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.8.1](https://github.com/open-cli-collective/confluence-cli/compare/v0.8.0...v0.8.1) (2026-01-16)
+
+
+### Bug Fixes
+
+* allow --parent flag to move page without content ([#64](https://github.com/open-cli-collective/confluence-cli/issues/64)) ([863c29d](https://github.com/open-cli-collective/confluence-cli/commit/863c29d869b24a8a194fccc2f4401eedcdbc35ad)), closes [#60](https://github.com/open-cli-collective/confluence-cli/issues/60)
+* correct homebrew tap reference ([#63](https://github.com/open-cli-collective/confluence-cli/issues/63)) ([949c85e](https://github.com/open-cli-collective/confluence-cli/commit/949c85e982c34bd1b89565c0def544121c0bda58))
+* validate empty content client-side before API call ([#61](https://github.com/open-cli-collective/confluence-cli/issues/61)) ([f122c95](https://github.com/open-cli-collective/confluence-cli/commit/f122c95c928b57458362f3547a1ca94cdcbe92bb)), closes [#59](https://github.com/open-cli-collective/confluence-cli/issues/59)
+
 ## [0.8.0](https://github.com/rianjs/confluence-cli/compare/v0.7.0...v0.8.0) (2026-01-15)
 
 

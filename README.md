@@ -19,7 +19,7 @@ A command-line interface for Atlassian Confluence Cloud, inspired by [jira-cli](
 ### Homebrew (macOS)
 
 ```bash
-brew tap open-cli-collective/confluence-cli
+brew tap open-cli-collective/tap
 brew install --cask cfl
 ```
 

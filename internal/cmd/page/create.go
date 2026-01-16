@@ -145,6 +145,11 @@ func runCreate(opts *createOptions, client *api.Client) error {
 		return err
 	}
 
+	// Validate content is not empty
+	if strings.TrimSpace(content) == "" {
+		return fmt.Errorf("page content cannot be empty")
+	}
+
 	// Build request body based on legacy flag
 	var body *api.Body
 

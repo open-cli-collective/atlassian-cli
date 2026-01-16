@@ -561,3 +561,81 @@ func TestRunCreate_ComplexMarkdown_ADF(t *testing.T) {
 	assert.Contains(t, content, `"type":"codeBlock"`)
 	assert.Contains(t, content, `"language":"go"`)
 }
+
+func TestRunCreate_EmptyContentFromStdin(t *testing.T) {
+	server := mockCreateServer(t, "DEV", "123456", http.StatusOK)
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "test@example.com", "token")
+	opts := &createOptions{
+		space:   "DEV",
+		title:   "Test Page",
+		stdin:   strings.NewReader(""),
+		noColor: true,
+	}
+
+	err := runCreate(opts, client)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "page content cannot be empty")
+}
+
+func TestRunCreate_WhitespaceOnlyFromStdin(t *testing.T) {
+	server := mockCreateServer(t, "DEV", "123456", http.StatusOK)
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "test@example.com", "token")
+	opts := &createOptions{
+		space:   "DEV",
+		title:   "Test Page",
+		stdin:   strings.NewReader("   \n\t\n   "),
+		noColor: true,
+	}
+
+	err := runCreate(opts, client)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "page content cannot be empty")
+}
+
+func TestRunCreate_EmptyFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	emptyFile := filepath.Join(tmpDir, "empty.md")
+	err := os.WriteFile(emptyFile, []byte(""), 0644)
+	require.NoError(t, err)
+
+	server := mockCreateServer(t, "DEV", "123456", http.StatusOK)
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "test@example.com", "token")
+	opts := &createOptions{
+		space:   "DEV",
+		title:   "Test Page",
+		file:    emptyFile,
+		noColor: true,
+	}
+
+	err = runCreate(opts, client)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "page content cannot be empty")
+}
+
+func TestRunCreate_WhitespaceOnlyFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	whitespaceFile := filepath.Join(tmpDir, "whitespace.md")
+	err := os.WriteFile(whitespaceFile, []byte("   \n\t\n   "), 0644)
+	require.NoError(t, err)
+
+	server := mockCreateServer(t, "DEV", "123456", http.StatusOK)
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "test@example.com", "token")
+	opts := &createOptions{
+		space:   "DEV",
+		title:   "Test Page",
+		file:    whitespaceFile,
+		noColor: true,
+	}
+
+	err = runCreate(opts, client)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "page content cannot be empty")
+}

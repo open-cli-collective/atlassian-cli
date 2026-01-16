@@ -63,7 +63,8 @@ This document catalogs the manual integration test suite for `cfl`. These tests 
 | Missing space | `cfl page create -t "Test"` | Error: space required |
 | Duplicate title | Create same title twice | Error: "page already exists with same TITLE" |
 | Very long title (300+ chars) | Create with long title | Error: API rejects (400) |
-| Empty content | `echo "" \| cfl page create -s confluence -t "Empty"` | Page created (empty content allowed) |
+| Empty content | `echo "" \| cfl page create -s confluence -t "Empty"` | Error: "page content cannot be empty" |
+| Whitespace-only content | `echo "   " \| cfl page create -s confluence -t "Whitespace"` | Error: "page content cannot be empty" |
 | Create (cloud editor) | `echo "# Test" \| cfl page create -s confluence -t "Test"` | Page uses cloud editor (see verification below) |
 | Create (legacy editor) | `echo "# Test" \| cfl page create -s confluence -t "Test" --legacy` | Page uses legacy editor |
 | Create with code block (cloud) | Create page with fenced code block | Code block preserved as `codeBlock` in ADF |
@@ -84,6 +85,8 @@ This document catalogs the manual integration test suite for `cfl`. These tests 
 | Move with content update | `cfl page edit <id> --parent <parent-id> --file updated.md` | Page moved with new content |
 | Move to invalid parent | `cfl page edit <id> --parent 99999999999` | Error: 404 not found |
 | Move preserves history | Move page, then check version history | Previous versions still visible in UI |
+| Empty content from stdin | `echo "" \| cfl page edit <id>` | Error: "page content cannot be empty" |
+| Whitespace-only from stdin | `echo "   " \| cfl page edit <id>` | Error: "page content cannot be empty" |
 
 ### page copy
 

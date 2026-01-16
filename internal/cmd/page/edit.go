@@ -146,6 +146,11 @@ func runEdit(opts *editOptions, client *api.Client) error {
 			return err
 		}
 
+		// Validate content is not empty
+		if strings.TrimSpace(content) == "" {
+			return fmt.Errorf("page content cannot be empty")
+		}
+
 		// Convert content based on legacy flag
 		newContent, err = convertEditContent(content, isMarkdown, opts.legacy)
 		if err != nil {
@@ -159,6 +164,11 @@ func runEdit(opts *editOptions, client *api.Client) error {
 		content, isMarkdown, err := getEditContent(&editOptions{editor: true, markdown: opts.markdown}, existingPage)
 		if err != nil {
 			return err
+		}
+
+		// Validate content is not empty
+		if strings.TrimSpace(content) == "" {
+			return fmt.Errorf("page content cannot be empty")
 		}
 
 		newContent, err = convertEditContent(content, isMarkdown, opts.legacy)

@@ -846,3 +846,178 @@ func TestRunEdit_MoveWithContent(t *testing.T) {
 	adfMap := bodyMap["atlas_doc_format"].(map[string]interface{})
 	assert.NotNil(t, adfMap["value"])
 }
+
+func TestRunEdit_EmptyContentFromStdin(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "GET" {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{
+				"id": "12345",
+				"title": "Test",
+				"version": {"number": 1},
+				"body": {"storage": {"value": "<p>Old content</p>"}},
+				"_links": {"webui": "/pages/12345"}
+			}`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "test@example.com", "token")
+	opts := &editOptions{
+		pageID:  "12345",
+		stdin:   strings.NewReader(""),
+		noColor: true,
+	}
+
+	err := runEdit(opts, client)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "page content cannot be empty")
+}
+
+func TestRunEdit_WhitespaceOnlyFromStdin(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "GET" {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{
+				"id": "12345",
+				"title": "Test",
+				"version": {"number": 1},
+				"body": {"storage": {"value": "<p>Old content</p>"}},
+				"_links": {"webui": "/pages/12345"}
+			}`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "test@example.com", "token")
+	opts := &editOptions{
+		pageID:  "12345",
+		stdin:   strings.NewReader("   \n\t\n   "),
+		noColor: true,
+	}
+
+	err := runEdit(opts, client)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "page content cannot be empty")
+}
+
+func TestRunEdit_EmptyFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	emptyFile := filepath.Join(tmpDir, "empty.md")
+	err := os.WriteFile(emptyFile, []byte(""), 0644)
+	require.NoError(t, err)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "GET" {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{
+				"id": "12345",
+				"title": "Test",
+				"version": {"number": 1},
+				"body": {"storage": {"value": "<p>Old content</p>"}},
+				"_links": {"webui": "/pages/12345"}
+			}`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "test@example.com", "token")
+	opts := &editOptions{
+		pageID:  "12345",
+		file:    emptyFile,
+		noColor: true,
+	}
+
+	err = runEdit(opts, client)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "page content cannot be empty")
+}
+
+func TestRunEdit_WhitespaceOnlyFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	whitespaceFile := filepath.Join(tmpDir, "whitespace.md")
+	err := os.WriteFile(whitespaceFile, []byte("   \n\t\n   "), 0644)
+	require.NoError(t, err)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "GET" {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{
+				"id": "12345",
+				"title": "Test",
+				"version": {"number": 1},
+				"body": {"storage": {"value": "<p>Old content</p>"}},
+				"_links": {"webui": "/pages/12345"}
+			}`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "test@example.com", "token")
+	opts := &editOptions{
+		pageID:  "12345",
+		file:    whitespaceFile,
+		noColor: true,
+	}
+
+	err = runEdit(opts, client)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "page content cannot be empty")
+}
+
+func TestRunEdit_TitleOnlyUpdate_NoContentValidation(t *testing.T) {
+	// When updating title only (with file providing content), validation should pass
+	updateCalled := false
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case "GET":
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{
+				"id": "12345",
+				"title": "Old Title",
+				"version": {"number": 1},
+				"body": {"storage": {"representation": "storage", "value": "<p>Existing content</p>"}},
+				"_links": {"webui": "/pages/12345"}
+			}`))
+		case "PUT":
+			updateCalled = true
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{
+				"id": "12345",
+				"title": "New Title",
+				"version": {"number": 2},
+				"_links": {"webui": "/pages/12345"}
+			}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "test@example.com", "token")
+
+	// Provide a file with valid content to avoid editor
+	tmpDir := t.TempDir()
+	mdFile := filepath.Join(tmpDir, "content.md")
+	err := os.WriteFile(mdFile, []byte("# Valid Content"), 0644)
+	require.NoError(t, err)
+
+	opts := &editOptions{
+		pageID:  "12345",
+		title:   "New Title",
+		file:    mdFile,
+		noColor: true,
+	}
+
+	err = runEdit(opts, client)
+	require.NoError(t, err)
+	assert.True(t, updateCalled, "Update should have been called")
+}

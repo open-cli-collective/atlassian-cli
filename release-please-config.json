@@ -1,9 +1,0 @@
-{
-  "packages": {
-    ".": {
-      "release-type": "go",
-      "bump-minor-pre-major": true,
-      "changelog-path": "CHANGELOG.md"
-    }
-  }
-}

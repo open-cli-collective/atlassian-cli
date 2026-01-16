@@ -46,9 +46,9 @@ archives:
 homebrew_casks:
   - name: cfl
     repository:
-      owner: rianjs
-      name: homebrew-confluence-cli
-      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+      owner: open-cli-collective
+      name: homebrew-tap
+      token: "{{ .Env.TAP_GITHUB_TOKEN }}"
     homepage: https://github.com/open-cli-collective/confluence-cli
     description: "Command-line interface for Atlassian Confluence"
     binary: cfl

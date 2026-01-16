@@ -660,3 +660,26 @@ func TestNestedMacros_XMLStructureCorrect(t *testing.T) {
 	assert.True(t, tocStart < richTextEnd, "TOC should be before rich-text-body end")
 	assert.True(t, richTextEnd < infoEnd, "rich-text-body should end before INFO")
 }
+
+// TestToConfluenceStorage_DeterministicNestedMacros verifies that deeply nested macro
+// conversion is deterministic. This catches issues with non-deterministic map iteration
+// order in Go which previously caused flaky test failures. See issue #68.
+func TestToConfluenceStorage_DeterministicNestedMacros(t *testing.T) {
+	input := `[INFO]Outer
+[WARNING]Inner
+[TOC]
+More inner
+[/WARNING]
+More outer
+[/INFO]`
+
+	// Run 100 times to catch non-deterministic behavior
+	for i := 0; i < 100; i++ {
+		result, err := ToConfluenceStorage([]byte(input))
+		require.NoError(t, err, "iteration %d", i)
+		assert.Contains(t, result, `ac:name="toc"`, "iteration %d: TOC macro missing", i)
+		assert.Contains(t, result, `ac:name="warning"`, "iteration %d: WARNING macro missing", i)
+		assert.Contains(t, result, `ac:name="info"`, "iteration %d: INFO macro missing", i)
+		assert.NotContains(t, result, "CFMACRO", "iteration %d: unresolved placeholder", i)
+	}
+}

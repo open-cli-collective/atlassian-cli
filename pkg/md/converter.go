@@ -3,6 +3,7 @@ package md
 
 import (
 	"bytes"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -126,24 +127,35 @@ func processMacroNode(node *MacroNode, output *strings.Builder, macros map[int]s
 
 // postprocessMacros replaces placeholder markers with actual macro XML.
 func postprocessMacros(html string, macros map[int]string) string {
+	// Get sorted IDs - innermost macros have lowest IDs, so we must process
+	// them in order to ensure nested placeholders are resolved before being
+	// embedded in outer macros. Map iteration order is non-deterministic in Go.
+	ids := make([]int, 0, len(macros))
+	for id := range macros {
+		ids = append(ids, id)
+	}
+	sort.Ints(ids)
+
 	// First pass: resolve any placeholders that exist within other macro values.
 	// This handles nested macros (e.g., [TOC] inside [INFO]...[/INFO]).
 	// The inner macro placeholder ends up embedded in the outer macro's XML.
-	for id, macroXML := range macros {
-		for innerId, innerXML := range macros {
-			if innerId == id {
-				continue
+	for _, id := range ids {
+		macroXML := macros[id]
+		for _, innerId := range ids {
+			if innerId >= id {
+				continue // Only replace placeholders from earlier (inner) macros
 			}
 			placeholder := FormatPlaceholder(innerId)
 			if strings.Contains(macroXML, placeholder) {
-				macros[id] = strings.Replace(macroXML, placeholder, innerXML, 1)
+				macros[id] = strings.Replace(macroXML, placeholder, macros[innerId], 1)
 				macroXML = macros[id]
 			}
 		}
 	}
 
 	// Second pass: replace placeholders in the main HTML
-	for id, macroXML := range macros {
+	for _, id := range ids {
+		macroXML := macros[id]
 		placeholder := FormatPlaceholder(id)
 		// The placeholder might be wrapped in <p> tags, so handle that
 		wrappedPlaceholder := "<p>" + placeholder + "</p>"

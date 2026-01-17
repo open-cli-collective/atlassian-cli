@@ -191,3 +191,21 @@ Releases are automated via release-please. When PRs merge to main with conventio
 **Before merging a PR:** Run `/release-notes` to generate release notes and update the PR description.
 
 **After merging:** release-please creates a Release PR. Merging that PR triggers the full release (GitHub Release + Homebrew tap update).
+
+## Packaging
+
+Distribution packages are in `packaging/`:
+
+```
+packaging/
+├── chocolatey/              # Windows Chocolatey package
+│   ├── confluence-cli.nuspec
+│   ├── tools/chocolateyInstall.ps1
+│   ├── tools/chocolateyUninstall.ps1
+│   └── README.md            # Publishing instructions
+└── homebrew/
+    └── README.md            # Points to GoReleaser config
+```
+
+- **Homebrew**: Managed by GoReleaser, published to [open-cli-collective/homebrew-tap](https://github.com/open-cli-collective/homebrew-tap)
+- **Chocolatey**: Manual publish process documented in `packaging/chocolatey/README.md`

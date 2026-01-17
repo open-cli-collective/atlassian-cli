@@ -103,5 +103,13 @@ jobs:
           Write-Host "Generated manifests:"
           Get-ChildItem $manifestDir | ForEach-Object { Write-Host "  $_" }
 
+          Write-Host "`nValidating manifests..."
+          winget validate --manifest $manifestDir
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Manifest validation failed"
+            exit 1
+          }
+          Write-Host "Validation passed!"
+
           Write-Host "`nSubmitting new package to Winget..."
           ./wingetcreate.exe submit --token ${{ secrets.WINGET_GITHUB_TOKEN }} $manifestDir

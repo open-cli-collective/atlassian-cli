@@ -69,10 +69,10 @@ wingetcreate update OpenCLICollective.cfl --version <VERSION> --urls <x64_url> <
 
 ## Manifest Schema
 
-These manifests use schema version 1.6.0:
-- [Version manifest schema](https://aka.ms/winget-manifest.version.1.6.0.schema.json)
-- [Installer manifest schema](https://aka.ms/winget-manifest.installer.1.6.0.schema.json)
-- [Locale manifest schema](https://aka.ms/winget-manifest.defaultLocale.1.6.0.schema.json)
+These manifests use schema version 1.10.0:
+- [Version manifest schema](https://aka.ms/winget-manifest.version.1.10.0.schema.json)
+- [Installer manifest schema](https://aka.ms/winget-manifest.installer.1.10.0.schema.json)
+- [Locale manifest schema](https://aka.ms/winget-manifest.defaultLocale.1.10.0.schema.json)
 
 ## Installer Type
 

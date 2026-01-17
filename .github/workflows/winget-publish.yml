@@ -94,8 +94,10 @@ jobs:
           # Update installer manifest with version and real checksums
           $installerManifest = Get-Content "packaging/winget/OpenCLICollective.cfl.installer.yaml" -Raw
           $installerManifest = $installerManifest -replace "0\.0\.0", $version
-          $installerManifest = $installerManifest -replace "0{64}", $env:X64_HASH, 1
-          $installerManifest = $installerManifest -replace "0{64}", $env:ARM64_HASH, 1
+          # Replace checksums one at a time using .NET regex (PowerShell -replace doesn't support count)
+          $regex = [regex]"0{64}"
+          $installerManifest = $regex.Replace($installerManifest, $env:X64_HASH, 1)
+          $installerManifest = $regex.Replace($installerManifest, $env:ARM64_HASH, 1)
           Set-Content "$manifestDir/OpenCLICollective.cfl.installer.yaml" $installerManifest
 
           Write-Host "Generated manifests:"

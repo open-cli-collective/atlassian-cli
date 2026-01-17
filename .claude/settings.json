@@ -4,6 +4,7 @@
       "Bash(go:*)",
       "Bash(golangci-lint:*)",
       "Bash(goimports:*)",
+      "Bash(gofmt:*)",
       "Bash(make:*)",
       "Bash(goreleaser:*)",
       "Bash(git:*)",
@@ -11,27 +12,35 @@
       "Bash(rm -rf bin/:*)",
       "Bash(rm -rf dist/:*)",
       "Bash(rm coverage:*)",
+      "Bash(./bin/cfl:*)",
       "WebFetch(domain:go.dev)",
       "WebFetch(domain:pkg.go.dev)",
       "WebFetch(domain:golang.org)",
       "WebFetch(domain:github.com)",
-      "WebFetch(domain:*.github.com)",
-      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:goreleaser.com)",
+      "WebFetch(domain:golangci-lint.run)",
       "WebFetch(domain:*.atlassian.com)",
       "WebFetch(domain:*.atlassian.net)",
       "WebFetch(domain:developer.atlassian.com)",
       "WebFetch(domain:confluence.atlassian.com)",
-      "WebFetch(domain:goreleaser.com)",
-      "WebFetch(domain:golangci-lint.run)",
+      "WebFetch(domain:raw.githubusercontent.com)",
       "WebSearch"
     ],
-    "deny": [
+    "ask": [
       "Bash(git rebase:*)",
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)"
+    ],
+    "deny": [
+      "Bash(goreleaser release:*)",
+      "Bash(goreleaser publish:*)",
+      "Bash(goreleaser announce:*)",
+      "Bash(goreleaser continue:*)",
       "Bash(git filter-branch:*)",
       "Bash(git filter-repo:*)",
-      "Bash(goreleaser release:*)",
       "Bash(rm -rf /:*)",
-      "Bash(rm -rf ~:*)"
+      "Bash(rm -rf ~:*)",
+      "Bash(rm -rf .*:*)"
     ]
   }
 }

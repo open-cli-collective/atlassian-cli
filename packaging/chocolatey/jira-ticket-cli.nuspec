@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+  <metadata>
+    <id>jira-ticket-cli</id>
+    <version>0.0.0</version>
+    <title>Jira Ticket CLI</title>
+    <authors>Open CLI Collective</authors>
+    <owners>rianjs</owners>
+    <licenseUrl>https://github.com/open-cli-collective/jira-ticket-cli/blob/main/LICENSE</licenseUrl>
+    <projectUrl>https://github.com/open-cli-collective/jira-ticket-cli#readme</projectUrl>
+    <projectSourceUrl>https://github.com/open-cli-collective/jira-ticket-cli</projectSourceUrl>
+    <packageSourceUrl>https://github.com/open-cli-collective/jira-ticket-cli/tree/main/packaging/chocolatey</packageSourceUrl>
+    <bugTrackerUrl>https://github.com/open-cli-collective/jira-ticket-cli/issues</bugTrackerUrl>
+    <copyright>Copyright (c) 2025 Open CLI Collective</copyright>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <description>A command-line interface for Jira Cloud. Manage issues, sprints, and workflows directly from your terminal.
+
+Features:
+- Create, view, update, and delete Jira issues
+- Transition issues through workflows
+- Manage sprint assignments
+- Search with JQL queries
+- Add and view comments
+
+Binary: jira-ticket-cli.exe</description>
+    <summary>Command-line interface for Jira Cloud</summary>
+    <releaseNotes>https://github.com/open-cli-collective/jira-ticket-cli/releases</releaseNotes>
+    <tags>jira atlassian cli ticket issue-tracking agile</tags>
+  </metadata>
+  <files>
+    <file src="tools\**" target="tools" />
+  </files>
+</package>

@@ -1,46 +1,37 @@
-name: Release
+name: Publish to Chocolatey
 
 on:
-  push:
-    tags:
-      - 'v*'
-
-permissions:
-  contents: write
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (e.g., 0.1.0)'
+        required: true
+        type: string
 
 jobs:
-  goreleaser:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - uses: actions/setup-go@v5
-        with:
-          go-version: '1.22'
-
-      - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v6
-        with:
-          version: latest
-          args: release --clean
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAP_GITHUB_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
-
-  chocolatey:
-    needs: goreleaser
+  publish:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Validate release exists
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $release = gh release view "v${{ inputs.version }}" --json tagName 2>&1
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Release v${{ inputs.version }} not found"
+            exit 1
+          }
+          Write-Host "Found release v${{ inputs.version }}"
 
       - name: Get checksums from release
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release download "${{ github.ref_name }}" --pattern "checksums.txt" --dir .
+          gh release download "v${{ inputs.version }}" --pattern "checksums.txt" --dir .
 
           $checksums = Get-Content checksums.txt
           $x64Hash = ($checksums | Select-String "windows_amd64.zip").Line.Split()[0]
@@ -55,7 +46,7 @@ jobs:
       - name: Update version and checksums
         shell: pwsh
         run: |
-          $version = "${{ github.ref_name }}".TrimStart('v')
+          $version = "${{ inputs.version }}"
 
           # Update version in nuspec
           $nuspec = 'packaging/chocolatey/jira-ticket-cli.nuspec'
@@ -70,15 +61,10 @@ jobs:
           Set-Content $script $content
           Write-Host "Injected checksums into install script"
 
-      - name: Pack Chocolatey package
+      - name: Pack and push
         shell: pwsh
         run: |
           cd packaging/chocolatey
           choco pack
           Get-ChildItem *.nupkg
-
-      - name: Push to Chocolatey
-        shell: pwsh
-        run: |
-          cd packaging/chocolatey
           choco push (Get-ChildItem *.nupkg).Name --source https://push.chocolatey.org/ --key ${{ secrets.CHOCOLATEY_API_KEY }}

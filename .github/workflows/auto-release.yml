@@ -2,8 +2,11 @@ name: Auto Release
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
+    paths:
+      - '**.go'
+      - 'go.mod'
+      - 'go.sum'
 
 permissions:
   contents: write
@@ -11,8 +14,12 @@ permissions:
 jobs:
   create-release:
     runs-on: ubuntu-latest
-    # Skip if commit is from the release workflow (avoid loops)
-    if: "!startsWith(github.event.head_commit.message, 'chore:') && !startsWith(github.event.head_commit.message, 'chore(')"
+    # Only release on feat: or fix: commits (semantic versioning)
+    if: >-
+      startsWith(github.event.head_commit.message, 'feat:') ||
+      startsWith(github.event.head_commit.message, 'feat(') ||
+      startsWith(github.event.head_commit.message, 'fix:') ||
+      startsWith(github.event.head_commit.message, 'fix(')
     steps:
       # TAP_GITHUB_TOKEN (a PAT) is required here instead of the default GITHUB_TOKEN
       # because tag pushes made with GITHUB_TOKEN do not trigger other workflows.

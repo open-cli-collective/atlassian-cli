@@ -16,6 +16,7 @@
       "WebFetch(domain:golang.org)",
       "WebFetch(domain:github.com)",
       "WebFetch(domain:*.github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
       "WebFetch(domain:*.atlassian.com)",
       "WebFetch(domain:*.atlassian.net)",
       "WebFetch(domain:developer.atlassian.com)",

@@ -20,9 +20,6 @@ builds:
     goarch:
       - amd64
       - arm64
-    ignore:
-      - goos: windows
-        goarch: arm64
     ldflags:
       - -s -w
       - -X github.com/piekstra/jira-ticket-cli/internal/version.Version={{.Version}}
@@ -44,6 +41,27 @@ archives:
 
 checksum:
   name_template: 'checksums.txt'
+
+# Homebrew cask with auto-quarantine removal for unsigned binaries
+homebrew_casks:
+  - name: jira-ticket-cli
+    repository:
+      owner: open-cli-collective
+      name: homebrew-tap
+      token: "{{ .Env.TAP_GITHUB_TOKEN }}"
+    homepage: https://github.com/open-cli-collective/jira-ticket-cli
+    description: "Command-line interface for Jira Cloud"
+    hooks:
+      post:
+        install: |
+          system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/jira-ticket-cli"]
+    caveats: |
+      jira-ticket-cli has been installed.
+
+      To configure, run:
+        jira-ticket-cli config set --domain DOMAIN --email EMAIL --token TOKEN
+
+      Get your API token from: https://id.atlassian.com/manage-profile/security/api-tokens
 
 snapshot:
   version_template: "{{ incpatch .Version }}-next"

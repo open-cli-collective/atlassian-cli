@@ -4,162 +4,27 @@ on:
   push:
     tags:
       - 'v*'
-  workflow_dispatch:
-    inputs:
-      tag:
-        description: 'Tag to build (e.g., v0.1.0)'
-        required: true
-        type: string
 
 permissions:
   contents: write
 
 jobs:
-  release:
-    runs-on: macos-latest
-    env:
-      TAG: ${{ github.ref_name || inputs.tag }}
+  goreleaser:
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ env.TAG }}
           fetch-depth: 0
 
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.22"
+          go-version: '1.22'
 
-      - name: Set build variables
-        id: vars
-        run: |
-          echo "VERSION=${{ env.TAG }}" >> $GITHUB_OUTPUT
-          echo "COMMIT=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
-          echo "DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_OUTPUT
-
-      - name: Build macOS ARM64
-        run: |
-          GOOS=darwin GOARCH=arm64 go build -ldflags "-s -w \
-            -X github.com/piekstra/jira-ticket-cli/internal/version.Version=${{ steps.vars.outputs.VERSION }} \
-            -X github.com/piekstra/jira-ticket-cli/internal/version.Commit=${{ steps.vars.outputs.COMMIT }} \
-            -X github.com/piekstra/jira-ticket-cli/internal/version.BuildDate=${{ steps.vars.outputs.DATE }}" \
-            -o jira-ticket-cli ./cmd/jira-ticket-cli
-          tar -czvf jira-ticket-cli_${{ env.TAG }}_darwin_arm64.tar.gz jira-ticket-cli
-          rm jira-ticket-cli
-
-      - name: Build macOS AMD64
-        run: |
-          GOOS=darwin GOARCH=amd64 go build -ldflags "-s -w \
-            -X github.com/piekstra/jira-ticket-cli/internal/version.Version=${{ steps.vars.outputs.VERSION }} \
-            -X github.com/piekstra/jira-ticket-cli/internal/version.Commit=${{ steps.vars.outputs.COMMIT }} \
-            -X github.com/piekstra/jira-ticket-cli/internal/version.BuildDate=${{ steps.vars.outputs.DATE }}" \
-            -o jira-ticket-cli ./cmd/jira-ticket-cli
-          tar -czvf jira-ticket-cli_${{ env.TAG }}_darwin_amd64.tar.gz jira-ticket-cli
-          rm jira-ticket-cli
-
-      - name: Build Linux ARM64
-        run: |
-          GOOS=linux GOARCH=arm64 go build -ldflags "-s -w \
-            -X github.com/piekstra/jira-ticket-cli/internal/version.Version=${{ steps.vars.outputs.VERSION }} \
-            -X github.com/piekstra/jira-ticket-cli/internal/version.Commit=${{ steps.vars.outputs.COMMIT }} \
-            -X github.com/piekstra/jira-ticket-cli/internal/version.BuildDate=${{ steps.vars.outputs.DATE }}" \
-            -o jira-ticket-cli ./cmd/jira-ticket-cli
-          tar -czvf jira-ticket-cli_${{ env.TAG }}_linux_arm64.tar.gz jira-ticket-cli
-          rm jira-ticket-cli
-
-      - name: Build Linux AMD64
-        run: |
-          GOOS=linux GOARCH=amd64 go build -ldflags "-s -w \
-            -X github.com/piekstra/jira-ticket-cli/internal/version.Version=${{ steps.vars.outputs.VERSION }} \
-            -X github.com/piekstra/jira-ticket-cli/internal/version.Commit=${{ steps.vars.outputs.COMMIT }} \
-            -X github.com/piekstra/jira-ticket-cli/internal/version.BuildDate=${{ steps.vars.outputs.DATE }}" \
-            -o jira-ticket-cli ./cmd/jira-ticket-cli
-          tar -czvf jira-ticket-cli_${{ env.TAG }}_linux_amd64.tar.gz jira-ticket-cli
-          rm jira-ticket-cli
-
-      - name: Generate checksums
-        run: |
-          shasum -a 256 *.tar.gz > checksums.txt
-          cat checksums.txt
-
-      - name: Upload Release Assets
-        uses: softprops/action-gh-release@v1
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v6
         with:
-          tag_name: ${{ env.TAG }}
-          files: |
-            *.tar.gz
-            checksums.txt
-
-      # TAP_GITHUB_TOKEN (a PAT) is required to push to the open-cli-collective/homebrew-tap
-      # repository. The default GITHUB_TOKEN only has access to this repository.
-      - name: Update Homebrew Cask
+          version: latest
+          args: release --clean
         env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAP_GITHUB_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
-        run: |
-          VERSION="${{ env.TAG }}"
-          VERSION_NUM="${VERSION#v}"
-
-          DARWIN_ARM64_SHA=$(shasum -a 256 jira-ticket-cli_${{ env.TAG }}_darwin_arm64.tar.gz | cut -d' ' -f1)
-          DARWIN_AMD64_SHA=$(shasum -a 256 jira-ticket-cli_${{ env.TAG }}_darwin_amd64.tar.gz | cut -d' ' -f1)
-          LINUX_ARM64_SHA=$(shasum -a 256 jira-ticket-cli_${{ env.TAG }}_linux_arm64.tar.gz | cut -d' ' -f1)
-          LINUX_AMD64_SHA=$(shasum -a 256 jira-ticket-cli_${{ env.TAG }}_linux_amd64.tar.gz | cut -d' ' -f1)
-
-          git clone https://x-access-token:${TAP_GITHUB_TOKEN}@github.com/open-cli-collective/homebrew-tap.git
-          cd homebrew-tap
-
-          mkdir -p Casks
-
-          cat > Casks/jira-ticket-cli.rb << 'CASKEOF'
-          cask "jira-ticket-cli" do
-            name "jira-ticket-cli"
-            desc "Command-line interface for Jira Cloud"
-            homepage "https://github.com/open-cli-collective/jira-ticket-cli"
-            version "VERSION_PLACEHOLDER"
-
-            binary "jira-ticket-cli"
-
-            on_macos do
-              on_arm do
-                url "https://github.com/open-cli-collective/jira-ticket-cli/releases/download/v#{version}/jira-ticket-cli_v#{version}_darwin_arm64.tar.gz"
-                sha256 "DARWIN_ARM64_PLACEHOLDER"
-              end
-              on_intel do
-                url "https://github.com/open-cli-collective/jira-ticket-cli/releases/download/v#{version}/jira-ticket-cli_v#{version}_darwin_amd64.tar.gz"
-                sha256 "DARWIN_AMD64_PLACEHOLDER"
-              end
-            end
-
-            on_linux do
-              on_arm do
-                url "https://github.com/open-cli-collective/jira-ticket-cli/releases/download/v#{version}/jira-ticket-cli_v#{version}_linux_arm64.tar.gz"
-                sha256 "LINUX_ARM64_PLACEHOLDER"
-              end
-              on_intel do
-                url "https://github.com/open-cli-collective/jira-ticket-cli/releases/download/v#{version}/jira-ticket-cli_v#{version}_linux_amd64.tar.gz"
-                sha256 "LINUX_AMD64_PLACEHOLDER"
-              end
-            end
-
-            postflight do
-              system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/jira-ticket-cli"]
-            end
-
-            caveats <<~EOS
-              To configure jira-ticket-cli, run:
-                jira-ticket-cli config set --domain DOMAIN --email EMAIL --token TOKEN
-
-              Get your API token from: https://id.atlassian.com/manage-profile/security/api-tokens
-            EOS
-          end
-          CASKEOF
-
-          sed -i '' "s/VERSION_PLACEHOLDER/${VERSION_NUM}/g" Casks/jira-ticket-cli.rb
-          sed -i '' "s/DARWIN_ARM64_PLACEHOLDER/${DARWIN_ARM64_SHA}/g" Casks/jira-ticket-cli.rb
-          sed -i '' "s/DARWIN_AMD64_PLACEHOLDER/${DARWIN_AMD64_SHA}/g" Casks/jira-ticket-cli.rb
-          sed -i '' "s/LINUX_ARM64_PLACEHOLDER/${LINUX_ARM64_SHA}/g" Casks/jira-ticket-cli.rb
-          sed -i '' "s/LINUX_AMD64_PLACEHOLDER/${LINUX_AMD64_SHA}/g" Casks/jira-ticket-cli.rb
-
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git commit -m "Update jira-ticket-cli to ${VERSION_NUM}"
-          git push

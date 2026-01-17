@@ -3,11 +3,17 @@ $ErrorActionPreference = 'Stop'
 $version = $env:ChocolateyPackageVersion
 $toolsDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
 
+# Checksums injected by release workflow - DO NOT EDIT MANUALLY
+$checksumAmd64 = 'CHECKSUM_AMD64_PLACEHOLDER'
+$checksumArm64 = 'CHECKSUM_ARM64_PLACEHOLDER'
+
 # Architecture detection with ARM64 support
 if ($env:PROCESSOR_ARCHITECTURE -eq 'ARM64') {
     $arch = 'arm64'
+    $checksum = $checksumArm64
 } elseif ([Environment]::Is64BitOperatingSystem) {
     $arch = 'amd64'
+    $checksum = $checksumAmd64
 } else {
     throw "32-bit Windows is not supported. confluence-cli requires 64-bit Windows."
 }
@@ -15,15 +21,6 @@ if ($env:PROCESSOR_ARCHITECTURE -eq 'ARM64') {
 $baseUrl = "https://github.com/open-cli-collective/confluence-cli/releases/download/v${version}"
 $zipFile = "cfl_${version}_windows_${arch}.zip"
 $url = "${baseUrl}/${zipFile}"
-$checksumsUrl = "${baseUrl}/checksums.txt"
-
-# Fetch checksums and extract the one for our architecture
-$checksums = (Invoke-WebRequest -Uri $checksumsUrl -UseBasicParsing).Content
-$checksumLine = $checksums -split "`n" | Where-Object { $_ -match $zipFile }
-if (-not $checksumLine) {
-    throw "Could not find checksum for ${zipFile} in checksums.txt"
-}
-$checksum = ($checksumLine -split '\s+')[0]
 
 Write-Host "Installing confluence-cli ${version} for Windows ${arch}..."
 Write-Host "URL: ${url}"

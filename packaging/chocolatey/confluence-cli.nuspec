@@ -7,7 +7,7 @@
     <authors>Open CLI Collective</authors>
     <owners>rianjs</owners>
     <licenseUrl>https://github.com/open-cli-collective/confluence-cli/blob/main/LICENSE</licenseUrl>
-    <projectUrl>https://github.com/open-cli-collective/confluence-cli</projectUrl>
+    <projectUrl>https://github.com/open-cli-collective/confluence-cli#readme</projectUrl>
     <projectSourceUrl>https://github.com/open-cli-collective/confluence-cli</projectSourceUrl>
     <packageSourceUrl>https://github.com/open-cli-collective/confluence-cli/tree/main/packaging/chocolatey</packageSourceUrl>
     <bugTrackerUrl>https://github.com/open-cli-collective/confluence-cli/issues</bugTrackerUrl>

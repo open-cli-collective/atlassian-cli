@@ -1,93 +1,30 @@
-name: Release
+name: Publish to Winget
 
 on:
-  push:
-    tags:
-      - 'v*'
-
-permissions:
-  contents: write
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (e.g., 0.1.0)'
+        required: true
+        type: string
 
 jobs:
-  goreleaser:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - uses: actions/setup-go@v5
-        with:
-          go-version: '1.22'
-
-      - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v6
-        with:
-          version: latest
-          args: release --clean
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAP_GITHUB_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
-
-  chocolatey:
-    needs: goreleaser
+  publish:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Get checksums from release
+      - name: Validate release exists
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release download "${{ github.ref_name }}" --pattern "checksums.txt" --dir .
-
-          $checksums = Get-Content checksums.txt
-          $x64Hash = ($checksums | Select-String "windows_amd64.zip").Line.Split()[0]
-          $arm64Hash = ($checksums | Select-String "windows_arm64.zip").Line.Split()[0]
-
-          Write-Host "x64 SHA256: $x64Hash"
-          Write-Host "arm64 SHA256: $arm64Hash"
-
-          echo "X64_HASH=$x64Hash" >> $env:GITHUB_ENV
-          echo "ARM64_HASH=$arm64Hash" >> $env:GITHUB_ENV
-
-      - name: Update version and checksums
-        shell: pwsh
-        run: |
-          $version = "${{ github.ref_name }}".TrimStart('v')
-
-          # Update version in nuspec
-          $nuspec = 'packaging/chocolatey/jira-ticket-cli.nuspec'
-          (Get-Content $nuspec) -replace '<version>0.0.0</version>', "<version>$version</version>" | Set-Content $nuspec
-          Write-Host "Updated nuspec to version $version"
-
-          # Inject checksums into install script
-          $script = 'packaging/chocolatey/tools/chocolateyInstall.ps1'
-          $content = Get-Content $script -Raw
-          $content = $content -replace 'CHECKSUM_AMD64_PLACEHOLDER', $env:X64_HASH
-          $content = $content -replace 'CHECKSUM_ARM64_PLACEHOLDER', $env:ARM64_HASH
-          Set-Content $script $content
-          Write-Host "Injected checksums into install script"
-
-      - name: Pack Chocolatey package
-        shell: pwsh
-        run: |
-          cd packaging/chocolatey
-          choco pack
-          Get-ChildItem *.nupkg
-
-      - name: Push to Chocolatey
-        shell: pwsh
-        run: |
-          cd packaging/chocolatey
-          choco push (Get-ChildItem *.nupkg).Name --source https://push.chocolatey.org/ --key ${{ secrets.CHOCOLATEY_API_KEY }}
-
-  winget:
-    needs: goreleaser
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
+          $release = gh release view "v${{ inputs.version }}" --json tagName 2>&1
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Release v${{ inputs.version }} not found"
+            exit 1
+          }
+          Write-Host "Found release v${{ inputs.version }}"
 
       - name: Install wingetcreate
         shell: pwsh
@@ -112,8 +49,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $version = "${{ github.ref_name }}".TrimStart('v')
-          gh release download "${{ github.ref_name }}" --pattern "checksums.txt" --dir .
+          gh release download "v${{ inputs.version }}" --pattern "checksums.txt" --dir .
 
           $checksums = Get-Content checksums.txt
           $x64Hash = ($checksums | Select-String "windows_amd64.zip").Line.Split()[0]
@@ -129,9 +65,9 @@ jobs:
         if: steps.check-manifest.outputs.exists == 'true'
         shell: pwsh
         run: |
-          $version = "${{ github.ref_name }}".TrimStart('v')
-          $x64 = "https://github.com/open-cli-collective/jira-ticket-cli/releases/download/${{ github.ref_name }}/jira-ticket-cli_${version}_windows_amd64.zip"
-          $arm64 = "https://github.com/open-cli-collective/jira-ticket-cli/releases/download/${{ github.ref_name }}/jira-ticket-cli_${version}_windows_arm64.zip"
+          $version = "${{ inputs.version }}"
+          $x64 = "https://github.com/open-cli-collective/jira-ticket-cli/releases/download/v${version}/jira-ticket-cli_${version}_windows_amd64.zip"
+          $arm64 = "https://github.com/open-cli-collective/jira-ticket-cli/releases/download/v${version}/jira-ticket-cli_${version}_windows_arm64.zip"
 
           Write-Host "Updating existing manifest to version $version"
           ./wingetcreate.exe update OpenCLICollective.jira-ticket-cli --version $version --urls $x64 $arm64 --submit --token ${{ secrets.WINGET_GITHUB_TOKEN }}
@@ -140,7 +76,7 @@ jobs:
         if: steps.check-manifest.outputs.exists == 'false'
         shell: pwsh
         run: |
-          $version = "${{ github.ref_name }}".TrimStart('v')
+          $version = "${{ inputs.version }}"
           $manifestDir = "manifests"
           New-Item -ItemType Directory -Path $manifestDir -Force | Out-Null
 

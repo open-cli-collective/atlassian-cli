@@ -16,11 +16,23 @@ A command-line interface for Atlassian Confluence Cloud, inspired by [jira-cli](
 
 ## Installation
 
-### Homebrew (macOS)
+### Homebrew (macOS/Linux)
 
 ```bash
 brew tap open-cli-collective/tap
-brew install --cask cfl
+brew install cfl
+```
+
+### Chocolatey (Windows)
+
+```powershell
+choco install confluence-cli
+```
+
+### Winget (Windows)
+
+```powershell
+winget install OpenCLICollective.cfl
 ```
 
 ### Go Install
@@ -32,6 +44,8 @@ go install github.com/open-cli-collective/confluence-cli/cmd/cfl@latest
 ### Binary Download
 
 Download the latest release from the [Releases page](https://github.com/open-cli-collective/confluence-cli/releases).
+
+Available for Windows (x64, ARM64), macOS (Intel, Apple Silicon), and Linux (x64, ARM64).
 
 ## Quick Start
 

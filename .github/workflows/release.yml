@@ -28,3 +28,30 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAP_GITHUB_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
+
+  chocolatey:
+    needs: goreleaser
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Update version in nuspec
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart('v')
+          $nuspec = 'packaging/chocolatey/confluence-cli.nuspec'
+          (Get-Content $nuspec) -replace '<version>0.0.0</version>', "<version>$version</version>" | Set-Content $nuspec
+          Write-Host "Updated nuspec to version $version"
+
+      - name: Pack Chocolatey package
+        shell: pwsh
+        run: |
+          cd packaging/chocolatey
+          choco pack
+          Get-ChildItem *.nupkg
+
+      - name: Push to Chocolatey
+        shell: pwsh
+        run: |
+          cd packaging/chocolatey
+          choco push (Get-ChildItem *.nupkg).Name --source https://push.chocolatey.org/ --key ${{ secrets.CHOCOLATEY_API_KEY }}

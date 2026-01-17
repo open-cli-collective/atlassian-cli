@@ -183,14 +183,20 @@ Use these prefixes for commit messages:
 
 ## Release Workflow
 
-Releases are automated via release-please. When PRs merge to main with conventional commits:
-- `feat:` → minor version bump
-- `fix:` → patch version bump
-- `BREAKING CHANGE:` or `feat!:` → major version bump
+Releases are automated with a dual-gate system to avoid unnecessary releases:
+
+**Gate 1 - Path filter:** Only triggers when Go code changes (`**.go`, `go.mod`, `go.sum`)
+**Gate 2 - Commit prefix:** Only `feat:` and `fix:` commits create releases
+
+This means:
+- ✅ `feat: add command` + Go files changed → release
+- ✅ `fix: handle edge case` + Go files changed → release
+- ❌ `docs:`, `ci:`, `test:`, `refactor:` → no release
+- ❌ Changes only to docs, packaging, workflows → no release
 
 **Before merging a PR:** Run `/release-notes` to generate release notes and update the PR description.
 
-**After merging:** release-please creates a Release PR. Merging that PR triggers the full release (GitHub Release + Homebrew tap update).
+**After merging a release-triggering PR:** The workflow creates a tag, which triggers GoReleaser to build binaries and publish to Homebrew and Chocolatey.
 
 ## Packaging
 
@@ -212,6 +218,6 @@ packaging/
     └── README.md            # Points to GoReleaser config
 ```
 
-- **Homebrew**: Managed by GoReleaser, published to [open-cli-collective/homebrew-tap](https://github.com/open-cli-collective/homebrew-tap)
-- **Chocolatey**: Manual publish process documented in `packaging/chocolatey/README.md`
-- **Winget**: PR submission to [microsoft/winget-pkgs](https://github.com/microsoft/winget-pkgs), documented in `packaging/winget/README.md`
+- **Homebrew**: Automated via GoReleaser, published to [open-cli-collective/homebrew-tap](https://github.com/open-cli-collective/homebrew-tap)
+- **Chocolatey**: Automated via release workflow, requires `CHOCOLATEY_API_KEY` secret
+- **Winget**: Manual PR submission to [microsoft/winget-pkgs](https://github.com/microsoft/winget-pkgs), documented in `packaging/winget/README.md`

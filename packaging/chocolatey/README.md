@@ -2,6 +2,16 @@
 
 This directory contains the Chocolatey package definition for distributing confluence-cli on Windows.
 
+## Automated Publishing
+
+Publishing to Chocolatey is automated via GitHub Actions. When a new release tag is pushed, the release workflow:
+
+1. Builds binaries with GoReleaser
+2. Packs the Chocolatey package with the release version
+3. Pushes to the Chocolatey Community Repository
+
+**Required secret:** `CHOCOLATEY_API_KEY` must be configured in repository settings.
+
 ## Package Structure
 
 ```

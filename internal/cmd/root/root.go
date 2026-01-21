@@ -20,6 +20,9 @@ type Options struct {
 	Stdin   io.Reader
 	Stdout  io.Writer
 	Stderr  io.Writer
+
+	// testClient is used for testing; if set, APIClient() returns this instead
+	testClient *api.Client
 }
 
 // View returns a configured View instance
@@ -32,12 +35,20 @@ func (o *Options) View() *view.View {
 
 // APIClient creates a new API client from config
 func (o *Options) APIClient() (*api.Client, error) {
+	if o.testClient != nil {
+		return o.testClient, nil
+	}
 	return api.New(api.ClientConfig{
 		Domain:   config.GetDomain(),
 		Email:    config.GetEmail(),
 		APIToken: config.GetAPIToken(),
 		Verbose:  o.Verbose,
 	})
+}
+
+// SetAPIClient sets a test client (for testing only)
+func (o *Options) SetAPIClient(client *api.Client) {
+	o.testClient = client
 }
 
 // NewCmd creates the root command and returns the options struct

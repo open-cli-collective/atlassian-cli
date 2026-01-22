@@ -6,8 +6,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/piekstra/jira-ticket-cli/api"
-	"github.com/piekstra/jira-ticket-cli/internal/cmd/root"
+	"github.com/open-cli-collective/jira-ticket-cli/api"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 )
 
 func newCreateCmd(opts *root.Options) *cobra.Command {

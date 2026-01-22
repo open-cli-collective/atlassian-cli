@@ -33,7 +33,7 @@ formatters:
   settings:
     goimports:
       local-prefixes:
-        - github.com/piekstra/jira-ticket-cli
+        - github.com/open-cli-collective/jira-ticket-cli
 
 run:
   timeout: 5m

@@ -22,9 +22,9 @@ builds:
       - arm64
     ldflags:
       - -s -w
-      - -X github.com/piekstra/jira-ticket-cli/internal/version.Version={{.Version}}
-      - -X github.com/piekstra/jira-ticket-cli/internal/version.Commit={{.Commit}}
-      - -X github.com/piekstra/jira-ticket-cli/internal/version.BuildDate={{.Date}}
+      - -X github.com/open-cli-collective/jira-ticket-cli/internal/version.Version={{.Version}}
+      - -X github.com/open-cli-collective/jira-ticket-cli/internal/version.Commit={{.Commit}}
+      - -X github.com/open-cli-collective/jira-ticket-cli/internal/version.BuildDate={{.Date}}
 
 archives:
   - id: default

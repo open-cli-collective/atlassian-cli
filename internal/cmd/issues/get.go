@@ -5,7 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/piekstra/jira-ticket-cli/internal/cmd/root"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 )
 
 func newGetCmd(opts *root.Options) *cobra.Command {

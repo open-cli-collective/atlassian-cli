@@ -4,16 +4,16 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/piekstra/jira-ticket-cli/internal/cmd/boards"
-	"github.com/piekstra/jira-ticket-cli/internal/cmd/comments"
-	"github.com/piekstra/jira-ticket-cli/internal/cmd/completion"
-	"github.com/piekstra/jira-ticket-cli/internal/cmd/configcmd"
-	"github.com/piekstra/jira-ticket-cli/internal/cmd/issues"
-	"github.com/piekstra/jira-ticket-cli/internal/cmd/me"
-	"github.com/piekstra/jira-ticket-cli/internal/cmd/root"
-	"github.com/piekstra/jira-ticket-cli/internal/cmd/sprints"
-	"github.com/piekstra/jira-ticket-cli/internal/cmd/transitions"
-	"github.com/piekstra/jira-ticket-cli/internal/exitcode"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/boards"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/comments"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/completion"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/configcmd"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/issues"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/me"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/sprints"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/transitions"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/exitcode"
 )
 
 func main() {

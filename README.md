@@ -25,7 +25,7 @@ brew install --cask jira-ticket-cli
 ### Go Install
 
 ```bash
-go install github.com/piekstra/jira-ticket-cli/cmd/jira-ticket-cli@latest
+go install github.com/open-cli-collective/jira-ticket-cli/cmd/jira-ticket-cli@latest
 ```
 
 ### Binary Download

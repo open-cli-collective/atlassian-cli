@@ -64,7 +64,7 @@ jira-ticket-cli/
 │   ├── view/                    # Output formatting (table, JSON, plain)
 │   └── exitcode/                # Exit code constants
 ├── Makefile                     # Build, test, lint targets
-└── go.mod                       # Module: github.com/piekstra/jira-ticket-cli
+└── go.mod                       # Module: github.com/open-cli-collective/jira-ticket-cli
 ```
 
 ## Key Patterns

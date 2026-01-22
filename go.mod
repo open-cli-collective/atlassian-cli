@@ -1,4 +1,4 @@
-module github.com/piekstra/jira-ticket-cli
+module github.com/open-cli-collective/jira-ticket-cli
 
 go 1.22
 

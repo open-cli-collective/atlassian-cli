@@ -5,9 +5,9 @@ VERSION?=$(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 COMMIT?=$(shell git rev-parse --short HEAD 2>/dev/null || echo "none")
 BUILD_DATE?=$(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-LDFLAGS=-ldflags "-X github.com/piekstra/jira-ticket-cli/internal/version.Version=$(VERSION) \
-	-X github.com/piekstra/jira-ticket-cli/internal/version.Commit=$(COMMIT) \
-	-X github.com/piekstra/jira-ticket-cli/internal/version.BuildDate=$(BUILD_DATE)"
+LDFLAGS=-ldflags "-X github.com/open-cli-collective/jira-ticket-cli/internal/version.Version=$(VERSION) \
+	-X github.com/open-cli-collective/jira-ticket-cli/internal/version.Commit=$(COMMIT) \
+	-X github.com/open-cli-collective/jira-ticket-cli/internal/version.BuildDate=$(BUILD_DATE)"
 
 build:
 	go build $(LDFLAGS) -o bin/$(BINARY_NAME) ./cmd/jira-ticket-cli

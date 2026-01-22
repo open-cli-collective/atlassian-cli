@@ -5,8 +5,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/piekstra/jira-ticket-cli/internal/cmd/root"
-	"github.com/piekstra/jira-ticket-cli/internal/config"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/config"
 )
 
 // Register registers the config commands

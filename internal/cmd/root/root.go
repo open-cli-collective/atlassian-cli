@@ -6,10 +6,10 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/piekstra/jira-ticket-cli/api"
-	"github.com/piekstra/jira-ticket-cli/internal/config"
-	"github.com/piekstra/jira-ticket-cli/internal/version"
-	"github.com/piekstra/jira-ticket-cli/internal/view"
+	"github.com/open-cli-collective/jira-ticket-cli/api"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/config"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/version"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/view"
 )
 
 // Options contains global options for commands

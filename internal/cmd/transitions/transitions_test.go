@@ -104,3 +104,94 @@ func TestFormatFieldValue(t *testing.T) {
 		})
 	}
 }
+
+func TestGetRequiredFields(t *testing.T) {
+	tests := []struct {
+		name       string
+		transition api.Transition
+		want       string
+	}{
+		{
+			name: "no fields",
+			transition: api.Transition{
+				ID:     "21",
+				Name:   "In Progress",
+				Fields: nil,
+			},
+			want: "-",
+		},
+		{
+			name: "empty fields map",
+			transition: api.Transition{
+				ID:     "21",
+				Name:   "In Progress",
+				Fields: map[string]api.TransitionField{},
+			},
+			want: "-",
+		},
+		{
+			name: "no required fields",
+			transition: api.Transition{
+				ID:   "21",
+				Name: "In Progress",
+				Fields: map[string]api.TransitionField{
+					"resolution": {
+						Required: false,
+						Name:     "Resolution",
+					},
+				},
+			},
+			want: "-",
+		},
+		{
+			name: "one required field",
+			transition: api.Transition{
+				ID:   "31",
+				Name: "Done",
+				Fields: map[string]api.TransitionField{
+					"resolution": {
+						Required: true,
+						Name:     "Resolution",
+					},
+				},
+			},
+			want: "Resolution",
+		},
+		{
+			name: "multiple required fields",
+			transition: api.Transition{
+				ID:   "31",
+				Name: "Done",
+				Fields: map[string]api.TransitionField{
+					"resolution": {
+						Required: true,
+						Name:     "Resolution",
+					},
+					"customfield_10001": {
+						Required: true,
+						Name:     "Root Cause",
+					},
+					"comment": {
+						Required: false,
+						Name:     "Comment",
+					},
+				},
+			},
+			want: "Resolution, Root Cause",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := getRequiredFields(tt.transition)
+			// For multiple fields, check both are present (order may vary due to map iteration)
+			if tt.name == "multiple required fields" {
+				assert.Contains(t, got, "Resolution")
+				assert.Contains(t, got, "Root Cause")
+				assert.NotContains(t, got, "Comment")
+			} else {
+				assert.Equal(t, tt.want, got)
+			}
+		})
+	}
+}

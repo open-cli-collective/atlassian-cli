@@ -9,11 +9,21 @@ import (
 
 // GetTransitions returns available transitions for an issue
 func (c *Client) GetTransitions(issueKey string) ([]Transition, error) {
+	return c.GetTransitionsWithFields(issueKey, false)
+}
+
+// GetTransitionsWithFields returns available transitions for an issue,
+// optionally including field metadata (required fields, allowed values)
+func (c *Client) GetTransitionsWithFields(issueKey string, includeFields bool) ([]Transition, error) {
 	if issueKey == "" {
 		return nil, ErrIssueKeyRequired
 	}
 
 	urlStr := fmt.Sprintf("%s/issue/%s/transitions", c.BaseURL, url.PathEscape(issueKey))
+	if includeFields {
+		urlStr += "?expand=transitions.fields"
+	}
+
 	body, err := c.get(urlStr)
 	if err != nil {
 		return nil, err

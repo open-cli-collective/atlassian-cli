@@ -210,9 +210,25 @@ type BoardLocation struct {
 
 // Transition represents a workflow transition
 type Transition struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
-	To   Status `json:"to"`
+	ID     string                     `json:"id"`
+	Name   string                     `json:"name"`
+	To     Status                     `json:"to"`
+	Fields map[string]TransitionField `json:"fields,omitempty"`
+}
+
+// TransitionField represents field metadata for a transition
+type TransitionField struct {
+	Required      bool          `json:"required"`
+	Name          string        `json:"name"`
+	Schema        FieldSchema   `json:"schema,omitempty"`
+	AllowedValues []FieldOption `json:"allowedValues,omitempty"`
+}
+
+// FieldOption represents an allowed value for a field
+type FieldOption struct {
+	ID    string `json:"id,omitempty"`
+	Name  string `json:"name,omitempty"`
+	Value string `json:"value,omitempty"`
 }
 
 // Comment represents an issue comment

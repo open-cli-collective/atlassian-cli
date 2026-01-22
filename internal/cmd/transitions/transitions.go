@@ -26,19 +26,29 @@ func Register(parent *cobra.Command, opts *root.Options) {
 }
 
 func newListCmd(opts *root.Options) *cobra.Command {
-	return &cobra.Command{
-		Use:     "list <issue-key>",
-		Short:   "List available transitions",
-		Long:    "List the available workflow transitions for an issue.",
-		Example: `  jira-ticket-cli transitions list PROJ-123`,
-		Args:    cobra.ExactArgs(1),
+	var showFields bool
+
+	cmd := &cobra.Command{
+		Use:   "list <issue-key>",
+		Short: "List available transitions",
+		Long:  "List the available workflow transitions for an issue.",
+		Example: `  # List transitions
+  jira-ticket-cli transitions list PROJ-123
+
+  # Show required fields for each transition
+  jira-ticket-cli transitions list PROJ-123 --fields`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runList(opts, args[0])
+			return runList(opts, args[0], showFields)
 		},
 	}
+
+	cmd.Flags().BoolVar(&showFields, "fields", false, "Show required fields for each transition")
+
+	return cmd
 }
 
-func runList(opts *root.Options, issueKey string) error {
+func runList(opts *root.Options, issueKey string, showFields bool) error {
 	v := opts.View()
 
 	client, err := opts.APIClient()
@@ -46,7 +56,7 @@ func runList(opts *root.Options, issueKey string) error {
 		return err
 	}
 
-	transitions, err := client.GetTransitions(issueKey)
+	transitions, err := client.GetTransitionsWithFields(issueKey, showFields)
 	if err != nil {
 		return err
 	}
@@ -60,6 +70,18 @@ func runList(opts *root.Options, issueKey string) error {
 		return v.JSON(transitions)
 	}
 
+	if showFields {
+		headers := []string{"ID", "NAME", "TO STATUS", "REQUIRED FIELDS"}
+		var rows [][]string
+
+		for _, t := range transitions {
+			required := getRequiredFields(t)
+			rows = append(rows, []string{t.ID, t.Name, t.To.Name, required})
+		}
+
+		return v.Table(headers, rows)
+	}
+
 	headers := []string{"ID", "NAME", "TO STATUS"}
 	var rows [][]string
 
@@ -68,6 +90,20 @@ func runList(opts *root.Options, issueKey string) error {
 	}
 
 	return v.Table(headers, rows)
+}
+
+// getRequiredFields returns a comma-separated list of required field names
+func getRequiredFields(t api.Transition) string {
+	var required []string
+	for _, field := range t.Fields {
+		if field.Required {
+			required = append(required, field.Name)
+		}
+	}
+	if len(required) == 0 {
+		return "-"
+	}
+	return strings.Join(required, ", ")
 }
 
 func newDoCmd(opts *root.Options) *cobra.Command {

@@ -13,6 +13,7 @@ import (
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/sprints"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/transitions"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/users"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/exitcode"
 )
 
@@ -33,6 +34,7 @@ func run() error {
 	comments.Register(rootCmd, opts)
 	boards.Register(rootCmd, opts)
 	sprints.Register(rootCmd, opts)
+	users.Register(rootCmd, opts)
 	me.Register(rootCmd, opts)
 	completion.Register(rootCmd, opts)
 

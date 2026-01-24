@@ -30,6 +30,7 @@ jobs:
           TAP_GITHUB_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
 
   chocolatey:
+    if: false  # Temporarily disabled - waiting for v0.9.9 moderation approval
     needs: goreleaser
     runs-on: windows-latest
     steps:
@@ -178,6 +179,7 @@ jobs:
           ./wingetcreate.exe submit --token ${{ secrets.WINGET_GITHUB_TOKEN }} $manifestDir
 
   snap:
+    if: false  # Temporarily disabled - waiting for personal-files interface approval
     needs: goreleaser
     runs-on: ubuntu-latest
     steps:

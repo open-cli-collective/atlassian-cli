@@ -54,24 +54,16 @@ Download from the [Releases page](https://github.com/open-cli-collective/conflue
 
 ### Linux
 
-**Snap (recommended)**
-
-```bash
-sudo snap install ocli-confluence
-```
-
-The command is `cfl` after installation.
-
-**APT (Debian/Ubuntu)**
+**APT (Debian/Ubuntu) - Recommended**
 
 ```bash
 # Add the GPG key
 curl -fsSL https://open-cli-collective.github.io/linux-packages/keys/gpg.asc | sudo gpg --dearmor -o /usr/share/keyrings/open-cli-collective.gpg
 
 # Add the repository
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/open-cli-collective.gpg] https://open-cli-collective.github.io/linux-packages/apt stable main" | sudo tee /etc/apt/sources.list.d/open-cli-collective.list
+echo "deb [signed-by=/usr/share/keyrings/open-cli-collective.gpg] https://open-cli-collective.github.io/linux-packages/apt stable main" | sudo tee /etc/apt/sources.list.d/open-cli-collective.list
 
-# Install
+# Update and install
 sudo apt update
 sudo apt install cfl
 ```
@@ -102,6 +94,15 @@ sudo dnf install cfl
 ```bash
 brew install open-cli-collective/tap/cfl
 ```
+
+**Snap**
+
+```bash
+sudo snap install ocli-confluence
+sudo snap alias ocli-confluence cfl  # Optional: create 'cfl' alias
+```
+
+> Note: Snap package is pending store approval. Check availability at https://snapcraft.io/ocli-confluence
 
 **Binary download**
 

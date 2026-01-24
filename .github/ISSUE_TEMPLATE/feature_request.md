@@ -19,7 +19,7 @@ Any alternative solutions or features you've considered.
 Show how you'd use this feature:
 
 ```bash
-jira-ticket-cli <your-proposed-command>
+jtk <your-proposed-command>
 ```
 
 **Additional context**

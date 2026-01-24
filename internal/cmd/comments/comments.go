@@ -29,7 +29,7 @@ func newListCmd(opts *root.Options) *cobra.Command {
 		Use:     "list <issue-key>",
 		Short:   "List comments on an issue",
 		Long:    "List all comments on a specific issue.",
-		Example: `  jira-ticket-cli comments list PROJ-123`,
+		Example: `  jtk comments list PROJ-123`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runList(opts, args[0], maxResults)
@@ -93,7 +93,7 @@ func newAddCmd(opts *root.Options) *cobra.Command {
 		Use:     "add <issue-key>",
 		Short:   "Add a comment to an issue",
 		Long:    "Add a new comment to an issue.",
-		Example: `  jira-ticket-cli comments add PROJ-123 --body "This is my comment"`,
+		Example: `  jtk comments add PROJ-123 --body "This is my comment"`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runAdd(opts, args[0], body)
@@ -132,7 +132,7 @@ func newDeleteCmd(opts *root.Options) *cobra.Command {
 		Use:     "delete <issue-key> <comment-id>",
 		Short:   "Delete a comment from an issue",
 		Long:    "Delete an existing comment from an issue.",
-		Example: `  jira-ticket-cli comments delete PROJ-123 12345`,
+		Example: `  jtk comments delete PROJ-123 12345`,
 		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runDelete(opts, args[0], args[1])

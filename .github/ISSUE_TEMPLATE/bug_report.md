@@ -6,11 +6,11 @@ labels: bug
 assignees: ''
 ---
 
-**jira-ticket-cli version**
-Run `jira-ticket-cli --version` and paste the output:
+**jtk version**
+Run `jtk --version` and paste the output:
 
 ```
-jira-ticket-cli version ...
+jtk version ...
 ```
 
 **Environment**

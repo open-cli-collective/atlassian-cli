@@ -35,10 +35,10 @@ func newListCmd(opts *root.Options) *cobra.Command {
 		Short: "List sprints for a board",
 		Long:  "List sprints for a specific board.",
 		Example: `  # List all sprints
-  jira-ticket-cli sprints list --board 123
+  jtk sprints list --board 123
 
   # List only active sprints
-  jira-ticket-cli sprints list --board 123 --state active`,
+  jtk sprints list --board 123 --state active`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if boardID == 0 {
 				return fmt.Errorf("--board is required")
@@ -108,7 +108,7 @@ func newCurrentCmd(opts *root.Options) *cobra.Command {
 		Use:     "current",
 		Short:   "Show current sprint",
 		Long:    "Show the current active sprint for a board.",
-		Example: `  jira-ticket-cli sprints current --board 123`,
+		Example: `  jtk sprints current --board 123`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if boardID == 0 {
 				return fmt.Errorf("--board is required")
@@ -162,7 +162,7 @@ func newIssuesCmd(opts *root.Options) *cobra.Command {
 		Use:     "issues <sprint-id>",
 		Short:   "List issues in a sprint",
 		Long:    "List all issues in a specific sprint.",
-		Example: `  jira-ticket-cli sprints issues 456`,
+		Example: `  jtk sprints issues 456`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var sprintID int
@@ -242,10 +242,10 @@ func newAddCmd(opts *root.Options) *cobra.Command {
 		Short: "Move issues to a sprint",
 		Long:  "Move one or more issues to a specific sprint.",
 		Example: `  # Move a single issue
-  jira-ticket-cli sprints add 123 PROJ-456
+  jtk sprints add 123 PROJ-456
 
   # Move multiple issues
-  jira-ticket-cli sprints add 123 PROJ-456 PROJ-789 PROJ-101`,
+  jtk sprints add 123 PROJ-456 PROJ-789 PROJ-101`,
 		Args: cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var sprintID int

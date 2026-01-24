@@ -14,10 +14,10 @@ func newTypesCmd(opts *root.Options) *cobra.Command {
 		Short: "List valid issue types for a project",
 		Long:  "List all valid issue types that can be used when creating issues in a specific project.",
 		Example: `  # List issue types for a project
-  jira-ticket-cli issues types --project MYPROJ
+  jtk issues types --project MYPROJ
 
   # Using short flag
-  jira-ticket-cli issues types -p MYPROJ`,
+  jtk issues types -p MYPROJ`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runTypes(opts, project)
 		},

@@ -13,10 +13,10 @@ func Register(parent *cobra.Command, opts *root.Options) {
 		Short: "Show current user",
 		Long:  "Show information about the currently authenticated Jira user.",
 		Example: `  # Show current user info
-  jira-ticket-cli me
+  jtk me
 
   # Show just the account ID (for scripting)
-  jira-ticket-cli me -o plain`,
+  jtk me -o plain`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return run(opts)
 		},

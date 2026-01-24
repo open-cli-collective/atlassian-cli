@@ -22,13 +22,13 @@ func newCreateCmd(opts *root.Options) *cobra.Command {
 		Short: "Create a new issue",
 		Long:  "Create a new Jira issue with the specified fields.",
 		Example: `  # Create a basic task
-  jira-ticket-cli issues create --project MYPROJECT --type Task --summary "Fix login bug"
+  jtk issues create --project MYPROJECT --type Task --summary "Fix login bug"
 
   # Create with description
-  jira-ticket-cli issues create --project MYPROJECT --type Bug --summary "Login fails" --description "Users cannot log in with SSO"
+  jtk issues create --project MYPROJECT --type Bug --summary "Login fails" --description "Users cannot log in with SSO"
 
   # Create with custom fields
-  jira-ticket-cli issues create --project MYPROJECT --type Story --summary "New feature" --field priority=High`,
+  jtk issues create --project MYPROJECT --type Story --summary "New feature" --field priority=High`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCreate(opts, project, issueType, summary, description, fields)
 		},

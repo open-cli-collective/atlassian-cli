@@ -33,10 +33,10 @@ func newListCmd(opts *root.Options) *cobra.Command {
 		Short: "List available transitions",
 		Long:  "List the available workflow transitions for an issue.",
 		Example: `  # List transitions
-  jira-ticket-cli transitions list PROJ-123
+  jtk transitions list PROJ-123
 
   # Show required fields for each transition
-  jira-ticket-cli transitions list PROJ-123 --fields`,
+  jtk transitions list PROJ-123 --fields`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runList(opts, args[0], showFields)
@@ -116,14 +116,14 @@ func newDoCmd(opts *root.Options) *cobra.Command {
 
 Some transitions require additional fields to be set. Use --field to provide them.`,
 		Example: `  # Transition by name
-  jira-ticket-cli transitions do PROJ-123 "In Progress"
+  jtk transitions do PROJ-123 "In Progress"
 
   # Transition by ID
-  jira-ticket-cli transitions do PROJ-123 21
+  jtk transitions do PROJ-123 21
 
   # Transition with required fields
-  jira-ticket-cli transitions do PROJ-123 "In Progress" --field resolution=Done
-  jira-ticket-cli transitions do PROJ-123 "Done" --field customfield_10001="some value"`,
+  jtk transitions do PROJ-123 "In Progress" --field resolution=Done
+  jtk transitions do PROJ-123 "Done" --field customfield_10001="some value"`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runDo(opts, args[0], args[1], fields)

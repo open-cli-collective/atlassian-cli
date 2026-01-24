@@ -18,7 +18,7 @@ Thank you for your interest in contributing to jira-ticket-cli!
 3. Build and run:
    ```bash
    make build
-   ./bin/jira-ticket-cli --version
+   ./bin/jtk --version
    ```
 
 ## Running Tests
@@ -72,7 +72,7 @@ docs: update installation instructions
 
 ```
 jira-ticket-cli/
-├── cmd/jira-ticket-cli/  # Entry point
+├── cmd/jtk/              # Entry point
 ├── api/                  # Jira API client
 ├── internal/
 │   ├── cmd/              # Command implementations

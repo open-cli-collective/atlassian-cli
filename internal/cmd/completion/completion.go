@@ -13,35 +13,35 @@ func Register(parent *cobra.Command, opts *root.Options) {
 	cmd := &cobra.Command{
 		Use:   "completion [bash|zsh|fish|powershell]",
 		Short: "Generate shell completion scripts",
-		Long: `Generate shell completion scripts for jira-ticket-cli.
+		Long: `Generate shell completion scripts for jtk.
 
 To load completions:
 
 Bash:
-  $ source <(jira-ticket-cli completion bash)
+  $ source <(jtk completion bash)
   # To load completions for each session, execute once:
   # Linux:
-  $ jira-ticket-cli completion bash > /etc/bash_completion.d/jira-ticket-cli
+  $ jtk completion bash > /etc/bash_completion.d/jtk
   # macOS:
-  $ jira-ticket-cli completion bash > $(brew --prefix)/etc/bash_completion.d/jira-ticket-cli
+  $ jtk completion bash > $(brew --prefix)/etc/bash_completion.d/jtk
 
 Zsh:
   # If shell completion is not already enabled in your environment,
   # you will need to enable it. You can execute the following once:
   $ echo "autoload -U compinit; compinit" >> ~/.zshrc
   # To load completions for each session, execute once:
-  $ jira-ticket-cli completion zsh > "${fpath[1]}/_jira-ticket-cli"
+  $ jtk completion zsh > "${fpath[1]}/_jtk"
   # You will need to start a new shell for this setup to take effect.
 
 Fish:
-  $ jira-ticket-cli completion fish | source
+  $ jtk completion fish | source
   # To load completions for each session, execute once:
-  $ jira-ticket-cli completion fish > ~/.config/fish/completions/jira-ticket-cli.fish
+  $ jtk completion fish > ~/.config/fish/completions/jtk.fish
 
 PowerShell:
-  PS> jira-ticket-cli completion powershell | Out-String | Invoke-Expression
+  PS> jtk completion powershell | Out-String | Invoke-Expression
   # To load completions for every new session, run:
-  PS> jira-ticket-cli completion powershell > jira-ticket-cli.ps1
+  PS> jtk completion powershell > jtk.ps1
   # and source this file from your PowerShell profile.
 `,
 		DisableFlagsInUseLine: true,

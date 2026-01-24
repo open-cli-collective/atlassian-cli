@@ -13,8 +13,8 @@ func newGetCmd(opts *root.Options) *cobra.Command {
 		Use:   "get <issue-key>",
 		Short: "Get issue details",
 		Long:  "Retrieve and display details for a specific issue.",
-		Example: `  jira-ticket-cli issues get PROJ-123
-  jira-ticket-cli issues get PROJ-123 -o json`,
+		Example: `  jtk issues get PROJ-123
+  jtk issues get PROJ-123 -o json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runGet(opts, args[0])

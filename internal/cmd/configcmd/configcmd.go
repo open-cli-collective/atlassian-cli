@@ -14,7 +14,7 @@ func Register(parent *cobra.Command, opts *root.Options) {
 	cmd := &cobra.Command{
 		Use:   "config",
 		Short: "Manage CLI configuration",
-		Long:  "Commands for managing jira-ticket-cli configuration and credentials.",
+		Long:  "Commands for managing jtk configuration and credentials.",
 	}
 
 	cmd.AddCommand(newSetCmd(opts))
@@ -32,7 +32,7 @@ func newSetCmd(opts *root.Options) *cobra.Command {
 		Short: "Set configuration values",
 		Long:  "Set Jira credentials. All values are required.",
 		Example: `  # Set all credentials
-  jira-ticket-cli config set --domain mycompany --email user@example.com --token YOUR_API_TOKEN
+  jtk config set --domain mycompany --email user@example.com --token YOUR_API_TOKEN
 
   # Using environment variables instead
   export JIRA_DOMAIN=mycompany

@@ -20,13 +20,13 @@ func newUpdateCmd(opts *root.Options) *cobra.Command {
 		Short: "Update an issue",
 		Long:  "Update fields on an existing Jira issue.",
 		Example: `  # Update summary
-  jira-ticket-cli issues update PROJ-123 --summary "New summary"
+  jtk issues update PROJ-123 --summary "New summary"
 
   # Update description
-  jira-ticket-cli issues update PROJ-123 --description "Updated description"
+  jtk issues update PROJ-123 --description "Updated description"
 
   # Update custom fields
-  jira-ticket-cli issues update PROJ-123 --field priority=High --field "Story Points"=5`,
+  jtk issues update PROJ-123 --field priority=High --field "Story Points"=5`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runUpdate(opts, args[0], summary, description, fields)

@@ -31,13 +31,13 @@ func newSearchCmd(opts *root.Options) *cobra.Command {
 The search is case-insensitive and matches against display name, email address,
 and other user attributes. Use this to find account IDs for issue assignment.`,
 		Example: `  # Search for users named "john"
-  jira-ticket-cli users search john
+  jtk users search john
 
   # Get results as JSON
-  jira-ticket-cli users search john -o json
+  jtk users search john -o json
 
   # Limit results
-  jira-ticket-cli users search john --max 5`,
+  jtk users search john --max 5`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runSearch(opts, args[0], maxResults)

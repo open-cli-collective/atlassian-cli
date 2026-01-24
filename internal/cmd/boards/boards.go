@@ -32,10 +32,10 @@ func newListCmd(opts *root.Options) *cobra.Command {
 		Short: "List boards",
 		Long:  "List agile boards, optionally filtered by project.",
 		Example: `  # List all boards
-  jira-ticket-cli boards list
+  jtk boards list
 
   # List boards for a project
-  jira-ticket-cli boards list --project MYPROJECT`,
+  jtk boards list --project MYPROJECT`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runList(opts, project, maxResults)
 		},
@@ -89,7 +89,7 @@ func newGetCmd(opts *root.Options) *cobra.Command {
 		Use:     "get <board-id>",
 		Short:   "Get board details",
 		Long:    "Get details for a specific board.",
-		Example: `  jira-ticket-cli boards get 123`,
+		Example: `  jtk boards get 123`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var boardID int

@@ -20,10 +20,10 @@ func newFieldOptionsCmd(opts *root.Options) *cobra.Command {
 When used with --issue, shows the allowed values in the context of that specific issue.
 Without --issue, attempts to show all possible values for the field.`,
 		Example: `  # List options for a field using issue context
-  jira-ticket-cli issues field-options "Priority" --issue PROJ-123
+  jtk issues field-options "Priority" --issue PROJ-123
 
   # List options using field ID
-  jira-ticket-cli issues field-options customfield_10001 --issue PROJ-123`,
+  jtk issues field-options customfield_10001 --issue PROJ-123`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runFieldOptions(opts, args[0], issueKey)

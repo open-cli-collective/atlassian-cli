@@ -15,13 +15,13 @@ func newFieldsCmd(opts *root.Options) *cobra.Command {
 		Short: "List available fields",
 		Long:  "List fields that can be used when creating or updating issues. If an issue key is provided, shows the editable fields for that specific issue.",
 		Example: `  # List all fields
-  jira-ticket-cli issues fields
+  jtk issues fields
 
   # List only custom fields
-  jira-ticket-cli issues fields --custom
+  jtk issues fields --custom
 
   # List editable fields for a specific issue
-  jira-ticket-cli issues fields PROJ-123`,
+  jtk issues fields PROJ-123`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			issueKey := ""

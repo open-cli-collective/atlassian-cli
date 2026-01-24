@@ -360,7 +360,7 @@ Environment variables override config file values:
 
 ## Shell Completion
 
-jira-ticket-cli supports tab completion for bash, zsh, fish, and PowerShell.
+jtk supports tab completion for bash, zsh, fish, and PowerShell.
 
 ### Bash
 
@@ -369,10 +369,10 @@ jira-ticket-cli supports tab completion for bash, zsh, fish, and PowerShell.
 source <(jtk completion bash)
 
 # Install permanently (Linux)
-jtk completion bash | sudo tee /etc/bash_completion.d/jira-ticket-cli > /dev/null
+jtk completion bash | sudo tee /etc/bash_completion.d/jtk > /dev/null
 
 # Install permanently (macOS with Homebrew)
-jtk completion bash > $(brew --prefix)/etc/bash_completion.d/jira-ticket-cli
+jtk completion bash > $(brew --prefix)/etc/bash_completion.d/jtk
 ```
 
 ### Zsh
@@ -383,7 +383,7 @@ source <(jtk completion zsh)
 
 # Install permanently
 mkdir -p ~/.zsh/completions
-jtk completion zsh > ~/.zsh/completions/_jira-ticket-cli
+jtk completion zsh > ~/.zsh/completions/_jtk
 
 # Add to ~/.zshrc if not already present:
 # fpath=(~/.zsh/completions $fpath)
@@ -397,7 +397,7 @@ jtk completion zsh > ~/.zsh/completions/_jira-ticket-cli
 jtk completion fish | source
 
 # Install permanently
-jtk completion fish > ~/.config/fish/completions/jira-ticket-cli.fish
+jtk completion fish > ~/.config/fish/completions/jtk.fish
 ```
 
 ### PowerShell

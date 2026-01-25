@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 const (
@@ -17,7 +18,8 @@ const (
 
 // Config holds the CLI configuration
 type Config struct {
-	Domain   string `json:"domain"`
+	URL      string `json:"url,omitempty"`
+	Domain   string `json:"domain,omitempty"` // Deprecated: use URL instead
 	Email    string `json:"email"`
 	APIToken string `json:"api_token"`
 }
@@ -92,7 +94,31 @@ func Clear() error {
 	return nil
 }
 
-// GetDomain returns the domain from config or environment
+// GetURL returns the Jira URL from config or environment.
+// It checks JIRA_URL first, then falls back to constructing from JIRA_DOMAIN for backwards compatibility.
+func GetURL() string {
+	if v := os.Getenv("JIRA_URL"); v != "" {
+		return NormalizeURL(v)
+	}
+	cfg, err := Load()
+	if err != nil {
+		return ""
+	}
+	if cfg.URL != "" {
+		return NormalizeURL(cfg.URL)
+	}
+	// Backwards compatibility: construct URL from domain
+	if v := os.Getenv("JIRA_DOMAIN"); v != "" {
+		return "https://" + v + ".atlassian.net"
+	}
+	if cfg.Domain != "" {
+		return "https://" + cfg.Domain + ".atlassian.net"
+	}
+	return ""
+}
+
+// GetDomain returns the domain from config or environment.
+// Deprecated: Use GetURL instead. This is kept for backwards compatibility.
 func GetDomain() string {
 	if v := os.Getenv("JIRA_DOMAIN"); v != "" {
 		return v
@@ -102,6 +128,19 @@ func GetDomain() string {
 		return ""
 	}
 	return cfg.Domain
+}
+
+// NormalizeURL ensures the URL has a scheme and no trailing slash.
+func NormalizeURL(u string) string {
+	if u == "" {
+		return ""
+	}
+	// Add https:// if no scheme
+	if !strings.HasPrefix(u, "http://") && !strings.HasPrefix(u, "https://") {
+		u = "https://" + u
+	}
+	// Remove trailing slash
+	return strings.TrimSuffix(u, "/")
 }
 
 // GetEmail returns the email from config or environment
@@ -130,7 +169,7 @@ func GetAPIToken() string {
 
 // IsConfigured returns true if all required config values are set
 func IsConfigured() bool {
-	return GetDomain() != "" && GetEmail() != "" && GetAPIToken() != ""
+	return GetURL() != "" && GetEmail() != "" && GetAPIToken() != ""
 }
 
 // Path returns the path to the config file

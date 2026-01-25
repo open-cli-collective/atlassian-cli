@@ -4,7 +4,7 @@ This file provides guidance for AI agents working with the jira-ticket-cli codeb
 
 ## Project Overview
 
-jira-ticket-cli is a command-line interface for Jira Cloud written in Go. It uses the Cobra framework for commands and provides a public `api/` package that can be imported as a Go library. The CLI supports multiple output formats (table, JSON, plain).
+jira-ticket-cli is a command-line interface for Jira (Cloud and self-hosted) written in Go. It uses the Cobra framework for commands and provides a public `api/` package that can be imported as a Go library. The CLI supports multiple output formats (table, JSON, plain).
 
 ## Quick Commands
 
@@ -59,7 +59,7 @@ jira-ticket-cli/
 │   │   ├── configcmd/           # config set
 │   │   ├── me/                  # me (current user info)
 │   │   └── completion/          # Shell completion
-│   ├── config/                  # YAML config loading
+│   ├── config/                  # JSON config loading
 │   ├── version/                 # Build-time version injection via ldflags
 │   ├── view/                    # Output formatting (table, JSON, plain)
 │   └── exitcode/                # Exit code constants
@@ -172,9 +172,11 @@ This means:
 
 | Variable | Description |
 |----------|-------------|
-| `JIRA_DOMAIN` | Jira domain (without `.atlassian.net`) |
+| `JIRA_URL` | Full Jira URL (e.g., `https://mycompany.atlassian.net` or `https://jira.internal.corp.com`) |
 | `JIRA_EMAIL` | Your Atlassian email |
 | `JIRA_API_TOKEN` | Your API token |
+
+> **Note:** `JIRA_DOMAIN` is deprecated but still supported for backwards compatibility.
 
 ## Dependencies
 

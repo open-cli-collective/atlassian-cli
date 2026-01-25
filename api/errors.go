@@ -16,7 +16,7 @@ var (
 	ErrBadRequest         = errors.New("bad request")
 	ErrRateLimited        = errors.New("rate limited: too many requests")
 	ErrServerError        = errors.New("server error")
-	ErrDomainRequired     = errors.New("domain is required")
+	ErrURLRequired        = errors.New("URL is required")
 	ErrEmailRequired      = errors.New("email is required")
 	ErrAPITokenRequired   = errors.New("API token is required")
 	ErrIssueKeyRequired   = errors.New("issue key is required")

@@ -25,17 +25,20 @@ func Register(parent *cobra.Command, opts *root.Options) {
 }
 
 func newSetCmd(opts *root.Options) *cobra.Command {
-	var domain, email, token string
+	var url, email, token string
 
 	cmd := &cobra.Command{
 		Use:   "set",
 		Short: "Set configuration values",
 		Long:  "Set Jira credentials. All values are required.",
-		Example: `  # Set all credentials
-  jtk config set --domain mycompany --email user@example.com --token YOUR_API_TOKEN
+		Example: `  # Set all credentials (Jira Cloud)
+  jtk config set --url https://mycompany.atlassian.net --email user@example.com --token YOUR_API_TOKEN
+
+  # Self-hosted Jira
+  jtk config set --url https://jira.internal.corp.com --email user@example.com --token YOUR_API_TOKEN
 
   # Using environment variables instead
-  export JIRA_DOMAIN=mycompany
+  export JIRA_URL=https://mycompany.atlassian.net
   export JIRA_EMAIL=user@example.com
   export JIRA_API_TOKEN=YOUR_API_TOKEN`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -46,8 +49,9 @@ func newSetCmd(opts *root.Options) *cobra.Command {
 				return err
 			}
 
-			if domain != "" {
-				cfg.Domain = domain
+			if url != "" {
+				cfg.URL = config.NormalizeURL(url)
+				cfg.Domain = "" // Clear deprecated field when URL is set
 			}
 			if email != "" {
 				cfg.Email = email
@@ -65,7 +69,7 @@ func newSetCmd(opts *root.Options) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&domain, "domain", "", "Jira domain (e.g., 'mycompany' for mycompany.atlassian.net)")
+	cmd.Flags().StringVar(&url, "url", "", "Jira URL (e.g., 'https://mycompany.atlassian.net' or 'https://jira.internal.corp.com')")
 	cmd.Flags().StringVar(&email, "email", "", "Email address for authentication")
 	cmd.Flags().StringVar(&token, "token", "", "API token (create at https://id.atlassian.com/manage-profile/security/api-tokens)")
 
@@ -80,7 +84,7 @@ func newShowCmd(opts *root.Options) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			v := opts.View()
 
-			domain := config.GetDomain()
+			url := config.GetURL()
 			email := config.GetEmail()
 			token := config.GetAPIToken()
 
@@ -96,13 +100,13 @@ func newShowCmd(opts *root.Options) *cobra.Command {
 
 			headers := []string{"KEY", "VALUE", "SOURCE"}
 			rows := [][]string{
-				{"domain", domain, getSource("JIRA_DOMAIN", domain)},
+				{"url", url, getURLSource()},
 				{"email", email, getSource("JIRA_EMAIL", email)},
 				{"api_token", maskedToken, getSource("JIRA_API_TOKEN", token)},
 			}
 
 			data := map[string]string{
-				"domain":    domain,
+				"url":       url,
 				"email":     email,
 				"api_token": maskedToken,
 				"path":      config.Path(),
@@ -144,4 +148,25 @@ func getSource(envVar, value string) string {
 		return "env"
 	}
 	return "config"
+}
+
+func getURLSource() string {
+	if os.Getenv("JIRA_URL") != "" {
+		return "env (JIRA_URL)"
+	}
+	cfg, err := config.Load()
+	if err != nil {
+		return "-"
+	}
+	if cfg.URL != "" {
+		return "config"
+	}
+	// Check legacy domain sources
+	if os.Getenv("JIRA_DOMAIN") != "" {
+		return "env (JIRA_DOMAIN, deprecated)"
+	}
+	if cfg.Domain != "" {
+		return "config (domain, deprecated)"
+	}
+	return "-"
 }

@@ -113,8 +113,15 @@ go install github.com/open-cli-collective/jira-ticket-cli/cmd/jtk@latest
 ### 1. Configure jtk
 
 ```bash
+# Jira Cloud
 jtk config set \
-  --domain mycompany \
+  --url https://mycompany.atlassian.net \
+  --email user@example.com \
+  --token YOUR_API_TOKEN
+
+# Self-hosted Jira (Data Center / Server)
+jtk config set \
+  --url https://jira.internal.corp.com \
   --email user@example.com \
   --token YOUR_API_TOKEN
 ```
@@ -155,12 +162,16 @@ These flags are available on all commands:
 Configure Jira credentials.
 
 ```bash
-jtk config set --domain mycompany --email user@example.com --token YOUR_TOKEN
+# Jira Cloud
+jtk config set --url https://mycompany.atlassian.net --email user@example.com --token YOUR_TOKEN
+
+# Self-hosted Jira
+jtk config set --url https://jira.internal.corp.com --email user@example.com --token YOUR_TOKEN
 ```
 
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
-| `--domain` | `-d` | | Jira domain (e.g., `mycompany` for mycompany.atlassian.net) |
+| `--url` | | | Jira URL (e.g., `https://mycompany.atlassian.net` or `https://jira.internal.corp.com`) |
 | `--email` | `-e` | | Your Atlassian email |
 | `--token` | `-t` | | Your API token |
 
@@ -414,12 +425,14 @@ jtk boards get 123
 
 ## Configuration
 
-Configuration is stored in `~/.config/jira-ticket-cli/config.yml`:
+Configuration is stored in `~/.config/jira-ticket-cli/config.json`:
 
-```yaml
-domain: mycompany
-email: user@example.com
-api_token: your-api-token
+```json
+{
+  "url": "https://mycompany.atlassian.net",
+  "email": "user@example.com",
+  "api_token": "your-api-token"
+}
 ```
 
 ### Environment Variables
@@ -428,9 +441,11 @@ Environment variables override config file values:
 
 | Variable | Description |
 |----------|-------------|
-| `JIRA_DOMAIN` | Jira domain (without `.atlassian.net`) |
+| `JIRA_URL` | Full Jira URL (e.g., `https://mycompany.atlassian.net` or `https://jira.internal.corp.com`) |
 | `JIRA_EMAIL` | Your Atlassian email |
 | `JIRA_API_TOKEN` | Your API token |
+
+> **Note:** The legacy `JIRA_DOMAIN` environment variable is still supported for backwards compatibility but is deprecated. Use `JIRA_URL` instead.
 
 ---
 

@@ -13,18 +13,18 @@ import (
 
 // Client is a Jira API client
 type Client struct {
-	Domain     string
+	URL        string // Base URL (e.g., https://mycompany.atlassian.net)
 	Email      string
 	APIToken   string
-	BaseURL    string
-	AgileURL   string
+	BaseURL    string // REST API v3 URL
+	AgileURL   string // Agile API URL
 	HTTPClient *http.Client
 	Verbose    bool
 }
 
 // ClientConfig contains configuration for creating a new client
 type ClientConfig struct {
-	Domain   string
+	URL      string // Full Jira URL (e.g., https://mycompany.atlassian.net or https://jira.internal.corp.com)
 	Email    string
 	APIToken string
 	Verbose  bool
@@ -32,8 +32,8 @@ type ClientConfig struct {
 
 // New creates a new Jira API client from config
 func New(cfg ClientConfig) (*Client, error) {
-	if cfg.Domain == "" {
-		return nil, ErrDomainRequired
+	if cfg.URL == "" {
+		return nil, ErrURLRequired
 	}
 	if cfg.Email == "" {
 		return nil, ErrEmailRequired
@@ -42,17 +42,37 @@ func New(cfg ClientConfig) (*Client, error) {
 		return nil, ErrAPITokenRequired
 	}
 
+	// Normalize URL: ensure https and no trailing slash
+	baseURL := cfg.URL
+	if !hasScheme(baseURL) {
+		baseURL = "https://" + baseURL
+	}
+	baseURL = trimTrailingSlash(baseURL)
+
 	return &Client{
-		Domain:   cfg.Domain,
+		URL:      baseURL,
 		Email:    cfg.Email,
 		APIToken: cfg.APIToken,
-		BaseURL:  fmt.Sprintf("https://%s.atlassian.net/rest/api/3", cfg.Domain),
-		AgileURL: fmt.Sprintf("https://%s.atlassian.net/rest/agile/1.0", cfg.Domain),
+		BaseURL:  baseURL + "/rest/api/3",
+		AgileURL: baseURL + "/rest/agile/1.0",
 		HTTPClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
 		Verbose: cfg.Verbose,
 	}, nil
+}
+
+// hasScheme checks if a URL has an http or https scheme
+func hasScheme(u string) bool {
+	return len(u) >= 7 && (u[:7] == "http://" || (len(u) >= 8 && u[:8] == "https://"))
+}
+
+// trimTrailingSlash removes trailing slashes from a URL
+func trimTrailingSlash(u string) string {
+	for len(u) > 0 && u[len(u)-1] == '/' {
+		u = u[:len(u)-1]
+	}
+	return u
 }
 
 // authHeader returns the Basic Auth header value
@@ -146,5 +166,5 @@ func buildURL(base string, params map[string]string) string {
 
 // IssueURL returns the web URL for an issue
 func (c *Client) IssueURL(issueKey string) string {
-	return fmt.Sprintf("https://%s.atlassian.net/browse/%s", c.Domain, issueKey)
+	return fmt.Sprintf("%s/browse/%s", c.URL, issueKey)
 }

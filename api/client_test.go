@@ -13,31 +13,68 @@ import (
 
 func TestNew(t *testing.T) {
 	tests := []struct {
-		name    string
-		cfg     ClientConfig
-		wantErr error
+		name        string
+		cfg         ClientConfig
+		wantErr     error
+		wantURL     string
+		wantBaseURL string
 	}{
 		{
-			name: "valid config",
+			name: "valid config with full URL",
 			cfg: ClientConfig{
-				Domain:   "example",
+				URL:      "https://example.atlassian.net",
 				Email:    "user@example.com",
 				APIToken: "token123",
 			},
-			wantErr: nil,
+			wantErr:     nil,
+			wantURL:     "https://example.atlassian.net",
+			wantBaseURL: "https://example.atlassian.net/rest/api/3",
 		},
 		{
-			name: "missing domain",
+			name: "valid config with self-hosted URL",
+			cfg: ClientConfig{
+				URL:      "https://jira.internal.corp.com",
+				Email:    "user@example.com",
+				APIToken: "token123",
+			},
+			wantErr:     nil,
+			wantURL:     "https://jira.internal.corp.com",
+			wantBaseURL: "https://jira.internal.corp.com/rest/api/3",
+		},
+		{
+			name: "URL without scheme",
+			cfg: ClientConfig{
+				URL:      "example.atlassian.net",
+				Email:    "user@example.com",
+				APIToken: "token123",
+			},
+			wantErr:     nil,
+			wantURL:     "https://example.atlassian.net",
+			wantBaseURL: "https://example.atlassian.net/rest/api/3",
+		},
+		{
+			name: "URL with trailing slash",
+			cfg: ClientConfig{
+				URL:      "https://example.atlassian.net/",
+				Email:    "user@example.com",
+				APIToken: "token123",
+			},
+			wantErr:     nil,
+			wantURL:     "https://example.atlassian.net",
+			wantBaseURL: "https://example.atlassian.net/rest/api/3",
+		},
+		{
+			name: "missing URL",
 			cfg: ClientConfig{
 				Email:    "user@example.com",
 				APIToken: "token123",
 			},
-			wantErr: ErrDomainRequired,
+			wantErr: ErrURLRequired,
 		},
 		{
 			name: "missing email",
 			cfg: ClientConfig{
-				Domain:   "example",
+				URL:      "https://example.atlassian.net",
 				APIToken: "token123",
 			},
 			wantErr: ErrEmailRequired,
@@ -45,8 +82,8 @@ func TestNew(t *testing.T) {
 		{
 			name: "missing api token",
 			cfg: ClientConfig{
-				Domain: "example",
-				Email:  "user@example.com",
+				URL:   "https://example.atlassian.net",
+				Email: "user@example.com",
 			},
 			wantErr: ErrAPITokenRequired,
 		},
@@ -61,11 +98,11 @@ func TestNew(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 				assert.NotNil(t, client)
-				assert.Equal(t, tt.cfg.Domain, client.Domain)
+				assert.Equal(t, tt.wantURL, client.URL)
 				assert.Equal(t, tt.cfg.Email, client.Email)
 				assert.Equal(t, tt.cfg.APIToken, client.APIToken)
-				assert.Equal(t, "https://example.atlassian.net/rest/api/3", client.BaseURL)
-				assert.Equal(t, "https://example.atlassian.net/rest/agile/1.0", client.AgileURL)
+				assert.Equal(t, tt.wantBaseURL, client.BaseURL)
+				assert.Equal(t, tt.wantURL+"/rest/agile/1.0", client.AgileURL)
 			}
 		})
 	}
@@ -253,6 +290,30 @@ func TestBuildURL(t *testing.T) {
 }
 
 func TestClient_IssueURL(t *testing.T) {
-	client := &Client{Domain: "mycompany"}
-	assert.Equal(t, "https://mycompany.atlassian.net/browse/PROJ-123", client.IssueURL("PROJ-123"))
+	tests := []struct {
+		name     string
+		url      string
+		issueKey string
+		want     string
+	}{
+		{
+			name:     "cloud URL",
+			url:      "https://mycompany.atlassian.net",
+			issueKey: "PROJ-123",
+			want:     "https://mycompany.atlassian.net/browse/PROJ-123",
+		},
+		{
+			name:     "self-hosted URL",
+			url:      "https://jira.internal.corp.com",
+			issueKey: "PROJ-456",
+			want:     "https://jira.internal.corp.com/browse/PROJ-456",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client := &Client{URL: tt.url}
+			assert.Equal(t, tt.want, client.IssueURL(tt.issueKey))
+		})
+	}
 }

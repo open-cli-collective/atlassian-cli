@@ -39,7 +39,7 @@ func (o *Options) APIClient() (*api.Client, error) {
 		return o.testClient, nil
 	}
 	return api.New(api.ClientConfig{
-		Domain:   config.GetDomain(),
+		URL:      config.GetURL(),
 		Email:    config.GetEmail(),
 		APIToken: config.GetAPIToken(),
 		Verbose:  o.Verbose,

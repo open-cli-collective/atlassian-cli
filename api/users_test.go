@@ -52,7 +52,7 @@ func TestGetUser(t *testing.T) {
 			defer server.Close()
 
 			client, err := New(ClientConfig{
-				Domain:   "test",
+				URL:      "https://test.atlassian.net",
 				Email:    "test@example.com",
 				APIToken: "test-token",
 			})
@@ -85,7 +85,7 @@ func TestGetCurrentUser(t *testing.T) {
 	defer server.Close()
 
 	client, err := New(ClientConfig{
-		Domain:   "test",
+		URL:      "https://test.atlassian.net",
 		Email:    "test@example.com",
 		APIToken: "test-token",
 	})
@@ -121,7 +121,7 @@ func TestSearchUsers(t *testing.T) {
 	defer server.Close()
 
 	client, err := New(ClientConfig{
-		Domain:   "test",
+		URL:      "https://test.atlassian.net",
 		Email:    "test@example.com",
 		APIToken: "test-token",
 	})

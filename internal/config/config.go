@@ -50,19 +50,28 @@ func (c *Config) NormalizeURL() {
 
 // LoadFromEnv loads configuration from environment variables.
 // Environment variables override existing values only if set and non-empty.
+// Precedence: CFL_* → ATLASSIAN_* → existing config value
 func (c *Config) LoadFromEnv() {
-	if url := os.Getenv("CFL_URL"); url != "" {
+	if url := getEnvWithFallback("CFL_URL", "ATLASSIAN_URL"); url != "" {
 		c.URL = url
 	}
-	if email := os.Getenv("CFL_EMAIL"); email != "" {
+	if email := getEnvWithFallback("CFL_EMAIL", "ATLASSIAN_EMAIL"); email != "" {
 		c.Email = email
 	}
-	if token := os.Getenv("CFL_API_TOKEN"); token != "" {
+	if token := getEnvWithFallback("CFL_API_TOKEN", "ATLASSIAN_API_TOKEN"); token != "" {
 		c.APIToken = token
 	}
 	if space := os.Getenv("CFL_DEFAULT_SPACE"); space != "" {
 		c.DefaultSpace = space
 	}
+}
+
+// getEnvWithFallback returns the value of the primary env var, or the fallback if primary is empty.
+func getEnvWithFallback(primary, fallback string) string {
+	if v := os.Getenv(primary); v != "" {
+		return v
+	}
+	return os.Getenv(fallback)
 }
 
 // DefaultConfigPath returns the default configuration file path.

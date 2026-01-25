@@ -131,6 +131,19 @@ type pageAPI interface {
 ### Integration Tests
 After significant code changes, run through the manual integration test suite in [integration-tests.md](integration-tests.md). These tests verify real-world behavior against a live Confluence instance and catch edge cases that unit tests miss.
 
+## Environment Variables
+
+Variables are checked in precedence order (first match wins):
+
+| Setting | Precedence |
+|---------|------------|
+| URL | `CFL_URL` → `ATLASSIAN_URL` → config |
+| Email | `CFL_EMAIL` → `ATLASSIAN_EMAIL` → config |
+| API Token | `CFL_API_TOKEN` → `ATLASSIAN_API_TOKEN` → config |
+| Default Space | `CFL_DEFAULT_SPACE` → config |
+
+Use `ATLASSIAN_*` for shared credentials across cfl and jtk. Use `CFL_*` to override per-tool.
+
 ## Undocumented Constants
 
 | Constant | Value | Location |

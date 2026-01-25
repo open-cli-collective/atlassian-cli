@@ -208,3 +208,94 @@ func TestLoad_FileNotFound(t *testing.T) {
 	_, err := Load("/nonexistent/path/config.yml")
 	require.Error(t, err)
 }
+
+func TestConfig_LoadFromEnv_AtlassianFallback(t *testing.T) {
+	// Clear all relevant env vars
+	clearEnvVars := func() {
+		os.Unsetenv("CFL_URL")
+		os.Unsetenv("CFL_EMAIL")
+		os.Unsetenv("CFL_API_TOKEN")
+		os.Unsetenv("ATLASSIAN_URL")
+		os.Unsetenv("ATLASSIAN_EMAIL")
+		os.Unsetenv("ATLASSIAN_API_TOKEN")
+	}
+
+	t.Run("ATLASSIAN_* used when CFL_* not set", func(t *testing.T) {
+		clearEnvVars()
+		defer clearEnvVars()
+
+		os.Setenv("ATLASSIAN_URL", "https://shared.atlassian.net")
+		os.Setenv("ATLASSIAN_EMAIL", "shared@example.com")
+		os.Setenv("ATLASSIAN_API_TOKEN", "shared-token")
+
+		cfg := &Config{}
+		cfg.LoadFromEnv()
+
+		assert.Equal(t, "https://shared.atlassian.net", cfg.URL)
+		assert.Equal(t, "shared@example.com", cfg.Email)
+		assert.Equal(t, "shared-token", cfg.APIToken)
+	})
+
+	t.Run("CFL_* takes precedence over ATLASSIAN_*", func(t *testing.T) {
+		clearEnvVars()
+		defer clearEnvVars()
+
+		os.Setenv("CFL_URL", "https://cfl.atlassian.net")
+		os.Setenv("CFL_EMAIL", "cfl@example.com")
+		os.Setenv("CFL_API_TOKEN", "cfl-token")
+		os.Setenv("ATLASSIAN_URL", "https://shared.atlassian.net")
+		os.Setenv("ATLASSIAN_EMAIL", "shared@example.com")
+		os.Setenv("ATLASSIAN_API_TOKEN", "shared-token")
+
+		cfg := &Config{}
+		cfg.LoadFromEnv()
+
+		assert.Equal(t, "https://cfl.atlassian.net", cfg.URL)
+		assert.Equal(t, "cfl@example.com", cfg.Email)
+		assert.Equal(t, "cfl-token", cfg.APIToken)
+	})
+
+	t.Run("mixed CFL_* and ATLASSIAN_*", func(t *testing.T) {
+		clearEnvVars()
+		defer clearEnvVars()
+
+		// Only URL is CFL-specific, rest use shared
+		os.Setenv("CFL_URL", "https://cfl.atlassian.net")
+		os.Setenv("ATLASSIAN_EMAIL", "shared@example.com")
+		os.Setenv("ATLASSIAN_API_TOKEN", "shared-token")
+
+		cfg := &Config{}
+		cfg.LoadFromEnv()
+
+		assert.Equal(t, "https://cfl.atlassian.net", cfg.URL)
+		assert.Equal(t, "shared@example.com", cfg.Email)
+		assert.Equal(t, "shared-token", cfg.APIToken)
+	})
+}
+
+func TestGetEnvWithFallback(t *testing.T) {
+	os.Unsetenv("TEST_PRIMARY")
+	os.Unsetenv("TEST_FALLBACK")
+	defer func() {
+		os.Unsetenv("TEST_PRIMARY")
+		os.Unsetenv("TEST_FALLBACK")
+	}()
+
+	t.Run("returns primary when set", func(t *testing.T) {
+		os.Setenv("TEST_PRIMARY", "primary-value")
+		os.Setenv("TEST_FALLBACK", "fallback-value")
+		assert.Equal(t, "primary-value", getEnvWithFallback("TEST_PRIMARY", "TEST_FALLBACK"))
+	})
+
+	t.Run("returns fallback when primary empty", func(t *testing.T) {
+		os.Unsetenv("TEST_PRIMARY")
+		os.Setenv("TEST_FALLBACK", "fallback-value")
+		assert.Equal(t, "fallback-value", getEnvWithFallback("TEST_PRIMARY", "TEST_FALLBACK"))
+	})
+
+	t.Run("returns empty when both empty", func(t *testing.T) {
+		os.Unsetenv("TEST_PRIMARY")
+		os.Unsetenv("TEST_FALLBACK")
+		assert.Equal(t, "", getEnvWithFallback("TEST_PRIMARY", "TEST_FALLBACK"))
+	})
+}

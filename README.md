@@ -651,14 +651,30 @@ output_format: table
 
 ### Environment Variables
 
-Environment variables override config file values:
+Environment variables override config file values. Variables are checked in order of precedence (first match wins):
 
-| Variable | Description |
-|----------|-------------|
-| `CFL_URL` | Confluence instance URL |
-| `CFL_EMAIL` | Your Atlassian email |
-| `CFL_API_TOKEN` | Your API token |
-| `CFL_DEFAULT_SPACE` | Default space key |
+| Setting | Precedence (highest to lowest) |
+|---------|-------------------------------|
+| URL | `CFL_URL` → `ATLASSIAN_URL` → config file |
+| Email | `CFL_EMAIL` → `ATLASSIAN_EMAIL` → config file |
+| API Token | `CFL_API_TOKEN` → `ATLASSIAN_API_TOKEN` → config file |
+| Default Space | `CFL_DEFAULT_SPACE` → config file |
+
+**Shared credentials:** If you use both `cfl` and `jtk` (Jira CLI), set `ATLASSIAN_*` variables once:
+
+```bash
+export ATLASSIAN_URL=https://mycompany.atlassian.net
+export ATLASSIAN_EMAIL=user@example.com
+export ATLASSIAN_API_TOKEN=your-api-token
+```
+
+**Per-tool override:** Use `CFL_*` to override for Confluence specifically:
+
+```bash
+export ATLASSIAN_EMAIL=user@example.com
+export ATLASSIAN_API_TOKEN=your-api-token
+export CFL_URL=https://confluence.internal.corp.com  # Different URL for Confluence
+```
 
 ---
 

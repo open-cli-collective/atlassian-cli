@@ -182,9 +182,12 @@ jobs:
     if: false  # Temporarily disabled - waiting for personal-files interface approval
     needs: goreleaser
     runs-on: ubuntu-latest
+    env:
+      TAG: ${{ github.ref_name || inputs.tag }}
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ env.TAG }}
           fetch-depth: 0
 
       - name: Build snap

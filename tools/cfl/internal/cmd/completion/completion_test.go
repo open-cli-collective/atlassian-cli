@@ -36,12 +36,10 @@ func TestCompletionCommand(t *testing.T) {
 	completionCmd, _, err := rootCmd.Find([]string{"completion"})
 	require.NoError(t, err)
 
-	assert.Equal(t, "completion", completionCmd.Use)
+	assert.Equal(t, "completion [bash|zsh|fish|powershell]", completionCmd.Use)
 	assert.NotEmpty(t, completionCmd.Short)
 	assert.NotEmpty(t, completionCmd.Long)
-
-	// Should have 4 subcommands
-	assert.Len(t, completionCmd.Commands(), 4)
+	assert.Equal(t, []string{"bash", "zsh", "fish", "powershell"}, completionCmd.ValidArgs)
 }
 
 func TestBashCompletion(t *testing.T) {
@@ -108,26 +106,35 @@ func TestPowerShellCompletion(t *testing.T) {
 	assert.Contains(t, output, "Register-ArgumentCompleter")
 }
 
+func TestCompletionRequiresShellArg(t *testing.T) {
+	root := createTestRootCmd()
+
+	root.SetArgs([]string{"completion"})
+	root.SetErr(&bytes.Buffer{}) // Suppress error output
+
+	err := root.Execute()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "accepts 1 arg(s)")
+}
+
+func TestCompletionRejectsInvalidShell(t *testing.T) {
+	root := createTestRootCmd()
+
+	root.SetArgs([]string{"completion", "invalid-shell"})
+	root.SetErr(&bytes.Buffer{}) // Suppress error output
+
+	err := root.Execute()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid argument")
+}
+
 func TestCompletionRejectsExtraArgs(t *testing.T) {
-	testCases := []struct {
-		name  string
-		shell string
-	}{
-		{"bash rejects args", "bash"},
-		{"zsh rejects args", "zsh"},
-		{"fish rejects args", "fish"},
-		{"powershell rejects args", "powershell"},
-	}
+	root := createTestRootCmd()
 
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			root := createTestRootCmd()
+	root.SetArgs([]string{"completion", "bash", "extra-arg"})
+	root.SetErr(&bytes.Buffer{}) // Suppress error output
 
-			root.SetArgs([]string{"completion", tc.shell, "unexpected-arg"})
-
-			err := root.Execute()
-			require.Error(t, err)
-			assert.Contains(t, err.Error(), "unknown command")
-		})
-	}
+	err := root.Execute()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "accepts 1 arg(s)")
 }

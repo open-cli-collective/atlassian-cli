@@ -1,0 +1,55 @@
+{
+  "description": "Code blocks",
+  "tests": [
+    {
+      "name": "without_language",
+      "markdown": "```\ncode here\n```",
+      "adf": {
+        "type": "doc",
+        "version": 1,
+        "content": [
+          {
+            "type": "codeBlock",
+            "content": [
+              {"type": "text", "text": "code here"}
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "with_language",
+      "markdown": "```python\nprint(\"hello\")\n```",
+      "adf": {
+        "type": "doc",
+        "version": 1,
+        "content": [
+          {
+            "type": "codeBlock",
+            "attrs": {"language": "python"},
+            "content": [
+              {"type": "text", "text": "print(\"hello\")"}
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "multiline",
+      "markdown": "```go\nfunc main() {\n    fmt.Println(\"hello\")\n}\n```",
+      "adf": {
+        "type": "doc",
+        "version": 1,
+        "content": [
+          {
+            "type": "codeBlock",
+            "attrs": {"language": "go"},
+            "content": [
+              {"type": "text", "text": "func main() {\n    fmt.Println(\"hello\")\n}"}
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

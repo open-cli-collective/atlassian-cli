@@ -1,0 +1,109 @@
+version: 2
+
+project_name: jira-ticket-cli
+
+before:
+  hooks:
+    - go mod tidy
+    - go test ./...
+
+builds:
+  - id: jtk
+    main: ./cmd/jtk
+    binary: jtk
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X github.com/open-cli-collective/jira-ticket-cli/internal/version.Version={{.Version}}
+      - -X github.com/open-cli-collective/jira-ticket-cli/internal/version.Commit={{.Commit}}
+      - -X github.com/open-cli-collective/jira-ticket-cli/internal/version.BuildDate={{.Date}}
+
+archives:
+  - id: default
+    formats:
+      - tar.gz
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+    name_template: "jtk_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - LICENSE
+      - README.md
+
+# Linux packages (.deb and .rpm)
+nfpms:
+  - id: jtk
+    package_name: jtk
+    vendor: Open CLI Collective
+    homepage: https://github.com/open-cli-collective/jira-ticket-cli
+    maintainer: Open CLI Collective <https://github.com/open-cli-collective>
+    description: Command-line interface for Jira Cloud
+    license: MIT
+    formats:
+      - deb
+      - rpm
+    bindir: /usr/bin
+    contents:
+      - src: LICENSE
+        dst: /usr/share/licenses/jtk/LICENSE
+
+checksum:
+  name_template: 'checksums.txt'
+
+# Homebrew cask with auto-quarantine removal for unsigned binaries
+homebrew_casks:
+  - name: jira-ticket-cli
+    repository:
+      owner: open-cli-collective
+      name: homebrew-tap
+      token: "{{ .Env.TAP_GITHUB_TOKEN }}"
+    homepage: https://github.com/open-cli-collective/jira-ticket-cli
+    description: "Command-line interface for Jira Cloud"
+    hooks:
+      post:
+        install: |
+          system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/jtk"]
+    caveats: |
+      jira-ticket-cli has been installed.
+
+      To configure, run:
+        jtk config set --domain DOMAIN --email EMAIL --token TOKEN
+
+      Get your API token from: https://id.atlassian.com/manage-profile/security/api-tokens
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^ci:'
+      - '^chore:'
+      - '^Merge pull request'
+  groups:
+    - title: 'Features'
+      regexp: '^feat:'
+      order: 0
+    - title: 'Bug Fixes'
+      regexp: '^fix:'
+      order: 1
+    - title: 'Other'
+      order: 999
+
+release:
+  github:
+    owner: open-cli-collective
+    name: jira-ticket-cli

@@ -1,0 +1,71 @@
+{
+  "description": "Complex document with multiple elements",
+  "markdown": "# Welcome\n\nThis is a **bold** and *italic* paragraph.\n\n## Features\n\n- First item\n- Second item\n\n```go\nfunc main() {\n    fmt.Println(\"hello\")\n}\n```\n\n> A wise quote\n\n---\n\nVisit [Example](https://example.com) for more.",
+  "adf": {
+    "type": "doc",
+    "version": 1,
+    "content": [
+      {
+        "type": "heading",
+        "attrs": {"level": 1},
+        "content": [{"type": "text", "text": "Welcome"}]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {"type": "text", "text": "This is a "},
+          {"type": "text", "text": "bold", "marks": [{"type": "strong"}]},
+          {"type": "text", "text": " and "},
+          {"type": "text", "text": "italic", "marks": [{"type": "em"}]},
+          {"type": "text", "text": " paragraph."}
+        ]
+      },
+      {
+        "type": "heading",
+        "attrs": {"level": 2},
+        "content": [{"type": "text", "text": "Features"}]
+      },
+      {
+        "type": "bulletList",
+        "content": [
+          {
+            "type": "listItem",
+            "content": [
+              {"type": "paragraph", "content": [{"type": "text", "text": "First item"}]}
+            ]
+          },
+          {
+            "type": "listItem",
+            "content": [
+              {"type": "paragraph", "content": [{"type": "text", "text": "Second item"}]}
+            ]
+          }
+        ]
+      },
+      {
+        "type": "codeBlock",
+        "attrs": {"language": "go"},
+        "content": [
+          {"type": "text", "text": "func main() {\n    fmt.Println(\"hello\")\n}"}
+        ]
+      },
+      {
+        "type": "blockquote",
+        "content": [
+          {"type": "paragraph", "content": [{"type": "text", "text": "A wise quote"}]}
+        ]
+      },
+      {
+        "type": "rule"
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {"type": "text", "text": "Visit "},
+          {"type": "text", "text": "Example", "marks": [{"type": "link", "attrs": {"href": "https://example.com"}}]},
+          {"type": "text", "text": " for more."}
+        ]
+      }
+    ]
+  }
+}

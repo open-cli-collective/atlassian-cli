@@ -1,0 +1,78 @@
+{
+  "description": "GFM tables",
+  "tests": [
+    {
+      "name": "simple_table",
+      "markdown": "| Header 1 | Header 2 |\n|----------|----------|\n| Cell 1   | Cell 2   |\n| Cell 3   | Cell 4   |",
+      "adf": {
+        "type": "doc",
+        "version": 1,
+        "content": [
+          {
+            "type": "table",
+            "attrs": {"layout": "default"},
+            "content": [
+              {
+                "type": "tableRow",
+                "content": [
+                  {
+                    "type": "tableHeader",
+                    "attrs": {"colspan": 1, "rowspan": 1},
+                    "content": [
+                      {"type": "paragraph", "content": [{"type": "text", "text": "Header 1"}]}
+                    ]
+                  },
+                  {
+                    "type": "tableHeader",
+                    "attrs": {"colspan": 1, "rowspan": 1},
+                    "content": [
+                      {"type": "paragraph", "content": [{"type": "text", "text": "Header 2"}]}
+                    ]
+                  }
+                ]
+              },
+              {
+                "type": "tableRow",
+                "content": [
+                  {
+                    "type": "tableCell",
+                    "attrs": {"colspan": 1, "rowspan": 1},
+                    "content": [
+                      {"type": "paragraph", "content": [{"type": "text", "text": "Cell 1"}]}
+                    ]
+                  },
+                  {
+                    "type": "tableCell",
+                    "attrs": {"colspan": 1, "rowspan": 1},
+                    "content": [
+                      {"type": "paragraph", "content": [{"type": "text", "text": "Cell 2"}]}
+                    ]
+                  }
+                ]
+              },
+              {
+                "type": "tableRow",
+                "content": [
+                  {
+                    "type": "tableCell",
+                    "attrs": {"colspan": 1, "rowspan": 1},
+                    "content": [
+                      {"type": "paragraph", "content": [{"type": "text", "text": "Cell 3"}]}
+                    ]
+                  },
+                  {
+                    "type": "tableCell",
+                    "attrs": {"colspan": 1, "rowspan": 1},
+                    "content": [
+                      {"type": "paragraph", "content": [{"type": "text", "text": "Cell 4"}]}
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

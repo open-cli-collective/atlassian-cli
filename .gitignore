@@ -1,0 +1,13 @@
+# Built binaries at root
+/cfl
+/jtk
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

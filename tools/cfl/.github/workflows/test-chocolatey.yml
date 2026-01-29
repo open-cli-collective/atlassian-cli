@@ -1,0 +1,83 @@
+name: Test Chocolatey Package
+
+on:
+  pull_request:
+    paths:
+      - 'packaging/chocolatey/**'
+      - '.github/workflows/test-chocolatey.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'packaging/chocolatey/**'
+      - '.github/workflows/test-chocolatey.yml'
+
+jobs:
+  test-chocolatey:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Build binary for testing
+        run: go build -o packaging/chocolatey/tools/cfl.exe ./cmd/cfl
+
+      - name: Prepare test package
+        shell: pwsh
+        working-directory: packaging/chocolatey
+        run: |
+          # Replace placeholder version with test version (must not be prerelease)
+          (Get-Content confluence-cli.nuspec) `
+            -replace '<version>0.0.0</version>', '<version>0.0.1</version>' |
+            Set-Content confluence-cli.nuspec
+
+          # Create a simple install script that uses the local binary
+          # (the real script downloads from GitHub, but we test structure here)
+          @'
+          $ErrorActionPreference = 'Stop'
+          $toolsDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
+
+          # Binary is already in tools/ from CI build
+          Write-Host "confluence-cli installed from local build for testing"
+
+          # Exclude non-executables from shimming
+          New-Item "$toolsDir\LICENSE.ignore" -Type File -Force | Out-Null
+          New-Item "$toolsDir\README.md.ignore" -Type File -Force | Out-Null
+          '@ | Set-Content tools/chocolateyInstall.ps1
+
+      - name: Pack Chocolatey package
+        shell: pwsh
+        working-directory: packaging/chocolatey
+        run: choco pack
+
+      - name: Install package locally
+        shell: pwsh
+        working-directory: packaging/chocolatey
+        run: choco install confluence-cli -dv -s . --force
+
+      - name: Verify installation
+        shell: pwsh
+        run: |
+          Write-Host "Testing cfl --version..."
+          cfl --version
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "cfl --version failed"
+            exit 1
+          }
+          Write-Host "cfl is working!"
+
+      - name: Test uninstall
+        shell: pwsh
+        run: |
+          choco uninstall confluence-cli -y
+
+          # Verify cfl is no longer available
+          $cflPath = Get-Command cfl -ErrorAction SilentlyContinue
+          if ($cflPath) {
+            Write-Error "cfl should not be available after uninstall"
+            exit 1
+          }
+          Write-Host "Uninstall successful!"

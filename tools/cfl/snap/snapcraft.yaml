@@ -1,0 +1,61 @@
+name: ocli-confluence
+base: core22
+version: git
+summary: Command-line interface for Atlassian Confluence Cloud
+description: |
+  cfl is a markdown-first CLI for managing Confluence Cloud pages.
+
+  Features:
+  - Create, edit, view, and delete pages
+  - Automatic markdown-to-Confluence conversion
+  - Space and attachment management
+  - Table, JSON, and plain output formats
+
+  Run 'cfl init' to configure your Confluence credentials.
+
+grade: stable
+confinement: strict
+
+architectures:
+  - build-on: amd64
+  - build-on: arm64
+
+plugs:
+  dot-config-cfl:
+    interface: personal-files
+    read:
+      - $HOME/.config/cfl
+    write:
+      - $HOME/.config/cfl
+
+apps:
+  ocli-confluence:
+    command: bin/cfl
+    plugs:
+      - home
+      - network
+      - dot-config-cfl
+    aliases:
+      - cfl
+
+parts:
+  cfl:
+    plugin: go
+    source: .
+    build-snaps:
+      - go/1.24/stable
+    build-environment:
+      - CGO_ENABLED: "0"
+    override-build: |
+      # Get version from git
+      VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "dev")
+      COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+      DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+      # Build with ldflags
+      go build -o $SNAPCRAFT_PART_INSTALL/bin/cfl \
+        -ldflags "-s -w \
+          -X github.com/open-cli-collective/confluence-cli/internal/version.Version=${VERSION} \
+          -X github.com/open-cli-collective/confluence-cli/internal/version.Commit=${COMMIT} \
+          -X github.com/open-cli-collective/confluence-cli/internal/version.Date=${DATE}" \
+        ./cmd/cfl

@@ -1,0 +1,218 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  goreleaser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          version: latest
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAP_GITHUB_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
+
+  chocolatey:
+    needs: goreleaser
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get checksums from release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download "${{ github.ref_name }}" --pattern "checksums.txt" --dir .
+
+          $checksums = Get-Content checksums.txt
+          $x64Hash = ($checksums | Select-String "windows_amd64.zip").Line.Split()[0]
+          $arm64Hash = ($checksums | Select-String "windows_arm64.zip").Line.Split()[0]
+
+          Write-Host "x64 SHA256: $x64Hash"
+          Write-Host "arm64 SHA256: $arm64Hash"
+
+          echo "X64_HASH=$x64Hash" >> $env:GITHUB_ENV
+          echo "ARM64_HASH=$arm64Hash" >> $env:GITHUB_ENV
+
+      - name: Update version and checksums
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart('v')
+
+          # Update version in nuspec
+          $nuspec = 'packaging/chocolatey/jira-ticket-cli.nuspec'
+          (Get-Content $nuspec) -replace '<version>0.0.0</version>', "<version>$version</version>" | Set-Content $nuspec
+          Write-Host "Updated nuspec to version $version"
+
+          # Inject checksums into install script
+          $script = 'packaging/chocolatey/tools/chocolateyInstall.ps1'
+          $content = Get-Content $script -Raw
+          $content = $content -replace 'CHECKSUM_AMD64_PLACEHOLDER', $env:X64_HASH
+          $content = $content -replace 'CHECKSUM_ARM64_PLACEHOLDER', $env:ARM64_HASH
+          Set-Content $script $content
+          Write-Host "Injected checksums into install script"
+
+      - name: Pack Chocolatey package
+        shell: pwsh
+        run: |
+          cd packaging/chocolatey
+          choco pack
+          Get-ChildItem *.nupkg
+
+      - name: Push to Chocolatey
+        shell: pwsh
+        run: |
+          cd packaging/chocolatey
+          choco push (Get-ChildItem *.nupkg).Name --source https://push.chocolatey.org/ --key ${{ secrets.CHOCOLATEY_API_KEY }}
+
+  winget:
+    needs: goreleaser
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install wingetcreate
+        shell: pwsh
+        run: |
+          Invoke-WebRequest https://aka.ms/wingetcreate/latest -OutFile wingetcreate.exe
+
+      - name: Check if manifest exists in winget-pkgs
+        id: check-manifest
+        shell: pwsh
+        run: |
+          $response = Invoke-WebRequest -Uri "https://api.github.com/repos/microsoft/winget-pkgs/contents/manifests/o/OpenCLICollective/jira-ticket-cli" -Method Head -SkipHttpErrorCheck
+          if ($response.StatusCode -eq 200) {
+            Write-Host "Manifest exists - will use wingetcreate update"
+            echo "exists=true" >> $env:GITHUB_OUTPUT
+          } else {
+            Write-Host "Manifest does not exist - will use wingetcreate new"
+            echo "exists=false" >> $env:GITHUB_OUTPUT
+          }
+
+      - name: Get checksums from release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart('v')
+          gh release download "${{ github.ref_name }}" --pattern "checksums.txt" --dir .
+
+          $checksums = Get-Content checksums.txt
+          $x64Hash = ($checksums | Select-String "windows_amd64.zip").Line.Split()[0]
+          $arm64Hash = ($checksums | Select-String "windows_arm64.zip").Line.Split()[0]
+
+          Write-Host "x64 SHA256: $x64Hash"
+          Write-Host "arm64 SHA256: $arm64Hash"
+
+          echo "X64_HASH=$x64Hash" >> $env:GITHUB_ENV
+          echo "ARM64_HASH=$arm64Hash" >> $env:GITHUB_ENV
+
+      - name: Update manifest (existing package)
+        if: steps.check-manifest.outputs.exists == 'true'
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart('v')
+          $x64 = "https://github.com/open-cli-collective/jira-ticket-cli/releases/download/${{ github.ref_name }}/jtk_${version}_windows_amd64.zip"
+          $arm64 = "https://github.com/open-cli-collective/jira-ticket-cli/releases/download/${{ github.ref_name }}/jtk_${version}_windows_arm64.zip"
+
+          Write-Host "Updating existing manifest to version $version"
+          ./wingetcreate.exe update OpenCLICollective.jira-ticket-cli --version $version --urls $x64 $arm64 --submit --token ${{ secrets.WINGET_GITHUB_TOKEN }}
+
+      - name: Create manifest (new package)
+        if: steps.check-manifest.outputs.exists == 'false'
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart('v')
+          $manifestDir = "manifests"
+          New-Item -ItemType Directory -Path $manifestDir -Force | Out-Null
+
+          # Update version manifest
+          $versionManifest = Get-Content "packaging/winget/OpenCLICollective.jira-ticket-cli.yaml" -Raw
+          $versionManifest = $versionManifest -replace "0\.0\.0", $version
+          Set-Content "$manifestDir/OpenCLICollective.jira-ticket-cli.yaml" $versionManifest
+
+          # Update locale manifest
+          $localeManifest = Get-Content "packaging/winget/OpenCLICollective.jira-ticket-cli.locale.en-US.yaml" -Raw
+          $localeManifest = $localeManifest -replace "0\.0\.0", $version
+          Set-Content "$manifestDir/OpenCLICollective.jira-ticket-cli.locale.en-US.yaml" $localeManifest
+
+          # Update installer manifest with version and real checksums
+          $installerManifest = Get-Content "packaging/winget/OpenCLICollective.jira-ticket-cli.installer.yaml" -Raw
+          $installerManifest = $installerManifest -replace "0\.0\.0", $version
+          # Replace checksums one at a time using .NET regex (PowerShell -replace doesn't support count)
+          $regex = [regex]"0{64}"
+          $installerManifest = $regex.Replace($installerManifest, $env:X64_HASH, 1)
+          $installerManifest = $regex.Replace($installerManifest, $env:ARM64_HASH, 1)
+          Set-Content "$manifestDir/OpenCLICollective.jira-ticket-cli.installer.yaml" $installerManifest
+
+          Write-Host "Generated manifests:"
+          Get-ChildItem $manifestDir | ForEach-Object { Write-Host "  $_" }
+
+          Write-Host "`nValidating manifests..."
+          winget validate --manifest $manifestDir
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Manifest validation failed"
+            exit 1
+          }
+          Write-Host "Validation passed!"
+
+          Write-Host "`nSubmitting new package to Winget..."
+          ./wingetcreate.exe submit --token ${{ secrets.WINGET_GITHUB_TOKEN }} $manifestDir
+
+  snap:
+    needs: goreleaser
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ github.ref_name || inputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+          fetch-depth: 0
+
+      - name: Build snap
+        uses: snapcore/action-build@v1
+        id: build
+
+      - name: Publish to Snapcraft Store
+        uses: snapcore/action-publish@v1
+        env:
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
+        with:
+          snap: ${{ steps.build.outputs.snap }}
+          release: stable
+
+  linux-packages:
+    needs: goreleaser
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger linux-packages repo update
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.LINUX_PACKAGES_DISPATCH_TOKEN }}
+          repository: open-cli-collective/linux-packages
+          event-type: package-release
+          client-payload: |-
+            {
+              "package": "jtk",
+              "version": "${{ github.ref_name }}",
+              "repo": "open-cli-collective/jira-ticket-cli"
+            }

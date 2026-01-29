@@ -1,0 +1,31 @@
+{
+  "id": "98765",
+  "status": "current",
+  "title": "Getting Started Guide",
+  "spaceId": "123456",
+  "parentId": "11111",
+  "parentType": "page",
+  "position": 1,
+  "authorId": "user123",
+  "ownerId": "user123",
+  "lastOwnerId": "user123",
+  "createdAt": "2024-01-15T10:30:00.000Z",
+  "version": {
+    "number": 5,
+    "message": "Updated installation instructions",
+    "minorEdit": false,
+    "authorId": "user123",
+    "createdAt": "2024-03-20T14:22:00.000Z"
+  },
+  "body": {
+    "storage": {
+      "representation": "storage",
+      "value": "<h1>Getting Started</h1><p>Welcome to the guide.</p>"
+    }
+  },
+  "_links": {
+    "webui": "/spaces/DEV/pages/98765",
+    "editui": "/pages/resumedraft.action?draftId=98765",
+    "tinyui": "/x/abcd"
+  }
+}

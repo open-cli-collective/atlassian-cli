@@ -80,3 +80,31 @@ jobs:
         with:
           working-directory: tools/jtk
           version: v2.0.2
+
+  build-test-shared:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.shared == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+      - name: Build shared
+        run: go build -v ./shared/...
+      - name: Test shared
+        run: go test -v -race -coverprofile=coverage-shared.out ./shared/...
+
+  lint-shared:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.shared == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+      - uses: golangci/golangci-lint-action@v7
+        with:
+          working-directory: shared
+          version: v2.0.2

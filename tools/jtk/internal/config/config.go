@@ -6,7 +6,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
+
+	"github.com/open-cli-collective/atlassian-go/url"
 )
 
 const (
@@ -98,17 +99,17 @@ func Clear() error {
 // Precedence: JIRA_URL → ATLASSIAN_URL → config url → JIRA_DOMAIN (legacy) → config domain (legacy)
 func GetURL() string {
 	if v := os.Getenv("JIRA_URL"); v != "" {
-		return NormalizeURL(v)
+		return url.NormalizeURL(v)
 	}
 	if v := os.Getenv("ATLASSIAN_URL"); v != "" {
-		return NormalizeURL(v)
+		return url.NormalizeURL(v)
 	}
 	cfg, err := Load()
 	if err != nil {
 		return ""
 	}
 	if cfg.URL != "" {
-		return NormalizeURL(cfg.URL)
+		return url.NormalizeURL(cfg.URL)
 	}
 	// Backwards compatibility: construct URL from domain
 	if v := os.Getenv("JIRA_DOMAIN"); v != "" {
@@ -131,19 +132,6 @@ func GetDomain() string {
 		return ""
 	}
 	return cfg.Domain
-}
-
-// NormalizeURL ensures the URL has a scheme and no trailing slash.
-func NormalizeURL(u string) string {
-	if u == "" {
-		return ""
-	}
-	// Add https:// if no scheme
-	if !strings.HasPrefix(u, "http://") && !strings.HasPrefix(u, "https://") {
-		u = "https://" + u
-	}
-	// Remove trailing slash
-	return strings.TrimSuffix(u, "/")
 }
 
 // GetEmail returns the email from config or environment.

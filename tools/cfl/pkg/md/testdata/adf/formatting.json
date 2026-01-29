@@ -1,0 +1,95 @@
+{
+  "description": "Text formatting: bold, italic, code, strikethrough",
+  "tests": [
+    {
+      "name": "bold",
+      "markdown": "This is **bold** text",
+      "adf": {
+        "type": "doc",
+        "version": 1,
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {"type": "text", "text": "This is "},
+              {"type": "text", "text": "bold", "marks": [{"type": "strong"}]},
+              {"type": "text", "text": " text"}
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "italic",
+      "markdown": "This is *italic* text",
+      "adf": {
+        "type": "doc",
+        "version": 1,
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {"type": "text", "text": "This is "},
+              {"type": "text", "text": "italic", "marks": [{"type": "em"}]},
+              {"type": "text", "text": " text"}
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "inline_code",
+      "markdown": "This is `code` text",
+      "adf": {
+        "type": "doc",
+        "version": 1,
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {"type": "text", "text": "This is "},
+              {"type": "text", "text": "code", "marks": [{"type": "code"}]},
+              {"type": "text", "text": " text"}
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "strikethrough",
+      "markdown": "This is ~~strikethrough~~ text",
+      "adf": {
+        "type": "doc",
+        "version": 1,
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {"type": "text", "text": "This is "},
+              {"type": "text", "text": "strikethrough", "marks": [{"type": "strike"}]},
+              {"type": "text", "text": " text"}
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "bold_and_italic",
+      "markdown": "This is ***bold and italic*** text",
+      "adf": {
+        "type": "doc",
+        "version": 1,
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {"type": "text", "text": "This is "},
+              {"type": "text", "text": "bold and italic", "marks": [{"type": "em"}, {"type": "strong"}]},
+              {"type": "text", "text": " text"}
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

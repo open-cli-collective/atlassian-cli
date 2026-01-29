@@ -1,0 +1,60 @@
+name: Test Winget Manifest
+
+on:
+  pull_request:
+    paths:
+      - 'packaging/winget/**'
+      - '.github/workflows/test-winget.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'packaging/winget/**'
+      - '.github/workflows/test-winget.yml'
+
+jobs:
+  validate-winget:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate manifest schema
+        shell: pwsh
+        run: |
+          $testDir = "winget-validate-test"
+          $testVersion = "0.0.1"
+          $testHash1 = "0000000000000000000000000000000000000000000000000000000000000001"
+          $testHash2 = "0000000000000000000000000000000000000000000000000000000000000002"
+
+          New-Item -ItemType Directory -Path $testDir -Force | Out-Null
+
+          # Read actual templates and substitute placeholders for validation
+          Write-Host "Reading and processing actual template files..."
+
+          # Version manifest
+          $content = Get-Content "packaging/winget/OpenCLICollective.cfl.yaml" -Raw
+          $content = $content -replace "0\.0\.0", $testVersion
+          Set-Content "$testDir/OpenCLICollective.cfl.yaml" $content -Encoding UTF8
+
+          # Locale manifest
+          $content = Get-Content "packaging/winget/OpenCLICollective.cfl.locale.en-US.yaml" -Raw
+          $content = $content -replace "0\.0\.0", $testVersion
+          Set-Content "$testDir/OpenCLICollective.cfl.locale.en-US.yaml" $content -Encoding UTF8
+
+          # Installer manifest (substitute version and checksums)
+          $content = Get-Content "packaging/winget/OpenCLICollective.cfl.installer.yaml" -Raw
+          $content = $content -replace "0\.0\.0", $testVersion
+          $regex = [regex]"0{64}"
+          $content = $regex.Replace($content, $testHash1, 1)
+          $content = $regex.Replace($content, $testHash2, 1)
+          Set-Content "$testDir/OpenCLICollective.cfl.installer.yaml" $content -Encoding UTF8
+
+          Write-Host "Generated test manifests:"
+          Get-ChildItem $testDir | ForEach-Object { Write-Host "  $_" }
+
+          Write-Host "`nValidating winget manifest schema..."
+          winget validate --manifest $testDir/
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Manifest schema validation failed"
+            exit 1
+          }
+          Write-Host "Manifest schema validation passed!"

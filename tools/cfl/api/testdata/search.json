@@ -1,0 +1,44 @@
+{
+  "results": [
+    {
+      "content": {
+        "id": "12345",
+        "type": "page",
+        "status": "current",
+        "title": "Getting Started Guide"
+      },
+      "title": "Getting Started Guide",
+      "excerpt": "This guide will help you <b>get started</b> with the platform...",
+      "url": "/spaces/DEV/pages/12345/Getting+Started+Guide",
+      "resultGlobalContainer": {
+        "title": "Development",
+        "displayUrl": "/spaces/DEV"
+      },
+      "lastModified": "2024-01-15T10:30:00.000Z",
+      "friendlyLastModified": "Jan 15, 2024"
+    },
+    {
+      "content": {
+        "id": "12346",
+        "type": "page",
+        "status": "current",
+        "title": "API Documentation"
+      },
+      "title": "API Documentation",
+      "excerpt": "Complete <b>API</b> reference and examples...",
+      "url": "/spaces/DEV/pages/12346/API+Documentation",
+      "resultGlobalContainer": {
+        "title": "Development",
+        "displayUrl": "/spaces/DEV"
+      },
+      "lastModified": "2024-01-14T09:00:00.000Z",
+      "friendlyLastModified": "Jan 14, 2024"
+    }
+  ],
+  "start": 0,
+  "limit": 25,
+  "size": 2,
+  "totalSize": 50,
+  "cqlQuery": "text ~ \"test\" AND space = \"DEV\"",
+  "searchDuration": 42
+}

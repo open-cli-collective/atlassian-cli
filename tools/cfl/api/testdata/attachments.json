@@ -1,0 +1,35 @@
+{
+  "results": [
+    {
+      "id": "att111",
+      "status": "current",
+      "title": "screenshot.png",
+      "mediaType": "image/png",
+      "mediaTypeDescription": "PNG Image",
+      "comment": "Main screenshot",
+      "fileSize": 245678,
+      "webuiLink": "/download/attachments/98765/screenshot.png",
+      "downloadLink": "/download/attachments/98765/screenshot.png",
+      "version": {
+        "number": 1,
+        "createdAt": "2024-02-01T08:00:00.000Z"
+      }
+    },
+    {
+      "id": "att222",
+      "status": "current",
+      "title": "diagram.pdf",
+      "mediaType": "application/pdf",
+      "mediaTypeDescription": "PDF Document",
+      "comment": "Architecture diagram",
+      "fileSize": 1024000,
+      "webuiLink": "/download/attachments/98765/diagram.pdf",
+      "downloadLink": "/download/attachments/98765/diagram.pdf",
+      "version": {
+        "number": 3,
+        "createdAt": "2024-03-15T16:30:00.000Z"
+      }
+    }
+  ],
+  "_links": {}
+}

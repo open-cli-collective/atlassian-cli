@@ -1,0 +1,37 @@
+{
+  "results": [
+    {
+      "id": "123456",
+      "key": "DEV",
+      "name": "Development",
+      "type": "global",
+      "status": "current",
+      "description": {
+        "plain": {
+          "value": "Development team space"
+        }
+      },
+      "_links": {
+        "webui": "/spaces/DEV"
+      }
+    },
+    {
+      "id": "789012",
+      "key": "DOCS",
+      "name": "Documentation",
+      "type": "global",
+      "status": "current",
+      "description": {
+        "plain": {
+          "value": "Product documentation"
+        }
+      },
+      "_links": {
+        "webui": "/spaces/DOCS"
+      }
+    }
+  ],
+  "_links": {
+    "next": "/wiki/api/v2/spaces?cursor=abc123"
+  }
+}

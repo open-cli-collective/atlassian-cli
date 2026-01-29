@@ -1,0 +1,37 @@
+{
+  "results": [
+    {
+      "id": "98765",
+      "status": "current",
+      "title": "Getting Started Guide",
+      "spaceId": "123456",
+      "parentId": "11111",
+      "createdAt": "2024-01-15T10:30:00.000Z",
+      "version": {
+        "number": 5,
+        "createdAt": "2024-03-20T14:22:00.000Z"
+      },
+      "_links": {
+        "webui": "/spaces/DEV/pages/98765"
+      }
+    },
+    {
+      "id": "98766",
+      "status": "current",
+      "title": "Installation",
+      "spaceId": "123456",
+      "parentId": "98765",
+      "createdAt": "2024-01-16T09:00:00.000Z",
+      "version": {
+        "number": 2,
+        "createdAt": "2024-02-10T11:00:00.000Z"
+      },
+      "_links": {
+        "webui": "/spaces/DEV/pages/98766"
+      }
+    }
+  ],
+  "_links": {
+    "next": "/wiki/api/v2/spaces/123456/pages?cursor=xyz789"
+  }
+}

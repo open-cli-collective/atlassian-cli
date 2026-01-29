@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+  <metadata>
+    <id>confluence-cli</id>
+    <version>0.0.0</version>
+    <title>Confluence CLI</title>
+    <authors>Open CLI Collective</authors>
+    <owners>rianjs</owners>
+    <licenseUrl>https://github.com/open-cli-collective/confluence-cli/blob/main/LICENSE</licenseUrl>
+    <projectUrl>https://github.com/open-cli-collective/confluence-cli#readme</projectUrl>
+    <projectSourceUrl>https://github.com/open-cli-collective/confluence-cli</projectSourceUrl>
+    <packageSourceUrl>https://github.com/open-cli-collective/confluence-cli/tree/main/packaging/chocolatey</packageSourceUrl>
+    <bugTrackerUrl>https://github.com/open-cli-collective/confluence-cli/issues</bugTrackerUrl>
+    <iconUrl>https://cdn.jsdelivr.net/gh/open-cli-collective/confluence-cli@main/assets/logo/cfl-256.png</iconUrl>
+    <copyright>Copyright (c) 2025 Open CLI Collective</copyright>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <description>A command-line interface for Atlassian Confluence Cloud. Provides markdown-first page management with automatic conversion between Markdown and Confluence's storage format.
+
+Features:
+- Create, edit, view, and delete Confluence pages
+- Bidirectional Markdown to Confluence HTML conversion
+- Attachment management (upload, download, list)
+- Space listing and search
+- Support for Confluence macros (TOC, panels, expand)
+
+Binary: cfl.exe</description>
+    <summary>Command-line interface for Atlassian Confluence Cloud</summary>
+    <releaseNotes>https://github.com/open-cli-collective/confluence-cli/releases</releaseNotes>
+    <tags>confluence atlassian cli markdown wiki documentation</tags>
+  </metadata>
+  <files>
+    <file src="tools\**" target="tools" />
+  </files>
+</package>

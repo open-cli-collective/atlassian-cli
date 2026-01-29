@@ -1,0 +1,75 @@
+name: Publish to Chocolatey
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (e.g., 0.9.8)'
+        required: true
+        type: string
+
+jobs:
+  publish:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate release exists
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $release = gh release view "v${{ inputs.version }}" --json tagName 2>&1
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Release v${{ inputs.version }} not found"
+            exit 1
+          }
+          Write-Host "Found release v${{ inputs.version }}"
+
+      - name: Get checksums from release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download "v${{ inputs.version }}" --pattern "checksums.txt" --dir .
+
+          $checksums = Get-Content checksums.txt
+          $x64Hash = ($checksums | Select-String "windows_amd64.zip").Line.Split()[0]
+          $arm64Hash = ($checksums | Select-String "windows_arm64.zip").Line.Split()[0]
+
+          Write-Host "x64 SHA256: $x64Hash"
+          Write-Host "arm64 SHA256: $arm64Hash"
+
+          echo "X64_HASH=$x64Hash" >> $env:GITHUB_ENV
+          echo "ARM64_HASH=$arm64Hash" >> $env:GITHUB_ENV
+
+      - name: Update version and checksums
+        shell: pwsh
+        run: |
+          $version = "${{ inputs.version }}"
+
+          # Update version in nuspec
+          $nuspec = 'packaging/chocolatey/confluence-cli.nuspec'
+          (Get-Content $nuspec) -replace '<version>0.0.0</version>', "<version>$version</version>" | Set-Content $nuspec
+          Write-Host "Updated nuspec to version $version"
+
+          # Inject checksums into install script
+          $script = 'packaging/chocolatey/tools/chocolateyInstall.ps1'
+          $content = Get-Content $script -Raw
+          $content = $content -replace 'CHECKSUM_AMD64_PLACEHOLDER', $env:X64_HASH
+          $content = $content -replace 'CHECKSUM_ARM64_PLACEHOLDER', $env:ARM64_HASH
+          Set-Content $script $content
+          Write-Host "Injected checksums into install script"
+
+      - name: Pack Chocolatey package
+        shell: pwsh
+        run: |
+          cd packaging/chocolatey
+          choco pack
+          Get-ChildItem *.nupkg
+
+      - name: Push to Chocolatey
+        shell: pwsh
+        run: |
+          cd packaging/chocolatey
+          choco push (Get-ChildItem *.nupkg).Name --source https://push.chocolatey.org/ --key ${{ secrets.CHOCOLATEY_API_KEY }}

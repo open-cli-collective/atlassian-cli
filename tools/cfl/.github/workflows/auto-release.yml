@@ -1,0 +1,47 @@
+name: Auto Release
+
+on:
+  push:
+    branches:
+      - main
+    # Gate 1: Only trigger when Go code actually changes
+    paths:
+      - '**.go'
+      - 'go.mod'
+      - 'go.sum'
+
+permissions:
+  contents: write
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    # Gate 2: Only release for feat: and fix: commits (actual functionality changes)
+    if: >-
+      startsWith(github.event.head_commit.message, 'feat:') ||
+      startsWith(github.event.head_commit.message, 'feat(') ||
+      startsWith(github.event.head_commit.message, 'fix:') ||
+      startsWith(github.event.head_commit.message, 'fix(')
+    steps:
+      # TAP_GITHUB_TOKEN (a PAT) is required here instead of the default GITHUB_TOKEN
+      # because tag pushes made with GITHUB_TOKEN do not trigger other workflows.
+      # Without this, the Release workflow would not run when we push the tag.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.TAP_GITHUB_TOKEN }}
+
+      - name: Read version
+        id: version
+        run: |
+          BASE_VERSION=$(cat version.txt | tr -d '\n')
+          VERSION="v${BASE_VERSION}.${GITHUB_RUN_NUMBER}"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Creating release: $VERSION"
+
+      - name: Create and push tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag ${{ steps.version.outputs.version }}
+          git push origin ${{ steps.version.outputs.version }}

@@ -1,0 +1,47 @@
+{
+  "description": "Blockquotes",
+  "tests": [
+    {
+      "name": "simple",
+      "markdown": "> This is a quote",
+      "adf": {
+        "type": "doc",
+        "version": 1,
+        "content": [
+          {
+            "type": "blockquote",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {"type": "text", "text": "This is a quote"}
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "multiline",
+      "markdown": "> Line one\n> Line two",
+      "adf": {
+        "type": "doc",
+        "version": 1,
+        "content": [
+          {
+            "type": "blockquote",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {"type": "text", "text": "Line one\nLine two"}
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+{
+  "description": "Ordered lists",
+  "tests": [
+    {
+      "name": "simple_list",
+      "markdown": "1. First\n2. Second\n3. Third",
+      "adf": {
+        "type": "doc",
+        "version": 1,
+        "content": [
+          {
+            "type": "orderedList",
+            "attrs": {"order": 1},
+            "content": [
+              {
+                "type": "listItem",
+                "content": [
+                  {"type": "paragraph", "content": [{"type": "text", "text": "First"}]}
+                ]
+              },
+              {
+                "type": "listItem",
+                "content": [
+                  {"type": "paragraph", "content": [{"type": "text", "text": "Second"}]}
+                ]
+              },
+              {
+                "type": "listItem",
+                "content": [
+                  {"type": "paragraph", "content": [{"type": "text", "text": "Third"}]}
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

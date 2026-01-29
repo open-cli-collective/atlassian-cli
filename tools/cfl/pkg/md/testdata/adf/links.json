@@ -1,0 +1,39 @@
+{
+  "description": "Links",
+  "tests": [
+    {
+      "name": "simple_link",
+      "markdown": "Visit [Example](https://example.com) for more",
+      "adf": {
+        "type": "doc",
+        "version": 1,
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {"type": "text", "text": "Visit "},
+              {"type": "text", "text": "Example", "marks": [{"type": "link", "attrs": {"href": "https://example.com"}}]},
+              {"type": "text", "text": " for more"}
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "link_only",
+      "markdown": "[Click here](https://example.com)",
+      "adf": {
+        "type": "doc",
+        "version": 1,
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {"type": "text", "text": "Click here", "marks": [{"type": "link", "attrs": {"href": "https://example.com"}}]}
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

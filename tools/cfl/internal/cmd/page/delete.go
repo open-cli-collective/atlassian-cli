@@ -4,27 +4,19 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	"io"
-	"os"
 
 	"github.com/spf13/cobra"
 
-	"github.com/open-cli-collective/atlassian-go/view"
-
-	"github.com/open-cli-collective/confluence-cli/api"
-	"github.com/open-cli-collective/confluence-cli/internal/config"
+	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
 )
 
 type deleteOptions struct {
-	force   bool
-	output  string
-	noColor bool
-	stdin   io.Reader // injectable for testing
+	*root.Options
+	force bool
 }
 
-// NewCmdDelete creates the page delete command.
-func NewCmdDelete() *cobra.Command {
-	opts := &deleteOptions{}
+func newDeleteCmd(rootOpts *root.Options) *cobra.Command {
+	opts := &deleteOptions{Options: rootOpts}
 
 	cmd := &cobra.Command{
 		Use:   "delete <page-id>",
@@ -36,11 +28,8 @@ func NewCmdDelete() *cobra.Command {
   # Delete without confirmation
   cfl page delete 12345 --force`,
 		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			opts.output, _ = cmd.Flags().GetString("output")
-			opts.noColor, _ = cmd.Flags().GetBool("no-color")
-			opts.stdin = os.Stdin // default to os.Stdin, can be overridden in tests
-			return runDelete(args[0], opts, nil)
+		RunE: func(_ *cobra.Command, args []string) error {
+			return runDelete(args[0], opts)
 		},
 	}
 
@@ -49,35 +38,24 @@ func NewCmdDelete() *cobra.Command {
 	return cmd
 }
 
-func runDelete(pageID string, opts *deleteOptions, client *api.Client) error {
-	// Create API client if not provided (allows injection for testing)
-	if client == nil {
-		cfg, err := config.LoadWithEnv(config.DefaultConfigPath())
-		if err != nil {
-			return fmt.Errorf("failed to load config: %w (run 'cfl init' to configure)", err)
-		}
-
-		if err := cfg.Validate(); err != nil {
-			return fmt.Errorf("invalid config: %w (run 'cfl init' to configure)", err)
-		}
-
-		client = api.NewClient(cfg.URL, cfg.Email, cfg.APIToken)
+func runDelete(pageID string, opts *deleteOptions) error {
+	client, err := opts.APIClient()
+	if err != nil {
+		return err
 	}
 
-	// Get page info first to show what we're deleting
 	page, err := client.GetPage(context.Background(), pageID, nil)
 	if err != nil {
 		return fmt.Errorf("failed to get page: %w", err)
 	}
 
-	v := view.New(view.Format(opts.output), opts.noColor)
+	v := opts.View()
 
-	// Confirm deletion unless --force is used
 	if !opts.force {
 		fmt.Printf("About to delete page: %s (ID: %s)\n", page.Title, page.ID)
 		fmt.Print("Are you sure? [y/N]: ")
 
-		scanner := bufio.NewScanner(opts.stdin)
+		scanner := bufio.NewScanner(opts.Stdin)
 		var confirm string
 		if scanner.Scan() {
 			confirm = scanner.Text()
@@ -89,12 +67,11 @@ func runDelete(pageID string, opts *deleteOptions, client *api.Client) error {
 		}
 	}
 
-	// Delete the page
 	if err := client.DeletePage(context.Background(), pageID); err != nil {
 		return fmt.Errorf("failed to delete page: %w", err)
 	}
 
-	if opts.output == "json" {
+	if opts.Output == "json" {
 		return v.JSON(map[string]string{
 			"status":  "deleted",
 			"page_id": pageID,

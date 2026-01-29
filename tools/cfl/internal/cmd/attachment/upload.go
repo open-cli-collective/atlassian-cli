@@ -6,24 +6,20 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/open-cli-collective/atlassian-go/view"
 	"github.com/spf13/cobra"
 
-	"github.com/open-cli-collective/confluence-cli/api"
-	"github.com/open-cli-collective/confluence-cli/internal/config"
+	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
 )
 
 type uploadOptions struct {
+	*root.Options
 	pageID  string
 	file    string
 	comment string
-	output  string
-	noColor bool
 }
 
-// NewCmdUpload creates the attachment upload command.
-func NewCmdUpload() *cobra.Command {
-	opts := &uploadOptions{}
+func newUploadCmd(rootOpts *root.Options) *cobra.Command {
+	opts := &uploadOptions{Options: rootOpts}
 
 	cmd := &cobra.Command{
 		Use:   "upload",
@@ -34,10 +30,8 @@ func NewCmdUpload() *cobra.Command {
 
   # Upload with a comment (-m for message/comment)
   cfl attachment upload --page 12345 --file image.png -m "Screenshot"`,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			opts.output, _ = cmd.Flags().GetString("output")
-			opts.noColor, _ = cmd.Flags().GetBool("no-color")
-			return runUpload(opts, nil)
+		RunE: func(_ *cobra.Command, _ []string) error {
+			return runUpload(opts)
 		},
 	}
 
@@ -51,41 +45,28 @@ func NewCmdUpload() *cobra.Command {
 	return cmd
 }
 
-func runUpload(opts *uploadOptions, client *api.Client) error {
-	// Create API client if not provided (allows injection for testing)
-	if client == nil {
-		cfg, err := config.LoadWithEnv(config.DefaultConfigPath())
-		if err != nil {
-			return fmt.Errorf("failed to load config: %w (run 'cfl init' to configure)", err)
-		}
-
-		if err := cfg.Validate(); err != nil {
-			return fmt.Errorf("invalid config: %w (run 'cfl init' to configure)", err)
-		}
-
-		client = api.NewClient(cfg.URL, cfg.Email, cfg.APIToken)
+func runUpload(opts *uploadOptions) error {
+	client, err := opts.APIClient()
+	if err != nil {
+		return err
 	}
 
-	// Open file
 	file, err := os.Open(opts.file)
 	if err != nil {
 		return fmt.Errorf("failed to open file: %w", err)
 	}
 	defer func() { _ = file.Close() }()
 
-	// Get filename from path
 	filename := filepath.Base(opts.file)
 
-	// Upload attachment
 	attachment, err := client.UploadAttachment(context.Background(), opts.pageID, filename, file, opts.comment)
 	if err != nil {
 		return fmt.Errorf("failed to upload attachment: %w", err)
 	}
 
-	// Render output
-	v := view.New(view.Format(opts.output), opts.noColor)
+	v := opts.View()
 
-	if opts.output == "json" {
+	if opts.Output == "json" {
 		return v.JSON(attachment)
 	}
 

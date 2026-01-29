@@ -10,20 +10,18 @@ import (
 	"github.com/open-cli-collective/atlassian-go/view"
 
 	"github.com/open-cli-collective/confluence-cli/api"
-	"github.com/open-cli-collective/confluence-cli/internal/config"
+	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
 )
 
 type listOptions struct {
-	space   string
-	limit   int
-	status  string
-	output  string
-	noColor bool
+	*root.Options
+	space  string
+	limit  int
+	status string
 }
 
-// NewCmdList creates the page list command.
-func NewCmdList() *cobra.Command {
-	opts := &listOptions{}
+func newListCmd(rootOpts *root.Options) *cobra.Command {
+	opts := &listOptions{Options: rootOpts}
 
 	cmd := &cobra.Command{
 		Use:     "list",
@@ -38,10 +36,8 @@ func NewCmdList() *cobra.Command {
 
   # Output as JSON
   cfl page list -s DEV -o json`,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			opts.output, _ = cmd.Flags().GetString("output")
-			opts.noColor, _ = cmd.Flags().GetBool("no-color")
-			return runList(opts, nil)
+		RunE: func(_ *cobra.Command, _ []string) error {
+			return runList(opts)
 		},
 	}
 
@@ -60,67 +56,53 @@ var validStatuses = map[string]bool{
 	"deleted":  true,
 }
 
-func runList(opts *listOptions, client *api.Client) error {
-	// Validate output format
-	if err := view.ValidateFormat(opts.output); err != nil {
+func runList(opts *listOptions) error {
+	if err := view.ValidateFormat(opts.Output); err != nil {
 		return err
 	}
 
-	// Validate status
 	if !validStatuses[opts.status] {
 		return fmt.Errorf("invalid status %q: must be one of current, archived, trashed", opts.status)
 	}
 
-	// Validate limit
 	if opts.limit < 0 {
 		return fmt.Errorf("invalid limit: %d (must be >= 0)", opts.limit)
 	}
 
-	// Render output
-	v := view.New(view.Format(opts.output), opts.noColor)
+	v := opts.View()
 
-	// Handle limit 0 - return empty list
 	if opts.limit == 0 {
-		if opts.output == "json" {
+		if opts.Output == "json" {
 			return v.JSON([]interface{}{})
 		}
 		v.RenderText("No pages found.")
 		return nil
 	}
 
-	// Determine space - for testing, opts.space can be provided directly
+	cfg, err := opts.Config()
+	if err != nil {
+		return err
+	}
+
 	spaceKey := opts.space
-
-	// Create API client if not provided (allows injection for testing)
-	if client == nil {
-		cfg, err := config.LoadWithEnv(config.DefaultConfigPath())
-		if err != nil {
-			return fmt.Errorf("failed to load config: %w (run 'cfl init' to configure)", err)
-		}
-
-		if err := cfg.Validate(); err != nil {
-			return fmt.Errorf("invalid config: %w (run 'cfl init' to configure)", err)
-		}
-
-		// Use default space from config if not specified
-		if spaceKey == "" {
-			spaceKey = cfg.DefaultSpace
-		}
-
-		client = api.NewClient(cfg.URL, cfg.Email, cfg.APIToken)
+	if spaceKey == "" {
+		spaceKey = cfg.DefaultSpace
 	}
 
 	if spaceKey == "" {
 		return fmt.Errorf("space is required: use --space flag or set default_space in config")
 	}
 
-	// Get space ID from key
+	client, err := opts.APIClient()
+	if err != nil {
+		return err
+	}
+
 	space, err := client.GetSpaceByKey(context.Background(), spaceKey)
 	if err != nil {
 		return fmt.Errorf("failed to find space '%s': %w", spaceKey, err)
 	}
 
-	// List pages
 	apiOpts := &api.ListPagesOptions{
 		Limit:  opts.limit,
 		Status: opts.status,
@@ -154,7 +136,7 @@ func runList(opts *listOptions, client *api.Client) error {
 
 	_ = v.RenderList(headers, rows, result.HasMore())
 
-	if result.HasMore() && opts.output != "json" {
+	if result.HasMore() && opts.Output != "json" {
 		fmt.Fprintf(os.Stderr, "\n(showing first %d results, use --limit to see more)\n", len(result.Results))
 	}
 

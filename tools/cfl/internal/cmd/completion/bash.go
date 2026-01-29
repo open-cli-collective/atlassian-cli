@@ -4,8 +4,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewCmdBash creates the bash completion command.
-func NewCmdBash() *cobra.Command {
+// newBashCmd creates the bash completion command.
+func newBashCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "bash",
 		Short: "Generate bash completion script",

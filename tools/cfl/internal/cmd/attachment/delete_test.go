@@ -1,6 +1,7 @@
 package attachment
 
 import (
+	"bytes"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -10,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/open-cli-collective/confluence-cli/api"
+	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
 )
 
 // mockAttachmentServer creates a test server that handles attachment get and delete
@@ -38,6 +40,16 @@ func mockAttachmentServer(t *testing.T, getHandler, deleteHandler func(w http.Re
 	}))
 }
 
+func newTestRootOptions() *root.Options {
+	return &root.Options{
+		Output:  "table",
+		NoColor: true,
+		Stdin:   strings.NewReader(""),
+		Stdout:  &bytes.Buffer{},
+		Stderr:  &bytes.Buffer{},
+	}
+}
+
 func TestRunDeleteAttachment_ForceDelete(t *testing.T) {
 	server := mockAttachmentServer(t, nil, func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "DELETE", r.Method)
@@ -46,13 +58,16 @@ func TestRunDeleteAttachment_ForceDelete(t *testing.T) {
 	})
 	defer server.Close()
 
+	rootOpts := newTestRootOptions()
 	client := api.NewClient(server.URL, "user@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &deleteOptions{
-		force: true,
-		stdin: strings.NewReader(""), // Not used with force
+		Options: rootOpts,
+		force:   true,
 	}
 
-	err := runDeleteAttachment("att123", opts, client)
+	err := runDeleteAttachment("att123", opts)
 	require.NoError(t, err)
 }
 
@@ -64,13 +79,17 @@ func TestRunDeleteAttachment_ConfirmWithY(t *testing.T) {
 	})
 	defer server.Close()
 
+	rootOpts := newTestRootOptions()
+	rootOpts.Stdin = strings.NewReader("y\n")
 	client := api.NewClient(server.URL, "user@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &deleteOptions{
-		force: false,
-		stdin: strings.NewReader("y\n"),
+		Options: rootOpts,
+		force:   false,
 	}
 
-	err := runDeleteAttachment("att123", opts, client)
+	err := runDeleteAttachment("att123", opts)
 	require.NoError(t, err)
 	assert.True(t, deleted, "attachment should have been deleted")
 }
@@ -83,13 +102,17 @@ func TestRunDeleteAttachment_ConfirmWithUpperY(t *testing.T) {
 	})
 	defer server.Close()
 
+	rootOpts := newTestRootOptions()
+	rootOpts.Stdin = strings.NewReader("Y\n")
 	client := api.NewClient(server.URL, "user@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &deleteOptions{
-		force: false,
-		stdin: strings.NewReader("Y\n"),
+		Options: rootOpts,
+		force:   false,
 	}
 
-	err := runDeleteAttachment("att123", opts, client)
+	err := runDeleteAttachment("att123", opts)
 	require.NoError(t, err)
 	assert.True(t, deleted, "attachment should have been deleted")
 }
@@ -102,13 +125,17 @@ func TestRunDeleteAttachment_CancelWithN(t *testing.T) {
 	})
 	defer server.Close()
 
+	rootOpts := newTestRootOptions()
+	rootOpts.Stdin = strings.NewReader("n\n")
 	client := api.NewClient(server.URL, "user@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &deleteOptions{
-		force: false,
-		stdin: strings.NewReader("n\n"),
+		Options: rootOpts,
+		force:   false,
 	}
 
-	err := runDeleteAttachment("att123", opts, client)
+	err := runDeleteAttachment("att123", opts)
 	require.NoError(t, err)
 	assert.False(t, deleted, "attachment should NOT have been deleted")
 }
@@ -121,13 +148,17 @@ func TestRunDeleteAttachment_CancelWithEmpty(t *testing.T) {
 	})
 	defer server.Close()
 
+	rootOpts := newTestRootOptions()
+	rootOpts.Stdin = strings.NewReader("\n")
 	client := api.NewClient(server.URL, "user@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &deleteOptions{
-		force: false,
-		stdin: strings.NewReader("\n"),
+		Options: rootOpts,
+		force:   false,
 	}
 
-	err := runDeleteAttachment("att123", opts, client)
+	err := runDeleteAttachment("att123", opts)
 	require.NoError(t, err)
 	assert.False(t, deleted, "attachment should NOT have been deleted")
 }
@@ -140,13 +171,17 @@ func TestRunDeleteAttachment_CancelWithOther(t *testing.T) {
 	})
 	defer server.Close()
 
+	rootOpts := newTestRootOptions()
+	rootOpts.Stdin = strings.NewReader("maybe\n")
 	client := api.NewClient(server.URL, "user@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &deleteOptions{
-		force: false,
-		stdin: strings.NewReader("maybe\n"),
+		Options: rootOpts,
+		force:   false,
 	}
 
-	err := runDeleteAttachment("att123", opts, client)
+	err := runDeleteAttachment("att123", opts)
 	require.NoError(t, err)
 	assert.False(t, deleted, "attachment should NOT have been deleted")
 }
@@ -161,13 +196,16 @@ func TestRunDeleteAttachment_GetAttachmentFails(t *testing.T) {
 	)
 	defer server.Close()
 
+	rootOpts := newTestRootOptions()
 	client := api.NewClient(server.URL, "user@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &deleteOptions{
-		force: true,
-		stdin: strings.NewReader(""),
+		Options: rootOpts,
+		force:   true,
 	}
 
-	err := runDeleteAttachment("invalid", opts, client)
+	err := runDeleteAttachment("invalid", opts)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to get attachment")
 }
@@ -181,13 +219,16 @@ func TestRunDeleteAttachment_DeleteFails(t *testing.T) {
 	)
 	defer server.Close()
 
+	rootOpts := newTestRootOptions()
 	client := api.NewClient(server.URL, "user@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &deleteOptions{
-		force: true,
-		stdin: strings.NewReader(""),
+		Options: rootOpts,
+		force:   true,
 	}
 
-	err := runDeleteAttachment("att123", opts, client)
+	err := runDeleteAttachment("att123", opts)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to delete attachment")
 }

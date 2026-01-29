@@ -6,24 +6,23 @@ import (
 	"os"
 	"strings"
 
-	"github.com/open-cli-collective/atlassian-go/view"
 	"github.com/spf13/cobra"
 
+	"github.com/open-cli-collective/atlassian-go/view"
+
 	"github.com/open-cli-collective/confluence-cli/api"
-	"github.com/open-cli-collective/confluence-cli/internal/config"
+	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
 )
 
 type listOptions struct {
-	pageID  string
-	limit   int
-	unused  bool
-	output  string
-	noColor bool
+	*root.Options
+	pageID string
+	limit  int
+	unused bool
 }
 
-// NewCmdList creates the attachment list command.
-func NewCmdList() *cobra.Command {
-	opts := &listOptions{}
+func newListCmd(rootOpts *root.Options) *cobra.Command {
+	opts := &listOptions{Options: rootOpts}
 
 	cmd := &cobra.Command{
 		Use:     "list",
@@ -38,10 +37,8 @@ func NewCmdList() *cobra.Command {
 
   # List unused (orphaned) attachments not referenced in page content
   cfl attachment list --page 12345 --unused`,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			opts.output, _ = cmd.Flags().GetString("output")
-			opts.noColor, _ = cmd.Flags().GetBool("no-color")
-			return runList(opts, nil)
+		RunE: func(_ *cobra.Command, _ []string) error {
+			return runList(opts)
 		},
 	}
 
@@ -54,27 +51,16 @@ func NewCmdList() *cobra.Command {
 	return cmd
 }
 
-func runList(opts *listOptions, client *api.Client) error {
-	// Validate output format
-	if err := view.ValidateFormat(opts.output); err != nil {
+func runList(opts *listOptions) error {
+	if err := view.ValidateFormat(opts.Output); err != nil {
 		return err
 	}
 
-	// Create API client if not provided (allows injection for testing)
-	if client == nil {
-		cfg, err := config.LoadWithEnv(config.DefaultConfigPath())
-		if err != nil {
-			return fmt.Errorf("failed to load config: %w (run 'cfl init' to configure)", err)
-		}
-
-		if err := cfg.Validate(); err != nil {
-			return fmt.Errorf("invalid config: %w (run 'cfl init' to configure)", err)
-		}
-
-		client = api.NewClient(cfg.URL, cfg.Email, cfg.APIToken)
+	client, err := opts.APIClient()
+	if err != nil {
+		return err
 	}
 
-	// List attachments
 	apiOpts := &api.ListAttachmentsOptions{
 		Limit: opts.limit,
 	}
@@ -86,9 +72,7 @@ func runList(opts *listOptions, client *api.Client) error {
 
 	attachments := result.Results
 
-	// Filter to unused attachments if requested
 	if opts.unused {
-		// Fetch page content in storage format
 		page, err := client.GetPage(context.Background(), opts.pageID, &api.GetPageOptions{
 			BodyFormat: "storage",
 		})
@@ -104,10 +88,8 @@ func runList(opts *listOptions, client *api.Client) error {
 		attachments = filterUnusedAttachments(attachments, pageContent)
 	}
 
-	// Render output
-	v := view.New(view.Format(opts.output), opts.noColor)
+	v := opts.View()
 
-	// Build table rows
 	headers := []string{"ID", "Title", "Media Type", "File Size"}
 	var rows [][]string
 	for _, att := range attachments {
@@ -115,8 +97,7 @@ func runList(opts *listOptions, client *api.Client) error {
 		rows = append(rows, []string{att.ID, att.Title, att.MediaType, size})
 	}
 
-	// Handle empty result for non-JSON output
-	if len(attachments) == 0 && opts.output != "json" {
+	if len(attachments) == 0 && opts.Output != "json" {
 		if opts.unused {
 			fmt.Println("No unused attachments found.")
 		} else {
@@ -127,7 +108,7 @@ func runList(opts *listOptions, client *api.Client) error {
 
 	_ = v.RenderList(headers, rows, result.HasMore())
 
-	if result.HasMore() && opts.output != "json" {
+	if result.HasMore() && opts.Output != "json" {
 		fmt.Fprintf(os.Stderr, "\n(showing first %d results, use --limit to see more)\n", len(attachments))
 	}
 
@@ -150,18 +131,15 @@ func filterUnusedAttachments(attachments []api.Attachment, pageContent string) [
 
 // isAttachmentReferenced checks if an attachment filename appears in page content.
 func isAttachmentReferenced(filename, content string) bool {
-	// Check for ri:filename="attachment.ext" pattern (most common)
 	if strings.Contains(content, fmt.Sprintf(`ri:filename="%s"`, filename)) {
 		return true
 	}
 
-	// Check for URL-encoded filename in href (e.g., spaces become %20)
 	encodedFilename := strings.ReplaceAll(filename, " ", "%20")
 	if strings.Contains(content, encodedFilename) {
 		return true
 	}
 
-	// Check for plain filename reference (fallback)
 	if strings.Contains(content, filename) {
 		return true
 	}

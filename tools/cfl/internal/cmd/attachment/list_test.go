@@ -1,6 +1,7 @@
 package attachment
 
 import (
+	"bytes"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -9,12 +10,22 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/open-cli-collective/confluence-cli/api"
+	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
 )
+
+func newListTestRootOptions() *root.Options {
+	return &root.Options{
+		Output:  "table",
+		NoColor: true,
+		Stdout:  &bytes.Buffer{},
+		Stderr:  &bytes.Buffer{},
+	}
+}
 
 func TestRunList_Success(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{
+		_, _ = w.Write([]byte(`{
 			"results": [
 				{"id": "att1", "title": "doc.pdf", "mediaType": "application/pdf", "fileSize": 1024},
 				{"id": "att2", "title": "image.png", "mediaType": "image/png", "fileSize": 2048}
@@ -23,50 +34,59 @@ func TestRunList_Success(t *testing.T) {
 	}))
 	defer server.Close()
 
+	rootOpts := newListTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &listOptions{
+		Options: rootOpts,
 		pageID:  "12345",
 		limit:   25,
-		noColor: true,
 	}
 
-	err := runList(opts, client)
+	err := runList(opts)
 	require.NoError(t, err)
 }
 
 func TestRunList_Empty(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"results": []}`))
+		_, _ = w.Write([]byte(`{"results": []}`))
 	}))
 	defer server.Close()
 
+	rootOpts := newListTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &listOptions{
+		Options: rootOpts,
 		pageID:  "12345",
 		limit:   25,
-		noColor: true,
 	}
 
-	err := runList(opts, client)
+	err := runList(opts)
 	require.NoError(t, err)
 }
 
 func TestRunList_APIError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"message": "Page not found"}`))
+		_, _ = w.Write([]byte(`{"message": "Page not found"}`))
 	}))
 	defer server.Close()
 
+	rootOpts := newListTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &listOptions{
+		Options: rootOpts,
 		pageID:  "99999",
 		limit:   25,
-		noColor: true,
 	}
 
-	err := runList(opts, client)
+	err := runList(opts)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to list attachments")
 }
@@ -74,7 +94,7 @@ func TestRunList_APIError(t *testing.T) {
 func TestRunList_JSONOutput(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{
+		_, _ = w.Write([]byte(`{
 			"results": [
 				{"id": "att1", "title": "doc.pdf", "mediaType": "application/pdf", "fileSize": 1024}
 			]
@@ -82,28 +102,32 @@ func TestRunList_JSONOutput(t *testing.T) {
 	}))
 	defer server.Close()
 
+	rootOpts := newListTestRootOptions()
+	rootOpts.Output = "json"
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &listOptions{
+		Options: rootOpts,
 		pageID:  "12345",
 		limit:   25,
-		output:  "json",
-		noColor: true,
 	}
 
-	err := runList(opts, client)
+	err := runList(opts)
 	require.NoError(t, err)
 }
 
 func TestRunList_InvalidOutputFormat(t *testing.T) {
 	// Don't need a server - should fail before API call
-	client := api.NewClient("http://unused", "test@example.com", "token")
+	rootOpts := newListTestRootOptions()
+	rootOpts.Output = "invalid"
+
 	opts := &listOptions{
+		Options: rootOpts,
 		pageID:  "12345",
-		output:  "invalid",
-		noColor: true,
 	}
 
-	err := runList(opts, client)
+	err := runList(opts)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid output format")
 }
@@ -235,7 +259,7 @@ func TestRunList_UnusedFlag(t *testing.T) {
 		switch r.URL.Path {
 		case "/api/v2/pages/12345/attachments":
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{
+			_, _ = w.Write([]byte(`{
 				"results": [
 					{"id": "att1", "title": "used.png", "mediaType": "image/png", "fileSize": 1024},
 					{"id": "att2", "title": "unused.pdf", "mediaType": "application/pdf", "fileSize": 2048}
@@ -243,7 +267,7 @@ func TestRunList_UnusedFlag(t *testing.T) {
 			}`))
 		case "/api/v2/pages/12345":
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{
+			_, _ = w.Write([]byte(`{
 				"id": "12345",
 				"title": "Test Page",
 				"body": {
@@ -259,15 +283,18 @@ func TestRunList_UnusedFlag(t *testing.T) {
 	}))
 	defer server.Close()
 
+	rootOpts := newListTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &listOptions{
+		Options: rootOpts,
 		pageID:  "12345",
 		limit:   25,
 		unused:  true,
-		noColor: true,
 	}
 
-	err := runList(opts, client)
+	err := runList(opts)
 	require.NoError(t, err)
 	assert.Equal(t, 2, requestCount) // Both attachments and page content fetched
 }
@@ -277,14 +304,14 @@ func TestRunList_UnusedFlag_NoUnused(t *testing.T) {
 		switch r.URL.Path {
 		case "/api/v2/pages/12345/attachments":
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{
+			_, _ = w.Write([]byte(`{
 				"results": [
 					{"id": "att1", "title": "used.png", "mediaType": "image/png", "fileSize": 1024}
 				]
 			}`))
 		case "/api/v2/pages/12345":
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{
+			_, _ = w.Write([]byte(`{
 				"id": "12345",
 				"title": "Test Page",
 				"body": {
@@ -298,14 +325,17 @@ func TestRunList_UnusedFlag_NoUnused(t *testing.T) {
 	}))
 	defer server.Close()
 
+	rootOpts := newListTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &listOptions{
+		Options: rootOpts,
 		pageID:  "12345",
 		limit:   25,
 		unused:  true,
-		noColor: true,
 	}
 
-	err := runList(opts, client)
+	err := runList(opts)
 	require.NoError(t, err)
 }

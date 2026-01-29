@@ -1,6 +1,7 @@
 package page
 
 import (
+	"bytes"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -10,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/open-cli-collective/confluence-cli/api"
+	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
 )
 
 // mockPageServer creates a test server that handles GetPage and DeletePage requests
@@ -18,7 +20,7 @@ func mockPageServer(t *testing.T, pageID, title string, deleteStatus int) *httpt
 		switch {
 		case r.Method == "GET" && strings.Contains(r.URL.Path, "/pages/"+pageID):
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{
+			_, _ = w.Write([]byte(`{
 				"id": "` + pageID + `",
 				"title": "` + title + `",
 				"spaceId": "123456",
@@ -33,19 +35,31 @@ func mockPageServer(t *testing.T, pageID, title string, deleteStatus int) *httpt
 	}))
 }
 
+func newDeleteTestRootOptions() *root.Options {
+	return &root.Options{
+		Output:  "table",
+		NoColor: true,
+		Stdin:   strings.NewReader(""),
+		Stdout:  &bytes.Buffer{},
+		Stderr:  &bytes.Buffer{},
+	}
+}
+
 func TestRunDelete_ConfirmYes(t *testing.T) {
 	server := mockPageServer(t, "12345", "Test Page", http.StatusNoContent)
 	defer server.Close()
 
+	rootOpts := newDeleteTestRootOptions()
+	rootOpts.Stdin = strings.NewReader("y\n")
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &deleteOptions{
+		Options: rootOpts,
 		force:   false,
-		output:  "",
-		noColor: true,
-		stdin:   strings.NewReader("y\n"),
 	}
 
-	err := runDelete("12345", opts, client)
+	err := runDelete("12345", opts)
 	require.NoError(t, err)
 }
 
@@ -53,15 +67,17 @@ func TestRunDelete_ConfirmYesUppercase(t *testing.T) {
 	server := mockPageServer(t, "12345", "Test Page", http.StatusNoContent)
 	defer server.Close()
 
+	rootOpts := newDeleteTestRootOptions()
+	rootOpts.Stdin = strings.NewReader("Y\n")
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &deleteOptions{
+		Options: rootOpts,
 		force:   false,
-		output:  "",
-		noColor: true,
-		stdin:   strings.NewReader("Y\n"),
 	}
 
-	err := runDelete("12345", opts, client)
+	err := runDelete("12345", opts)
 	require.NoError(t, err)
 }
 
@@ -69,15 +85,17 @@ func TestRunDelete_ConfirmNo(t *testing.T) {
 	server := mockPageServer(t, "12345", "Test Page", http.StatusNoContent)
 	defer server.Close()
 
+	rootOpts := newDeleteTestRootOptions()
+	rootOpts.Stdin = strings.NewReader("n\n")
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &deleteOptions{
+		Options: rootOpts,
 		force:   false,
-		output:  "",
-		noColor: true,
-		stdin:   strings.NewReader("n\n"),
 	}
 
-	err := runDelete("12345", opts, client)
+	err := runDelete("12345", opts)
 	require.NoError(t, err) // Cancellation is not an error
 }
 
@@ -85,15 +103,17 @@ func TestRunDelete_ConfirmEmpty(t *testing.T) {
 	server := mockPageServer(t, "12345", "Test Page", http.StatusNoContent)
 	defer server.Close()
 
+	rootOpts := newDeleteTestRootOptions()
+	rootOpts.Stdin = strings.NewReader("\n")
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &deleteOptions{
+		Options: rootOpts,
 		force:   false,
-		output:  "",
-		noColor: true,
-		stdin:   strings.NewReader("\n"),
 	}
 
-	err := runDelete("12345", opts, client)
+	err := runDelete("12345", opts)
 	require.NoError(t, err) // Empty input should cancel
 }
 
@@ -101,15 +121,17 @@ func TestRunDelete_ConfirmOther(t *testing.T) {
 	server := mockPageServer(t, "12345", "Test Page", http.StatusNoContent)
 	defer server.Close()
 
+	rootOpts := newDeleteTestRootOptions()
+	rootOpts.Stdin = strings.NewReader("maybe\n")
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &deleteOptions{
+		Options: rootOpts,
 		force:   false,
-		output:  "",
-		noColor: true,
-		stdin:   strings.NewReader("maybe\n"),
 	}
 
-	err := runDelete("12345", opts, client)
+	err := runDelete("12345", opts)
 	require.NoError(t, err) // Any non-y/Y input should cancel
 }
 
@@ -117,33 +139,36 @@ func TestRunDelete_Force(t *testing.T) {
 	server := mockPageServer(t, "12345", "Test Page", http.StatusNoContent)
 	defer server.Close()
 
+	rootOpts := newDeleteTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &deleteOptions{
+		Options: rootOpts,
 		force:   true,
-		output:  "",
-		noColor: true,
-		stdin:   nil, // stdin not used when force=true
 	}
 
-	err := runDelete("12345", opts, client)
+	err := runDelete("12345", opts)
 	require.NoError(t, err)
 }
 
 func TestRunDelete_PageNotFound(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"message": "Page not found"}`))
+		_, _ = w.Write([]byte(`{"message": "Page not found"}`))
 	}))
 	defer server.Close()
 
+	rootOpts := newDeleteTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &deleteOptions{
+		Options: rootOpts,
 		force:   true,
-		output:  "",
-		noColor: true,
 	}
 
-	err := runDelete("99999", opts, client)
+	err := runDelete("99999", opts)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to get page")
 }
@@ -152,14 +177,16 @@ func TestRunDelete_DeleteFailed(t *testing.T) {
 	server := mockPageServer(t, "12345", "Test Page", http.StatusForbidden)
 	defer server.Close()
 
+	rootOpts := newDeleteTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &deleteOptions{
+		Options: rootOpts,
 		force:   true,
-		output:  "",
-		noColor: true,
 	}
 
-	err := runDelete("12345", opts, client)
+	err := runDelete("12345", opts)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to delete page")
 }
@@ -168,14 +195,17 @@ func TestRunDelete_JSONOutput(t *testing.T) {
 	server := mockPageServer(t, "12345", "Test Page", http.StatusNoContent)
 	defer server.Close()
 
+	rootOpts := newDeleteTestRootOptions()
+	rootOpts.Output = "json"
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &deleteOptions{
+		Options: rootOpts,
 		force:   true,
-		output:  "json",
-		noColor: true,
 	}
 
-	err := runDelete("12345", opts, client)
+	err := runDelete("12345", opts)
 	require.NoError(t, err)
 }
 
@@ -206,18 +236,21 @@ func TestRunDelete_ConfirmationInputs(t *testing.T) {
 				}
 				// GET request for page info
 				w.WriteHeader(http.StatusOK)
-				w.Write([]byte(`{"id": "12345", "title": "Test", "version": {"number": 1}}`))
+				_, _ = w.Write([]byte(`{"id": "12345", "title": "Test", "version": {"number": 1}}`))
 			}))
 			defer server.Close()
 
+			rootOpts := newDeleteTestRootOptions()
+			rootOpts.Stdin = strings.NewReader(tt.input)
 			client := api.NewClient(server.URL, "test@example.com", "token")
+			rootOpts.SetAPIClient(client)
+
 			opts := &deleteOptions{
+				Options: rootOpts,
 				force:   false,
-				noColor: true,
-				stdin:   strings.NewReader(tt.input),
 			}
 
-			err := runDelete("12345", opts, client)
+			err := runDelete("12345", opts)
 			require.NoError(t, err)
 			assert.Equal(t, tt.shouldProceed, deleteCalled, "delete should have been called: %v", tt.shouldProceed)
 		})

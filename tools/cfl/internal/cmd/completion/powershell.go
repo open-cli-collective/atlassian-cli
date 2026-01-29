@@ -4,8 +4,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewCmdPowerShell creates the PowerShell completion command.
-func NewCmdPowerShell() *cobra.Command {
+// newPowerShellCmd creates the PowerShell completion command.
+func newPowerShellCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "powershell",
 		Short: "Generate PowerShell completion script",

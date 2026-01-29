@@ -3,10 +3,12 @@ package space
 
 import (
 	"github.com/spf13/cobra"
+
+	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
 )
 
-// NewCmdSpace creates the space command.
-func NewCmdSpace() *cobra.Command {
+// Register adds space commands to the root command.
+func Register(rootCmd *cobra.Command, opts *root.Options) {
 	cmd := &cobra.Command{
 		Use:     "space",
 		Aliases: []string{"spaces"},
@@ -14,7 +16,7 @@ func NewCmdSpace() *cobra.Command {
 		Long:    `Commands for listing and viewing Confluence spaces.`,
 	}
 
-	cmd.AddCommand(NewCmdList())
+	cmd.AddCommand(newListCmd(opts))
 
-	return cmd
+	rootCmd.AddCommand(cmd)
 }

@@ -1,6 +1,7 @@
 package space
 
 import (
+	"bytes"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -9,7 +10,17 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/open-cli-collective/confluence-cli/api"
+	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
 )
+
+func newTestRootOptions() *root.Options {
+	return &root.Options{
+		Output:  "table",
+		NoColor: true,
+		Stdout:  &bytes.Buffer{},
+		Stderr:  &bytes.Buffer{},
+	}
+}
 
 func TestRunList_Success(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -17,7 +28,7 @@ func TestRunList_Success(t *testing.T) {
 		assert.Contains(t, r.URL.Path, "/spaces")
 
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{
+		_, _ = w.Write([]byte(`{
 			"results": [
 				{
 					"id": "123456",
@@ -38,37 +49,43 @@ func TestRunList_Success(t *testing.T) {
 	}))
 	defer server.Close()
 
+	rootOpts := newTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &listOptions{
+		Options: rootOpts,
 		limit:   25,
-		noColor: true,
 	}
 
-	err := runList(opts, client)
+	err := runList(opts)
 	require.NoError(t, err)
 }
 
 func TestRunList_EmptyResults(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"results": []}`))
+		_, _ = w.Write([]byte(`{"results": []}`))
 	}))
 	defer server.Close()
 
+	rootOpts := newTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &listOptions{
+		Options: rootOpts,
 		limit:   25,
-		noColor: true,
 	}
 
-	err := runList(opts, client)
+	err := runList(opts)
 	require.NoError(t, err)
 }
 
 func TestRunList_JSONOutput(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{
+		_, _ = w.Write([]byte(`{
 			"results": [
 				{"id": "123456", "key": "DEV", "name": "Development", "type": "global"}
 			]
@@ -76,60 +93,71 @@ func TestRunList_JSONOutput(t *testing.T) {
 	}))
 	defer server.Close()
 
+	rootOpts := newTestRootOptions()
+	rootOpts.Output = "json"
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &listOptions{
+		Options: rootOpts,
 		limit:   25,
-		output:  "json",
-		noColor: true,
 	}
 
-	err := runList(opts, client)
+	err := runList(opts)
 	require.NoError(t, err)
 }
 
 func TestRunList_InvalidOutputFormat(t *testing.T) {
+	rootOpts := newTestRootOptions()
+	rootOpts.Output = "invalid"
+
 	opts := &listOptions{
+		Options: rootOpts,
 		limit:   25,
-		output:  "invalid",
-		noColor: true,
 	}
 
-	err := runList(opts, nil)
+	err := runList(opts)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid output format")
 }
 
 func TestRunList_NegativeLimit(t *testing.T) {
+	rootOpts := newTestRootOptions()
+
 	opts := &listOptions{
+		Options: rootOpts,
 		limit:   -1,
-		noColor: true,
 	}
 
-	err := runList(opts, nil)
+	err := runList(opts)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid limit")
 }
 
 func TestRunList_ZeroLimit(t *testing.T) {
+	rootOpts := newTestRootOptions()
+
 	opts := &listOptions{
+		Options: rootOpts,
 		limit:   0,
-		noColor: true,
 	}
 
 	// Zero limit should return empty without making API call
-	err := runList(opts, nil)
+	err := runList(opts)
 	require.NoError(t, err)
 }
 
 func TestRunList_ZeroLimitJSON(t *testing.T) {
+	rootOpts := newTestRootOptions()
+	rootOpts.Output = "json"
+
 	opts := &listOptions{
+		Options: rootOpts,
 		limit:   0,
-		output:  "json",
-		noColor: true,
 	}
 
 	// Zero limit should return empty JSON array without making API call
-	err := runList(opts, nil)
+	err := runList(opts)
 	require.NoError(t, err)
 }
 
@@ -138,7 +166,7 @@ func TestRunList_WithTypeFilter(t *testing.T) {
 		assert.Equal(t, "global", r.URL.Query().Get("type"))
 
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{
+		_, _ = w.Write([]byte(`{
 			"results": [
 				{"id": "123456", "key": "DEV", "name": "Development", "type": "global"}
 			]
@@ -146,14 +174,17 @@ func TestRunList_WithTypeFilter(t *testing.T) {
 	}))
 	defer server.Close()
 
+	rootOpts := newTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &listOptions{
+		Options:   rootOpts,
 		limit:     25,
 		spaceType: "global",
-		noColor:   true,
 	}
 
-	err := runList(opts, client)
+	err := runList(opts)
 	require.NoError(t, err)
 }
 
@@ -162,34 +193,40 @@ func TestRunList_WithLimitParameter(t *testing.T) {
 		assert.Equal(t, "50", r.URL.Query().Get("limit"))
 
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"results": []}`))
+		_, _ = w.Write([]byte(`{"results": []}`))
 	}))
 	defer server.Close()
 
+	rootOpts := newTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &listOptions{
+		Options: rootOpts,
 		limit:   50,
-		noColor: true,
 	}
 
-	err := runList(opts, client)
+	err := runList(opts)
 	require.NoError(t, err)
 }
 
 func TestRunList_APIError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
-		w.Write([]byte(`{"message": "Authentication required"}`))
+		_, _ = w.Write([]byte(`{"message": "Authentication required"}`))
 	}))
 	defer server.Close()
 
+	rootOpts := newTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &listOptions{
+		Options: rootOpts,
 		limit:   25,
-		noColor: true,
 	}
 
-	err := runList(opts, client)
+	err := runList(opts)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to list spaces")
 }
@@ -197,7 +234,7 @@ func TestRunList_APIError(t *testing.T) {
 func TestRunList_HasMore(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{
+		_, _ = w.Write([]byte(`{
 			"results": [
 				{"id": "123456", "key": "DEV", "name": "Development", "type": "global"}
 			],
@@ -206,20 +243,23 @@ func TestRunList_HasMore(t *testing.T) {
 	}))
 	defer server.Close()
 
+	rootOpts := newTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &listOptions{
+		Options: rootOpts,
 		limit:   25,
-		noColor: true,
 	}
 
-	err := runList(opts, client)
+	err := runList(opts)
 	require.NoError(t, err)
 }
 
 func TestRunList_NullDescription(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{
+		_, _ = w.Write([]byte(`{
 			"results": [
 				{"id": "123456", "key": "DEV", "name": "Development", "type": "global", "description": null}
 			]
@@ -227,12 +267,15 @@ func TestRunList_NullDescription(t *testing.T) {
 	}))
 	defer server.Close()
 
+	rootOpts := newTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &listOptions{
+		Options: rootOpts,
 		limit:   25,
-		noColor: true,
 	}
 
-	err := runList(opts, client)
+	err := runList(opts)
 	require.NoError(t, err)
 }

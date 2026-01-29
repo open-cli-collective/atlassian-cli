@@ -4,8 +4,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewCmdZsh creates the zsh completion command.
-func NewCmdZsh() *cobra.Command {
+// newZshCmd creates the zsh completion command.
+func newZshCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "zsh",
 		Short: "Generate zsh completion script",

@@ -1,6 +1,7 @@
 package attachment
 
 import (
+	"bytes"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -11,7 +12,17 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/open-cli-collective/confluence-cli/api"
+	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
 )
+
+func newUploadTestRootOptions() *root.Options {
+	return &root.Options{
+		Output:  "table",
+		NoColor: true,
+		Stdout:  &bytes.Buffer{},
+		Stderr:  &bytes.Buffer{},
+	}
+}
 
 func TestRunUpload_Success(t *testing.T) {
 	// Create temp file to upload
@@ -25,7 +36,7 @@ func TestRunUpload_Success(t *testing.T) {
 		assert.Contains(t, r.URL.Path, "/child/attachment")
 
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{
+		_, _ = w.Write([]byte(`{
 			"results": [{
 				"id": "att123",
 				"title": "upload.txt",
@@ -36,14 +47,17 @@ func TestRunUpload_Success(t *testing.T) {
 	}))
 	defer server.Close()
 
+	rootOpts := newUploadTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &uploadOptions{
+		Options: rootOpts,
 		pageID:  "12345",
 		file:    testFile,
-		noColor: true,
 	}
 
-	err = runUpload(opts, client)
+	err = runUpload(opts)
 	require.NoError(t, err)
 }
 
@@ -60,7 +74,7 @@ func TestRunUpload_WithComment(t *testing.T) {
 		receivedComment = r.FormValue("comment")
 
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{
+		_, _ = w.Write([]byte(`{
 			"results": [{
 				"id": "att123",
 				"title": "upload.txt",
@@ -71,28 +85,34 @@ func TestRunUpload_WithComment(t *testing.T) {
 	}))
 	defer server.Close()
 
+	rootOpts := newUploadTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &uploadOptions{
+		Options: rootOpts,
 		pageID:  "12345",
 		file:    testFile,
 		comment: "My upload comment",
-		noColor: true,
 	}
 
-	err = runUpload(opts, client)
+	err = runUpload(opts)
 	require.NoError(t, err)
 	assert.Equal(t, "My upload comment", receivedComment)
 }
 
 func TestRunUpload_FileNotFound(t *testing.T) {
+	rootOpts := newUploadTestRootOptions()
 	client := api.NewClient("http://unused", "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &uploadOptions{
+		Options: rootOpts,
 		pageID:  "12345",
 		file:    "/nonexistent/file.txt",
-		noColor: true,
 	}
 
-	err := runUpload(opts, client)
+	err := runUpload(opts)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to open file")
 }
@@ -105,18 +125,21 @@ func TestRunUpload_APIError(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusForbidden)
-		w.Write([]byte(`{"message": "Permission denied"}`))
+		_, _ = w.Write([]byte(`{"message": "Permission denied"}`))
 	}))
 	defer server.Close()
 
+	rootOpts := newUploadTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &uploadOptions{
+		Options: rootOpts,
 		pageID:  "12345",
 		file:    testFile,
-		noColor: true,
 	}
 
-	err = runUpload(opts, client)
+	err = runUpload(opts)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to upload attachment")
 }
@@ -129,7 +152,7 @@ func TestRunUpload_JSONOutput(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{
+		_, _ = w.Write([]byte(`{
 			"results": [{
 				"id": "att123",
 				"title": "upload.txt",
@@ -140,14 +163,17 @@ func TestRunUpload_JSONOutput(t *testing.T) {
 	}))
 	defer server.Close()
 
+	rootOpts := newUploadTestRootOptions()
+	rootOpts.Output = "json"
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &uploadOptions{
+		Options: rootOpts,
 		pageID:  "12345",
 		file:    testFile,
-		output:  "json",
-		noColor: true,
 	}
 
-	err = runUpload(opts, client)
+	err = runUpload(opts)
 	require.NoError(t, err)
 }

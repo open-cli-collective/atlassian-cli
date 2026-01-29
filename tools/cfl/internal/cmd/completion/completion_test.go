@@ -7,30 +7,45 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
 )
 
-// createTestRootCmd creates a minimal root command for testing.
+// createTestRootCmd creates a minimal root command for testing with completion registered.
 func createTestRootCmd() *cobra.Command {
-	return &cobra.Command{
+	rootCmd := &cobra.Command{
 		Use:   "cfl",
 		Short: "Test CLI",
 	}
+
+	opts := &root.Options{
+		Output:  "table",
+		NoColor: true,
+		Stdout:  &bytes.Buffer{},
+		Stderr:  &bytes.Buffer{},
+	}
+
+	Register(rootCmd, opts)
+	return rootCmd
 }
 
-func TestNewCmdCompletion(t *testing.T) {
-	cmd := NewCmdCompletion()
+func TestCompletionCommand(t *testing.T) {
+	rootCmd := createTestRootCmd()
 
-	assert.Equal(t, "completion", cmd.Use)
-	assert.NotEmpty(t, cmd.Short)
-	assert.NotEmpty(t, cmd.Long)
+	// Find the completion command
+	completionCmd, _, err := rootCmd.Find([]string{"completion"})
+	require.NoError(t, err)
+
+	assert.Equal(t, "completion", completionCmd.Use)
+	assert.NotEmpty(t, completionCmd.Short)
+	assert.NotEmpty(t, completionCmd.Long)
 
 	// Should have 4 subcommands
-	assert.Len(t, cmd.Commands(), 4)
+	assert.Len(t, completionCmd.Commands(), 4)
 }
 
 func TestBashCompletion(t *testing.T) {
 	root := createTestRootCmd()
-	root.AddCommand(NewCmdCompletion())
 
 	buf := new(bytes.Buffer)
 	root.SetOut(buf)
@@ -47,7 +62,6 @@ func TestBashCompletion(t *testing.T) {
 
 func TestZshCompletion(t *testing.T) {
 	root := createTestRootCmd()
-	root.AddCommand(NewCmdCompletion())
 
 	buf := new(bytes.Buffer)
 	root.SetOut(buf)
@@ -64,7 +78,6 @@ func TestZshCompletion(t *testing.T) {
 
 func TestFishCompletion(t *testing.T) {
 	root := createTestRootCmd()
-	root.AddCommand(NewCmdCompletion())
 
 	buf := new(bytes.Buffer)
 	root.SetOut(buf)
@@ -81,7 +94,6 @@ func TestFishCompletion(t *testing.T) {
 
 func TestPowerShellCompletion(t *testing.T) {
 	root := createTestRootCmd()
-	root.AddCommand(NewCmdCompletion())
 
 	buf := new(bytes.Buffer)
 	root.SetOut(buf)
@@ -110,7 +122,6 @@ func TestCompletionRejectsExtraArgs(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			root := createTestRootCmd()
-			root.AddCommand(NewCmdCompletion())
 
 			root.SetArgs([]string{"completion", tc.shell, "unexpected-arg"})
 

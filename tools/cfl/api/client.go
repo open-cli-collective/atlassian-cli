@@ -2,15 +2,15 @@
 package api
 
 import (
-	"context"
 	"net/http"
 
 	"github.com/open-cli-collective/atlassian-go/client"
 )
 
 // Client is the Confluence Cloud API client.
+// HTTP methods (Get, Post, Put, Delete) are promoted from the embedded *client.Client.
 type Client struct {
-	*client.Client // Embed shared client for HTTP methods
+	*client.Client
 }
 
 // NewClient creates a new Confluence API client.
@@ -18,26 +18,6 @@ func NewClient(baseURL, email, apiToken string) *Client {
 	return &Client{
 		Client: client.New(baseURL, email, apiToken, nil),
 	}
-}
-
-// Get performs a GET request.
-func (c *Client) Get(ctx context.Context, path string) ([]byte, error) {
-	return c.Client.Get(ctx, path)
-}
-
-// Post performs a POST request.
-func (c *Client) Post(ctx context.Context, path string, body interface{}) ([]byte, error) {
-	return c.Client.Post(ctx, path, body)
-}
-
-// Put performs a PUT request.
-func (c *Client) Put(ctx context.Context, path string, body interface{}) ([]byte, error) {
-	return c.Client.Put(ctx, path, body)
-}
-
-// Delete performs a DELETE request.
-func (c *Client) Delete(ctx context.Context, path string) ([]byte, error) {
-	return c.Client.Delete(ctx, path)
 }
 
 // GetHTTPClient returns the underlying HTTP client for custom requests.

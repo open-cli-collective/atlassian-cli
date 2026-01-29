@@ -1,0 +1,61 @@
+name: ocli-jira
+base: core22
+version: git
+summary: Command-line interface for Jira Cloud
+description: |
+  jtk is a CLI for managing Jira Cloud tickets.
+
+  Features:
+  - List, create, update, and search issues
+  - Manage sprints and boards
+  - Add comments and perform transitions
+  - Table, JSON, and plain output formats
+
+  Run 'jtk config set' to configure your Jira credentials.
+
+grade: stable
+confinement: strict
+
+architectures:
+  - build-on: amd64
+  - build-on: arm64
+
+plugs:
+  dot-config-jira-ticket-cli:
+    interface: personal-files
+    read:
+      - $HOME/.config/jira-ticket-cli
+    write:
+      - $HOME/.config/jira-ticket-cli
+
+apps:
+  ocli-jira:
+    command: bin/jtk
+    plugs:
+      - home
+      - network
+      - dot-config-jira-ticket-cli
+    aliases:
+      - jtk
+
+parts:
+  jtk:
+    plugin: go
+    source: .
+    build-snaps:
+      - go/1.24/stable
+    build-environment:
+      - CGO_ENABLED: "0"
+    override-build: |
+      # Get version from git
+      VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "dev")
+      COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+      DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+      # Build with ldflags
+      go build -o $SNAPCRAFT_PART_INSTALL/bin/jtk \
+        -ldflags "-s -w \
+          -X github.com/open-cli-collective/jira-ticket-cli/internal/version.Version=${VERSION} \
+          -X github.com/open-cli-collective/jira-ticket-cli/internal/version.Commit=${COMMIT} \
+          -X github.com/open-cli-collective/jira-ticket-cli/internal/version.BuildDate=${DATE}" \
+        ./cmd/jtk

@@ -1,0 +1,114 @@
+name: Publish to Winget
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (e.g., 0.1.0)'
+        required: true
+        type: string
+
+jobs:
+  publish:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate release exists
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $release = gh release view "v${{ inputs.version }}" --json tagName 2>&1
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Release v${{ inputs.version }} not found"
+            exit 1
+          }
+          Write-Host "Found release v${{ inputs.version }}"
+
+      - name: Install wingetcreate
+        shell: pwsh
+        run: |
+          Invoke-WebRequest https://aka.ms/wingetcreate/latest -OutFile wingetcreate.exe
+
+      - name: Check if manifest exists in winget-pkgs
+        id: check-manifest
+        shell: pwsh
+        run: |
+          $response = Invoke-WebRequest -Uri "https://api.github.com/repos/microsoft/winget-pkgs/contents/manifests/o/OpenCLICollective/jira-ticket-cli" -Method Head -SkipHttpErrorCheck
+          if ($response.StatusCode -eq 200) {
+            Write-Host "Manifest exists - will use wingetcreate update"
+            echo "exists=true" >> $env:GITHUB_OUTPUT
+          } else {
+            Write-Host "Manifest does not exist - will use wingetcreate new"
+            echo "exists=false" >> $env:GITHUB_OUTPUT
+          }
+
+      - name: Get checksums from release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download "v${{ inputs.version }}" --pattern "checksums.txt" --dir .
+
+          $checksums = Get-Content checksums.txt
+          $x64Hash = ($checksums | Select-String "windows_amd64.zip").Line.Split()[0]
+          $arm64Hash = ($checksums | Select-String "windows_arm64.zip").Line.Split()[0]
+
+          Write-Host "x64 SHA256: $x64Hash"
+          Write-Host "arm64 SHA256: $arm64Hash"
+
+          echo "X64_HASH=$x64Hash" >> $env:GITHUB_ENV
+          echo "ARM64_HASH=$arm64Hash" >> $env:GITHUB_ENV
+
+      - name: Update manifest (existing package)
+        if: steps.check-manifest.outputs.exists == 'true'
+        shell: pwsh
+        run: |
+          $version = "${{ inputs.version }}"
+          $x64 = "https://github.com/open-cli-collective/jira-ticket-cli/releases/download/v${version}/jtk_${version}_windows_amd64.zip"
+          $arm64 = "https://github.com/open-cli-collective/jira-ticket-cli/releases/download/v${version}/jtk_${version}_windows_arm64.zip"
+
+          Write-Host "Updating existing manifest to version $version"
+          ./wingetcreate.exe update OpenCLICollective.jira-ticket-cli --version $version --urls $x64 $arm64 --submit --token ${{ secrets.WINGET_GITHUB_TOKEN }}
+
+      - name: Create manifest (new package)
+        if: steps.check-manifest.outputs.exists == 'false'
+        shell: pwsh
+        run: |
+          $version = "${{ inputs.version }}"
+          $manifestDir = "manifests"
+          New-Item -ItemType Directory -Path $manifestDir -Force | Out-Null
+
+          # Update version manifest
+          $versionManifest = Get-Content "packaging/winget/OpenCLICollective.jira-ticket-cli.yaml" -Raw
+          $versionManifest = $versionManifest -replace "0\.0\.0", $version
+          Set-Content "$manifestDir/OpenCLICollective.jira-ticket-cli.yaml" $versionManifest
+
+          # Update locale manifest
+          $localeManifest = Get-Content "packaging/winget/OpenCLICollective.jira-ticket-cli.locale.en-US.yaml" -Raw
+          $localeManifest = $localeManifest -replace "0\.0\.0", $version
+          Set-Content "$manifestDir/OpenCLICollective.jira-ticket-cli.locale.en-US.yaml" $localeManifest
+
+          # Update installer manifest with version and real checksums
+          $installerManifest = Get-Content "packaging/winget/OpenCLICollective.jira-ticket-cli.installer.yaml" -Raw
+          $installerManifest = $installerManifest -replace "0\.0\.0", $version
+          # Replace checksums one at a time using .NET regex (PowerShell -replace doesn't support count)
+          $regex = [regex]"0{64}"
+          $installerManifest = $regex.Replace($installerManifest, $env:X64_HASH, 1)
+          $installerManifest = $regex.Replace($installerManifest, $env:ARM64_HASH, 1)
+          Set-Content "$manifestDir/OpenCLICollective.jira-ticket-cli.installer.yaml" $installerManifest
+
+          Write-Host "Generated manifests:"
+          Get-ChildItem $manifestDir | ForEach-Object { Write-Host "  $_" }
+
+          Write-Host "`nValidating manifests..."
+          winget validate --manifest $manifestDir
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Manifest validation failed"
+            exit 1
+          }
+          Write-Host "Validation passed!"
+
+          Write-Host "`nSubmitting new package to Winget..."
+          ./wingetcreate.exe submit --token ${{ secrets.WINGET_GITHUB_TOKEN }} $manifestDir

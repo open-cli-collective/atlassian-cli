@@ -11,9 +11,10 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/open-cli-collective/atlassian-go/view"
+
 	"github.com/open-cli-collective/confluence-cli/api"
 	"github.com/open-cli-collective/confluence-cli/internal/config"
-	"github.com/open-cli-collective/confluence-cli/internal/view"
 	"github.com/open-cli-collective/confluence-cli/pkg/md"
 )
 
@@ -203,15 +204,15 @@ func runCreate(opts *createOptions, client *api.Client) error {
 	}
 
 	// Render output
-	renderer := view.NewRenderer(view.Format(opts.output), opts.noColor)
+	v := view.New(view.Format(opts.output), opts.noColor)
 
 	if opts.output == "json" {
-		return renderer.RenderJSON(page)
+		return v.JSON(page)
 	}
 
-	renderer.Success(fmt.Sprintf("Created page: %s", page.Title))
-	renderer.RenderKeyValue("ID", page.ID)
-	renderer.RenderKeyValue("URL", baseURL+page.Links.WebUI)
+	v.Success("Created page: %s", page.Title)
+	v.RenderKeyValue("ID", page.ID)
+	v.RenderKeyValue("URL", baseURL+page.Links.WebUI)
 
 	return nil
 }

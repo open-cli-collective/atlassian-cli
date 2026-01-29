@@ -12,9 +12,10 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/open-cli-collective/atlassian-go/view"
+
 	"github.com/open-cli-collective/confluence-cli/api"
 	"github.com/open-cli-collective/confluence-cli/internal/config"
-	"github.com/open-cli-collective/confluence-cli/internal/view"
 	"github.com/open-cli-collective/confluence-cli/pkg/md"
 )
 
@@ -193,8 +194,8 @@ func runEdit(opts *editOptions, client *api.Client) error {
 	if hasNewContent {
 		if opts.legacy {
 			// Warn about potential editor switch
-			renderer := view.NewRenderer(view.Format(opts.output), opts.noColor)
-			renderer.Warning("Using --legacy flag. If this page uses the cloud editor, it may switch to the legacy editor.")
+			v := view.New(view.Format(opts.output), opts.noColor)
+			v.Warning("Using --legacy flag. If this page uses the cloud editor, it may switch to the legacy editor.")
 
 			req.Body = &api.Body{
 				Storage: &api.BodyRepresentation{
@@ -229,16 +230,16 @@ func runEdit(opts *editOptions, client *api.Client) error {
 	}
 
 	// Render output
-	renderer := view.NewRenderer(view.Format(opts.output), opts.noColor)
+	v := view.New(view.Format(opts.output), opts.noColor)
 
 	if opts.output == "json" {
-		return renderer.RenderJSON(page)
+		return v.JSON(page)
 	}
 
-	renderer.Success(fmt.Sprintf("Updated page: %s", page.Title))
-	renderer.RenderKeyValue("ID", page.ID)
-	renderer.RenderKeyValue("Version", strconv.Itoa(page.Version.Number))
-	renderer.RenderKeyValue("URL", baseURL+page.Links.WebUI)
+	v.Success("Updated page: %s", page.Title)
+	v.RenderKeyValue("ID", page.ID)
+	v.RenderKeyValue("Version", strconv.Itoa(page.Version.Number))
+	v.RenderKeyValue("URL", baseURL+page.Links.WebUI)
 
 	return nil
 }

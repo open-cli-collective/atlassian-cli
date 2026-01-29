@@ -7,9 +7,10 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/open-cli-collective/atlassian-go/view"
+
 	"github.com/open-cli-collective/confluence-cli/api"
 	"github.com/open-cli-collective/confluence-cli/internal/config"
-	"github.com/open-cli-collective/confluence-cli/internal/view"
 )
 
 type listOptions struct {
@@ -76,14 +77,14 @@ func runList(opts *listOptions, client *api.Client) error {
 	}
 
 	// Render output
-	renderer := view.NewRenderer(view.Format(opts.output), opts.noColor)
+	v := view.New(view.Format(opts.output), opts.noColor)
 
 	// Handle limit 0 - return empty list
 	if opts.limit == 0 {
 		if opts.output == "json" {
-			return renderer.RenderJSON([]interface{}{})
+			return v.JSON([]interface{}{})
 		}
-		renderer.RenderText("No pages found.")
+		v.RenderText("No pages found.")
 		return nil
 	}
 
@@ -131,7 +132,7 @@ func runList(opts *listOptions, client *api.Client) error {
 	}
 
 	if len(result.Results) == 0 {
-		renderer.RenderText(fmt.Sprintf("No pages found in space %s.", spaceKey))
+		v.RenderText(fmt.Sprintf("No pages found in space %s.", spaceKey))
 		return nil
 	}
 
@@ -151,7 +152,7 @@ func runList(opts *listOptions, client *api.Client) error {
 		})
 	}
 
-	renderer.RenderList(headers, rows, result.HasMore())
+	_ = v.RenderList(headers, rows, result.HasMore())
 
 	if result.HasMore() && opts.output != "json" {
 		fmt.Fprintf(os.Stderr, "\n(showing first %d results, use --limit to see more)\n", len(result.Results))

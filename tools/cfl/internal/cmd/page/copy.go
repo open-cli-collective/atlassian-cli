@@ -6,9 +6,10 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/open-cli-collective/atlassian-go/view"
+
 	"github.com/open-cli-collective/confluence-cli/api"
 	"github.com/open-cli-collective/confluence-cli/internal/config"
-	"github.com/open-cli-collective/confluence-cli/internal/view"
 )
 
 type copyOptions struct {
@@ -108,18 +109,18 @@ func runCopy(pageID string, opts *copyOptions, client *api.Client) error {
 	}
 
 	// Render output
-	renderer := view.NewRenderer(view.Format(opts.output), opts.noColor)
+	v := view.New(view.Format(opts.output), opts.noColor)
 
 	if opts.output == "json" {
-		return renderer.RenderJSON(newPage)
+		return v.JSON(newPage)
 	}
 
-	renderer.Success(fmt.Sprintf("Copied page to: %s", newPage.Title))
-	renderer.RenderKeyValue("ID", newPage.ID)
-	renderer.RenderKeyValue("Title", newPage.Title)
-	renderer.RenderKeyValue("Space", newPage.SpaceID)
+	v.Success("Copied page to: %s", newPage.Title)
+	v.RenderKeyValue("ID", newPage.ID)
+	v.RenderKeyValue("Title", newPage.Title)
+	v.RenderKeyValue("Space", newPage.SpaceID)
 	if newPage.Version != nil {
-		renderer.RenderKeyValue("Version", fmt.Sprintf("%d", newPage.Version.Number))
+		v.RenderKeyValue("Version", fmt.Sprintf("%d", newPage.Version.Number))
 	}
 
 	return nil

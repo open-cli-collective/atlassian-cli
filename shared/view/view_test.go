@@ -421,3 +421,126 @@ func TestView_SetError(t *testing.T) {
 		t.Error("Errors should go to custom writer")
 	}
 }
+
+func TestView_RenderList(t *testing.T) {
+	headers := []string{"ID", "NAME"}
+	rows := [][]string{
+		{"1", "First"},
+		{"2", "Second"},
+	}
+
+	t.Run("table format", func(t *testing.T) {
+		buf := &bytes.Buffer{}
+		v := New(FormatTable, true)
+		v.SetOutput(buf)
+
+		err := v.RenderList(headers, rows, false)
+		if err != nil {
+			t.Fatalf("RenderList() error = %v", err)
+		}
+
+		output := buf.String()
+		if !strings.Contains(output, "ID") {
+			t.Error("Should contain header 'ID'")
+		}
+		if !strings.Contains(output, "First") {
+			t.Error("Should contain row data")
+		}
+	})
+
+	t.Run("json format with hasMore=false", func(t *testing.T) {
+		buf := &bytes.Buffer{}
+		v := New(FormatJSON, false)
+		v.SetOutput(buf)
+
+		err := v.RenderList(headers, rows, false)
+		if err != nil {
+			t.Fatalf("RenderList() error = %v", err)
+		}
+
+		var result ListResponse
+		if err := json.Unmarshal(buf.Bytes(), &result); err != nil {
+			t.Fatalf("Output is not valid JSON: %v", err)
+		}
+
+		if result.Meta.Count != 2 {
+			t.Errorf("Expected count=2, got %d", result.Meta.Count)
+		}
+		if result.Meta.HasMore {
+			t.Error("Expected hasMore=false")
+		}
+		if len(result.Results) != 2 {
+			t.Errorf("Expected 2 results, got %d", len(result.Results))
+		}
+		if result.Results[0]["id"] != "1" {
+			t.Errorf("Expected id=1, got %v", result.Results[0]["id"])
+		}
+	})
+
+	t.Run("json format with hasMore=true", func(t *testing.T) {
+		buf := &bytes.Buffer{}
+		v := New(FormatJSON, false)
+		v.SetOutput(buf)
+
+		err := v.RenderList(headers, rows, true)
+		if err != nil {
+			t.Fatalf("RenderList() error = %v", err)
+		}
+
+		var result ListResponse
+		if err := json.Unmarshal(buf.Bytes(), &result); err != nil {
+			t.Fatalf("Output is not valid JSON: %v", err)
+		}
+
+		if !result.Meta.HasMore {
+			t.Error("Expected hasMore=true")
+		}
+	})
+}
+
+func TestView_RenderKeyValue(t *testing.T) {
+	t.Run("table format", func(t *testing.T) {
+		buf := &bytes.Buffer{}
+		v := New(FormatTable, true)
+		v.SetOutput(buf)
+
+		v.RenderKeyValue("Name", "TestValue")
+
+		output := buf.String()
+		if !strings.Contains(output, "Name:") {
+			t.Error("Should contain key with colon")
+		}
+		if !strings.Contains(output, "TestValue") {
+			t.Error("Should contain value")
+		}
+	})
+
+	t.Run("json format", func(t *testing.T) {
+		buf := &bytes.Buffer{}
+		v := New(FormatJSON, false)
+		v.SetOutput(buf)
+
+		v.RenderKeyValue("Name", "TestValue")
+
+		output := buf.String()
+		if !strings.Contains(output, `"Name"`) {
+			t.Error("Should contain JSON key")
+		}
+		if !strings.Contains(output, `"TestValue"`) {
+			t.Error("Should contain JSON value")
+		}
+	})
+}
+
+func TestView_RenderText(t *testing.T) {
+	buf := &bytes.Buffer{}
+	v := New(FormatTable, false)
+	v.SetOutput(buf)
+
+	v.RenderText("Hello World")
+
+	output := buf.String()
+	if output != "Hello World\n" {
+		t.Errorf("RenderText output = %q, want 'Hello World\\n'", output)
+	}
+}

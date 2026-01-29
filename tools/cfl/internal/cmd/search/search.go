@@ -7,11 +7,11 @@ import (
 	"os"
 	"strings"
 
+	"github.com/open-cli-collective/atlassian-go/view"
 	"github.com/spf13/cobra"
 
 	"github.com/open-cli-collective/confluence-cli/api"
 	"github.com/open-cli-collective/confluence-cli/internal/config"
-	"github.com/open-cli-collective/confluence-cli/internal/view"
 )
 
 type searchOptions struct {
@@ -119,14 +119,14 @@ func runSearch(opts *searchOptions, client *api.Client) error {
 		return fmt.Errorf("invalid limit: %d (must be >= 0)", opts.limit)
 	}
 
-	renderer := view.NewRenderer(view.Format(opts.output), opts.noColor)
+	v := view.New(view.Format(opts.output), opts.noColor)
 
 	// Handle limit 0 - return empty
 	if opts.limit == 0 {
 		if opts.output == "json" {
-			return renderer.RenderJSON([]interface{}{})
+			return v.JSON([]interface{}{})
 		}
-		renderer.RenderText("No results.")
+		v.RenderText("No results.")
 		return nil
 	}
 
@@ -166,7 +166,7 @@ func runSearch(opts *searchOptions, client *api.Client) error {
 	}
 
 	if len(result.Results) == 0 {
-		renderer.RenderText("No results found.")
+		v.RenderText("No results found.")
 		return nil
 	}
 
@@ -184,7 +184,7 @@ func runSearch(opts *searchOptions, client *api.Client) error {
 		})
 	}
 
-	renderer.RenderList(headers, rows, result.HasMore())
+	_ = v.RenderList(headers, rows, result.HasMore())
 
 	if result.HasMore() && opts.output != "json" {
 		fmt.Fprintf(os.Stderr, "\n(showing %d of %d results, use --limit to see more)\n",

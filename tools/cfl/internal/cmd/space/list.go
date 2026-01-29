@@ -5,23 +5,22 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/open-cli-collective/atlassian-go/view"
 	"github.com/spf13/cobra"
 
+	"github.com/open-cli-collective/atlassian-go/view"
+
 	"github.com/open-cli-collective/confluence-cli/api"
-	"github.com/open-cli-collective/confluence-cli/internal/config"
+	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
 )
 
 type listOptions struct {
+	*root.Options
 	limit     int
 	spaceType string
-	output    string
-	noColor   bool
 }
 
-// NewCmdList creates the space list command.
-func NewCmdList() *cobra.Command {
-	opts := &listOptions{}
+func newListCmd(rootOpts *root.Options) *cobra.Command {
+	opts := &listOptions{Options: rootOpts}
 
 	cmd := &cobra.Command{
 		Use:     "list",
@@ -36,11 +35,8 @@ func NewCmdList() *cobra.Command {
 
   # Output as JSON
   cfl space list -o json`,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			// Get global flags
-			opts.output, _ = cmd.Flags().GetString("output")
-			opts.noColor, _ = cmd.Flags().GetBool("no-color")
-			return runList(opts, nil)
+		RunE: func(_ *cobra.Command, _ []string) error {
+			return runList(opts)
 		},
 	}
 
@@ -50,44 +46,30 @@ func NewCmdList() *cobra.Command {
 	return cmd
 }
 
-func runList(opts *listOptions, client *api.Client) error {
-	// Validate output format
-	if err := view.ValidateFormat(opts.output); err != nil {
+func runList(opts *listOptions) error {
+	if err := view.ValidateFormat(opts.Output); err != nil {
 		return err
 	}
 
-	// Validate limit
 	if opts.limit < 0 {
 		return fmt.Errorf("invalid limit: %d (must be >= 0)", opts.limit)
 	}
 
-	// Render output
-	v := view.New(view.Format(opts.output), opts.noColor)
+	v := opts.View()
 
-	// Handle limit 0 - return empty list
 	if opts.limit == 0 {
-		if opts.output == "json" {
+		if opts.Output == "json" {
 			return v.JSON([]interface{}{})
 		}
 		v.RenderText("No spaces found.")
 		return nil
 	}
 
-	// Create API client if not provided (allows injection for testing)
-	if client == nil {
-		cfg, err := config.LoadWithEnv(config.DefaultConfigPath())
-		if err != nil {
-			return fmt.Errorf("failed to load config: %w (run 'cfl init' to configure)", err)
-		}
-
-		if err := cfg.Validate(); err != nil {
-			return fmt.Errorf("invalid config: %w (run 'cfl init' to configure)", err)
-		}
-
-		client = api.NewClient(cfg.URL, cfg.Email, cfg.APIToken)
+	client, err := opts.APIClient()
+	if err != nil {
+		return err
 	}
 
-	// List spaces
 	apiOpts := &api.ListSpacesOptions{
 		Limit: opts.limit,
 		Type:  opts.spaceType,
@@ -121,7 +103,7 @@ func runList(opts *listOptions, client *api.Client) error {
 
 	_ = v.RenderList(headers, rows, result.HasMore())
 
-	if result.HasMore() && opts.output != "json" {
+	if result.HasMore() && opts.Output != "json" {
 		fmt.Fprintf(os.Stderr, "\n(showing first %d results, use --limit to see more)\n", len(result.Results))
 	}
 

@@ -7,14 +7,17 @@ import (
 	"os"
 	"strings"
 
-	"github.com/open-cli-collective/atlassian-go/view"
 	"github.com/spf13/cobra"
 
+	"github.com/open-cli-collective/atlassian-go/view"
+
 	"github.com/open-cli-collective/confluence-cli/api"
-	"github.com/open-cli-collective/confluence-cli/internal/config"
+	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
 )
 
 type searchOptions struct {
+	*root.Options
+
 	// Query building
 	query       string // Positional arg: free-text search
 	cql         string // Raw CQL (power users)
@@ -25,10 +28,6 @@ type searchOptions struct {
 
 	// Pagination
 	limit int
-
-	// Output
-	output  string
-	noColor bool
 }
 
 // validTypes are the content types accepted by Confluence search.
@@ -39,9 +38,14 @@ var validTypes = map[string]bool{
 	"comment":    true,
 }
 
-// NewCmdSearch creates the search command.
-func NewCmdSearch() *cobra.Command {
-	opts := &searchOptions{}
+// Register adds the search command to the root command.
+func Register(rootCmd *cobra.Command, opts *root.Options) {
+	rootCmd.AddCommand(newSearchCmd(opts))
+}
+
+// newSearchCmd creates the search command.
+func newSearchCmd(rootOpts *root.Options) *cobra.Command {
+	opts := &searchOptions{Options: rootOpts}
 
 	cmd := &cobra.Command{
 		Use:   "search [query]",
@@ -74,13 +78,11 @@ convenient flags for common filters, or provide raw CQL for advanced queries.`,
   # Output as JSON for scripting
   cfl search "config" -o json`,
 		Args: cobra.MaximumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, args []string) error {
 			if len(args) > 0 {
 				opts.query = args[0]
 			}
-			opts.output, _ = cmd.Flags().GetString("output")
-			opts.noColor, _ = cmd.Flags().GetBool("no-color")
-			return runSearch(opts, nil)
+			return runSearch(opts)
 		},
 	}
 
@@ -97,9 +99,9 @@ convenient flags for common filters, or provide raw CQL for advanced queries.`,
 	return cmd
 }
 
-func runSearch(opts *searchOptions, client *api.Client) error {
+func runSearch(opts *searchOptions) error {
 	// Validate output format
-	if err := view.ValidateFormat(opts.output); err != nil {
+	if err := view.ValidateFormat(opts.Output); err != nil {
 		return err
 	}
 
@@ -119,34 +121,32 @@ func runSearch(opts *searchOptions, client *api.Client) error {
 		return fmt.Errorf("invalid limit: %d (must be >= 0)", opts.limit)
 	}
 
-	v := view.New(view.Format(opts.output), opts.noColor)
+	v := opts.View()
 
 	// Handle limit 0 - return empty
 	if opts.limit == 0 {
-		if opts.output == "json" {
+		if opts.Output == "json" {
 			return v.JSON([]interface{}{})
 		}
 		v.RenderText("No results.")
 		return nil
 	}
 
-	// Create API client if not provided
-	if client == nil {
-		cfg, err := config.LoadWithEnv(config.DefaultConfigPath())
-		if err != nil {
-			return fmt.Errorf("failed to load config: %w (run 'cfl init' to configure)", err)
-		}
+	// Get config for default space
+	cfg, err := opts.Config()
+	if err != nil {
+		return err
+	}
 
-		if err := cfg.Validate(); err != nil {
-			return fmt.Errorf("invalid config: %w (run 'cfl init' to configure)", err)
-		}
+	// Use default space from config if not specified and no cql override
+	if opts.space == "" && opts.cql == "" {
+		opts.space = cfg.DefaultSpace
+	}
 
-		// Use default space from config if not specified and no cql override
-		if opts.space == "" && opts.cql == "" {
-			opts.space = cfg.DefaultSpace
-		}
-
-		client = api.NewClient(cfg.URL, cfg.Email, cfg.APIToken)
+	// Get API client
+	client, err := opts.APIClient()
+	if err != nil {
+		return err
 	}
 
 	// Build API options
@@ -186,7 +186,7 @@ func runSearch(opts *searchOptions, client *api.Client) error {
 
 	_ = v.RenderList(headers, rows, result.HasMore())
 
-	if result.HasMore() && opts.output != "json" {
+	if result.HasMore() && opts.Output != "json" {
 		fmt.Fprintf(os.Stderr, "\n(showing %d of %d results, use --limit to see more)\n",
 			len(result.Results), result.TotalSize)
 	}

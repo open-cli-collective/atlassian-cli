@@ -4,8 +4,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewCmdFish creates the fish completion command.
-func NewCmdFish() *cobra.Command {
+// newFishCmd creates the fish completion command.
+func newFishCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "fish",
 		Short: "Generate fish completion script",

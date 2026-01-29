@@ -1,6 +1,7 @@
 package page
 
 import (
+	"bytes"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -10,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/open-cli-collective/confluence-cli/api"
+	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
 )
 
 // mockCopyServer creates a test server that handles page get and copy operations
@@ -45,6 +47,15 @@ func mockCopyServer(t *testing.T, getHandler, copyHandler func(w http.ResponseWr
 	}))
 }
 
+func newTestRootOptions() *root.Options {
+	return &root.Options{
+		Output:  "table",
+		NoColor: true,
+		Stdout:  &bytes.Buffer{},
+		Stderr:  &bytes.Buffer{},
+	}
+}
+
 func TestRunCopy_Success(t *testing.T) {
 	server := mockCopyServer(t, nil, func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "POST", r.Method)
@@ -60,14 +71,17 @@ func TestRunCopy_Success(t *testing.T) {
 	})
 	defer server.Close()
 
+	rootOpts := newTestRootOptions()
 	client := api.NewClient(server.URL, "user@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &copyOptions{
+		Options: rootOpts,
 		title:   "Copied Page",
 		space:   "TEST",
-		noColor: true,
 	}
 
-	err := runCopy("12345", opts, client)
+	err := runCopy("12345", opts)
 	require.NoError(t, err)
 }
 
@@ -111,14 +125,17 @@ func TestRunCopy_InfersSourceSpace(t *testing.T) {
 	}))
 	defer server.Close()
 
+	rootOpts := newTestRootOptions()
 	client := api.NewClient(server.URL, "user@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &copyOptions{
+		Options: rootOpts,
 		title:   "Copied Page",
 		space:   "", // Not specified - should infer from source
-		noColor: true,
 	}
 
-	err := runCopy("12345", opts, client)
+	err := runCopy("12345", opts)
 	require.NoError(t, err)
 	assert.Equal(t, 3, callCount) // GetPage + GetSpace + CopyPage
 }
@@ -130,14 +147,17 @@ func TestRunCopy_PageNotFound(t *testing.T) {
 	})
 	defer server.Close()
 
+	rootOpts := newTestRootOptions()
 	client := api.NewClient(server.URL, "user@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &copyOptions{
+		Options: rootOpts,
 		title:   "Copied Page",
 		space:   "TEST",
-		noColor: true,
 	}
 
-	err := runCopy("99999", opts, client)
+	err := runCopy("99999", opts)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to copy page")
 }
@@ -155,28 +175,34 @@ func TestRunCopy_JSONOutput(t *testing.T) {
 	})
 	defer server.Close()
 
+	rootOpts := newTestRootOptions()
+	rootOpts.Output = "json"
 	client := api.NewClient(server.URL, "user@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &copyOptions{
+		Options: rootOpts,
 		title:   "Copied Page",
 		space:   "TEST",
-		output:  "json",
-		noColor: true,
 	}
 
-	err := runCopy("12345", opts, client)
+	err := runCopy("12345", opts)
 	require.NoError(t, err)
 }
 
 func TestRunCopy_InvalidOutputFormat(t *testing.T) {
+	rootOpts := newTestRootOptions()
+	rootOpts.Output = "invalid"
 	client := api.NewClient("http://unused", "user@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &copyOptions{
+		Options: rootOpts,
 		title:   "Copied Page",
 		space:   "TEST",
-		output:  "invalid",
-		noColor: true,
 	}
 
-	err := runCopy("12345", opts, client)
+	err := runCopy("12345", opts)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid output format")
 }
@@ -191,14 +217,17 @@ func TestRunCopy_GetSourcePageFails(t *testing.T) {
 	)
 	defer server.Close()
 
+	rootOpts := newTestRootOptions()
 	client := api.NewClient(server.URL, "user@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &copyOptions{
+		Options: rootOpts,
 		title:   "Copied Page",
 		space:   "", // Empty - will try to get source page
-		noColor: true,
 	}
 
-	err := runCopy("invalid", opts, client)
+	err := runCopy("invalid", opts)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to get source page")
 }
@@ -216,15 +245,18 @@ func TestRunCopy_WithNoAttachments(t *testing.T) {
 	})
 	defer server.Close()
 
+	rootOpts := newTestRootOptions()
 	client := api.NewClient(server.URL, "user@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &copyOptions{
+		Options:       rootOpts,
 		title:         "Copied Page",
 		space:         "TEST",
 		noAttachments: true,
-		noColor:       true,
 	}
 
-	err := runCopy("12345", opts, client)
+	err := runCopy("12345", opts)
 	require.NoError(t, err)
 }
 
@@ -241,15 +273,18 @@ func TestRunCopy_WithNoLabels(t *testing.T) {
 	})
 	defer server.Close()
 
+	rootOpts := newTestRootOptions()
 	client := api.NewClient(server.URL, "user@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &copyOptions{
+		Options:  rootOpts,
 		title:    "Copied Page",
 		space:    "TEST",
 		noLabels: true,
-		noColor:  true,
 	}
 
-	err := runCopy("12345", opts, client)
+	err := runCopy("12345", opts)
 	require.NoError(t, err)
 }
 
@@ -260,14 +295,17 @@ func TestRunCopy_PermissionDenied(t *testing.T) {
 	})
 	defer server.Close()
 
+	rootOpts := newTestRootOptions()
 	client := api.NewClient(server.URL, "user@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &copyOptions{
+		Options: rootOpts,
 		title:   "Copied Page",
 		space:   "TEST",
-		noColor: true,
 	}
 
-	err := runCopy("12345", opts, client)
+	err := runCopy("12345", opts)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to copy page")
 }
@@ -294,14 +332,17 @@ func TestRunCopy_GetSpaceFails(t *testing.T) {
 	}))
 	defer server.Close()
 
+	rootOpts := newTestRootOptions()
 	client := api.NewClient(server.URL, "user@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &copyOptions{
+		Options: rootOpts,
 		title:   "Copied Page",
 		space:   "", // Empty - will try to get space
-		noColor: true,
 	}
 
-	err := runCopy("12345", opts, client)
+	err := runCopy("12345", opts)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to get space")
 }

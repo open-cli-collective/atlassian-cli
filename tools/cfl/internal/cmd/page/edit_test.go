@@ -1,6 +1,7 @@
 package page
 
 import (
+	"bytes"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -14,7 +15,17 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/open-cli-collective/confluence-cli/api"
+	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
 )
+
+func newEditTestRootOptions() *root.Options {
+	return &root.Options{
+		Output:  "table",
+		NoColor: true,
+		Stdout:  &bytes.Buffer{},
+		Stderr:  &bytes.Buffer{},
+	}
+}
 
 func TestRunEdit_Success(t *testing.T) {
 	tmpDir := t.TempDir()
@@ -47,14 +58,17 @@ func TestRunEdit_Success(t *testing.T) {
 	}))
 	defer server.Close()
 
+	rootOpts := newEditTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+	rootOpts.Stdin = nil
 	opts := &editOptions{
+		Options: rootOpts,
 		pageID:  "12345",
 		file:    mdFile,
-		noColor: true,
 	}
 
-	err = runEdit(opts, client)
+	err = runEdit(opts)
 	require.NoError(t, err)
 }
 
@@ -87,11 +101,14 @@ func TestRunEdit_TitleOnly(t *testing.T) {
 	}))
 	defer server.Close()
 
+	rootOpts := newEditTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+	rootOpts.Stdin = nil
 	opts := &editOptions{
+		Options: rootOpts,
 		pageID:  "12345",
 		title:   "New Title",
-		noColor: true,
 	}
 
 	// Note: Without file input and with a title, the current implementation
@@ -106,7 +123,7 @@ func TestRunEdit_TitleOnly(t *testing.T) {
 	opts.file = mdFile
 	opts.markdown = &useMd
 
-	err = runEdit(opts, client)
+	err = runEdit(opts)
 	require.NoError(t, err)
 
 	// Verify title was changed
@@ -120,14 +137,17 @@ func TestRunEdit_PageNotFound(t *testing.T) {
 	}))
 	defer server.Close()
 
+	rootOpts := newEditTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+	rootOpts.Stdin = nil
 	opts := &editOptions{
+		Options: rootOpts,
 		pageID:  "99999",
 		title:   "New Title",
-		noColor: true,
 	}
 
-	err := runEdit(opts, client)
+	err := runEdit(opts)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to get page")
 }
@@ -158,14 +178,17 @@ func TestRunEdit_UpdateFailed(t *testing.T) {
 	}))
 	defer server.Close()
 
+	rootOpts := newEditTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+	rootOpts.Stdin = nil
 	opts := &editOptions{
+		Options: rootOpts,
 		pageID:  "12345",
 		file:    mdFile,
-		noColor: true,
 	}
 
-	err = runEdit(opts, client)
+	err = runEdit(opts)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to update page")
 }
@@ -208,14 +231,17 @@ func TestRunEdit_VersionIncrement(t *testing.T) {
 	}))
 	defer server.Close()
 
+	rootOpts := newEditTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+	rootOpts.Stdin = nil
 	opts := &editOptions{
+		Options: rootOpts,
 		pageID:  "12345",
 		file:    mdFile,
-		noColor: true,
 	}
 
-	err = runEdit(opts, client)
+	err = runEdit(opts)
 	require.NoError(t, err)
 
 	// Verify version was incremented from 7 to 8
@@ -256,15 +282,19 @@ func TestRunEdit_HTMLFile(t *testing.T) {
 	}))
 	defer server.Close()
 
+	rootOpts := newEditTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+	rootOpts.Stdin = nil
 	opts := &editOptions{
+		Options: rootOpts,
 		pageID:  "12345",
 		file:    htmlFile,
 		legacy:  true, // Use legacy mode for HTML files
-		noColor: true,
+
 	}
 
-	err = runEdit(opts, client)
+	err = runEdit(opts)
 	require.NoError(t, err)
 
 	// Verify HTML was not converted (storage format in legacy mode)
@@ -308,17 +338,20 @@ func TestRunEdit_NoMarkdownFlag(t *testing.T) {
 	}))
 	defer server.Close()
 
+	rootOpts := newEditTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
 	useMd := false
+	rootOpts.Stdin = nil
 	opts := &editOptions{
+		Options:  rootOpts,
 		pageID:   "12345",
 		file:     mdFile,
 		markdown: &useMd,
 		legacy:   true, // Use legacy mode for storage format
-		noColor:  true,
 	}
 
-	err = runEdit(opts, client)
+	err = runEdit(opts)
 	require.NoError(t, err)
 
 	// Verify content was not converted (storage format in legacy mode)
@@ -362,15 +395,19 @@ func TestRunEdit_MarkdownToADF(t *testing.T) {
 	}))
 	defer server.Close()
 
+	rootOpts := newEditTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+	rootOpts.Stdin = nil
 	opts := &editOptions{
+		Options: rootOpts,
 		pageID:  "12345",
 		file:    mdFile,
-		noColor: true,
+
 		// Default: not legacy, uses ADF
 	}
 
-	err = runEdit(opts, client)
+	err = runEdit(opts)
 	require.NoError(t, err)
 
 	// Verify ADF format was used (default)
@@ -415,15 +452,17 @@ func TestRunEdit_JSONOutput(t *testing.T) {
 	}))
 	defer server.Close()
 
+	rootOpts := newEditTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+	rootOpts.Stdin = nil
 	opts := &editOptions{
+		Options: rootOpts,
 		pageID:  "12345",
 		file:    mdFile,
-		output:  "json",
-		noColor: true,
 	}
 
-	err = runEdit(opts, client)
+	err = runEdit(opts)
 	require.NoError(t, err)
 }
 
@@ -440,14 +479,17 @@ func TestRunEdit_FileReadError(t *testing.T) {
 	}))
 	defer server.Close()
 
+	rootOpts := newEditTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+	rootOpts.Stdin = nil
 	opts := &editOptions{
+		Options: rootOpts,
 		pageID:  "12345",
 		file:    "/nonexistent/file.md",
-		noColor: true,
 	}
 
-	err := runEdit(opts, client)
+	err := runEdit(opts)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to read file")
 }
@@ -481,14 +523,16 @@ func TestRunEdit_Stdin_ADF(t *testing.T) {
 	}))
 	defer server.Close()
 
+	rootOpts := newEditTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+	rootOpts.Stdin = strings.NewReader("# Heading\n\nSome **bold** text.")
 	opts := &editOptions{
+		Options: rootOpts,
 		pageID:  "12345",
-		stdin:   strings.NewReader("# Updated\n\nNew **bold** content."),
-		noColor: true,
 	}
 
-	err := runEdit(opts, client)
+	err := runEdit(opts)
 	require.NoError(t, err)
 
 	// Verify ADF format was used
@@ -530,15 +574,17 @@ func TestRunEdit_Stdin_Legacy(t *testing.T) {
 	}))
 	defer server.Close()
 
+	rootOpts := newEditTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+	rootOpts.Stdin = strings.NewReader("# Heading\n\nSome **bold** text.")
 	opts := &editOptions{
+		Options: rootOpts,
 		pageID:  "12345",
-		stdin:   strings.NewReader("# Updated\n\nNew **bold** content."),
 		legacy:  true,
-		noColor: true,
 	}
 
-	err := runEdit(opts, client)
+	err := runEdit(opts)
 	require.NoError(t, err)
 
 	// Verify storage format was used
@@ -579,15 +625,22 @@ func TestRunEdit_TitleAndContent(t *testing.T) {
 	}))
 	defer server.Close()
 
+	tmpDir := t.TempDir()
+	mdFile := filepath.Join(tmpDir, "content.md")
+	err := os.WriteFile(mdFile, []byte("# New Content\n\nUpdated text here."), 0644)
+	require.NoError(t, err)
+
+	rootOpts := newEditTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
 	opts := &editOptions{
+		Options: rootOpts,
 		pageID:  "12345",
 		title:   "New Title",
-		stdin:   strings.NewReader("# New Content"),
-		noColor: true,
+		file:    mdFile,
 	}
 
-	err := runEdit(opts, client)
+	err = runEdit(opts)
 	require.NoError(t, err)
 
 	// Verify both title and content were updated
@@ -638,14 +691,21 @@ func TestRunEdit_ComplexMarkdown_ADF(t *testing.T) {
 
 ` + "```go\nfunc main() {\n    fmt.Println(\"Hello\")\n}\n```"
 
+	tmpDir := t.TempDir()
+	mdFile := filepath.Join(tmpDir, "complex.md")
+	err := os.WriteFile(mdFile, []byte(complexMarkdown), 0644)
+	require.NoError(t, err)
+
+	rootOpts := newEditTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
 	opts := &editOptions{
+		Options: rootOpts,
 		pageID:  "12345",
-		stdin:   strings.NewReader(complexMarkdown),
-		noColor: true,
+		file:    mdFile,
 	}
 
-	err := runEdit(opts, client)
+	err = runEdit(opts)
 	require.NoError(t, err)
 
 	// Verify ADF contains complex elements
@@ -690,15 +750,18 @@ func TestRunEdit_MoveToParent(t *testing.T) {
 	}))
 	defer server.Close()
 
+	rootOpts := newEditTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+	rootOpts.Stdin = nil
 	opts := &editOptions{
+		Options: rootOpts,
 		pageID:  "12345",
 		title:   "Test Page", // Keep same title to avoid editor
 		parent:  "67890",
-		noColor: true,
 	}
 
-	err := runEdit(opts, client)
+	err := runEdit(opts)
 	require.NoError(t, err)
 	assert.True(t, moveCalled, "MovePage should have been called")
 }
@@ -739,15 +802,18 @@ func TestRunEdit_MoveAndRename(t *testing.T) {
 	}))
 	defer server.Close()
 
+	rootOpts := newEditTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+	rootOpts.Stdin = nil
 	opts := &editOptions{
+		Options: rootOpts,
 		pageID:  "12345",
 		title:   "New Title",
 		parent:  "67890",
-		noColor: true,
 	}
 
-	err := runEdit(opts, client)
+	err := runEdit(opts)
 	require.NoError(t, err)
 	assert.True(t, moveCalled, "MovePage should have been called")
 	assert.Equal(t, "New Title", receivedTitle)
@@ -782,15 +848,19 @@ func TestRunEdit_MoveFailed(t *testing.T) {
 	}))
 	defer server.Close()
 
+	rootOpts := newEditTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+	rootOpts.Stdin = nil
 	opts := &editOptions{
+		Options: rootOpts,
 		pageID:  "12345",
 		title:   "Test Page",
 		parent:  "99999", // Invalid parent
-		noColor: true,
+
 	}
 
-	err := runEdit(opts, client)
+	err := runEdit(opts)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to move page to new parent")
 }
@@ -829,15 +899,17 @@ func TestRunEdit_MoveWithContent(t *testing.T) {
 	}))
 	defer server.Close()
 
+	rootOpts := newEditTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+	rootOpts.Stdin = strings.NewReader("# New Content\n\nUpdated during move.")
 	opts := &editOptions{
+		Options: rootOpts,
 		pageID:  "12345",
-		stdin:   strings.NewReader("# New Content"),
 		parent:  "67890",
-		noColor: true,
 	}
 
-	err := runEdit(opts, client)
+	err := runEdit(opts)
 	require.NoError(t, err)
 	assert.True(t, moveCalled, "MovePage should have been called")
 
@@ -864,14 +936,16 @@ func TestRunEdit_EmptyContentFromStdin(t *testing.T) {
 	}))
 	defer server.Close()
 
+	rootOpts := newEditTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+	rootOpts.Stdin = strings.NewReader("")
 	opts := &editOptions{
+		Options: rootOpts,
 		pageID:  "12345",
-		stdin:   strings.NewReader(""),
-		noColor: true,
 	}
 
-	err := runEdit(opts, client)
+	err := runEdit(opts)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "page content cannot be empty")
 }
@@ -893,14 +967,16 @@ func TestRunEdit_WhitespaceOnlyFromStdin(t *testing.T) {
 	}))
 	defer server.Close()
 
+	rootOpts := newEditTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+	rootOpts.Stdin = strings.NewReader("   \n\t\n  ")
 	opts := &editOptions{
+		Options: rootOpts,
 		pageID:  "12345",
-		stdin:   strings.NewReader("   \n\t\n   "),
-		noColor: true,
 	}
 
-	err := runEdit(opts, client)
+	err := runEdit(opts)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "page content cannot be empty")
 }
@@ -927,14 +1003,17 @@ func TestRunEdit_EmptyFile(t *testing.T) {
 	}))
 	defer server.Close()
 
+	rootOpts := newEditTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+	rootOpts.Stdin = nil
 	opts := &editOptions{
+		Options: rootOpts,
 		pageID:  "12345",
 		file:    emptyFile,
-		noColor: true,
 	}
 
-	err = runEdit(opts, client)
+	err = runEdit(opts)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "page content cannot be empty")
 }
@@ -961,14 +1040,17 @@ func TestRunEdit_WhitespaceOnlyFile(t *testing.T) {
 	}))
 	defer server.Close()
 
+	rootOpts := newEditTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+	rootOpts.Stdin = nil
 	opts := &editOptions{
+		Options: rootOpts,
 		pageID:  "12345",
 		file:    whitespaceFile,
-		noColor: true,
 	}
 
-	err = runEdit(opts, client)
+	err = runEdit(opts)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "page content cannot be empty")
 }
@@ -1002,7 +1084,9 @@ func TestRunEdit_TitleOnlyUpdate_NoContentValidation(t *testing.T) {
 	}))
 	defer server.Close()
 
+	rootOpts := newEditTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
 
 	// Provide a file with valid content to avoid editor
 	tmpDir := t.TempDir()
@@ -1010,14 +1094,15 @@ func TestRunEdit_TitleOnlyUpdate_NoContentValidation(t *testing.T) {
 	err := os.WriteFile(mdFile, []byte("# Valid Content"), 0644)
 	require.NoError(t, err)
 
+	rootOpts.Stdin = nil
 	opts := &editOptions{
+		Options: rootOpts,
 		pageID:  "12345",
 		title:   "New Title",
 		file:    mdFile,
-		noColor: true,
 	}
 
-	err = runEdit(opts, client)
+	err = runEdit(opts)
 	require.NoError(t, err)
 	assert.True(t, updateCalled, "Update should have been called")
 }
@@ -1057,14 +1142,17 @@ func TestRunEdit_MoveOnly_NoEditorOpened(t *testing.T) {
 	}))
 	defer server.Close()
 
+	rootOpts := newEditTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+	rootOpts.Stdin = nil
 	opts := &editOptions{
+		Options: rootOpts,
 		pageID:  "12345",
 		parent:  "67890",
-		noColor: true,
 	}
 
-	err := runEdit(opts, client)
+	err := runEdit(opts)
 	require.NoError(t, err)
 	assert.True(t, updateCalled, "UpdatePage should have been called")
 	assert.True(t, moveCalled, "MovePage should have been called")
@@ -1106,15 +1194,18 @@ func TestRunEdit_MoveWithTitleOnly_NoEditorOpened(t *testing.T) {
 	}))
 	defer server.Close()
 
+	rootOpts := newEditTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+	rootOpts.Stdin = nil
 	opts := &editOptions{
+		Options: rootOpts,
 		pageID:  "12345",
 		title:   "New Title",
 		parent:  "67890",
-		noColor: true,
 	}
 
-	err := runEdit(opts, client)
+	err := runEdit(opts)
 	require.NoError(t, err)
 	assert.True(t, moveCalled, "MovePage should have been called")
 	assert.Equal(t, "New Title", receivedBody["title"])
@@ -1154,14 +1245,17 @@ func TestRunEdit_MoveOnly_BodyPreserved(t *testing.T) {
 	}))
 	defer server.Close()
 
+	rootOpts := newEditTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+	rootOpts.Stdin = nil
 	opts := &editOptions{
+		Options: rootOpts,
 		pageID:  "12345",
 		parent:  "67890",
-		noColor: true,
 	}
 
-	err := runEdit(opts, client)
+	err := runEdit(opts)
 	require.NoError(t, err)
 
 	// Verify body was preserved from original page

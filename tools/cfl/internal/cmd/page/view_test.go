@@ -1,16 +1,26 @@
 package page
 
 import (
+	"bytes"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/open-cli-collective/confluence-cli/api"
+	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
 )
+
+func newViewTestRootOptions() *root.Options {
+	return &root.Options{
+		Output:  "table",
+		NoColor: true,
+		Stdout:  &bytes.Buffer{},
+		Stderr:  &bytes.Buffer{},
+	}
+}
 
 func TestRunView_Success(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -18,7 +28,7 @@ func TestRunView_Success(t *testing.T) {
 		assert.Equal(t, "GET", r.Method)
 
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{
+		_, _ = w.Write([]byte(`{
 			"id": "12345",
 			"title": "Test Page",
 			"version": {"number": 3},
@@ -28,19 +38,22 @@ func TestRunView_Success(t *testing.T) {
 	}))
 	defer server.Close()
 
+	rootOpts := newViewTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &viewOptions{
-		noColor: true,
+		Options: rootOpts,
 	}
 
-	err := runView("12345", opts, client)
+	err := runView("12345", opts)
 	require.NoError(t, err)
 }
 
 func TestRunView_RawFormat(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{
+		_, _ = w.Write([]byte(`{
 			"id": "12345",
 			"title": "Test Page",
 			"version": {"number": 1},
@@ -50,20 +63,23 @@ func TestRunView_RawFormat(t *testing.T) {
 	}))
 	defer server.Close()
 
+	rootOpts := newViewTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &viewOptions{
+		Options: rootOpts,
 		raw:     true,
-		noColor: true,
 	}
 
-	err := runView("12345", opts, client)
+	err := runView("12345", opts)
 	require.NoError(t, err)
 }
 
 func TestRunView_JSONOutput(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{
+		_, _ = w.Write([]byte(`{
 			"id": "12345",
 			"title": "Test Page",
 			"version": {"number": 1},
@@ -73,29 +89,35 @@ func TestRunView_JSONOutput(t *testing.T) {
 	}))
 	defer server.Close()
 
+	rootOpts := newViewTestRootOptions()
+	rootOpts.Output = "json"
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &viewOptions{
-		output:  "json",
-		noColor: true,
+		Options: rootOpts,
 	}
 
-	err := runView("12345", opts, client)
+	err := runView("12345", opts)
 	require.NoError(t, err)
 }
 
 func TestRunView_PageNotFound(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"message": "Page not found"}`))
+		_, _ = w.Write([]byte(`{"message": "Page not found"}`))
 	}))
 	defer server.Close()
 
+	rootOpts := newViewTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &viewOptions{
-		noColor: true,
+		Options: rootOpts,
 	}
 
-	err := runView("99999", opts, client)
+	err := runView("99999", opts)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to get page")
 }
@@ -103,7 +125,7 @@ func TestRunView_PageNotFound(t *testing.T) {
 func TestRunView_EmptyContent(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{
+		_, _ = w.Write([]byte(`{
 			"id": "12345",
 			"title": "Empty Page",
 			"version": {"number": 1},
@@ -112,23 +134,27 @@ func TestRunView_EmptyContent(t *testing.T) {
 	}))
 	defer server.Close()
 
+	rootOpts := newViewTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &viewOptions{
-		noColor: true,
+		Options: rootOpts,
 	}
 
-	err := runView("12345", opts, client)
+	err := runView("12345", opts)
 	require.NoError(t, err)
 }
 
 func TestRunView_InvalidOutputFormat(t *testing.T) {
-	client := api.NewClient("http://unused", "test@example.com", "token")
+	rootOpts := newViewTestRootOptions()
+	rootOpts.Output = "invalid"
+
 	opts := &viewOptions{
-		output:  "invalid",
-		noColor: true,
+		Options: rootOpts,
 	}
 
-	err := runView("12345", opts, client)
+	err := runView("12345", opts)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid output format")
 }
@@ -136,7 +162,7 @@ func TestRunView_InvalidOutputFormat(t *testing.T) {
 func TestRunView_ShowMacros(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{
+		_, _ = w.Write([]byte(`{
 			"id": "12345",
 			"title": "Page with Macros",
 			"version": {"number": 1},
@@ -146,20 +172,23 @@ func TestRunView_ShowMacros(t *testing.T) {
 	}))
 	defer server.Close()
 
+	rootOpts := newViewTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &viewOptions{
+		Options:    rootOpts,
 		showMacros: true,
-		noColor:    true,
 	}
 
-	err := runView("12345", opts, client)
+	err := runView("12345", opts)
 	require.NoError(t, err)
 }
 
 func TestRunView_ContentOnly(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{
+		_, _ = w.Write([]byte(`{
 			"id": "12345",
 			"title": "Test Page",
 			"version": {"number": 3},
@@ -169,13 +198,16 @@ func TestRunView_ContentOnly(t *testing.T) {
 	}))
 	defer server.Close()
 
+	rootOpts := newViewTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &viewOptions{
+		Options:     rootOpts,
 		contentOnly: true,
-		noColor:     true,
 	}
 
-	err := runView("12345", opts, client)
+	err := runView("12345", opts)
 	require.NoError(t, err)
 	// Output should only contain markdown content, no Title:/ID:/Version: headers
 }
@@ -183,7 +215,7 @@ func TestRunView_ContentOnly(t *testing.T) {
 func TestRunView_ContentOnly_Raw(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{
+		_, _ = w.Write([]byte(`{
 			"id": "12345",
 			"title": "Test Page",
 			"version": {"number": 1},
@@ -193,14 +225,17 @@ func TestRunView_ContentOnly_Raw(t *testing.T) {
 	}))
 	defer server.Close()
 
+	rootOpts := newViewTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &viewOptions{
+		Options:     rootOpts,
 		contentOnly: true,
 		raw:         true,
-		noColor:     true,
 	}
 
-	err := runView("12345", opts, client)
+	err := runView("12345", opts)
 	require.NoError(t, err)
 	// Output should only contain raw XHTML, no Title:/ID:/Version: headers
 }
@@ -208,7 +243,7 @@ func TestRunView_ContentOnly_Raw(t *testing.T) {
 func TestRunView_ContentOnly_ShowMacros(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{
+		_, _ = w.Write([]byte(`{
 			"id": "12345",
 			"title": "Page with Macros",
 			"version": {"number": 1},
@@ -218,40 +253,45 @@ func TestRunView_ContentOnly_ShowMacros(t *testing.T) {
 	}))
 	defer server.Close()
 
+	rootOpts := newViewTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &viewOptions{
+		Options:     rootOpts,
 		contentOnly: true,
 		showMacros:  true,
-		noColor:     true,
 	}
 
-	err := runView("12345", opts, client)
+	err := runView("12345", opts)
 	require.NoError(t, err)
 	// Output should contain markdown with [TOC] macro placeholder
 }
 
 func TestRunView_ContentOnly_JSON_Error(t *testing.T) {
-	client := api.NewClient("http://unused", "test@example.com", "token")
+	rootOpts := newViewTestRootOptions()
+	rootOpts.Output = "json"
+
 	opts := &viewOptions{
+		Options:     rootOpts,
 		contentOnly: true,
-		output:      "json",
-		noColor:     true,
 	}
 
-	err := runView("12345", opts, client)
+	err := runView("12345", opts)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "--content-only is incompatible with --output json")
 }
 
 func TestRunView_ContentOnly_Web_Error(t *testing.T) {
-	client := api.NewClient("http://unused", "test@example.com", "token")
+	rootOpts := newViewTestRootOptions()
+
 	opts := &viewOptions{
+		Options:     rootOpts,
 		contentOnly: true,
 		web:         true,
-		noColor:     true,
 	}
 
-	err := runView("12345", opts, client)
+	err := runView("12345", opts)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "--content-only is incompatible with --web")
 }
@@ -259,7 +299,7 @@ func TestRunView_ContentOnly_Web_Error(t *testing.T) {
 func TestRunView_ContentOnly_EmptyBody(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{
+		_, _ = w.Write([]byte(`{
 			"id": "12345",
 			"title": "Empty Page",
 			"version": {"number": 1},
@@ -268,16 +308,16 @@ func TestRunView_ContentOnly_EmptyBody(t *testing.T) {
 	}))
 	defer server.Close()
 
+	rootOpts := newViewTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &viewOptions{
+		Options:     rootOpts,
 		contentOnly: true,
-		noColor:     true,
 	}
 
-	err := runView("12345", opts, client)
+	err := runView("12345", opts)
 	require.NoError(t, err)
 	// Output should be "(No content)" without metadata headers
 }
-
-// Ensure strings is used
-var _ = strings.NewReader("")

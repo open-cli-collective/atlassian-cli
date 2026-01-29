@@ -9,21 +9,19 @@ import (
 	"github.com/open-cli-collective/atlassian-go/view"
 
 	"github.com/open-cli-collective/confluence-cli/api"
-	"github.com/open-cli-collective/confluence-cli/internal/config"
+	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
 )
 
 type copyOptions struct {
+	*root.Options
 	title         string
 	space         string
 	noAttachments bool
 	noLabels      bool
-	output        string
-	noColor       bool
 }
 
-// NewCmdCopy creates the page copy command.
-func NewCmdCopy() *cobra.Command {
-	opts := &copyOptions{}
+func newCopyCmd(rootOpts *root.Options) *cobra.Command {
+	opts := &copyOptions{Options: rootOpts}
 
 	cmd := &cobra.Command{
 		Use:   "copy <page-id>",
@@ -41,10 +39,8 @@ func NewCmdCopy() *cobra.Command {
   # Copy without labels
   cfl page copy 12345 --title "Fresh Copy" --no-labels`,
 		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			opts.output, _ = cmd.Flags().GetString("output")
-			opts.noColor, _ = cmd.Flags().GetBool("no-color")
-			return runCopy(args[0], opts, nil)
+		RunE: func(_ *cobra.Command, args []string) error {
+			return runCopy(args[0], opts)
 		},
 	}
 
@@ -58,32 +54,22 @@ func NewCmdCopy() *cobra.Command {
 	return cmd
 }
 
-func runCopy(pageID string, opts *copyOptions, client *api.Client) error {
-	// Validate output format
-	if err := view.ValidateFormat(opts.output); err != nil {
+func runCopy(pageID string, opts *copyOptions) error {
+	if err := view.ValidateFormat(opts.Output); err != nil {
 		return err
 	}
 
-	// Create API client if not provided (allows testing with mock client)
-	if client == nil {
-		cfg, err := config.LoadWithEnv(config.DefaultConfigPath())
-		if err != nil {
-			return fmt.Errorf("failed to load config: %w (run 'cfl init' to configure)", err)
-		}
-		if err := cfg.Validate(); err != nil {
-			return fmt.Errorf("invalid config: %w (run 'cfl init' to configure)", err)
-		}
-		client = api.NewClient(cfg.URL, cfg.Email, cfg.APIToken)
+	client, err := opts.APIClient()
+	if err != nil {
+		return err
 	}
 
-	// If no destination space specified, get source page's space key
 	destSpace := opts.space
 	if destSpace == "" {
 		sourcePage, err := client.GetPage(context.Background(), pageID, nil)
 		if err != nil {
 			return fmt.Errorf("failed to get source page: %w", err)
 		}
-		// SpaceID is numeric (e.g., "3367829530"), but copy API needs space key
 		space, err := client.GetSpace(context.Background(), sourcePage.SpaceID)
 		if err != nil {
 			return fmt.Errorf("failed to get space: %w", err)
@@ -91,8 +77,6 @@ func runCopy(pageID string, opts *copyOptions, client *api.Client) error {
 		destSpace = space.Key
 	}
 
-	// Copy the page
-	// Default all copy flags to true, override with --no-* flags
 	copyOpts := &api.CopyPageOptions{
 		Title:              opts.title,
 		DestinationSpace:   destSpace,
@@ -108,10 +92,9 @@ func runCopy(pageID string, opts *copyOptions, client *api.Client) error {
 		return fmt.Errorf("failed to copy page: %w", err)
 	}
 
-	// Render output
-	v := view.New(view.Format(opts.output), opts.noColor)
+	v := opts.View()
 
-	if opts.output == "json" {
+	if opts.Output == "json" {
 		return v.JSON(newPage)
 	}
 

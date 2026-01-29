@@ -10,23 +10,20 @@ import (
 
 	"github.com/open-cli-collective/atlassian-go/view"
 
-	"github.com/open-cli-collective/confluence-cli/api"
-	"github.com/open-cli-collective/confluence-cli/internal/config"
+	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
 	"github.com/open-cli-collective/confluence-cli/pkg/md"
 )
 
 type viewOptions struct {
+	*root.Options
 	raw         bool
 	web         bool
 	showMacros  bool
 	contentOnly bool
-	output      string
-	noColor     bool
 }
 
-// NewCmdView creates the page view command.
-func NewCmdView() *cobra.Command {
-	opts := &viewOptions{}
+func newViewCmd(rootOpts *root.Options) *cobra.Command {
+	opts := &viewOptions{Options: rootOpts}
 
 	cmd := &cobra.Command{
 		Use:   "view <page-id>",
@@ -44,10 +41,8 @@ func NewCmdView() *cobra.Command {
   # Output content only (for piping to edit)
   cfl page view 12345 --show-macros --content-only | cfl page edit 12345 --legacy`,
 		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			opts.output, _ = cmd.Flags().GetString("output")
-			opts.noColor, _ = cmd.Flags().GetBool("no-color")
-			return runView(args[0], opts, nil)
+		RunE: func(_ *cobra.Command, args []string) error {
+			return runView(args[0], opts)
 		},
 	}
 
@@ -59,18 +54,13 @@ func NewCmdView() *cobra.Command {
 	return cmd
 }
 
-func runView(pageID string, opts *viewOptions, client *api.Client) error {
-	// Track base URL for --web flag
-	var baseURL string
-
-	// Validate output format
-	if err := view.ValidateFormat(opts.output); err != nil {
+func runView(pageID string, opts *viewOptions) error {
+	if err := view.ValidateFormat(opts.Output); err != nil {
 		return err
 	}
 
-	// Validate flag combinations
 	if opts.contentOnly {
-		if opts.output == "json" {
+		if opts.Output == "json" {
 			return fmt.Errorf("--content-only is incompatible with --output json")
 		}
 		if opts.web {
@@ -78,45 +68,32 @@ func runView(pageID string, opts *viewOptions, client *api.Client) error {
 		}
 	}
 
-	// Create API client if not provided (allows injection for testing)
-	if client == nil {
-		cfg, err := config.LoadWithEnv(config.DefaultConfigPath())
-		if err != nil {
-			return fmt.Errorf("failed to load config: %w (run 'cfl init' to configure)", err)
-		}
-
-		if err := cfg.Validate(); err != nil {
-			return fmt.Errorf("invalid config: %w (run 'cfl init' to configure)", err)
-		}
-
-		baseURL = cfg.URL
-		client = api.NewClient(cfg.URL, cfg.Email, cfg.APIToken)
+	cfg, err := opts.Config()
+	if err != nil {
+		return err
 	}
 
-	// Get page with body
-	apiOpts := &api.GetPageOptions{
-		BodyFormat: "storage",
+	client, err := opts.APIClient()
+	if err != nil {
+		return err
 	}
 
-	page, err := client.GetPage(context.Background(), pageID, apiOpts)
+	page, err := client.GetPage(context.Background(), pageID, nil)
 	if err != nil {
 		return fmt.Errorf("failed to get page: %w", err)
 	}
 
-	// Open in browser if requested
 	if opts.web {
-		url := baseURL + page.Links.WebUI
+		url := cfg.URL + page.Links.WebUI
 		return openBrowser(url)
 	}
 
-	// Render output
-	v := view.New(view.Format(opts.output), opts.noColor)
+	v := opts.View()
 
-	if opts.output == "json" {
+	if opts.Output == "json" {
 		return v.JSON(page)
 	}
 
-	// Show page info (unless content-only mode)
 	if !opts.contentOnly {
 		v.RenderKeyValue("Title", page.Title)
 		v.RenderKeyValue("ID", page.ID)
@@ -126,19 +103,16 @@ func runView(pageID string, opts *viewOptions, client *api.Client) error {
 		fmt.Println()
 	}
 
-	// Show content
 	if page.Body != nil && page.Body.Storage != nil {
 		content := page.Body.Storage.Value
 		if opts.raw {
 			fmt.Println(content)
 		} else {
-			// Convert storage format (HTML) to markdown
 			convertOpts := md.ConvertOptions{
 				ShowMacros: opts.showMacros,
 			}
 			markdown, err := md.FromConfluenceStorageWithOptions(content, convertOpts)
 			if err != nil {
-				// Fall back to raw content if conversion fails
 				fmt.Println("(Failed to convert to markdown, showing raw HTML)")
 				fmt.Println()
 				fmt.Println(content)

@@ -1,15 +1,18 @@
 package init
 
 import (
+	"bytes"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
 
+	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
 	"github.com/open-cli-collective/confluence-cli/internal/config"
 )
 
@@ -27,7 +30,7 @@ func TestVerifyConnection_Success(t *testing.T) {
 		assert.Equal(t, "test-token", pass)
 
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"results": []}`))
+		_, _ = w.Write([]byte(`{"results": []}`))
 	}))
 	defer server.Close()
 
@@ -44,7 +47,7 @@ func TestVerifyConnection_Success(t *testing.T) {
 func TestVerifyConnection_Unauthorized(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
-		w.Write([]byte(`{"message": "Unauthorized"}`))
+		_, _ = w.Write([]byte(`{"message": "Unauthorized"}`))
 	}))
 	defer server.Close()
 
@@ -63,7 +66,7 @@ func TestVerifyConnection_Unauthorized(t *testing.T) {
 func TestVerifyConnection_Forbidden(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusForbidden)
-		w.Write([]byte(`{"message": "Forbidden"}`))
+		_, _ = w.Write([]byte(`{"message": "Forbidden"}`))
 	}))
 	defer server.Close()
 
@@ -226,24 +229,41 @@ func TestConfigFilePermissions_DirectoryCreation(t *testing.T) {
 	assert.True(t, dirInfo.IsDir())
 }
 
-func TestNewCmdInit_Flags(t *testing.T) {
-	cmd := NewCmdInit()
+func TestInitCommand_Flags(t *testing.T) {
+	// Create root command with init registered
+	rootCmd := &cobra.Command{
+		Use:   "cfl",
+		Short: "Test CLI",
+	}
+
+	opts := &root.Options{
+		Output:  "table",
+		NoColor: true,
+		Stdout:  &bytes.Buffer{},
+		Stderr:  &bytes.Buffer{},
+	}
+
+	Register(rootCmd, opts)
+
+	// Find the init command
+	initCmd, _, err := rootCmd.Find([]string{"init"})
+	require.NoError(t, err)
 
 	// Verify command structure
-	assert.Equal(t, "init", cmd.Use)
-	assert.NotEmpty(t, cmd.Short)
-	assert.NotEmpty(t, cmd.Long)
+	assert.Equal(t, "init", initCmd.Use)
+	assert.NotEmpty(t, initCmd.Short)
+	assert.NotEmpty(t, initCmd.Long)
 
 	// Verify flags exist
-	urlFlag := cmd.Flags().Lookup("url")
+	urlFlag := initCmd.Flags().Lookup("url")
 	require.NotNil(t, urlFlag)
 	assert.Equal(t, "", urlFlag.DefValue)
 
-	emailFlag := cmd.Flags().Lookup("email")
+	emailFlag := initCmd.Flags().Lookup("email")
 	require.NotNil(t, emailFlag)
 	assert.Equal(t, "", emailFlag.DefValue)
 
-	noVerifyFlag := cmd.Flags().Lookup("no-verify")
+	noVerifyFlag := initCmd.Flags().Lookup("no-verify")
 	require.NotNil(t, noVerifyFlag)
 	assert.Equal(t, "false", noVerifyFlag.DefValue)
 }

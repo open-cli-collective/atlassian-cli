@@ -1,6 +1,7 @@
 package search
 
 import (
+	"bytes"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -10,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/open-cli-collective/confluence-cli/api"
+	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
 )
 
 // mockSearchServer creates a test server for search operations
@@ -23,6 +25,15 @@ func mockSearchServer(t *testing.T, response string) *httptest.Server {
 			w.WriteHeader(http.StatusNotFound)
 		}
 	}))
+}
+
+func newTestRootOptions() *root.Options {
+	return &root.Options{
+		Output:  "table",
+		NoColor: true,
+		Stdout:  &bytes.Buffer{},
+		Stderr:  &bytes.Buffer{},
+	}
 }
 
 func TestRunSearch_Success(t *testing.T) {
@@ -43,14 +54,17 @@ func TestRunSearch_Success(t *testing.T) {
 	}`)
 	defer server.Close()
 
+	rootOpts := newTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &searchOptions{
+		Options: rootOpts,
 		query:   "test",
 		limit:   25,
-		noColor: true,
 	}
 
-	err := runSearch(opts, client)
+	err := runSearch(opts)
 	require.NoError(t, err)
 }
 
@@ -63,14 +77,17 @@ func TestRunSearch_EmptyResults(t *testing.T) {
 	}`)
 	defer server.Close()
 
+	rootOpts := newTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &searchOptions{
+		Options: rootOpts,
 		query:   "nonexistent",
 		limit:   25,
-		noColor: true,
 	}
 
-	err := runSearch(opts, client)
+	err := runSearch(opts)
 	require.NoError(t, err)
 }
 
@@ -88,15 +105,18 @@ func TestRunSearch_JSONOutput(t *testing.T) {
 	}`)
 	defer server.Close()
 
+	rootOpts := newTestRootOptions()
+	rootOpts.Output = "json"
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &searchOptions{
+		Options: rootOpts,
 		query:   "test",
 		limit:   25,
-		output:  "json",
-		noColor: true,
 	}
 
-	err := runSearch(opts, client)
+	err := runSearch(opts)
 	require.NoError(t, err)
 }
 
@@ -114,40 +134,47 @@ func TestRunSearch_PlainOutput(t *testing.T) {
 	}`)
 	defer server.Close()
 
+	rootOpts := newTestRootOptions()
+	rootOpts.Output = "plain"
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &searchOptions{
+		Options: rootOpts,
 		query:   "test",
 		limit:   25,
-		output:  "plain",
-		noColor: true,
 	}
 
-	err := runSearch(opts, client)
+	err := runSearch(opts)
 	require.NoError(t, err)
 }
 
 func TestRunSearch_InvalidOutputFormat(t *testing.T) {
+	rootOpts := newTestRootOptions()
+	rootOpts.Output = "invalid"
+
 	opts := &searchOptions{
+		Options: rootOpts,
 		query:   "test",
 		limit:   25,
-		output:  "invalid",
-		noColor: true,
 	}
 
-	err := runSearch(opts, nil)
+	err := runSearch(opts)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid output format")
 }
 
 func TestRunSearch_InvalidType(t *testing.T) {
+	rootOpts := newTestRootOptions()
+
 	opts := &searchOptions{
+		Options:     rootOpts,
 		query:       "test",
 		limit:       25,
 		contentType: "invalid",
-		noColor:     true,
 	}
 
-	err := runSearch(opts, nil)
+	err := runSearch(opts)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid type")
 	assert.Contains(t, err.Error(), "invalid")
@@ -161,52 +188,61 @@ func TestRunSearch_ValidTypes(t *testing.T) {
 			server := mockSearchServer(t, `{"results": [], "totalSize": 0}`)
 			defer server.Close()
 
+			rootOpts := newTestRootOptions()
 			client := api.NewClient(server.URL, "test@example.com", "token")
+			rootOpts.SetAPIClient(client)
+
 			opts := &searchOptions{
+				Options:     rootOpts,
 				contentType: contentType,
 				space:       "DEV", // Need at least one filter
 				limit:       25,
-				noColor:     true,
 			}
 
-			err := runSearch(opts, client)
+			err := runSearch(opts)
 			require.NoError(t, err)
 		})
 	}
 }
 
 func TestRunSearch_NoQuery(t *testing.T) {
+	rootOpts := newTestRootOptions()
+
 	opts := &searchOptions{
+		Options: rootOpts,
 		limit:   25,
-		noColor: true,
 	}
 
-	err := runSearch(opts, nil)
+	err := runSearch(opts)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "search requires a query")
 }
 
 func TestRunSearch_NegativeLimit(t *testing.T) {
+	rootOpts := newTestRootOptions()
+
 	opts := &searchOptions{
+		Options: rootOpts,
 		query:   "test",
 		limit:   -1,
-		noColor: true,
 	}
 
-	err := runSearch(opts, nil)
+	err := runSearch(opts)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid limit")
 }
 
 func TestRunSearch_ZeroLimit(t *testing.T) {
+	rootOpts := newTestRootOptions()
+
 	opts := &searchOptions{
+		Options: rootOpts,
 		query:   "test",
 		limit:   0,
-		noColor: true,
 	}
 
 	// Zero limit should return empty without making API call
-	err := runSearch(opts, nil)
+	err := runSearch(opts)
 	require.NoError(t, err)
 }
 
@@ -220,15 +256,18 @@ func TestRunSearch_WithSpaceFilter(t *testing.T) {
 	}))
 	defer server.Close()
 
+	rootOpts := newTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &searchOptions{
+		Options: rootOpts,
 		query:   "test",
 		space:   "DEV",
 		limit:   25,
-		noColor: true,
 	}
 
-	err := runSearch(opts, client)
+	err := runSearch(opts)
 	require.NoError(t, err)
 }
 
@@ -242,15 +281,18 @@ func TestRunSearch_WithTypeFilter(t *testing.T) {
 	}))
 	defer server.Close()
 
+	rootOpts := newTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &searchOptions{
+		Options:     rootOpts,
 		query:       "test",
 		contentType: "page",
 		limit:       25,
-		noColor:     true,
 	}
 
-	err := runSearch(opts, client)
+	err := runSearch(opts)
 	require.NoError(t, err)
 }
 
@@ -264,14 +306,17 @@ func TestRunSearch_WithTitleFilter(t *testing.T) {
 	}))
 	defer server.Close()
 
+	rootOpts := newTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &searchOptions{
+		Options: rootOpts,
 		title:   "Getting Started",
 		limit:   25,
-		noColor: true,
 	}
 
-	err := runSearch(opts, client)
+	err := runSearch(opts)
 	require.NoError(t, err)
 }
 
@@ -285,14 +330,17 @@ func TestRunSearch_WithLabelFilter(t *testing.T) {
 	}))
 	defer server.Close()
 
+	rootOpts := newTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &searchOptions{
+		Options: rootOpts,
 		label:   "documentation",
 		limit:   25,
-		noColor: true,
 	}
 
-	err := runSearch(opts, client)
+	err := runSearch(opts)
 	require.NoError(t, err)
 }
 
@@ -307,14 +355,17 @@ func TestRunSearch_WithRawCQL(t *testing.T) {
 	}))
 	defer server.Close()
 
+	rootOpts := newTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &searchOptions{
+		Options: rootOpts,
 		cql:     `type=page AND lastModified > now("-7d")`,
 		limit:   25,
-		noColor: true,
 	}
 
-	err := runSearch(opts, client)
+	err := runSearch(opts)
 	require.NoError(t, err)
 }
 
@@ -331,17 +382,20 @@ func TestRunSearch_CombinedFilters(t *testing.T) {
 	}))
 	defer server.Close()
 
+	rootOpts := newTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &searchOptions{
+		Options:     rootOpts,
 		query:       "kubernetes",
 		space:       "DEV",
 		contentType: "page",
 		label:       "infrastructure",
 		limit:       25,
-		noColor:     true,
 	}
 
-	err := runSearch(opts, client)
+	err := runSearch(opts)
 	require.NoError(t, err)
 }
 
@@ -352,14 +406,17 @@ func TestRunSearch_APIError(t *testing.T) {
 	}))
 	defer server.Close()
 
+	rootOpts := newTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &searchOptions{
+		Options: rootOpts,
 		query:   "test",
 		limit:   25,
-		noColor: true,
 	}
 
-	err := runSearch(opts, client)
+	err := runSearch(opts)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "search failed")
 }
@@ -378,14 +435,17 @@ func TestRunSearch_HasMore(t *testing.T) {
 	}`)
 	defer server.Close()
 
+	rootOpts := newTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &searchOptions{
+		Options: rootOpts,
 		query:   "test",
 		limit:   25,
-		noColor: true,
 	}
 
-	err := runSearch(opts, client)
+	err := runSearch(opts)
 	require.NoError(t, err)
 }
 
@@ -404,14 +464,17 @@ func TestRunSearch_LongTitle(t *testing.T) {
 	}`)
 	defer server.Close()
 
+	rootOpts := newTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &searchOptions{
+		Options: rootOpts,
 		query:   "test",
 		limit:   25,
-		noColor: true,
 	}
 
-	err := runSearch(opts, client)
+	err := runSearch(opts)
 	require.NoError(t, err)
 }
 
@@ -420,14 +483,17 @@ func TestRunSearch_SpaceOnlyFilter(t *testing.T) {
 	server := mockSearchServer(t, `{"results": [], "totalSize": 0}`)
 	defer server.Close()
 
+	rootOpts := newTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &searchOptions{
+		Options: rootOpts,
 		space:   "DEV",
 		limit:   25,
-		noColor: true,
 	}
 
-	err := runSearch(opts, client)
+	err := runSearch(opts)
 	require.NoError(t, err)
 }
 
@@ -441,13 +507,16 @@ func TestRunSearch_LimitParameter(t *testing.T) {
 	}))
 	defer server.Close()
 
+	rootOpts := newTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &searchOptions{
+		Options: rootOpts,
 		query:   "test",
 		limit:   50,
-		noColor: true,
 	}
 
-	err := runSearch(opts, client)
+	err := runSearch(opts)
 	require.NoError(t, err)
 }

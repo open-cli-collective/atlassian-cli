@@ -3,10 +3,12 @@ package page
 
 import (
 	"github.com/spf13/cobra"
+
+	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
 )
 
-// NewCmdPage creates the page command.
-func NewCmdPage() *cobra.Command {
+// Register adds page commands to the root command.
+func Register(rootCmd *cobra.Command, opts *root.Options) {
 	cmd := &cobra.Command{
 		Use:     "page",
 		Aliases: []string{"pages"},
@@ -14,12 +16,12 @@ func NewCmdPage() *cobra.Command {
 		Long:    `Commands for creating, viewing, editing, and listing Confluence pages.`,
 	}
 
-	cmd.AddCommand(NewCmdList())
-	cmd.AddCommand(NewCmdView())
-	cmd.AddCommand(NewCmdCreate())
-	cmd.AddCommand(NewCmdEdit())
-	cmd.AddCommand(NewCmdDelete())
-	cmd.AddCommand(NewCmdCopy())
+	cmd.AddCommand(newListCmd(opts))
+	cmd.AddCommand(newViewCmd(opts))
+	cmd.AddCommand(newCreateCmd(opts))
+	cmd.AddCommand(newEditCmd(opts))
+	cmd.AddCommand(newDeleteCmd(opts))
+	cmd.AddCommand(newCopyCmd(opts))
 
-	return cmd
+	rootCmd.AddCommand(cmd)
 }

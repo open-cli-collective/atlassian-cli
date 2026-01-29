@@ -3,10 +3,12 @@ package attachment
 
 import (
 	"github.com/spf13/cobra"
+
+	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
 )
 
-// NewCmdAttachment creates the attachment command.
-func NewCmdAttachment() *cobra.Command {
+// Register adds attachment commands to the root command.
+func Register(rootCmd *cobra.Command, opts *root.Options) {
 	cmd := &cobra.Command{
 		Use:     "attachment",
 		Aliases: []string{"attachments", "att"},
@@ -14,10 +16,10 @@ func NewCmdAttachment() *cobra.Command {
 		Long:    `Commands for listing, uploading, and downloading Confluence page attachments.`,
 	}
 
-	cmd.AddCommand(NewCmdList())
-	cmd.AddCommand(NewCmdUpload())
-	cmd.AddCommand(NewCmdDownload())
-	cmd.AddCommand(NewCmdDelete())
+	cmd.AddCommand(newListCmd(opts))
+	cmd.AddCommand(newUploadCmd(opts))
+	cmd.AddCommand(newDownloadCmd(opts))
+	cmd.AddCommand(newDeleteCmd(opts))
 
-	return cmd
+	rootCmd.AddCommand(cmd)
 }

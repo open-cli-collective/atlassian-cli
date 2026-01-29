@@ -1,6 +1,7 @@
 package page
 
 import (
+	"bytes"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -14,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/open-cli-collective/confluence-cli/api"
+	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
 )
 
 // mockCreateServer creates a test server that handles GetSpaceByKey and CreatePage requests
@@ -23,12 +25,12 @@ func mockCreateServer(t *testing.T, spaceKey, spaceID string, createStatus int) 
 		case r.Method == "GET" && strings.Contains(r.URL.Path, "/spaces") && r.URL.Query().Get("keys") != "":
 			// GetSpaceByKey
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"results": [{"id": "` + spaceID + `", "key": "` + spaceKey + `", "name": "Test Space", "type": "global"}]}`))
+			_, _ = w.Write([]byte(`{"results": [{"id": "` + spaceID + `", "key": "` + spaceKey + `", "name": "Test Space", "type": "global"}]}`))
 		case r.Method == "POST" && strings.Contains(r.URL.Path, "/pages"):
 			// CreatePage
 			w.WriteHeader(createStatus)
 			if createStatus == http.StatusOK {
-				w.Write([]byte(`{
+				_, _ = w.Write([]byte(`{
 					"id": "99999",
 					"title": "Test Page",
 					"spaceId": "` + spaceID + `",
@@ -36,13 +38,23 @@ func mockCreateServer(t *testing.T, spaceKey, spaceID string, createStatus int) 
 					"_links": {"webui": "/spaces/` + spaceKey + `/pages/99999"}
 				}`))
 			} else {
-				w.Write([]byte(`{"message": "Create failed"}`))
+				_, _ = w.Write([]byte(`{"message": "Create failed"}`))
 			}
 		default:
 			t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
 			w.WriteHeader(http.StatusNotFound)
 		}
 	}))
+}
+
+func newCreateTestRootOptions() *root.Options {
+	return &root.Options{
+		Output:  "table",
+		NoColor: true,
+		Stdin:   strings.NewReader(""),
+		Stdout:  &bytes.Buffer{},
+		Stderr:  &bytes.Buffer{},
+	}
 }
 
 func TestRunCreate_Success(t *testing.T) {
@@ -55,15 +67,18 @@ func TestRunCreate_Success(t *testing.T) {
 	server := mockCreateServer(t, "DEV", "123456", http.StatusOK)
 	defer server.Close()
 
+	rootOpts := newCreateTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &createOptions{
+		Options: rootOpts,
 		space:   "DEV",
 		title:   "Test Page",
 		file:    mdFile,
-		noColor: true,
 	}
 
-	err = runCreate(opts, client)
+	err = runCreate(opts)
 	require.NoError(t, err)
 }
 
@@ -79,28 +94,31 @@ func TestRunCreate_HTMLFile_Legacy(t *testing.T) {
 		switch {
 		case r.Method == "GET" && strings.Contains(r.URL.Path, "/spaces"):
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"results": [{"id": "123456", "key": "DEV"}]}`))
+			_, _ = w.Write([]byte(`{"results": [{"id": "123456", "key": "DEV"}]}`))
 		case r.Method == "POST" && strings.Contains(r.URL.Path, "/pages"):
 			body, _ := io.ReadAll(r.Body)
-			json.Unmarshal(body, &receivedBody)
+			_ = json.Unmarshal(body, &receivedBody)
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"id": "99999", "title": "Test", "version": {"number": 1}}`))
+			_, _ = w.Write([]byte(`{"id": "99999", "title": "Test", "version": {"number": 1}}`))
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
 	}))
 	defer server.Close()
 
+	rootOpts := newCreateTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &createOptions{
+		Options: rootOpts,
 		space:   "DEV",
 		title:   "Test Page",
 		file:    htmlFile,
 		legacy:  true, // Use legacy mode for HTML files
-		noColor: true,
 	}
 
-	err = runCreate(opts, client)
+	err = runCreate(opts)
 	require.NoError(t, err)
 
 	// Verify HTML was not converted (should be passed as-is in storage format)
@@ -122,30 +140,33 @@ func TestRunCreate_NoMarkdownFlag_Legacy(t *testing.T) {
 		switch {
 		case r.Method == "GET" && strings.Contains(r.URL.Path, "/spaces"):
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"results": [{"id": "123456", "key": "DEV"}]}`))
+			_, _ = w.Write([]byte(`{"results": [{"id": "123456", "key": "DEV"}]}`))
 		case r.Method == "POST" && strings.Contains(r.URL.Path, "/pages"):
 			body, _ := io.ReadAll(r.Body)
-			json.Unmarshal(body, &receivedBody)
+			_ = json.Unmarshal(body, &receivedBody)
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"id": "99999", "title": "Test", "version": {"number": 1}}`))
+			_, _ = w.Write([]byte(`{"id": "99999", "title": "Test", "version": {"number": 1}}`))
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
 	}))
 	defer server.Close()
 
+	rootOpts := newCreateTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	useMd := false
 	opts := &createOptions{
+		Options:  rootOpts,
 		space:    "DEV",
 		title:    "Test Page",
 		file:     mdFile,
 		markdown: &useMd, // Force no markdown conversion
 		legacy:   true,   // Use legacy mode for storage format
-		noColor:  true,
 	}
 
-	err = runCreate(opts, client)
+	err = runCreate(opts)
 	require.NoError(t, err)
 
 	// Verify content was not converted even though file has .md extension
@@ -162,15 +183,18 @@ func TestRunCreate_MissingSpace(t *testing.T) {
 	require.NoError(t, err)
 
 	// Don't need server - should fail before API call
+	rootOpts := newCreateTestRootOptions()
 	client := api.NewClient("http://unused", "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &createOptions{
+		Options: rootOpts,
 		space:   "", // No space provided
 		title:   "Test Page",
 		file:    mdFile,
-		noColor: true,
 	}
 
-	err = runCreate(opts, client)
+	err = runCreate(opts)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "space is required")
 }
@@ -184,19 +208,22 @@ func TestRunCreate_SpaceNotFound(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Return empty results for space lookup
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"results": []}`))
+		_, _ = w.Write([]byte(`{"results": []}`))
 	}))
 	defer server.Close()
 
+	rootOpts := newCreateTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &createOptions{
+		Options: rootOpts,
 		space:   "INVALID",
 		title:   "Test Page",
 		file:    mdFile,
-		noColor: true,
 	}
 
-	err = runCreate(opts, client)
+	err = runCreate(opts)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to find space")
 }
@@ -210,15 +237,18 @@ func TestRunCreate_CreateFailed(t *testing.T) {
 	server := mockCreateServer(t, "DEV", "123456", http.StatusForbidden)
 	defer server.Close()
 
+	rootOpts := newCreateTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &createOptions{
+		Options: rootOpts,
 		space:   "DEV",
 		title:   "Test Page",
 		file:    mdFile,
-		noColor: true,
 	}
 
-	err = runCreate(opts, client)
+	err = runCreate(opts)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to create page")
 }
@@ -234,28 +264,31 @@ func TestRunCreate_WithParent(t *testing.T) {
 		switch {
 		case r.Method == "GET" && strings.Contains(r.URL.Path, "/spaces"):
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"results": [{"id": "123456", "key": "DEV"}]}`))
+			_, _ = w.Write([]byte(`{"results": [{"id": "123456", "key": "DEV"}]}`))
 		case r.Method == "POST" && strings.Contains(r.URL.Path, "/pages"):
 			body, _ := io.ReadAll(r.Body)
-			json.Unmarshal(body, &receivedBody)
+			_ = json.Unmarshal(body, &receivedBody)
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"id": "99999", "title": "Test", "version": {"number": 1}}`))
+			_, _ = w.Write([]byte(`{"id": "99999", "title": "Test", "version": {"number": 1}}`))
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
 	}))
 	defer server.Close()
 
+	rootOpts := newCreateTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &createOptions{
+		Options: rootOpts,
 		space:   "DEV",
 		title:   "Child Page",
 		parent:  "12345",
 		file:    mdFile,
-		noColor: true,
 	}
 
-	err = runCreate(opts, client)
+	err = runCreate(opts)
 	require.NoError(t, err)
 
 	// Verify parent ID was included in request
@@ -271,16 +304,19 @@ func TestRunCreate_JSONOutput(t *testing.T) {
 	server := mockCreateServer(t, "DEV", "123456", http.StatusOK)
 	defer server.Close()
 
+	rootOpts := newCreateTestRootOptions()
+	rootOpts.Output = "json"
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &createOptions{
+		Options: rootOpts,
 		space:   "DEV",
 		title:   "Test Page",
 		file:    mdFile,
-		output:  "json",
-		noColor: true,
 	}
 
-	err = runCreate(opts, client)
+	err = runCreate(opts)
 	require.NoError(t, err)
 }
 
@@ -295,28 +331,31 @@ func TestRunCreate_MarkdownConversion_Legacy(t *testing.T) {
 		switch {
 		case r.Method == "GET" && strings.Contains(r.URL.Path, "/spaces"):
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"results": [{"id": "123456", "key": "DEV"}]}`))
+			_, _ = w.Write([]byte(`{"results": [{"id": "123456", "key": "DEV"}]}`))
 		case r.Method == "POST" && strings.Contains(r.URL.Path, "/pages"):
 			body, _ := io.ReadAll(r.Body)
-			json.Unmarshal(body, &receivedBody)
+			_ = json.Unmarshal(body, &receivedBody)
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"id": "99999", "title": "Test", "version": {"number": 1}}`))
+			_, _ = w.Write([]byte(`{"id": "99999", "title": "Test", "version": {"number": 1}}`))
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
 	}))
 	defer server.Close()
 
+	rootOpts := newCreateTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &createOptions{
+		Options: rootOpts,
 		space:   "DEV",
 		title:   "Test Page",
 		file:    mdFile,
 		legacy:  true, // Use legacy mode to test storage format
-		noColor: true,
 	}
 
-	err = runCreate(opts, client)
+	err = runCreate(opts)
 	require.NoError(t, err)
 
 	// Verify markdown was converted to HTML storage format
@@ -340,28 +379,31 @@ func TestRunCreate_MarkdownToADF(t *testing.T) {
 		switch {
 		case r.Method == "GET" && strings.Contains(r.URL.Path, "/spaces"):
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"results": [{"id": "123456", "key": "DEV"}]}`))
+			_, _ = w.Write([]byte(`{"results": [{"id": "123456", "key": "DEV"}]}`))
 		case r.Method == "POST" && strings.Contains(r.URL.Path, "/pages"):
 			body, _ := io.ReadAll(r.Body)
-			json.Unmarshal(body, &receivedBody)
+			_ = json.Unmarshal(body, &receivedBody)
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"id": "99999", "title": "Test", "version": {"number": 1}}`))
+			_, _ = w.Write([]byte(`{"id": "99999", "title": "Test", "version": {"number": 1}}`))
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
 	}))
 	defer server.Close()
 
+	rootOpts := newCreateTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &createOptions{
+		Options: rootOpts,
 		space:   "DEV",
 		title:   "Test Page",
 		file:    mdFile,
-		noColor: true,
 		// Default: not legacy, uses ADF
 	}
 
-	err = runCreate(opts, client)
+	err = runCreate(opts)
 	require.NoError(t, err)
 
 	// Verify ADF format was used (default)
@@ -379,15 +421,18 @@ func TestRunCreate_FileReadError(t *testing.T) {
 	server := mockCreateServer(t, "DEV", "123456", http.StatusOK)
 	defer server.Close()
 
+	rootOpts := newCreateTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &createOptions{
+		Options: rootOpts,
 		space:   "DEV",
 		title:   "Test Page",
 		file:    "/nonexistent/file.md",
-		noColor: true,
 	}
 
-	err := runCreate(opts, client)
+	err := runCreate(opts)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to read file")
 }
@@ -398,27 +443,30 @@ func TestRunCreate_Stdin_ADF(t *testing.T) {
 		switch {
 		case r.Method == "GET" && strings.Contains(r.URL.Path, "/spaces"):
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"results": [{"id": "123456", "key": "DEV"}]}`))
+			_, _ = w.Write([]byte(`{"results": [{"id": "123456", "key": "DEV"}]}`))
 		case r.Method == "POST" && strings.Contains(r.URL.Path, "/pages"):
 			body, _ := io.ReadAll(r.Body)
-			json.Unmarshal(body, &receivedBody)
+			_ = json.Unmarshal(body, &receivedBody)
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"id": "99999", "title": "Test", "version": {"number": 1}}`))
+			_, _ = w.Write([]byte(`{"id": "99999", "title": "Test", "version": {"number": 1}}`))
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
 	}))
 	defer server.Close()
 
+	rootOpts := newCreateTestRootOptions()
+	rootOpts.Stdin = strings.NewReader("# Hello\n\nThis is **bold** text.")
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &createOptions{
+		Options: rootOpts,
 		space:   "DEV",
 		title:   "Test Page",
-		stdin:   strings.NewReader("# Hello\n\nThis is **bold** text."),
-		noColor: true,
 	}
 
-	err := runCreate(opts, client)
+	err := runCreate(opts)
 	require.NoError(t, err)
 
 	// Verify ADF format was used
@@ -437,28 +485,31 @@ func TestRunCreate_Stdin_Legacy(t *testing.T) {
 		switch {
 		case r.Method == "GET" && strings.Contains(r.URL.Path, "/spaces"):
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"results": [{"id": "123456", "key": "DEV"}]}`))
+			_, _ = w.Write([]byte(`{"results": [{"id": "123456", "key": "DEV"}]}`))
 		case r.Method == "POST" && strings.Contains(r.URL.Path, "/pages"):
 			body, _ := io.ReadAll(r.Body)
-			json.Unmarshal(body, &receivedBody)
+			_ = json.Unmarshal(body, &receivedBody)
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"id": "99999", "title": "Test", "version": {"number": 1}}`))
+			_, _ = w.Write([]byte(`{"id": "99999", "title": "Test", "version": {"number": 1}}`))
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
 	}))
 	defer server.Close()
 
+	rootOpts := newCreateTestRootOptions()
+	rootOpts.Stdin = strings.NewReader("# Hello\n\nThis is **bold** text.")
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &createOptions{
+		Options: rootOpts,
 		space:   "DEV",
 		title:   "Test Page",
-		stdin:   strings.NewReader("# Hello\n\nThis is **bold** text."),
 		legacy:  true,
-		noColor: true,
 	}
 
-	err := runCreate(opts, client)
+	err := runCreate(opts)
 	require.NoError(t, err)
 
 	// Verify storage format was used
@@ -476,30 +527,33 @@ func TestRunCreate_Stdin_NoMarkdown_Legacy(t *testing.T) {
 		switch {
 		case r.Method == "GET" && strings.Contains(r.URL.Path, "/spaces"):
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"results": [{"id": "123456", "key": "DEV"}]}`))
+			_, _ = w.Write([]byte(`{"results": [{"id": "123456", "key": "DEV"}]}`))
 		case r.Method == "POST" && strings.Contains(r.URL.Path, "/pages"):
 			body, _ := io.ReadAll(r.Body)
-			json.Unmarshal(body, &receivedBody)
+			_ = json.Unmarshal(body, &receivedBody)
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"id": "99999", "title": "Test", "version": {"number": 1}}`))
+			_, _ = w.Write([]byte(`{"id": "99999", "title": "Test", "version": {"number": 1}}`))
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
 	}))
 	defer server.Close()
 
+	rootOpts := newCreateTestRootOptions()
+	rootOpts.Stdin = strings.NewReader("<p>Raw XHTML content</p>")
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	useMd := false
 	opts := &createOptions{
+		Options:  rootOpts,
 		space:    "DEV",
 		title:    "Test Page",
-		stdin:    strings.NewReader("<p>Raw XHTML content</p>"),
 		markdown: &useMd,
 		legacy:   true,
-		noColor:  true,
 	}
 
-	err := runCreate(opts, client)
+	err := runCreate(opts)
 	require.NoError(t, err)
 
 	// Verify raw content passed through without conversion
@@ -516,12 +570,12 @@ func TestRunCreate_ComplexMarkdown_ADF(t *testing.T) {
 		switch {
 		case r.Method == "GET" && strings.Contains(r.URL.Path, "/spaces"):
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"results": [{"id": "123456", "key": "DEV"}]}`))
+			_, _ = w.Write([]byte(`{"results": [{"id": "123456", "key": "DEV"}]}`))
 		case r.Method == "POST" && strings.Contains(r.URL.Path, "/pages"):
 			body, _ := io.ReadAll(r.Body)
-			json.Unmarshal(body, &receivedBody)
+			_ = json.Unmarshal(body, &receivedBody)
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"id": "99999", "title": "Test", "version": {"number": 1}}`))
+			_, _ = w.Write([]byte(`{"id": "99999", "title": "Test", "version": {"number": 1}}`))
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -540,15 +594,18 @@ func TestRunCreate_ComplexMarkdown_ADF(t *testing.T) {
 
 ` + "```go\nfunc main() {\n    fmt.Println(\"Hello\")\n}\n```"
 
+	rootOpts := newCreateTestRootOptions()
+	rootOpts.Stdin = strings.NewReader(complexMarkdown)
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &createOptions{
+		Options: rootOpts,
 		space:   "DEV",
 		title:   "Test Page",
-		stdin:   strings.NewReader(complexMarkdown),
-		noColor: true,
 	}
 
-	err := runCreate(opts, client)
+	err := runCreate(opts)
 	require.NoError(t, err)
 
 	// Verify ADF contains complex elements
@@ -566,15 +623,18 @@ func TestRunCreate_EmptyContentFromStdin(t *testing.T) {
 	server := mockCreateServer(t, "DEV", "123456", http.StatusOK)
 	defer server.Close()
 
+	rootOpts := newCreateTestRootOptions()
+	rootOpts.Stdin = strings.NewReader("")
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &createOptions{
+		Options: rootOpts,
 		space:   "DEV",
 		title:   "Test Page",
-		stdin:   strings.NewReader(""),
-		noColor: true,
 	}
 
-	err := runCreate(opts, client)
+	err := runCreate(opts)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "page content cannot be empty")
 }
@@ -583,15 +643,18 @@ func TestRunCreate_WhitespaceOnlyFromStdin(t *testing.T) {
 	server := mockCreateServer(t, "DEV", "123456", http.StatusOK)
 	defer server.Close()
 
+	rootOpts := newCreateTestRootOptions()
+	rootOpts.Stdin = strings.NewReader("   \n\t\n   ")
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &createOptions{
+		Options: rootOpts,
 		space:   "DEV",
 		title:   "Test Page",
-		stdin:   strings.NewReader("   \n\t\n   "),
-		noColor: true,
 	}
 
-	err := runCreate(opts, client)
+	err := runCreate(opts)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "page content cannot be empty")
 }
@@ -605,15 +668,18 @@ func TestRunCreate_EmptyFile(t *testing.T) {
 	server := mockCreateServer(t, "DEV", "123456", http.StatusOK)
 	defer server.Close()
 
+	rootOpts := newCreateTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &createOptions{
+		Options: rootOpts,
 		space:   "DEV",
 		title:   "Test Page",
 		file:    emptyFile,
-		noColor: true,
 	}
 
-	err = runCreate(opts, client)
+	err = runCreate(opts)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "page content cannot be empty")
 }
@@ -627,15 +693,18 @@ func TestRunCreate_WhitespaceOnlyFile(t *testing.T) {
 	server := mockCreateServer(t, "DEV", "123456", http.StatusOK)
 	defer server.Close()
 
+	rootOpts := newCreateTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
 	opts := &createOptions{
+		Options: rootOpts,
 		space:   "DEV",
 		title:   "Test Page",
 		file:    whitespaceFile,
-		noColor: true,
 	}
 
-	err = runCreate(opts, client)
+	err = runCreate(opts)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "page content cannot be empty")
 }

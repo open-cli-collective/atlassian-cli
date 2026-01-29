@@ -10,11 +10,17 @@ import (
 	"github.com/charmbracelet/huh"
 	"github.com/spf13/cobra"
 
+	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
 	"github.com/open-cli-collective/confluence-cli/internal/config"
 )
 
-// NewCmdInit creates the init command.
-func NewCmdInit() *cobra.Command {
+// Register adds the init command to the root command.
+func Register(rootCmd *cobra.Command, _ *root.Options) {
+	rootCmd.AddCommand(newInitCmd())
+}
+
+// newInitCmd creates the init command.
+func newInitCmd() *cobra.Command {
 	var (
 		url      string
 		email    string

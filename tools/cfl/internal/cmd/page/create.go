@@ -11,14 +11,13 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/open-cli-collective/atlassian-go/view"
-
 	"github.com/open-cli-collective/confluence-cli/api"
-	"github.com/open-cli-collective/confluence-cli/internal/config"
+	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
 	"github.com/open-cli-collective/confluence-cli/pkg/md"
 )
 
 type createOptions struct {
+	*root.Options
 	space    string
 	title    string
 	parent   string
@@ -26,14 +25,10 @@ type createOptions struct {
 	editor   bool
 	markdown *bool // nil = auto-detect, true = force markdown, false = force storage format
 	legacy   bool  // Use legacy editor (storage format) instead of cloud editor (ADF)
-	output   string
-	noColor  bool
-	stdin    io.Reader // For testing; defaults to os.Stdin
 }
 
-// NewCmdCreate creates the page create command.
-func NewCmdCreate() *cobra.Command {
-	opts := &createOptions{}
+func newCreateCmd(rootOpts *root.Options) *cobra.Command {
+	opts := &createOptions{Options: rootOpts}
 
 	cmd := &cobra.Command{
 		Use:   "create",
@@ -73,20 +68,13 @@ Content format:
   # Create as child of another page
   cfl page create -s DEV -t "Child Page" --parent 12345`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			opts.output, _ = cmd.Flags().GetString("output")
-			opts.noColor, _ = cmd.Flags().GetBool("no-color")
-
-			// Handle markdown flag
 			if cmd.Flags().Changed("no-markdown") {
 				noMd, _ := cmd.Flags().GetBool("no-markdown")
 				useMd := !noMd
 				opts.markdown = &useMd
 			}
-
-			// Handle legacy flag
 			opts.legacy, _ = cmd.Flags().GetBool("legacy")
-
-			return runCreate(opts, nil)
+			return runCreate(opts)
 		},
 	}
 
@@ -103,59 +91,43 @@ Content format:
 	return cmd
 }
 
-func runCreate(opts *createOptions, client *api.Client) error {
-	// Track base URL for output (only available when loading config)
-	var baseURL string
+func runCreate(opts *createOptions) error {
+	cfg, err := opts.Config()
+	if err != nil {
+		return err
+	}
 
-	// Determine space
 	spaceKey := opts.space
-
-	// Create API client if not provided (allows injection for testing)
-	if client == nil {
-		cfg, err := config.LoadWithEnv(config.DefaultConfigPath())
-		if err != nil {
-			return fmt.Errorf("failed to load config: %w (run 'cfl init' to configure)", err)
-		}
-
-		if err := cfg.Validate(); err != nil {
-			return fmt.Errorf("invalid config: %w (run 'cfl init' to configure)", err)
-		}
-
-		// Use default space from config if not specified
-		if spaceKey == "" {
-			spaceKey = cfg.DefaultSpace
-		}
-
-		baseURL = cfg.URL
-		client = api.NewClient(cfg.URL, cfg.Email, cfg.APIToken)
+	if spaceKey == "" {
+		spaceKey = cfg.DefaultSpace
 	}
 
 	if spaceKey == "" {
 		return fmt.Errorf("space is required: use --space flag or set default_space in config")
 	}
 
-	// Get space ID
+	client, err := opts.APIClient()
+	if err != nil {
+		return err
+	}
+
 	space, err := client.GetSpaceByKey(context.Background(), spaceKey)
 	if err != nil {
 		return fmt.Errorf("failed to find space '%s': %w", spaceKey, err)
 	}
 
-	// Get content and determine if markdown conversion is needed
 	content, isMarkdown, err := getContent(opts)
 	if err != nil {
 		return err
 	}
 
-	// Validate content is not empty
 	if strings.TrimSpace(content) == "" {
 		return fmt.Errorf("page content cannot be empty")
 	}
 
-	// Build request body based on legacy flag
 	var body *api.Body
 
 	if opts.legacy {
-		// Legacy mode: use storage format (XHTML)
 		if isMarkdown {
 			converted, err := md.ToConfluenceStorage([]byte(content))
 			if err != nil {
@@ -170,7 +142,6 @@ func runCreate(opts *createOptions, client *api.Client) error {
 			},
 		}
 	} else {
-		// Default: cloud editor using ADF
 		if isMarkdown {
 			adfContent, err := md.ToADF([]byte(content))
 			if err != nil {
@@ -186,7 +157,6 @@ func runCreate(opts *createOptions, client *api.Client) error {
 		}
 	}
 
-	// Create page
 	req := &api.CreatePageRequest{
 		SpaceID: space.ID,
 		Title:   opts.title,
@@ -203,16 +173,15 @@ func runCreate(opts *createOptions, client *api.Client) error {
 		return fmt.Errorf("failed to create page: %w", err)
 	}
 
-	// Render output
-	v := view.New(view.Format(opts.output), opts.noColor)
+	v := opts.View()
 
-	if opts.output == "json" {
+	if opts.Output == "json" {
 		return v.JSON(page)
 	}
 
 	v.Success("Created page: %s", page.Title)
 	v.RenderKeyValue("ID", page.ID)
-	v.RenderKeyValue("URL", baseURL+page.Links.WebUI)
+	v.RenderKeyValue("URL", cfg.URL+page.Links.WebUI)
 
 	return nil
 }
@@ -220,13 +189,10 @@ func runCreate(opts *createOptions, client *api.Client) error {
 // getContent reads content and returns (content, isMarkdown, error).
 // isMarkdown indicates whether the content should be converted from markdown.
 func getContent(opts *createOptions) (string, bool, error) {
-	// Determine if we should use markdown based on explicit flag or file extension
 	useMarkdown := func(filename string) bool {
-		// If explicitly set via flag, use that
 		if opts.markdown != nil {
 			return *opts.markdown
 		}
-		// Auto-detect based on file extension
 		if filename != "" {
 			ext := strings.ToLower(filepath.Ext(filename))
 			switch ext {
@@ -236,11 +202,9 @@ func getContent(opts *createOptions) (string, bool, error) {
 				return true
 			}
 		}
-		// Default to markdown for stdin and editor
 		return true
 	}
 
-	// Read from file
 	if opts.file != "" {
 		data, err := os.ReadFile(opts.file)
 		if err != nil {
@@ -249,9 +213,8 @@ func getContent(opts *createOptions) (string, bool, error) {
 		return string(data), useMarkdown(opts.file), nil
 	}
 
-	// Check if stdin has data (use injected stdin for testing)
-	if opts.stdin != nil {
-		data, err := io.ReadAll(opts.stdin)
+	if opts.Stdin != nil && opts.Stdin != os.Stdin {
+		data, err := io.ReadAll(opts.Stdin)
 		if err != nil {
 			return "", false, fmt.Errorf("failed to read stdin: %w", err)
 		}
@@ -267,14 +230,12 @@ func getContent(opts *createOptions) (string, bool, error) {
 		return string(data), useMarkdown(""), nil
 	}
 
-	// Open editor (markdown mode)
 	isMarkdown := useMarkdown("")
 	content, err := openEditor(isMarkdown)
 	return content, isMarkdown, err
 }
 
 func openEditor(isMarkdown bool) (string, error) {
-	// Determine file extension and template based on format
 	ext := ".html"
 	template := `<p>Enter your page content here.</p>
 `
@@ -291,20 +252,17 @@ Enter your content here using markdown.
 `
 	}
 
-	// Create temp file
 	tmpfile, err := os.CreateTemp("", "cfl-*"+ext)
 	if err != nil {
 		return "", fmt.Errorf("failed to create temp file: %w", err)
 	}
 	defer func() { _ = os.Remove(tmpfile.Name()) }()
 
-	// Write initial content
 	if _, err := tmpfile.WriteString(template); err != nil {
 		return "", err
 	}
 	_ = tmpfile.Close()
 
-	// Get editor
 	editor := os.Getenv("EDITOR")
 	if editor == "" {
 		editor = os.Getenv("VISUAL")
@@ -313,7 +271,6 @@ Enter your content here using markdown.
 		editor = "vi"
 	}
 
-	// Open editor
 	cmd := exec.Command(editor, tmpfile.Name())
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
@@ -323,7 +280,6 @@ Enter your content here using markdown.
 		return "", fmt.Errorf("editor failed: %w", err)
 	}
 
-	// Read content
 	data, err := os.ReadFile(tmpfile.Name())
 	if err != nil {
 		return "", fmt.Errorf("failed to read edited content: %w", err)

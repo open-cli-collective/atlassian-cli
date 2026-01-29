@@ -5,6 +5,8 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/open-cli-collective/atlassian-go/prompt"
+
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 )
 
@@ -35,9 +37,17 @@ func runDelete(opts *root.Options, issueKey string, force bool) error {
 	v := opts.View()
 
 	if !force {
-		v.Warning("This will permanently delete issue %s. This action cannot be undone.", issueKey)
-		v.Info("Use --force to skip this confirmation.")
-		return fmt.Errorf("deletion cancelled (use --force to confirm)")
+		fmt.Printf("This will permanently delete issue %s. This action cannot be undone.\n", issueKey)
+		fmt.Print("Are you sure? [y/N]: ")
+
+		confirmed, err := prompt.Confirm(opts.Stdin)
+		if err != nil {
+			return fmt.Errorf("failed to read confirmation: %w", err)
+		}
+		if !confirmed {
+			v.Info("Deletion cancelled.")
+			return nil
+		}
 	}
 
 	client, err := opts.APIClient()

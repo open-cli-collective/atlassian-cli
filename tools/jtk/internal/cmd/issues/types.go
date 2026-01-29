@@ -3,6 +3,8 @@ package issues
 import (
 	"github.com/spf13/cobra"
 
+	"github.com/open-cli-collective/atlassian-go/view"
+
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 )
 
@@ -59,7 +61,7 @@ func runTypes(opts *root.Options, project string) error {
 		if t.Subtask {
 			subtask = "yes"
 		}
-		rows = append(rows, []string{t.ID, t.Name, subtask, truncate(t.Description, 60)})
+		rows = append(rows, []string{t.ID, t.Name, subtask, view.Truncate(t.Description, 60)})
 	}
 
 	return v.Table(headers, rows)

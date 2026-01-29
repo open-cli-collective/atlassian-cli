@@ -5,6 +5,8 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/open-cli-collective/atlassian-go/view"
+
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 )
 
@@ -89,20 +91,6 @@ func runGet(opts *root.Options, issueKey string) error {
 	return nil
 }
 
-func formatAssignee(name string) string {
-	if name == "" {
-		return "Unassigned"
-	}
-	return name
-}
-
-func truncate(s string, max int) string {
-	if len(s) <= max {
-		return s
-	}
-	return s[:max-3] + "..."
-}
-
 func orDash(s string) string {
 	if s == "" {
 		return "-"
@@ -110,17 +98,24 @@ func orDash(s string) string {
 	return s
 }
 
+func formatAssignee(name string) string {
+	if name == "" {
+		return "Unassigned"
+	}
+	return name
+}
+
 func formatIssueRow(key, summary, status, assignee, issueType string) []string {
 	return []string{
 		key,
-		truncate(summary, 50),
+		view.Truncate(summary, 50),
 		orDash(status),
 		formatAssignee(assignee),
 		orDash(issueType),
 	}
 }
 
-// Helper to safely extract string fields
+// safeString extracts string from an interface value
 func safeString(v interface{}) string {
 	if v == nil {
 		return ""

@@ -7,10 +7,10 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/open-cli-collective/atlassian-go/version"
+	"github.com/open-cli-collective/atlassian-go/view"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/config"
-	"github.com/open-cli-collective/jira-ticket-cli/internal/view"
 )
 
 // Options contains global options for commands
@@ -28,7 +28,7 @@ type Options struct {
 
 // View returns a configured View instance
 func (o *Options) View() *view.View {
-	v := view.New(o.Output, o.NoColor)
+	v := view.NewWithFormat(o.Output, o.NoColor)
 	v.Out = o.Stdout
 	v.Err = o.Stderr
 	return v

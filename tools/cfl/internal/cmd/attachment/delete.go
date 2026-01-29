@@ -7,11 +7,11 @@ import (
 	"io"
 	"os"
 
+	"github.com/open-cli-collective/atlassian-go/view"
 	"github.com/spf13/cobra"
 
 	"github.com/open-cli-collective/confluence-cli/api"
 	"github.com/open-cli-collective/confluence-cli/internal/config"
-	"github.com/open-cli-collective/confluence-cli/internal/view"
 )
 
 type deleteOptions struct {
@@ -71,7 +71,7 @@ func runDeleteAttachment(attachmentID string, opts *deleteOptions, client *api.C
 		return fmt.Errorf("failed to get attachment: %w", err)
 	}
 
-	renderer := view.NewRenderer(view.Format(opts.output), opts.noColor)
+	v := view.New(view.Format(opts.output), opts.noColor)
 
 	// Confirm deletion unless --force is used
 	if !opts.force {
@@ -96,14 +96,14 @@ func runDeleteAttachment(attachmentID string, opts *deleteOptions, client *api.C
 	}
 
 	if opts.output == "json" {
-		return renderer.RenderJSON(map[string]string{
+		return v.JSON(map[string]string{
 			"status":        "deleted",
 			"attachment_id": attachmentID,
 			"title":         attachment.Title,
 		})
 	}
 
-	renderer.Success(fmt.Sprintf("Deleted attachment: %s (ID: %s)", attachment.Title, attachmentID))
+	v.Success("Deleted attachment: %s (ID: %s)", attachment.Title, attachmentID)
 
 	return nil
 }

@@ -6,11 +6,11 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/open-cli-collective/atlassian-go/view"
 	"github.com/spf13/cobra"
 
 	"github.com/open-cli-collective/confluence-cli/api"
 	"github.com/open-cli-collective/confluence-cli/internal/config"
-	"github.com/open-cli-collective/confluence-cli/internal/view"
 )
 
 type uploadOptions struct {
@@ -83,16 +83,16 @@ func runUpload(opts *uploadOptions, client *api.Client) error {
 	}
 
 	// Render output
-	renderer := view.NewRenderer(view.Format(opts.output), opts.noColor)
+	v := view.New(view.Format(opts.output), opts.noColor)
 
 	if opts.output == "json" {
-		return renderer.RenderJSON(attachment)
+		return v.JSON(attachment)
 	}
 
-	renderer.Success(fmt.Sprintf("Uploaded: %s", filename))
-	renderer.RenderKeyValue("ID", attachment.ID)
-	renderer.RenderKeyValue("Title", attachment.Title)
-	renderer.RenderKeyValue("Size", formatFileSize(attachment.FileSize))
+	v.Success("Uploaded: %s", filename)
+	v.RenderKeyValue("ID", attachment.ID)
+	v.RenderKeyValue("Title", attachment.Title)
+	v.RenderKeyValue("Size", formatFileSize(attachment.FileSize))
 
 	return nil
 }

@@ -7,11 +7,11 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/open-cli-collective/atlassian-go/view"
 	"github.com/spf13/cobra"
 
 	"github.com/open-cli-collective/confluence-cli/api"
 	"github.com/open-cli-collective/confluence-cli/internal/config"
-	"github.com/open-cli-collective/confluence-cli/internal/view"
 )
 
 type downloadOptions struct {
@@ -107,10 +107,10 @@ func runDownload(attachmentID string, opts *downloadOptions, client *api.Client)
 	}
 
 	// Render output
-	renderer := view.NewRenderer(view.Format(opts.output), opts.noColor)
+	v := view.New(view.Format(opts.output), opts.noColor)
 
-	renderer.Success(fmt.Sprintf("Downloaded: %s", outputPath))
-	renderer.RenderKeyValue("Size", formatFileSize(bytesWritten))
+	v.Success("Downloaded: %s", outputPath)
+	v.RenderKeyValue("Size", formatFileSize(bytesWritten))
 
 	return nil
 }

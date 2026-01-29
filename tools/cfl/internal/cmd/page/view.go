@@ -8,9 +8,10 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/open-cli-collective/atlassian-go/view"
+
 	"github.com/open-cli-collective/confluence-cli/api"
 	"github.com/open-cli-collective/confluence-cli/internal/config"
-	"github.com/open-cli-collective/confluence-cli/internal/view"
 	"github.com/open-cli-collective/confluence-cli/pkg/md"
 )
 
@@ -109,18 +110,18 @@ func runView(pageID string, opts *viewOptions, client *api.Client) error {
 	}
 
 	// Render output
-	renderer := view.NewRenderer(view.Format(opts.output), opts.noColor)
+	v := view.New(view.Format(opts.output), opts.noColor)
 
 	if opts.output == "json" {
-		return renderer.RenderJSON(page)
+		return v.JSON(page)
 	}
 
 	// Show page info (unless content-only mode)
 	if !opts.contentOnly {
-		renderer.RenderKeyValue("Title", page.Title)
-		renderer.RenderKeyValue("ID", page.ID)
+		v.RenderKeyValue("Title", page.Title)
+		v.RenderKeyValue("ID", page.ID)
 		if page.Version != nil {
-			renderer.RenderKeyValue("Version", fmt.Sprintf("%d", page.Version.Number))
+			v.RenderKeyValue("Version", fmt.Sprintf("%d", page.Version.Number))
 		}
 		fmt.Println()
 	}

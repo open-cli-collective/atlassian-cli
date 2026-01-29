@@ -9,9 +9,10 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/open-cli-collective/atlassian-go/view"
+
 	"github.com/open-cli-collective/confluence-cli/api"
 	"github.com/open-cli-collective/confluence-cli/internal/config"
-	"github.com/open-cli-collective/confluence-cli/internal/view"
 )
 
 type deleteOptions struct {
@@ -69,7 +70,7 @@ func runDelete(pageID string, opts *deleteOptions, client *api.Client) error {
 		return fmt.Errorf("failed to get page: %w", err)
 	}
 
-	renderer := view.NewRenderer(view.Format(opts.output), opts.noColor)
+	v := view.New(view.Format(opts.output), opts.noColor)
 
 	// Confirm deletion unless --force is used
 	if !opts.force {
@@ -94,14 +95,14 @@ func runDelete(pageID string, opts *deleteOptions, client *api.Client) error {
 	}
 
 	if opts.output == "json" {
-		return renderer.RenderJSON(map[string]string{
+		return v.JSON(map[string]string{
 			"status":  "deleted",
 			"page_id": pageID,
 			"title":   page.Title,
 		})
 	}
 
-	renderer.Success(fmt.Sprintf("Deleted page: %s (ID: %s)", page.Title, pageID))
+	v.Success("Deleted page: %s (ID: %s)", page.Title, pageID)
 
 	return nil
 }

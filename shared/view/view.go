@@ -197,6 +197,73 @@ func (v *View) Println(format string, args ...interface{}) {
 	_, _ = fmt.Fprintln(v.Out, fmt.Sprintf(format, args...))
 }
 
+// ListMeta contains pagination metadata for list results.
+type ListMeta struct {
+	Count   int  `json:"count"`
+	HasMore bool `json:"hasMore"`
+}
+
+// ListResponse wraps list results with metadata for JSON output.
+type ListResponse struct {
+	Results []map[string]string `json:"results"`
+	Meta    ListMeta            `json:"_meta"`
+}
+
+// RenderList renders tabular data with pagination metadata.
+// For JSON output, wraps results in an object with _meta field.
+// For other formats, delegates to Table.
+func (v *View) RenderList(headers []string, rows [][]string, hasMore bool) error {
+	if v.Format == FormatJSON {
+		return v.renderListAsJSON(headers, rows, hasMore)
+	}
+	return v.Table(headers, rows)
+}
+
+func (v *View) renderListAsJSON(headers []string, rows [][]string, hasMore bool) error {
+	results := make([]map[string]string, 0, len(rows))
+	for _, row := range rows {
+		item := make(map[string]string)
+		for i, header := range headers {
+			if i < len(row) {
+				item[strings.ToLower(header)] = row[i]
+			}
+		}
+		results = append(results, item)
+	}
+
+	response := ListResponse{
+		Results: results,
+		Meta: ListMeta{
+			Count:   len(results),
+			HasMore: hasMore,
+		},
+	}
+
+	return v.JSON(response)
+}
+
+// RenderKeyValue renders a key-value pair.
+// For JSON format, outputs as a JSON object.
+// For other formats, outputs as "key: value" with bold key.
+func (v *View) RenderKeyValue(key, value string) {
+	if v.Format == FormatJSON {
+		_, _ = fmt.Fprintf(v.Out, `{"%s": "%s"}`+"\n", key, value)
+		return
+	}
+	if v.NoColor {
+		_, _ = fmt.Fprintf(v.Out, "%s: %s\n", key, value)
+	} else {
+		bold := color.New(color.Bold)
+		_, _ = bold.Fprintf(v.Out, "%s: ", key)
+		_, _ = fmt.Fprintln(v.Out, value)
+	}
+}
+
+// RenderText renders plain text.
+func (v *View) RenderText(text string) {
+	_, _ = fmt.Fprintln(v.Out, text)
+}
+
 // Truncate truncates a string to the specified length, adding "..." if truncated.
 func Truncate(s string, maxLen int) string {
 	if len(s) <= maxLen {

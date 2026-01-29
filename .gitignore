@@ -1,6 +1,7 @@
-# Built binaries at root
+# Built binaries
 /cfl
 /jtk
+/bin/
 
 # IDE
 .idea/

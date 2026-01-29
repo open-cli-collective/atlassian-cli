@@ -38,21 +38,29 @@ Each tool has its own `CLAUDE.md` with detailed guidance. See:
 ## Quick Commands
 
 ```bash
-# Build tools from workspace root
+# Using Makefile (recommended)
+make build              # Build both tools
+make test               # Run all tests
+make lint               # Run golangci-lint for both tools
+make all                # Build, test, and lint
+
+# Build individual tools to bin/
+make build-cfl          # Build bin/cfl
+make build-jtk          # Build bin/jtk
+
+# Direct go commands
 go build ./tools/cfl/cmd/cfl
 go build ./tools/jtk/cmd/jtk
-
-# Run all tests
 go test ./tools/cfl/...
 go test ./tools/jtk/...
-
-# Sync workspace
 go work sync
-
-# Build from within tool directory (also works)
-cd tools/cfl && go build ./cmd/cfl
-cd tools/jtk && go build ./cmd/jtk
 ```
+
+## CI
+
+GitHub Actions CI runs on all PRs and pushes to main:
+- **build-and-test**: Verifies `go.work`, builds both binaries, runs all tests
+- **lint**: Runs golangci-lint v2 for both tools
 
 ## Environment Variables
 

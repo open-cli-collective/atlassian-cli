@@ -74,57 +74,57 @@ func TestParseAPIError(t *testing.T) {
 			name:       "401 unauthorized",
 			statusCode: http.StatusUnauthorized,
 			body:       `{}`,
-			wantErr:    ErrUnauthorized,
+			wantErr:    sharederrors.ErrUnauthorized,
 		},
 		{
 			name:       "401 with message",
 			statusCode: http.StatusUnauthorized,
 			body:       `{"errorMessages": ["Bad credentials"]}`,
-			wantErr:    ErrUnauthorized,
+			wantErr:    sharederrors.ErrUnauthorized,
 			wantMsg:    "Bad credentials",
 		},
 		{
 			name:       "403 forbidden",
 			statusCode: http.StatusForbidden,
 			body:       `{}`,
-			wantErr:    ErrForbidden,
+			wantErr:    sharederrors.ErrForbidden,
 		},
 		{
 			name:       "404 not found",
 			statusCode: http.StatusNotFound,
 			body:       `{}`,
-			wantErr:    ErrNotFound,
+			wantErr:    sharederrors.ErrNotFound,
 		},
 		{
 			name:       "404 with message",
 			statusCode: http.StatusNotFound,
 			body:       `{"errorMessages": ["Issue Does Not Exist"]}`,
-			wantErr:    ErrNotFound,
+			wantErr:    sharederrors.ErrNotFound,
 			wantMsg:    "Issue Does Not Exist",
 		},
 		{
 			name:       "400 bad request",
 			statusCode: http.StatusBadRequest,
 			body:       `{}`,
-			wantErr:    ErrBadRequest,
+			wantErr:    sharederrors.ErrBadRequest,
 		},
 		{
 			name:       "429 rate limited",
 			statusCode: http.StatusTooManyRequests,
 			body:       `{}`,
-			wantErr:    ErrRateLimited,
+			wantErr:    sharederrors.ErrRateLimited,
 		},
 		{
 			name:       "500 server error",
 			statusCode: http.StatusInternalServerError,
 			body:       `{}`,
-			wantErr:    ErrServerError,
+			wantErr:    sharederrors.ErrServerError,
 		},
 		{
 			name:       "502 server error",
 			statusCode: http.StatusBadGateway,
 			body:       `{}`,
-			wantErr:    ErrServerError,
+			wantErr:    sharederrors.ErrServerError,
 		},
 	}
 
@@ -155,20 +155,20 @@ func TestParseAPIError_418_NonStandard(t *testing.T) {
 }
 
 func TestIsNotFound(t *testing.T) {
-	assert.True(t, IsNotFound(ErrNotFound))
-	assert.True(t, IsNotFound(fmt.Errorf("wrapped: %w", ErrNotFound)))
-	assert.False(t, IsNotFound(ErrUnauthorized))
-	assert.False(t, IsNotFound(nil))
+	assert.True(t, sharederrors.IsNotFound(sharederrors.ErrNotFound))
+	assert.True(t, sharederrors.IsNotFound(fmt.Errorf("wrapped: %w", sharederrors.ErrNotFound)))
+	assert.False(t, sharederrors.IsNotFound(sharederrors.ErrUnauthorized))
+	assert.False(t, sharederrors.IsNotFound(nil))
 }
 
 func TestIsUnauthorized(t *testing.T) {
-	assert.True(t, IsUnauthorized(ErrUnauthorized))
-	assert.False(t, IsUnauthorized(ErrNotFound))
-	assert.False(t, IsUnauthorized(nil))
+	assert.True(t, sharederrors.IsUnauthorized(sharederrors.ErrUnauthorized))
+	assert.False(t, sharederrors.IsUnauthorized(sharederrors.ErrNotFound))
+	assert.False(t, sharederrors.IsUnauthorized(nil))
 }
 
 func TestIsForbidden(t *testing.T) {
-	assert.True(t, IsForbidden(ErrForbidden))
-	assert.False(t, IsForbidden(ErrNotFound))
-	assert.False(t, IsForbidden(nil))
+	assert.True(t, sharederrors.IsForbidden(sharederrors.ErrForbidden))
+	assert.False(t, sharederrors.IsForbidden(sharederrors.ErrNotFound))
+	assert.False(t, sharederrors.IsForbidden(nil))
 }

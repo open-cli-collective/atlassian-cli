@@ -186,6 +186,35 @@ func TestClient_Do(t *testing.T) {
 			t.Fatalf("Get() error = %v", err)
 		}
 	})
+
+	t.Run("absolute URL bypasses BaseURL", func(t *testing.T) {
+		// Create a server that the client will actually hit
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path != "/custom/endpoint" {
+				t.Errorf("Path = %v, want /custom/endpoint", r.URL.Path)
+			}
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"success": true}`))
+		}))
+		defer server.Close()
+
+		// Create client with a DIFFERENT base URL
+		c := New("https://different-host.example.com", "user@example.com", "token", nil)
+		// Override HTTPClient to use test server
+		c.HTTPClient = server.Client()
+
+		// Pass an absolute URL - should ignore BaseURL and use this directly
+		absoluteURL := server.URL + "/custom/endpoint"
+		body, err := c.Get(context.Background(), absoluteURL)
+
+		if err != nil {
+			t.Fatalf("Get() with absolute URL error = %v", err)
+		}
+
+		if !strings.Contains(string(body), "success") {
+			t.Errorf("Body = %v, want to contain 'success'", string(body))
+		}
+	})
 }
 
 func TestClient_ErrorHandling(t *testing.T) {

@@ -55,7 +55,7 @@ parts:
       # Build with ldflags
       go build -o $SNAPCRAFT_PART_INSTALL/bin/jtk \
         -ldflags "-s -w \
-          -X github.com/open-cli-collective/jira-ticket-cli/internal/version.Version=${VERSION} \
-          -X github.com/open-cli-collective/jira-ticket-cli/internal/version.Commit=${COMMIT} \
-          -X github.com/open-cli-collective/jira-ticket-cli/internal/version.BuildDate=${DATE}" \
+          -X github.com/open-cli-collective/atlassian-go/version.Version=${VERSION} \
+          -X github.com/open-cli-collective/atlassian-go/version.Commit=${COMMIT} \
+          -X github.com/open-cli-collective/atlassian-go/version.BuildDate=${DATE}" \
         ./cmd/jtk

@@ -4,13 +4,14 @@ package root
 import (
 	"github.com/spf13/cobra"
 
+	"github.com/open-cli-collective/atlassian-go/version"
+
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/attachment"
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/completion"
 	initcmd "github.com/open-cli-collective/confluence-cli/internal/cmd/init"
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/page"
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/search"
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/space"
-	"github.com/open-cli-collective/confluence-cli/internal/version"
 )
 
 // NewCmdRoot creates the root command for cfl.
@@ -35,7 +36,7 @@ Get started by running: cfl init`,
 	cmd.PersistentFlags().Bool("no-color", false, "disable colored output")
 
 	// Set version template
-	cmd.SetVersionTemplate("cfl version {{.Version}} (commit: " + version.Commit + ", built: " + version.Date + ")\n")
+	cmd.SetVersionTemplate("cfl version {{.Version}} (commit: " + version.Commit + ", built: " + version.BuildDate + ")\n")
 
 	// Subcommands
 	cmd.AddCommand(initcmd.NewCmdInit())

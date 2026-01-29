@@ -1,11 +1,12 @@
 package page
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
+
+	"github.com/open-cli-collective/atlassian-go/prompt"
 
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
 )
@@ -55,13 +56,11 @@ func runDelete(pageID string, opts *deleteOptions) error {
 		fmt.Printf("About to delete page: %s (ID: %s)\n", page.Title, page.ID)
 		fmt.Print("Are you sure? [y/N]: ")
 
-		scanner := bufio.NewScanner(opts.Stdin)
-		var confirm string
-		if scanner.Scan() {
-			confirm = scanner.Text()
+		confirmed, err := prompt.Confirm(opts.Stdin)
+		if err != nil {
+			return fmt.Errorf("failed to read confirmation: %w", err)
 		}
-
-		if confirm != "y" && confirm != "Y" {
+		if !confirmed {
 			fmt.Println("Deletion cancelled.")
 			return nil
 		}

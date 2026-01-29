@@ -5,6 +5,8 @@ import (
 
 	"github.com/spf13/cobra"
 
+	sharedurl "github.com/open-cli-collective/atlassian-go/url"
+
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/config"
 )
@@ -50,7 +52,7 @@ func newSetCmd(opts *root.Options) *cobra.Command {
 			}
 
 			if url != "" {
-				cfg.URL = config.NormalizeURL(url)
+				cfg.URL = sharedurl.NormalizeURL(url)
 				cfg.Domain = "" // Clear deprecated field when URL is set
 			}
 			if email != "" {

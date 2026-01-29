@@ -7,6 +7,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/open-cli-collective/atlassian-go/url"
 )
 
 // setupTestConfig creates a temporary config directory for testing
@@ -197,7 +199,7 @@ func TestNormalizeURL(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
-			assert.Equal(t, tt.want, NormalizeURL(tt.input))
+			assert.Equal(t, tt.want, url.NormalizeURL(tt.input))
 		})
 	}
 }

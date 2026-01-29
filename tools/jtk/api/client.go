@@ -4,10 +4,11 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"net/url"
+	neturl "net/url"
 
 	"github.com/open-cli-collective/atlassian-go/client"
 	"github.com/open-cli-collective/atlassian-go/errors"
+	"github.com/open-cli-collective/atlassian-go/url"
 )
 
 // Client is a Jira API client
@@ -39,11 +40,7 @@ func New(cfg ClientConfig) (*Client, error) {
 	}
 
 	// Normalize URL: ensure https and no trailing slash
-	baseURL := cfg.URL
-	if !hasScheme(baseURL) {
-		baseURL = "https://" + baseURL
-	}
-	baseURL = trimTrailingSlash(baseURL)
+	baseURL := url.NormalizeURL(cfg.URL)
 
 	// Create shared client with verbose option
 	var opts *client.Options
@@ -65,19 +62,6 @@ var (
 	ErrEmailRequired    = fmt.Errorf("email is required")
 	ErrAPITokenRequired = fmt.Errorf("API token is required")
 )
-
-// hasScheme checks if a URL has an http or https scheme
-func hasScheme(u string) bool {
-	return len(u) >= 7 && (u[:7] == "http://" || (len(u) >= 8 && u[:8] == "https://"))
-}
-
-// trimTrailingSlash removes trailing slashes from a URL
-func trimTrailingSlash(u string) string {
-	for len(u) > 0 && u[len(u)-1] == '/' {
-		u = u[:len(u)-1]
-	}
-	return u
-}
 
 // get performs a GET request to the specified URL
 func (c *Client) get(urlStr string) ([]byte, error) {
@@ -105,7 +89,7 @@ func buildURL(base string, params map[string]string) string {
 		return base
 	}
 
-	u, _ := url.Parse(base)
+	u, _ := neturl.Parse(base)
 	q := u.Query()
 	for k, v := range params {
 		if v != "" {

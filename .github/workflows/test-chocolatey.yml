@@ -24,23 +24,29 @@ jobs:
           Write-Host "Title: $($nuspec.package.metadata.title)"
 
       - name: Validate install script syntax
+        shell: pwsh
         run: |
           $script = Get-Content tools/cfl/packaging/chocolatey/tools/chocolateyInstall.ps1 -Raw
-          $null = [System.Management.Automation.Language.Parser]::ParseInput($script, [ref]$null, [ref]$errors)
-          if ($errors.Count -gt 0) {
+          $tokens = $null
+          $parseErrors = $null
+          $null = [System.Management.Automation.Language.Parser]::ParseInput($script, [ref]$tokens, [ref]$parseErrors)
+          if ($parseErrors.Count -gt 0) {
             Write-Error "PowerShell syntax errors found:"
-            $errors | ForEach-Object { Write-Error $_.ToString() }
+            $parseErrors | ForEach-Object { Write-Error $_.ToString() }
             exit 1
           }
           Write-Host "Install script syntax is valid"
 
       - name: Validate uninstall script syntax
+        shell: pwsh
         run: |
           $script = Get-Content tools/cfl/packaging/chocolatey/tools/chocolateyUninstall.ps1 -Raw
-          $null = [System.Management.Automation.Language.Parser]::ParseInput($script, [ref]$null, [ref]$errors)
-          if ($errors.Count -gt 0) {
+          $tokens = $null
+          $parseErrors = $null
+          $null = [System.Management.Automation.Language.Parser]::ParseInput($script, [ref]$tokens, [ref]$parseErrors)
+          if ($parseErrors.Count -gt 0) {
             Write-Error "PowerShell syntax errors found:"
-            $errors | ForEach-Object { Write-Error $_.ToString() }
+            $parseErrors | ForEach-Object { Write-Error $_.ToString() }
             exit 1
           }
           Write-Host "Uninstall script syntax is valid"
@@ -68,23 +74,29 @@ jobs:
           Write-Host "Title: $($nuspec.package.metadata.title)"
 
       - name: Validate install script syntax
+        shell: pwsh
         run: |
           $script = Get-Content tools/jtk/packaging/chocolatey/tools/chocolateyInstall.ps1 -Raw
-          $null = [System.Management.Automation.Language.Parser]::ParseInput($script, [ref]$null, [ref]$errors)
-          if ($errors.Count -gt 0) {
+          $tokens = $null
+          $parseErrors = $null
+          $null = [System.Management.Automation.Language.Parser]::ParseInput($script, [ref]$tokens, [ref]$parseErrors)
+          if ($parseErrors.Count -gt 0) {
             Write-Error "PowerShell syntax errors found:"
-            $errors | ForEach-Object { Write-Error $_.ToString() }
+            $parseErrors | ForEach-Object { Write-Error $_.ToString() }
             exit 1
           }
           Write-Host "Install script syntax is valid"
 
       - name: Validate uninstall script syntax
+        shell: pwsh
         run: |
           $script = Get-Content tools/jtk/packaging/chocolatey/tools/chocolateyUninstall.ps1 -Raw
-          $null = [System.Management.Automation.Language.Parser]::ParseInput($script, [ref]$null, [ref]$errors)
-          if ($errors.Count -gt 0) {
+          $tokens = $null
+          $parseErrors = $null
+          $null = [System.Management.Automation.Language.Parser]::ParseInput($script, [ref]$tokens, [ref]$parseErrors)
+          if ($parseErrors.Count -gt 0) {
             Write-Error "PowerShell syntax errors found:"
-            $errors | ForEach-Object { Write-Error $_.ToString() }
+            $parseErrors | ForEach-Object { Write-Error $_.ToString() }
             exit 1
           }
           Write-Host "Uninstall script syntax is valid"

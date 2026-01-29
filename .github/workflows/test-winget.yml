@@ -15,16 +15,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install winget-cli
-        run: |
-          # Install winget from GitHub release
-          $release = Invoke-RestMethod -Uri "https://api.github.com/repos/microsoft/winget-cli/releases/latest"
-          $msixBundle = $release.assets | Where-Object { $_.name -like "*.msixbundle" } | Select-Object -First 1
-          Invoke-WebRequest -Uri $msixBundle.browser_download_url -OutFile winget.msixbundle
-          Add-AppxPackage -Path winget.msixbundle
-
       - name: Validate manifests
         run: |
+          # winget is pre-installed on windows-latest
           winget validate tools/cfl/packaging/winget/
 
   test-jtk:
@@ -32,14 +25,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install winget-cli
-        run: |
-          # Install winget from GitHub release
-          $release = Invoke-RestMethod -Uri "https://api.github.com/repos/microsoft/winget-cli/releases/latest"
-          $msixBundle = $release.assets | Where-Object { $_.name -like "*.msixbundle" } | Select-Object -First 1
-          Invoke-WebRequest -Uri $msixBundle.browser_download_url -OutFile winget.msixbundle
-          Add-AppxPackage -Path winget.msixbundle
-
       - name: Validate manifests
         run: |
+          # winget is pre-installed on windows-latest
           winget validate tools/jtk/packaging/winget/

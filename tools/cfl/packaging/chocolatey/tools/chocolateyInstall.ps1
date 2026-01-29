@@ -18,7 +18,7 @@ if ($env:PROCESSOR_ARCHITECTURE -eq 'ARM64') {
     throw "32-bit Windows is not supported. confluence-cli requires 64-bit Windows."
 }
 
-$baseUrl = "https://github.com/open-cli-collective/confluence-cli/releases/download/v${version}"
+$baseUrl = "https://github.com/open-cli-collective/atlassian-cli/releases/download/cfl-v${version}"
 $zipFile = "cfl_${version}_windows_${arch}.zip"
 $url = "${baseUrl}/${zipFile}"
 

@@ -6,9 +6,9 @@ PackageLocale: en-US
 Publisher: Open CLI Collective
 PublisherUrl: https://github.com/open-cli-collective
 PackageName: Confluence CLI
-PackageUrl: https://github.com/open-cli-collective/confluence-cli
+PackageUrl: https://github.com/open-cli-collective/atlassian-cli/tree/main/tools/cfl
 License: MIT
-LicenseUrl: https://github.com/open-cli-collective/confluence-cli/blob/main/LICENSE
+LicenseUrl: https://github.com/open-cli-collective/atlassian-cli/blob/main/tools/cfl/LICENSE
 ShortDescription: Command-line interface for Atlassian Confluence Cloud
 Description: |-
   A CLI tool for managing Confluence pages with a markdown-first workflow.
@@ -22,6 +22,6 @@ Tags:
   - markdown
   - wiki
   - documentation
-ReleaseNotesUrl: https://github.com/open-cli-collective/confluence-cli/releases
+ReleaseNotesUrl: https://github.com/open-cli-collective/atlassian-cli/releases
 ManifestType: defaultLocale
 ManifestVersion: 1.10.0

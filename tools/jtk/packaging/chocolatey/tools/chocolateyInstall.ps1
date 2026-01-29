@@ -18,7 +18,7 @@ if ($env:PROCESSOR_ARCHITECTURE -eq 'ARM64') {
     throw "32-bit Windows is not supported. jtk requires 64-bit Windows."
 }
 
-$baseUrl = "https://github.com/open-cli-collective/jira-ticket-cli/releases/download/v${version}"
+$baseUrl = "https://github.com/open-cli-collective/atlassian-cli/releases/download/jtk-v${version}"
 $zipFile = "jtk_${version}_windows_${arch}.zip"
 $url = "${baseUrl}/${zipFile}"
 

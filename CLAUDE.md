@@ -56,11 +56,45 @@ go test ./tools/jtk/...
 go work sync
 ```
 
-## CI
+## CI/CD
 
-GitHub Actions CI runs on all PRs and pushes to main:
-- **build-and-test**: Verifies `go.work`, builds both binaries, runs all tests
-- **lint**: Runs golangci-lint v2 for both tools
+### CI Workflows
+
+GitHub Actions CI runs on all PRs and pushes to main with **path filtering**:
+- Changes to `tools/cfl/**` trigger cfl build/test/lint only
+- Changes to `tools/jtk/**` trigger jtk build/test/lint only
+- Changes to `shared/**` trigger both (future shared code)
+
+### Release Workflow
+
+Releases are automated with a dual-gate system:
+
+1. **Path gate**: Only Go code changes (`**/*.go`, `go.mod`, `go.sum`) can trigger releases
+2. **Commit gate**: Only `feat:` and `fix:` commits create releases
+
+**Tag format**: `{tool}-v{base}.{run}` (e.g., `cfl-v0.9.150`, `jtk-v0.1.75`)
+
+When a release-triggering commit is merged to main:
+1. `auto-release-{tool}.yml` creates a tag
+2. Tag push triggers `release-{tool}.yml`
+3. GoReleaser builds binaries for all platforms
+4. Homebrew tap is updated automatically
+5. Chocolatey and Winget workflows publish packages
+
+### Required Secrets
+
+| Secret | Purpose |
+|--------|---------|
+| `TAP_GITHUB_TOKEN` | Push tags + update Homebrew tap |
+| `CHOCOLATEY_API_KEY` | Publish to Chocolatey |
+| `WINGET_GITHUB_TOKEN` | Submit to microsoft/winget-pkgs |
+
+### Build Matrix
+
+Each tool builds 6 binaries:
+- darwin/amd64, darwin/arm64 (.tar.gz)
+- linux/amd64, linux/arm64 (.tar.gz + .deb + .rpm)
+- windows/amd64, windows/arm64 (.zip)
 
 ## Environment Variables
 

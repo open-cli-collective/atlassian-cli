@@ -1,0 +1,111 @@
+name: Test Chocolatey Packaging
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/*/packaging/chocolatey/**'
+  pull_request:
+    paths:
+      - 'tools/*/packaging/chocolatey/**'
+
+jobs:
+  test-cfl:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate nuspec
+        run: |
+          cd tools/cfl/packaging/chocolatey
+          # Check nuspec is valid XML
+          [xml]$nuspec = Get-Content confluence-cli.nuspec
+          Write-Host "Package ID: $($nuspec.package.metadata.id)"
+          Write-Host "Title: $($nuspec.package.metadata.title)"
+
+      - name: Validate install script syntax
+        shell: pwsh
+        run: |
+          $script = Get-Content tools/cfl/packaging/chocolatey/tools/chocolateyInstall.ps1 -Raw
+          $tokens = $null
+          $parseErrors = $null
+          $null = [System.Management.Automation.Language.Parser]::ParseInput($script, [ref]$tokens, [ref]$parseErrors)
+          if ($parseErrors.Count -gt 0) {
+            Write-Error "PowerShell syntax errors found:"
+            $parseErrors | ForEach-Object { Write-Error $_.ToString() }
+            exit 1
+          }
+          Write-Host "Install script syntax is valid"
+
+      - name: Validate uninstall script syntax
+        shell: pwsh
+        run: |
+          $script = Get-Content tools/cfl/packaging/chocolatey/tools/chocolateyUninstall.ps1 -Raw
+          $tokens = $null
+          $parseErrors = $null
+          $null = [System.Management.Automation.Language.Parser]::ParseInput($script, [ref]$tokens, [ref]$parseErrors)
+          if ($parseErrors.Count -gt 0) {
+            Write-Error "PowerShell syntax errors found:"
+            $parseErrors | ForEach-Object { Write-Error $_.ToString() }
+            exit 1
+          }
+          Write-Host "Uninstall script syntax is valid"
+
+      - name: Test pack (dry run)
+        run: |
+          cd tools/cfl/packaging/chocolatey
+          # Update version for test
+          $nuspec = Get-Content confluence-cli.nuspec
+          $nuspec = $nuspec -replace '<version>.*</version>', '<version>0.0.1-test</version>'
+          $nuspec | Set-Content confluence-cli.nuspec
+          choco pack --verbose
+
+  test-jtk:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate nuspec
+        run: |
+          cd tools/jtk/packaging/chocolatey
+          # Check nuspec is valid XML
+          [xml]$nuspec = Get-Content jira-ticket-cli.nuspec
+          Write-Host "Package ID: $($nuspec.package.metadata.id)"
+          Write-Host "Title: $($nuspec.package.metadata.title)"
+
+      - name: Validate install script syntax
+        shell: pwsh
+        run: |
+          $script = Get-Content tools/jtk/packaging/chocolatey/tools/chocolateyInstall.ps1 -Raw
+          $tokens = $null
+          $parseErrors = $null
+          $null = [System.Management.Automation.Language.Parser]::ParseInput($script, [ref]$tokens, [ref]$parseErrors)
+          if ($parseErrors.Count -gt 0) {
+            Write-Error "PowerShell syntax errors found:"
+            $parseErrors | ForEach-Object { Write-Error $_.ToString() }
+            exit 1
+          }
+          Write-Host "Install script syntax is valid"
+
+      - name: Validate uninstall script syntax
+        shell: pwsh
+        run: |
+          $script = Get-Content tools/jtk/packaging/chocolatey/tools/chocolateyUninstall.ps1 -Raw
+          $tokens = $null
+          $parseErrors = $null
+          $null = [System.Management.Automation.Language.Parser]::ParseInput($script, [ref]$tokens, [ref]$parseErrors)
+          if ($parseErrors.Count -gt 0) {
+            Write-Error "PowerShell syntax errors found:"
+            $parseErrors | ForEach-Object { Write-Error $_.ToString() }
+            exit 1
+          }
+          Write-Host "Uninstall script syntax is valid"
+
+      - name: Test pack (dry run)
+        run: |
+          cd tools/jtk/packaging/chocolatey
+          # Update version for test
+          $nuspec = Get-Content jira-ticket-cli.nuspec
+          $nuspec = $nuspec -replace '<version>.*</version>', '<version>0.0.1-test</version>'
+          $nuspec | Set-Content jira-ticket-cli.nuspec
+          choco pack --verbose

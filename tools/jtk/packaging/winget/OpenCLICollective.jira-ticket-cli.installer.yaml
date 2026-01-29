@@ -9,10 +9,10 @@ NestedInstallerFiles:
     PortableCommandAlias: jtk
 Installers:
   - Architecture: x64
-    InstallerUrl: https://github.com/open-cli-collective/jira-ticket-cli/releases/download/v0.0.0/jtk_0.0.0_windows_amd64.zip
+    InstallerUrl: https://github.com/open-cli-collective/atlassian-cli/releases/download/jtk-v0.0.0/jtk_0.0.0_windows_amd64.zip
     InstallerSha256: 0000000000000000000000000000000000000000000000000000000000000000
   - Architecture: arm64
-    InstallerUrl: https://github.com/open-cli-collective/jira-ticket-cli/releases/download/v0.0.0/jtk_0.0.0_windows_arm64.zip
+    InstallerUrl: https://github.com/open-cli-collective/atlassian-cli/releases/download/jtk-v0.0.0/jtk_0.0.0_windows_arm64.zip
     InstallerSha256: 0000000000000000000000000000000000000000000000000000000000000000
 ManifestType: installer
 ManifestVersion: 1.10.0

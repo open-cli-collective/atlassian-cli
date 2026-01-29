@@ -6,53 +6,77 @@ on:
   pull_request:
 
 jobs:
-  build-and-test:
+  detect-changes:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        go-version: ['1.24']
-
+    outputs:
+      cfl: ${{ steps.filter.outputs.cfl }}
+      jtk: ${{ steps.filter.outputs.jtk }}
+      shared: ${{ steps.filter.outputs.shared }}
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
+      - uses: dorny/paths-filter@v3
+        id: filter
         with:
-          go-version: ${{ matrix.go-version }}
+          filters: |
+            cfl:
+              - 'tools/cfl/**'
+            jtk:
+              - 'tools/jtk/**'
+            shared:
+              - 'shared/**'
 
-      - name: Verify go.work
-        run: go work sync
-
-      - name: Build cfl
-        run: go build -v ./tools/cfl/cmd/cfl
-
-      - name: Build jtk
-        run: go build -v ./tools/jtk/cmd/jtk
-
-      - name: Test cfl
-        run: go test -v ./tools/cfl/...
-
-      - name: Test jtk
-        run: go test -v ./tools/jtk/...
-
-  lint:
+  build-test-cfl:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.cfl == 'true' || needs.detect-changes.outputs.shared == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
+      - uses: actions/setup-go@v5
         with:
           go-version: '1.24'
+      - name: Build cfl
+        run: go build -v ./tools/cfl/...
+      - name: Test cfl
+        run: go test -v -race -coverprofile=coverage-cfl.out ./tools/cfl/...
 
-      - name: golangci-lint cfl
-        uses: golangci/golangci-lint-action@v6
+  build-test-jtk:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.jtk == 'true' || needs.detect-changes.outputs.shared == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+      - name: Build jtk
+        run: go build -v ./tools/jtk/...
+      - name: Test jtk
+        run: go test -v -race -coverprofile=coverage-jtk.out ./tools/jtk/...
+
+  lint-cfl:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.cfl == 'true' || needs.detect-changes.outputs.shared == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+      - uses: golangci/golangci-lint-action@v7
         with:
           working-directory: tools/cfl
           version: v2.0.2
 
-      - name: golangci-lint jtk
-        uses: golangci/golangci-lint-action@v6
+  lint-jtk:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.jtk == 'true' || needs.detect-changes.outputs.shared == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+      - uses: golangci/golangci-lint-action@v7
         with:
           working-directory: tools/jtk
           version: v2.0.2

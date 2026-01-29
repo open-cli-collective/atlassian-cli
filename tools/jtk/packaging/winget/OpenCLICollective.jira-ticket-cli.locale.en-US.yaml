@@ -6,9 +6,9 @@ PackageLocale: en-US
 Publisher: Open CLI Collective
 PublisherUrl: https://github.com/open-cli-collective
 PackageName: Jira Ticket CLI
-PackageUrl: https://github.com/open-cli-collective/jira-ticket-cli
+PackageUrl: https://github.com/open-cli-collective/atlassian-cli/tree/main/tools/jtk
 License: MIT
-LicenseUrl: https://github.com/open-cli-collective/jira-ticket-cli/blob/main/LICENSE
+LicenseUrl: https://github.com/open-cli-collective/atlassian-cli/blob/main/tools/jtk/LICENSE
 ShortDescription: Command-line interface for Jira Cloud
 Description: |-
   A CLI tool for managing Jira issues directly from your terminal.
@@ -21,6 +21,6 @@ Tags:
   - ticket
   - issue-tracking
   - agile
-ReleaseNotesUrl: https://github.com/open-cli-collective/jira-ticket-cli/releases
+ReleaseNotesUrl: https://github.com/open-cli-collective/atlassian-cli/releases
 ManifestType: defaultLocale
 ManifestVersion: 1.10.0

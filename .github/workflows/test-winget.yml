@@ -1,0 +1,45 @@
+name: Test Winget Manifests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/*/packaging/winget/**'
+  pull_request:
+    paths:
+      - 'tools/*/packaging/winget/**'
+
+jobs:
+  test-cfl:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install winget-cli
+        run: |
+          # Install winget from GitHub release
+          $release = Invoke-RestMethod -Uri "https://api.github.com/repos/microsoft/winget-cli/releases/latest"
+          $msixBundle = $release.assets | Where-Object { $_.name -like "*.msixbundle" } | Select-Object -First 1
+          Invoke-WebRequest -Uri $msixBundle.browser_download_url -OutFile winget.msixbundle
+          Add-AppxPackage -Path winget.msixbundle
+
+      - name: Validate manifests
+        run: |
+          winget validate tools/cfl/packaging/winget/
+
+  test-jtk:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install winget-cli
+        run: |
+          # Install winget from GitHub release
+          $release = Invoke-RestMethod -Uri "https://api.github.com/repos/microsoft/winget-cli/releases/latest"
+          $msixBundle = $release.assets | Where-Object { $_.name -like "*.msixbundle" } | Select-Object -First 1
+          Invoke-WebRequest -Uri $msixBundle.browser_download_url -OutFile winget.msixbundle
+          Add-AppxPackage -Path winget.msixbundle
+
+      - name: Validate manifests
+        run: |
+          winget validate tools/jtk/packaging/winget/

@@ -6,11 +6,11 @@
     <title>Jira Ticket CLI</title>
     <authors>Open CLI Collective</authors>
     <owners>rianjs</owners>
-    <licenseUrl>https://github.com/open-cli-collective/jira-ticket-cli/blob/main/LICENSE</licenseUrl>
-    <projectUrl>https://github.com/open-cli-collective/jira-ticket-cli#readme</projectUrl>
-    <projectSourceUrl>https://github.com/open-cli-collective/jira-ticket-cli</projectSourceUrl>
-    <packageSourceUrl>https://github.com/open-cli-collective/jira-ticket-cli/tree/main/packaging/chocolatey</packageSourceUrl>
-    <bugTrackerUrl>https://github.com/open-cli-collective/jira-ticket-cli/issues</bugTrackerUrl>
+    <licenseUrl>https://github.com/open-cli-collective/atlassian-cli/blob/main/tools/jtk/LICENSE</licenseUrl>
+    <projectUrl>https://github.com/open-cli-collective/atlassian-cli/tree/main/tools/jtk#readme</projectUrl>
+    <projectSourceUrl>https://github.com/open-cli-collective/atlassian-cli</projectSourceUrl>
+    <packageSourceUrl>https://github.com/open-cli-collective/atlassian-cli/tree/main/tools/jtk/packaging/chocolatey</packageSourceUrl>
+    <bugTrackerUrl>https://github.com/open-cli-collective/atlassian-cli/issues</bugTrackerUrl>
     <copyright>Copyright (c) 2025 Open CLI Collective</copyright>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
     <description>A command-line interface for Jira Cloud. Manage issues, sprints, and workflows directly from your terminal.
@@ -24,7 +24,7 @@ Features:
 
 Binary: jtk.exe</description>
     <summary>Command-line interface for Jira Cloud</summary>
-    <releaseNotes>https://github.com/open-cli-collective/jira-ticket-cli/releases</releaseNotes>
+    <releaseNotes>https://github.com/open-cli-collective/atlassian-cli/releases</releaseNotes>
     <tags>jira atlassian cli ticket issue-tracking agile</tags>
   </metadata>
   <files>

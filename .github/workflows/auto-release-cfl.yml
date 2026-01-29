@@ -1,0 +1,35 @@
+name: Auto Release cfl
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/cfl/**/*.go'
+      - 'tools/cfl/go.mod'
+      - 'tools/cfl/go.sum'
+
+jobs:
+  create-tag:
+    runs-on: ubuntu-latest
+    # Only create release for feat: or fix: commits
+    if: startsWith(github.event.head_commit.message, 'feat:') || startsWith(github.event.head_commit.message, 'fix:')
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.TAP_GITHUB_TOKEN }}
+
+      - name: Read version
+        id: version
+        run: |
+          BASE_VERSION=$(cat tools/cfl/version.txt | tr -d '\n')
+          VERSION="${BASE_VERSION}.${{ github.run_number }}"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION"
+
+      - name: Create and push tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "cfl-v${{ steps.version.outputs.version }}" -m "Release cfl v${{ steps.version.outputs.version }}"
+          git push origin "cfl-v${{ steps.version.outputs.version }}"

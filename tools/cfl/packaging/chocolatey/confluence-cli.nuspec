@@ -6,12 +6,12 @@
     <title>Confluence CLI</title>
     <authors>Open CLI Collective</authors>
     <owners>rianjs</owners>
-    <licenseUrl>https://github.com/open-cli-collective/confluence-cli/blob/main/LICENSE</licenseUrl>
-    <projectUrl>https://github.com/open-cli-collective/confluence-cli#readme</projectUrl>
-    <projectSourceUrl>https://github.com/open-cli-collective/confluence-cli</projectSourceUrl>
-    <packageSourceUrl>https://github.com/open-cli-collective/confluence-cli/tree/main/packaging/chocolatey</packageSourceUrl>
-    <bugTrackerUrl>https://github.com/open-cli-collective/confluence-cli/issues</bugTrackerUrl>
-    <iconUrl>https://cdn.jsdelivr.net/gh/open-cli-collective/confluence-cli@main/assets/logo/cfl-256.png</iconUrl>
+    <licenseUrl>https://github.com/open-cli-collective/atlassian-cli/blob/main/tools/cfl/LICENSE</licenseUrl>
+    <projectUrl>https://github.com/open-cli-collective/atlassian-cli/tree/main/tools/cfl#readme</projectUrl>
+    <projectSourceUrl>https://github.com/open-cli-collective/atlassian-cli</projectSourceUrl>
+    <packageSourceUrl>https://github.com/open-cli-collective/atlassian-cli/tree/main/tools/cfl/packaging/chocolatey</packageSourceUrl>
+    <bugTrackerUrl>https://github.com/open-cli-collective/atlassian-cli/issues</bugTrackerUrl>
+    <iconUrl>https://cdn.jsdelivr.net/gh/open-cli-collective/atlassian-cli@main/tools/cfl/assets/logo/cfl-256.png</iconUrl>
     <copyright>Copyright (c) 2025 Open CLI Collective</copyright>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
     <description>A command-line interface for Atlassian Confluence Cloud. Provides markdown-first page management with automatic conversion between Markdown and Confluence's storage format.
@@ -25,7 +25,7 @@ Features:
 
 Binary: cfl.exe</description>
     <summary>Command-line interface for Atlassian Confluence Cloud</summary>
-    <releaseNotes>https://github.com/open-cli-collective/confluence-cli/releases</releaseNotes>
+    <releaseNotes>https://github.com/open-cli-collective/atlassian-cli/releases</releaseNotes>
     <tags>confluence atlassian cli markdown wiki documentation</tags>
   </metadata>
   <files>

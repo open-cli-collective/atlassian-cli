@@ -6,9 +6,10 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/open-cli-collective/atlassian-go/version"
+
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/config"
-	"github.com/open-cli-collective/jira-ticket-cli/internal/version"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/view"
 )
 

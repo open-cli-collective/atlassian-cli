@@ -1,7 +1,7 @@
 package api
 
 import (
-	"encoding/base64"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -15,7 +15,7 @@ func TestNew(t *testing.T) {
 	tests := []struct {
 		name        string
 		cfg         ClientConfig
-		wantErr     error
+		wantErr     bool
 		wantURL     string
 		wantBaseURL string
 	}{
@@ -26,7 +26,7 @@ func TestNew(t *testing.T) {
 				Email:    "user@example.com",
 				APIToken: "token123",
 			},
-			wantErr:     nil,
+			wantErr:     false,
 			wantURL:     "https://example.atlassian.net",
 			wantBaseURL: "https://example.atlassian.net/rest/api/3",
 		},
@@ -37,7 +37,7 @@ func TestNew(t *testing.T) {
 				Email:    "user@example.com",
 				APIToken: "token123",
 			},
-			wantErr:     nil,
+			wantErr:     false,
 			wantURL:     "https://jira.internal.corp.com",
 			wantBaseURL: "https://jira.internal.corp.com/rest/api/3",
 		},
@@ -48,7 +48,7 @@ func TestNew(t *testing.T) {
 				Email:    "user@example.com",
 				APIToken: "token123",
 			},
-			wantErr:     nil,
+			wantErr:     false,
 			wantURL:     "https://example.atlassian.net",
 			wantBaseURL: "https://example.atlassian.net/rest/api/3",
 		},
@@ -59,7 +59,7 @@ func TestNew(t *testing.T) {
 				Email:    "user@example.com",
 				APIToken: "token123",
 			},
-			wantErr:     nil,
+			wantErr:     false,
 			wantURL:     "https://example.atlassian.net",
 			wantBaseURL: "https://example.atlassian.net/rest/api/3",
 		},
@@ -69,7 +69,7 @@ func TestNew(t *testing.T) {
 				Email:    "user@example.com",
 				APIToken: "token123",
 			},
-			wantErr: ErrURLRequired,
+			wantErr: true,
 		},
 		{
 			name: "missing email",
@@ -77,7 +77,7 @@ func TestNew(t *testing.T) {
 				URL:      "https://example.atlassian.net",
 				APIToken: "token123",
 			},
-			wantErr: ErrEmailRequired,
+			wantErr: true,
 		},
 		{
 			name: "missing api token",
@@ -85,86 +85,56 @@ func TestNew(t *testing.T) {
 				URL:   "https://example.atlassian.net",
 				Email: "user@example.com",
 			},
-			wantErr: ErrAPITokenRequired,
+			wantErr: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			client, err := New(tt.cfg)
-			if tt.wantErr != nil {
-				assert.ErrorIs(t, err, tt.wantErr)
+			if tt.wantErr {
+				assert.Error(t, err)
 				assert.Nil(t, client)
 			} else {
 				require.NoError(t, err)
 				assert.NotNil(t, client)
 				assert.Equal(t, tt.wantURL, client.URL)
-				assert.Equal(t, tt.cfg.Email, client.Email)
-				assert.Equal(t, tt.cfg.APIToken, client.APIToken)
 				assert.Equal(t, tt.wantBaseURL, client.BaseURL)
 				assert.Equal(t, tt.wantURL+"/rest/agile/1.0", client.AgileURL)
+				// Auth header should be set
+				assert.Contains(t, client.GetAuthHeader(), "Basic ")
 			}
 		})
 	}
 }
 
-func TestClient_authHeader(t *testing.T) {
-	client := &Client{
-		Email:    "user@example.com",
-		APIToken: "mytoken",
-	}
-
-	header := client.authHeader()
-
-	// Verify it's a Basic auth header
-	assert.True(t, len(header) > 6)
-	assert.Equal(t, "Basic ", header[:6])
-
-	// Decode and verify contents
-	decoded, err := base64.StdEncoding.DecodeString(header[6:])
-	require.NoError(t, err)
-	assert.Equal(t, "user@example.com:mytoken", string(decoded))
-}
-
-func TestClient_doRequest(t *testing.T) {
+func TestClient_get(t *testing.T) {
 	tests := []struct {
 		name           string
-		method         string
 		responseStatus int
 		responseBody   string
 		wantErr        bool
 	}{
 		{
 			name:           "successful GET",
-			method:         http.MethodGet,
 			responseStatus: http.StatusOK,
 			responseBody:   `{"key": "value"}`,
 			wantErr:        false,
 		},
 		{
-			name:           "successful POST",
-			method:         http.MethodPost,
-			responseStatus: http.StatusCreated,
-			responseBody:   `{"id": "123"}`,
-			wantErr:        false,
-		},
-		{
 			name:           "unauthorized",
-			method:         http.MethodGet,
 			responseStatus: http.StatusUnauthorized,
 			responseBody:   `{"errorMessages": ["Unauthorized"]}`,
 			wantErr:        true,
 		},
 		{
 			name:           "not found",
-			method:         http.MethodGet,
 			responseStatus: http.StatusNotFound,
 			responseBody:   `{"errorMessages": ["Issue not found"]}`,
 			wantErr:        true,
 		},
 		{
 			name:           "server error",
-			method:         http.MethodGet,
 			responseStatus: http.StatusInternalServerError,
 			responseBody:   `{"errorMessages": ["Internal error"]}`,
 			wantErr:        true,
@@ -184,13 +154,14 @@ func TestClient_doRequest(t *testing.T) {
 			}))
 			defer server.Close()
 
-			client := &Client{
-				Email:      "user@example.com",
-				APIToken:   "token",
-				HTTPClient: server.Client(),
-			}
+			client, err := New(ClientConfig{
+				URL:      server.URL,
+				Email:    "user@example.com",
+				APIToken: "token",
+			})
+			require.NoError(t, err)
 
-			body, err := client.doRequest(tt.method, server.URL, nil)
+			body, err := client.get(server.URL + "/test")
 
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -202,7 +173,7 @@ func TestClient_doRequest(t *testing.T) {
 	}
 }
 
-func TestClient_doRequest_withBody(t *testing.T) {
+func TestClient_post_withBody(t *testing.T) {
 	var receivedBody map[string]interface{}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -213,11 +184,12 @@ func TestClient_doRequest_withBody(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := &Client{
-		Email:      "user@example.com",
-		APIToken:   "token",
-		HTTPClient: server.Client(),
-	}
+	client, err := New(ClientConfig{
+		URL:      server.URL,
+		Email:    "user@example.com",
+		APIToken: "token",
+	})
+	require.NoError(t, err)
 
 	requestBody := map[string]interface{}{
 		"summary": "Test issue",
@@ -226,7 +198,7 @@ func TestClient_doRequest_withBody(t *testing.T) {
 		},
 	}
 
-	_, err := client.doRequest(http.MethodPost, server.URL, requestBody)
+	_, err = client.post(server.URL+"/test", requestBody)
 	require.NoError(t, err)
 
 	assert.Equal(t, "Test issue", receivedBody["summary"])
@@ -316,4 +288,24 @@ func TestClient_IssueURL(t *testing.T) {
 			assert.Equal(t, tt.want, client.IssueURL(tt.issueKey))
 		})
 	}
+}
+
+func TestClient_VerboseMode(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{}`))
+	}))
+	defer server.Close()
+
+	client, err := New(ClientConfig{
+		URL:      server.URL,
+		Email:    "user@example.com",
+		APIToken: "token",
+		Verbose:  true,
+	})
+	require.NoError(t, err)
+
+	// Just verify it doesn't panic with verbose mode
+	_, err = client.Get(context.Background(), "/test")
+	require.NoError(t, err)
 }

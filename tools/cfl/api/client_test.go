@@ -16,9 +16,8 @@ func TestNewClient(t *testing.T) {
 	client := NewClient("https://example.atlassian.net/wiki", "user@example.com", "token123")
 
 	assert.NotNil(t, client)
-	assert.Equal(t, "https://example.atlassian.net/wiki", client.baseURL)
-	assert.Equal(t, "user@example.com", client.email)
-	assert.Equal(t, "token123", client.apiToken)
+	assert.Equal(t, "https://example.atlassian.net/wiki", client.GetBaseURL())
+	assert.Contains(t, client.GetAuthHeader(), "Basic ")
 }
 
 func TestClient_AuthHeader(t *testing.T) {
@@ -32,7 +31,7 @@ func TestClient_AuthHeader(t *testing.T) {
 	defer server.Close()
 
 	client := NewClient(server.URL, "user@example.com", "mytoken")
-	_, err := client.do(context.Background(), "GET", "/test", nil)
+	_, err := client.Get(context.Background(), "/test")
 	require.NoError(t, err)
 
 	// Verify Basic auth header
@@ -54,7 +53,7 @@ func TestClient_Headers(t *testing.T) {
 	defer server.Close()
 
 	client := NewClient(server.URL, "user@example.com", "mytoken")
-	_, err := client.do(context.Background(), "GET", "/test", nil)
+	_, err := client.Get(context.Background(), "/test")
 	require.NoError(t, err)
 
 	assert.Equal(t, "application/json", capturedHeaders.Get("Accept"))
@@ -109,7 +108,7 @@ func TestClient_ErrorResponse(t *testing.T) {
 			defer server.Close()
 
 			client := NewClient(server.URL, "user@example.com", "token")
-			_, err := client.do(context.Background(), "GET", "/test", nil)
+			_, err := client.Get(context.Background(), "/test")
 
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), tt.expectedErrMsg)
@@ -129,7 +128,7 @@ func TestClient_ContextCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // Cancel immediately
 
-	_, err := client.do(ctx, "GET", "/test", nil)
+	_, err := client.Get(ctx, "/test")
 	require.Error(t, err)
 }
 
@@ -154,7 +153,7 @@ func TestClient_URLConstruction(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		_, err := client.do(context.Background(), "GET", tt.inputPath, nil)
+		_, err := client.Get(context.Background(), tt.inputPath)
 		require.NoError(t, err)
 		assert.Equal(t, tt.expectedPath, capturedPath)
 	}

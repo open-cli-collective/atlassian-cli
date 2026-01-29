@@ -83,15 +83,15 @@ func (c *Client) DownloadAttachment(ctx context.Context, attachmentID string) (i
 	}
 
 	// downloadLink is relative (e.g., /download/attachments/...)
-	downloadURL := c.baseURL + att.DownloadLink
+	downloadURL := c.GetBaseURL() + att.DownloadLink
 
 	req, err := http.NewRequestWithContext(ctx, "GET", downloadURL, nil)
 	if err != nil {
 		return nil, err
 	}
-	req.SetBasicAuth(c.email, c.apiToken)
+	req.Header.Set("Authorization", c.GetAuthHeader())
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.GetHTTPClient().Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -133,16 +133,16 @@ func (c *Client) UploadAttachment(ctx context.Context, pageID, filename string, 
 
 	// Use v1 API for uploads
 	path := fmt.Sprintf("/rest/api/content/%s/child/attachment", pageID)
-	req, err := http.NewRequestWithContext(ctx, "POST", c.baseURL+path, &buf)
+	req, err := http.NewRequestWithContext(ctx, "POST", c.GetBaseURL()+path, &buf)
 	if err != nil {
 		return nil, err
 	}
 
-	req.SetBasicAuth(c.email, c.apiToken)
+	req.Header.Set("Authorization", c.GetAuthHeader())
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 	req.Header.Set("X-Atlassian-Token", "nocheck") // Required for XSRF protection
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.GetHTTPClient().Do(req)
 	if err != nil {
 		return nil, err
 	}

@@ -338,12 +338,12 @@ func TestClient_GetFieldOptionsFromEditMeta(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := &Client{
-		BaseURL:    server.URL,
-		Email:      "user@example.com",
-		APIToken:   "token",
-		HTTPClient: server.Client(),
-	}
+	client, err := New(ClientConfig{
+		URL:      server.URL,
+		Email:    "user@example.com",
+		APIToken: "token",
+	})
+	require.NoError(t, err)
 
 	t.Run("priority field with name values", func(t *testing.T) {
 		options, err := client.GetFieldOptionsFromEditMeta("PROJ-123", "priority")

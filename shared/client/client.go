@@ -65,16 +65,23 @@ func New(baseURL, email, apiToken string, opts *Options) *Client {
 
 // Do executes an HTTP request with the given method, path, and optional body.
 //
-// The path should be relative to the BaseURL (e.g., "/rest/api/3/issue").
+// The path can be either relative to the BaseURL (e.g., "/rest/api/3/issue")
+// or an absolute URL (e.g., "https://example.com/api/resource").
 // If body is not nil, it will be JSON-encoded.
 // Returns the response body or an error (which may be an *errors.APIError).
 func (c *Client) Do(ctx context.Context, method, path string, body interface{}) ([]byte, error) {
-	// Ensure path starts with /
-	if !strings.HasPrefix(path, "/") {
-		path = "/" + path
-	}
+	var url string
 
-	url := c.BaseURL + path
+	// Check if path is an absolute URL
+	if strings.HasPrefix(path, "http://") || strings.HasPrefix(path, "https://") {
+		url = path
+	} else {
+		// Ensure path starts with /
+		if !strings.HasPrefix(path, "/") {
+			path = "/" + path
+		}
+		url = c.BaseURL + path
+	}
 
 	var reqBody io.Reader
 	if body != nil {

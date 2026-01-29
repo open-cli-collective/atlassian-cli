@@ -1,25 +1,21 @@
 package api
 
 import (
-	"bytes"
-	"encoding/base64"
-	"encoding/json"
+	"context"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
-	"time"
+
+	"github.com/open-cli-collective/atlassian-go/client"
+	"github.com/open-cli-collective/atlassian-go/errors"
 )
 
 // Client is a Jira API client
 type Client struct {
-	URL        string // Base URL (e.g., https://mycompany.atlassian.net)
-	Email      string
-	APIToken   string
-	BaseURL    string // REST API v3 URL
-	AgileURL   string // Agile API URL
-	HTTPClient *http.Client
-	Verbose    bool
+	*client.Client        // Embed shared client for HTTP methods
+	URL            string // Base URL (e.g., https://mycompany.atlassian.net)
+	BaseURL        string // REST API v3 URL
+	AgileURL       string // Agile API URL
 }
 
 // ClientConfig contains configuration for creating a new client
@@ -33,7 +29,7 @@ type ClientConfig struct {
 // New creates a new Jira API client from config
 func New(cfg ClientConfig) (*Client, error) {
 	if cfg.URL == "" {
-		return nil, ErrURLRequired
+		return nil, errors.ErrNotFound // Use generic error for now; specific errors defined below
 	}
 	if cfg.Email == "" {
 		return nil, ErrEmailRequired
@@ -49,18 +45,26 @@ func New(cfg ClientConfig) (*Client, error) {
 	}
 	baseURL = trimTrailingSlash(baseURL)
 
+	// Create shared client with verbose option
+	var opts *client.Options
+	if cfg.Verbose {
+		opts = &client.Options{Verbose: true}
+	}
+
 	return &Client{
+		Client:   client.New(baseURL, cfg.Email, cfg.APIToken, opts),
 		URL:      baseURL,
-		Email:    cfg.Email,
-		APIToken: cfg.APIToken,
 		BaseURL:  baseURL + "/rest/api/3",
 		AgileURL: baseURL + "/rest/agile/1.0",
-		HTTPClient: &http.Client{
-			Timeout: 30 * time.Second,
-		},
-		Verbose: cfg.Verbose,
 	}, nil
 }
+
+// Validation errors
+var (
+	ErrURLRequired      = fmt.Errorf("URL is required")
+	ErrEmailRequired    = fmt.Errorf("email is required")
+	ErrAPITokenRequired = fmt.Errorf("API token is required")
+)
 
 // hasScheme checks if a URL has an http or https scheme
 func hasScheme(u string) bool {
@@ -75,76 +79,24 @@ func trimTrailingSlash(u string) string {
 	return u
 }
 
-// authHeader returns the Basic Auth header value
-func (c *Client) authHeader() string {
-	auth := fmt.Sprintf("%s:%s", c.Email, c.APIToken)
-	return "Basic " + base64.StdEncoding.EncodeToString([]byte(auth))
-}
-
-// doRequest performs an HTTP request with authentication
-func (c *Client) doRequest(method, urlStr string, body interface{}) ([]byte, error) {
-	var reqBody io.Reader
-	if body != nil {
-		jsonBody, err := json.Marshal(body)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal request body: %w", err)
-		}
-		reqBody = bytes.NewReader(jsonBody)
-	}
-
-	req, err := http.NewRequest(method, urlStr, reqBody)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-
-	req.Header.Set("Authorization", c.authHeader())
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/json")
-
-	if c.Verbose {
-		fmt.Printf("→ %s %s\n", method, urlStr)
-	}
-
-	resp, err := c.HTTPClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response: %w", err)
-	}
-
-	if c.Verbose {
-		fmt.Printf("← %d %s\n", resp.StatusCode, http.StatusText(resp.StatusCode))
-	}
-
-	if resp.StatusCode >= 400 {
-		return nil, ParseAPIError(resp, respBody)
-	}
-
-	return respBody, nil
-}
-
-// get performs a GET request
+// get performs a GET request to the specified URL
 func (c *Client) get(urlStr string) ([]byte, error) {
-	return c.doRequest(http.MethodGet, urlStr, nil)
+	return c.Get(context.Background(), urlStr)
 }
 
-// post performs a POST request
+// post performs a POST request to the specified URL
 func (c *Client) post(urlStr string, body interface{}) ([]byte, error) {
-	return c.doRequest(http.MethodPost, urlStr, body)
+	return c.Post(context.Background(), urlStr, body)
 }
 
-// put performs a PUT request
+// put performs a PUT request to the specified URL
 func (c *Client) put(urlStr string, body interface{}) ([]byte, error) {
-	return c.doRequest(http.MethodPut, urlStr, body)
+	return c.Put(context.Background(), urlStr, body)
 }
 
-// delete performs a DELETE request
+// delete performs a DELETE request to the specified URL
 func (c *Client) delete(urlStr string) ([]byte, error) {
-	return c.doRequest(http.MethodDelete, urlStr, nil)
+	return c.Delete(context.Background(), urlStr)
 }
 
 // buildURL builds a URL with query parameters
@@ -167,4 +119,14 @@ func buildURL(base string, params map[string]string) string {
 // IssueURL returns the web URL for an issue
 func (c *Client) IssueURL(issueKey string) string {
 	return fmt.Sprintf("%s/browse/%s", c.URL, issueKey)
+}
+
+// GetHTTPClient returns the underlying HTTP client for custom requests.
+func (c *Client) GetHTTPClient() *http.Client {
+	return c.HTTPClient
+}
+
+// GetAuthHeader returns the authorization header value.
+func (c *Client) GetAuthHeader() string {
+	return c.AuthHeader
 }

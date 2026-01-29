@@ -47,12 +47,12 @@ func TestRunTypes_Success(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := &api.Client{
-		BaseURL:    server.URL + "/rest/api/3",
-		Email:      "test@example.com",
-		APIToken:   "token",
-		HTTPClient: server.Client(),
-	}
+	client, err := api.New(api.ClientConfig{
+		URL:      server.URL,
+		Email:    "test@example.com",
+		APIToken: "token",
+	})
+	require.NoError(t, err)
 
 	var stdout bytes.Buffer
 	opts := &root.Options{
@@ -62,7 +62,7 @@ func TestRunTypes_Success(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err := runTypes(opts, "TEST")
+	err = runTypes(opts, "TEST")
 	require.NoError(t, err)
 
 	output := stdout.String()
@@ -79,12 +79,12 @@ func TestRunTypes_ProjectNotFound(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := &api.Client{
-		BaseURL:    server.URL + "/rest/api/3",
-		Email:      "test@example.com",
-		APIToken:   "token",
-		HTTPClient: server.Client(),
-	}
+	client, err := api.New(api.ClientConfig{
+		URL:      server.URL,
+		Email:    "test@example.com",
+		APIToken: "token",
+	})
+	require.NoError(t, err)
 
 	opts := &root.Options{
 		Output: "table",
@@ -93,7 +93,7 @@ func TestRunTypes_ProjectNotFound(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err := runTypes(opts, "INVALID")
+	err = runTypes(opts, "INVALID")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "not found")
 }
@@ -111,12 +111,12 @@ func TestRunTypes_EmptyIssueTypes(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := &api.Client{
-		BaseURL:    server.URL + "/rest/api/3",
-		Email:      "test@example.com",
-		APIToken:   "token",
-		HTTPClient: server.Client(),
-	}
+	client, err := api.New(api.ClientConfig{
+		URL:      server.URL,
+		Email:    "test@example.com",
+		APIToken: "token",
+	})
+	require.NoError(t, err)
 
 	var stdout bytes.Buffer
 	opts := &root.Options{
@@ -126,7 +126,7 @@ func TestRunTypes_EmptyIssueTypes(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err := runTypes(opts, "EMPTY")
+	err = runTypes(opts, "EMPTY")
 	require.NoError(t, err)
 	assert.Contains(t, stdout.String(), "No issue types found")
 }
@@ -147,12 +147,12 @@ func TestRunTypes_JSONOutput(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := &api.Client{
-		BaseURL:    server.URL + "/rest/api/3",
-		Email:      "test@example.com",
-		APIToken:   "token",
-		HTTPClient: server.Client(),
-	}
+	client, err := api.New(api.ClientConfig{
+		URL:      server.URL,
+		Email:    "test@example.com",
+		APIToken: "token",
+	})
+	require.NoError(t, err)
 
 	var stdout bytes.Buffer
 	opts := &root.Options{
@@ -162,7 +162,7 @@ func TestRunTypes_JSONOutput(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err := runTypes(opts, "TEST")
+	err = runTypes(opts, "TEST")
 	require.NoError(t, err)
 
 	// Verify JSON output
@@ -194,12 +194,12 @@ func TestRunTypes_DescriptionTruncation(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := &api.Client{
-		BaseURL:    server.URL + "/rest/api/3",
-		Email:      "test@example.com",
-		APIToken:   "token",
-		HTTPClient: server.Client(),
-	}
+	client, err := api.New(api.ClientConfig{
+		URL:      server.URL,
+		Email:    "test@example.com",
+		APIToken: "token",
+	})
+	require.NoError(t, err)
 
 	var stdout bytes.Buffer
 	opts := &root.Options{
@@ -209,7 +209,7 @@ func TestRunTypes_DescriptionTruncation(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err := runTypes(opts, "TEST")
+	err = runTypes(opts, "TEST")
 	require.NoError(t, err)
 
 	output := stdout.String()

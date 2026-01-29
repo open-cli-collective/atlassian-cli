@@ -4,10 +4,13 @@ go 1.24.0
 
 require (
 	github.com/fatih/color v1.18.0
+	github.com/open-cli-collective/atlassian-go v0.0.0-00010101000000-000000000000
 	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.11.1
 	github.com/yuin/goldmark v1.7.16
 )
+
+replace github.com/open-cli-collective/atlassian-go => ../../shared
 
 require (
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect

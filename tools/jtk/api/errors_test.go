@@ -4,9 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 
+	sharederrors "github.com/open-cli-collective/atlassian-go/errors"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -130,12 +130,8 @@ func TestParseAPIError(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rec := httptest.NewRecorder()
-			rec.WriteHeader(tt.statusCode)
-			rec.WriteString(tt.body)
-			resp := rec.Result()
-
-			err := ParseAPIError(resp, []byte(tt.body))
+			// Use shared ParseAPIError which takes (statusCode, body)
+			err := sharederrors.ParseAPIError(tt.statusCode, []byte(tt.body))
 			assert.True(t, errors.Is(err, tt.wantErr), "expected %v, got %v", tt.wantErr, err)
 
 			if tt.wantMsg != "" {
@@ -147,13 +143,9 @@ func TestParseAPIError(t *testing.T) {
 
 func TestParseAPIError_418_NonStandard(t *testing.T) {
 	// Test a non-standard status code that isn't explicitly handled
-	rec := httptest.NewRecorder()
-	rec.WriteHeader(418) // I'm a teapot
 	body := `{"errorMessages": ["I'm a teapot"]}`
-	rec.WriteString(body)
-	resp := rec.Result()
 
-	err := ParseAPIError(resp, []byte(body))
+	err := sharederrors.ParseAPIError(418, []byte(body))
 
 	// Should return an APIError, not a sentinel error
 	var apiErr *APIError

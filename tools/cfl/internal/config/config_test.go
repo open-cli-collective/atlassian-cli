@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	sharedconfig "github.com/open-cli-collective/atlassian-go/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -284,18 +285,18 @@ func TestGetEnvWithFallback(t *testing.T) {
 	t.Run("returns primary when set", func(t *testing.T) {
 		os.Setenv("TEST_PRIMARY", "primary-value")
 		os.Setenv("TEST_FALLBACK", "fallback-value")
-		assert.Equal(t, "primary-value", getEnvWithFallback("TEST_PRIMARY", "TEST_FALLBACK"))
+		assert.Equal(t, "primary-value", sharedconfig.GetEnvWithFallback("TEST_PRIMARY", "TEST_FALLBACK"))
 	})
 
 	t.Run("returns fallback when primary empty", func(t *testing.T) {
 		os.Unsetenv("TEST_PRIMARY")
 		os.Setenv("TEST_FALLBACK", "fallback-value")
-		assert.Equal(t, "fallback-value", getEnvWithFallback("TEST_PRIMARY", "TEST_FALLBACK"))
+		assert.Equal(t, "fallback-value", sharedconfig.GetEnvWithFallback("TEST_PRIMARY", "TEST_FALLBACK"))
 	})
 
 	t.Run("returns empty when both empty", func(t *testing.T) {
 		os.Unsetenv("TEST_PRIMARY")
 		os.Unsetenv("TEST_FALLBACK")
-		assert.Equal(t, "", getEnvWithFallback("TEST_PRIMARY", "TEST_FALLBACK"))
+		assert.Equal(t, "", sharedconfig.GetEnvWithFallback("TEST_PRIMARY", "TEST_FALLBACK"))
 	})
 }

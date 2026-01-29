@@ -87,12 +87,12 @@ func TestClient_GetTransitions(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := &Client{
-		BaseURL:    server.URL,
-		Email:      "user@example.com",
-		APIToken:   "token",
-		HTTPClient: server.Client(),
-	}
+	client, err := New(ClientConfig{
+		URL:      server.URL,
+		Email:    "user@example.com",
+		APIToken: "token",
+	})
+	require.NoError(t, err)
 
 	transitions, err := client.GetTransitions("PROJ-123")
 	require.NoError(t, err)
@@ -167,12 +167,12 @@ func TestClient_GetTransitionsWithFields(t *testing.T) {
 			}))
 			defer server.Close()
 
-			client := &Client{
-				BaseURL:    server.URL,
-				Email:      "user@example.com",
-				APIToken:   "token",
-				HTTPClient: server.Client(),
-			}
+			client, err := New(ClientConfig{
+				URL:      server.URL,
+				Email:    "user@example.com",
+				APIToken: "token",
+			})
+			require.NoError(t, err)
 
 			transitions, err := client.GetTransitionsWithFields(tt.issueKey, tt.includeFields)
 			require.NoError(t, err)
@@ -238,14 +238,14 @@ func TestClient_DoTransition(t *testing.T) {
 			}))
 			defer server.Close()
 
-			client := &Client{
-				BaseURL:    server.URL,
-				Email:      "user@example.com",
-				APIToken:   "token",
-				HTTPClient: server.Client(),
-			}
+			client, err := New(ClientConfig{
+				URL:      server.URL,
+				Email:    "user@example.com",
+				APIToken: "token",
+			})
+			require.NoError(t, err)
 
-			err := client.DoTransition(tt.issueKey, tt.transitionID, tt.fields)
+			err = client.DoTransition(tt.issueKey, tt.transitionID, tt.fields)
 			require.NoError(t, err)
 			assert.Equal(t, tt.transitionID, receivedBody.Transition.ID)
 			if tt.fields != nil {

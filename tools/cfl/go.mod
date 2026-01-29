@@ -6,11 +6,14 @@ require (
 	github.com/JohannesKaufmann/html-to-markdown/v2 v2.5.0
 	github.com/charmbracelet/huh v0.8.0
 	github.com/fatih/color v1.18.0
+	github.com/open-cli-collective/atlassian-go v0.0.0-00010101000000-000000000000
 	github.com/spf13/cobra v1.8.1
 	github.com/stretchr/testify v1.10.0
 	github.com/yuin/goldmark v1.7.13
 	gopkg.in/yaml.v3 v3.0.1
 )
+
+replace github.com/open-cli-collective/atlassian-go => ../../shared
 
 require (
 	github.com/JohannesKaufmann/dom v0.2.0 // indirect

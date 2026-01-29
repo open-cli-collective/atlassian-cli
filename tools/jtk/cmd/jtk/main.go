@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/open-cli-collective/atlassian-go/exitcode"
+
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/boards"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/comments"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/completion"
@@ -14,7 +16,6 @@ import (
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/sprints"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/transitions"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/users"
-	"github.com/open-cli-collective/jira-ticket-cli/internal/exitcode"
 )
 
 func main() {

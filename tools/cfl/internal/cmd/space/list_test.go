@@ -279,3 +279,95 @@ func TestRunList_NullDescription(t *testing.T) {
 	err := runList(opts)
 	require.NoError(t, err)
 }
+
+func TestRunList_WithCursor(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "abc123", r.URL.Query().Get("cursor"))
+
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{
+			"results": [
+				{"id": "789012", "key": "DOCS", "name": "Documentation", "type": "global"}
+			]
+		}`))
+	}))
+	defer server.Close()
+
+	rootOpts := newTestRootOptions()
+	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
+	opts := &listOptions{
+		Options: rootOpts,
+		limit:   25,
+		cursor:  "abc123",
+	}
+
+	err := runList(opts)
+	require.NoError(t, err)
+}
+
+func TestRunList_DisplaysNextCursor(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{
+			"results": [
+				{"id": "123456", "key": "DEV", "name": "Development", "type": "global"}
+			],
+			"_links": {"next": "/wiki/api/v2/spaces?cursor=nextPageCursor123"}
+		}`))
+	}))
+	defer server.Close()
+
+	stderr := &bytes.Buffer{}
+	rootOpts := newTestRootOptions()
+	rootOpts.Stderr = stderr
+	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
+	opts := &listOptions{
+		Options: rootOpts,
+		limit:   25,
+	}
+
+	err := runList(opts)
+	require.NoError(t, err)
+	assert.Contains(t, stderr.String(), "nextPageCursor123")
+	assert.Contains(t, stderr.String(), "--cursor")
+}
+
+func TestExtractCursor(t *testing.T) {
+	tests := []struct {
+		name     string
+		nextLink string
+		want     string
+	}{
+		{
+			name:     "valid cursor",
+			nextLink: "/wiki/api/v2/spaces?cursor=abc123&limit=25",
+			want:     "abc123",
+		},
+		{
+			name:     "empty link",
+			nextLink: "",
+			want:     "",
+		},
+		{
+			name:     "no cursor param",
+			nextLink: "/wiki/api/v2/spaces?limit=25",
+			want:     "",
+		},
+		{
+			name:     "full URL",
+			nextLink: "https://example.atlassian.net/wiki/api/v2/spaces?cursor=xyz789",
+			want:     "xyz789",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := extractCursor(tt.nextLink)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}

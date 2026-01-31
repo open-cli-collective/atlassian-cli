@@ -3,7 +3,7 @@ package space
 import (
 	"context"
 	"fmt"
-	"os"
+	"net/url"
 
 	"github.com/spf13/cobra"
 
@@ -17,6 +17,7 @@ type listOptions struct {
 	*root.Options
 	limit     int
 	spaceType string
+	cursor    string
 }
 
 func newListCmd(rootOpts *root.Options) *cobra.Command {
@@ -34,7 +35,10 @@ func newListCmd(rootOpts *root.Options) *cobra.Command {
   cfl space list --type global
 
   # Output as JSON
-  cfl space list -o json`,
+  cfl space list -o json
+
+  # Paginate through results
+  cfl space list --cursor "eyJpZCI6MTIzfQ=="`,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			return runList(opts)
 		},
@@ -42,6 +46,7 @@ func newListCmd(rootOpts *root.Options) *cobra.Command {
 
 	cmd.Flags().IntVarP(&opts.limit, "limit", "l", 25, "Maximum number of spaces to return")
 	cmd.Flags().StringVarP(&opts.spaceType, "type", "t", "", "Filter by space type (global, personal)")
+	cmd.Flags().StringVar(&opts.cursor, "cursor", "", "Pagination cursor for next page")
 
 	return cmd
 }
@@ -71,8 +76,9 @@ func runList(opts *listOptions) error {
 	}
 
 	apiOpts := &api.ListSpacesOptions{
-		Limit: opts.limit,
-		Type:  opts.spaceType,
+		Limit:  opts.limit,
+		Type:   opts.spaceType,
+		Cursor: opts.cursor,
 	}
 
 	result, err := client.ListSpaces(context.Background(), apiOpts)
@@ -104,8 +110,25 @@ func runList(opts *listOptions) error {
 	_ = v.RenderList(headers, rows, result.HasMore())
 
 	if result.HasMore() && opts.Output != "json" {
-		fmt.Fprintf(os.Stderr, "\n(showing first %d results, use --limit to see more)\n", len(result.Results))
+		nextCursor := extractCursor(result.Links.Next)
+		if nextCursor != "" {
+			_, _ = fmt.Fprintf(opts.Stderr, "\nNext page: cfl space list --cursor %q\n", nextCursor)
+		} else {
+			_, _ = fmt.Fprintf(opts.Stderr, "\n(showing first %d results, use --limit to see more)\n", len(result.Results))
+		}
 	}
 
 	return nil
+}
+
+// extractCursor parses the cursor query parameter from a next link URL.
+func extractCursor(nextLink string) string {
+	if nextLink == "" {
+		return ""
+	}
+	parsed, err := url.Parse(nextLink)
+	if err != nil {
+		return ""
+	}
+	return parsed.Query().Get("cursor")
 }

@@ -104,8 +104,10 @@ func TestNewTestCmd_NoURL(t *testing.T) {
 	t.Setenv("ATLASSIAN_API_TOKEN", "")
 
 	// Use temp config dir to avoid picking up real config
+	// Must set both HOME and XDG_CONFIG_HOME for cross-platform support
 	tempDir := t.TempDir()
-	t.Setenv("HOME", tempDir) // This affects os.UserConfigDir() on Unix
+	t.Setenv("HOME", tempDir)
+	t.Setenv("XDG_CONFIG_HOME", tempDir)
 
 	opts := newTestRootOptions()
 

@@ -9,6 +9,7 @@ import (
 
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/attachment"
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/completion"
+	"github.com/open-cli-collective/confluence-cli/internal/cmd/configcmd"
 	initcmd "github.com/open-cli-collective/confluence-cli/internal/cmd/init"
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/page"
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
@@ -21,6 +22,7 @@ func main() {
 
 	root.RegisterCommands(cmd, opts,
 		initcmd.Register,
+		configcmd.Register,
 		page.Register,
 		space.Register,
 		attachment.Register,

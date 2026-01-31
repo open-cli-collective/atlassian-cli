@@ -4,7 +4,7 @@ package search
 import (
 	"context"
 	"fmt"
-	"os"
+	"regexp"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -171,15 +171,15 @@ func runSearch(opts *searchOptions) error {
 	}
 
 	// Render results
-	headers := []string{"ID", "TYPE", "SPACE", "TITLE"}
+	headers := []string{"ID", "TYPE", "SPACE KEY", "TITLE"}
 	var rows [][]string
 
 	for _, r := range result.Results {
-		space := r.ResultGlobalContainer.Title
+		spaceKey := extractSpaceKey(r.ResultGlobalContainer.DisplayURL)
 		rows = append(rows, []string{
 			r.Content.ID,
 			r.Content.Type,
-			view.Truncate(space, 15),
+			spaceKey,
 			view.Truncate(r.Content.Title, 50),
 		})
 	}
@@ -187,9 +187,22 @@ func runSearch(opts *searchOptions) error {
 	_ = v.RenderList(headers, rows, result.HasMore())
 
 	if result.HasMore() && opts.Output != "json" {
-		fmt.Fprintf(os.Stderr, "\n(showing %d of %d results, use --limit to see more)\n",
+		_, _ = fmt.Fprintf(opts.Stderr, "\n(showing %d of %d results, use --limit to see more)\n",
 			len(result.Results), result.TotalSize)
 	}
 
 	return nil
+}
+
+// spaceKeyRegex matches space keys in Confluence URLs.
+// Patterns: /spaces/SPACEKEY/... or /wiki/spaces/SPACEKEY/...
+var spaceKeyRegex = regexp.MustCompile(`/spaces/([^/]+)`)
+
+// extractSpaceKey extracts the space key from a Confluence displayUrl.
+func extractSpaceKey(displayURL string) string {
+	matches := spaceKeyRegex.FindStringSubmatch(displayURL)
+	if len(matches) >= 2 {
+		return matches[1]
+	}
+	return ""
 }

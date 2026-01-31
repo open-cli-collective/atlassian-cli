@@ -22,6 +22,7 @@ func Register(parent *cobra.Command, opts *root.Options) {
 	cmd.AddCommand(newSetCmd(opts))
 	cmd.AddCommand(newShowCmd(opts))
 	cmd.AddCommand(newClearCmd(opts))
+	cmd.AddCommand(newTestCmd(opts))
 
 	parent.AddCommand(cmd)
 }
@@ -198,4 +199,58 @@ func getAPITokenSource() string {
 		return "config"
 	}
 	return "-"
+}
+
+func newTestCmd(opts *root.Options) *cobra.Command {
+	return &cobra.Command{
+		Use:   "test",
+		Short: "Test connection to Jira",
+		Long: `Verify that jtk can connect to Jira with the current configuration.
+
+This command tests authentication and API access, providing clear
+pass/fail status and troubleshooting suggestions on failure.`,
+		Example: `  # Test connection
+  jtk config test`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			v := opts.View()
+
+			url := config.GetURL()
+			if url == "" {
+				v.Error("No Jira URL configured")
+				v.Println("")
+				v.Info("Configure with: jtk init")
+				v.Info("Or set environment variable: JIRA_URL")
+				return nil
+			}
+
+			v.Println("Testing connection to %s...", url)
+			v.Println("")
+
+			client, err := opts.APIClient()
+			if err != nil {
+				v.Error("Failed to create client: %v", err)
+				v.Println("")
+				v.Info("Check your configuration with: jtk config show")
+				v.Info("Reconfigure with: jtk init")
+				return nil
+			}
+
+			user, err := client.GetCurrentUser()
+			if err != nil {
+				v.Error("Authentication failed: %v", err)
+				v.Println("")
+				v.Info("Check your credentials with: jtk config show")
+				v.Info("Reconfigure with: jtk init")
+				return nil
+			}
+
+			v.Success("Authentication successful")
+			v.Success("API access verified")
+			v.Println("")
+			v.Println("Authenticated as: %s (%s)", user.DisplayName, user.EmailAddress)
+			v.Println("Account ID: %s", user.AccountID)
+
+			return nil
+		},
+	}
 }

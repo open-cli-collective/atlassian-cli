@@ -10,6 +10,7 @@ import (
 
 	"github.com/open-cli-collective/atlassian-go/view"
 
+	"github.com/open-cli-collective/confluence-cli/api"
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
 	"github.com/open-cli-collective/confluence-cli/pkg/md"
 )
@@ -90,13 +91,30 @@ func runView(pageID string, opts *viewOptions) error {
 
 	v := opts.View()
 
+	// Look up space key for display
+	spaceKey := ""
+	if page.SpaceID != "" {
+		space, err := client.GetSpace(context.Background(), page.SpaceID)
+		if err == nil && space != nil {
+			spaceKey = space.Key
+		}
+		// Graceful fallback: if GetSpace fails, we just won't show the key
+	}
+
 	if opts.Output == "json" {
-		return v.JSON(page)
+		// Enrich JSON output with spaceKey
+		enriched := enrichPageWithSpaceKey(page, spaceKey)
+		return v.JSON(enriched)
 	}
 
 	if !opts.contentOnly {
 		v.RenderKeyValue("Title", page.Title)
 		v.RenderKeyValue("ID", page.ID)
+		if spaceKey != "" {
+			v.RenderKeyValue("Space", fmt.Sprintf("%s (ID: %s)", spaceKey, page.SpaceID))
+		} else if page.SpaceID != "" {
+			v.RenderKeyValue("Space ID", page.SpaceID)
+		}
 		if page.Version != nil {
 			v.RenderKeyValue("Version", fmt.Sprintf("%d", page.Version.Number))
 		}
@@ -142,4 +160,18 @@ func openBrowser(url string) error {
 	}
 
 	return cmd.Start()
+}
+
+// enrichedPage wraps api.Page with an additional spaceKey field for JSON output.
+type enrichedPage struct {
+	*api.Page
+	SpaceKey string `json:"spaceKey,omitempty"`
+}
+
+// enrichPageWithSpaceKey creates an enriched page with the space key for JSON output.
+func enrichPageWithSpaceKey(page *api.Page, spaceKey string) *enrichedPage {
+	return &enrichedPage{
+		Page:     page,
+		SpaceKey: spaceKey,
+	}
 }

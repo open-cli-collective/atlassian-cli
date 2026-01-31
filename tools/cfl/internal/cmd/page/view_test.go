@@ -321,3 +321,96 @@ func TestRunView_ContentOnly_EmptyBody(t *testing.T) {
 	require.NoError(t, err)
 	// Output should be "(No content)" without metadata headers
 }
+
+func TestRunView_WithSpaceKey(t *testing.T) {
+	callCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		callCount++
+		if callCount == 1 {
+			// First call: GetPage
+			assert.Contains(t, r.URL.Path, "/pages/12345")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{
+				"id": "12345",
+				"title": "Test Page",
+				"spaceId": "98765",
+				"version": {"number": 1},
+				"body": {"storage": {"value": "<p>Content</p>"}},
+				"_links": {"webui": "/pages/12345"}
+			}`))
+		} else {
+			// Second call: GetSpace
+			assert.Contains(t, r.URL.Path, "/spaces/98765")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{
+				"id": "98765",
+				"key": "DEV",
+				"name": "Development",
+				"type": "global"
+			}`))
+		}
+	}))
+	defer server.Close()
+
+	rootOpts := newViewTestRootOptions()
+	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
+	opts := &viewOptions{
+		Options: rootOpts,
+	}
+
+	err := runView("12345", opts)
+	require.NoError(t, err)
+	assert.Equal(t, 2, callCount, "should call both GetPage and GetSpace")
+}
+
+func TestRunView_SpaceLookupFails_Graceful(t *testing.T) {
+	callCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		callCount++
+		if callCount == 1 {
+			// First call: GetPage
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{
+				"id": "12345",
+				"title": "Test Page",
+				"spaceId": "98765",
+				"version": {"number": 1},
+				"body": {"storage": {"value": "<p>Content</p>"}},
+				"_links": {"webui": "/pages/12345"}
+			}`))
+		} else {
+			// Second call: GetSpace - fails
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(`{"message": "Space not found"}`))
+		}
+	}))
+	defer server.Close()
+
+	rootOpts := newViewTestRootOptions()
+	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
+	opts := &viewOptions{
+		Options: rootOpts,
+	}
+
+	// Should succeed even if space lookup fails
+	err := runView("12345", opts)
+	require.NoError(t, err)
+}
+
+func TestEnrichPageWithSpaceKey(t *testing.T) {
+	page := &api.Page{
+		ID:      "12345",
+		Title:   "Test Page",
+		SpaceID: "98765",
+	}
+
+	enriched := enrichPageWithSpaceKey(page, "DEV")
+
+	assert.Equal(t, "12345", enriched.ID)
+	assert.Equal(t, "Test Page", enriched.Title)
+	assert.Equal(t, "DEV", enriched.SpaceKey)
+}

@@ -520,3 +520,85 @@ func TestRunSearch_LimitParameter(t *testing.T) {
 	err := runSearch(opts)
 	require.NoError(t, err)
 }
+
+func TestExtractSpaceKey(t *testing.T) {
+	tests := []struct {
+		name       string
+		displayURL string
+		want       string
+	}{
+		{
+			name:       "standard space URL",
+			displayURL: "/spaces/DEV/pages/12345",
+			want:       "DEV",
+		},
+		{
+			name:       "wiki prefixed URL",
+			displayURL: "/wiki/spaces/DOCS/overview",
+			want:       "DOCS",
+		},
+		{
+			name:       "full URL with domain",
+			displayURL: "https://example.atlassian.net/wiki/spaces/TEAM/pages/98765",
+			want:       "TEAM",
+		},
+		{
+			name:       "space key with numbers",
+			displayURL: "/spaces/PROJECT123/pages/456",
+			want:       "PROJECT123",
+		},
+		{
+			name:       "empty URL",
+			displayURL: "",
+			want:       "",
+		},
+		{
+			name:       "no spaces in URL",
+			displayURL: "/pages/12345",
+			want:       "",
+		},
+		{
+			name:       "blogpost URL",
+			displayURL: "/spaces/BLOG/blog/2024/01/post-title",
+			want:       "BLOG",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := extractSpaceKey(tt.displayURL)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestRunSearch_DisplaysSpaceKey(t *testing.T) {
+	server := mockSearchServer(t, `{
+		"results": [
+			{
+				"content": {"id": "12345", "type": "page", "status": "current", "title": "Test Page"},
+				"resultGlobalContainer": {"title": "Development", "displayUrl": "/spaces/DEV/pages/12345"}
+			}
+		],
+		"start": 0,
+		"size": 1,
+		"totalSize": 1
+	}`)
+	defer server.Close()
+
+	stdout := &bytes.Buffer{}
+	rootOpts := newTestRootOptions()
+	rootOpts.Stdout = stdout
+	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
+	opts := &searchOptions{
+		Options: rootOpts,
+		query:   "test",
+		limit:   25,
+	}
+
+	err := runSearch(opts)
+	require.NoError(t, err)
+	// The output should contain the space key "DEV" extracted from displayUrl
+}

@@ -1,10 +1,10 @@
 package initcmd
 
 import (
-	"bufio"
 	"fmt"
-	"strings"
+	"os"
 
+	"github.com/charmbracelet/huh"
 	"github.com/spf13/cobra"
 
 	sharedurl "github.com/open-cli-collective/atlassian-go/url"
@@ -49,79 +49,118 @@ Get your API token from: https://id.atlassian.com/manage-profile/security/api-to
 	parent.AddCommand(cmd)
 }
 
-func runInit(opts *root.Options, url, email, token string, noVerify bool) error {
+func runInit(opts *root.Options, prefillURL, prefillEmail, prefillToken string, noVerify bool) error {
 	v := opts.View()
-	reader := bufio.NewReader(opts.Stdin)
+	configPath := config.Path()
 
-	v.Println("Jira CLI Setup")
-	v.Println("")
-
-	// Check for existing config
+	// Load existing config for pre-population
 	existingCfg, _ := config.Load()
-	if existingCfg.URL != "" || existingCfg.Email != "" || existingCfg.APIToken != "" {
-		v.Warning("Existing configuration found at %s", config.Path())
-		v.Println("")
 
-		overwrite, err := promptYesNo(reader, "Overwrite existing configuration?", false)
+	// Check if config already exists
+	if _, err := os.Stat(configPath); err == nil {
+		var overwrite bool
+		err := huh.NewConfirm().
+			Title("Configuration already exists").
+			Description(fmt.Sprintf("Overwrite %s?", configPath)).
+			Value(&overwrite).
+			Run()
 		if err != nil {
 			return err
 		}
 		if !overwrite {
-			v.Info("Setup cancelled")
+			v.Info("Initialization cancelled.")
 			return nil
 		}
-		v.Println("")
 	}
 
-	// Prompt for URL if not provided
-	if url == "" {
-		v.Println("Enter your Jira URL")
-		v.Println("  Examples: https://mycompany.atlassian.net")
-		v.Println("            https://jira.internal.corp.com")
-		v.Println("")
+	// Initialize config with pre-filled values
+	// Priority: CLI flag > existing config value
+	cfg := &config.Config{}
 
-		var err error
-		url, err = promptRequired(reader, "URL")
-		if err != nil {
-			return err
-		}
-	}
-	url = sharedurl.NormalizeURL(url)
-
-	// Prompt for email if not provided
-	if email == "" {
-		v.Println("")
-		var err error
-		email, err = promptRequired(reader, "Email")
-		if err != nil {
-			return err
-		}
+	if prefillURL != "" {
+		cfg.URL = prefillURL
+	} else if existingCfg.URL != "" {
+		cfg.URL = existingCfg.URL
 	}
 
-	// Prompt for token if not provided
-	if token == "" {
-		v.Println("")
-		v.Println("Get your API token from:")
-		v.Println("  https://id.atlassian.com/manage-profile/security/api-tokens")
-		v.Println("")
-
-		var err error
-		token, err = promptRequired(reader, "API Token")
-		if err != nil {
-			return err
-		}
+	if prefillEmail != "" {
+		cfg.Email = prefillEmail
+	} else if existingCfg.Email != "" {
+		cfg.Email = existingCfg.Email
 	}
 
-	v.Println("")
+	if prefillToken != "" {
+		cfg.APIToken = prefillToken
+	} else if existingCfg.APIToken != "" {
+		cfg.APIToken = existingCfg.APIToken
+	}
+
+	if existingCfg.DefaultProject != "" {
+		cfg.DefaultProject = existingCfg.DefaultProject
+	}
+
+	// Build the form
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewInput().
+				Title("Jira URL").
+				Description("Your Jira instance URL").
+				Placeholder("https://mycompany.atlassian.net").
+				Value(&cfg.URL).
+				Validate(func(s string) error {
+					if s == "" {
+						return fmt.Errorf("URL is required")
+					}
+					return nil
+				}),
+
+			huh.NewInput().
+				Title("Email").
+				Description("Your Atlassian account email").
+				Placeholder("you@example.com").
+				Value(&cfg.Email).
+				Validate(func(s string) error {
+					if s == "" {
+						return fmt.Errorf("email is required")
+					}
+					return nil
+				}),
+
+			huh.NewInput().
+				Title("API Token").
+				Description("Generate at: id.atlassian.com/manage-profile/security/api-tokens").
+				EchoMode(huh.EchoModePassword).
+				Value(&cfg.APIToken).
+				Validate(func(s string) error {
+					if s == "" {
+						return fmt.Errorf("API token is required")
+					}
+					return nil
+				}),
+
+			huh.NewInput().
+				Title("Default Project (optional)").
+				Description("Default project key for commands").
+				Placeholder("MYPROJ").
+				Value(&cfg.DefaultProject),
+		),
+	)
+
+	if err := form.Run(); err != nil {
+		return err
+	}
+
+	// Normalize URL
+	cfg.URL = sharedurl.NormalizeURL(cfg.URL)
 
 	// Verify connection unless --no-verify
 	if !noVerify {
 		v.Println("Testing connection...")
 
 		client, err := api.New(api.ClientConfig{
-			URL:      url,
-			Email:    email,
-			APIToken: token,
+			URL:      cfg.URL,
+			Email:    cfg.Email,
+			APIToken: cfg.APIToken,
 		})
 		if err != nil {
 			return fmt.Errorf("failed to create client: %w", err)
@@ -135,61 +174,21 @@ func runInit(opts *root.Options, url, email, token string, noVerify bool) error 
 			return fmt.Errorf("authentication failed")
 		}
 
-		v.Success("Connected to %s", url)
+		v.Success("Connected to %s", cfg.URL)
 		v.Success("Authenticated as %s (%s)", user.DisplayName, user.EmailAddress)
 		v.Println("")
 	}
 
 	// Save configuration
-	cfg := &config.Config{
-		URL:      url,
-		Email:    email,
-		APIToken: token,
-	}
-
 	if err := config.Save(cfg); err != nil {
 		return fmt.Errorf("failed to save configuration: %w", err)
 	}
 
-	v.Success("Configuration saved to %s", config.Path())
+	v.Success("Configuration saved to %s", configPath)
 	v.Println("")
 	v.Println("Try it out:")
 	v.Println("  jtk me")
 	v.Println("  jtk issues list --project <PROJECT>")
 
 	return nil
-}
-
-func promptRequired(reader *bufio.Reader, label string) (string, error) {
-	for {
-		fmt.Printf("%s: ", label)
-		input, err := reader.ReadString('\n')
-		if err != nil {
-			return "", err
-		}
-		input = strings.TrimSpace(input)
-		if input != "" {
-			return input, nil
-		}
-		fmt.Printf("  %s is required\n", label)
-	}
-}
-
-func promptYesNo(reader *bufio.Reader, question string, defaultYes bool) (bool, error) {
-	suffix := " [y/N]: "
-	if defaultYes {
-		suffix = " [Y/n]: "
-	}
-
-	fmt.Print(question + suffix)
-	input, err := reader.ReadString('\n')
-	if err != nil {
-		return false, err
-	}
-	input = strings.TrimSpace(strings.ToLower(input))
-
-	if input == "" {
-		return defaultYes, nil
-	}
-	return input == "y" || input == "yes", nil
 }

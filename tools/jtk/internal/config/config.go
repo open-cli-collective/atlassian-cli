@@ -19,10 +19,11 @@ const (
 
 // Config holds the CLI configuration
 type Config struct {
-	URL      string `json:"url,omitempty"`
-	Domain   string `json:"domain,omitempty"` // Deprecated: use URL instead
-	Email    string `json:"email"`
-	APIToken string `json:"api_token"`
+	URL            string `json:"url,omitempty"`
+	Domain         string `json:"domain,omitempty"` // Deprecated: use URL instead
+	Email          string `json:"email"`
+	APIToken       string `json:"api_token"`
+	DefaultProject string `json:"default_project,omitempty"`
 }
 
 // configPath returns the path to the config file
@@ -169,6 +170,19 @@ func GetAPIToken() string {
 // IsConfigured returns true if all required config values are set
 func IsConfigured() bool {
 	return GetURL() != "" && GetEmail() != "" && GetAPIToken() != ""
+}
+
+// GetDefaultProject returns the default project from config or environment.
+// Precedence: JIRA_DEFAULT_PROJECT → config default_project
+func GetDefaultProject() string {
+	if v := os.Getenv("JIRA_DEFAULT_PROJECT"); v != "" {
+		return v
+	}
+	cfg, err := Load()
+	if err != nil {
+		return ""
+	}
+	return cfg.DefaultProject
 }
 
 // Path returns the path to the config file

@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -118,4 +120,119 @@ func TestNewTestCmd_NoURL(t *testing.T) {
 	// Error messages go to stderr
 	stderr := opts.Stderr.(*bytes.Buffer).String()
 	assert.Contains(t, stderr, "No Jira URL configured")
+}
+
+func TestMaskToken(t *testing.T) {
+	tests := []struct {
+		name  string
+		token string
+		want  string
+	}{
+		{"normal token", "abcd1234567890wxyz", "abcd********wxyz"},
+		{"short token", "abc", "********"},
+		{"exactly 8 chars", "12345678", "********"},
+		{"9 chars", "123456789", "1234********6789"},
+		{"empty token", "", ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := maskToken(tt.token)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestRunClear_WithConfirmation(t *testing.T) {
+	// Create a temp config file
+	// On macOS, UserConfigDir() returns ~/Library/Application Support
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+
+	configDir := filepath.Join(homeDir, "Library", "Application Support", "jira-ticket-cli")
+	require.NoError(t, os.MkdirAll(configDir, 0700))
+	configPath := filepath.Join(configDir, "config.json")
+	require.NoError(t, os.WriteFile(configPath, []byte(`{}`), 0600))
+
+	opts := newTestRootOptions()
+	clearOpts := &clearOptions{
+		Options: opts,
+		force:   false,
+		stdin:   strings.NewReader("y\n"),
+	}
+
+	err := runClear(clearOpts)
+	require.NoError(t, err)
+
+	// Verify file was deleted
+	_, err = os.Stat(configPath)
+	assert.True(t, os.IsNotExist(err))
+
+	stdout := opts.Stdout.(*bytes.Buffer).String()
+	assert.Contains(t, stdout, "Configuration file removed")
+}
+
+func TestRunClear_Cancelled(t *testing.T) {
+	// Create a temp config file
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+
+	configDir := filepath.Join(homeDir, "Library", "Application Support", "jira-ticket-cli")
+	require.NoError(t, os.MkdirAll(configDir, 0700))
+	configPath := filepath.Join(configDir, "config.json")
+	require.NoError(t, os.WriteFile(configPath, []byte(`{}`), 0600))
+
+	opts := newTestRootOptions()
+	clearOpts := &clearOptions{
+		Options: opts,
+		force:   false,
+		stdin:   strings.NewReader("n\n"),
+	}
+
+	err := runClear(clearOpts)
+	require.NoError(t, err)
+
+	// Verify file still exists
+	_, err = os.Stat(configPath)
+	assert.NoError(t, err)
+}
+
+func TestRunClear_Force(t *testing.T) {
+	// Create a temp config file
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+
+	configDir := filepath.Join(homeDir, "Library", "Application Support", "jira-ticket-cli")
+	require.NoError(t, os.MkdirAll(configDir, 0700))
+	configPath := filepath.Join(configDir, "config.json")
+	require.NoError(t, os.WriteFile(configPath, []byte(`{}`), 0600))
+
+	opts := newTestRootOptions()
+	clearOpts := &clearOptions{
+		Options: opts,
+		force:   true,
+		stdin:   strings.NewReader(""), // No input needed with --force
+	}
+
+	err := runClear(clearOpts)
+	require.NoError(t, err)
+
+	// Verify file was deleted
+	_, err = os.Stat(configPath)
+	assert.True(t, os.IsNotExist(err))
+}
+
+func TestGetDefaultProjectSource(t *testing.T) {
+	// Clear env vars
+	t.Setenv("JIRA_DEFAULT_PROJECT", "")
+
+	// Use temp home dir (macOS uses ~/Library/Application Support)
+	homeDir := t.TempDir()
+	t.Setenv("HOME", homeDir)
+
+	// No config, no env
+	assert.Equal(t, "-", getDefaultProjectSource())
+
+	// With env var
+	t.Setenv("JIRA_DEFAULT_PROJECT", "PROJ")
+	assert.Equal(t, "env (JIRA_DEFAULT_PROJECT)", getDefaultProjectSource())
 }

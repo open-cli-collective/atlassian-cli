@@ -1,11 +1,12 @@
 package configcmd
 
 import (
+	"fmt"
+	"io"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
-
-	sharedurl "github.com/open-cli-collective/atlassian-go/url"
 
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/config"
@@ -19,7 +20,6 @@ func Register(parent *cobra.Command, opts *root.Options) {
 		Long:  "Commands for managing jtk configuration and credentials.",
 	}
 
-	cmd.AddCommand(newSetCmd(opts))
 	cmd.AddCommand(newShowCmd(opts))
 	cmd.AddCommand(newClearCmd(opts))
 	cmd.AddCommand(newTestCmd(opts))
@@ -27,56 +27,14 @@ func Register(parent *cobra.Command, opts *root.Options) {
 	parent.AddCommand(cmd)
 }
 
-func newSetCmd(opts *root.Options) *cobra.Command {
-	var url, email, token string
-
-	cmd := &cobra.Command{
-		Use:   "set",
-		Short: "Set configuration values",
-		Long:  "Set Jira credentials. All values are required.",
-		Example: `  # Set all credentials (Jira Cloud)
-  jtk config set --url https://mycompany.atlassian.net --email user@example.com --token YOUR_API_TOKEN
-
-  # Self-hosted Jira
-  jtk config set --url https://jira.internal.corp.com --email user@example.com --token YOUR_API_TOKEN
-
-  # Using environment variables instead
-  export JIRA_URL=https://mycompany.atlassian.net
-  export JIRA_EMAIL=user@example.com
-  export JIRA_API_TOKEN=YOUR_API_TOKEN`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			v := opts.View()
-
-			cfg, err := config.Load()
-			if err != nil {
-				return err
-			}
-
-			if url != "" {
-				cfg.URL = sharedurl.NormalizeURL(url)
-				cfg.Domain = "" // Clear deprecated field when URL is set
-			}
-			if email != "" {
-				cfg.Email = email
-			}
-			if token != "" {
-				cfg.APIToken = token
-			}
-
-			if err := config.Save(cfg); err != nil {
-				return err
-			}
-
-			v.Success("Configuration saved to %s", config.Path())
-			return nil
-		},
+func maskToken(token string) string {
+	if token == "" {
+		return ""
 	}
-
-	cmd.Flags().StringVar(&url, "url", "", "Jira URL (e.g., 'https://mycompany.atlassian.net' or 'https://jira.internal.corp.com')")
-	cmd.Flags().StringVar(&email, "email", "", "Email address for authentication")
-	cmd.Flags().StringVar(&token, "token", "", "API token (create at https://id.atlassian.com/manage-profile/security/api-tokens)")
-
-	return cmd
+	if len(token) <= 8 {
+		return "********"
+	}
+	return token[:4] + "********" + token[len(token)-4:]
 }
 
 func newShowCmd(opts *root.Options) *cobra.Command {
@@ -90,29 +48,24 @@ func newShowCmd(opts *root.Options) *cobra.Command {
 			url := config.GetURL()
 			email := config.GetEmail()
 			token := config.GetAPIToken()
+			defaultProject := config.GetDefaultProject()
 
-			// Mask the token
-			maskedToken := ""
-			if token != "" {
-				if len(token) > 8 {
-					maskedToken = token[:4] + "..." + token[len(token)-4:]
-				} else {
-					maskedToken = "****"
-				}
-			}
+			maskedToken := maskToken(token)
 
 			headers := []string{"KEY", "VALUE", "SOURCE"}
 			rows := [][]string{
 				{"url", url, getURLSource()},
 				{"email", email, getEmailSource()},
 				{"api_token", maskedToken, getAPITokenSource()},
+				{"default_project", defaultProject, getDefaultProjectSource()},
 			}
 
 			data := map[string]string{
-				"url":       url,
-				"email":     email,
-				"api_token": maskedToken,
-				"path":      config.Path(),
+				"url":             url,
+				"email":           email,
+				"api_token":       maskedToken,
+				"default_project": defaultProject,
+				"path":            config.Path(),
 			}
 
 			if err := v.Render(headers, rows, data); err != nil {
@@ -125,22 +78,93 @@ func newShowCmd(opts *root.Options) *cobra.Command {
 	}
 }
 
+type clearOptions struct {
+	*root.Options
+	force bool
+	stdin io.Reader // For testing
+}
+
 func newClearCmd(opts *root.Options) *cobra.Command {
-	return &cobra.Command{
+	clearOpts := &clearOptions{
+		Options: opts,
+		stdin:   os.Stdin,
+	}
+
+	cmd := &cobra.Command{
 		Use:   "clear",
 		Short: "Clear stored configuration",
-		Long:  "Remove the stored configuration file. Environment variables will still work.",
+		Long: `Remove the stored configuration file.
+
+Note: Environment variables (JIRA_*, ATLASSIAN_*) will still be used if set.`,
+		Example: `  # Clear configuration (with confirmation)
+  jtk config clear
+
+  # Clear without confirmation
+  jtk config clear --force`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			v := opts.View()
-
-			if err := config.Clear(); err != nil {
-				return err
-			}
-
-			v.Success("Configuration cleared")
-			return nil
+			return runClear(clearOpts)
 		},
 	}
+
+	cmd.Flags().BoolVarP(&clearOpts.force, "force", "f", false, "Skip confirmation prompt")
+
+	return cmd
+}
+
+func runClear(opts *clearOptions) error {
+	v := opts.View()
+	configPath := config.Path()
+
+	// Check if config file exists
+	if _, err := os.Stat(configPath); os.IsNotExist(err) {
+		v.Info("No configuration file found at %s", configPath)
+		return nil
+	}
+
+	// Confirm unless --force
+	if !opts.force {
+		fmt.Printf("This will remove: %s\n", configPath)
+		fmt.Print("Are you sure? [y/N]: ")
+
+		var response string
+		_, err := fmt.Fscanln(opts.stdin, &response)
+		if err != nil && err.Error() != "unexpected newline" {
+			return err
+		}
+
+		response = strings.TrimSpace(strings.ToLower(response))
+		if response != "y" && response != "yes" {
+			v.Info("Cancelled.")
+			return nil
+		}
+	}
+
+	if err := config.Clear(); err != nil {
+		return err
+	}
+
+	v.Success("Configuration file removed: %s", configPath)
+
+	// Check for active environment variables
+	envVars := []string{}
+	if os.Getenv("JIRA_URL") != "" || os.Getenv("ATLASSIAN_URL") != "" {
+		envVars = append(envVars, "URL")
+	}
+	if os.Getenv("JIRA_EMAIL") != "" || os.Getenv("ATLASSIAN_EMAIL") != "" {
+		envVars = append(envVars, "Email")
+	}
+	if os.Getenv("JIRA_API_TOKEN") != "" || os.Getenv("ATLASSIAN_API_TOKEN") != "" {
+		envVars = append(envVars, "API Token")
+	}
+
+	if len(envVars) > 0 {
+		fmt.Println()
+		fmt.Printf("Note: The following are still configured via environment variables: %s\n",
+			strings.Join(envVars, ", "))
+		fmt.Println("These will continue to be used. Unset them if you want to fully clear configuration.")
+	}
+
+	return nil
 }
 
 func getURLSource() string {
@@ -196,6 +220,20 @@ func getAPITokenSource() string {
 		return "-"
 	}
 	if cfg.APIToken != "" {
+		return "config"
+	}
+	return "-"
+}
+
+func getDefaultProjectSource() string {
+	if os.Getenv("JIRA_DEFAULT_PROJECT") != "" {
+		return "env (JIRA_DEFAULT_PROJECT)"
+	}
+	cfg, err := config.Load()
+	if err != nil {
+		return "-"
+	}
+	if cfg.DefaultProject != "" {
 		return "config"
 	}
 	return "-"

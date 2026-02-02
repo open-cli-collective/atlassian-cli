@@ -7,8 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `init` command for guided setup wizard ([#48](https://github.com/open-cli-collective/atlassian-cli/pull/48))
+- `issues move` command to move issues between projects ([#51](https://github.com/open-cli-collective/atlassian-cli/pull/51))
+- `attachments` command for listing issue attachments ([#50](https://github.com/open-cli-collective/atlassian-cli/pull/50))
+- Wiki markup detection and automatic conversion ([#49](https://github.com/open-cli-collective/atlassian-cli/pull/49))
+
 ### Changed
 
+- Improved init/config UX with huh forms and --force flag on clear ([#55](https://github.com/open-cli-collective/atlassian-cli/pull/55))
 - **Binary renamed to `jtk`** - The CLI binary is now `jtk` (short for jira-ticket-cli). Install via `brew install jira-ticket-cli`, run with `jtk`. ([#41](https://github.com/open-cli-collective/jira-ticket-cli/pull/41))
 - Module path migrated to `github.com/open-cli-collective/jira-ticket-cli` ([#39](https://github.com/open-cli-collective/jira-ticket-cli/pull/39))
 

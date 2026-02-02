@@ -37,7 +37,7 @@ jobs:
         with:
           distribution: goreleaser
           version: '~> v2'
-          args: release --clean --skip=changelog --config .goreleaser-cfl.yml
+          args: release --clean --config .goreleaser-cfl.yml
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAP_GITHUB_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}

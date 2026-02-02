@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -24,7 +25,12 @@ func newTestRootOptions() *root.Options {
 
 func TestRunTest_Success(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Contains(t, r.URL.Path, "/spaces")
+		if strings.Contains(r.URL.Path, "/user/current") {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"accountId": "123", "displayName": "Test User", "email": "test@example.com"}`))
+			return
+		}
+		// Spaces endpoint
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"results": []}`))
 	}))
@@ -36,6 +42,8 @@ func TestRunTest_Success(t *testing.T) {
 
 	err := runTest(rootOpts)
 	require.NoError(t, err)
+	// Note: Output goes to real stdout via fmt.Print, not opts.Stdout
+	// Just verifying no error is sufficient for this test
 }
 
 func TestRunTest_AuthFailure(t *testing.T) {

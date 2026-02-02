@@ -54,7 +54,35 @@ func runTest(opts *root.Options) error {
 
 	fmt.Println("success!")
 	fmt.Println()
-	fmt.Println("Your cfl configuration is working correctly.")
+
+	// Get current user details
+	user, err := client.GetCurrentUser(context.Background())
+	if err != nil {
+		// User details failed but connection worked - show basic success
+		fmt.Println("Your cfl configuration is working correctly.")
+		return nil
+	}
+
+	fmt.Println("Authentication successful")
+	fmt.Println("API access verified")
+	fmt.Println()
+
+	// Display user info - try DisplayName first, fall back to PublicName
+	displayName := user.DisplayName
+	if displayName == "" {
+		displayName = user.PublicName
+	}
+
+	if displayName != "" {
+		if user.Email != "" {
+			fmt.Printf("Authenticated as: %s (%s)\n", displayName, user.Email)
+		} else {
+			fmt.Printf("Authenticated as: %s\n", displayName)
+		}
+	}
+	if user.AccountID != "" {
+		fmt.Printf("Account ID: %s\n", user.AccountID)
+	}
 
 	return nil
 }

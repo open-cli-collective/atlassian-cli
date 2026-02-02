@@ -173,3 +173,12 @@ func (e *ErrorResponse) Error() string {
 	}
 	return e.Message
 }
+
+// User represents a Confluence user.
+type User struct {
+	AccountID   string `json:"accountId"`
+	AccountType string `json:"accountType,omitempty"`
+	Email       string `json:"email,omitempty"`
+	PublicName  string `json:"publicName,omitempty"`
+	DisplayName string `json:"displayName,omitempty"`
+}

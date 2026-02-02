@@ -4,7 +4,7 @@ project_name: cfl
 
 before:
   hooks:
-    - go mod tidy
+    - go mod tidy -C tools/cfl
     - go test ./tools/cfl/...
 
 builds:

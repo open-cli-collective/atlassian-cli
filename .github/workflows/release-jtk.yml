@@ -37,7 +37,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAP_GITHUB_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
-          GORELEASER_CURRENT_TAG: ${{ github.ref_name }}
+          # Use semver-compatible tag for GoReleaser (strips jtk- prefix)
+          GORELEASER_CURRENT_TAG: v${{ steps.get_version.outputs.version }}
 
   chocolatey:
     needs: goreleaser

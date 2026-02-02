@@ -2,6 +2,9 @@ version: 2
 
 project_name: cfl
 
+monorepo:
+  tag_prefix: cfl-v
+
 before:
   hooks:
     - go mod tidy

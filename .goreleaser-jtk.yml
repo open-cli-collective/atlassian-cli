@@ -2,6 +2,9 @@ version: 2
 
 project_name: jtk
 
+monorepo:
+  tag_prefix: jtk-v
+
 before:
   hooks:
     - go mod tidy

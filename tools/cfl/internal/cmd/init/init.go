@@ -59,6 +59,12 @@ To generate an API token:
 func runInit(prefillURL, prefillEmail string, noVerify bool) error {
 	configPath := config.DefaultConfigPath()
 
+	// Load existing config for pre-population
+	existingCfg, _ := config.Load(configPath)
+	if existingCfg == nil {
+		existingCfg = &config.Config{}
+	}
+
 	// Check if config already exists
 	if _, err := os.Stat(configPath); err == nil {
 		var overwrite bool
@@ -78,12 +84,26 @@ func runInit(prefillURL, prefillEmail string, noVerify bool) error {
 
 	cfg := &config.Config{}
 
-	// Use prefilled values or prompt
+	// Pre-fill from existing config, then override with CLI flags
+	// Priority: CLI flag > existing config value
 	if prefillURL != "" {
 		cfg.URL = prefillURL
+	} else if existingCfg.URL != "" {
+		cfg.URL = existingCfg.URL
 	}
+
 	if prefillEmail != "" {
 		cfg.Email = prefillEmail
+	} else if existingCfg.Email != "" {
+		cfg.Email = existingCfg.Email
+	}
+
+	if existingCfg.APIToken != "" {
+		cfg.APIToken = existingCfg.APIToken
+	}
+
+	if existingCfg.DefaultSpace != "" {
+		cfg.DefaultSpace = existingCfg.DefaultSpace
 	}
 
 	// Build the form

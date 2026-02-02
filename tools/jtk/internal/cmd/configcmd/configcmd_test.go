@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -12,6 +14,7 @@ import (
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/config"
 )
 
 func newTestRootOptions() *root.Options {
@@ -118,4 +121,121 @@ func TestNewTestCmd_NoURL(t *testing.T) {
 	// Error messages go to stderr
 	stderr := opts.Stderr.(*bytes.Buffer).String()
 	assert.Contains(t, stderr, "No Jira URL configured")
+}
+
+func TestMaskToken(t *testing.T) {
+	tests := []struct {
+		name  string
+		token string
+		want  string
+	}{
+		{"normal token", "abcd1234567890wxyz", "abcd********wxyz"},
+		{"short token", "abc", "********"},
+		{"exactly 8 chars", "12345678", "********"},
+		{"9 chars", "123456789", "1234********6789"},
+		{"empty token", "", ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := maskToken(tt.token)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func getConfigDir(t *testing.T) string {
+	// os.UserConfigDir() returns different paths per platform:
+	// - macOS: $HOME/Library/Application Support
+	// - Linux: $XDG_CONFIG_HOME or $HOME/.config
+	// We set HOME and let the config package derive the path
+	tempDir := t.TempDir()
+	t.Setenv("HOME", tempDir)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(tempDir, ".config"))
+
+	// Get the actual config path the config package will use
+	configPath := config.Path()
+	return filepath.Dir(configPath)
+}
+
+func TestRunClear_WithConfirmation(t *testing.T) {
+	configDir := getConfigDir(t)
+	require.NoError(t, os.MkdirAll(configDir, 0700))
+	configPath := filepath.Join(configDir, "config.json")
+	require.NoError(t, os.WriteFile(configPath, []byte(`{}`), 0600))
+
+	opts := newTestRootOptions()
+	clearOpts := &clearOptions{
+		Options: opts,
+		force:   false,
+		stdin:   strings.NewReader("y\n"),
+	}
+
+	err := runClear(clearOpts)
+	require.NoError(t, err)
+
+	// Verify file was deleted
+	_, err = os.Stat(configPath)
+	assert.True(t, os.IsNotExist(err))
+
+	stdout := opts.Stdout.(*bytes.Buffer).String()
+	assert.Contains(t, stdout, "Configuration file removed")
+}
+
+func TestRunClear_Cancelled(t *testing.T) {
+	configDir := getConfigDir(t)
+	require.NoError(t, os.MkdirAll(configDir, 0700))
+	configPath := filepath.Join(configDir, "config.json")
+	require.NoError(t, os.WriteFile(configPath, []byte(`{}`), 0600))
+
+	opts := newTestRootOptions()
+	clearOpts := &clearOptions{
+		Options: opts,
+		force:   false,
+		stdin:   strings.NewReader("n\n"),
+	}
+
+	err := runClear(clearOpts)
+	require.NoError(t, err)
+
+	// Verify file still exists
+	_, err = os.Stat(configPath)
+	assert.NoError(t, err)
+}
+
+func TestRunClear_Force(t *testing.T) {
+	configDir := getConfigDir(t)
+	require.NoError(t, os.MkdirAll(configDir, 0700))
+	configPath := filepath.Join(configDir, "config.json")
+	require.NoError(t, os.WriteFile(configPath, []byte(`{}`), 0600))
+
+	opts := newTestRootOptions()
+	clearOpts := &clearOptions{
+		Options: opts,
+		force:   true,
+		stdin:   strings.NewReader(""), // No input needed with --force
+	}
+
+	err := runClear(clearOpts)
+	require.NoError(t, err)
+
+	// Verify file was deleted
+	_, err = os.Stat(configPath)
+	assert.True(t, os.IsNotExist(err))
+}
+
+func TestGetDefaultProjectSource(t *testing.T) {
+	// Clear env vars
+	t.Setenv("JIRA_DEFAULT_PROJECT", "")
+
+	// Use temp dir for cross-platform behavior
+	tempDir := t.TempDir()
+	t.Setenv("HOME", tempDir)
+	t.Setenv("XDG_CONFIG_HOME", tempDir)
+
+	// No config, no env
+	assert.Equal(t, "-", getDefaultProjectSource())
+
+	// With env var
+	t.Setenv("JIRA_DEFAULT_PROJECT", "PROJ")
+	assert.Equal(t, "env (JIRA_DEFAULT_PROJECT)", getDefaultProjectSource())
 }

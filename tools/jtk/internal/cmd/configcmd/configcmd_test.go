@@ -14,6 +14,7 @@ import (
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/config"
 )
 
 func newTestRootOptions() *root.Options {
@@ -142,13 +143,22 @@ func TestMaskToken(t *testing.T) {
 	}
 }
 
-func TestRunClear_WithConfirmation(t *testing.T) {
-	// Create a temp config file
-	// On macOS, UserConfigDir() returns ~/Library/Application Support
-	homeDir := t.TempDir()
-	t.Setenv("HOME", homeDir)
+func getConfigDir(t *testing.T) string {
+	// os.UserConfigDir() returns different paths per platform:
+	// - macOS: $HOME/Library/Application Support
+	// - Linux: $XDG_CONFIG_HOME or $HOME/.config
+	// We set HOME and let the config package derive the path
+	tempDir := t.TempDir()
+	t.Setenv("HOME", tempDir)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(tempDir, ".config"))
 
-	configDir := filepath.Join(homeDir, "Library", "Application Support", "jira-ticket-cli")
+	// Get the actual config path the config package will use
+	configPath := config.Path()
+	return filepath.Dir(configPath)
+}
+
+func TestRunClear_WithConfirmation(t *testing.T) {
+	configDir := getConfigDir(t)
 	require.NoError(t, os.MkdirAll(configDir, 0700))
 	configPath := filepath.Join(configDir, "config.json")
 	require.NoError(t, os.WriteFile(configPath, []byte(`{}`), 0600))
@@ -172,11 +182,7 @@ func TestRunClear_WithConfirmation(t *testing.T) {
 }
 
 func TestRunClear_Cancelled(t *testing.T) {
-	// Create a temp config file
-	homeDir := t.TempDir()
-	t.Setenv("HOME", homeDir)
-
-	configDir := filepath.Join(homeDir, "Library", "Application Support", "jira-ticket-cli")
+	configDir := getConfigDir(t)
 	require.NoError(t, os.MkdirAll(configDir, 0700))
 	configPath := filepath.Join(configDir, "config.json")
 	require.NoError(t, os.WriteFile(configPath, []byte(`{}`), 0600))
@@ -197,11 +203,7 @@ func TestRunClear_Cancelled(t *testing.T) {
 }
 
 func TestRunClear_Force(t *testing.T) {
-	// Create a temp config file
-	homeDir := t.TempDir()
-	t.Setenv("HOME", homeDir)
-
-	configDir := filepath.Join(homeDir, "Library", "Application Support", "jira-ticket-cli")
+	configDir := getConfigDir(t)
 	require.NoError(t, os.MkdirAll(configDir, 0700))
 	configPath := filepath.Join(configDir, "config.json")
 	require.NoError(t, os.WriteFile(configPath, []byte(`{}`), 0600))
@@ -225,9 +227,10 @@ func TestGetDefaultProjectSource(t *testing.T) {
 	// Clear env vars
 	t.Setenv("JIRA_DEFAULT_PROJECT", "")
 
-	// Use temp home dir (macOS uses ~/Library/Application Support)
-	homeDir := t.TempDir()
-	t.Setenv("HOME", homeDir)
+	// Use temp dir for cross-platform behavior
+	tempDir := t.TempDir()
+	t.Setenv("HOME", tempDir)
+	t.Setenv("XDG_CONFIG_HOME", tempDir)
 
 	// No config, no env
 	assert.Equal(t, "-", getDefaultProjectSource())

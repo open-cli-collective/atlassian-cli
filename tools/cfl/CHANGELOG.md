@@ -1,5 +1,17 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- `config show`, `config test`, `config clear` commands ([#47](https://github.com/open-cli-collective/atlassian-cli/pull/47))
+- Space key display in page view and search results ([#46](https://github.com/open-cli-collective/atlassian-cli/pull/46))
+- Pagination cursor support for space list ([#45](https://github.com/open-cli-collective/atlassian-cli/pull/45))
+
+### Changed
+
+- Improved init and config test UX with user details display ([#56](https://github.com/open-cli-collective/atlassian-cli/pull/56))
+
 ## [0.9.0](https://github.com/open-cli-collective/confluence-cli/compare/v0.8.1...v0.9.0) (2026-01-16)
 
 

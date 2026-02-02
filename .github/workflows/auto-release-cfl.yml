@@ -11,8 +11,8 @@ on:
 jobs:
   create-tag:
     runs-on: ubuntu-latest
-    # Only create release for feat: or fix: commits
-    if: startsWith(github.event.head_commit.message, 'feat:') || startsWith(github.event.head_commit.message, 'fix:')
+    # Only create release for feat or fix commits (supports scoped conventional commits like feat(cfl):)
+    if: startsWith(github.event.head_commit.message, 'feat') || startsWith(github.event.head_commit.message, 'fix')
     steps:
       - uses: actions/checkout@v4
         with:

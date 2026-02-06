@@ -66,6 +66,7 @@ func runCopy(pageID string, opts *copyOptions) error {
 
 	destSpace := opts.space
 	if destSpace == "" {
+		// nil opts: body content is not needed, only SpaceID for determining destination
 		sourcePage, err := client.GetPage(context.Background(), pageID, nil)
 		if err != nil {
 			return fmt.Errorf("failed to get source page: %w", err)

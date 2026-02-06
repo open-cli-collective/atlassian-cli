@@ -27,7 +27,11 @@ func newListCmd(rootOpts *root.Options) *cobra.Command {
 		Use:     "list",
 		Aliases: []string{"ls"},
 		Short:   "List pages in a space",
-		Long:    `List pages in a Confluence space.`,
+		Long: `List pages in a Confluence space.
+
+Shows page metadata (ID, title, status, version). Page body content
+is not included in list output. Use 'cfl page view <id>' to see
+page content.`,
 		Example: `  # List pages in a space
   cfl page list --space DEV
 

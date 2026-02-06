@@ -2,8 +2,10 @@ package page
 
 import (
 	"bytes"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -26,6 +28,7 @@ func TestRunView_Success(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Contains(t, r.URL.Path, "/pages/12345")
 		assert.Equal(t, "GET", r.Method)
+		assert.Equal(t, "storage", r.URL.Query().Get("body-format"), "must request body-format=storage to get page content")
 
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{
@@ -413,4 +416,41 @@ func TestEnrichPageWithSpaceKey(t *testing.T) {
 	assert.Equal(t, "12345", enriched.ID)
 	assert.Equal(t, "Test Page", enriched.Title)
 	assert.Equal(t, "DEV", enriched.SpaceKey)
+}
+
+func TestTruncateContent(t *testing.T) {
+	t.Run("short content is not truncated", func(t *testing.T) {
+		opts := &viewOptions{}
+		result := truncateContent("short", opts)
+		assert.Equal(t, "short", result)
+	})
+
+	t.Run("long content is truncated by default", func(t *testing.T) {
+		opts := &viewOptions{}
+		long := strings.Repeat("x", maxViewChars+100)
+		result := truncateContent(long, opts)
+		assert.Len(t, strings.SplitN(result, "\n\n... [truncated", 2)[0], maxViewChars)
+		assert.Contains(t, result, fmt.Sprintf("... [truncated at %d chars, use --full for complete text]", maxViewChars))
+	})
+
+	t.Run("--full bypasses truncation", func(t *testing.T) {
+		opts := &viewOptions{full: true}
+		long := strings.Repeat("x", maxViewChars+100)
+		result := truncateContent(long, opts)
+		assert.Equal(t, long, result)
+	})
+
+	t.Run("--content-only implies full", func(t *testing.T) {
+		opts := &viewOptions{contentOnly: true}
+		long := strings.Repeat("x", maxViewChars+100)
+		result := truncateContent(long, opts)
+		assert.Equal(t, long, result)
+	})
+
+	t.Run("content at exact limit is not truncated", func(t *testing.T) {
+		opts := &viewOptions{}
+		exact := strings.Repeat("x", maxViewChars)
+		result := truncateContent(exact, opts)
+		assert.Equal(t, exact, result)
+	})
 }

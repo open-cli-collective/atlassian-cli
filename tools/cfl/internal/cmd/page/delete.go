@@ -45,6 +45,7 @@ func runDelete(pageID string, opts *deleteOptions) error {
 		return err
 	}
 
+	// nil opts: body content is not needed, only title for the confirmation prompt
 	page, err := client.GetPage(context.Background(), pageID, nil)
 	if err != nil {
 		return fmt.Errorf("failed to get page: %w", err)

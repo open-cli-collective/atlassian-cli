@@ -100,16 +100,21 @@ func runView(pageID string, opts *viewOptions) error {
 		return err
 	}
 
+	// --web only needs page links, not body content
+	if opts.web {
+		page, err := client.GetPage(context.Background(), pageID, nil)
+		if err != nil {
+			return fmt.Errorf("failed to get page: %w", err)
+		}
+		url := cfg.URL + page.Links.WebUI
+		return openBrowser(url)
+	}
+
 	page, err := client.GetPage(context.Background(), pageID, &api.GetPageOptions{
 		BodyFormat: "storage",
 	})
 	if err != nil {
 		return fmt.Errorf("failed to get page: %w", err)
-	}
-
-	if opts.web {
-		url := cfg.URL + page.Links.WebUI
-		return openBrowser(url)
 	}
 
 	v := opts.View()
@@ -169,13 +174,15 @@ func runView(pageID string, opts *viewOptions) error {
 }
 
 // truncateContent truncates content if it exceeds the character limit.
+// Uses rune count to avoid splitting multi-byte UTF-8 characters.
 // --content-only implies --full since it is intended for piping.
 func truncateContent(content string, opts *viewOptions) string {
 	if opts.full || opts.contentOnly {
 		return content
 	}
-	if len(content) > maxViewChars {
-		return content[:maxViewChars] + fmt.Sprintf("\n\n... [truncated at %d chars, use --full for complete text]", maxViewChars)
+	runes := []rune(content)
+	if len(runes) > maxViewChars {
+		return string(runes[:maxViewChars]) + fmt.Sprintf("\n\n... [truncated at %d chars, use --full for complete text]", maxViewChars)
 	}
 	return content
 }

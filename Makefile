@@ -1,4 +1,4 @@
-.PHONY: build test lint all build-cfl build-jtk test-shared lint-shared
+.PHONY: build test lint all build-cfl build-jtk test-shared lint-shared install-hooks
 
 all: build test lint
 
@@ -28,3 +28,8 @@ test-shared:
 
 lint-shared:
 	cd shared && golangci-lint run
+
+install-hooks:
+	cp hooks/pre-commit .git/hooks/pre-commit
+	chmod +x .git/hooks/pre-commit
+	@echo "Pre-commit hook installed."

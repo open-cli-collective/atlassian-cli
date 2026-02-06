@@ -24,24 +24,27 @@ func Register(parent *cobra.Command, opts *root.Options) {
 
 func newListCmd(opts *root.Options) *cobra.Command {
 	var maxResults int
+	var full bool
 
 	cmd := &cobra.Command{
-		Use:     "list <issue-key>",
-		Short:   "List comments on an issue",
-		Long:    "List all comments on a specific issue.",
-		Example: `  jtk comments list PROJ-123`,
-		Args:    cobra.ExactArgs(1),
+		Use:   "list <issue-key>",
+		Short: "List comments on an issue",
+		Long:  "List all comments on a specific issue.",
+		Example: `  jtk comments list PROJ-123
+  jtk comments list PROJ-123 --full`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runList(opts, args[0], maxResults)
+			return runList(opts, args[0], maxResults, full)
 		},
 	}
 
 	cmd.Flags().IntVarP(&maxResults, "max", "m", 50, "Maximum number of comments")
+	cmd.Flags().BoolVar(&full, "full", false, "Show full comment bodies without truncation")
 
 	return cmd
 }
 
-func runList(opts *root.Options, issueKey string, maxResults int) error {
+func runList(opts *root.Options, issueKey string, maxResults int, full bool) error {
 	v := opts.View()
 
 	client, err := opts.APIClient()
@@ -63,6 +66,24 @@ func runList(opts *root.Options, issueKey string, maxResults int) error {
 		return v.JSON(result.Comments)
 	}
 
+	// Full mode: display each comment with complete body text
+	if full {
+		for i, c := range result.Comments {
+			if i > 0 {
+				v.Println("---")
+			}
+			body := ""
+			if c.Body != nil {
+				body = c.Body.ToPlainText()
+			}
+			v.Println("ID:      %s", c.ID)
+			v.Println("Author:  %s", c.Author.DisplayName)
+			v.Println("Created: %s", formatTime(c.Created))
+			v.Println("Body:    %s", body)
+		}
+		return nil
+	}
+
 	headers := []string{"ID", "AUTHOR", "CREATED", "BODY"}
 	var rows [][]string
 
@@ -70,8 +91,8 @@ func runList(opts *root.Options, issueKey string, maxResults int) error {
 		body := ""
 		if c.Body != nil {
 			body = c.Body.ToPlainText()
-			if len(body) > 50 {
-				body = body[:50] + "..."
+			if len(body) > 100 {
+				body = body[:100] + "... [truncated, use --full for complete text]"
 			}
 		}
 

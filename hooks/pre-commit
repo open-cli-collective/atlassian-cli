@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Pre-commit hook: runs gofmt on staged .go files.
+# Install with: make install-hooks
+
+set -euo pipefail
+
+staged_go_files=$(git diff --cached --name-only --diff-filter=ACM -- '*.go' || true)
+
+if [ -z "$staged_go_files" ]; then
+  exit 0
+fi
+
+unformatted=$(echo "$staged_go_files" | xargs gofmt -l 2>/dev/null || true)
+
+if [ -n "$unformatted" ]; then
+  echo "gofmt: the following files are not properly formatted:"
+  echo "$unformatted"
+  echo ""
+  echo "Run 'gofmt -w' on these files and re-stage them."
+  exit 1
+fi

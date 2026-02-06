@@ -57,9 +57,12 @@ nfpms:
       - src: tools/jtk/LICENSE
         dst: /usr/share/licenses/jtk/LICENSE
 
-# Homebrew cask with auto-quarantine removal for unsigned binaries
+# Homebrew cask — primary name 'jtk', alias 'jira-ticket-cli'
+# Both cask files are auto-generated and stay in sync on every release.
 homebrew_casks:
-  - name: jira-ticket-cli
+  - name: jtk
+    alternative_names:
+      - jira-ticket-cli
     repository:
       owner: open-cli-collective
       name: homebrew-tap
@@ -72,12 +75,16 @@ homebrew_casks:
         install: |
           system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/jtk"]
     caveats: |
-      jira-ticket-cli has been installed.
+      jtk has been installed.
 
       To configure, run:
         jtk config set --domain DOMAIN --email EMAIL --token TOKEN
 
       Get your API token from: https://id.atlassian.com/manage-profile/security/api-tokens
+
+      Note: 'jira-ticket-cli' is an alias for this cask. Both install paths are supported:
+        brew install open-cli-collective/tap/jtk
+        brew install open-cli-collective/tap/jira-ticket-cli
 
 checksum:
   name_template: 'checksums.txt'

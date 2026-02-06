@@ -27,9 +27,9 @@ func newListCmd(opts *root.Options) *cobra.Command {
 	var full bool
 
 	cmd := &cobra.Command{
-		Use:     "list <issue-key>",
-		Short:   "List comments on an issue",
-		Long:    "List all comments on a specific issue.",
+		Use:   "list <issue-key>",
+		Short: "List comments on an issue",
+		Long:  "List all comments on a specific issue.",
 		Example: `  jtk comments list PROJ-123
   jtk comments list PROJ-123 --full`,
 		Args: cobra.ExactArgs(1),

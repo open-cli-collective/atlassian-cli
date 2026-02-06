@@ -481,7 +481,7 @@ func TestExtractText_Headings(t *testing.T) {
 		Version: 1,
 		Content: []ADFNode{
 			{
-				Type: "heading",
+				Type:  "heading",
 				Attrs: map[string]interface{}{"level": float64(1)},
 				Content: []ADFNode{
 					{Type: "text", Text: "Title"},

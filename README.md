@@ -2,6 +2,8 @@
 
 Unified CLI tools for Atlassian Cloud products.
 
+> **Consolidation note:** This repo is the home for both `jtk` (Jira CLI) and `cfl` (Confluence CLI), previously maintained as separate repos ([jira-ticket-cli](https://github.com/open-cli-collective/jira-ticket-cli) and [confluence-cli](https://github.com/open-cli-collective/confluence-cli)). Those repos are now archived. All development happens here.
+
 ## Table of Contents
 
 - [Tools](#tools)
@@ -10,6 +12,7 @@ Unified CLI tools for Atlassian Cloud products.
   - [Windows](#windows)
   - [Linux](#linux)
   - [Build from Source](#build-from-source)
+- [Migrating from the Old Repos](#migrating-from-the-old-repos)
 - [Getting Started](#getting-started)
   - [Configuration](#configuration)
   - [Authentication](#authentication)
@@ -36,18 +39,20 @@ Unified CLI tools for Atlassian Cloud products.
 
 ```bash
 # Install jtk (Jira CLI)
-brew install open-cli-collective/tap/jtk
+brew install open-cli-collective/tap/jira-ticket-cli
 
 # Install cfl (Confluence CLI)
 brew install open-cli-collective/tap/cfl
 
-# Or install both
-brew install open-cli-collective/tap/jtk open-cli-collective/tap/cfl
+# Upgrade to latest
+brew upgrade jira-ticket-cli cfl
 ```
+
+> **Note:** If `brew upgrade` doesn't pick up a new version, your local tap may be stale. Run `git -C $(brew --repository open-cli-collective/tap) pull` to refresh it, then retry the upgrade.
 
 **Binary download**
 
-Download from the Releases page for your architecture (Intel or Apple Silicon).
+Download from the [Releases](https://github.com/open-cli-collective/atlassian-cli/releases) page for your architecture (Intel or Apple Silicon).
 
 ---
 
@@ -75,7 +80,7 @@ winget install OpenCLICollective.cfl
 
 **Binary download**
 
-Download from the Releases page for your architecture.
+Download from the [Releases](https://github.com/open-cli-collective/atlassian-cli/releases) page for your architecture.
 
 ---
 
@@ -99,7 +104,7 @@ sudo rpm -i cfl-*.rpm
 
 **Binary download**
 
-Download from the Releases page for your architecture (amd64 or arm64).
+Download from the [Releases](https://github.com/open-cli-collective/atlassian-cli/releases) page for your architecture (amd64 or arm64).
 
 ---
 
@@ -113,6 +118,33 @@ cd atlassian-cli
 make build
 # Binaries are in bin/
 ```
+
+## Migrating from the Old Repos
+
+If you previously installed from `jira-ticket-cli` or `confluence-cli`:
+
+**Homebrew users:**
+
+```bash
+# If you installed via the 'jtk' cask (legacy)
+brew uninstall jtk
+brew install open-cli-collective/tap/jira-ticket-cli
+
+# If you installed via 'jira-ticket-cli', you're already set — just upgrade
+brew upgrade jira-ticket-cli
+
+# If brew upgrade says "already installed" but you're on an old version,
+# refresh your local tap first:
+git -C $(brew --repository open-cli-collective/tap) pull
+brew upgrade jira-ticket-cli
+```
+
+**GitHub release users:**
+
+All future releases are published here. Update your bookmarks/scripts to download from:
+https://github.com/open-cli-collective/atlassian-cli/releases
+
+Your existing configuration (`~/.config/jtk/` and `~/.config/cfl/`) is unchanged — no reconfiguration needed.
 
 ## Getting Started
 

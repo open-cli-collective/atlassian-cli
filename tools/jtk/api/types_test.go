@@ -475,6 +475,182 @@ func TestIssueFields_MarshalJSON_IncludesCustomFields(t *testing.T) {
 	assert.Equal(t, "Feature", customfield_10002["value"])
 }
 
+func TestExtractText_Headings(t *testing.T) {
+	doc := &ADFDocument{
+		Type:    "doc",
+		Version: 1,
+		Content: []ADFNode{
+			{
+				Type: "heading",
+				Attrs: map[string]interface{}{"level": float64(1)},
+				Content: []ADFNode{
+					{Type: "text", Text: "Title"},
+				},
+			},
+			{
+				Type: "paragraph",
+				Content: []ADFNode{
+					{Type: "text", Text: "Body text"},
+				},
+			},
+		},
+	}
+
+	got := doc.ToPlainText()
+	assert.Contains(t, got, "Title")
+	assert.Contains(t, got, "Body text")
+	// Heading should have newlines around it for separation
+	assert.Equal(t, "\nTitle\nBody text\n", got)
+}
+
+func TestExtractText_BulletList(t *testing.T) {
+	doc := &ADFDocument{
+		Type:    "doc",
+		Version: 1,
+		Content: []ADFNode{
+			{
+				Type: "bulletList",
+				Content: []ADFNode{
+					{
+						Type: "listItem",
+						Content: []ADFNode{
+							{Type: "paragraph", Content: []ADFNode{{Type: "text", Text: "Item one"}}},
+						},
+					},
+					{
+						Type: "listItem",
+						Content: []ADFNode{
+							{Type: "paragraph", Content: []ADFNode{{Type: "text", Text: "Item two"}}},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	got := doc.ToPlainText()
+	assert.Contains(t, got, "- Item one")
+	assert.Contains(t, got, "- Item two")
+}
+
+func TestExtractText_CodeBlock(t *testing.T) {
+	doc := &ADFDocument{
+		Type:    "doc",
+		Version: 1,
+		Content: []ADFNode{
+			{
+				Type: "paragraph",
+				Content: []ADFNode{
+					{Type: "text", Text: "Before code"},
+				},
+			},
+			{
+				Type:  "codeBlock",
+				Attrs: map[string]interface{}{"language": "go"},
+				Content: []ADFNode{
+					{Type: "text", Text: "fmt.Println(\"hello\")"},
+				},
+			},
+			{
+				Type: "paragraph",
+				Content: []ADFNode{
+					{Type: "text", Text: "After code"},
+				},
+			},
+		},
+	}
+
+	got := doc.ToPlainText()
+	assert.Contains(t, got, "Before code")
+	assert.Contains(t, got, "fmt.Println(\"hello\")")
+	assert.Contains(t, got, "After code")
+}
+
+func TestExtractText_Blockquote(t *testing.T) {
+	doc := &ADFDocument{
+		Type:    "doc",
+		Version: 1,
+		Content: []ADFNode{
+			{
+				Type: "blockquote",
+				Content: []ADFNode{
+					{
+						Type: "paragraph",
+						Content: []ADFNode{
+							{Type: "text", Text: "Quoted text"},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	got := doc.ToPlainText()
+	assert.Contains(t, got, "> Quoted text")
+}
+
+func TestExtractText_Rule(t *testing.T) {
+	doc := &ADFDocument{
+		Type:    "doc",
+		Version: 1,
+		Content: []ADFNode{
+			{
+				Type: "paragraph",
+				Content: []ADFNode{
+					{Type: "text", Text: "Above"},
+				},
+			},
+			{Type: "rule"},
+			{
+				Type: "paragraph",
+				Content: []ADFNode{
+					{Type: "text", Text: "Below"},
+				},
+			},
+		},
+	}
+
+	got := doc.ToPlainText()
+	assert.Contains(t, got, "Above")
+	assert.Contains(t, got, "---")
+	assert.Contains(t, got, "Below")
+}
+
+func TestExtractText_NestedList(t *testing.T) {
+	doc := &ADFDocument{
+		Type:    "doc",
+		Version: 1,
+		Content: []ADFNode{
+			{
+				Type: "bulletList",
+				Content: []ADFNode{
+					{
+						Type: "listItem",
+						Content: []ADFNode{
+							{Type: "paragraph", Content: []ADFNode{{Type: "text", Text: "Parent"}}},
+							{
+								Type: "bulletList",
+								Content: []ADFNode{
+									{
+										Type: "listItem",
+										Content: []ADFNode{
+											{Type: "paragraph", Content: []ADFNode{{Type: "text", Text: "Child"}}},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	got := doc.ToPlainText()
+	assert.Contains(t, got, "- Parent")
+	assert.Contains(t, got, "  - Child")
+}
+
 func TestIssue_RoundTrip_WithCustomFields(t *testing.T) {
 	// Test full issue round-trip with custom fields
 	input := `{

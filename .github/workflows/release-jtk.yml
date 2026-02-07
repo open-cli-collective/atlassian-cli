@@ -27,6 +27,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: '1.24'
+          cache-dependency-path: tools/jtk/go.sum
 
       - name: Create temporary semver tag for GoReleaser
         run: |
@@ -42,6 +43,14 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAP_GITHUB_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
           GORELEASER_CURRENT_TAG: v${{ steps.get_version.outputs.version }}
+
+      - name: Fix release tag
+        run: |
+          VERSION=${{ steps.get_version.outputs.version }}
+          gh release edit "v${VERSION}" --tag "jtk-v${VERSION}"
+          git push origin :refs/tags/v${VERSION}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   chocolatey:
     needs: goreleaser

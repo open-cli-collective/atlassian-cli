@@ -117,26 +117,34 @@ jobs:
           $tag = "jtk-v$version"
           gh release download $tag --pattern "checksums.txt" --dir artifacts
 
-      - name: Extract checksums
+      - name: Prepare winget manifests
         run: |
           $version = "${{ needs.goreleaser.outputs.version }}"
           $checksums = Get-Content artifacts/checksums.txt
           $amd64 = ($checksums | Select-String "jtk_${version}_windows_amd64.zip").ToString().Split(" ")[0]
           $arm64 = ($checksums | Select-String "jtk_${version}_windows_arm64.zip").ToString().Split(" ")[0]
-          echo "CHECKSUM_AMD64=$amd64" >> $env:GITHUB_ENV
-          echo "CHECKSUM_ARM64=$arm64" >> $env:GITHUB_ENV
+
+          # Copy templates to working directory
+          New-Item -ItemType Directory -Path manifests -Force
+          Copy-Item tools/jtk/packaging/winget/*.yaml manifests/
+
+          # Replace version placeholder in all manifest files
+          Get-ChildItem manifests/*.yaml | ForEach-Object {
+            $content = Get-Content $_.FullName -Raw
+            $content = $content -replace '0\.0\.0', $version
+            Set-Content $_.FullName $content -NoNewline
+          }
+
+          # Set checksums in installer manifest (uses distinct placeholders)
+          $installer = Get-Content manifests/OpenCLICollective.jira-ticket-cli.installer.yaml -Raw
+          $installer = $installer -replace 'CHECKSUM_AMD64_PLACEHOLDER', $amd64
+          $installer = $installer -replace 'CHECKSUM_ARM64_PLACEHOLDER', $arm64
+          Set-Content manifests/OpenCLICollective.jira-ticket-cli.installer.yaml $installer -NoNewline
 
       - name: Install wingetcreate
         run: |
           iwr https://aka.ms/wingetcreate/latest -OutFile wingetcreate.exe
 
-      - name: Update and submit manifest
+      - name: Submit manifests
         run: |
-          $version = "${{ needs.goreleaser.outputs.version }}"
-          $baseUrl = "https://github.com/open-cli-collective/atlassian-cli/releases/download/jtk-v$version"
-
-          ./wingetcreate.exe update OpenCLICollective.jira-ticket-cli `
-            --version $version `
-            --urls "$baseUrl/jtk_${version}_windows_amd64.zip|x64" "$baseUrl/jtk_${version}_windows_arm64.zip|arm64" `
-            --submit `
-            --token ${{ secrets.WINGET_GITHUB_TOKEN }}
+          ./wingetcreate.exe submit --path manifests --token ${{ secrets.WINGET_GITHUB_TOKEN }}

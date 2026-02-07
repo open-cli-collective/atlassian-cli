@@ -54,10 +54,10 @@ func TestRunList_TruncatesCommentBody(t *testing.T) {
 			Body: &api.ADFDocument{
 				Type:    "doc",
 				Version: 1,
-				Content: []api.ADFNode{
+				Content: []*api.ADFNode{
 					{
 						Type: "paragraph",
-						Content: []api.ADFNode{
+						Content: []*api.ADFNode{
 							{Type: "text", Text: longText},
 						},
 					},
@@ -103,10 +103,10 @@ func TestRunList_FullCommentBody(t *testing.T) {
 			Body: &api.ADFDocument{
 				Type:    "doc",
 				Version: 1,
-				Content: []api.ADFNode{
+				Content: []*api.ADFNode{
 					{
 						Type: "paragraph",
-						Content: []api.ADFNode{
+						Content: []*api.ADFNode{
 							{Type: "text", Text: longText},
 						},
 					},
@@ -154,10 +154,10 @@ func TestRunList_ShortCommentNotTruncated(t *testing.T) {
 			Body: &api.ADFDocument{
 				Type:    "doc",
 				Version: 1,
-				Content: []api.ADFNode{
+				Content: []*api.ADFNode{
 					{
 						Type: "paragraph",
-						Content: []api.ADFNode{
+						Content: []*api.ADFNode{
 							{Type: "text", Text: "Short comment"},
 						},
 					},
@@ -227,8 +227,8 @@ func TestRunList_MultipleCommentsFullMode(t *testing.T) {
 			Body: &api.ADFDocument{
 				Type:    "doc",
 				Version: 1,
-				Content: []api.ADFNode{
-					{Type: "paragraph", Content: []api.ADFNode{{Type: "text", Text: "First comment"}}},
+				Content: []*api.ADFNode{
+					{Type: "paragraph", Content: []*api.ADFNode{{Type: "text", Text: "First comment"}}},
 				},
 			},
 			Created: "2024-01-15T10:00:00.000Z",
@@ -239,8 +239,8 @@ func TestRunList_MultipleCommentsFullMode(t *testing.T) {
 			Body: &api.ADFDocument{
 				Type:    "doc",
 				Version: 1,
-				Content: []api.ADFNode{
-					{Type: "paragraph", Content: []api.ADFNode{{Type: "text", Text: "Second comment"}}},
+				Content: []*api.ADFNode{
+					{Type: "paragraph", Content: []*api.ADFNode{{Type: "text", Text: "Second comment"}}},
 				},
 			},
 			Created: "2024-01-16T10:00:00.000Z",

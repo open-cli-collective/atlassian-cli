@@ -45,11 +45,8 @@ New rules are created in DISABLED state by default.`,
 func runCreate(opts *root.Options, filePath string) error {
 	v := opts.View()
 
-	client, err := opts.APIClient()
-	if err != nil {
-		return err
-	}
-
+	// Read and validate file before creating the API client so we fail
+	// fast on bad input without needing network access.
 	data, err := os.ReadFile(filePath)
 	if err != nil {
 		return fmt.Errorf("failed to read file %s: %w", filePath, err)
@@ -57,6 +54,11 @@ func runCreate(opts *root.Options, filePath string) error {
 
 	if !json.Valid(data) {
 		return fmt.Errorf("file %s does not contain valid JSON", filePath)
+	}
+
+	client, err := opts.APIClient()
+	if err != nil {
+		return err
 	}
 
 	respBody, err := client.CreateAutomationRule(json.RawMessage(data))

@@ -1,15 +1,18 @@
-# jira-ticket-cli
+# jtk - Jira CLI
 
 A command-line interface for managing Jira Cloud tickets.
 
 ## Features
 
 - Manage Jira issues from the command line
-- List, create, update, and search issues
+- List, create, update, search, and delete issues
 - Manage sprints and boards
 - Add comments and perform transitions
+- Manage attachments
+- Manage automation rules
+- Search users
 - Multiple output formats (table, JSON, plain)
-- Shell completion for bash, zsh, and fish
+- Shell completion for bash, zsh, fish, and PowerShell
 
 ## Installation
 
@@ -88,15 +91,15 @@ sudo dnf install jtk
 
 **Binary download**
 
-Download `.deb`, `.rpm`, or `.tar.gz` from the [Releases page](https://github.com/open-cli-collective/jira-ticket-cli/releases) - available for x64 and ARM64.
+Download `.deb`, `.rpm`, or `.tar.gz` from the [Releases page](https://github.com/open-cli-collective/atlassian-cli/releases) - available for x64 and ARM64.
 
 ```bash
 # Direct .deb install
-curl -LO https://github.com/open-cli-collective/jira-ticket-cli/releases/latest/download/jtk_VERSION_linux_amd64.deb
+curl -LO https://github.com/open-cli-collective/atlassian-cli/releases/latest/download/jtk_VERSION_linux_amd64.deb
 sudo dpkg -i jtk_VERSION_linux_amd64.deb
 
 # Direct .rpm install
-curl -LO https://github.com/open-cli-collective/jira-ticket-cli/releases/latest/download/jtk-VERSION.x86_64.rpm
+curl -LO https://github.com/open-cli-collective/atlassian-cli/releases/latest/download/jtk-VERSION.x86_64.rpm
 sudo rpm -i jtk-VERSION.x86_64.rpm
 ```
 
@@ -113,18 +116,13 @@ go install github.com/open-cli-collective/jira-ticket-cli/cmd/jtk@latest
 ### 1. Configure jtk
 
 ```bash
-# Jira Cloud
-jtk config set \
-  --url https://mycompany.atlassian.net \
-  --email user@example.com \
-  --token YOUR_API_TOKEN
-
-# Self-hosted Jira (Data Center / Server)
-jtk config set \
-  --url https://jira.internal.corp.com \
-  --email user@example.com \
-  --token YOUR_API_TOKEN
+jtk init
 ```
+
+This will prompt you for:
+- Your Jira URL (e.g., `https://mycompany.atlassian.net`)
+- Your email address
+- An API token
 
 Get your API token from: https://id.atlassian.com/manage-profile/security/api-tokens
 
@@ -150,30 +148,75 @@ These flags are available on all commands:
 
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
-| `--config` | `-c` | `~/.config/jira-ticket-cli/config.yml` | Path to config file |
 | `--output` | `-o` | `table` | Output format: `table`, `json`, `plain` |
+| `--no-color` | | `false` | Disable colored output |
+| `--verbose` | `-v` | `false` | Enable verbose output |
 | `--help` | `-h` | | Show help for command |
-| `--version` | `-v` | | Show version (root command only) |
+| `--version` | | | Show version (root command only) |
 
 ---
 
-### `jtk config set`
+### `jtk init`
 
-Configure Jira credentials.
+Initialize jtk with guided setup.
 
 ```bash
-# Jira Cloud
-jtk config set --url https://mycompany.atlassian.net --email user@example.com --token YOUR_TOKEN
+jtk init
+jtk init --url https://mycompany.atlassian.net --email user@example.com
+```
 
-# Self-hosted Jira
-jtk config set --url https://jira.internal.corp.com --email user@example.com --token YOUR_TOKEN
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--url` | | Jira URL (e.g., `https://mycompany.atlassian.net`) |
+| `--email` | | Email address for authentication |
+| `--token` | | API token |
+| `--no-verify` | `false` | Skip connection verification |
+
+---
+
+### `jtk me`
+
+Show information about the currently authenticated user.
+
+```bash
+jtk me
+jtk me -o json
+```
+
+---
+
+### `jtk config`
+
+Manage CLI configuration.
+
+#### `jtk config show`
+
+Display current configuration with masked credentials and source info.
+
+```bash
+jtk config show
+```
+
+#### `jtk config test`
+
+Verify connection to Jira and test authentication.
+
+```bash
+jtk config test
+```
+
+#### `jtk config clear`
+
+Remove stored configuration file.
+
+```bash
+jtk config clear
+jtk config clear --force
 ```
 
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
-| `--url` | | | Jira URL (e.g., `https://mycompany.atlassian.net` or `https://jira.internal.corp.com`) |
-| `--email` | `-e` | | Your Atlassian email |
-| `--token` | `-t` | | Your API token |
+| `--force` | `-f` | `false` | Skip confirmation prompt |
 
 ---
 
@@ -191,9 +234,9 @@ jtk issues list --project MYPROJECT -o json
 
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
-| `--project` | `-p` | | Project key (**required**) |
+| `--project` | `-p` | | Project key |
 | `--sprint` | `-s` | | Filter by sprint: sprint ID or `current` |
-| `--limit` | `-l` | `50` | Maximum number of issues to return |
+| `--max` | `-m` | `50` | Maximum number of issues to return |
 
 ---
 
@@ -203,8 +246,13 @@ Get details of a specific issue.
 
 ```bash
 jtk issues get PROJ-123
+jtk issues get PROJ-123 --full
 jtk issues get PROJ-123 -o json
 ```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--full` | `false` | Show full description without truncation |
 
 **Arguments:**
 - `<issue-key>` - The issue key (e.g., `PROJ-123`) (**required**)
@@ -218,14 +266,16 @@ Create a new issue.
 ```bash
 jtk issues create --project MYPROJECT --type Task --summary "Fix login bug"
 jtk issues create -p MYPROJECT -t Story -s "Add new feature" --description "Details here"
+jtk issues create -p MYPROJECT -s "Custom field issue" --field priority=High --field labels=backend
 ```
 
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
 | `--project` | `-p` | | Project key (**required**) |
-| `--type` | `-t` | | Issue type: `Task`, `Bug`, `Story`, etc. (**required**) |
+| `--type` | `-t` | `Task` | Issue type: `Task`, `Bug`, `Story`, etc. |
 | `--summary` | `-s` | | Issue summary (**required**) |
 | `--description` | `-d` | | Issue description |
+| `--field` | `-f` | | Additional field in `key=value` format (can be repeated) |
 
 ---
 
@@ -236,6 +286,7 @@ Update an existing issue.
 ```bash
 jtk issues update PROJ-123 --summary "New summary"
 jtk issues update PROJ-123 --field priority=High
+jtk issues update PROJ-123 --description "Updated description" --field labels=urgent
 ```
 
 | Flag | Short | Default | Description |
@@ -260,22 +311,45 @@ jtk issues search --jql "assignee = currentUser()" -o json
 
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
-| `--jql` | `-j` | | JQL query string (**required**) |
-| `--limit` | `-l` | `50` | Maximum number of results |
+| `--jql` | | | JQL query string (**required**) |
+| `--max` | `-m` | `50` | Maximum number of results |
 
 ---
 
-### `jtk issues assign <issue-key> <account-id>`
+### `jtk issues assign <issue-key> [account-id]`
 
-Assign an issue to a user.
+Assign an issue to a user, or unassign it.
 
 ```bash
 jtk issues assign PROJ-123 5b10ac8d82e05b22cc7d4ef5
+jtk issues assign PROJ-123 --unassign
 ```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--unassign` | `false` | Remove current assignee |
 
 **Arguments:**
 - `<issue-key>` - The issue key (**required**)
-- `<account-id>` - The Atlassian account ID (**required**)
+- `[account-id]` - The Atlassian account ID (required unless `--unassign`)
+
+---
+
+### `jtk issues delete <issue-key>`
+
+Delete an issue.
+
+```bash
+jtk issues delete PROJ-123
+jtk issues delete PROJ-123 --force
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--force` | `false` | Skip confirmation prompt |
+
+**Arguments:**
+- `<issue-key>` - The issue key (**required**)
 
 ---
 
@@ -284,12 +358,83 @@ jtk issues assign PROJ-123 5b10ac8d82e05b22cc7d4ef5
 List available fields for issues.
 
 ```bash
-jtk issues fields
-jtk issues fields PROJ-123  # editable fields for specific issue
+jtk issues fields                    # All fields
+jtk issues fields PROJ-123           # Editable fields for a specific issue
+jtk issues fields --custom           # Custom fields only
 ```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--custom` | `false` | Show only custom fields |
 
 **Arguments:**
 - `[issue-key]` - Optional issue key to show editable fields
+
+---
+
+### `jtk issues field-options <field-name-or-id>`
+
+List allowed values for a field.
+
+```bash
+jtk issues field-options priority
+jtk issues field-options customfield_10001 --issue PROJ-123
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--issue` | | Issue key for context-specific options |
+
+**Arguments:**
+- `<field-name-or-id>` - Field name or ID (**required**)
+
+---
+
+### `jtk issues types`
+
+List available issue types for a project.
+
+```bash
+jtk issues types --project MYPROJECT
+```
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--project` | `-p` | | Project key (**required**) |
+
+---
+
+### `jtk issues move <issue-key>...`
+
+Move one or more issues to a different project (Cloud only, max 1000 issues).
+
+```bash
+jtk issues move PROJ-123 --to-project OTHERPROJ
+jtk issues move PROJ-123 PROJ-124 PROJ-125 --to-project OTHERPROJ --to-type Bug
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--to-project` | | Target project key (**required**) |
+| `--to-type` | (same as source) | Target issue type |
+| `--notify` | `true` | Send notifications for the move |
+| `--wait` | `true` | Wait for move to complete |
+
+**Arguments:**
+- `<issue-key>...` - One or more issue keys (**required**)
+
+---
+
+### `jtk issues move-status <task-id>`
+
+Check the status of an asynchronous move operation.
+
+```bash
+jtk issues move-status 12345
+```
+
+**Arguments:**
+- `<task-id>` - The task ID returned by `issues move` (**required**)
 
 ---
 
@@ -299,7 +444,12 @@ List available transitions for an issue.
 
 ```bash
 jtk transitions list PROJ-123
+jtk transitions list PROJ-123 --fields
 ```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--fields` | `false` | Show required fields for each transition |
 
 **Arguments:**
 - `<issue-key>` - The issue key (**required**)
@@ -313,7 +463,12 @@ Perform a transition on an issue.
 ```bash
 jtk transitions do PROJ-123 "In Progress"
 jtk transitions do PROJ-123 "Done"
+jtk transitions do PROJ-123 "Done" --field resolution=Fixed
 ```
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--field` | `-f` | | Field to set during transition in `key=value` format (can be repeated) |
 
 **Arguments:**
 - `<issue-key>` - The issue key (**required**)
@@ -327,8 +482,14 @@ List comments on an issue.
 
 ```bash
 jtk comments list PROJ-123
+jtk comments list PROJ-123 --full
 jtk comments list PROJ-123 -o json
 ```
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--max` | `-m` | `50` | Maximum number of comments |
+| `--full` | | `false` | Show full comment bodies without truncation |
 
 **Arguments:**
 - `<issue-key>` - The issue key (**required**)
@@ -352,18 +513,104 @@ jtk comments add PROJ-123 --body "This is my comment"
 
 ---
 
+### `jtk comments delete <issue-key> <comment-id>`
+
+Delete a comment from an issue.
+
+```bash
+jtk comments delete PROJ-123 10042
+```
+
+**Arguments:**
+- `<issue-key>` - The issue key (**required**)
+- `<comment-id>` - The comment ID (**required**)
+
+---
+
+### `jtk attachments list <issue-key>`
+
+List attachments on an issue.
+
+**Aliases:** `jtk attachments ls`
+
+```bash
+jtk attachments list PROJ-123
+jtk attachments list PROJ-123 -o json
+```
+
+**Arguments:**
+- `<issue-key>` - The issue key (**required**)
+
+---
+
+### `jtk attachments add <issue-key>`
+
+Upload file(s) to an issue.
+
+```bash
+jtk attachments add PROJ-123 --file screenshot.png
+jtk attachments add PROJ-123 --file doc.pdf --file image.png
+```
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--file` | `-f` | | File to attach (**required**, can be repeated) |
+
+**Arguments:**
+- `<issue-key>` - The issue key (**required**)
+
+---
+
+### `jtk attachments get <attachment-id>`
+
+Download an attachment.
+
+**Aliases:** `jtk attachments download`
+
+```bash
+jtk attachments get 12345
+jtk attachments get 12345 --output ./downloads/
+```
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--output` | `-o` | `.` | Output path (directory or filename) |
+
+**Arguments:**
+- `<attachment-id>` - The attachment ID (**required**)
+
+---
+
+### `jtk attachments delete <attachment-id>`
+
+Delete an attachment.
+
+**Aliases:** `jtk attachments rm`
+
+```bash
+jtk attachments delete 12345
+```
+
+**Arguments:**
+- `<attachment-id>` - The attachment ID (**required**)
+
+---
+
 ### `jtk sprints list`
 
 List sprints for a board.
 
 ```bash
 jtk sprints list --board 123
+jtk sprints list --board 123 --state active
 jtk sprints list --board 123 -o json
 ```
 
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
 | `--board` | `-b` | | Board ID (**required**) |
+| `--state` | `-s` | | Filter by state: `active`, `closed`, `future` |
+| `--max` | `-m` | `50` | Maximum number of results |
 
 ---
 
@@ -390,8 +637,27 @@ jtk sprints issues 456
 jtk sprints issues 456 -o json
 ```
 
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--max` | `-m` | `50` | Maximum number of results |
+
 **Arguments:**
 - `<sprint-id>` - The sprint ID (**required**)
+
+---
+
+### `jtk sprints add <sprint-id> <issue-key>...`
+
+Move one or more issues to a sprint.
+
+```bash
+jtk sprints add 456 PROJ-123
+jtk sprints add 456 PROJ-123 PROJ-124 PROJ-125
+```
+
+**Arguments:**
+- `<sprint-id>` - The sprint ID (**required**)
+- `<issue-key>...` - One or more issue keys (**required**)
 
 ---
 
@@ -407,6 +673,7 @@ jtk boards list --project MYPROJECT
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
 | `--project` | `-p` | | Filter by project key |
+| `--max` | `-m` | `50` | Maximum number of results |
 
 ---
 
@@ -423,9 +690,142 @@ jtk boards get 123
 
 ---
 
+### `jtk users search <query>`
+
+Search for Jira users.
+
+```bash
+jtk users search "john"
+jtk users search "john" --max 20
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--max` | `10` | Maximum number of results |
+
+**Arguments:**
+- `<query>` - Search query (matches display name, email, etc.) (**required**)
+
+---
+
+### `jtk automation list`
+
+List automation rules.
+
+```bash
+jtk automation list
+jtk automation list --state ENABLED
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--state` | | Filter by state: `ENABLED` or `DISABLED` |
+
+---
+
+### `jtk automation get <rule-id>`
+
+Get details of an automation rule.
+
+```bash
+jtk automation get 123
+jtk automation get 123 --full
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--full` | `false` | Show component type details |
+
+**Arguments:**
+- `<rule-id>` - The rule ID (**required**)
+
+---
+
+### `jtk automation export <rule-id>`
+
+Export a rule definition as JSON.
+
+```bash
+jtk automation export 123
+jtk automation export 123 --compact
+jtk automation export 123 > rule-backup.json
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--compact` | `false` | Output minified JSON |
+
+**Arguments:**
+- `<rule-id>` - The rule ID (**required**)
+
+> Note: Output is always JSON regardless of the `--output` flag.
+
+---
+
+### `jtk automation create`
+
+Create an automation rule from a JSON file.
+
+```bash
+jtk automation create --file rule-definition.json
+```
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--file` | `-f` | | Path to JSON file containing the rule definition (**required**) |
+
+> Note: New rules are created in DISABLED state by default.
+
+---
+
+### `jtk automation update <rule-id>`
+
+Update an automation rule from a JSON file.
+
+```bash
+jtk automation update 123 --file updated-rule.json
+```
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--file` | `-f` | | Path to JSON file containing the rule definition (**required**) |
+
+**Arguments:**
+- `<rule-id>` - The rule ID (**required**)
+
+> Tip: Use `jtk automation export` to get the current definition before editing.
+
+---
+
+### `jtk automation enable <rule-id>`
+
+Enable a disabled automation rule.
+
+```bash
+jtk automation enable 123
+```
+
+**Arguments:**
+- `<rule-id>` - The rule ID (**required**)
+
+---
+
+### `jtk automation disable <rule-id>`
+
+Disable an enabled automation rule.
+
+```bash
+jtk automation disable 123
+```
+
+**Arguments:**
+- `<rule-id>` - The rule ID (**required**)
+
+---
+
 ## Configuration
 
-Configuration is stored in `~/.config/jira-ticket-cli/config.json`:
+Configuration is stored in `~/.config/jtk/config.json`:
 
 ```json
 {
@@ -523,7 +923,7 @@ jtk completion powershell >> $PROFILE
 
 ### Prerequisites
 
-- Go 1.22 or later
+- Go 1.24 or later
 - golangci-lint (for linting)
 
 ### Build

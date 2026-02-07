@@ -28,7 +28,7 @@ brew install open-cli-collective/tap/cfl
 
 **Binary download**
 
-Download from the [Releases page](https://github.com/open-cli-collective/confluence-cli/releases) - available for Intel and Apple Silicon.
+Download from the [Releases page](https://github.com/open-cli-collective/atlassian-cli/releases) - available for Intel and Apple Silicon.
 
 ---
 
@@ -48,7 +48,7 @@ winget install OpenCLICollective.cfl
 
 **Binary download**
 
-Download from the [Releases page](https://github.com/open-cli-collective/confluence-cli/releases) - available for x64 and ARM64.
+Download from the [Releases page](https://github.com/open-cli-collective/atlassian-cli/releases) - available for x64 and ARM64.
 
 ---
 
@@ -106,15 +106,15 @@ sudo snap alias ocli-confluence cfl  # Optional: create 'cfl' alias
 
 **Binary download**
 
-Download `.deb`, `.rpm`, or `.tar.gz` from the [Releases page](https://github.com/open-cli-collective/confluence-cli/releases) - available for x64 and ARM64.
+Download `.deb`, `.rpm`, or `.tar.gz` from the [Releases page](https://github.com/open-cli-collective/atlassian-cli/releases) - available for x64 and ARM64.
 
 ```bash
 # Direct .deb install
-curl -LO https://github.com/open-cli-collective/confluence-cli/releases/latest/download/cfl_VERSION_linux_amd64.deb
+curl -LO https://github.com/open-cli-collective/atlassian-cli/releases/latest/download/cfl_VERSION_linux_amd64.deb
 sudo dpkg -i cfl_VERSION_linux_amd64.deb
 
 # Direct .rpm install
-curl -LO https://github.com/open-cli-collective/confluence-cli/releases/latest/download/cfl-VERSION.x86_64.rpm
+curl -LO https://github.com/open-cli-collective/atlassian-cli/releases/latest/download/cfl-VERSION.x86_64.rpm
 sudo rpm -i cfl-VERSION.x86_64.rpm
 ```
 
@@ -128,7 +128,7 @@ sudo rpm -i cfl-VERSION.x86_64.rpm
 go install github.com/open-cli-collective/confluence-cli/cmd/cfl@latest
 ```
 
-Requires Go 1.22 or later.
+Requires Go 1.24 or later.
 
 ## Quick Start
 
@@ -266,8 +266,9 @@ cfl page view 12345 --show-macros --content-only | cfl page edit 12345 --legacy 
 |------|-------|---------|-------------|
 | `--raw` | | `false` | Show raw Confluence storage format (XHTML) instead of markdown |
 | `--web` | `-w` | `false` | Open page in browser instead of displaying |
+| `--full` | | `false` | Show full content without truncation |
 | `--show-macros` | | `false` | Show Confluence macro placeholders (e.g., `[TOC]`) instead of stripping them |
-| `--content-only` | | `false` | Output only page content (no Title/ID/Version headers) |
+| `--content-only` | | `false` | Output only page content (no Title/ID/Version headers); implies `--full` |
 
 **Arguments:**
 - `<page-id>` - The page ID (**required**)
@@ -473,6 +474,43 @@ Common CQL operators for `--cql`:
 - `AND`, `OR`, `NOT` for combining
 - Date functions: `lastModified > now('-7d')`
 - [Full CQL documentation](https://developer.atlassian.com/cloud/confluence/advanced-searching-using-cql/)
+
+---
+
+### `cfl config`
+
+Manage cfl configuration.
+
+#### `cfl config show`
+
+Display current configuration with masked credentials and source info.
+
+```bash
+cfl config show
+```
+
+#### `cfl config test`
+
+Test connectivity with current configuration. Verifies URL reachability, credential validity, and API access.
+
+```bash
+cfl config test
+```
+
+#### `cfl config clear`
+
+Remove the stored configuration file.
+
+```bash
+cfl config clear
+cfl config clear --force
+```
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--force` | `-f` | `false` | Skip confirmation prompt |
+
+> Note: Environment variables (`CFL_*`, `ATLASSIAN_*`) will still be used if set.
 
 ---
 
@@ -748,7 +786,7 @@ cfl completion powershell >> $PROFILE
 
 ### Prerequisites
 
-- Go 1.22 or later
+- Go 1.24 or later
 - golangci-lint (for linting)
 
 ### Build

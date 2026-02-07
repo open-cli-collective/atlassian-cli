@@ -491,3 +491,179 @@ func TestToPlainText_Nil(t *testing.T) {
 	var doc *Document
 	assert.Equal(t, "", doc.ToPlainText())
 }
+
+func TestToJSON_IndentedCodeBlock(t *testing.T) {
+	input := "    code line one\n    code line two"
+	result, err := ToJSON([]byte(input))
+	require.NoError(t, err)
+
+	var doc Document
+	err = json.Unmarshal([]byte(result), &doc)
+	require.NoError(t, err)
+
+	require.Len(t, doc.Content, 1)
+	block := doc.Content[0]
+	assert.Equal(t, "codeBlock", block.Type)
+	assert.Nil(t, block.Attrs, "indented code blocks should have no language attr")
+	require.Len(t, block.Content, 1)
+	assert.Contains(t, block.Content[0].Text, "code line one")
+	assert.Contains(t, block.Content[0].Text, "code line two")
+}
+
+func TestToJSON_AutoLink(t *testing.T) {
+	input := "Visit <https://example.com> for info"
+	result, err := ToJSON([]byte(input))
+	require.NoError(t, err)
+
+	var doc Document
+	err = json.Unmarshal([]byte(result), &doc)
+	require.NoError(t, err)
+
+	require.Len(t, doc.Content, 1)
+	para := doc.Content[0]
+
+	var foundAutoLink bool
+	for _, node := range para.Content {
+		for _, mark := range node.Marks {
+			if mark.Type == "link" {
+				foundAutoLink = true
+				assert.Equal(t, "https://example.com", mark.Attrs["href"])
+				assert.Equal(t, "https://example.com", node.Text)
+			}
+		}
+	}
+	assert.True(t, foundAutoLink, "expected to find auto-linked URL")
+}
+
+func TestToJSON_RawHTMLDropped(t *testing.T) {
+	input := "Before <span>raw</span> after"
+	result, err := ToJSON([]byte(input))
+	require.NoError(t, err)
+
+	var doc Document
+	err = json.Unmarshal([]byte(result), &doc)
+	require.NoError(t, err)
+
+	require.Len(t, doc.Content, 1)
+	para := doc.Content[0]
+
+	// Raw HTML should be dropped; surrounding text should remain
+	var allText string
+	for _, node := range para.Content {
+		allText += node.Text
+	}
+	assert.Contains(t, allText, "Before")
+	assert.Contains(t, allText, "after")
+	assert.NotContains(t, allText, "<span>")
+}
+
+func TestSplitLines(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  []string
+	}{
+		{"trailing newline stripped", "a\nb\n", []string{"a", "b"}},
+		{"single line", "single", []string{"single"}},
+		{"empty string", "", []string{}},
+		{"multiple trailing newlines", "a\n\n\n", []string{"a"}},
+		{"no trailing newline", "a\nb", []string{"a", "b"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := splitLines(tt.input)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestToPlainText_CodeBlock(t *testing.T) {
+	doc := &Document{
+		Type:    "doc",
+		Version: 1,
+		Content: []*Node{
+			{
+				Type: "codeBlock",
+				Content: []*Node{
+					{Type: "text", Text: "fmt.Println()"},
+				},
+			},
+		},
+	}
+
+	text := doc.ToPlainText()
+	assert.Contains(t, text, "fmt.Println()")
+}
+
+func TestToPlainText_Blockquote(t *testing.T) {
+	doc := &Document{
+		Type:    "doc",
+		Version: 1,
+		Content: []*Node{
+			{
+				Type: "blockquote",
+				Content: []*Node{
+					{
+						Type: "paragraph",
+						Content: []*Node{
+							{Type: "text", Text: "Quoted"},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	text := doc.ToPlainText()
+	assert.Contains(t, text, "> Quoted")
+}
+
+func TestToPlainText_Rule(t *testing.T) {
+	doc := &Document{
+		Type:    "doc",
+		Version: 1,
+		Content: []*Node{
+			{Type: "rule"},
+		},
+	}
+
+	text := doc.ToPlainText()
+	assert.Contains(t, text, "---")
+}
+
+func TestToPlainText_UnknownNodeType(t *testing.T) {
+	doc := &Document{
+		Type:    "doc",
+		Version: 1,
+		Content: []*Node{
+			{Type: "unknownWidget", Text: "fallback text"},
+		},
+	}
+
+	text := doc.ToPlainText()
+	assert.Contains(t, text, "fallback text")
+}
+
+func TestToPlainText_UnknownNodeWithChildren(t *testing.T) {
+	doc := &Document{
+		Type:    "doc",
+		Version: 1,
+		Content: []*Node{
+			{
+				Type: "panel",
+				Content: []*Node{
+					{
+						Type: "paragraph",
+						Content: []*Node{
+							{Type: "text", Text: "inner"},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	text := doc.ToPlainText()
+	assert.Contains(t, text, "inner")
+}

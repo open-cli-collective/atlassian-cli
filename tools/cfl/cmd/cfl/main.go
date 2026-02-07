@@ -1,4 +1,4 @@
-// Package main is the entry point for the cfl CLI.
+// Package main is the entry point for the cfl (Confluence) CLI.
 package main
 
 import (

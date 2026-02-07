@@ -1,3 +1,4 @@
+// Package main is the entry point for the jtk CLI.
 package main
 
 import (

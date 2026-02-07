@@ -66,22 +66,33 @@ func runCreate(opts *root.Options, filePath string) error {
 		return err
 	}
 
-	// Parse the response to extract the new rule's ID
+	// Parse the response to extract the new rule's identifier.
 	var created struct {
+		// Legacy/documented response fields.
 		ID      json.Number `json:"id"`
 		RuleKey string      `json:"ruleKey"`
-		Name    string      `json:"name"`
+		// Observed Cloud response field.
+		UUID string `json:"uuid"`
+		Name string `json:"name"`
 	}
 	if err := json.Unmarshal(respBody, &created); err != nil {
-		// Even if we can't parse the response, the rule was created
+		// Even if we can't parse the response, the rule was created.
 		v.Success("Created automation rule (could not parse response for details)")
 		return nil
 	}
 
+	identifier := created.UUID
+	if identifier == "" {
+		identifier = created.RuleKey
+	}
+	if identifier == "" {
+		identifier = created.ID.String()
+	}
+
 	if created.Name != "" {
-		v.Success("Created automation rule: %s (ID: %s)", created.Name, created.ID.String())
+		v.Success("Created automation rule: %s (UUID: %s)", created.Name, identifier)
 	} else {
-		v.Success("Created automation rule (ID: %s)", created.ID.String())
+		v.Success("Created automation rule (UUID: %s)", identifier)
 	}
 
 	return nil

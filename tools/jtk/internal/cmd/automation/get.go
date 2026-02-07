@@ -54,7 +54,7 @@ func runGet(opts *root.Options, ruleID string, full bool) error {
 	}
 
 	v.Println("Name:        %s", rule.Name)
-	v.Println("ID:          %s", rule.ID.String())
+	v.Println("UUID:        %s", rule.Identifier())
 	v.Println("State:       %s", rule.State)
 
 	if rule.Description != "" {

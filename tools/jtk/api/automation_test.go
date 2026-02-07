@@ -97,10 +97,10 @@ func TestListAutomationRules(t *testing.T) {
 		callCount++
 		w.WriteHeader(http.StatusOK)
 		resp := AutomationRuleSummaryResponse{
-			Total: 2,
-			Values: []AutomationRuleSummary{
-				{ID: json.Number("1"), Name: "Rule One", State: "ENABLED"},
-				{ID: json.Number("2"), Name: "Rule Two", State: "DISABLED"},
+			Links: automationLinks{},
+			Data: []AutomationRuleSummary{
+				{UUID: "uuid-1", Name: "Rule One", State: "ENABLED"},
+				{UUID: "uuid-2", Name: "Rule Two", State: "DISABLED"},
 			},
 		}
 		_ = json.NewEncoder(w).Encode(resp)
@@ -126,11 +126,11 @@ func TestListAutomationRulesFiltered(t *testing.T) {
 
 		w.WriteHeader(http.StatusOK)
 		resp := AutomationRuleSummaryResponse{
-			Total: 3,
-			Values: []AutomationRuleSummary{
-				{ID: json.Number("1"), Name: "Enabled Rule", State: "ENABLED"},
-				{ID: json.Number("2"), Name: "Disabled Rule", State: "DISABLED"},
-				{ID: json.Number("3"), Name: "Another Enabled", State: "ENABLED"},
+			Links: automationLinks{},
+			Data: []AutomationRuleSummary{
+				{UUID: "uuid-1", Name: "Enabled Rule", State: "ENABLED"},
+				{UUID: "uuid-2", Name: "Disabled Rule", State: "DISABLED"},
+				{UUID: "uuid-3", Name: "Another Enabled", State: "ENABLED"},
 			},
 		}
 		_ = json.NewEncoder(w).Encode(resp)
@@ -156,11 +156,11 @@ func TestListAutomationRulesFiltered(t *testing.T) {
 			}
 			w.WriteHeader(http.StatusOK)
 			resp := AutomationRuleSummaryResponse{
-				Total: 3,
-				Values: []AutomationRuleSummary{
-					{ID: json.Number("1"), Name: "Enabled Rule", State: "ENABLED"},
-					{ID: json.Number("2"), Name: "Disabled Rule", State: "DISABLED"},
-					{ID: json.Number("3"), Name: "Another Enabled", State: "ENABLED"},
+				Links: automationLinks{},
+				Data: []AutomationRuleSummary{
+					{UUID: "uuid-1", Name: "Enabled Rule", State: "ENABLED"},
+					{UUID: "uuid-2", Name: "Disabled Rule", State: "DISABLED"},
+					{UUID: "uuid-3", Name: "Another Enabled", State: "ENABLED"},
 				},
 			}
 			_ = json.NewEncoder(w).Encode(resp)
@@ -190,16 +190,23 @@ func TestGetAutomationRule(t *testing.T) {
 
 		w.WriteHeader(http.StatusOK)
 		rule := AutomationRule{
-			ID:    json.Number("42"),
+			UUID:  "uuid-42",
 			Name:  "My Automation Rule",
 			State: "ENABLED",
+			Trigger: &RuleComponent{
+				Component: "TRIGGER",
+				Type:      "jira.issue.create",
+			},
 			Components: []RuleComponent{
-				{Component: "TRIGGER", Type: "jira.issue.create"},
 				{Component: "CONDITION", Type: "jira.issue.condition"},
 				{Component: "ACTION", Type: "jira.issue.assign"},
 			},
 		}
-		_ = json.NewEncoder(w).Encode(rule)
+		resp := struct {
+			Rule        AutomationRule    `json:"rule"`
+			Connections []json.RawMessage `json:"connections,omitempty"`
+		}{Rule: rule}
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -207,14 +214,15 @@ func TestGetAutomationRule(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "My Automation Rule", rule.Name)
 	assert.Equal(t, "ENABLED", rule.State)
-	assert.Len(t, rule.Components, 3)
-	assert.Equal(t, "TRIGGER", rule.Components[0].Component)
-	assert.Equal(t, "CONDITION", rule.Components[1].Component)
-	assert.Equal(t, "ACTION", rule.Components[2].Component)
+	require.NotNil(t, rule.Trigger)
+	assert.Equal(t, "TRIGGER", rule.Trigger.Component)
+	assert.Len(t, rule.Components, 2)
+	assert.Equal(t, "CONDITION", rule.Components[0].Component)
+	assert.Equal(t, "ACTION", rule.Components[1].Component)
 }
 
 func TestGetAutomationRuleRaw(t *testing.T) {
-	expectedJSON := `{"id":42,"name":"Raw Rule","state":"ENABLED"}`
+	expectedJSON := `{"rule":{"uuid":"uuid-raw-42","name":"Raw Rule","state":"ENABLED"},"connections":[]}`
 
 	client, server := newTestClientWithServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/_edge/tenant_info" {
@@ -351,18 +359,18 @@ func TestListAutomationRulesPagination(t *testing.T) {
 		page++
 		w.WriteHeader(http.StatusOK)
 		if page == 1 {
+			next := "http://" + r.Host + r.URL.Path + "?cursor=abc"
 			resp := AutomationRuleSummaryResponse{
-				Total:  3,
-				Values: []AutomationRuleSummary{{ID: json.Number("1"), Name: "Rule 1", State: "ENABLED"}},
-				Next:   "http://" + r.Host + r.URL.Path + "?cursor=abc",
+				Links: automationLinks{Next: &next},
+				Data:  []AutomationRuleSummary{{UUID: "uuid-1", Name: "Rule 1", State: "ENABLED"}},
 			}
 			_ = json.NewEncoder(w).Encode(resp)
 		} else {
 			resp := AutomationRuleSummaryResponse{
-				Total: 3,
-				Values: []AutomationRuleSummary{
-					{ID: json.Number("2"), Name: "Rule 2", State: "ENABLED"},
-					{ID: json.Number("3"), Name: "Rule 3", State: "DISABLED"},
+				Links: automationLinks{},
+				Data: []AutomationRuleSummary{
+					{UUID: "uuid-2", Name: "Rule 2", State: "ENABLED"},
+					{UUID: "uuid-3", Name: "Rule 3", State: "DISABLED"},
 				},
 			}
 			_ = json.NewEncoder(w).Encode(resp)

@@ -27,10 +27,10 @@ func (c *Client) ListAutomationRules() ([]AutomationRuleSummary, error) {
 			return nil, fmt.Errorf("failed to parse automation rules response: %w", err)
 		}
 
-		all = append(all, resp.Values...)
+		all = append(all, resp.Items()...)
 
-		if resp.Next != "" {
-			urlStr = resp.Next
+		if next := resp.NextURL(); next != "" {
+			urlStr = next
 		} else {
 			urlStr = ""
 		}
@@ -72,9 +72,25 @@ func (c *Client) GetAutomationRule(ruleID string) (*AutomationRule, error) {
 		return nil, fmt.Errorf("failed to get automation rule %s: %w", ruleID, err)
 	}
 
+	// Newer Cloud response shape is an envelope: {"rule": {...}, "connections": [...]}
+	var env struct {
+		Rule *AutomationRule `json:"rule"`
+	}
+	if err := json.Unmarshal(body, &env); err == nil && env.Rule != nil {
+		// Normalize legacy identifier field name for callers.
+		if env.Rule.UUID == "" && env.Rule.RuleKey != "" {
+			env.Rule.UUID = env.Rule.RuleKey
+		}
+		return env.Rule, nil
+	}
+
+	// Fallback to legacy/plain shape where the rule is the top-level object.
 	var rule AutomationRule
 	if err := json.Unmarshal(body, &rule); err != nil {
 		return nil, fmt.Errorf("failed to parse automation rule: %w", err)
+	}
+	if rule.UUID == "" && rule.RuleKey != "" {
+		rule.UUID = rule.RuleKey
 	}
 
 	return &rule, nil

@@ -32,9 +32,4 @@ Install-ChocolateyZipPackage -PackageName $env:ChocolateyPackageName `
     -Checksum $checksum `
     -ChecksumType 'sha256'
 
-# Exclude non-executables from shimming
-# Chocolatey auto-creates shims for .exe files; .ignore files prevent shimming other files
-New-Item "$toolsDir\LICENSE.ignore" -Type File -Force | Out-Null
-New-Item "$toolsDir\README.md.ignore" -Type File -Force | Out-Null
-
 Write-Host "confluence-cli installed successfully. Run 'cfl --help' to get started."

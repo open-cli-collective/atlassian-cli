@@ -2,9 +2,11 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	neturl "net/url"
+	"sync"
 
 	"github.com/open-cli-collective/atlassian-go/client"
 	"github.com/open-cli-collective/atlassian-go/errors"
@@ -17,6 +19,10 @@ type Client struct {
 	URL            string // Base URL (e.g., https://mycompany.atlassian.net)
 	BaseURL        string // REST API v3 URL
 	AgileURL       string // Agile API URL
+
+	cloudID   string
+	cloudOnce sync.Once
+	cloudErr  error
 }
 
 // ClientConfig contains configuration for creating a new client
@@ -113,4 +119,45 @@ func (c *Client) GetHTTPClient() *http.Client {
 // GetAuthHeader returns the authorization header value.
 func (c *Client) GetAuthHeader() string {
 	return c.AuthHeader
+}
+
+// tenantInfo is the response from /_edge/tenant_info
+type tenantInfo struct {
+	CloudID string `json:"cloudId"`
+}
+
+// GetCloudID returns the Atlassian cloud ID for this site, fetching it on first call.
+func (c *Client) GetCloudID() (string, error) {
+	c.cloudOnce.Do(func() {
+		urlStr := fmt.Sprintf("%s/_edge/tenant_info", c.URL)
+		body, err := c.get(urlStr)
+		if err != nil {
+			c.cloudErr = fmt.Errorf("failed to fetch cloud ID from %s: %w", urlStr, err)
+			return
+		}
+
+		var info tenantInfo
+		if err := json.Unmarshal(body, &info); err != nil {
+			c.cloudErr = fmt.Errorf("failed to parse tenant info: %w", err)
+			return
+		}
+
+		if info.CloudID == "" {
+			c.cloudErr = fmt.Errorf("tenant info returned empty cloud ID")
+			return
+		}
+
+		c.cloudID = info.CloudID
+	})
+
+	return c.cloudID, c.cloudErr
+}
+
+// AutomationBaseURL returns the base URL for the Jira Automation REST API.
+func (c *Client) AutomationBaseURL() (string, error) {
+	cloudID, err := c.GetCloudID()
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%s/gateway/api/automation/public/jira/%s/rest/v1", c.URL, cloudID), nil
 }

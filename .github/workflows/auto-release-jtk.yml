@@ -7,6 +7,9 @@ on:
       - 'tools/jtk/**/*.go'
       - 'tools/jtk/go.mod'
       - 'tools/jtk/go.sum'
+      - 'shared/**/*.go'
+      - 'shared/**/go.mod'
+      - 'shared/**/go.sum'
 
 jobs:
   create-tag:

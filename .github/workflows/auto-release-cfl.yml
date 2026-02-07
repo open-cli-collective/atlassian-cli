@@ -7,6 +7,9 @@ on:
       - 'tools/cfl/**/*.go'
       - 'tools/cfl/go.mod'
       - 'tools/cfl/go.sum'
+      - 'shared/**/*.go'
+      - 'shared/**/go.mod'
+      - 'shared/**/go.sum'
 
 jobs:
   create-tag:

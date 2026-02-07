@@ -115,6 +115,24 @@ func (c *Client) UpdateAutomationRule(ruleID string, ruleJSON json.RawMessage) e
 	return nil
 }
 
+// CreateAutomationRule creates a new automation rule from raw JSON.
+// The JSON should be in the same shape as the GET response. The API
+// auto-generates new IDs; any existing 'id' or 'ruleKey' fields are ignored.
+func (c *Client) CreateAutomationRule(ruleJSON json.RawMessage) (json.RawMessage, error) {
+	base, err := c.AutomationBaseURL()
+	if err != nil {
+		return nil, err
+	}
+
+	urlStr := fmt.Sprintf("%s/rule", base)
+	body, err := c.post(urlStr, ruleJSON)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create automation rule: %w", err)
+	}
+
+	return body, nil
+}
+
 // SetAutomationRuleState enables or disables an automation rule.
 func (c *Client) SetAutomationRuleState(ruleID string, enabled bool) error {
 	base, err := c.AutomationBaseURL()

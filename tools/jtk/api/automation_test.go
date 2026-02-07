@@ -304,6 +304,41 @@ func TestSetAutomationRuleState(t *testing.T) {
 	})
 }
 
+func TestCreateAutomationRule(t *testing.T) {
+	var receivedBody json.RawMessage
+	var receivedMethod string
+
+	client, server := newTestClientWithServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/_edge/tenant_info" {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"cloudId":"cloud-1"}`))
+			return
+		}
+
+		receivedMethod = r.Method
+		_ = json.NewDecoder(r.Body).Decode(&receivedBody)
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{"id":99,"ruleKey":"new-uuid-123","name":"New Rule"}`))
+	}))
+	defer server.Close()
+
+	ruleJSON := json.RawMessage(`{"name":"New Rule","state":"DISABLED"}`)
+	resp, err := client.CreateAutomationRule(ruleJSON)
+	require.NoError(t, err)
+	assert.Equal(t, http.MethodPost, receivedMethod)
+	assert.JSONEq(t, `{"name":"New Rule","state":"DISABLED"}`, string(receivedBody))
+
+	var created struct {
+		ID      json.Number `json:"id"`
+		RuleKey string      `json:"ruleKey"`
+		Name    string      `json:"name"`
+	}
+	require.NoError(t, json.Unmarshal(resp, &created))
+	assert.Equal(t, "99", created.ID.String())
+	assert.Equal(t, "new-uuid-123", created.RuleKey)
+	assert.Equal(t, "New Rule", created.Name)
+}
+
 func TestListAutomationRulesPagination(t *testing.T) {
 	page := 0
 	client, server := newTestClientWithServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

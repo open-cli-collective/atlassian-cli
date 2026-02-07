@@ -32,6 +32,7 @@ Use enable/disable to toggle rules without touching the full definition.`,
 	cmd.AddCommand(newListCmd(opts))
 	cmd.AddCommand(newGetCmd(opts))
 	cmd.AddCommand(newExportCmd(opts))
+	cmd.AddCommand(newCreateCmd(opts))
 	cmd.AddCommand(newUpdateCmd(opts))
 	cmd.AddCommand(newEnableCmd(opts))
 	cmd.AddCommand(newDisableCmd(opts))

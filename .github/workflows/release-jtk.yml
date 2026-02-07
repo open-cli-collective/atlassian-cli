@@ -147,4 +147,4 @@ jobs:
 
       - name: Submit manifests
         run: |
-          ./wingetcreate.exe submit --path manifests --token ${{ secrets.WINGET_GITHUB_TOKEN }}
+          ./wingetcreate.exe submit manifests --token ${{ secrets.WINGET_GITHUB_TOKEN }}

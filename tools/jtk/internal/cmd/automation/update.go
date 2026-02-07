@@ -49,20 +49,20 @@ field mappings and workflow configuration.`,
 func runUpdate(opts *root.Options, ruleID, filePath string) error {
 	v := opts.View()
 
-	client, err := opts.APIClient()
-	if err != nil {
-		return err
-	}
-
-	// Read the JSON file
+	// Read and validate file before creating the API client so we fail
+	// fast on bad input without needing network access.
 	data, err := os.ReadFile(filePath)
 	if err != nil {
 		return fmt.Errorf("failed to read file %s: %w", filePath, err)
 	}
 
-	// Validate it's valid JSON
 	if !json.Valid(data) {
 		return fmt.Errorf("file %s does not contain valid JSON", filePath)
+	}
+
+	client, err := opts.APIClient()
+	if err != nil {
+		return err
 	}
 
 	// Fetch current rule to show what we're updating

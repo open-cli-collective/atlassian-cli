@@ -92,6 +92,14 @@ Content format:
 }
 
 func runEdit(opts *editOptions) error {
+	// Validate file exists before making any network calls so we fail
+	// fast on bad input without needing config or API access.
+	if opts.file != "" {
+		if _, err := os.Stat(opts.file); err != nil {
+			return fmt.Errorf("failed to read file: %w", err)
+		}
+	}
+
 	cfg, err := opts.Config()
 	if err != nil {
 		return err

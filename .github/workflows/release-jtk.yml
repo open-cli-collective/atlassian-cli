@@ -47,7 +47,7 @@ jobs:
       - name: Fix release tag
         run: |
           VERSION=${{ steps.get_version.outputs.version }}
-          gh release edit "v${VERSION}" --tag "jtk-v${VERSION}"
+          gh release edit "v${VERSION}" --tag "jtk-v${VERSION}" --title "jtk v${VERSION}"
           git push origin :refs/tags/v${VERSION}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -3,6 +3,8 @@ package api
 import (
 	"encoding/json"
 	"time"
+
+	"github.com/open-cli-collective/atlassian-go/adf"
 )
 
 // Issue represents a Jira issue
@@ -130,6 +132,17 @@ func (f IssueFields) MarshalJSON() ([]byte, error) {
 	return json.Marshal(result)
 }
 
+// Type aliases for backward compatibility with the shared adf package.
+type ADFDocument = adf.Document
+type ADFNode = adf.Node
+type ADFMark = adf.Mark
+
+// NewADFDocument creates an ADF document from markdown text.
+// Supports headings, bold, italic, code, code blocks, lists, links, and blockquotes.
+func NewADFDocument(text string) *ADFDocument {
+	return MarkdownToADF(text)
+}
+
 // Description can be either a string (Agile API) or ADF document (REST API v3)
 type Description struct {
 	Text string       // Plain text (from string or extracted from ADF)
@@ -146,10 +159,10 @@ func (d *Description) UnmarshalJSON(data []byte) error {
 	}
 
 	// Try as ADF document
-	var adf ADFDocument
-	if err := json.Unmarshal(data, &adf); err == nil {
-		d.ADF = &adf
-		d.Text = adf.ToPlainText()
+	var doc ADFDocument
+	if err := json.Unmarshal(data, &doc); err == nil {
+		d.ADF = &doc
+		d.Text = doc.ToPlainText()
 		return nil
 	}
 
@@ -174,122 +187,6 @@ func (d *Description) ToPlainText() string {
 		return ""
 	}
 	return d.Text
-}
-
-// ADFDocument represents Atlassian Document Format content
-type ADFDocument struct {
-	Type    string    `json:"type"`
-	Version int       `json:"version,omitempty"`
-	Content []ADFNode `json:"content,omitempty"`
-}
-
-// ADFNode represents a node in an ADF document
-type ADFNode struct {
-	Type    string                 `json:"type"`
-	Text    string                 `json:"text,omitempty"`
-	Content []ADFNode              `json:"content,omitempty"`
-	Attrs   map[string]interface{} `json:"attrs,omitempty"`
-	Marks   []ADFMark              `json:"marks,omitempty"`
-}
-
-// ADFMark represents text formatting in ADF
-type ADFMark struct {
-	Type  string                 `json:"type"`
-	Attrs map[string]interface{} `json:"attrs,omitempty"`
-}
-
-// NewADFDocument creates an ADF document from markdown text.
-// Supports headings, bold, italic, code, code blocks, lists, links, and blockquotes.
-func NewADFDocument(text string) *ADFDocument {
-	return MarkdownToADF(text)
-}
-
-// ToPlainText extracts plain text from an ADF document
-func (d *ADFDocument) ToPlainText() string {
-	if d == nil {
-		return ""
-	}
-	return extractText(d.Content)
-}
-
-func extractText(nodes []ADFNode) string {
-	return extractTextWithDepth(nodes, 0)
-}
-
-func extractTextWithDepth(nodes []ADFNode, depth int) string {
-	var result string
-	for _, node := range nodes {
-		switch node.Type {
-		case "heading":
-			result += "\n"
-			if len(node.Content) > 0 {
-				result += extractTextWithDepth(node.Content, depth)
-			}
-			result += "\n"
-		case "codeBlock":
-			result += "\n"
-			if len(node.Content) > 0 {
-				result += extractTextWithDepth(node.Content, depth)
-			}
-			result += "\n"
-		case "bulletList", "orderedList":
-			if len(node.Content) > 0 {
-				result += extractTextWithDepth(node.Content, depth)
-			}
-			result += "\n"
-		case "listItem":
-			indent := ""
-			for i := 0; i < depth; i++ {
-				indent += "  "
-			}
-			result += indent + "- "
-			if len(node.Content) > 0 {
-				result += extractTextWithDepth(node.Content, depth+1)
-			}
-		case "blockquote":
-			if len(node.Content) > 0 {
-				inner := extractTextWithDepth(node.Content, depth)
-				for _, line := range splitLines(inner) {
-					result += "> " + line + "\n"
-				}
-			}
-		case "rule":
-			result += "---\n"
-		case "paragraph":
-			if len(node.Content) > 0 {
-				result += extractTextWithDepth(node.Content, depth)
-			}
-			result += "\n"
-		case "hardBreak":
-			result += "\n"
-		default:
-			if node.Text != "" {
-				result += node.Text
-			}
-			if len(node.Content) > 0 {
-				result += extractTextWithDepth(node.Content, depth)
-			}
-		}
-	}
-	return result
-}
-
-// splitLines splits text into lines, stripping trailing empty lines
-func splitLines(s string) []string {
-	var lines []string
-	current := ""
-	for _, ch := range s {
-		if ch == '\n' {
-			lines = append(lines, current)
-			current = ""
-		} else {
-			current += string(ch)
-		}
-	}
-	if current != "" {
-		lines = append(lines, current)
-	}
-	return lines
 }
 
 // Status represents an issue status

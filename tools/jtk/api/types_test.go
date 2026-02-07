@@ -100,7 +100,7 @@ func TestDescription_MarshalJSON(t *testing.T) {
 				ADF: &ADFDocument{
 					Type:    "doc",
 					Version: 1,
-					Content: []ADFNode{{Type: "paragraph", Content: []ADFNode{{Type: "text", Text: "Custom ADF"}}}},
+					Content: []*ADFNode{{Type: "paragraph", Content: []*ADFNode{{Type: "text", Text: "Custom ADF"}}}},
 				},
 			},
 			want: `{"type":"doc","version":1,"content":[{"type":"paragraph","content":[{"type":"text","text":"Custom ADF"}]}]}`,
@@ -138,10 +138,10 @@ func TestNewADFDocument(t *testing.T) {
 			want: &ADFDocument{
 				Type:    "doc",
 				Version: 1,
-				Content: []ADFNode{
+				Content: []*ADFNode{
 					{
 						Type: "paragraph",
-						Content: []ADFNode{
+						Content: []*ADFNode{
 							{Type: "text", Text: "Hello world"},
 						},
 					},
@@ -186,10 +186,10 @@ func TestADFDocument_ToPlainText(t *testing.T) {
 			doc: &ADFDocument{
 				Type:    "doc",
 				Version: 1,
-				Content: []ADFNode{
+				Content: []*ADFNode{
 					{
 						Type: "paragraph",
-						Content: []ADFNode{
+						Content: []*ADFNode{
 							{Type: "text", Text: "Hello"},
 						},
 					},
@@ -202,10 +202,10 @@ func TestADFDocument_ToPlainText(t *testing.T) {
 			doc: &ADFDocument{
 				Type:    "doc",
 				Version: 1,
-				Content: []ADFNode{
+				Content: []*ADFNode{
 					{
 						Type: "paragraph",
-						Content: []ADFNode{
+						Content: []*ADFNode{
 							{Type: "text", Text: "Hello "},
 							{Type: "text", Text: "World"},
 						},
@@ -219,10 +219,10 @@ func TestADFDocument_ToPlainText(t *testing.T) {
 			doc: &ADFDocument{
 				Type:    "doc",
 				Version: 1,
-				Content: []ADFNode{
+				Content: []*ADFNode{
 					{
 						Type: "paragraph",
-						Content: []ADFNode{
+						Content: []*ADFNode{
 							{Type: "text", Text: "Line 1"},
 							{Type: "hardBreak"},
 							{Type: "text", Text: "Line 2"},
@@ -479,17 +479,17 @@ func TestExtractText_Headings(t *testing.T) {
 	doc := &ADFDocument{
 		Type:    "doc",
 		Version: 1,
-		Content: []ADFNode{
+		Content: []*ADFNode{
 			{
 				Type:  "heading",
 				Attrs: map[string]interface{}{"level": float64(1)},
-				Content: []ADFNode{
+				Content: []*ADFNode{
 					{Type: "text", Text: "Title"},
 				},
 			},
 			{
 				Type: "paragraph",
-				Content: []ADFNode{
+				Content: []*ADFNode{
 					{Type: "text", Text: "Body text"},
 				},
 			},
@@ -507,20 +507,20 @@ func TestExtractText_BulletList(t *testing.T) {
 	doc := &ADFDocument{
 		Type:    "doc",
 		Version: 1,
-		Content: []ADFNode{
+		Content: []*ADFNode{
 			{
 				Type: "bulletList",
-				Content: []ADFNode{
+				Content: []*ADFNode{
 					{
 						Type: "listItem",
-						Content: []ADFNode{
-							{Type: "paragraph", Content: []ADFNode{{Type: "text", Text: "Item one"}}},
+						Content: []*ADFNode{
+							{Type: "paragraph", Content: []*ADFNode{{Type: "text", Text: "Item one"}}},
 						},
 					},
 					{
 						Type: "listItem",
-						Content: []ADFNode{
-							{Type: "paragraph", Content: []ADFNode{{Type: "text", Text: "Item two"}}},
+						Content: []*ADFNode{
+							{Type: "paragraph", Content: []*ADFNode{{Type: "text", Text: "Item two"}}},
 						},
 					},
 				},
@@ -537,23 +537,23 @@ func TestExtractText_CodeBlock(t *testing.T) {
 	doc := &ADFDocument{
 		Type:    "doc",
 		Version: 1,
-		Content: []ADFNode{
+		Content: []*ADFNode{
 			{
 				Type: "paragraph",
-				Content: []ADFNode{
+				Content: []*ADFNode{
 					{Type: "text", Text: "Before code"},
 				},
 			},
 			{
 				Type:  "codeBlock",
 				Attrs: map[string]interface{}{"language": "go"},
-				Content: []ADFNode{
+				Content: []*ADFNode{
 					{Type: "text", Text: "fmt.Println(\"hello\")"},
 				},
 			},
 			{
 				Type: "paragraph",
-				Content: []ADFNode{
+				Content: []*ADFNode{
 					{Type: "text", Text: "After code"},
 				},
 			},
@@ -570,13 +570,13 @@ func TestExtractText_Blockquote(t *testing.T) {
 	doc := &ADFDocument{
 		Type:    "doc",
 		Version: 1,
-		Content: []ADFNode{
+		Content: []*ADFNode{
 			{
 				Type: "blockquote",
-				Content: []ADFNode{
+				Content: []*ADFNode{
 					{
 						Type: "paragraph",
-						Content: []ADFNode{
+						Content: []*ADFNode{
 							{Type: "text", Text: "Quoted text"},
 						},
 					},
@@ -593,17 +593,17 @@ func TestExtractText_Rule(t *testing.T) {
 	doc := &ADFDocument{
 		Type:    "doc",
 		Version: 1,
-		Content: []ADFNode{
+		Content: []*ADFNode{
 			{
 				Type: "paragraph",
-				Content: []ADFNode{
+				Content: []*ADFNode{
 					{Type: "text", Text: "Above"},
 				},
 			},
 			{Type: "rule"},
 			{
 				Type: "paragraph",
-				Content: []ADFNode{
+				Content: []*ADFNode{
 					{Type: "text", Text: "Below"},
 				},
 			},
@@ -620,21 +620,21 @@ func TestExtractText_NestedList(t *testing.T) {
 	doc := &ADFDocument{
 		Type:    "doc",
 		Version: 1,
-		Content: []ADFNode{
+		Content: []*ADFNode{
 			{
 				Type: "bulletList",
-				Content: []ADFNode{
+				Content: []*ADFNode{
 					{
 						Type: "listItem",
-						Content: []ADFNode{
-							{Type: "paragraph", Content: []ADFNode{{Type: "text", Text: "Parent"}}},
+						Content: []*ADFNode{
+							{Type: "paragraph", Content: []*ADFNode{{Type: "text", Text: "Parent"}}},
 							{
 								Type: "bulletList",
-								Content: []ADFNode{
+								Content: []*ADFNode{
 									{
 										Type: "listItem",
-										Content: []ADFNode{
-											{Type: "paragraph", Content: []ADFNode{{Type: "text", Text: "Child"}}},
+										Content: []*ADFNode{
+											{Type: "paragraph", Content: []*ADFNode{{Type: "text", Text: "Child"}}},
 										},
 									},
 								},

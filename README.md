@@ -110,7 +110,7 @@ Download from the [Releases](https://github.com/open-cli-collective/atlassian-cl
 
 ### Build from Source
 
-Requires Go 1.21 or later.
+Requires Go 1.24 or later.
 
 ```bash
 git clone https://github.com/open-cli-collective/atlassian-cli.git
@@ -237,6 +237,13 @@ jtk sprints current --board 123
 jtk attachments list PROJ-123
 jtk attachments add PROJ-123 --file screenshot.png
 jtk attachments get 12345 --output ./downloads/
+
+# Search users
+jtk users search "john"
+
+# Manage automation rules
+jtk automation list
+jtk automation export 123 > rule-backup.json
 ```
 
 **Full documentation:** [tools/jtk/README.md](tools/jtk/README.md)
@@ -258,9 +265,9 @@ cfl page create --space DEV --title "New Page" --file content.md
 # Edit page in your editor
 cfl page edit 123456
 
-# Search pages
-cfl page search "my search query"
-cfl page search --cql "space = DEV AND type = page"
+# Search content
+cfl search "my search query"
+cfl search --cql "space = DEV AND type = page"
 
 # Copy a page
 cfl page copy 123456 --title "Copy of Page"
@@ -269,9 +276,9 @@ cfl page copy 123456 --title "Copy of Page"
 cfl space list
 
 # Manage attachments
-cfl attachment list 123456
-cfl attachment upload 123456 --file diagram.png
-cfl attachment download 123456 image.png --output ./
+cfl attachment list --page 123456
+cfl attachment upload --page 123456 --file diagram.png
+cfl attachment download att789 -O ./diagram.png
 ```
 
 **Full documentation:** [tools/cfl/README.md](tools/cfl/README.md)

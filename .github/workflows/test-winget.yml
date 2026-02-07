@@ -79,9 +79,8 @@ jobs:
           # Installer manifest
           $content = Get-Content "tools/jtk/packaging/winget/OpenCLICollective.jira-ticket-cli.installer.yaml" -Raw
           $content = $content -replace "0\.0\.0", $testVersion
-          $regex = [regex]"0{64}"
-          $content = $regex.Replace($content, $testHash1, 1)
-          $content = $regex.Replace($content, $testHash2, 1)
+          $content = $content -replace 'CHECKSUM_AMD64_PLACEHOLDER', $testHash1
+          $content = $content -replace 'CHECKSUM_ARM64_PLACEHOLDER', $testHash2
           Set-Content "$testDir/OpenCLICollective.jira-ticket-cli.installer.yaml" $content -Encoding UTF8
 
           Write-Host "Validating jtk winget manifest..."

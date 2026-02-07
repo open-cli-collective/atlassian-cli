@@ -71,7 +71,7 @@ func runUpdate(opts *root.Options, ruleID, filePath string) error {
 		return fmt.Errorf("failed to fetch current rule: %w", err)
 	}
 
-	v.Info("Updating rule: %s (ID: %s, State: %s)", current.Name, current.ID.String(), current.State)
+	v.Info("Updating rule: %s (UUID: %s, State: %s)", current.Name, current.Identifier(), current.State)
 
 	if err := client.UpdateAutomationRule(ruleID, json.RawMessage(data)); err != nil {
 		return err

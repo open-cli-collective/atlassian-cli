@@ -62,7 +62,7 @@ func TestRunCreate(t *testing.T) {
 		err = runCreate(opts, filePath)
 		require.NoError(t, err)
 		assert.Contains(t, stdout.String(), "Test Rule")
-		assert.Contains(t, stdout.String(), "99")
+		assert.Contains(t, stdout.String(), "new-uuid")
 		assert.JSONEq(t, `{"name":"Test Rule","state":"DISABLED"}`, string(receivedBody))
 	})
 

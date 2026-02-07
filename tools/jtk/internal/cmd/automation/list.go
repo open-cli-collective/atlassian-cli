@@ -48,7 +48,7 @@ func runList(opts *root.Options, state string) error {
 		return nil
 	}
 
-	headers := []string{"ID", "NAME", "STATE", "LABELS"}
+	headers := []string{"UUID", "NAME", "STATE", "LABELS"}
 	rows := make([][]string, 0, len(rules))
 	for _, r := range rules {
 		labels := "-"
@@ -60,7 +60,7 @@ func runList(opts *root.Options, state string) error {
 		}
 
 		rows = append(rows, []string{
-			r.ID.String(),
+			r.Identifier(),
 			view.Truncate(r.Name, 60),
 			r.State,
 			labels,

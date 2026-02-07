@@ -131,6 +131,9 @@ Run tests: `make test`
 
 Coverage report: `make test-cover && open coverage.html`
 
+### Integration Tests
+After significant code changes, run through the manual integration test suite in [integration-tests.md](integration-tests.md). These tests verify real-world behavior against a live Jira instance and catch edge cases that unit tests miss.
+
 ## Commit Conventions
 
 Use conventional commits:

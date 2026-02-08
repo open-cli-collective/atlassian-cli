@@ -270,7 +270,7 @@ func TestUpdateAutomationRule(t *testing.T) {
 
 func TestSetAutomationRuleState(t *testing.T) {
 	t.Run("enable", func(t *testing.T) {
-		var receivedBody AutomationStateUpdate
+		var rawBody json.RawMessage
 
 		client, server := newTestClientWithServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.URL.Path == "/_edge/tenant_info" {
@@ -279,7 +279,7 @@ func TestSetAutomationRuleState(t *testing.T) {
 				return
 			}
 
-			_ = json.NewDecoder(r.Body).Decode(&receivedBody)
+			_ = json.NewDecoder(r.Body).Decode(&rawBody)
 			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write([]byte(`{}`))
 		}))
@@ -287,11 +287,12 @@ func TestSetAutomationRuleState(t *testing.T) {
 
 		err := client.SetAutomationRuleState("42", true)
 		require.NoError(t, err)
-		assert.Equal(t, "ENABLED", receivedBody.RuleState)
+		// Verify the JSON field name is "value" per the Automation REST API spec
+		assert.JSONEq(t, `{"value":"ENABLED"}`, string(rawBody))
 	})
 
 	t.Run("disable", func(t *testing.T) {
-		var receivedBody AutomationStateUpdate
+		var rawBody json.RawMessage
 
 		client, server := newTestClientWithServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.URL.Path == "/_edge/tenant_info" {
@@ -300,7 +301,7 @@ func TestSetAutomationRuleState(t *testing.T) {
 				return
 			}
 
-			_ = json.NewDecoder(r.Body).Decode(&receivedBody)
+			_ = json.NewDecoder(r.Body).Decode(&rawBody)
 			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write([]byte(`{}`))
 		}))
@@ -308,7 +309,7 @@ func TestSetAutomationRuleState(t *testing.T) {
 
 		err := client.SetAutomationRuleState("42", false)
 		require.NoError(t, err)
-		assert.Equal(t, "DISABLED", receivedBody.RuleState)
+		assert.JSONEq(t, `{"value":"DISABLED"}`, string(rawBody))
 	})
 }
 

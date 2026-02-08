@@ -162,7 +162,7 @@ func (c *Client) SetAutomationRuleState(ruleID string, enabled bool) error {
 	}
 
 	urlStr := fmt.Sprintf("%s/rule/%s/state", base, url.PathEscape(ruleID))
-	_, err = c.put(urlStr, AutomationStateUpdate{RuleState: state})
+	_, err = c.put(urlStr, AutomationStateUpdate{Value: state})
 	if err != nil {
 		return fmt.Errorf("failed to set automation rule %s state to %s: %w", ruleID, state, err)
 	}

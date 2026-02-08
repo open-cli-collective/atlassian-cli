@@ -145,6 +145,7 @@ func (r AutomationRuleSummaryResponse) NextURL() string {
 }
 
 // AutomationStateUpdate represents a request to enable or disable a rule.
+// The Automation REST API expects {"value": "ENABLED"} or {"value": "DISABLED"}.
 type AutomationStateUpdate struct {
-	RuleState string `json:"ruleState"`
+	Value string `json:"value"`
 }

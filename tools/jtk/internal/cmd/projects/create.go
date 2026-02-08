@@ -72,7 +72,7 @@ func runCreate(opts *root.Options, key, name, projectType, lead, description str
 		return v.JSON(project)
 	}
 
-	v.Success("Created project %s (%s)", project.Key, project.Name)
+	v.Success("Created project %s (%s)", project.Key, name)
 
 	return nil
 }

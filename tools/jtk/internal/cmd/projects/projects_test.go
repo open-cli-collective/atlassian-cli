@@ -157,12 +157,14 @@ func TestNewCreateCmd(t *testing.T) {
 }
 
 func TestRunCreate(t *testing.T) {
+	// Jira's create endpoint returns an empty name, so the success message
+	// should use the input name, not the response name.
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusCreated)
 		json.NewEncoder(w).Encode(api.ProjectDetail{
 			ID:   json.Number("10001"),
 			Key:  "TST",
-			Name: "Test Project",
+			Name: "",
 		})
 	}))
 	defer server.Close()
@@ -177,6 +179,7 @@ func TestRunCreate(t *testing.T) {
 	err = runCreate(opts, "TST", "Test Project", "software", "abc123", "")
 	require.NoError(t, err)
 	assert.Contains(t, stdout.String(), "Created project TST")
+	assert.Contains(t, stdout.String(), "Test Project")
 }
 
 func TestNewDeleteCmd(t *testing.T) {

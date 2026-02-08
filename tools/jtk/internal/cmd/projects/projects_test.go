@@ -118,7 +118,7 @@ func TestNewGetCmd(t *testing.T) {
 func TestRunGet_Table(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(api.ProjectDetail{
-			ID:             "10001",
+			ID:             json.Number("10001"),
 			Key:            "TST",
 			Name:           "Test",
 			ProjectTypeKey: "software",

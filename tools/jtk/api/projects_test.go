@@ -176,7 +176,7 @@ func TestCreateProject(t *testing.T) {
 
 		w.WriteHeader(http.StatusCreated)
 		json.NewEncoder(w).Encode(ProjectDetail{
-			ID:             "10001",
+			ID:             json.Number("10001"),
 			Key:            "TST",
 			Name:           "Test Project",
 			ProjectTypeKey: "software",
@@ -203,6 +203,35 @@ func TestCreateProject(t *testing.T) {
 	assert.Equal(t, "Test Project", project.Name)
 }
 
+func TestCreateProject_NumericID(t *testing.T) {
+	// Jira's create endpoint returns the ID as a number, not a string.
+	// This verifies we can parse both shapes.
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusCreated)
+		// Raw JSON with numeric id (the actual API response shape)
+		w.Write([]byte(`{"id": 10031, "key": "NEW", "name": "New Project"}`))
+	}))
+	defer server.Close()
+
+	client, err := New(ClientConfig{
+		URL:      "https://test.atlassian.net",
+		Email:    "test@example.com",
+		APIToken: "test-token",
+	})
+	require.NoError(t, err)
+	client.BaseURL = server.URL + "/rest/api/3"
+
+	project, err := client.CreateProject(&CreateProjectRequest{
+		Key:            "NEW",
+		Name:           "New Project",
+		ProjectTypeKey: "software",
+		LeadAccountID:  "abc123",
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "NEW", project.Key)
+	assert.Equal(t, "10031", project.ID.String())
+}
+
 func TestUpdateProject(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, http.MethodPut, r.Method)
@@ -214,7 +243,7 @@ func TestUpdateProject(t *testing.T) {
 		assert.Equal(t, "Updated Name", req.Name)
 
 		json.NewEncoder(w).Encode(ProjectDetail{
-			ID:   "10001",
+			ID:   json.Number("10001"),
 			Key:  "TST",
 			Name: "Updated Name",
 		})
@@ -285,7 +314,7 @@ func TestRestoreProject(t *testing.T) {
 		assert.Equal(t, http.MethodPost, r.Method)
 		assert.Equal(t, "/rest/api/3/project/TST/restore", r.URL.Path)
 		json.NewEncoder(w).Encode(ProjectDetail{
-			ID:   "10001",
+			ID:   json.Number("10001"),
 			Key:  "TST",
 			Name: "Test Project",
 		})

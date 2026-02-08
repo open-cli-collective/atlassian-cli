@@ -41,7 +41,7 @@ func runGet(opts *root.Options, keyOrID string) error {
 
 	v.Println("Key:         %s", project.Key)
 	v.Println("Name:        %s", project.Name)
-	v.Println("ID:          %s", project.ID)
+	v.Println("ID:          %s", project.ID.String())
 	v.Println("Type:        %s", project.ProjectTypeKey)
 
 	if project.Lead != nil {

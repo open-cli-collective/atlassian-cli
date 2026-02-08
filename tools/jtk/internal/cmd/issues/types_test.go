@@ -33,7 +33,7 @@ func TestRunTypes_Success(t *testing.T) {
 		assert.Equal(t, "/rest/api/3/project/TEST", r.URL.Path)
 
 		response := api.ProjectDetail{
-			ID:   "10000",
+			ID:   json.Number("10000"),
 			Key:  "TEST",
 			Name: "Test Project",
 			IssueTypes: []api.IssueType{
@@ -101,7 +101,7 @@ func TestRunTypes_ProjectNotFound(t *testing.T) {
 func TestRunTypes_EmptyIssueTypes(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		response := api.ProjectDetail{
-			ID:         "10000",
+			ID:         json.Number("10000"),
 			Key:        "EMPTY",
 			Name:       "Empty Project",
 			IssueTypes: []api.IssueType{},
@@ -134,7 +134,7 @@ func TestRunTypes_EmptyIssueTypes(t *testing.T) {
 func TestRunTypes_JSONOutput(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		response := api.ProjectDetail{
-			ID:   "10000",
+			ID:   json.Number("10000"),
 			Key:  "TEST",
 			Name: "Test Project",
 			IssueTypes: []api.IssueType{
@@ -182,7 +182,7 @@ func TestRunTypes_DescriptionTruncation(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		response := api.ProjectDetail{
-			ID:   "10000",
+			ID:   json.Number("10000"),
 			Key:  "TEST",
 			Name: "Test Project",
 			IssueTypes: []api.IssueType{

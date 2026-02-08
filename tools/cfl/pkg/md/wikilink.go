@@ -159,27 +159,6 @@ var acLinkPattern = regexp.MustCompile(`(?s)<ac:link>\s*<ri:page\s+([^/]*)/>\s*(
 var riPageTitlePattern = regexp.MustCompile(`ri:content-title="([^"]*)"`)
 var riPageSpacePattern = regexp.MustCompile(`ri:space-key="([^"]*)"`)
 
-// convertACLinksToWikiLinks converts <ac:link> elements to [[...]] wiki-link syntax.
-// Used in the XHTML→Markdown roundtrip path when --show-macros is enabled.
-func convertACLinksToWikiLinks(html string) string {
-	return acLinkPattern.ReplaceAllStringFunc(html, func(match string) string {
-		titleMatch := riPageTitlePattern.FindStringSubmatch(match)
-		if len(titleMatch) < 2 || titleMatch[1] == "" {
-			return match // can't extract title, leave as-is
-		}
-		title := unescapeXML(titleMatch[1])
-
-		spaceMatch := riPageSpacePattern.FindStringSubmatch(match)
-		spaceKey := ""
-		if len(spaceMatch) > 1 {
-			spaceKey = unescapeXML(spaceMatch[1])
-		}
-
-		wl := WikiLink{SpaceKey: spaceKey, Title: title}
-		return RenderWikiLinkToBracket(wl)
-	})
-}
-
 // wikiLinkFromHTMLPlaceholderPrefix is used for wiki-link placeholders in the
 // HTML→Markdown direction (distinct from the MD→HTML direction to avoid collisions).
 const wikiLinkFromHTMLPlaceholderPrefix = "CFWLVIEW"

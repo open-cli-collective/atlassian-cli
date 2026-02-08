@@ -225,8 +225,6 @@ jtk config clear --force
 
 List issues in a project.
 
-**Aliases:** `jtk issues ls`
-
 ```bash
 jtk issues list --project MYPROJECT
 jtk issues list --project MYPROJECT --sprint current
@@ -942,13 +940,19 @@ jtk automation disable 123
 
 ## Configuration
 
-Configuration is stored in `~/.config/jtk/config.json`:
+Configuration is stored in your system's config directory under `jira-ticket-cli/`:
+
+- **macOS:** `~/Library/Application Support/jira-ticket-cli/config.json`
+- **Linux:** `~/.config/jira-ticket-cli/config.json`
+
+Run `jtk config show` to see the path on your system.
 
 ```json
 {
   "url": "https://mycompany.atlassian.net",
   "email": "user@example.com",
-  "api_token": "your-api-token"
+  "api_token": "your-api-token",
+  "default_project": "MYPROJECT"
 }
 ```
 
@@ -961,6 +965,7 @@ Environment variables override config file values. Variables are checked in orde
 | URL | `JIRA_URL` → `ATLASSIAN_URL` → config file |
 | Email | `JIRA_EMAIL` → `ATLASSIAN_EMAIL` → config file |
 | API Token | `JIRA_API_TOKEN` → `ATLASSIAN_API_TOKEN` → config file |
+| Default Project | `JIRA_DEFAULT_PROJECT` → config file |
 
 **Shared credentials:** If you use both `jtk` and `cfl` (Confluence CLI), set `ATLASSIAN_*` variables once:
 

@@ -1,799 +1,620 @@
 # Integration Tests
 
-This document catalogs the manual integration test suite for `jtk`. These tests verify real-world behavior against a live Jira instance and catch edge cases that are difficult to cover with unit tests.
+This document is a concrete, sequential runbook for testing `jtk` against a live Jira instance. Run read-only tests first, then mutations, then cleanup.
+
+If a test reveals a bug, **record the bug and continue testing** rather than stopping to fix it.
 
 ## Test Environment Setup
 
 ### Prerequisites
 - A configured `jtk` instance (`jtk init` completed)
-- Access to a test project (e.g., `TEST`) with permission to create, edit, and delete issues
+- Access to a project with permission to create, edit, and delete issues
 - At least one agile board with an active sprint
 - At least one ENABLED and one DISABLED automation rule
 - At least one automation rule with multiple components (trigger + conditions + actions)
 
+### Build
+
+```bash
+make build-jtk
+```
+
+### Discover Test Values
+
+Run these commands and capture the values. They are referenced as `$VARIABLES` throughout this document.
+
+```bash
+# $ACCOUNT_ID — your account ID (used for assignment and project lead)
+jtk me -o json | jq -r .accountId
+
+# $PROJECT — pick a project you have full access to
+jtk projects list --max 10
+# Note the KEY column value, e.g., MON
+
+# $ISSUE_TYPES — check available issue types (not all projects have "Task")
+jtk issues types -p $PROJECT
+# Note a valid type name, e.g., SDLC, Bug, Task
+
+# $EXISTING_ISSUE — pick an existing issue key for read-only tests
+jtk issues list -p $PROJECT --max 3
+# Note a KEY, e.g., MON-3714
+
+# $BOARD_ID — find a board for your project
+jtk boards list -p $PROJECT
+# Note the ID column, e.g., 23
+
+# $SPRINT_ID — find the active sprint
+jtk sprints list -b $BOARD_ID -s active
+# Note the ID column, e.g., 119
+
+# $AUTO_UUID — pick an enabled automation rule
+jtk auto list --state ENABLED
+# Note a UUID from the first column
+```
+
 ### Test Data Conventions
 - Test issues use `[Test]` prefix: `[Test] My Issue`
-- Test projects use `Z`-prefixed keys: `ZTEST`, `ZT2`, `ZT3` (sorts away from real projects)
+- Test projects use `Z`-prefixed keys: `ZTEST`, `ZT2` (sorts away from real projects)
 - Test automation copies use `[Test]` prefix in the rule name
 - Always clean up test data after tests complete
-- Run read-only tests first, then mutation tests, then cleanup
-- If a test reveals a bug, **record the bug and continue testing** rather than stopping to fix it
-
-### Agent Guidance
-- **Test project**: Use a project you have full access to. Check available issue types with `jtk issues types -p <project>` before testing — not all projects have a "Task" type
-- **Account ID**: Use `jtk me -o json | jq -r .accountId` to get your account ID for assignment and project lead tests
-- **Sprint issues**: The `sprints issues` command may be slow (~30s) due to the Jira Agile API. Use `--max` to limit results
-- **Automation exports**: When creating a rule from an export, you may need to strip the `"id"` field to avoid UUID conflicts
-- **Transitions**: Some workflows require custom fields. Always check `jtk transitions list <key> --fields` before testing `transitions do`
 
 ---
 
-## Init
-
-| Test Case | Command | Expected Result |
-|-----------|---------|-----------------|
-| Fresh init | `jtk init` (interactive) | Creates ~/.config/jtk/config.json with URL, email, token |
-| Init with flags | `jtk init --url https://x.atlassian.net --email a@b.com --token tok` | Config created non-interactively |
-| Init with --no-verify | `jtk init --url https://x.atlassian.net --email a@b.com --token tok --no-verify` | Config saved without testing connection |
-| Init with existing config | `jtk init` when config exists | Prompts to overwrite or skip |
-| Verify connection | After init, run `jtk me` | Connection works, user info shown |
-| Invalid credentials | Init with bad API token, then `jtk me` | Error: 401 |
-| Invalid URL | Init with malformed URL | Error during verification |
-
----
-
-## Config Operations
+## 1. Config & Init
 
 ### config show
 
-| Test Case | Command | Expected Result |
-|-----------|---------|-----------------|
-| Show configuration | `jtk config show` | Table with KEY, VALUE, SOURCE columns |
-| API token masked | `jtk config show` | Token shown as `****...` |
-| JSON output | `jtk config show -o json` | Valid JSON object |
-| Shows env var source | Set `JIRA_URL` env var, then `jtk config show` | URL source shows "env" |
+| # | Command | Expected Output |
+|---|---------|-----------------|
+| 1 | `jtk config show` | Table with columns: KEY, VALUE, SOURCE. Token is masked as `****...` |
+| 2 | `jtk config show -o json` | Valid JSON object with keys `url`, `email`, `api_token`, etc. |
 
 ### config test
 
-| Test Case | Command | Expected Result |
-|-----------|---------|-----------------|
-| Test connection | `jtk config test` | Shows authentication status, user name, account ID |
-| Bad credentials | Temporarily set `JIRA_API_TOKEN=bad`, then `jtk config test` | Error: 401 |
+| # | Command | Expected Output |
+|---|---------|-----------------|
+| 1 | `jtk config test` | `✓ Authentication successful` followed by user name and account ID |
 
-### config clear
+### me
 
-| Test Case | Command | Expected Result |
-|-----------|---------|-----------------|
-| Clear with confirmation | `jtk config clear` (type "y") | Config file removed |
-| Clear cancelled | `jtk config clear` (type "n") | Config file preserved |
-| Clear with --force | `jtk config clear --force` | Config removed without prompt |
-| Shows active env vars | `jtk config clear --force` with `ATLASSIAN_*` set | Lists active env variables |
+| # | Command | Expected Output |
+|---|---------|-----------------|
+| 1 | `jtk me` | Table with Account ID, Display Name, Email, Active |
+| 2 | `jtk me -o json` | Valid JSON with `accountId`, `displayName`, `emailAddress`, `active` |
+| 3 | `jtk me -o plain` | Account ID only (single line) |
 
 ---
 
-## Me
-
-| Test Case | Command | Expected Result |
-|-----------|---------|-----------------|
-| Show current user | `jtk me` | Shows Account ID, Display Name, Email, Active |
-| JSON output | `jtk me -o json` | Full user object as JSON |
-| Plain output | `jtk me -o plain` | Account ID only |
-
----
-
-## Issue Operations
+## 2. Issues (Read-Only)
 
 ### issues list
 
-| Test Case | Command | Expected Result |
-|-----------|---------|-----------------|
-| List issues in project | `jtk issues list --project TEST` | Table with KEY, SUMMARY, STATUS, ASSIGNEE, TYPE |
-| Limit results | `jtk issues list --project TEST --max 5` | At most 5 issues shown |
-| Filter by sprint | `jtk issues list --project TEST --sprint current` | Only issues in active sprint |
-| JSON output | `jtk issues list --project TEST -o json` | Valid JSON array |
-| Plain output | `jtk issues list --project TEST -o plain` | Tab-separated values |
-| No results | `jtk issues list --project NONEXISTENT` | Error or empty results |
-| Default max (50) | `jtk issues list --project TEST` (>50 issues) | Shows 50 issues |
+| # | Command | Expected Output |
+|---|---------|-----------------|
+| 1 | `jtk issues list -p $PROJECT --max 3` | Table with columns: KEY, SUMMARY, STATUS, ASSIGNEE, TYPE. At most 3 rows. |
+| 2 | `jtk issues list -p $PROJECT --max 2 -o json` | Valid JSON array with 2 elements |
+| 3 | `jtk issues list -p $PROJECT --max 2 -o plain` | Tab-separated values, 2 rows |
+| 4 | `jtk issues list -p NONEXISTENT` | Error message containing "not found" or empty results |
 
 ### issues get
 
-| Test Case | Command | Expected Result |
-|-----------|---------|-----------------|
-| Get issue details | `jtk issues get TEST-1` | Shows Key, Summary, Status, Type, Priority, Assignee, Description, URL |
-| Get with --full | `jtk issues get TEST-1 --full` | Full description without truncation |
-| Truncated description | `jtk issues get <long-desc-issue>` (without --full) | Description truncated with indicator |
-| JSON output | `jtk issues get TEST-1 -o json` | Full issue object as JSON |
-| Non-existent issue | `jtk issues get TEST-99999` | Error: 404 |
-
-### issues create
-
-| Test Case | Command | Expected Result |
-|-----------|---------|-----------------|
-| Create basic issue | `jtk issues create -p TEST -s "[Test] Basic Task"` | Issue created, shows key and URL |
-| Create with type | `jtk issues create -p TEST -t Bug -s "[Test] Bug Report"` | Bug type issue created |
-| Create with description | `jtk issues create -p TEST -s "[Test] Described" -d "Some details"` | Issue created with description |
-| Create with custom field | `jtk issues create -p TEST -s "[Test] Custom" -f priority=High` | Issue created with custom field value |
-| Default type is Task | `jtk issues create -p TEST -s "[Test] Default Type"` | Issue type is "Task" |
-
-> **Note:** The default issue type ("Task") may not exist in all projects. Some projects use custom types only (e.g., Epic, Story, SDLC). If the default type fails, use `-t <type>` explicitly. Run `jtk issues types -p <project>` to see available types.
-| Missing project | `jtk issues create -s "No Project"` | Error: project required |
-| Missing summary | `jtk issues create -p TEST` | Error: summary required |
-| JSON output | `jtk issues create -p TEST -s "[Test] JSON" -o json` | Created issue as JSON |
-
-### issues update
-
-| Test Case | Command | Expected Result |
-|-----------|---------|-----------------|
-| Update summary | `jtk issues update TEST-X -s "[Test] Updated Summary"` | Success message |
-| Update description | `jtk issues update TEST-X -d "New description"` | Success message |
-| Update custom field | `jtk issues update TEST-X -f priority=Low` | Field updated |
-| Verify update | `jtk issues get TEST-X` | Shows updated values |
-| Non-existent issue | `jtk issues update TEST-99999 -s "Nope"` | Error: 404 |
-
-### issues delete
-
-| Test Case | Command | Expected Result |
-|-----------|---------|-----------------|
-| Delete with confirmation | `jtk issues delete TEST-X` (type "y") | Issue deleted |
-| Delete cancelled | `jtk issues delete TEST-X` (type "n") | "Deletion cancelled" |
-| Delete with --force | `jtk issues delete TEST-X --force` | Deleted without confirmation |
-| Non-existent issue | `jtk issues delete TEST-99999 --force` | Error: 404 |
-
-### issues assign
-
-| Test Case | Command | Expected Result |
-|-----------|---------|-----------------|
-| Assign to user | `jtk issues assign TEST-X <account-id>` | Success: assigned to user name |
-| Unassign | `jtk issues assign TEST-X --unassign` | Success: unassigned |
-| Verify assignment | `jtk issues get TEST-X` | Assignee shows expected user |
-| Non-existent issue | `jtk issues assign TEST-99999 abc123` | Error: 404 |
+| # | Command | Expected Output |
+|---|---------|-----------------|
+| 1 | `jtk issues get $EXISTING_ISSUE` | Shows Key, Summary, Status, Type, Priority, Assignee, Description, URL |
+| 2 | `jtk issues get $EXISTING_ISSUE -o json` | Valid JSON with `key`, `fields.summary`, `fields.status.name` |
+| 3 | `jtk issues get ${PROJECT}-99999` | `resource not found: Issue does not exist or you do not have permission to see it.` |
 
 ### issues search
 
-| Test Case | Command | Expected Result |
-|-----------|---------|-----------------|
-| Search with JQL | `jtk issues search --jql "project = TEST AND status = 'To Do'"` | Matching issues in table |
-| Limit results | `jtk issues search --jql "project = TEST" --max 3` | At most 3 results |
-| JSON output | `jtk issues search --jql "project = TEST" -o json` | Valid JSON array |
-| No results | `jtk issues search --jql "project = TEST AND summary ~ 'xyznonexistent'"` | Empty result / "No issues found" |
-| Invalid JQL | `jtk issues search --jql "invalid jql ((("` | Error from API |
-
-### issues fields
-
-| Test Case | Command | Expected Result |
-|-----------|---------|-----------------|
-| List all fields | `jtk issues fields` | Table with ID, NAME, TYPE, CUSTOM columns |
-| List for specific issue | `jtk issues fields TEST-1` | Editable fields for that issue |
-| Custom fields only | `jtk issues fields --custom` | Only custom fields shown |
-| JSON output | `jtk issues fields -o json` | Valid JSON array |
-
-### issues field-options
-
-| Test Case | Command | Expected Result |
-|-----------|---------|-----------------|
-| List field options | `jtk issues field-options priority --issue TEST-1` | Table with VALUE, ID |
-| With issue context | `jtk issues field-options status --issue TEST-1` | Context-specific options |
-
-> **Note:** Some fields (like `priority`) require `--issue` to provide context. Without it, the API may return "Field key is not valid". Always use `--issue` when testing field-options.
-| JSON output | `jtk issues field-options priority -o json` | Valid JSON array |
-| Invalid field | `jtk issues field-options nonexistent-field-xyz` | Error |
+| # | Command | Expected Output |
+|---|---------|-----------------|
+| 1 | `jtk issues search --jql "project = $PROJECT" --max 3` | Table with matching issues, at most 3 rows |
+| 2 | `jtk issues search --jql "project = $PROJECT" --max 2 -o json` | Valid JSON array |
+| 3 | `jtk issues search --jql "project = $PROJECT AND summary ~ 'xyznonexistent999'"` | `No issues found` |
+| 4 | `jtk issues search --jql "invalid jql ((("` | `bad request: Error in the JQL Query: ...` |
 
 ### issues types
 
-| Test Case | Command | Expected Result |
-|-----------|---------|-----------------|
-| List issue types | `jtk issues types -p TEST` | Table with ID, NAME, SUBTASK, DESCRIPTION |
-| JSON output | `jtk issues types -p TEST -o json` | Valid JSON array |
-| Missing project | `jtk issues types` | Error: project required |
-| Invalid project | `jtk issues types -p NONEXISTENT` | Error: 404 or empty |
+| # | Command | Expected Output |
+|---|---------|-----------------|
+| 1 | `jtk issues types -p $PROJECT` | Table with columns: ID, NAME, SUBTASK, DESCRIPTION |
+| 2 | `jtk issues types -p $PROJECT -o json` | Valid JSON array of issue type objects |
+| 3 | `jtk issues types -p NONEXISTENT` | Error: 404 |
 
-### issues move
+### issues fields
 
-| Test Case | Command | Expected Result |
-|-----------|---------|-----------------|
-| Move single issue | `jtk issues move TEST-X --to-project DEST` | "Moved 1 issue(s) to DEST" |
-| Move multiple issues | `jtk issues move TEST-X TEST-Y --to-project DEST` | "Moved 2 issue(s) to DEST" |
-| Move with type change | `jtk issues move TEST-X --to-project DEST --to-type Bug` | Issue moved and retyped |
-| Move without notifications | `jtk issues move TEST-X --to-project DEST --notify=false` | Moved without sending notifications |
-| Async move | `jtk issues move TEST-X --to-project DEST --wait=false` | Returns task ID |
-| Non-existent issue | `jtk issues move TEST-99999 --to-project DEST` | Error |
-| Non-existent target project | `jtk issues move TEST-X --to-project NONEXISTENT` | Error |
+| # | Command | Expected Output |
+|---|---------|-----------------|
+| 1 | `jtk issues fields` | Table with columns: ID, NAME, TYPE, CUSTOM |
+| 2 | `jtk issues fields --custom` | Same table but only rows where CUSTOM = yes |
+| 3 | `jtk issues fields -o json` | Valid JSON array |
 
-### issues move-status
+### issues field-options
 
-| Test Case | Command | Expected Result |
-|-----------|---------|-----------------|
-| Check completed move | `jtk issues move-status <task-id>` | Shows Status, Progress, Successful/Failed keys |
-| JSON output | `jtk issues move-status <task-id> -o json` | Full MoveTaskStatus as JSON |
-| Invalid task ID | `jtk issues move-status 99999` | Error |
+> `field-options` requires `--issue` for most fields. Without it, the API returns "Field key is not valid".
+
+| # | Command | Expected Output |
+|---|---------|-----------------|
+| 1 | `jtk issues field-options priority --issue $EXISTING_ISSUE` | Table with columns: VALUE, ID (e.g., Highest/1, High/2, Medium/3, Low/4, Lowest/5) |
+| 2 | `jtk issues field-options priority --issue $EXISTING_ISSUE -o json` | Valid JSON array |
 
 ---
 
-## Transition Operations
+## 3. Projects (Read-Only)
 
-### transitions list
-
-| Test Case | Command | Expected Result |
-|-----------|---------|-----------------|
-| List transitions | `jtk transitions list TEST-X` | Table with ID, NAME, TO STATUS |
-| List with fields | `jtk transitions list TEST-X --fields` | Adds REQUIRED FIELDS column |
-| JSON output | `jtk transitions list TEST-X -o json` | Valid JSON array with transition objects |
-| Non-existent issue | `jtk transitions list TEST-99999` | Error: 404 |
-
-### transitions do
-
-| Test Case | Command | Expected Result |
-|-----------|---------|-----------------|
-| Transition by name | `jtk transitions do TEST-X "In Progress"` | Success message |
-| Verify transition | `jtk issues get TEST-X` | Status shows new value |
-| Transition by ID | `jtk transitions do TEST-X 31` | Success message |
-| Transition with field | `jtk transitions do TEST-X "Done" -f resolution=Done` | Transition with required field |
-| Invalid transition | `jtk transitions do TEST-X "Nonexistent"` | Error: transition not found |
-| Non-existent issue | `jtk transitions do TEST-99999 "Done"` | Error: 404 |
-
-> **Note:** Some projects have workflow screens that require custom fields for transitions. For example, transitions in projects using SDLC workflows may require a "Change Type" field (`-f customfield_10005=Feature`). Use `jtk transitions list <key> --fields` to check required fields before testing `transitions do`.
+| # | Command | Expected Output |
+|---|---------|-----------------|
+| 1 | `jtk projects list --max 5` | Table with columns: KEY, NAME, TYPE, LEAD |
+| 2 | `jtk projects list -o json --max 3` | Valid JSON array with at most 3 elements |
+| 3 | `jtk projects get $PROJECT` | Shows Key, Name, ID, Type, Lead, Issue Types |
+| 4 | `jtk projects get $PROJECT -o json` | Valid JSON with `key`, `name`, `id` |
+| 5 | `jtk projects get NONEXISTENT` | `resource not found: No project could be found with key 'NONEXISTENT'.` |
+| 6 | `jtk projects types` | Table with columns: KEY, FORMATTED (e.g., software/Software) |
+| 7 | `jtk projects types -o json` | Valid JSON array |
 
 ---
 
-## Comment Operations
+## 4. Boards & Sprints (Read-Only)
 
-### comments list
+### boards
 
-| Test Case | Command | Expected Result |
-|-----------|---------|-----------------|
-| List comments | `jtk comments list TEST-X` | Table with ID, AUTHOR, CREATED, BODY |
-| List with --full | `jtk comments list TEST-X --full` | Full comment bodies without truncation |
-| Truncated bodies | `jtk comments list TEST-X` (long comments) | Bodies truncated |
-| Limit results | `jtk comments list TEST-X --max 2` | At most 2 comments |
-| JSON output | `jtk comments list TEST-X -o json` | Valid JSON array |
-| No comments | `jtk comments list <issue-with-no-comments>` | "No comments found" or empty table |
-| Non-existent issue | `jtk comments list TEST-99999` | Error: 404 |
+| # | Command | Expected Output |
+|---|---------|-----------------|
+| 1 | `jtk boards list --max 5` | Table with columns: ID, NAME, TYPE, PROJECT |
+| 2 | `jtk boards list -p $PROJECT` | Only boards for that project |
+| 3 | `jtk boards get $BOARD_ID` | Shows ID, Name, Type, Project |
+| 4 | `jtk boards get $BOARD_ID -o json` | Valid JSON |
+| 5 | `jtk boards get 99999` | Error: 404 (board not found) |
 
-### comments add
+### sprints
 
-| Test Case | Command | Expected Result |
-|-----------|---------|-----------------|
-| Add comment | `jtk comments add TEST-X -b "Test comment"` | Success with comment ID |
-| Verify comment | `jtk comments list TEST-X` | New comment appears |
-| Missing body | `jtk comments add TEST-X` | Error: body required |
-| Non-existent issue | `jtk comments add TEST-99999 -b "Nope"` | Error: 404 |
-
-### comments delete
-
-| Test Case | Command | Expected Result |
-|-----------|---------|-----------------|
-| Delete comment | `jtk comments delete TEST-X <comment-id>` | Success message |
-| Verify deletion | `jtk comments list TEST-X` | Comment no longer appears |
-| Non-existent comment | `jtk comments delete TEST-X 99999999` | Error |
-
----
-
-## Attachment Operations
-
-### attachments list
-
-| Test Case | Command | Expected Result |
-|-----------|---------|-----------------|
-| List attachments | `jtk attachments list TEST-X` | Table with ID, FILENAME, SIZE, CREATED, AUTHOR |
-| No attachments | `jtk attachments list <issue-with-no-attachments>` | "No attachments found" or empty table |
-| JSON output | `jtk attachments list TEST-X -o json` | Valid JSON array |
-| Alias: ls | `jtk attachments ls TEST-X` | Same as `list` |
-| Non-existent issue | `jtk attachments list TEST-99999` | Error: 404 |
-
-### attachments add
-
-| Test Case | Command | Expected Result |
-|-----------|---------|-----------------|
-| Upload single file | `jtk attachments add TEST-X -f test.txt` | Success with filename and size |
-| Upload multiple files | `jtk attachments add TEST-X -f a.txt -f b.txt` | Success for each file |
-| Verify upload | `jtk attachments list TEST-X` | New attachment(s) appear |
-| Non-existent file | `jtk attachments add TEST-X -f /nonexistent.txt` | Error: file not found |
-| Missing --file | `jtk attachments add TEST-X` | Error: file required |
-| Non-existent issue | `jtk attachments add TEST-99999 -f test.txt` | Error: 404 |
-
-### attachments get
-
-| Test Case | Command | Expected Result |
-|-----------|---------|-----------------|
-| Download to current dir | `jtk attachments get <att-id>` | File saved with original filename |
-| Download to specific path | `jtk attachments get <att-id> -o /tmp/` | File saved to specified path |
-| Verify content integrity | Upload then download, compare | Files match exactly |
-| Alias: download | `jtk attachments download <att-id>` | Same as `get` |
-| Non-existent attachment | `jtk attachments get 99999` | Error |
-
-### attachments delete
-
-| Test Case | Command | Expected Result |
-|-----------|---------|-----------------|
-| Delete attachment | `jtk attachments delete <att-id>` | Success message |
-| Verify deletion | `jtk attachments list TEST-X` | Attachment no longer appears |
-| Alias: rm | `jtk attachments rm <att-id>` | Same as `delete` |
-| Non-existent attachment | `jtk attachments delete 99999` | Error |
-
----
-
-## Board Operations
-
-### boards list
-
-| Test Case | Command | Expected Result |
-|-----------|---------|-----------------|
-| List all boards | `jtk boards list` | Table with ID, NAME, TYPE, PROJECT |
-| Filter by project | `jtk boards list -p TEST` | Only boards for TEST project |
-| Limit results | `jtk boards list --max 3` | At most 3 boards |
-| JSON output | `jtk boards list -o json` | Valid JSON array |
-
-### boards get
-
-| Test Case | Command | Expected Result |
-|-----------|---------|-----------------|
-| Get board details | `jtk boards get <board-id>` | Shows ID, Name, Type, Project |
-| JSON output | `jtk boards get <board-id> -o json` | Full board object as JSON |
-| Non-existent board | `jtk boards get 99999` | Error: 404 |
-
----
-
-## Sprint Operations
-
-### sprints list
-
-| Test Case | Command | Expected Result |
-|-----------|---------|-----------------|
-| List sprints | `jtk sprints list -b <board-id>` | Table with ID, NAME, STATE, START, END |
-| Filter active | `jtk sprints list -b <board-id> -s active` | Only active sprints |
-| Filter closed | `jtk sprints list -b <board-id> -s closed` | Only closed sprints |
-| Filter future | `jtk sprints list -b <board-id> -s future` | Only future sprints |
-| Limit results | `jtk sprints list -b <board-id> --max 3` | At most 3 sprints |
-| JSON output | `jtk sprints list -b <board-id> -o json` | Valid JSON array |
-| Missing board | `jtk sprints list` | Error: board required |
-
-### sprints current
-
-| Test Case | Command | Expected Result |
-|-----------|---------|-----------------|
-| Show current sprint | `jtk sprints current -b <board-id>` | Shows ID, Name, State, Start, End, Goal |
-| JSON output | `jtk sprints current -b <board-id> -o json` | Sprint object as JSON |
-| No active sprint | `jtk sprints current -b <board-with-no-active-sprint>` | Error or "no active sprint" |
-| Missing board | `jtk sprints current` | Error: board required |
+| # | Command | Expected Output |
+|---|---------|-----------------|
+| 1 | `jtk sprints list -b $BOARD_ID -s active` | Table with columns: ID, NAME, STATE, START, END. State = `active` |
+| 2 | `jtk sprints list -b $BOARD_ID -o json` | Valid JSON array |
+| 3 | `jtk sprints current -b $BOARD_ID` | Shows ID, Name, State, Start, End |
+| 4 | `jtk sprints list` | `Error: required flag(s) "board" not set` |
 
 ### sprints issues
 
-| Test Case | Command | Expected Result |
-|-----------|---------|-----------------|
-| List sprint issues | `jtk sprints issues <sprint-id>` | Table with KEY, SUMMARY, STATUS, ASSIGNEE, TYPE |
-| Limit results | `jtk sprints issues <sprint-id> --max 5` | At most 5 issues |
-| JSON output | `jtk sprints issues <sprint-id> -o json` | Valid JSON array |
-| Empty sprint | `jtk sprints issues <empty-sprint-id>` | Empty table or "No issues" |
-| Non-existent sprint | `jtk sprints issues 99999` | Error |
+> The Jira Agile API endpoint is slow (~30s). Use `--max` to limit results. The client timeout is 60s.
 
-> **Note:** The Jira Agile API endpoint for sprint issues can be very slow (~30s). The client default timeout is 60s, which should be sufficient, but large sprints may still be slow. Use `--max` to limit results when testing.
-
-### sprints add
-
-| Test Case | Command | Expected Result |
-|-----------|---------|-----------------|
-| Add issue to sprint | `jtk sprints add <sprint-id> TEST-X` | Success with count |
-| Add multiple issues | `jtk sprints add <sprint-id> TEST-X TEST-Y` | "Moved 2 issue(s)" |
-| Verify addition | `jtk sprints issues <sprint-id>` | Moved issues appear |
-| Non-existent sprint | `jtk sprints add 99999 TEST-X` | Error |
-| Non-existent issue | `jtk sprints add <sprint-id> TEST-99999` | Error |
+| # | Command | Expected Output |
+|---|---------|-----------------|
+| 1 | `jtk sprints issues $SPRINT_ID --max 3` | Table with columns: KEY, SUMMARY, STATUS, ASSIGNEE, TYPE |
+| 2 | `jtk sprints issues $SPRINT_ID --max 2 -o json` | Valid JSON array |
+| 3 | `jtk sprints issues 99999` | Error |
 
 ---
 
-## User Operations
+## 5. Users (Read-Only)
 
-### users search
-
-| Test Case | Command | Expected Result |
-|-----------|---------|-----------------|
-| Search by name | `jtk users search "john"` | Table with ACCOUNT_ID, NAME, EMAIL, ACTIVE |
-| Limit results | `jtk users search "a" --max 3` | At most 3 users |
-| JSON output | `jtk users search "john" -o json` | Valid JSON array |
-| No results | `jtk users search "xyznonexistent999"` | Empty table or "No users found" |
+| # | Command | Expected Output |
+|---|---------|-----------------|
+| 1 | `jtk users search "YOUR_NAME"` | Table with columns: ACCOUNT_ID, NAME, EMAIL, ACTIVE |
+| 2 | `jtk users search "YOUR_NAME" -o json` | Valid JSON array |
+| 3 | `jtk users search "xyznonexistent999"` | `No users found matching 'xyznonexistent999'` |
 
 ---
 
-## Project Operations
+## 6. Automation (Read-Only)
 
-### projects list
-
-| Test Case | Command | Expected Result |
-|-----------|---------|-----------------|
-| List all projects | `jtk projects list` | Table with KEY, NAME, TYPE, LEAD |
-| Limit results | `jtk projects list --max 3` | At most 3 projects |
-| Filter by query | `jtk projects list --query "test"` | Only matching projects |
-| JSON output | `jtk projects list -o json` | Valid JSON array |
-| Plain output | `jtk projects list -o plain` | Tab-separated values |
-| Empty results | `jtk projects list --query "xyznonexistent999"` | "No projects found" |
-
-### projects get
-
-| Test Case | Command | Expected Result |
-|-----------|---------|-----------------|
-| Get project details | `jtk projects get TEST` | Shows ID, Key, Name, Type, Lead, URL |
-| JSON output | `jtk projects get TEST -o json` | Full project object as JSON |
-| Non-existent project | `jtk projects get NONEXISTENT` | Error: 404 |
-
-### projects create
-
-| Test Case | Command | Expected Result |
-|-----------|---------|-----------------|
-| Create basic project | `jtk projects create --key ZTEST --name "Test Project" --type software --lead <account-id>` | "Created project ZTEST" |
-| Create with description | `jtk projects create --key ZT2 --name "Test 2" --type software --lead <account-id> --description "A test"` | Project created with description |
-| JSON output | `jtk projects create --key ZT3 --name "Test 3" --type software --lead <account-id> -o json` | Created project as JSON |
-| Missing required flags | `jtk projects create --key ZTEST` | Error: required flags |
-| Duplicate key | `jtk projects create --key ZTEST --name "Dupe" --type software --lead <account-id>` | Error: 400 (project already exists) |
-
-> **Note:** Test project keys should use a `Z` prefix (e.g., `ZTEST`, `ZT2`) to sort them away from real projects and make cleanup easier.
-
-### projects update
-
-| Test Case | Command | Expected Result |
-|-----------|---------|-----------------|
-| Update name | `jtk projects update ZTEST --name "Updated Name"` | "Updated project ZTEST" |
-| Update description | `jtk projects update ZTEST --description "New desc"` | "Updated project ZTEST" |
-| Verify update | `jtk projects get ZTEST` | Shows updated values |
-| Non-existent project | `jtk projects update NONEXISTENT --name "Nope"` | Error: 404 |
-
-### projects delete
-
-| Test Case | Command | Expected Result |
-|-----------|---------|-----------------|
-| Delete with --force | `jtk projects delete ZTEST --force` | "Deleted project ZTEST" |
-| Delete cancelled | `jtk projects delete ZT2` (type "n") | "Deletion cancelled" |
-| Delete confirmed | `jtk projects delete ZT2` (type "y") | "Deleted project ZT2" |
-| Non-existent project | `jtk projects delete NONEXISTENT --force` | Error: 404 |
-
-### projects restore
-
-| Test Case | Command | Expected Result |
-|-----------|---------|-----------------|
-| Restore deleted project | `jtk projects restore ZTEST` | "Restored project ZTEST" |
-| Verify restored | `jtk projects get ZTEST` | Project accessible again |
-| Non-existent project | `jtk projects restore NONEXISTENT` | Error: 404 |
-
-### projects types
-
-| Test Case | Command | Expected Result |
-|-----------|---------|-----------------|
-| List project types | `jtk projects types` | Table with KEY, NAME |
-| JSON output | `jtk projects types -o json` | Valid JSON array |
+| # | Command | Expected Output |
+|---|---------|-----------------|
+| 1 | `jtk auto list` | Table with columns: UUID, NAME, STATE, LABELS |
+| 2 | `jtk auto list --state ENABLED` | Only ENABLED rules |
+| 3 | `jtk auto list --state DISABLED` | Only DISABLED rules |
+| 4 | `jtk auto list -o json` | Valid JSON array |
+| 5 | `jtk auto get $AUTO_UUID` | Shows Name, UUID, State, Description, Components summary |
+| 6 | `jtk auto get $AUTO_UUID --full` | Adds component details: `[1] CONDITION: type`, `[2] ACTION: type`, etc. |
+| 7 | `jtk auto get $AUTO_UUID -o json` | Valid JSON |
+| 8 | `jtk auto export $AUTO_UUID \| jq .` | Pretty-printed valid JSON (top-level keys: `rule`, `connections`) |
+| 9 | `jtk auto export $AUTO_UUID --compact` | Single-line JSON |
 
 ---
 
-## Automation Operations
+## 7. Issue Mutations
 
-### Important: No API Delete
+Run these steps in order. Each step depends on the previous.
 
-The Jira Automation API does not support deleting rules. Cleanup is done by disabling and renaming test rules to `[DELETEME] ...`, then manually purging them through the Jira UI. See [Cleanup](#cleanup) for details.
+### Create and manipulate a test issue
 
-### automation list
+1. **Check available types** (not all projects have "Task"):
+   ```bash
+   jtk issues types -p $PROJECT
+   ```
+   Note a valid type name → `$ISSUE_TYPE` (e.g., `SDLC`, `Task`, `Bug`)
 
-| Test Case | Command | Expected Result |
-|-----------|---------|-----------------|
-| List all rules | `jtk auto list` | Table with UUID, NAME, STATE, LABELS columns |
-| Filter enabled | `jtk auto list --state ENABLED` | Only ENABLED rules shown |
-| Filter disabled | `jtk auto list --state DISABLED` | Only DISABLED rules shown |
-| Case-insensitive filter | `jtk auto list --state enabled` | Works (uppercased internally) |
-| JSON output | `jtk auto list -o json` | Valid JSON array, parseable by `jq` |
-| No rules match filter | `jtk auto list --state DISABLED` (if none disabled) | "No automation rules found" |
+2. **Create issue:**
+   ```bash
+   jtk issues create -p $PROJECT -t $ISSUE_TYPE -s "[Test] Integration Test Issue"
+   ```
+   Expected: `✓ Created issue $PROJECT-XXXX` and `URL: https://...`
+   Capture the issue key → `$TEST_ISSUE`
 
-### automation get
+3. **Verify creation:**
+   ```bash
+   jtk issues get $TEST_ISSUE
+   ```
+   Expected: Shows Key, Summary = `[Test] Integration Test Issue`, Status, Type = `$ISSUE_TYPE`
 
-| Test Case | Command | Expected Result |
-|-----------|---------|-----------------|
-| Get rule details | `jtk auto get <uuid>` | Shows Name, UUID, State, Components summary |
-| Get with --full | `jtk auto get <uuid> --full` | Shows component details: [1] TRIGGER: type, [2] ACTION: type, etc. |
-| JSON output | `jtk auto get <uuid> -o json` | Full rule object as valid JSON |
-| Non-existent rule | `jtk auto get 99999999` | Error: 404 or similar |
+4. **Update description:**
+   ```bash
+   jtk issues update $TEST_ISSUE -d "Test description for integration testing"
+   ```
+   Expected: `✓ Updated issue $TEST_ISSUE`
 
-### automation export
+5. **Assign to self:**
+   ```bash
+   jtk issues assign $TEST_ISSUE $ACCOUNT_ID
+   ```
+   Expected: `✓ Assigned issue $TEST_ISSUE to YOUR_NAME`
 
-| Test Case | Command | Expected Result |
-|-----------|---------|-----------------|
-| Export pretty-printed | `jtk auto export <uuid>` | Indented JSON to stdout |
-| Export is valid JSON | `jtk auto export <uuid> \| jq .` | Parses without errors |
-| Export compact | `jtk auto export <uuid> --compact` | Single-line JSON |
-| Export to file | `jtk auto export <uuid> > /tmp/rule.json` | File written, readable by `cat` |
-| Ignores -o flag | `jtk auto export <uuid> -o plain` | Still outputs JSON (export always outputs JSON) |
-| Non-existent rule | `jtk auto export 99999999` | Error |
+6. **Add comment:**
+   ```bash
+   jtk comments add $TEST_ISSUE -b "Test comment from integration testing"
+   ```
+   Expected: `✓ Added comment XXXXX to $TEST_ISSUE`
+   Capture the comment ID → `$COMMENT_ID`
 
-### automation create
+7. **List comments:**
+   ```bash
+   jtk comments list $TEST_ISSUE
+   ```
+   Expected: Table showing `$COMMENT_ID`, your name, and the comment body
 
-| Test Case | Command | Expected Result |
-|-----------|---------|-----------------|
-| Create from export | `jtk auto export <uuid> > /tmp/rule.json && jtk auto create --file /tmp/rule.json` | New rule created, shows new UUID |
+8. **Check transitions** (some workflows require custom fields):
+   ```bash
+   jtk transitions list $TEST_ISSUE --fields
+   ```
+   Expected: Table with columns: ID, NAME, TO STATUS, REQUIRED FIELDS
+   Note a valid transition name and any required fields
 
-> **Note:** When creating a rule from an export, the exported JSON contains the source rule's UUID (field name: `uuid` inside `rule`). The API rejects duplicate UUIDs. Strip it before creating: `jq 'del(.rule.uuid)' /tmp/rule.json > /tmp/rule-clean.json`.
-| Verify created | `jtk auto get <new-uuid>` | Rule exists with same components as source |
-| Create with modified name | Edit JSON to change name, then create | Rule created with new name |
-| Missing --file | `jtk auto create` | Error: required flag "file" not set |
-| Invalid JSON file | `echo "not json" > /tmp/bad.json && jtk auto create --file /tmp/bad.json` | Error: does not contain valid JSON |
-| Non-existent file | `jtk auto create --file /tmp/nope.json` | Error: failed to read file |
+9. **Transition issue:**
+   ```bash
+   # If no required fields:
+   jtk transitions do $TEST_ISSUE "TRANSITION_NAME"
+   # If required fields (e.g., Change Type):
+   jtk transitions do $TEST_ISSUE "TRANSITION_NAME" -f customfield_10005=Feature
+   ```
+   Expected: `✓ Transitioned $TEST_ISSUE`
 
-### automation enable / disable
+10. **Verify transition:**
+    ```bash
+    jtk issues get $TEST_ISSUE
+    ```
+    Expected: Status shows the new value
 
-| Test Case | Command | Expected Result |
-|-----------|---------|-----------------|
-| Disable enabled rule | `jtk auto disable <enabled-uuid>` | Success: "Rule ... ENABLED -> DISABLED" |
-| Verify disabled | `jtk auto get <uuid>` | State: DISABLED |
-| Re-enable rule | `jtk auto enable <uuid>` | Success: "Rule ... DISABLED -> ENABLED" |
-| Verify re-enabled | `jtk auto get <uuid>` | State: ENABLED |
-| Enable already-enabled | `jtk auto enable <enabled-uuid>` | "already ENABLED" (idempotent, no API call) |
-| Disable already-disabled | `jtk auto disable <disabled-uuid>` | "already DISABLED" (idempotent, no API call) |
-| Non-existent rule | `jtk auto enable 99999999` | Error |
+11. **Unassign:**
+    ```bash
+    jtk issues assign $TEST_ISSUE --unassign
+    ```
+    Expected: `✓ Unassigned issue $TEST_ISSUE`
 
-### automation update (on test copy only)
+12. **Delete comment:**
+    ```bash
+    jtk comments delete $TEST_ISSUE $COMMENT_ID
+    ```
+    Expected: `✓ Deleted comment $COMMENT_ID from $TEST_ISSUE`
 
-All update mutation tests operate on a **copy** of a real rule. Never modify production rules.
+13. **Delete issue:**
+    ```bash
+    jtk issues delete $TEST_ISSUE --force
+    ```
+    Expected: `✓ Deleted issue $TEST_ISSUE`
 
-**Setup:** `jtk auto export <source-uuid> > /tmp/rule.json` -> edit name to "[Test] ..." -> `jtk auto create --file /tmp/rule.json` -> note `<test-uuid>`
+### Error cases
 
-| Test Case | Command | Expected Result |
-|-----------|---------|-----------------|
-| No-op round-trip | `jtk auto export <test-uuid> > /tmp/rt.json && jtk auto update <test-uuid> --file /tmp/rt.json` | Success; rule unchanged |
-| Verify round-trip | `jtk auto get <test-uuid>` | Name, state, component count identical |
-| Metadata edit (name) | Export, change name in JSON, update | `jtk auto get` shows new name |
-| Metadata edit (description) | Export, change description, update | Description updated |
-| Insert component | Export, add an ACTION component to components array, update | Component count increases by 1; `--full` shows new action |
-| Verify inserted component | `jtk auto get <test-uuid> --full` | New component appears in list |
-| Remove inserted component | Export (with new component), remove it from array, update | Component count back to original |
-| Verify removal | `jtk auto get <test-uuid> --full` | Component list matches original |
-| Missing --file flag | `jtk auto update <test-uuid>` | Error: required flag "file" not set |
-| Invalid JSON file | `echo "garbage" > /tmp/bad.json && jtk auto update <test-uuid> --file /tmp/bad.json` | Error: does not contain valid JSON |
-| Non-existent file | `jtk auto update <test-uuid> --file /tmp/nope.json` | Error: failed to read file |
-| Non-existent rule | `jtk auto update 99999999 --file /tmp/rt.json` | Error |
-
-**Teardown:** See [Cleanup](#cleanup)
-
----
-
-## Shell Completion
-
-| Test Case | Command | Expected Result |
-|-----------|---------|-----------------|
-| Bash completion | `jtk completion bash` | Valid bash completion script |
-| Zsh completion | `jtk completion zsh` | Valid zsh completion script |
-| Fish completion | `jtk completion fish` | Valid fish completion script |
-| PowerShell completion | `jtk completion powershell` | Valid PowerShell completion script |
-
----
-
-## End-to-End Workflows
-
-### Issue Lifecycle
-
-| Test Case | Steps | Expected Result |
-|-----------|-------|-----------------|
-| Full issue lifecycle | 1. `jtk issues create -p TEST -s "[Test] Lifecycle"` -> note key<br>2. `jtk issues get <key>`<br>3. `jtk issues update <key> -d "Added description"`<br>4. `jtk issues assign <key> <account-id>`<br>5. `jtk comments add <key> -b "Working on it"`<br>6. `jtk attachments add <key> -f test.txt`<br>7. `jtk transitions do <key> "In Progress"`<br>8. `jtk transitions do <key> "Done"`<br>9. `jtk issues delete <key> --force` | All steps succeed; issue created, updated, commented, attached, transitioned, deleted |
-
-### Project Lifecycle
-
-| Test Case | Steps | Expected Result |
-|-----------|-------|-----------------|
-| Full project lifecycle | 1. `jtk projects create --key ZTEST --name "Lifecycle Test" --type software --lead <account-id>`<br>2. `jtk projects get ZTEST`<br>3. `jtk projects update ZTEST --name "Lifecycle Updated"`<br>4. `jtk projects get ZTEST` (verify name changed)<br>5. `jtk projects delete ZTEST --force`<br>6. `jtk projects restore ZTEST`<br>7. `jtk projects get ZTEST` (verify restored)<br>8. `jtk projects delete ZTEST --force` (final cleanup) | All steps succeed; project created, updated, deleted, restored, and cleaned up |
-
-### Sprint Workflow
-
-| Test Case | Steps | Expected Result |
-|-----------|-------|-----------------|
-| Sprint discovery and management | 1. `jtk boards list -p TEST` -> note board ID<br>2. `jtk sprints list -b <board-id> -s active` -> note sprint ID<br>3. `jtk sprints current -b <board-id>`<br>4. `jtk sprints issues <sprint-id>`<br>5. Create test issue<br>6. `jtk sprints add <sprint-id> <key>`<br>7. `jtk sprints issues <sprint-id>` -> verify issue appears<br>8. Clean up test issue | Board found, sprint listed, issues managed |
-
-### Automation Clone Workflow
-
-| Test Case | Steps | Expected Result |
-|-----------|-------|-----------------|
-| Safe copy->mutate->cleanup | 1. Export complex rule<br>2. Rename to "[Test] Copy" in JSON<br>3. `jtk auto create --file`<br>4. Run mutation tests on copy<br>5. Disable + rename to "[DELETEME] ..." | Copy created, mutated, marked for cleanup |
-| Full read cycle | 1. `jtk auto list` -> pick UUID<br>2. `jtk auto get <uuid>`<br>3. `jtk auto export <uuid> \| jq .` | All succeed, data is consistent |
-| Toggle cycle (on copy) | 1. Create test copy<br>2. Disable<br>3. Verify DISABLED<br>4. Enable<br>5. Verify ENABLED<br>6. Cleanup | State toggles correctly |
-| Component round-trip | 1. Create test copy<br>2. Export<br>3. Add action<br>4. Update<br>5. Export again<br>6. Remove action<br>7. Update<br>8. Verify matches original<br>9. Cleanup | Components survive insert/remove cycle |
+| # | Command | Expected Output |
+|---|---------|-----------------|
+| 1 | `jtk issues create -p $PROJECT` | `Error: required flag(s) "summary" not set` |
+| 2 | `jtk issues create -s "No Project"` | `Error: required flag(s) "project" not set` |
+| 3 | `jtk issues get ${PROJECT}-99999` | `resource not found: ...` |
+| 4 | `jtk issues update ${PROJECT}-99999 -s "Nope"` | `resource not found: ...` |
+| 5 | `jtk issues delete ${PROJECT}-99999 --force` | `resource not found: ...` |
 
 ---
 
-## Edge Cases & Error Handling
+## 8. Project Mutations
 
-### Global Flags
+Run these steps in order.
 
-| Test Case | Command | Expected Result |
-|-----------|---------|-----------------|
-| No color output | `jtk issues list -p TEST --no-color` | No ANSI color codes in output |
-| Verbose mode | `jtk issues list -p TEST --verbose` | Additional debug output |
-| JSON output format | `jtk issues list -p TEST -o json \| jq .` | Valid JSON, parseable |
-| Plain output format | `jtk issues list -p TEST -o plain` | Tab-separated, scriptable |
+1. **Create project:**
+   ```bash
+   jtk projects create --key ZTEST --name "Integration Test Project" --type software --lead $ACCOUNT_ID
+   ```
+   Expected: `✓ Created project ZTEST (Integration Test Project)`
 
-### Command Aliases
+2. **Verify creation:**
+   ```bash
+   jtk projects get ZTEST
+   ```
+   Expected: Key = ZTEST, Name = Integration Test Project
 
-| Test Case | Command | Expected Result |
-|-----------|---------|-----------------|
-| `issue` alias | `jtk issue list -p TEST` | Same as `jtk issues list` |
-| `i` alias | `jtk i list -p TEST` | Same as `jtk issues list` |
-| `comment` alias | `jtk comment list TEST-1` | Same as `jtk comments list` |
-| `c` alias | `jtk c list TEST-1` | Same as `jtk comments list` |
-| `transition` alias | `jtk transition list TEST-1` | Same as `jtk transitions list` |
-| `tr` alias | `jtk tr list TEST-1` | Same as `jtk transitions list` |
-| `attachment` alias | `jtk attachment list TEST-1` | Same as `jtk attachments list` |
-| `att` alias | `jtk att list TEST-1` | Same as `jtk attachments list` |
-| `project` alias | `jtk project list` | Same as `jtk projects list` |
-| `proj` alias | `jtk proj list` | Same as `jtk projects list` |
-| `p` alias | `jtk p list` | Same as `jtk projects list` |
-| `auto` alias | `jtk auto list` | Same as `jtk automation list` |
-| `board` alias | `jtk board list` | Same as `jtk boards list` |
-| `b` alias | `jtk b list` | Same as `jtk boards list` |
-| `sprint` alias | `jtk sprint list -b 1` | Same as `jtk sprints list` |
-| `sp` alias | `jtk sp list -b 1` | Same as `jtk sprints list` |
-| `user` alias | `jtk user search "a"` | Same as `jtk users search` |
-| `u` alias | `jtk u search "a"` | Same as `jtk users search` |
-| `attachments ls` | `jtk att ls TEST-1` | Same as `attachments list` |
-| `attachments download` | `jtk att download <id>` | Same as `attachments get` |
-| `attachments rm` | `jtk att rm <id>` | Same as `attachments delete` |
+3. **Update name:**
+   ```bash
+   jtk projects update ZTEST --name "Updated Test Project"
+   ```
+   Expected: `✓ Updated project ZTEST`
 
-### Error Messages
+4. **Verify update:**
+   ```bash
+   jtk projects get ZTEST
+   ```
+   Expected: Name = Updated Test Project
 
-| Scenario | Expected Error |
-|----------|----------------|
-| Invalid credentials | API error (status 401) |
-| Permission denied | API error (status 403) |
-| Resource not found | API error (status 404) |
-| No configuration | URL/email/token required |
-| Network unreachable | Request failed |
-| Cloud ID fetch fails | Failed to fetch cloud ID |
+5. **Delete:**
+   ```bash
+   jtk projects delete ZTEST --force
+   ```
+   Expected: `✓ Deleted project ZTEST (moved to trash)`
 
-### Output Formats
+6. **Restore:**
+   ```bash
+   jtk projects restore ZTEST
+   ```
+   Expected: `✓ Restored project ZTEST (Updated Test Project)`
 
-| Format | Flag | Verified With |
-|--------|------|---------------|
-| Table (default) | (none) | Visual inspection |
-| JSON | `--output json` | `jq .` parsing |
-| Plain | `--output plain` | Tab-separated, scriptable |
+7. **Verify restore:**
+   ```bash
+   jtk projects get ZTEST
+   ```
+   Expected: Project is accessible
+
+8. **Final cleanup:**
+   ```bash
+   jtk projects delete ZTEST --force
+   ```
+   Expected: `✓ Deleted project ZTEST (moved to trash)`
+
+### Error cases
+
+| # | Command | Expected Output |
+|---|---------|-----------------|
+| 1 | `jtk projects create --key ZTEST` | `Error: required flag(s) "lead", "name" not set` |
+| 2 | `jtk projects get NONEXISTENT` | `resource not found: No project could be found with key 'NONEXISTENT'.` |
+| 3 | `jtk projects delete NONEXISTENT --force` | Error: 404 |
+
+---
+
+## 9. Automation Mutations
+
+Run these steps in order. All mutations operate on a **copy** of a real rule — never modify production rules.
+
+### Create test copy
+
+1. **Export a rule:**
+   ```bash
+   jtk auto export $AUTO_UUID > /tmp/auto-source.json
+   ```
+
+2. **Strip UUID and rename** (the API rejects duplicate UUIDs):
+   ```bash
+   jq 'del(.rule.uuid) | .rule.name = "[Test] Auto Integration Copy"' /tmp/auto-source.json > /tmp/auto-clean.json
+   ```
+
+3. **Create the copy:**
+   ```bash
+   jtk auto create --file /tmp/auto-clean.json
+   ```
+   Expected: `✓ Created automation rule (UUID: XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX)`
+   Capture the UUID → `$TEST_AUTO_UUID`
+
+4. **Verify creation:**
+   ```bash
+   jtk auto get $TEST_AUTO_UUID
+   ```
+   Expected: Name = `[Test] Auto Integration Copy`, same component count as source
+
+### Toggle cycle
+
+5. **Disable:**
+   ```bash
+   jtk auto disable $TEST_AUTO_UUID
+   ```
+   Expected: `✓ Rule "[Test] Auto Integration Copy": ENABLED → DISABLED`
+
+6. **Re-enable:**
+   ```bash
+   jtk auto enable $TEST_AUTO_UUID
+   ```
+   Expected: `✓ Rule "[Test] Auto Integration Copy": DISABLED → ENABLED`
+
+7. **Idempotent enable:**
+   ```bash
+   jtk auto enable $TEST_AUTO_UUID
+   ```
+   Expected: `Rule "[Test] Auto Integration Copy" is already ENABLED`
+
+### Round-trip update
+
+8. **Export the copy:**
+   ```bash
+   jtk auto export $TEST_AUTO_UUID > /tmp/auto-rt.json
+   ```
+
+9. **Update with no changes (round-trip):**
+   ```bash
+   jtk auto update $TEST_AUTO_UUID --file /tmp/auto-rt.json
+   ```
+   Expected: `✓ Updated automation rule $TEST_AUTO_UUID`
+
+10. **Verify unchanged:**
+    ```bash
+    jtk auto get $TEST_AUTO_UUID
+    ```
+    Expected: Name, state, and component count unchanged
+
+### Cleanup test rule
+
+11. **Disable and rename for manual deletion:**
+    ```bash
+    jtk auto disable $TEST_AUTO_UUID
+    jq '.rule.name = "[DELETEME] Auto Integration Copy"' /tmp/auto-rt.json > /tmp/auto-deleteme.json
+    jtk auto update $TEST_AUTO_UUID --file /tmp/auto-deleteme.json
+    ```
+    Expected: Rule disabled and renamed
+
+### Error cases
+
+| # | Command | Expected Output |
+|---|---------|-----------------|
+| 1 | `jtk auto create` | `Error: required flag(s) "file" not set` |
+| 2 | `echo "not json" > /tmp/bad.json && jtk auto create --file /tmp/bad.json` | Error: does not contain valid JSON |
+| 3 | `jtk auto create --file /tmp/nope.json` | Error: failed to read file |
+| 4 | `jtk auto enable 99999999` | Error |
+
+---
+
+## 10. Sprint Mutations
+
+> Only test if you have a sprint-capable board. Sprint issues endpoint is slow (~30s).
+
+1. **Create a test issue:**
+   ```bash
+   jtk issues create -p $PROJECT -t $ISSUE_TYPE -s "[Test] Sprint Add Test"
+   ```
+   Capture the key → `$SPRINT_TEST_ISSUE`
+
+2. **Add issue to sprint:**
+   ```bash
+   jtk sprints add $SPRINT_ID $SPRINT_TEST_ISSUE
+   ```
+   Expected: `✓ Moved 1 issue(s) to sprint $SPRINT_ID`
+
+3. **Verify** (may be slow):
+   ```bash
+   jtk sprints issues $SPRINT_ID --max 50 -o json | jq -r '.[].key' | grep $SPRINT_TEST_ISSUE
+   ```
+   Expected: Issue key appears in output
+
+4. **Cleanup:**
+   ```bash
+   jtk issues delete $SPRINT_TEST_ISSUE --force
+   ```
+
+---
+
+## 11. Global Flags & Aliases
+
+### Output formats
+
+| # | Command | Expected Output |
+|---|---------|-----------------|
+| 1 | `jtk issues list -p $PROJECT --max 1 --no-color \| cat -v` | No `^[[` ANSI escape sequences |
+| 2 | `jtk issues list -p $PROJECT --max 1 --verbose` | Shows `→ GET ...` and `← 200 OK` debug lines |
+| 3 | `jtk issues list -p $PROJECT --max 1 -o json \| jq .` | Parses without errors |
+| 4 | `jtk issues list -p $PROJECT --max 1 -o plain` | Tab-separated, one row |
+
+### Command aliases
+
+Verify each alias produces the same output as the full command:
+
+| # | Alias | Full Command |
+|---|-------|-------------|
+| 1 | `jtk i list -p $PROJECT --max 1` | `jtk issues list -p $PROJECT --max 1` |
+| 2 | `jtk p list --max 1` | `jtk projects list --max 1` |
+| 3 | `jtk proj list --max 1` | `jtk projects list --max 1` |
+| 4 | `jtk b list --max 1` | `jtk boards list --max 1` |
+| 5 | `jtk sp list -b $BOARD_ID -s active` | `jtk sprints list -b $BOARD_ID -s active` |
+| 6 | `jtk u search "a" --max 1` | `jtk users search "a" --max 1` |
+| 7 | `jtk auto list --state ENABLED` | `jtk automation list --state ENABLED` |
+| 8 | `jtk tr list $EXISTING_ISSUE` | `jtk transitions list $EXISTING_ISSUE` |
+| 9 | `jtk c list $EXISTING_ISSUE --max 1` | `jtk comments list $EXISTING_ISSUE --max 1` |
+| 10 | `jtk att list $EXISTING_ISSUE` | `jtk attachments list $EXISTING_ISSUE` |
+
+### Shell completion
+
+| # | Command | Expected Output |
+|---|---------|-----------------|
+| 1 | `jtk completion bash \| head -3` | Starts with `# bash completion for jtk` |
+| 2 | `jtk completion zsh \| head -3` | Valid zsh completion script |
+
+---
+
+## 12. Error Cases
+
+| # | Command | Expected Output |
+|---|---------|-----------------|
+| 1 | `jtk issues get ${PROJECT}-99999` | `resource not found: Issue does not exist or you do not have permission to see it.` |
+| 2 | `jtk issues search --jql "invalid jql ((("` | `bad request: Error in the JQL Query: ...` |
+| 3 | `jtk issues create -p $PROJECT` | `Error: required flag(s) "summary" not set` |
+| 4 | `jtk projects get NONEXISTENT` | `resource not found: No project could be found with key 'NONEXISTENT'.` |
+| 5 | `jtk boards get 99999` | Error: 404 |
+| 6 | `jtk sprints list` | `Error: required flag(s) "board" not set` |
 
 ---
 
 ## Test Execution Checklist
 
 ### Setup
-- [ ] Build latest: `make build-jtk`
-- [ ] Verify config: `jtk me` works
-- [ ] Note test project key and board ID
-- [ ] Verify automation rules exist: `jtk auto list` shows rules
+- [ ] `make build-jtk`
+- [ ] `jtk me` works
+- [ ] Discover: `$PROJECT`, `$BOARD_ID`, `$SPRINT_ID`, `$ACCOUNT_ID`, `$AUTO_UUID`, `$EXISTING_ISSUE`
+- [ ] `jtk issues types -p $PROJECT` to learn `$ISSUE_TYPE`
 
-### Config & Init
-- [ ] `jtk config show` displays config
-- [ ] `jtk config test` passes
-- [ ] `jtk me` shows current user
+### Config & Init (Section 1)
+- [ ] `config show` (table, JSON)
+- [ ] `config test`
+- [ ] `me` (table, JSON, plain)
 
-### Issue CRUD
-- [ ] Create issue (basic)
-- [ ] Create issue (with type, description, custom field)
-- [ ] Get issue (table)
-- [ ] Get issue (--full)
-- [ ] Get issue (JSON)
-- [ ] List issues (with project filter)
-- [ ] List issues (with sprint filter)
-- [ ] Search issues (JQL)
-- [ ] Update issue (summary, description)
-- [ ] Assign issue
-- [ ] Unassign issue
-- [ ] List fields
-- [ ] List field options
-- [ ] List issue types
-- [ ] Transition issue (by name)
-- [ ] Transition issue (with field)
-- [ ] Add comment
-- [ ] List comments (--full)
-- [ ] Delete comment
-- [ ] Upload attachment
-- [ ] List attachments
-- [ ] Download attachment
-- [ ] Verify download integrity
-- [ ] Delete attachment
-- [ ] Delete issue (--force)
+### Issues Read-Only (Section 2)
+- [ ] `issues list` (table, JSON, plain, error)
+- [ ] `issues get` (table, JSON, 404)
+- [ ] `issues search` (results, JSON, no results, bad JQL)
+- [ ] `issues types` (table, JSON, 404)
+- [ ] `issues fields` (all, custom, JSON)
+- [ ] `issues field-options` (with --issue, JSON)
 
-### Project CRUD
-- [ ] List projects (table, JSON)
-- [ ] Get project details
-- [ ] Create project
-- [ ] Update project (name, description)
-- [ ] Delete project (--force, cancelled)
-- [ ] Restore deleted project
-- [ ] List project types
-- [ ] Project lifecycle E2E (create → update → delete → restore → delete)
+### Projects Read-Only (Section 3)
+- [ ] `projects list` (table, JSON)
+- [ ] `projects get` (table, JSON, 404)
+- [ ] `projects types` (table, JSON)
 
-### Sprint & Board
-- [ ] List boards
-- [ ] Get board details
-- [ ] List sprints (with state filter)
-- [ ] Show current sprint
-- [ ] List sprint issues
-- [ ] Add issue to sprint
+### Boards & Sprints Read-Only (Section 4)
+- [ ] `boards list`, `boards get` (table, JSON, 404)
+- [ ] `sprints list`, `sprints current`
+- [ ] `sprints issues` (table, JSON)
 
-### Users
-- [ ] Search users
+### Users Read-Only (Section 5)
+- [ ] `users search` (results, JSON, no results)
 
-### Automation (read-only first)
-- [ ] List all rules
-- [ ] List filtered by state
-- [ ] Get a rule (table and --full)
-- [ ] Export a rule (pretty and compact)
+### Automation Read-Only (Section 6)
+- [ ] `auto list` (all, filtered, JSON)
+- [ ] `auto get` (summary, --full, JSON)
+- [ ] `auto export` (pretty, compact)
 
-### Automation (mutations on test copy)
-- [ ] Create test copy from export
-- [ ] No-op round-trip
-- [ ] Metadata edit (name)
-- [ ] Component insert/remove cycle
-- [ ] Enable/disable toggle
-- [ ] Idempotent enable/disable
+### Issue Mutations (Section 7)
+- [ ] Create → get → update → assign → comment → transition → unassign → delete comment → delete issue
+- [ ] Error cases (missing flags, 404)
 
-### End-to-End
-- [ ] Full issue lifecycle (create -> transition -> delete)
-- [ ] Sprint discovery workflow
+### Project Mutations (Section 8)
+- [ ] Create → get → update → delete → restore → verify → delete (cleanup)
+- [ ] Error cases
 
-### Error Cases
-- [ ] Non-existent resource (404)
-- [ ] Missing required flags
-- [ ] Invalid input (bad JQL, bad JSON)
+### Automation Mutations (Section 9)
+- [ ] Create copy (strip UUID, rename)
+- [ ] Toggle cycle (disable, enable, idempotent)
+- [ ] Round-trip update
+- [ ] Cleanup (disable + rename to DELETEME)
+- [ ] Error cases
 
-### Global Flags
-- [ ] `--no-color` suppresses color
-- [ ] `--verbose` shows debug output
-- [ ] `-o json` produces valid JSON
-- [ ] `-o plain` produces tab-separated output
+### Sprint Mutations (Section 10)
+- [ ] Create issue → add to sprint → verify → delete issue
+
+### Global Flags & Aliases (Section 11)
+- [ ] `--no-color`, `--verbose`, `-o json`, `-o plain`
+- [ ] All aliases verified
+
+### Error Cases (Section 12)
+- [ ] 404, bad JQL, missing flags
 
 ### Cleanup
-- [ ] Delete all test projects: `jtk projects delete ZTEST --force`, etc.
-- [ ] Delete all [Test] prefixed issues: `jtk issues delete <key> --force`
-- [ ] Disable + rename automation test copies to [DELETEME]
-- [ ] Manually delete [DELETEME] rules via Jira UI
-- [ ] Verify no test data remains
-
----
-
-## Cleanup
-
-### Test Projects
-
-Delete any test projects created during integration testing:
-
-```bash
-# Delete test projects (Z-prefixed keys)
-for key in ZTEST ZT2 ZT3; do
-  jtk projects delete "$key" --force 2>/dev/null
-done
-```
-
-### Issues, Comments, and Attachments
-
-Test issues can be deleted directly via the API:
-
-```bash
-# Delete all test issues
-jtk issues search --jql "summary ~ '[Test]'" -o json | jq -r '.[].key' | while read key; do
-  jtk issues delete "$key" --force
-done
-```
-
-### Automation Rules
-
-The Jira Automation API does not expose a delete endpoint. Test rules must be cleaned up manually.
-
-**After running integration tests:**
-
-1. Disable and rename all test rules:
-   ```bash
-   # For each test rule:
-   jtk auto disable <test-uuid>
-   jtk auto export <test-uuid> > /tmp/cleanup.json
-   # Edit /tmp/cleanup.json: change "name" to "[DELETEME] <name>"
-   jtk auto update <test-uuid> --file /tmp/cleanup.json
-   ```
-
-2. Manually purge `[DELETEME]` rules in the Jira UI:
-   - **Global rules:** Settings -> System -> Automation rules
-   - **Project rules:** Project Settings -> Automation
-
-3. Verify no test rules remain:
-   ```bash
-   jtk auto list -o json | jq '.[] | select(.name | startswith("[Test]") or startswith("[DELETEME]"))'
-   ```
+- [ ] Delete test projects: `jtk projects delete ZTEST --force` (etc.)
+- [ ] Delete test issues: search for `[Test]` prefix, delete with `--force`
+- [ ] Disable + rename automation test copies to `[DELETEME]`
+- [ ] Manually purge `[DELETEME]` rules in Jira UI (Settings → System → Automation rules)
+- [ ] Verify: `jtk auto list -o json | jq '.[] | select(.name | startswith("[Test]") or startswith("[DELETEME]"))'`
 
 ---
 
@@ -801,8 +622,8 @@ The Jira Automation API does not expose a delete endpoint. Test rules must be cl
 
 When adding new features or fixing bugs:
 
-1. Add test cases to the appropriate section above
-2. Include both happy path and error cases
-3. Document any known limitations or edge cases
-4. Update the "Test Execution Checklist" if needed
+1. Add test steps to the appropriate numbered section above
+2. Include both happy path and error cases with exact expected output
+3. Document gotchas inline, immediately before the step where they matter
+4. Update the Test Execution Checklist
 5. Record bugs discovered during testing and continue — don't stop to fix

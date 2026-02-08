@@ -254,6 +254,32 @@ Tests for `[[Page Title]]` internal link syntax. Works in both ADF (default) and
 | Multiple wiki links | `echo "[[Page A]] and [[DEV:Page B]]." \| cfl page create ...` | Both links created correctly |
 | Wiki link in heading | `echo "# See [[My Page]]" \| cfl page create ...` | Link works inside heading |
 
+#### Wiki Links in Code Blocks (Issue #130)
+
+Wiki-link syntax inside fenced code blocks and inline code spans should be preserved as literal text, not converted to links.
+
+| Test Case | Command | Expected Result |
+|-----------|---------|-----------------|
+| Fenced code block (ADF) | Create page with `` ``` [[Page Title]] ``` `` | `[[Page Title]]` literal in `codeBlock` ADF node |
+| Fenced code block (legacy) | Same with `--legacy` | `[[Page Title]]` literal inside `<pre><code>` |
+| Inline code (ADF) | Create page with `` `[[Page Title]]` `` | `[[Page Title]]` literal with `code` mark |
+| Inline code (legacy) | Same with `--legacy` | `[[Page Title]]` literal inside `<code>` |
+| Mixed: link outside, literal inside | Create page with `[[Real Link]]` and `` ``` [[Example]] ``` `` | Link converted, code block preserved |
+| Roundtrip code block | `cfl page view <id> --show-macros --content-only \| cfl page edit <id> --legacy` | Code block `[[...]]` stays literal after roundtrip |
+
+**Test file** (`/tmp/wl-code-test.md`):
+~~~markdown
+# Wiki Link Code Block Test
+
+See [[Getting Started]] for details.
+
+```
+Use [[Page Title]] syntax for links.
+```
+
+Also `[[inline example]]` here.
+~~~
+
 **Verification:**
 ```bash
 # Check storage format for ac:link
@@ -430,6 +456,9 @@ Before GA release, run through this checklist:
 - [ ] Create with wiki link + legacy flag
 - [ ] View wiki link with --show-macros
 - [ ] Roundtrip wiki link (view --show-macros | edit --legacy)
+- [ ] Wiki link in fenced code block preserved as literal (ADF + legacy)
+- [ ] Wiki link in inline code preserved as literal (ADF + legacy)
+- [ ] Roundtrip code block wiki link stays literal
 
 ### Attachment CRUD
 - [ ] Upload attachment

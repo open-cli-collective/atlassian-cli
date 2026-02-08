@@ -2,6 +2,7 @@ package configcmd
 
 import (
 	"bytes"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -25,6 +26,57 @@ func newTestRootOptions() *root.Options {
 		Stderr:  &bytes.Buffer{},
 		Stdin:   strings.NewReader(""),
 	}
+}
+
+func TestShowCmd_JSONOutput(t *testing.T) {
+	t.Setenv("JIRA_URL", "https://test.atlassian.net")
+	t.Setenv("JIRA_EMAIL", "test@example.com")
+	t.Setenv("JIRA_API_TOKEN", "token123456")
+	t.Setenv("ATLASSIAN_URL", "")
+	t.Setenv("ATLASSIAN_EMAIL", "")
+	t.Setenv("ATLASSIAN_API_TOKEN", "")
+
+	opts := &root.Options{
+		Output:  "json",
+		NoColor: true,
+		Stdout:  &bytes.Buffer{},
+		Stderr:  &bytes.Buffer{},
+		Stdin:   strings.NewReader(""),
+	}
+
+	cmd := newShowCmd(opts)
+	err := cmd.Execute()
+	require.NoError(t, err)
+
+	stdout := opts.Stdout.(*bytes.Buffer).String()
+
+	// The entire stdout must be valid JSON — no trailing plain text
+	var parsed map[string]interface{}
+	err = json.Unmarshal([]byte(stdout), &parsed)
+	require.NoError(t, err, "config show -o json output must be valid JSON, got: %s", stdout)
+
+	assert.Equal(t, "https://test.atlassian.net", parsed["url"])
+	assert.Equal(t, "test@example.com", parsed["email"])
+	assert.NotContains(t, stdout, "Config file:")
+}
+
+func TestShowCmd_TableOutput(t *testing.T) {
+	t.Setenv("JIRA_URL", "https://test.atlassian.net")
+	t.Setenv("JIRA_EMAIL", "test@example.com")
+	t.Setenv("JIRA_API_TOKEN", "token123456")
+	t.Setenv("ATLASSIAN_URL", "")
+	t.Setenv("ATLASSIAN_EMAIL", "")
+	t.Setenv("ATLASSIAN_API_TOKEN", "")
+
+	opts := newTestRootOptions()
+
+	cmd := newShowCmd(opts)
+	err := cmd.Execute()
+	require.NoError(t, err)
+
+	stdout := opts.Stdout.(*bytes.Buffer).String()
+	assert.Contains(t, stdout, "Config file:")
+	assert.Contains(t, stdout, "test@example.com")
 }
 
 func TestNewTestCmd_Success(t *testing.T) {

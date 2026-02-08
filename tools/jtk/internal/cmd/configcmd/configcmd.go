@@ -72,7 +72,9 @@ func newShowCmd(opts *root.Options) *cobra.Command {
 				return err
 			}
 
-			v.Info("\nConfig file: %s", config.Path())
+			if opts.Output != "json" {
+				v.Info("\nConfig file: %s", config.Path())
+			}
 			return nil
 		},
 	}

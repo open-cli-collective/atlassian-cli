@@ -210,40 +210,55 @@ cfl page list --space DEV
 Manage Jira issues, sprints, and boards from the command line.
 
 ```bash
-# List issues in a project
+# Issues
 jtk issues list --project PROJ
-
-# Create an issue
-jtk issues create --project PROJ --type Task --summary "Fix bug"
-
-# View issue details
 jtk issues get PROJ-123
-
-# Search with JQL
+jtk issues create --project PROJ --type Task --summary "Fix bug"
+jtk issues update PROJ-123 --field priority=High
 jtk issues search "project = PROJ AND status = 'In Progress'"
+jtk issues assign PROJ-123 <account-id>
+jtk issues move PROJ-123 --to-project OTHERPROJ
 
-# List transitions and move issue
+# Projects
+jtk projects list
+jtk projects get PROJ
+jtk projects create --key PROJ --name "My Project" --lead <account-id>
+jtk projects update PROJ --name "New Name"
+jtk projects delete PROJ
+
+# Transitions
 jtk transitions list PROJ-123
 jtk transitions do PROJ-123 "Done"
 
-# Manage comments
+# Comments
 jtk comments list PROJ-123
-jtk comments add PROJ-123 "This is fixed"
+jtk comments add PROJ-123 --body "This is fixed"
 
-# View current sprint
+# Sprints
+jtk sprints list --board 123
 jtk sprints current --board 123
+jtk sprints issues 456
+jtk sprints add 456 PROJ-123
 
-# Manage attachments
+# Boards
+jtk boards list
+jtk boards get 123
+
+# Attachments
 jtk attachments list PROJ-123
 jtk attachments add PROJ-123 --file screenshot.png
 jtk attachments get 12345 --output ./downloads/
 
-# Search users
+# Users
 jtk users search "john"
+jtk me
 
-# Manage automation rules
+# Automation rules
 jtk automation list
+jtk automation get 123
 jtk automation export 123 > rule-backup.json
+jtk automation create --file rule.json
+jtk automation enable 123
 ```
 
 **Full documentation:** [tools/jtk/README.md](tools/jtk/README.md)
@@ -349,7 +364,17 @@ go test ./tools/cfl/...
 atlassian-cli/
 ├── go.work              # Go workspace file
 ├── Makefile             # Build automation
-├── shared/              # Shared packages (auth, client, errors)
+├── shared/              # Shared packages
+│   ├── adf/             # Atlassian Document Format helpers
+│   ├── auth/            # Authentication (API token, env vars)
+│   ├── client/          # HTTP client with retry and error handling
+│   ├── config/          # Configuration loading
+│   ├── errors/          # Unified error parsing (Jira, Confluence, Automation)
+│   ├── exitcode/        # Exit code constants
+│   ├── prompt/          # Interactive prompts
+│   ├── url/             # URL utilities
+│   ├── version/         # Build-time version info
+│   └── view/            # Output formatting (table, JSON, plain)
 └── tools/
     ├── cfl/             # Confluence CLI
     │   ├── api/         # API client

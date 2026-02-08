@@ -35,28 +35,36 @@ make clean
 
 ```
 jira-ticket-cli/
-├── cmd/jtk/main.go  # Entry point - registers commands, calls Execute()
+├── cmd/jtk/main.go              # Entry point - registers commands, calls Execute()
 ├── api/                          # Public Go library (importable)
 │   ├── client.go                # Client struct, New(), HTTP helpers
 │   ├── types.go                 # All data types (Issue, Sprint, Board, etc.)
 │   ├── errors.go                # Error types: APIError, ErrNotFound
 │   ├── issues.go                # Issue CRUD operations
+│   ├── projects.go              # Project CRUD operations
 │   ├── sprints.go               # Sprint operations
 │   ├── boards.go                # Board operations
 │   ├── comments.go              # Comment operations
 │   ├── transitions.go           # Issue transition operations
+│   ├── attachments.go           # Attachment operations
+│   ├── automation.go            # Automation rule operations
+│   ├── automation_types.go      # Automation API types
 │   ├── fields.go                # Field metadata
 │   ├── users.go                 # User operations
 │   └── search.go                # JQL search
 ├── internal/
 │   ├── cmd/                     # Cobra commands (one package per resource)
 │   │   ├── root/                # Root command, Options struct, global flags
-│   │   ├── issues/              # issues list, get, create, update, search, assign
+│   │   ├── issues/              # issues list, get, create, update, delete, search, assign, fields, field-options, types, move
+│   │   ├── projects/            # projects list, get, create, update, delete, restore, types
 │   │   ├── transitions/         # transitions list, do
-│   │   ├── comments/            # comments list, add
+│   │   ├── comments/            # comments list, add, delete
+│   │   ├── attachments/         # attachments list, add, get, delete
+│   │   ├── automation/          # automation list, get, export, create, update, enable, disable
 │   │   ├── boards/              # boards list, get
-│   │   ├── sprints/             # sprints list, current, issues
-│   │   ├── configcmd/           # config set
+│   │   ├── sprints/             # sprints list, current, issues, add
+│   │   ├── users/               # users search
+│   │   ├── configcmd/           # config show, test, clear
 │   │   ├── me/                  # me (current user info)
 │   │   └── completion/          # Shell completion
 │   ├── config/                  # JSON config loading

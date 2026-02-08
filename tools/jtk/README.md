@@ -6,10 +6,11 @@ A command-line interface for managing Jira Cloud tickets.
 
 - Manage Jira issues from the command line
 - List, create, update, search, and delete issues
+- Manage projects (create, update, delete, restore)
 - Manage sprints and boards
 - Add comments and perform transitions
 - Manage attachments
-- Manage automation rules
+- Manage automation rules (list, export, create, enable/disable)
 - Search users
 - Multiple output formats (table, JSON, plain)
 - Shell completion for bash, zsh, fish, and PowerShell
@@ -687,6 +688,122 @@ jtk boards get 123
 
 **Arguments:**
 - `<board-id>` - The board ID (**required**)
+
+---
+
+### `jtk projects list`
+
+List Jira projects.
+
+**Aliases:** `jtk project list`, `jtk proj list`, `jtk p list`
+
+```bash
+jtk projects list
+jtk projects list --query "my project"
+jtk projects list --max 10
+```
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--query` | `-q` | | Filter projects by name |
+| `--max` | `-m` | `50` | Maximum number of results |
+
+---
+
+### `jtk projects get <project-key>`
+
+Get details for a specific project.
+
+```bash
+jtk projects get MYPROJECT
+jtk projects get 10001
+```
+
+**Arguments:**
+- `<project-key>` - Project key or numeric ID (**required**)
+
+---
+
+### `jtk projects create`
+
+Create a new Jira project.
+
+```bash
+jtk projects create --key MYPROJ --name "My Project" --lead <account-id>
+jtk projects create --key BIZ --name "Business" --type business --lead <account-id> --description "Business project"
+```
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--key` | `-k` | | Project key (**required**) |
+| `--name` | `-n` | | Project name (**required**) |
+| `--type` | `-t` | `software` | Project type: `software`, `service_desk`, `business` |
+| `--lead` | `-l` | | Lead account ID (**required**) |
+| `--description` | `-d` | | Project description |
+
+> Tip: Use `jtk users search` to find account IDs, or `jtk me` to get your own.
+
+---
+
+### `jtk projects update <project-key>`
+
+Update a project's metadata. Only specified fields are changed.
+
+```bash
+jtk projects update MYPROJ --name "New Name"
+jtk projects update MYPROJ --description "Updated description"
+jtk projects update MYPROJ --lead <account-id>
+```
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--name` | `-n` | | New project name |
+| `--description` | `-d` | | New project description |
+| `--lead` | `-l` | | New lead account ID |
+
+**Arguments:**
+- `<project-key>` - Project key (**required**)
+
+---
+
+### `jtk projects delete <project-key>`
+
+Soft-delete a project (moves it to trash). Can be restored with `jtk projects restore`.
+
+```bash
+jtk projects delete MYPROJ
+jtk projects delete MYPROJ --force
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--force` | `false` | Skip confirmation prompt |
+
+**Arguments:**
+- `<project-key>` - Project key (**required**)
+
+---
+
+### `jtk projects restore <project-key>`
+
+Restore a project from the trash.
+
+```bash
+jtk projects restore MYPROJ
+```
+
+**Arguments:**
+- `<project-key>` - Project key (**required**)
+
+---
+
+### `jtk projects types`
+
+List available project types for creating new projects.
+
+```bash
+jtk projects types
+```
 
 ---
 

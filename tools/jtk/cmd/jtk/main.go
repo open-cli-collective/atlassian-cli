@@ -16,6 +16,7 @@ import (
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/initcmd"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/issues"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/me"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/projects"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/sprints"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/transitions"
@@ -41,6 +42,7 @@ func run() error {
 	attachments.Register(rootCmd, opts)
 	automation.Register(rootCmd, opts)
 	boards.Register(rootCmd, opts)
+	projects.Register(rootCmd, opts)
 	sprints.Register(rootCmd, opts)
 	users.Register(rootCmd, opts)
 	me.Register(rootCmd, opts)

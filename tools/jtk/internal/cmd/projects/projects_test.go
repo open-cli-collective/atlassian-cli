@@ -226,6 +226,53 @@ func TestRunDelete_NoForce_Declined(t *testing.T) {
 	assert.Contains(t, stdout.String(), "Deletion cancelled")
 }
 
+func TestRunDelete_NoForce_Accepted(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodDelete, r.Method)
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	require.NoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{
+		Output: "table",
+		Stdout: &stdout,
+		Stderr: &bytes.Buffer{},
+		Stdin:  bytes.NewBufferString("y\n"),
+	}
+	opts.SetAPIClient(client)
+
+	err = runDelete(opts, "TST", false)
+	require.NoError(t, err)
+	assert.Contains(t, stdout.String(), "Deleted project TST")
+}
+
+func TestRunUpdate(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodPut, r.Method)
+		json.NewEncoder(w).Encode(api.ProjectDetail{
+			ID:   "10001",
+			Key:  "TST",
+			Name: "Updated Name",
+		})
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	require.NoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runUpdate(opts, "TST", "Updated Name", "", "")
+	require.NoError(t, err)
+	assert.Contains(t, stdout.String(), "Updated project TST")
+}
+
 func TestRunRestore(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(api.ProjectDetail{

@@ -71,14 +71,21 @@ func runCreate(opts *root.Options, project, issueType, summary, description stri
 
 			key, value := parts[0], parts[1]
 
-			// Try to resolve field name to ID
-			fieldID, err := api.ResolveFieldID(allFields, key)
-			if err != nil {
-				// Use the key as-is if not found
+			// Try to resolve field name to ID and get field info
+			var fieldID string
+			var field *api.Field
+			if resolved := api.FindFieldByName(allFields, key); resolved != nil {
+				fieldID = resolved.ID
+				field = resolved
+			} else if resolved := api.FindFieldByID(allFields, key); resolved != nil {
+				fieldID = resolved.ID
+				field = resolved
+			} else {
 				fieldID = key
 			}
 
-			extraFields[fieldID] = value
+			// Format value based on field type
+			extraFields[fieldID] = api.FormatFieldValue(field, value)
 		}
 	}
 

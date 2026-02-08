@@ -277,6 +277,84 @@ func TestFormatFieldValue(t *testing.T) {
 			value: "not-a-number",
 			want:  "not-a-number",
 		},
+		{
+			name: "priority field by name - wraps in name map",
+			field: &Field{
+				ID:   "priority",
+				Name: "Priority",
+				Schema: FieldSchema{
+					Type:   "priority",
+					System: "priority",
+				},
+			},
+			value: "High",
+			want:  map[string]string{"name": "High"},
+		},
+		{
+			name: "priority field by ID - wraps in id map",
+			field: &Field{
+				ID:   "priority",
+				Name: "Priority",
+				Schema: FieldSchema{
+					Type:   "priority",
+					System: "priority",
+				},
+			},
+			value: "2",
+			want:  map[string]string{"id": "2"},
+		},
+		{
+			name: "resolution field - wraps in name map",
+			field: &Field{
+				ID:   "resolution",
+				Name: "Resolution",
+				Schema: FieldSchema{
+					Type:   "resolution",
+					System: "resolution",
+				},
+			},
+			value: "Done",
+			want:  map[string]string{"name": "Done"},
+		},
+		{
+			name: "issuetype field - wraps in name map",
+			field: &Field{
+				ID:   "issuetype",
+				Name: "Issue Type",
+				Schema: FieldSchema{
+					Type:   "issuetype",
+					System: "issuetype",
+				},
+			},
+			value: "Bug",
+			want:  map[string]string{"name": "Bug"},
+		},
+		{
+			name: "status field - wraps in name map",
+			field: &Field{
+				ID:   "status",
+				Name: "Status",
+				Schema: FieldSchema{
+					Type:   "status",
+					System: "status",
+				},
+			},
+			value: "In Progress",
+			want:  map[string]string{"name": "In Progress"},
+		},
+		{
+			name: "securitylevel field - wraps in name map",
+			field: &Field{
+				ID:   "security",
+				Name: "Security Level",
+				Schema: FieldSchema{
+					Type:   "securitylevel",
+					System: "security",
+				},
+			},
+			value: "Confidential",
+			want:  map[string]string{"name": "Confidential"},
+		},
 	}
 
 	for _, tt := range tests {

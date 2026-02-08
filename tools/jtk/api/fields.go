@@ -114,6 +114,12 @@ func FormatFieldValue(field *Field, value string) interface{} {
 			return n
 		}
 		return value
+	case "priority", "resolution", "status", "issuetype", "securitylevel":
+		// System fields that accept {"name": "..."} or {"id": "..."} format
+		if _, err := strconv.Atoi(value); err == nil {
+			return map[string]string{"id": value}
+		}
+		return map[string]string{"name": value}
 	default:
 		return value
 	}

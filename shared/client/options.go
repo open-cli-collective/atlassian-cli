@@ -10,7 +10,7 @@ const DefaultTimeout = 60 * time.Second
 
 // Options configures client behavior.
 type Options struct {
-	// Timeout for HTTP requests. Defaults to 30 seconds if not set.
+	// Timeout for HTTP requests. Defaults to 60 seconds if not set.
 	Timeout time.Duration
 
 	// Verbose enables request/response logging.

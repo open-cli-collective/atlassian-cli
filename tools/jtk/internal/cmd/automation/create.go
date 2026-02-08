@@ -56,6 +56,20 @@ func runCreate(opts *root.Options, filePath string) error {
 		return fmt.Errorf("file %s does not contain valid JSON", filePath)
 	}
 
+	// Strip server-assigned fields that would cause conflicts on create.
+	// The API rejects requests containing a UUID that already exists.
+	var ruleMap map[string]interface{}
+	if err := json.Unmarshal(data, &ruleMap); err != nil {
+		return fmt.Errorf("failed to parse rule JSON: %w", err)
+	}
+	for _, key := range []string{"uuid", "id", "ruleKey", "created", "updated"} {
+		delete(ruleMap, key)
+	}
+	data, err = json.Marshal(ruleMap)
+	if err != nil {
+		return fmt.Errorf("failed to re-encode rule JSON: %w", err)
+	}
+
 	client, err := opts.APIClient()
 	if err != nil {
 		return err
@@ -71,9 +85,10 @@ func runCreate(opts *root.Options, filePath string) error {
 		// Legacy/documented response fields.
 		ID      json.Number `json:"id"`
 		RuleKey string      `json:"ruleKey"`
-		// Observed Cloud response field.
-		UUID string `json:"uuid"`
-		Name string `json:"name"`
+		// Observed Cloud response fields.
+		UUID     string `json:"uuid"`
+		RuleUUID string `json:"ruleUuid"`
+		Name     string `json:"name"`
 	}
 	if err := json.Unmarshal(respBody, &created); err != nil {
 		// Even if we can't parse the response, the rule was created.
@@ -82,6 +97,9 @@ func runCreate(opts *root.Options, filePath string) error {
 	}
 
 	identifier := created.UUID
+	if identifier == "" {
+		identifier = created.RuleUUID
+	}
 	if identifier == "" {
 		identifier = created.RuleKey
 	}

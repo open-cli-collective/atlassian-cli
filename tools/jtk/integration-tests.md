@@ -13,10 +13,18 @@ This document catalogs the manual integration test suite for `jtk`. These tests 
 
 ### Test Data Conventions
 - Test issues use `[Test]` prefix: `[Test] My Issue`
+- Test projects use `Z`-prefixed keys: `ZTEST`, `ZT2`, `ZT3` (sorts away from real projects)
 - Test automation copies use `[Test]` prefix in the rule name
 - Always clean up test data after tests complete
 - Run read-only tests first, then mutation tests, then cleanup
 - If a test reveals a bug, **record the bug and continue testing** rather than stopping to fix it
+
+### Agent Guidance
+- **Test project**: Use a project you have full access to. Check available issue types with `jtk issues types -p <project>` before testing — not all projects have a "Task" type
+- **Account ID**: Use `jtk me -o json | jq -r .accountId` to get your account ID for assignment and project lead tests
+- **Sprint issues**: The `sprints issues` command may be slow (~30s) due to the Jira Agile API. Use `--max` to limit results
+- **Automation exports**: When creating a rule from an export, you may need to strip the `"id"` field to avoid UUID conflicts
+- **Transitions**: Some workflows require custom fields. Always check `jtk transitions list <key> --fields` before testing `transitions do`
 
 ---
 
@@ -106,6 +114,8 @@ This document catalogs the manual integration test suite for `jtk`. These tests 
 | Create with description | `jtk issues create -p TEST -s "[Test] Described" -d "Some details"` | Issue created with description |
 | Create with custom field | `jtk issues create -p TEST -s "[Test] Custom" -f priority=High` | Issue created with custom field value |
 | Default type is Task | `jtk issues create -p TEST -s "[Test] Default Type"` | Issue type is "Task" |
+
+> **Note:** The default issue type ("Task") may not exist in all projects. Some projects use custom types only (e.g., Epic, Story, SDLC). If the default type fails, use `-t <type>` explicitly. Run `jtk issues types -p <project>` to see available types.
 | Missing project | `jtk issues create -s "No Project"` | Error: project required |
 | Missing summary | `jtk issues create -p TEST` | Error: summary required |
 | JSON output | `jtk issues create -p TEST -s "[Test] JSON" -o json` | Created issue as JSON |
@@ -161,8 +171,10 @@ This document catalogs the manual integration test suite for `jtk`. These tests 
 
 | Test Case | Command | Expected Result |
 |-----------|---------|-----------------|
-| List field options | `jtk issues field-options priority` | Table with VALUE, ID |
-| With issue context | `jtk issues field-options priority --issue TEST-1` | Context-specific options |
+| List field options | `jtk issues field-options priority --issue TEST-1` | Table with VALUE, ID |
+| With issue context | `jtk issues field-options status --issue TEST-1` | Context-specific options |
+
+> **Note:** Some fields (like `priority`) require `--issue` to provide context. Without it, the API may return "Field key is not valid". Always use `--issue` when testing field-options.
 | JSON output | `jtk issues field-options priority -o json` | Valid JSON array |
 | Invalid field | `jtk issues field-options nonexistent-field-xyz` | Error |
 
@@ -218,6 +230,8 @@ This document catalogs the manual integration test suite for `jtk`. These tests 
 | Transition with field | `jtk transitions do TEST-X "Done" -f resolution=Done` | Transition with required field |
 | Invalid transition | `jtk transitions do TEST-X "Nonexistent"` | Error: transition not found |
 | Non-existent issue | `jtk transitions do TEST-99999 "Done"` | Error: 404 |
+
+> **Note:** Some projects have workflow screens that require custom fields for transitions. For example, transitions in projects using SDLC workflows may require a "Change Type" field (`-f customfield_10005=Feature`). Use `jtk transitions list <key> --fields` to check required fields before testing `transitions do`.
 
 ---
 
@@ -352,6 +366,8 @@ This document catalogs the manual integration test suite for `jtk`. These tests 
 | Empty sprint | `jtk sprints issues <empty-sprint-id>` | Empty table or "No issues" |
 | Non-existent sprint | `jtk sprints issues 99999` | Error |
 
+> **Note:** The Jira Agile API endpoint for sprint issues can be very slow (~30s). The client default timeout is 60s, which should be sufficient, but large sprints may still be slow. Use `--max` to limit results when testing.
+
 ### sprints add
 
 | Test Case | Command | Expected Result |
@@ -374,6 +390,74 @@ This document catalogs the manual integration test suite for `jtk`. These tests 
 | Limit results | `jtk users search "a" --max 3` | At most 3 users |
 | JSON output | `jtk users search "john" -o json` | Valid JSON array |
 | No results | `jtk users search "xyznonexistent999"` | Empty table or "No users found" |
+
+---
+
+## Project Operations
+
+### projects list
+
+| Test Case | Command | Expected Result |
+|-----------|---------|-----------------|
+| List all projects | `jtk projects list` | Table with KEY, NAME, TYPE, LEAD |
+| Limit results | `jtk projects list --max 3` | At most 3 projects |
+| Filter by query | `jtk projects list --query "test"` | Only matching projects |
+| JSON output | `jtk projects list -o json` | Valid JSON array |
+| Plain output | `jtk projects list -o plain` | Tab-separated values |
+| Empty results | `jtk projects list --query "xyznonexistent999"` | "No projects found" |
+
+### projects get
+
+| Test Case | Command | Expected Result |
+|-----------|---------|-----------------|
+| Get project details | `jtk projects get TEST` | Shows ID, Key, Name, Type, Lead, URL |
+| JSON output | `jtk projects get TEST -o json` | Full project object as JSON |
+| Non-existent project | `jtk projects get NONEXISTENT` | Error: 404 |
+
+### projects create
+
+| Test Case | Command | Expected Result |
+|-----------|---------|-----------------|
+| Create basic project | `jtk projects create --key ZTEST --name "Test Project" --type software --lead <account-id>` | "Created project ZTEST" |
+| Create with description | `jtk projects create --key ZT2 --name "Test 2" --type software --lead <account-id> --description "A test"` | Project created with description |
+| JSON output | `jtk projects create --key ZT3 --name "Test 3" --type software --lead <account-id> -o json` | Created project as JSON |
+| Missing required flags | `jtk projects create --key ZTEST` | Error: required flags |
+| Duplicate key | `jtk projects create --key ZTEST --name "Dupe" --type software --lead <account-id>` | Error: 400 (project already exists) |
+
+> **Note:** Test project keys should use a `Z` prefix (e.g., `ZTEST`, `ZT2`) to sort them away from real projects and make cleanup easier.
+
+### projects update
+
+| Test Case | Command | Expected Result |
+|-----------|---------|-----------------|
+| Update name | `jtk projects update ZTEST --name "Updated Name"` | "Updated project ZTEST" |
+| Update description | `jtk projects update ZTEST --description "New desc"` | "Updated project ZTEST" |
+| Verify update | `jtk projects get ZTEST` | Shows updated values |
+| Non-existent project | `jtk projects update NONEXISTENT --name "Nope"` | Error: 404 |
+
+### projects delete
+
+| Test Case | Command | Expected Result |
+|-----------|---------|-----------------|
+| Delete with --force | `jtk projects delete ZTEST --force` | "Deleted project ZTEST" |
+| Delete cancelled | `jtk projects delete ZT2` (type "n") | "Deletion cancelled" |
+| Delete confirmed | `jtk projects delete ZT2` (type "y") | "Deleted project ZT2" |
+| Non-existent project | `jtk projects delete NONEXISTENT --force` | Error: 404 |
+
+### projects restore
+
+| Test Case | Command | Expected Result |
+|-----------|---------|-----------------|
+| Restore deleted project | `jtk projects restore ZTEST` | "Restored project ZTEST" |
+| Verify restored | `jtk projects get ZTEST` | Project accessible again |
+| Non-existent project | `jtk projects restore NONEXISTENT` | Error: 404 |
+
+### projects types
+
+| Test Case | Command | Expected Result |
+|-----------|---------|-----------------|
+| List project types | `jtk projects types` | Table with KEY, NAME |
+| JSON output | `jtk projects types -o json` | Valid JSON array |
 
 ---
 
@@ -419,6 +503,8 @@ The Jira Automation API does not support deleting rules. Cleanup is done by disa
 | Test Case | Command | Expected Result |
 |-----------|---------|-----------------|
 | Create from export | `jtk auto export <uuid> > /tmp/rule.json && jtk auto create --file /tmp/rule.json` | New rule created, shows new UUID |
+
+> **Note:** When creating a rule from an export, the exported JSON contains the source rule's UUID. The API may reject duplicate UUIDs. If creation fails, strip the `"id"` field from the exported JSON before creating: `jq 'del(.id)' /tmp/rule.json > /tmp/rule-clean.json`.
 | Verify created | `jtk auto get <new-uuid>` | Rule exists with same components as source |
 | Create with modified name | Edit JSON to change name, then create | Rule created with new name |
 | Missing --file | `jtk auto create` | Error: required flag "file" not set |
@@ -481,6 +567,12 @@ All update mutation tests operate on a **copy** of a real rule. Never modify pro
 |-----------|-------|-----------------|
 | Full issue lifecycle | 1. `jtk issues create -p TEST -s "[Test] Lifecycle"` -> note key<br>2. `jtk issues get <key>`<br>3. `jtk issues update <key> -d "Added description"`<br>4. `jtk issues assign <key> <account-id>`<br>5. `jtk comments add <key> -b "Working on it"`<br>6. `jtk attachments add <key> -f test.txt`<br>7. `jtk transitions do <key> "In Progress"`<br>8. `jtk transitions do <key> "Done"`<br>9. `jtk issues delete <key> --force` | All steps succeed; issue created, updated, commented, attached, transitioned, deleted |
 
+### Project Lifecycle
+
+| Test Case | Steps | Expected Result |
+|-----------|-------|-----------------|
+| Full project lifecycle | 1. `jtk projects create --key ZTEST --name "Lifecycle Test" --type software --lead <account-id>`<br>2. `jtk projects get ZTEST`<br>3. `jtk projects update ZTEST --name "Lifecycle Updated"`<br>4. `jtk projects get ZTEST` (verify name changed)<br>5. `jtk projects delete ZTEST --force`<br>6. `jtk projects restore ZTEST`<br>7. `jtk projects get ZTEST` (verify restored)<br>8. `jtk projects delete ZTEST --force` (final cleanup) | All steps succeed; project created, updated, deleted, restored, and cleaned up |
+
 ### Sprint Workflow
 
 | Test Case | Steps | Expected Result |
@@ -521,6 +613,9 @@ All update mutation tests operate on a **copy** of a real rule. Never modify pro
 | `tr` alias | `jtk tr list TEST-1` | Same as `jtk transitions list` |
 | `attachment` alias | `jtk attachment list TEST-1` | Same as `jtk attachments list` |
 | `att` alias | `jtk att list TEST-1` | Same as `jtk attachments list` |
+| `project` alias | `jtk project list` | Same as `jtk projects list` |
+| `proj` alias | `jtk proj list` | Same as `jtk projects list` |
+| `p` alias | `jtk p list` | Same as `jtk projects list` |
 | `auto` alias | `jtk auto list` | Same as `jtk automation list` |
 | `board` alias | `jtk board list` | Same as `jtk boards list` |
 | `b` alias | `jtk b list` | Same as `jtk boards list` |
@@ -593,6 +688,16 @@ All update mutation tests operate on a **copy** of a real rule. Never modify pro
 - [ ] Delete attachment
 - [ ] Delete issue (--force)
 
+### Project CRUD
+- [ ] List projects (table, JSON)
+- [ ] Get project details
+- [ ] Create project
+- [ ] Update project (name, description)
+- [ ] Delete project (--force, cancelled)
+- [ ] Restore deleted project
+- [ ] List project types
+- [ ] Project lifecycle E2E (create → update → delete → restore → delete)
+
 ### Sprint & Board
 - [ ] List boards
 - [ ] Get board details
@@ -634,6 +739,7 @@ All update mutation tests operate on a **copy** of a real rule. Never modify pro
 - [ ] `-o plain` produces tab-separated output
 
 ### Cleanup
+- [ ] Delete all test projects: `jtk projects delete ZTEST --force`, etc.
 - [ ] Delete all [Test] prefixed issues: `jtk issues delete <key> --force`
 - [ ] Disable + rename automation test copies to [DELETEME]
 - [ ] Manually delete [DELETEME] rules via Jira UI
@@ -642,6 +748,17 @@ All update mutation tests operate on a **copy** of a real rule. Never modify pro
 ---
 
 ## Cleanup
+
+### Test Projects
+
+Delete any test projects created during integration testing:
+
+```bash
+# Delete test projects (Z-prefixed keys)
+for key in ZTEST ZT2 ZT3; do
+  jtk projects delete "$key" --force 2>/dev/null
+done
+```
 
 ### Issues, Comments, and Attachments
 

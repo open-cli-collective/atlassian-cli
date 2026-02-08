@@ -661,6 +661,56 @@ func TestNestedMacros_XMLStructureCorrect(t *testing.T) {
 	assert.True(t, richTextEnd < infoEnd, "rich-text-body should end before INFO")
 }
 
+// TestToConfluenceStorage_MacrosInCodeBlock verifies that bracket macros inside fenced
+// code blocks are preserved as literal text and not expanded to Confluence XML.
+func TestToConfluenceStorage_MacrosInCodeBlock(t *testing.T) {
+	tests := []struct {
+		name        string
+		input       string
+		contains    []string
+		notContains []string
+	}{
+		{
+			name:     "TOC in fenced code block",
+			input:    "```\n[TOC]\n```",
+			contains: []string{"<code>[TOC]\n</code>"},
+			notContains: []string{
+				`ac:name="toc"`,
+				"CFMACRO",
+			},
+		},
+		{
+			name:     "INFO panel in fenced code block",
+			input:    "```\n[INFO]\nSome content\n[/INFO]\n```",
+			contains: []string{"[INFO]", "[/INFO]"},
+			notContains: []string{
+				`ac:name="info"`,
+			},
+		},
+		{
+			name:  "macro outside code still expanded",
+			input: "```\n[TOC]\n```\n\n[TOC]",
+			contains: []string{
+				"<code>[TOC]\n</code>",
+				`ac:name="toc"`,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := ToConfluenceStorage([]byte(tt.input))
+			require.NoError(t, err)
+			for _, s := range tt.contains {
+				assert.Contains(t, result, s, "should contain: %s", s)
+			}
+			for _, s := range tt.notContains {
+				assert.NotContains(t, result, s, "should not contain: %s", s)
+			}
+		})
+	}
+}
+
 // TestToConfluenceStorage_DeterministicNestedMacros verifies that deeply nested macro
 // conversion is deterministic. This catches issues with non-deterministic map iteration
 // order in Go which previously caused flaky test failures. See issue #68.

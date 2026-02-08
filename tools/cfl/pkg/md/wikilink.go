@@ -91,8 +91,23 @@ func formatWikiLinkPlaceholder(id int) string {
 
 // preprocessWikiLinks replaces [[...]] syntax with inline placeholders before
 // goldmark processing. Returns the processed text and a map of placeholder ID
-// to WikiLink.
+// to WikiLink. Code regions (fenced blocks, inline code) are excluded.
 func preprocessWikiLinks(input []byte) ([]byte, map[int]WikiLink) {
+	// Protect code regions so wiki-link regex doesn't match inside them
+	protected, codeRegions := protectCodeRegions(input)
+
+	result, links := preprocessWikiLinksRaw(protected)
+
+	// Restore code regions
+	result = restoreCodeRegions(result, codeRegions)
+
+	return result, links
+}
+
+// preprocessWikiLinksRaw replaces [[...]] syntax with placeholders without
+// code-region protection. Use this when the caller has already protected
+// code regions (e.g., ToConfluenceStorage which protects once for all preprocessors).
+func preprocessWikiLinksRaw(input []byte) ([]byte, map[int]WikiLink) {
 	links := make(map[int]WikiLink)
 	counter := 0
 
@@ -133,7 +148,10 @@ func postprocessWikiLinksStorage(html string, links map[int]WikiLink) string {
 //
 // See preprocessWikiLinksForADF.
 func preprocessWikiLinksForADF(input []byte) []byte {
-	return wikiLinkPattern.ReplaceAllFunc(input, func(match []byte) []byte {
+	// Protect code regions so wiki-link regex doesn't match inside them
+	protected, codeRegions := protectCodeRegions(input)
+
+	result := wikiLinkPattern.ReplaceAllFunc(protected, func(match []byte) []byte {
 		inner := string(match[2 : len(match)-2])
 		wl := ParseWikiLink(inner)
 		if wl.Title == "" {
@@ -150,6 +168,11 @@ func preprocessWikiLinksForADF(input []byte) []byte {
 		}
 		return []byte("[" + wl.Title + "](" + href + ")")
 	})
+
+	// Restore code regions
+	result = restoreCodeRegions(result, codeRegions)
+
+	return result
 }
 
 // acLinkPattern matches <ac:link> elements in Confluence storage format.

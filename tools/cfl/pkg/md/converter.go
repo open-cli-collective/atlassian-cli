@@ -27,11 +27,17 @@ func ToConfluenceStorage(markdown []byte) (string, error) {
 		return "", nil
 	}
 
-	// Preprocess: replace wiki-links with placeholders before macro processing
-	processed, wikiLinks := preprocessWikiLinks(markdown)
+	// Protect code regions (fenced blocks, inline code) from preprocessing
+	processed, codeRegions := protectCodeRegions(markdown)
+
+	// Preprocess: replace wiki-links with placeholders
+	processed, wikiLinks := preprocessWikiLinksRaw(processed)
 
 	// Preprocess: replace macro placeholders with unique markers
 	processed, macros := preprocessMacros(processed)
+
+	// Restore code regions before goldmark so code blocks render correctly
+	processed = restoreCodeRegions(processed, codeRegions)
 
 	var buf bytes.Buffer
 	if err := mdParser.Convert(processed, &buf); err != nil {

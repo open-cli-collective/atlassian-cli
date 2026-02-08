@@ -510,6 +510,188 @@ func TestPreprocessWikiLinksForADF(t *testing.T) {
 	}
 }
 
+func TestPreprocessWikiLinks_CodeBlockProtection(t *testing.T) {
+	tests := []struct {
+		name          string
+		input         string
+		expectedLinks int
+		checkOutput   func(t *testing.T, output string, links map[int]WikiLink)
+	}{
+		{
+			name:          "wiki link in fenced code block not converted",
+			input:         "```\n[[My Page]]\n```",
+			expectedLinks: 0,
+			checkOutput: func(t *testing.T, output string, links map[int]WikiLink) {
+				assert.Contains(t, output, "[[My Page]]")
+			},
+		},
+		{
+			name:          "wiki link in inline code not converted",
+			input:         "Use `[[My Page]]` syntax",
+			expectedLinks: 0,
+			checkOutput: func(t *testing.T, output string, links map[int]WikiLink) {
+				assert.Contains(t, output, "`[[My Page]]`")
+			},
+		},
+		{
+			name:          "wiki link outside code block still converted",
+			input:         "```\n[[Code Page]]\n```\n\nSee [[Real Page]] here.",
+			expectedLinks: 1,
+			checkOutput: func(t *testing.T, output string, links map[int]WikiLink) {
+				assert.Contains(t, output, "[[Code Page]]")
+				assert.NotContains(t, output, "[[Real Page]]")
+				assert.Equal(t, WikiLink{Title: "Real Page"}, links[0])
+			},
+		},
+		{
+			name:          "mixed inline code and real wiki link",
+			input:         "Use `[[syntax]]` to link to [[Real Page]]",
+			expectedLinks: 1,
+			checkOutput: func(t *testing.T, output string, links map[int]WikiLink) {
+				assert.Contains(t, output, "`[[syntax]]`")
+				assert.Equal(t, WikiLink{Title: "Real Page"}, links[0])
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			output, links := preprocessWikiLinks([]byte(tt.input))
+			assert.Equal(t, tt.expectedLinks, len(links))
+			tt.checkOutput(t, string(output), links)
+		})
+	}
+}
+
+func TestToConfluenceStorage_WikiLinksInCodeBlock(t *testing.T) {
+	tests := []struct {
+		name        string
+		markdown    string
+		contains    []string
+		notContains []string
+	}{
+		{
+			name:     "wiki link in fenced code block preserved as text",
+			markdown: "```\nUse [[My Page]] syntax\n```",
+			contains: []string{
+				"<code>", "[[My Page]]",
+			},
+			notContains: []string{
+				"<ac:link>",
+			},
+		},
+		{
+			name:     "wiki link in inline code preserved",
+			markdown: "Use `[[My Page]]` syntax to create links.",
+			contains: []string{
+				"<code>[[My Page]]</code>",
+			},
+			notContains: []string{
+				"<ac:link>",
+			},
+		},
+		{
+			name:     "wiki link outside code block still converted",
+			markdown: "```\n[[Code Example]]\n```\n\nSee [[Real Page]].",
+			contains: []string{
+				"[[Code Example]]",
+				"<ac:link>",
+				`ri:content-title="Real Page"`,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := ToConfluenceStorage([]byte(tt.markdown))
+			require.NoError(t, err)
+			for _, s := range tt.contains {
+				assert.Contains(t, result, s)
+			}
+			for _, s := range tt.notContains {
+				assert.NotContains(t, result, s)
+			}
+		})
+	}
+}
+
+func TestToADF_WikiLinksInCodeBlock(t *testing.T) {
+	tests := []struct {
+		name     string
+		markdown string
+		check    func(t *testing.T, jsonStr string)
+	}{
+		{
+			name:     "wiki link in fenced code block not converted to link",
+			markdown: "```\n[[My Page]]\n```",
+			check: func(t *testing.T, jsonStr string) {
+				assert.Contains(t, jsonStr, "codeBlock")
+				assert.Contains(t, jsonStr, "[[My Page]]")
+				assert.NotContains(t, jsonStr, "confluence-wiki://")
+			},
+		},
+		{
+			name:     "wiki link in inline code not converted to link",
+			markdown: "Use `[[My Page]]` syntax.",
+			check: func(t *testing.T, jsonStr string) {
+				assert.Contains(t, jsonStr, "[[My Page]]")
+				assert.NotContains(t, jsonStr, "confluence-wiki://")
+			},
+		},
+		{
+			name:     "wiki link outside code converted, inside preserved",
+			markdown: "```\n[[Code Page]]\n```\n\nSee [[Real Page]].",
+			check: func(t *testing.T, jsonStr string) {
+				assert.Contains(t, jsonStr, "[[Code Page]]")
+				assert.Contains(t, jsonStr, "confluence-wiki:///Real%20Page")
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := ToADF([]byte(tt.markdown))
+			require.NoError(t, err)
+
+			var doc map[string]interface{}
+			require.NoError(t, json.Unmarshal([]byte(result), &doc))
+
+			tt.check(t, result)
+		})
+	}
+}
+
+func TestPreprocessWikiLinksForADF_CodeBlockProtection(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "wiki link in fenced block preserved",
+			input:    "```\n[[My Page]]\n```",
+			expected: "```\n[[My Page]]\n```",
+		},
+		{
+			name:     "wiki link in inline code preserved",
+			input:    "Use `[[My Page]]` syntax",
+			expected: "Use `[[My Page]]` syntax",
+		},
+		{
+			name:     "wiki link outside code converted",
+			input:    "`[[example]]` and [[Real Page]]",
+			expected: "`[[example]]` and [Real Page](confluence-wiki:///Real%20Page)",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := preprocessWikiLinksForADF([]byte(tt.input))
+			assert.Equal(t, tt.expected, string(result))
+		})
+	}
+}
+
 func TestWikiLink_EscapedTitleInStorage(t *testing.T) {
 	// Titles with XML-special characters should be properly escaped in storage format
 	wl := WikiLink{Title: `Page & "Stuff" <here>`}

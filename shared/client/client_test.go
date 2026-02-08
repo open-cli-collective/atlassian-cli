@@ -42,15 +42,15 @@ func TestNew(t *testing.T) {
 	t.Run("with options", func(t *testing.T) {
 		verboseOut := &bytes.Buffer{}
 		opts := &Options{
-			Timeout:    60 * time.Second,
+			Timeout:    90 * time.Second,
 			Verbose:    true,
 			VerboseOut: verboseOut,
 		}
 
 		c := New("https://example.atlassian.net", "user@example.com", "token", opts)
 
-		if c.HTTPClient.Timeout != 60*time.Second {
-			t.Errorf("Timeout = %v, want 60s", c.HTTPClient.Timeout)
+		if c.HTTPClient.Timeout != 90*time.Second {
+			t.Errorf("Timeout = %v, want 90s", c.HTTPClient.Timeout)
 		}
 
 		if !c.Verbose {
@@ -356,9 +356,9 @@ func TestOptions_timeoutOrDefault(t *testing.T) {
 	})
 
 	t.Run("custom timeout", func(t *testing.T) {
-		opts := &Options{Timeout: 60 * time.Second}
-		if got := opts.timeoutOrDefault(); got != 60*time.Second {
-			t.Errorf("timeoutOrDefault() = %v, want 60s", got)
+		opts := &Options{Timeout: 90 * time.Second}
+		if got := opts.timeoutOrDefault(); got != 90*time.Second {
+			t.Errorf("timeoutOrDefault() = %v, want 90s", got)
 		}
 	})
 }

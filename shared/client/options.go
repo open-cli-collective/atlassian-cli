@@ -6,7 +6,7 @@ import (
 )
 
 // DefaultTimeout is the default HTTP request timeout.
-const DefaultTimeout = 30 * time.Second
+const DefaultTimeout = 60 * time.Second
 
 // Options configures client behavior.
 type Options struct {

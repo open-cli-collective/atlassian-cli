@@ -55,10 +55,24 @@ func (e *APIError) UnmarshalJSON(data []byte) error {
 			return nil
 		}
 
-		// Try as array (Confluence format)
+		// Try as array of strings (Confluence format)
 		var errList []string
 		if err := json.Unmarshal(aux.ErrorsRaw, &errList); err == nil {
 			e.ErrorList = errList
+			return nil
+		}
+
+		// Try as array of objects (Automation format: [{"title": "msg", "code": "..."}])
+		var errObjects []struct {
+			Title string `json:"title"`
+			Code  string `json:"code"`
+		}
+		if err := json.Unmarshal(aux.ErrorsRaw, &errObjects); err == nil {
+			for _, obj := range errObjects {
+				if obj.Title != "" {
+					e.ErrorList = append(e.ErrorList, obj.Title)
+				}
+			}
 			return nil
 		}
 	}

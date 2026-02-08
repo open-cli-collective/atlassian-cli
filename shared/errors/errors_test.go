@@ -40,6 +40,16 @@ func TestAPIError_UnmarshalJSON(t *testing.T) {
 			name: "Empty errors",
 			json: `{"statusCode": 401}`,
 		},
+		{
+			name:        "Automation format with array of error objects",
+			json:        `{"errors": [{"id": "abc", "status": 400, "code": "api.error.unknown", "title": "Can't create a rule with a UUID that already exists."}]}`,
+			wantErrList: []string{"Can't create a rule with a UUID that already exists."},
+		},
+		{
+			name:        "Automation format with multiple error objects",
+			json:        `{"errors": [{"title": "First error", "code": "err.1"}, {"title": "Second error", "code": "err.2"}]}`,
+			wantErrList: []string{"First error", "Second error"},
+		},
 	}
 
 	for _, tt := range tests {
@@ -271,6 +281,30 @@ func TestParseAPIError_WithComplexJiraResponse(t *testing.T) {
 	errStr := err.Error()
 	if !strings.Contains(errStr, "Issue Does Not Exist") {
 		t.Errorf("Error should contain 'Issue Does Not Exist', got: %s", errStr)
+	}
+}
+
+func TestParseAPIError_WithAutomationResponse(t *testing.T) {
+	body := []byte(`{
+		"errors": [
+			{
+				"id": "4bb155c2-5897-4cc4-9180-241611a801cf",
+				"status": 400,
+				"code": "api.error.unknown",
+				"title": "Can't create a rule with a UUID that already exists."
+			}
+		]
+	}`)
+
+	err := ParseAPIError(http.StatusBadRequest, body)
+
+	if !errors.Is(err, ErrBadRequest) {
+		t.Errorf("Expected ErrBadRequest, got %v", err)
+	}
+
+	errStr := err.Error()
+	if !strings.Contains(errStr, "UUID that already exists") {
+		t.Errorf("Error should contain automation error title, got: %s", errStr)
 	}
 }
 

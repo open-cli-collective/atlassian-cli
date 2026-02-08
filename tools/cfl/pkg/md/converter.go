@@ -27,8 +27,11 @@ func ToConfluenceStorage(markdown []byte) (string, error) {
 		return "", nil
 	}
 
+	// Preprocess: replace wiki-links with placeholders before macro processing
+	processed, wikiLinks := preprocessWikiLinks(markdown)
+
 	// Preprocess: replace macro placeholders with unique markers
-	processed, macros := preprocessMacros(markdown)
+	processed, macros := preprocessMacros(processed)
 
 	var buf bytes.Buffer
 	if err := mdParser.Convert(processed, &buf); err != nil {
@@ -37,6 +40,9 @@ func ToConfluenceStorage(markdown []byte) (string, error) {
 
 	// Postprocess: replace markers with actual macro XML
 	result := postprocessMacros(buf.String(), macros)
+
+	// Postprocess: replace wiki-link placeholders with ac:link XML
+	result = postprocessWikiLinksStorage(result, wikiLinks)
 
 	return result, nil
 }

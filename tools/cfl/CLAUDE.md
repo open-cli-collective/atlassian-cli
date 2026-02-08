@@ -74,6 +74,8 @@ render.go         → RenderMacroToXML(), RenderMacroToBracket()
 
 Format auto-detection: `.md` files → markdown, `.html/.xhtml` → storage format, stdin/editor → markdown by default.
 
+**Wiki Links:** `[[Page Title]]` and `[[SPACE:Page Title]]` syntax creates internal Confluence page links. Preprocessing converts these to placeholders before goldmark, then postprocessing renders them to `<ac:link>` XML (storage) or link marks (ADF). See `wikilink.go` for implementation.
+
 ## Testing Philosophy
 
 ### Goals

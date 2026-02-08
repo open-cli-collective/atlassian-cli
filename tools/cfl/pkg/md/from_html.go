@@ -36,6 +36,15 @@ func FromConfluenceStorageWithOptions(html string, opts ConvertOptions) (string,
 		return "", nil
 	}
 
+	// Convert <ac:link> elements before macro processing
+	var wikiLinkMap map[int]WikiLink
+	if opts.ShowMacros {
+		html, wikiLinkMap = convertACLinksToPlaceholders(html)
+	} else {
+		html = convertACLinksToMarkdownLinks(html)
+		wikiLinkMap = nil
+	}
+
 	// Process Confluence macros before conversion, get placeholders map
 	html, macroMap := processConfluenceMacrosWithPlaceholders(html, opts.ShowMacros)
 
@@ -55,6 +64,11 @@ func FromConfluenceStorageWithOptions(html string, opts ConvertOptions) (string,
 
 	// Replace placeholders with actual bracket syntax
 	markdown = replaceMacroPlaceholders(markdown, macroMap)
+
+	// Replace wiki-link placeholders with [[...]] syntax
+	if wikiLinkMap != nil {
+		markdown = replaceWikiLinkPlaceholders(markdown, wikiLinkMap)
+	}
 
 	// Clean up the output - trim whitespace
 	return strings.TrimSpace(markdown), nil

@@ -239,6 +239,28 @@ Pages created in Confluence's web UI use proprietary macros that may not round-t
 
 **Note**: Tables and code blocks work automatically. For macro-heavy pages, use `--show-macros` when viewing to preserve macros as `[TOC]`, `[INFO]...[/INFO]`, etc. during roundtrip editing.
 
+### Wiki Links (Issue #69)
+
+Tests for `[[Page Title]]` internal link syntax. Works in both ADF (default) and legacy (storage) paths.
+
+| Test Case | Command | Expected Result |
+|-----------|---------|-----------------|
+| Create with same-space link | `echo "See [[Getting Started]]." \| cfl page create -s confluence -t "[Test] Wiki Link"` | Page created, link resolves to "Getting Started" page |
+| Create with cross-space link | `echo "See [[DEV:Architecture]]." \| cfl page create -s confluence -t "[Test] Cross Link"` | Page created, link resolves to page in DEV space |
+| Create with legacy + wiki link | `echo "See [[Getting Started]]." \| cfl page create -s confluence -t "[Test] Wiki Legacy" --legacy` | Page created with `<ac:link>` in storage format |
+| View wiki link (default) | `cfl page view <id>` | Link text visible (as plain text or markdown link) |
+| View wiki link (show-macros) | `cfl page view <id> --show-macros` | Shows `[[Page Title]]` syntax |
+| Roundtrip wiki link | `cfl page view <id> --show-macros --content-only \| cfl page edit <id> --legacy` | Wiki link preserved through roundtrip |
+| Multiple wiki links | `echo "[[Page A]] and [[DEV:Page B]]." \| cfl page create ...` | Both links created correctly |
+| Wiki link in heading | `echo "# See [[My Page]]" \| cfl page create ...` | Link works inside heading |
+
+**Verification:**
+```bash
+# Check storage format for ac:link
+curl -s -u "$EMAIL:$TOKEN" "$URL/api/v2/pages/<page-id>?body-format=storage" | jq '.body.storage.value'
+# Should contain: <ac:link><ri:page ri:content-title="Page Title" />...
+```
+
 ### Macro Roundtrip (Issue #51)
 
 Tests for `--show-macros` roundtrip support. **Fully implemented: TOC, panels, expand, nested macros.**
@@ -401,6 +423,13 @@ Before GA release, run through this checklist:
 - [ ] Copy page (different space)
 - [ ] Delete page (with confirmation)
 - [ ] Delete page (--force)
+
+### Wiki Links
+- [ ] Create page with same-space wiki link
+- [ ] Create page with cross-space wiki link
+- [ ] Create with wiki link + legacy flag
+- [ ] View wiki link with --show-macros
+- [ ] Roundtrip wiki link (view --show-macros | edit --legacy)
 
 ### Attachment CRUD
 - [ ] Upload attachment

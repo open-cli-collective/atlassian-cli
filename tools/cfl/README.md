@@ -673,6 +673,46 @@ Do not share your API tokens.
 
 Values with spaces must be quoted. The content between open and close tags is converted as markdown.
 
+## Wiki Links
+
+cfl supports wiki-link syntax for creating internal Confluence page links in markdown content. Wiki links work in both the default (ADF/cloud editor) and legacy (storage format) paths.
+
+### Syntax
+
+| Syntax | Description |
+|--------|-------------|
+| `[[Page Title]]` | Link to a page in the same space |
+| `[[SPACE:Page Title]]` | Link to a page in a different space |
+
+### Creating Pages with Wiki Links
+
+```bash
+# Create a page with internal links
+echo 'See [[Getting Started]] for setup instructions.
+
+For architecture details, check [[ENG:Architecture Decisions]].' | cfl page create -s DEV -t "My Page"
+
+# Works with legacy mode too
+echo 'See [[Getting Started]] for details.' | cfl page create -s DEV -t "My Page" --legacy
+```
+
+### Roundtrip Support
+
+When viewing pages with `--show-macros`, Confluence internal links (`<ac:link>`) are displayed as `[[...]]` syntax:
+
+```bash
+# View a page with wiki links preserved
+cfl page view 12345 --show-macros --content-only
+# Output: See [[Getting Started]] for setup instructions.
+
+# Edit and push back
+cfl page view 12345 --show-macros --content-only | cfl page edit 12345 --legacy
+```
+
+### Space Key Format
+
+The text before `:` is treated as a space key if it contains only uppercase letters, digits, hyphens, underscores, or tildes (e.g., `DEV`, `TEAM1`, `~USERSPACE`). Lowercase text before `:` is treated as part of the page title, not a space key.
+
 ---
 
 ## Configuration

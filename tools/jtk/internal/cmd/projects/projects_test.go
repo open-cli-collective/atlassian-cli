@@ -160,7 +160,7 @@ func TestRunCreate(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusCreated)
 		json.NewEncoder(w).Encode(api.ProjectDetail{
-			ID:   "10001",
+			ID:   json.Number("10001"),
 			Key:  "TST",
 			Name: "Test Project",
 		})
@@ -254,7 +254,7 @@ func TestRunUpdate(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, http.MethodPut, r.Method)
 		json.NewEncoder(w).Encode(api.ProjectDetail{
-			ID:   "10001",
+			ID:   json.Number("10001"),
 			Key:  "TST",
 			Name: "Updated Name",
 		})
@@ -276,7 +276,7 @@ func TestRunUpdate(t *testing.T) {
 func TestRunRestore(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(api.ProjectDetail{
-			ID:   "10001",
+			ID:   json.Number("10001"),
 			Key:  "TST",
 			Name: "Test Project",
 		})

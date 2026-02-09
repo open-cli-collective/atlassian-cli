@@ -14,6 +14,7 @@ func newUpdateCmd(opts *root.Options) *cobra.Command {
 	var summary string
 	var description string
 	var parent string
+	var assignee string
 	var fields []string
 
 	cmd := &cobra.Command{
@@ -29,27 +30,31 @@ func newUpdateCmd(opts *root.Options) *cobra.Command {
   # Move issue under a different parent/epic
   jtk issues update PROJ-123 --parent PROJ-100
 
+  # Reassign an issue
+  jtk issues update PROJ-123 --assignee user@example.com
+
   # Update custom fields
   jtk issues update PROJ-123 --field priority=High --field "Story Points"=5`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runUpdate(opts, args[0], summary, description, parent, fields)
+			return runUpdate(opts, args[0], summary, description, parent, assignee, fields)
 		},
 	}
 
 	cmd.Flags().StringVarP(&summary, "summary", "s", "", "New summary")
 	cmd.Flags().StringVarP(&description, "description", "d", "", "New description")
 	cmd.Flags().StringVar(&parent, "parent", "", "Parent issue key (epic or parent issue)")
+	cmd.Flags().StringVarP(&assignee, "assignee", "a", "", "Assignee (account ID, email, or \"me\")")
 	cmd.Flags().StringArrayVarP(&fields, "field", "f", nil, "Fields to update (key=value)")
 
 	return cmd
 }
 
-func runUpdate(opts *root.Options, issueKey, summary, description, parent string, fieldArgs []string) error {
+func runUpdate(opts *root.Options, issueKey, summary, description, parent, assignee string, fieldArgs []string) error {
 	v := opts.View()
 
 	// Validate that at least one field is being updated before making API calls
-	if summary == "" && description == "" && parent == "" && len(fieldArgs) == 0 {
+	if summary == "" && description == "" && parent == "" && assignee == "" && len(fieldArgs) == 0 {
 		return fmt.Errorf("no fields specified to update")
 	}
 
@@ -70,6 +75,14 @@ func runUpdate(opts *root.Options, issueKey, summary, description, parent string
 
 	if parent != "" {
 		fields["parent"] = map[string]string{"key": parent}
+	}
+
+	if assignee != "" {
+		accountID, err := resolveAssignee(client, assignee)
+		if err != nil {
+			return err
+		}
+		fields["assignee"] = map[string]string{"accountId": accountID}
 	}
 
 	// Parse additional fields

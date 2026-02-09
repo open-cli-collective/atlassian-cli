@@ -47,7 +47,7 @@ func TestRunCreate_RequestBodyNoDoubleQuoting(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runCreate(opts, "MYPROJECT", "Task", "Fix login bug", "Users cannot log in with SSO credentials", "", nil)
+	err = runCreate(opts, "MYPROJECT", "Task", "Fix login bug", "Users cannot log in with SSO credentials", "", "", nil)
 	require.NoError(t, err)
 
 	// Parse the captured request body
@@ -109,7 +109,7 @@ func TestRunCreate_SummaryWithSpecialCharacters(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runCreate(opts, "PROJ", "Bug", `Error: "unexpected token" in parser`, "", "", nil)
+	err = runCreate(opts, "PROJ", "Bug", `Error: "unexpected token" in parser`, "", "", "", nil)
 	require.NoError(t, err)
 
 	var reqBody map[string]interface{}
@@ -145,6 +145,10 @@ func TestNewCreateCmd(t *testing.T) {
 	parentFlag := cmd.Flags().Lookup("parent")
 	require.NotNil(t, parentFlag)
 	assert.Equal(t, "", parentFlag.Shorthand, "parent flag should have no shorthand")
+
+	assigneeFlag := cmd.Flags().Lookup("assignee")
+	require.NotNil(t, assigneeFlag)
+	assert.Equal(t, "a", assigneeFlag.Shorthand)
 }
 
 func TestCreateCmd_CobraExecution_NoDoubleQuoting(t *testing.T) {
@@ -229,7 +233,7 @@ func TestRunCreate_WithParent(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runCreate(opts, "PROJ", "Task", "Child task", "", "PROJ-100", nil)
+	err = runCreate(opts, "PROJ", "Task", "Child task", "", "PROJ-100", "", nil)
 	require.NoError(t, err)
 
 	require.NotEmpty(t, capturedBody)
@@ -273,7 +277,7 @@ func TestRunCreate_WithoutParent(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runCreate(opts, "PROJ", "Task", "Standalone task", "", "", nil)
+	err = runCreate(opts, "PROJ", "Task", "Standalone task", "", "", "", nil)
 	require.NoError(t, err)
 
 	require.NotEmpty(t, capturedBody)
@@ -333,4 +337,184 @@ func TestCreateCmd_CobraExecution_WithParent(t *testing.T) {
 	fields := reqBody["fields"].(map[string]interface{})
 	parentField := fields["parent"].(map[string]interface{})
 	assert.Equal(t, "PROJ-100", parentField["key"])
+}
+
+func TestRunCreate_WithAssigneeAccountID(t *testing.T) {
+	var capturedBody []byte
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/rest/api/3/issue" && r.Method == "POST" {
+			capturedBody, _ = io.ReadAll(r.Body)
+			w.WriteHeader(http.StatusCreated)
+			json.NewEncoder(w).Encode(api.Issue{Key: "PROJ-500", ID: "10500"})
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{
+		URL:      server.URL,
+		Email:    "test@example.com",
+		APIToken: "token",
+	})
+	require.NoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{
+		Output: "table",
+		Stdout: &stdout,
+		Stderr: &bytes.Buffer{},
+	}
+	opts.SetAPIClient(client)
+
+	err = runCreate(opts, "PROJ", "Task", "Assigned task", "", "", "61292e4c4f29230069621c5f", nil)
+	require.NoError(t, err)
+
+	require.NotEmpty(t, capturedBody)
+	var reqBody map[string]interface{}
+	err = json.Unmarshal(capturedBody, &reqBody)
+	require.NoError(t, err)
+
+	fields := reqBody["fields"].(map[string]interface{})
+	assigneeField := fields["assignee"].(map[string]interface{})
+	assert.Equal(t, "61292e4c4f29230069621c5f", assigneeField["accountId"])
+}
+
+func TestRunCreate_WithAssigneeMe(t *testing.T) {
+	var capturedBody []byte
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/rest/api/3/myself" && r.Method == "GET" {
+			json.NewEncoder(w).Encode(api.User{
+				AccountID:   "myself-account-id",
+				DisplayName: "Test User",
+			})
+			return
+		}
+		if r.URL.Path == "/rest/api/3/issue" && r.Method == "POST" {
+			capturedBody, _ = io.ReadAll(r.Body)
+			w.WriteHeader(http.StatusCreated)
+			json.NewEncoder(w).Encode(api.Issue{Key: "PROJ-501", ID: "10501"})
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{
+		URL:      server.URL,
+		Email:    "test@example.com",
+		APIToken: "token",
+	})
+	require.NoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{
+		Output: "table",
+		Stdout: &stdout,
+		Stderr: &bytes.Buffer{},
+	}
+	opts.SetAPIClient(client)
+
+	err = runCreate(opts, "PROJ", "Task", "My task", "", "", "me", nil)
+	require.NoError(t, err)
+
+	require.NotEmpty(t, capturedBody)
+	var reqBody map[string]interface{}
+	err = json.Unmarshal(capturedBody, &reqBody)
+	require.NoError(t, err)
+
+	fields := reqBody["fields"].(map[string]interface{})
+	assigneeField := fields["assignee"].(map[string]interface{})
+	assert.Equal(t, "myself-account-id", assigneeField["accountId"])
+}
+
+func TestRunCreate_WithAssigneeEmail(t *testing.T) {
+	var capturedBody []byte
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/rest/api/3/user/search" && r.Method == "GET" {
+			json.NewEncoder(w).Encode([]api.User{
+				{AccountID: "found-account-id", DisplayName: "Found User"},
+			})
+			return
+		}
+		if r.URL.Path == "/rest/api/3/issue" && r.Method == "POST" {
+			capturedBody, _ = io.ReadAll(r.Body)
+			w.WriteHeader(http.StatusCreated)
+			json.NewEncoder(w).Encode(api.Issue{Key: "PROJ-502", ID: "10502"})
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{
+		URL:      server.URL,
+		Email:    "test@example.com",
+		APIToken: "token",
+	})
+	require.NoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{
+		Output: "table",
+		Stdout: &stdout,
+		Stderr: &bytes.Buffer{},
+	}
+	opts.SetAPIClient(client)
+
+	err = runCreate(opts, "PROJ", "Task", "Their task", "", "", "user@example.com", nil)
+	require.NoError(t, err)
+
+	require.NotEmpty(t, capturedBody)
+	var reqBody map[string]interface{}
+	err = json.Unmarshal(capturedBody, &reqBody)
+	require.NoError(t, err)
+
+	fields := reqBody["fields"].(map[string]interface{})
+	assigneeField := fields["assignee"].(map[string]interface{})
+	assert.Equal(t, "found-account-id", assigneeField["accountId"])
+}
+
+func TestRunCreate_WithoutAssignee(t *testing.T) {
+	var capturedBody []byte
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/rest/api/3/issue" && r.Method == "POST" {
+			capturedBody, _ = io.ReadAll(r.Body)
+			w.WriteHeader(http.StatusCreated)
+			json.NewEncoder(w).Encode(api.Issue{Key: "PROJ-503", ID: "10503"})
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{
+		URL:      server.URL,
+		Email:    "test@example.com",
+		APIToken: "token",
+	})
+	require.NoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{
+		Output: "table",
+		Stdout: &stdout,
+		Stderr: &bytes.Buffer{},
+	}
+	opts.SetAPIClient(client)
+
+	err = runCreate(opts, "PROJ", "Task", "Unassigned task", "", "", "", nil)
+	require.NoError(t, err)
+
+	require.NotEmpty(t, capturedBody)
+	var reqBody map[string]interface{}
+	err = json.Unmarshal(capturedBody, &reqBody)
+	require.NoError(t, err)
+
+	fields := reqBody["fields"].(map[string]interface{})
+	assert.Nil(t, fields["assignee"], "assignee should not be present when empty")
 }

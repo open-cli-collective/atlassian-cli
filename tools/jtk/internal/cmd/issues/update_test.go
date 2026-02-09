@@ -43,7 +43,7 @@ func TestRunUpdate_RequestBodyNoDoubleQuoting(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runUpdate(opts, "PROJ-123", "Updated summary", "Updated description", "", nil)
+	err = runUpdate(opts, "PROJ-123", "Updated summary", "Updated description", "", "", nil)
 	require.NoError(t, err)
 
 	require.NotEmpty(t, capturedBody)
@@ -91,6 +91,10 @@ func TestNewUpdateCmd(t *testing.T) {
 	parentFlag := cmd.Flags().Lookup("parent")
 	require.NotNil(t, parentFlag)
 	assert.Equal(t, "", parentFlag.Shorthand, "parent flag should have no shorthand")
+
+	assigneeFlag := cmd.Flags().Lookup("assignee")
+	require.NotNil(t, assigneeFlag)
+	assert.Equal(t, "a", assigneeFlag.Shorthand)
 }
 
 func TestRunUpdate_SummaryOnly(t *testing.T) {
@@ -121,7 +125,7 @@ func TestRunUpdate_SummaryOnly(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runUpdate(opts, "PROJ-123", "New summary", "", "", nil)
+	err = runUpdate(opts, "PROJ-123", "New summary", "", "", "", nil)
 	require.NoError(t, err)
 
 	var reqBody map[string]interface{}
@@ -141,7 +145,7 @@ func TestRunUpdate_NoFieldsError(t *testing.T) {
 		Stderr: &bytes.Buffer{},
 	}
 
-	err := runUpdate(opts, "PROJ-123", "", "", "", nil)
+	err := runUpdate(opts, "PROJ-123", "", "", "", "", nil)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "no fields specified")
 }
@@ -174,7 +178,7 @@ func TestRunUpdate_ParentOnly(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runUpdate(opts, "PROJ-456", "", "", "PROJ-100", nil)
+	err = runUpdate(opts, "PROJ-456", "", "", "PROJ-100", "", nil)
 	require.NoError(t, err)
 
 	require.NotEmpty(t, capturedBody)
@@ -217,7 +221,7 @@ func TestRunUpdate_ParentWithSummary(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runUpdate(opts, "PROJ-456", "Updated title", "", "PROJ-200", nil)
+	err = runUpdate(opts, "PROJ-456", "Updated title", "", "PROJ-200", "", nil)
 	require.NoError(t, err)
 
 	require.NotEmpty(t, capturedBody)
@@ -276,4 +280,141 @@ func TestUpdateCmd_CobraExecution_WithParent(t *testing.T) {
 	fields := reqBody["fields"].(map[string]interface{})
 	parentField := fields["parent"].(map[string]interface{})
 	assert.Equal(t, "PROJ-100", parentField["key"])
+}
+
+func TestRunUpdate_AssigneeOnly(t *testing.T) {
+	var capturedBody []byte
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "PUT" {
+			capturedBody, _ = io.ReadAll(r.Body)
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{
+		URL:      server.URL,
+		Email:    "test@example.com",
+		APIToken: "token",
+	})
+	require.NoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{
+		Output: "table",
+		Stdout: &stdout,
+		Stderr: &bytes.Buffer{},
+	}
+	opts.SetAPIClient(client)
+
+	err = runUpdate(opts, "PROJ-789", "", "", "", "61292e4c4f29230069621c5f", nil)
+	require.NoError(t, err)
+
+	require.NotEmpty(t, capturedBody)
+	var reqBody map[string]interface{}
+	err = json.Unmarshal(capturedBody, &reqBody)
+	require.NoError(t, err)
+
+	fields := reqBody["fields"].(map[string]interface{})
+	assigneeField := fields["assignee"].(map[string]interface{})
+	assert.Equal(t, "61292e4c4f29230069621c5f", assigneeField["accountId"])
+	assert.Nil(t, fields["summary"], "summary should not be present when empty")
+}
+
+func TestRunUpdate_AssigneeMe(t *testing.T) {
+	var capturedBody []byte
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/rest/api/3/myself" && r.Method == "GET" {
+			json.NewEncoder(w).Encode(api.User{
+				AccountID:   "myself-account-id",
+				DisplayName: "Test User",
+			})
+			return
+		}
+		if r.Method == "PUT" {
+			capturedBody, _ = io.ReadAll(r.Body)
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{
+		URL:      server.URL,
+		Email:    "test@example.com",
+		APIToken: "token",
+	})
+	require.NoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{
+		Output: "table",
+		Stdout: &stdout,
+		Stderr: &bytes.Buffer{},
+	}
+	opts.SetAPIClient(client)
+
+	err = runUpdate(opts, "PROJ-789", "", "", "", "me", nil)
+	require.NoError(t, err)
+
+	require.NotEmpty(t, capturedBody)
+	var reqBody map[string]interface{}
+	err = json.Unmarshal(capturedBody, &reqBody)
+	require.NoError(t, err)
+
+	fields := reqBody["fields"].(map[string]interface{})
+	assigneeField := fields["assignee"].(map[string]interface{})
+	assert.Equal(t, "myself-account-id", assigneeField["accountId"])
+}
+
+func TestUpdateCmd_CobraExecution_WithAssignee(t *testing.T) {
+	var capturedBody []byte
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "PUT" {
+			capturedBody, _ = io.ReadAll(r.Body)
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{
+		URL:      server.URL,
+		Email:    "test@example.com",
+		APIToken: "token",
+	})
+	require.NoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{
+		Output: "table",
+		Stdout: &stdout,
+		Stderr: &bytes.Buffer{},
+	}
+	opts.SetAPIClient(client)
+
+	cmd := newUpdateCmd(opts)
+	cmd.SetArgs([]string{
+		"PROJ-789",
+		"--assignee", "61292e4c4f29230069621c5f",
+	})
+
+	err = cmd.Execute()
+	require.NoError(t, err)
+
+	require.NotEmpty(t, capturedBody)
+	var reqBody map[string]interface{}
+	err = json.Unmarshal(capturedBody, &reqBody)
+	require.NoError(t, err)
+
+	fields := reqBody["fields"].(map[string]interface{})
+	assigneeField := fields["assignee"].(map[string]interface{})
+	assert.Equal(t, "61292e4c4f29230069621c5f", assigneeField["accountId"])
 }

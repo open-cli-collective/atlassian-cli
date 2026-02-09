@@ -1,10 +1,13 @@
-// render.go provides functions to render MacroNodes to Confluence storage format.
+// render.go provides functions to render MacroNodes to Confluence storage format
+// and ADF extension nodes.
 package md
 
 import (
 	"fmt"
 	"sort"
 	"strings"
+
+	"github.com/open-cli-collective/atlassian-go/adf"
 )
 
 // RenderMacroToXML converts a MacroNode to Confluence XML storage format.
@@ -114,4 +117,113 @@ func RenderMacroToBracketOpen(node *MacroNode) string {
 // FormatPlaceholder creates a macro placeholder string.
 func FormatPlaceholder(id int) string {
 	return fmt.Sprintf("%s%d%s", macroPlaceholderPrefix, id, macroPlaceholderSuffix)
+}
+
+// adfPlaceholderPrefix is used for ADF macro placeholders (distinct from storage).
+const adfPlaceholderPrefix = "CFADFM"
+const adfPlaceholderSuffix = "ENDA"
+
+// FormatADFPlaceholder creates an ADF macro placeholder string.
+func FormatADFPlaceholder(id int) string {
+	return fmt.Sprintf("%s%d%s", adfPlaceholderPrefix, id, adfPlaceholderSuffix)
+}
+
+// panelMacros maps macro names to their ADF panel type.
+var panelMacros = map[string]string{
+	"info":    "info",
+	"warning": "warning",
+	"note":    "note",
+	"tip":     "success",
+}
+
+// RenderMacroToADFNode converts a MacroNode to an ADF node.
+//
+// Bodyless macros (e.g., TOC) become "extension" nodes.
+// Panel macros (info, warning, note, tip) become "panel" nodes.
+// Other body macros (expand, code) become "bodiedExtension" nodes.
+func RenderMacroToADFNode(node *MacroNode) *adf.Node {
+	macroType, _ := LookupMacro(node.Name)
+
+	// Build macro parameters in the ADF format
+	params := buildADFMacroParams(node)
+
+	if macroType.HasBody {
+		// Convert body markdown to ADF content nodes
+		var content []*adf.Node
+		if node.Body != "" {
+			bodyDoc := adf.ToDocument(node.Body)
+			if bodyDoc != nil {
+				content = bodyDoc.Content
+			}
+		}
+		if content == nil {
+			content = []*adf.Node{}
+		}
+
+		// Panel macros get native panel nodes
+		if panelType, ok := panelMacros[node.Name]; ok {
+			return &adf.Node{
+				Type:    "panel",
+				Attrs:   map[string]interface{}{"panelType": panelType},
+				Content: content,
+			}
+		}
+
+		// Other body macros get bodiedExtension nodes
+		return &adf.Node{
+			Type: "bodiedExtension",
+			Attrs: map[string]interface{}{
+				"extensionType": "com.atlassian.confluence.macro.core",
+				"extensionKey":  node.Name,
+				"parameters":    params,
+				"layout":        "default",
+			},
+			Content: content,
+		}
+	}
+
+	// Bodyless macros get extension nodes
+	return &adf.Node{
+		Type: "extension",
+		Attrs: map[string]interface{}{
+			"extensionType": "com.atlassian.confluence.macro.core",
+			"extensionKey":  node.Name,
+			"parameters":    params,
+			"layout":        "default",
+		},
+	}
+}
+
+// buildADFMacroParams builds the ADF parameters structure for a macro.
+func buildADFMacroParams(node *MacroNode) map[string]interface{} {
+	macroParams := make(map[string]interface{})
+	for k, v := range node.Parameters {
+		macroParams[k] = map[string]interface{}{"value": v}
+	}
+
+	macroTitle := macroDisplayName(node.Name)
+	return map[string]interface{}{
+		"macroParams": macroParams,
+		"macroMetadata": map[string]interface{}{
+			"schemaVersion": map[string]interface{}{"value": "1"},
+			"title":         macroTitle,
+		},
+	}
+}
+
+// macroDisplayName returns the human-readable display name for a macro.
+func macroDisplayName(name string) string {
+	displayNames := map[string]string{
+		"toc":     "Table of Contents",
+		"info":    "Info",
+		"warning": "Warning",
+		"note":    "Note",
+		"tip":     "Tip",
+		"expand":  "Expand",
+		"code":    "Code Block",
+	}
+	if dn, ok := displayNames[name]; ok {
+		return dn
+	}
+	return strings.Title(name) //nolint:staticcheck
 }

@@ -311,6 +311,36 @@ Tests for `--show-macros` roundtrip support. **Fully implemented: TOC, panels, e
 - Expand: `[EXPAND title="Click me"]content[/EXPAND]`
 - Nested: `[INFO][TOC maxLevel=2][/INFO]` (macros can be nested)
 
+### ADF Macro Conversion (Issue #133)
+
+Tests for bracket macro → ADF conversion. Prior to this fix, `[TOC]` and other bracket macros
+were treated as literal text in the default (ADF) upload path.
+
+| Test Case | Command | Expected Result |
+|-----------|---------|-----------------|
+| TOC via ADF path | `echo "[TOC]\n# H1\n## H2" \| cfl page create -s SPACE -t "TOC ADF Test"` | ADF extension node with `extensionKey: "toc"` |
+| TOC with params (ADF) | `echo "[TOC maxLevel=3]\n# H1" \| cfl page create ...` | Extension node with `macroParams.maxLevel.value: "3"` |
+| TOC in code block (ADF) | Create page with `` ``` [TOC] ``` `` | `[TOC]` as literal text in codeBlock, NOT an extension |
+| Panel via ADF path | `echo "[INFO]\nImportant!\n[/INFO]" \| cfl page create ...` | ADF panel node with `panelType: "info"` |
+| TOC roundtrip (ADF) | Create via ADF → view with `--show-macros` | Shows `[TOC]` in markdown output |
+| TOC renders in Confluence | Open page in browser | Table of contents displayed |
+
+**Verification (ADF structure):**
+```bash
+# Check ADF format for extension node
+curl -s -u "$EMAIL:$TOKEN" "$URL/api/v2/pages/<page-id>?body-format=atlas_doc_format" \
+  | jq '.body.atlas_doc_format.value | fromjson | .content[] | select(.type=="extension")'
+# Should contain: {"type": "extension", "attrs": {"extensionKey": "toc", ...}}
+
+# Check storage format for macro (Confluence converts ADF → XHTML)
+curl -s -u "$EMAIL:$TOKEN" "$URL/api/v2/pages/<page-id>?body-format=storage" \
+  | jq '.body.storage.value'
+# Should contain: <ac:structured-macro ac:name="toc" ...>
+```
+
+**Reference page:** `[Test] NBA Significance Thresholds` (ID: 3406561293, Space: INT) —
+copied from PROD for testing. Has TOC, tables, headings, code formatting, wiki-links.
+
 ---
 
 ## Cloud Editor vs Legacy Editor

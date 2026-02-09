@@ -489,3 +489,285 @@ func TestToADF_InlineCodePreservesContent(t *testing.T) {
 	}
 	assert.True(t, foundCode, "expected code mark")
 }
+
+// --- Macro conversion tests ---
+
+func TestToADF_TOC_Simple(t *testing.T) {
+	input := "[TOC]"
+	result, err := ToADF([]byte(input))
+	require.NoError(t, err)
+
+	var doc ADFDocument
+	err = json.Unmarshal([]byte(result), &doc)
+	require.NoError(t, err)
+
+	require.Len(t, doc.Content, 1)
+	ext := doc.Content[0]
+	assert.Equal(t, "extension", ext.Type)
+	assert.Equal(t, "com.atlassian.confluence.macro.core", ext.Attrs["extensionType"])
+	assert.Equal(t, "toc", ext.Attrs["extensionKey"])
+	assert.Equal(t, "default", ext.Attrs["layout"])
+
+	// Verify parameters structure
+	params, ok := ext.Attrs["parameters"].(map[string]interface{})
+	require.True(t, ok, "parameters should be a map")
+	metadata, ok := params["macroMetadata"].(map[string]interface{})
+	require.True(t, ok, "macroMetadata should be a map")
+	schemaVersion, ok := metadata["schemaVersion"].(map[string]interface{})
+	require.True(t, ok, "schemaVersion should be a map")
+	assert.Equal(t, "1", schemaVersion["value"])
+}
+
+func TestToADF_TOC_WithParams(t *testing.T) {
+	input := "[TOC maxLevel=3]"
+	result, err := ToADF([]byte(input))
+	require.NoError(t, err)
+
+	var doc ADFDocument
+	err = json.Unmarshal([]byte(result), &doc)
+	require.NoError(t, err)
+
+	require.Len(t, doc.Content, 1)
+	ext := doc.Content[0]
+	assert.Equal(t, "extension", ext.Type)
+	assert.Equal(t, "toc", ext.Attrs["extensionKey"])
+
+	// Verify macro param
+	params := ext.Attrs["parameters"].(map[string]interface{})
+	macroParams := params["macroParams"].(map[string]interface{})
+	maxLevel := macroParams["maxLevel"].(map[string]interface{})
+	assert.Equal(t, "3", maxLevel["value"])
+}
+
+func TestToADF_TOC_MultipleParams(t *testing.T) {
+	input := "[TOC maxLevel=3 minLevel=1]"
+	result, err := ToADF([]byte(input))
+	require.NoError(t, err)
+
+	var doc ADFDocument
+	err = json.Unmarshal([]byte(result), &doc)
+	require.NoError(t, err)
+
+	require.Len(t, doc.Content, 1)
+	ext := doc.Content[0]
+	params := ext.Attrs["parameters"].(map[string]interface{})
+	macroParams := params["macroParams"].(map[string]interface{})
+
+	maxLevel := macroParams["maxLevel"].(map[string]interface{})
+	assert.Equal(t, "3", maxLevel["value"])
+	minLevel := macroParams["minLevel"].(map[string]interface{})
+	assert.Equal(t, "1", minLevel["value"])
+}
+
+func TestToADF_TOC_CaseInsensitive(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"lowercase", "[toc]"},
+		{"mixed_case", "[Toc]"},
+		{"uppercase", "[TOC]"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := ToADF([]byte(tt.input))
+			require.NoError(t, err)
+
+			var doc ADFDocument
+			err = json.Unmarshal([]byte(result), &doc)
+			require.NoError(t, err)
+
+			require.Len(t, doc.Content, 1)
+			assert.Equal(t, "extension", doc.Content[0].Type)
+			assert.Equal(t, "toc", doc.Content[0].Attrs["extensionKey"])
+		})
+	}
+}
+
+func TestToADF_TOC_WithSurroundingContent(t *testing.T) {
+	input := "Before content.\n\n[TOC]\n\n# Heading\n\nAfter content."
+	result, err := ToADF([]byte(input))
+	require.NoError(t, err)
+
+	var doc ADFDocument
+	err = json.Unmarshal([]byte(result), &doc)
+	require.NoError(t, err)
+
+	// Should have: paragraph, extension, heading, paragraph
+	require.Len(t, doc.Content, 4)
+	assert.Equal(t, "paragraph", doc.Content[0].Type)
+	assert.Equal(t, "extension", doc.Content[1].Type)
+	assert.Equal(t, "toc", doc.Content[1].Attrs["extensionKey"])
+	assert.Equal(t, "heading", doc.Content[2].Type)
+	assert.Equal(t, "paragraph", doc.Content[3].Type)
+}
+
+func TestToADF_TOC_InsideCodeBlock_Preserved(t *testing.T) {
+	input := "```\n[TOC]\n```"
+	result, err := ToADF([]byte(input))
+	require.NoError(t, err)
+
+	var doc ADFDocument
+	err = json.Unmarshal([]byte(result), &doc)
+	require.NoError(t, err)
+
+	// Should be a code block, NOT an extension
+	require.Len(t, doc.Content, 1)
+	assert.Equal(t, "codeBlock", doc.Content[0].Type)
+	assert.Contains(t, doc.Content[0].Content[0].Text, "[TOC]")
+}
+
+func TestToADF_TOC_InsideInlineCode_Preserved(t *testing.T) {
+	input := "Use `[TOC]` to add a table of contents."
+	result, err := ToADF([]byte(input))
+	require.NoError(t, err)
+
+	var doc ADFDocument
+	err = json.Unmarshal([]byte(result), &doc)
+	require.NoError(t, err)
+
+	// Should be a paragraph with inline code, NOT an extension
+	require.Len(t, doc.Content, 1)
+	assert.Equal(t, "paragraph", doc.Content[0].Type)
+
+	// Find the code-marked text containing [TOC]
+	var foundCode bool
+	for _, node := range doc.Content[0].Content {
+		for _, mark := range node.Marks {
+			if mark.Type == "code" && node.Text == "[TOC]" {
+				foundCode = true
+			}
+		}
+	}
+	assert.True(t, foundCode, "expected [TOC] as inline code, not a macro")
+}
+
+func TestToADF_InfoPanel(t *testing.T) {
+	input := "[INFO]\nThis is important content.\n[/INFO]"
+	result, err := ToADF([]byte(input))
+	require.NoError(t, err)
+
+	var doc ADFDocument
+	err = json.Unmarshal([]byte(result), &doc)
+	require.NoError(t, err)
+
+	require.Len(t, doc.Content, 1)
+	panel := doc.Content[0]
+	assert.Equal(t, "panel", panel.Type)
+	assert.Equal(t, "info", panel.Attrs["panelType"])
+	require.True(t, len(panel.Content) > 0, "panel should have body content")
+
+	// Body should contain the text
+	var foundText bool
+	for _, node := range panel.Content {
+		if node.Type == "paragraph" {
+			for _, textNode := range node.Content {
+				if textNode.Text == "This is important content." {
+					foundText = true
+				}
+			}
+		}
+	}
+	assert.True(t, foundText, "panel body should contain the text")
+}
+
+func TestToADF_WarningPanel(t *testing.T) {
+	input := "[WARNING]\nBe careful!\n[/WARNING]"
+	result, err := ToADF([]byte(input))
+	require.NoError(t, err)
+
+	var doc ADFDocument
+	err = json.Unmarshal([]byte(result), &doc)
+	require.NoError(t, err)
+
+	require.Len(t, doc.Content, 1)
+	panel := doc.Content[0]
+	assert.Equal(t, "panel", panel.Type)
+	assert.Equal(t, "warning", panel.Attrs["panelType"])
+}
+
+func TestToADF_NotePanel(t *testing.T) {
+	input := "[NOTE]\nTake note of this.\n[/NOTE]"
+	result, err := ToADF([]byte(input))
+	require.NoError(t, err)
+
+	var doc ADFDocument
+	err = json.Unmarshal([]byte(result), &doc)
+	require.NoError(t, err)
+
+	require.Len(t, doc.Content, 1)
+	panel := doc.Content[0]
+	assert.Equal(t, "panel", panel.Type)
+	assert.Equal(t, "note", panel.Attrs["panelType"])
+}
+
+func TestToADF_TipPanel(t *testing.T) {
+	input := "[TIP]\nHere is a tip.\n[/TIP]"
+	result, err := ToADF([]byte(input))
+	require.NoError(t, err)
+
+	var doc ADFDocument
+	err = json.Unmarshal([]byte(result), &doc)
+	require.NoError(t, err)
+
+	require.Len(t, doc.Content, 1)
+	panel := doc.Content[0]
+	assert.Equal(t, "panel", panel.Type)
+	assert.Equal(t, "success", panel.Attrs["panelType"])
+}
+
+func TestToADF_NestedMacro_TOCInsideInfo(t *testing.T) {
+	input := "[INFO]\nContent with [TOC] inside.\n[/INFO]"
+	result, err := ToADF([]byte(input))
+	require.NoError(t, err)
+
+	var doc ADFDocument
+	err = json.Unmarshal([]byte(result), &doc)
+	require.NoError(t, err)
+
+	// The outer macro should be a panel
+	require.Len(t, doc.Content, 1)
+	panel := doc.Content[0]
+	assert.Equal(t, "panel", panel.Type)
+
+	// The panel body may have the TOC placeholder resolved or the text
+	// depending on how deep we recurse. At minimum, the panel should exist.
+	assert.True(t, len(panel.Content) > 0, "panel should have content")
+}
+
+func TestToADF_ExpandMacro(t *testing.T) {
+	input := "[EXPAND]\nExpanded content here.\n[/EXPAND]"
+	result, err := ToADF([]byte(input))
+	require.NoError(t, err)
+
+	var doc ADFDocument
+	err = json.Unmarshal([]byte(result), &doc)
+	require.NoError(t, err)
+
+	require.Len(t, doc.Content, 1)
+	ext := doc.Content[0]
+	assert.Equal(t, "bodiedExtension", ext.Type)
+	assert.Equal(t, "com.atlassian.confluence.macro.core", ext.Attrs["extensionType"])
+	assert.Equal(t, "expand", ext.Attrs["extensionKey"])
+	require.True(t, len(ext.Content) > 0, "bodied extension should have content")
+}
+
+func TestToADF_MacroOutputIsValidJSON(t *testing.T) {
+	inputs := []string{
+		"[TOC]",
+		"[TOC maxLevel=3]",
+		"[INFO]\nContent\n[/INFO]",
+		"Before\n\n[TOC]\n\n# Heading\n\nAfter",
+	}
+
+	for _, input := range inputs {
+		result, err := ToADF([]byte(input))
+		require.NoError(t, err, "should produce valid ADF for: %s", input)
+
+		var parsed map[string]interface{}
+		err = json.Unmarshal([]byte(result), &parsed)
+		require.NoError(t, err, "output should be valid JSON for: %s", input)
+		assert.Equal(t, "doc", parsed["type"])
+	}
+}

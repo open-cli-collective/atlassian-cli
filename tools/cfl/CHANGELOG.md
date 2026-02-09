@@ -4,6 +4,7 @@
 
 ### Added
 
+- Bracket macros (`[TOC]`, `[INFO]...[/INFO]`, etc.) are now converted to proper ADF nodes in the default (cloud editor) upload path ([#137](https://github.com/open-cli-collective/atlassian-cli/pull/137), closes [#133](https://github.com/open-cli-collective/atlassian-cli/issues/133))
 - `config show`, `config test`, `config clear` commands ([#47](https://github.com/open-cli-collective/atlassian-cli/pull/47))
 - Space key display in page view and search results ([#46](https://github.com/open-cli-collective/atlassian-cli/pull/46))
 - Pagination cursor support for space list ([#45](https://github.com/open-cli-collective/atlassian-cli/pull/45))

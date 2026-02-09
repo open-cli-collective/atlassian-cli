@@ -623,24 +623,29 @@ cfl page view 12345 --show-macros
 
 ### Creating Pages with Macros
 
-Use bracket syntax in your markdown:
+Use bracket syntax in your markdown. Macros work with both the default (ADF/cloud editor) and legacy (storage format) paths:
 
 ```bash
-# Create a page with TOC
+# Create a page with TOC (default ADF path)
 echo '[TOC]
 
 # Introduction
 Some content here.
 
 # Details
-More content.' | cfl page create -s DEV -t "My Doc" --legacy
+More content.' | cfl page create -s DEV -t "My Doc"
 
 # Create a page with info panel
 echo '[INFO]
 This is important information that readers should know.
 [/INFO]
 
-Regular content follows.' | cfl page create -s DEV -t "My Guide" --legacy
+Regular content follows.' | cfl page create -s DEV -t "My Guide"
+
+# Also works with --legacy flag for legacy editor pages
+echo '[TOC]
+
+# Heading' | cfl page create -s DEV -t "My Doc" --legacy
 ```
 
 ### Roundtrip Editing
@@ -654,11 +659,14 @@ cfl page view 12345 --show-macros --content-only > page.md
 # Edit the file (macros appear as [TOC], [INFO]...[/INFO], etc.)
 vim page.md
 
-# Push changes back (macros are converted to Confluence format)
+# Push changes back via default ADF path
+cat page.md | cfl page edit 12345
+
+# Or via legacy path (for legacy editor pages)
 cat page.md | cfl page edit 12345 --legacy
 
-# Or pipe directly for quick edits
-cfl page view 12345 --show-macros --content-only | cfl page edit 12345 --legacy
+# Pipe directly for quick edits
+cfl page view 12345 --show-macros --content-only | cfl page edit 12345
 ```
 
 ### Panel Macro Parameters

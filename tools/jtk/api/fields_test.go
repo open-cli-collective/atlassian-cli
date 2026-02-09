@@ -355,6 +355,54 @@ func TestFormatFieldValue(t *testing.T) {
 			value: "Confidential",
 			want:  map[string]string{"name": "Confidential"},
 		},
+		{
+			name: "parent field by issue key - wraps in key map",
+			field: &Field{
+				ID:   "parent",
+				Name: "Parent",
+				Schema: FieldSchema{
+					Type: "",
+				},
+			},
+			value: "PROJ-123",
+			want:  map[string]string{"key": "PROJ-123"},
+		},
+		{
+			name: "parent field by numeric ID - wraps in id map",
+			field: &Field{
+				ID:   "parent",
+				Name: "Parent",
+				Schema: FieldSchema{
+					Type: "",
+				},
+			},
+			value: "10001",
+			want:  map[string]string{"id": "10001"},
+		},
+		{
+			name: "issuelink custom field by key - wraps in key map",
+			field: &Field{
+				ID:   "customfield_10050",
+				Name: "Blocked By",
+				Schema: FieldSchema{
+					Type: "issuelink",
+				},
+			},
+			value: "PROJ-456",
+			want:  map[string]string{"key": "PROJ-456"},
+		},
+		{
+			name: "issuelink custom field by ID - wraps in id map",
+			field: &Field{
+				ID:   "customfield_10050",
+				Name: "Blocked By",
+				Schema: FieldSchema{
+					Type: "issuelink",
+				},
+			},
+			value: "20001",
+			want:  map[string]string{"id": "20001"},
+		},
 	}
 
 	for _, tt := range tests {

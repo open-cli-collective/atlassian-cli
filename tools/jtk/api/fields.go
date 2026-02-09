@@ -80,6 +80,7 @@ func ResolveFieldID(fields []Field, nameOrID string) (string, error) {
 //   - array fields: wraps value as [{"value": "..."}] or []string{...}
 //   - user fields: wraps value as {"accountId": "..."}
 //   - number fields: converts string to float64
+//   - issuelink fields (e.g., parent): wraps value as {"key": "..."} or {"id": "..."}
 //   - textarea custom fields: converts to ADF document
 func FormatFieldValue(field *Field, value string) interface{} {
 	if field == nil {
@@ -88,6 +89,15 @@ func FormatFieldValue(field *Field, value string) interface{} {
 
 	if field.Schema.Custom == "com.atlassian.jira.plugin.system.customfieldtypes:textarea" {
 		return NewADFDocument(value)
+	}
+
+	// The parent field requires {"key": "..."} format but Jira reports an empty
+	// schema type for it, so handle it before the type switch.
+	if field.ID == "parent" {
+		if _, err := strconv.Atoi(value); err == nil {
+			return map[string]string{"id": value}
+		}
+		return map[string]string{"key": value}
 	}
 
 	switch field.Schema.Type {
@@ -105,6 +115,12 @@ func FormatFieldValue(field *Field, value string) interface{} {
 			return n
 		}
 		return value
+	case "issuelink":
+		// Issue link fields (e.g., parent) need {"key": "..."} or {"id": "..."} format
+		if _, err := strconv.Atoi(value); err == nil {
+			return map[string]string{"id": value}
+		}
+		return map[string]string{"key": value}
 	case "priority", "resolution", "status", "issuetype", "securitylevel":
 		if _, err := strconv.Atoi(value); err == nil {
 			return map[string]string{"id": value}

@@ -753,6 +753,26 @@ func TestToADF_ExpandMacro(t *testing.T) {
 	require.True(t, len(ext.Content) > 0, "bodied extension should have content")
 }
 
+func TestToADF_MultipleMacroTypes(t *testing.T) {
+	input := "[TOC]\n\n# Introduction\n\n[INFO]\nImportant note here.\n[/INFO]\n\n## Details\n\nSome details."
+	result, err := ToADF([]byte(input))
+	require.NoError(t, err)
+
+	var doc ADFDocument
+	err = json.Unmarshal([]byte(result), &doc)
+	require.NoError(t, err)
+
+	// Should have: extension(toc), heading, panel(info), heading, paragraph
+	require.Len(t, doc.Content, 5)
+	assert.Equal(t, "extension", doc.Content[0].Type)
+	assert.Equal(t, "toc", doc.Content[0].Attrs["extensionKey"])
+	assert.Equal(t, "heading", doc.Content[1].Type)
+	assert.Equal(t, "panel", doc.Content[2].Type)
+	assert.Equal(t, "info", doc.Content[2].Attrs["panelType"])
+	assert.Equal(t, "heading", doc.Content[3].Type)
+	assert.Equal(t, "paragraph", doc.Content[4].Type)
+}
+
 func TestToADF_MacroOutputIsValidJSON(t *testing.T) {
 	inputs := []string{
 		"[TOC]",

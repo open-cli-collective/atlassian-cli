@@ -43,6 +43,11 @@ func newUpdateCmd(opts *root.Options) *cobra.Command {
 func runUpdate(opts *root.Options, issueKey, summary, description string, fieldArgs []string) error {
 	v := opts.View()
 
+	// Validate that at least one field is being updated before making API calls
+	if summary == "" && description == "" && len(fieldArgs) == 0 {
+		return fmt.Errorf("no fields specified to update")
+	}
+
 	client, err := opts.APIClient()
 	if err != nil {
 		return err
@@ -89,10 +94,6 @@ func runUpdate(opts *root.Options, issueKey, summary, description string, fieldA
 			// Format value based on field type
 			fields[fieldID] = api.FormatFieldValue(field, value)
 		}
-	}
-
-	if len(fields) == 0 {
-		return fmt.Errorf("no fields specified to update")
 	}
 
 	req := api.BuildUpdateRequest(fields)

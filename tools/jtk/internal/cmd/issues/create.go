@@ -15,6 +15,7 @@ func newCreateCmd(opts *root.Options) *cobra.Command {
 	var issueType string
 	var summary string
 	var description string
+	var parent string
 	var fields []string
 
 	cmd := &cobra.Command{
@@ -27,10 +28,13 @@ func newCreateCmd(opts *root.Options) *cobra.Command {
   # Create with description
   jtk issues create --project MYPROJECT --type Bug --summary "Login fails" --description "Users cannot log in with SSO"
 
+  # Create as child of an epic
+  jtk issues create --project MYPROJECT --type Task --summary "Subtask" --parent MYPROJECT-100
+
   # Create with custom fields
   jtk issues create --project MYPROJECT --type Story --summary "New feature" --field priority=High`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCreate(opts, project, issueType, summary, description, fields)
+			return runCreate(opts, project, issueType, summary, description, parent, fields)
 		},
 	}
 
@@ -38,6 +42,7 @@ func newCreateCmd(opts *root.Options) *cobra.Command {
 	cmd.Flags().StringVarP(&issueType, "type", "t", "Task", "Issue type (Task, Bug, Story, etc.)")
 	cmd.Flags().StringVarP(&summary, "summary", "s", "", "Issue summary (required)")
 	cmd.Flags().StringVarP(&description, "description", "d", "", "Issue description")
+	cmd.Flags().StringVar(&parent, "parent", "", "Parent issue key (epic or parent issue)")
 	cmd.Flags().StringArrayVarP(&fields, "field", "f", nil, "Additional fields (key=value)")
 
 	_ = cmd.MarkFlagRequired("project")
@@ -46,7 +51,7 @@ func newCreateCmd(opts *root.Options) *cobra.Command {
 	return cmd
 }
 
-func runCreate(opts *root.Options, project, issueType, summary, description string, fieldArgs []string) error {
+func runCreate(opts *root.Options, project, issueType, summary, description, parent string, fieldArgs []string) error {
 	v := opts.View()
 
 	client, err := opts.APIClient()
@@ -87,6 +92,10 @@ func runCreate(opts *root.Options, project, issueType, summary, description stri
 			// Format value based on field type
 			extraFields[fieldID] = api.FormatFieldValue(field, value)
 		}
+	}
+
+	if parent != "" {
+		extraFields["parent"] = map[string]string{"key": parent}
 	}
 
 	req := api.BuildCreateRequest(project, issueType, summary, description, extraFields)

@@ -47,7 +47,7 @@ func TestRunCreate_RequestBodyNoDoubleQuoting(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runCreate(opts, "MYPROJECT", "Task", "Fix login bug", "Users cannot log in with SSO credentials", nil)
+	err = runCreate(opts, "MYPROJECT", "Task", "Fix login bug", "Users cannot log in with SSO credentials", "", nil)
 	require.NoError(t, err)
 
 	// Parse the captured request body
@@ -109,7 +109,7 @@ func TestRunCreate_SummaryWithSpecialCharacters(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runCreate(opts, "PROJ", "Bug", `Error: "unexpected token" in parser`, "", nil)
+	err = runCreate(opts, "PROJ", "Bug", `Error: "unexpected token" in parser`, "", "", nil)
 	require.NoError(t, err)
 
 	var reqBody map[string]interface{}
@@ -141,6 +141,10 @@ func TestNewCreateCmd(t *testing.T) {
 	descFlag := cmd.Flags().Lookup("description")
 	require.NotNil(t, descFlag)
 	assert.Equal(t, "d", descFlag.Shorthand)
+
+	parentFlag := cmd.Flags().Lookup("parent")
+	require.NotNil(t, parentFlag)
+	assert.Equal(t, "", parentFlag.Shorthand, "parent flag should have no shorthand")
 }
 
 func TestCreateCmd_CobraExecution_NoDoubleQuoting(t *testing.T) {
@@ -194,4 +198,139 @@ func TestCreateCmd_CobraExecution_NoDoubleQuoting(t *testing.T) {
 	summary := fields["summary"].(string)
 	assert.Equal(t, "Fix login bug", summary)
 	assert.False(t, summary[0] == '"', "summary must not start with a literal quote")
+}
+
+func TestRunCreate_WithParent(t *testing.T) {
+	var capturedBody []byte
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/rest/api/3/issue" && r.Method == "POST" {
+			capturedBody, _ = io.ReadAll(r.Body)
+			w.WriteHeader(http.StatusCreated)
+			json.NewEncoder(w).Encode(api.Issue{Key: "PROJ-456", ID: "10456"})
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{
+		URL:      server.URL,
+		Email:    "test@example.com",
+		APIToken: "token",
+	})
+	require.NoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{
+		Output: "table",
+		Stdout: &stdout,
+		Stderr: &bytes.Buffer{},
+	}
+	opts.SetAPIClient(client)
+
+	err = runCreate(opts, "PROJ", "Task", "Child task", "", "PROJ-100", nil)
+	require.NoError(t, err)
+
+	require.NotEmpty(t, capturedBody)
+	var reqBody map[string]interface{}
+	err = json.Unmarshal(capturedBody, &reqBody)
+	require.NoError(t, err)
+
+	fields := reqBody["fields"].(map[string]interface{})
+
+	// Parent should be an object with "key" field
+	parentField := fields["parent"].(map[string]interface{})
+	assert.Equal(t, "PROJ-100", parentField["key"], "parent key should match")
+}
+
+func TestRunCreate_WithoutParent(t *testing.T) {
+	var capturedBody []byte
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/rest/api/3/issue" && r.Method == "POST" {
+			capturedBody, _ = io.ReadAll(r.Body)
+			w.WriteHeader(http.StatusCreated)
+			json.NewEncoder(w).Encode(api.Issue{Key: "PROJ-789", ID: "10789"})
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{
+		URL:      server.URL,
+		Email:    "test@example.com",
+		APIToken: "token",
+	})
+	require.NoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{
+		Output: "table",
+		Stdout: &stdout,
+		Stderr: &bytes.Buffer{},
+	}
+	opts.SetAPIClient(client)
+
+	err = runCreate(opts, "PROJ", "Task", "Standalone task", "", "", nil)
+	require.NoError(t, err)
+
+	require.NotEmpty(t, capturedBody)
+	var reqBody map[string]interface{}
+	err = json.Unmarshal(capturedBody, &reqBody)
+	require.NoError(t, err)
+
+	fields := reqBody["fields"].(map[string]interface{})
+	assert.Nil(t, fields["parent"], "parent should not be present when empty")
+}
+
+func TestCreateCmd_CobraExecution_WithParent(t *testing.T) {
+	var capturedBody []byte
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/rest/api/3/issue" && r.Method == "POST" {
+			capturedBody, _ = io.ReadAll(r.Body)
+			w.WriteHeader(http.StatusCreated)
+			json.NewEncoder(w).Encode(api.Issue{Key: "PROJ-456", ID: "10456"})
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{
+		URL:      server.URL,
+		Email:    "test@example.com",
+		APIToken: "token",
+	})
+	require.NoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{
+		Output: "table",
+		Stdout: &stdout,
+		Stderr: &bytes.Buffer{},
+	}
+	opts.SetAPIClient(client)
+
+	cmd := newCreateCmd(opts)
+	cmd.SetArgs([]string{
+		"--project", "PROJ",
+		"--type", "Task",
+		"--summary", "Child task",
+		"--parent", "PROJ-100",
+	})
+
+	err = cmd.Execute()
+	require.NoError(t, err)
+
+	require.NotEmpty(t, capturedBody)
+	var reqBody map[string]interface{}
+	err = json.Unmarshal(capturedBody, &reqBody)
+	require.NoError(t, err)
+
+	fields := reqBody["fields"].(map[string]interface{})
+	parentField := fields["parent"].(map[string]interface{})
+	assert.Equal(t, "PROJ-100", parentField["key"])
 }

@@ -13,6 +13,7 @@ import (
 func newUpdateCmd(opts *root.Options) *cobra.Command {
 	var summary string
 	var description string
+	var assignee string
 	var fields []string
 
 	cmd := &cobra.Command{
@@ -26,21 +27,26 @@ func newUpdateCmd(opts *root.Options) *cobra.Command {
   jtk issues update PROJ-123 --description "Updated description"
 
   # Update custom fields
-  jtk issues update PROJ-123 --field priority=High --field "Story Points"=5`,
+  jtk issues update PROJ-123 --field priority=High --field "Story Points"=5
+
+  # Reassign an issue
+  jtk issues update PROJ-123 --assignee me
+  jtk issues update PROJ-123 --assignee user@example.com`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runUpdate(opts, args[0], summary, description, fields)
+			return runUpdate(opts, args[0], summary, description, assignee, fields)
 		},
 	}
 
 	cmd.Flags().StringVarP(&summary, "summary", "s", "", "New summary")
 	cmd.Flags().StringVarP(&description, "description", "d", "", "New description")
+	cmd.Flags().StringVarP(&assignee, "assignee", "a", "", "Assignee (account ID, email, or 'me')")
 	cmd.Flags().StringArrayVarP(&fields, "field", "f", nil, "Fields to update (key=value)")
 
 	return cmd
 }
 
-func runUpdate(opts *root.Options, issueKey, summary, description string, fieldArgs []string) error {
+func runUpdate(opts *root.Options, issueKey, summary, description, assignee string, fieldArgs []string) error {
 	v := opts.View()
 
 	client, err := opts.APIClient()
@@ -56,6 +62,15 @@ func runUpdate(opts *root.Options, issueKey, summary, description string, fieldA
 
 	if description != "" {
 		fields["description"] = api.NewADFDocument(description)
+	}
+
+	// Resolve assignee
+	if assignee != "" {
+		accountID, err := resolveAssignee(client, assignee)
+		if err != nil {
+			return err
+		}
+		fields["assignee"] = map[string]string{"accountId": accountID}
 	}
 
 	// Parse additional fields

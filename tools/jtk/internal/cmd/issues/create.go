@@ -15,6 +15,7 @@ func newCreateCmd(opts *root.Options) *cobra.Command {
 	var issueType string
 	var summary string
 	var description string
+	var assignee string
 	var fields []string
 
 	cmd := &cobra.Command{
@@ -28,9 +29,15 @@ func newCreateCmd(opts *root.Options) *cobra.Command {
   jtk issues create --project MYPROJECT --type Bug --summary "Login fails" --description "Users cannot log in with SSO"
 
   # Create with custom fields
-  jtk issues create --project MYPROJECT --type Story --summary "New feature" --field priority=High`,
+  jtk issues create --project MYPROJECT --type Story --summary "New feature" --field priority=High
+
+  # Create and assign to yourself
+  jtk issues create --project MYPROJECT --type Task --summary "My task" --assignee me
+
+  # Create and assign by email
+  jtk issues create --project MYPROJECT --type Task --summary "Their task" --assignee user@example.com`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCreate(opts, project, issueType, summary, description, fields)
+			return runCreate(opts, project, issueType, summary, description, assignee, fields)
 		},
 	}
 
@@ -38,6 +45,7 @@ func newCreateCmd(opts *root.Options) *cobra.Command {
 	cmd.Flags().StringVarP(&issueType, "type", "t", "Task", "Issue type (Task, Bug, Story, etc.)")
 	cmd.Flags().StringVarP(&summary, "summary", "s", "", "Issue summary (required)")
 	cmd.Flags().StringVarP(&description, "description", "d", "", "Issue description")
+	cmd.Flags().StringVarP(&assignee, "assignee", "a", "", "Assignee (account ID, email, or 'me')")
 	cmd.Flags().StringArrayVarP(&fields, "field", "f", nil, "Additional fields (key=value)")
 
 	_ = cmd.MarkFlagRequired("project")
@@ -46,7 +54,7 @@ func newCreateCmd(opts *root.Options) *cobra.Command {
 	return cmd
 }
 
-func runCreate(opts *root.Options, project, issueType, summary, description string, fieldArgs []string) error {
+func runCreate(opts *root.Options, project, issueType, summary, description, assignee string, fieldArgs []string) error {
 	v := opts.View()
 
 	client, err := opts.APIClient()
@@ -87,6 +95,15 @@ func runCreate(opts *root.Options, project, issueType, summary, description stri
 			// Format value based on field type
 			extraFields[fieldID] = api.FormatFieldValue(field, value)
 		}
+	}
+
+	// Resolve assignee
+	if assignee != "" {
+		accountID, err := resolveAssignee(client, assignee)
+		if err != nil {
+			return err
+		}
+		extraFields["assignee"] = map[string]string{"accountId": accountID}
 	}
 
 	req := api.BuildCreateRequest(project, issueType, summary, description, extraFields)

@@ -60,6 +60,8 @@ nfpms:
 # Homebrew cask with auto-quarantine removal for unsigned binaries
 homebrew_casks:
   - name: cfl
+    url:
+      template: "https://github.com/open-cli-collective/atlassian-cli/releases/download/cfl-v{{ .Version }}/{{ .ArtifactName }}"
     repository:
       owner: open-cli-collective
       name: homebrew-tap

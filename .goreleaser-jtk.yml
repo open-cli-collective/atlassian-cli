@@ -58,10 +58,12 @@ nfpms:
         dst: /usr/share/licenses/jtk/LICENSE
 
 # Homebrew cask with auto-quarantine removal for unsigned binaries
-# Note: 'jira-ticket-cli' alias cask must be maintained manually in homebrew-tap
+# Note: 'jira-ticket-cli' alias cask is auto-generated from jtk.rb in the release workflow
 # (alternative_names requires GoReleaser Pro)
 homebrew_casks:
   - name: jtk
+    url:
+      template: "https://github.com/open-cli-collective/atlassian-cli/releases/download/jtk-v{{ .Version }}/{{ .ArtifactName }}"
     repository:
       owner: open-cli-collective
       name: homebrew-tap

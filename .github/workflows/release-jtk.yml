@@ -52,6 +52,23 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Update jira-ticket-cli alias cask
+        run: |
+          VERSION=${{ steps.get_version.outputs.version }}
+          git clone https://x-access-token:${TAP_TOKEN}@github.com/open-cli-collective/homebrew-tap.git tap
+          cd tap
+          sed -e 's/cask "jtk"/cask "jira-ticket-cli"/' \
+              -e 's/name "jtk"/name "jira-ticket-cli"/' \
+              Casks/jtk.rb > Casks/jira-ticket-cli.rb
+          git add Casks/jira-ticket-cli.rb
+          git diff --cached --quiet && exit 0
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit -m "Update jira-ticket-cli alias cask for v${VERSION}"
+          git push
+        env:
+          TAP_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
+
   chocolatey:
     needs: goreleaser
     runs-on: windows-latest

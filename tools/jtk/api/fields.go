@@ -63,12 +63,10 @@ func FindFieldByID(fields []Field, id string) *Field {
 
 // ResolveFieldID resolves a field name or ID to its ID
 func ResolveFieldID(fields []Field, nameOrID string) (string, error) {
-	// First try exact ID match
 	if f := FindFieldByID(fields, nameOrID); f != nil {
 		return f.ID, nil
 	}
 
-	// Then try name match
 	if f := FindFieldByName(fields, nameOrID); f != nil {
 		return f.ID, nil
 	}
@@ -88,34 +86,26 @@ func FormatFieldValue(field *Field, value string) interface{} {
 		return value
 	}
 
-	// Check for textarea custom fields that require ADF format
 	if field.Schema.Custom == "com.atlassian.jira.plugin.system.customfieldtypes:textarea" {
 		return NewADFDocument(value)
 	}
 
-	// Handle different field types
 	switch field.Schema.Type {
 	case "option":
-		// Single select fields need {"value": "..."} format
 		return map[string]string{"value": value}
 	case "array":
-		// Multi-select options need [{"value": "..."}] format
 		if field.Schema.Items == "option" {
 			return []map[string]string{{"value": value}}
 		}
-		// Other arrays (like labels) are just string arrays
 		return []string{value}
 	case "user":
-		// User fields need {"accountId": "..."} format
 		return map[string]string{"accountId": value}
 	case "number":
-		// Number fields need to be sent as JSON numbers, not strings
 		if n, err := strconv.ParseFloat(value, 64); err == nil {
 			return n
 		}
 		return value
 	case "priority", "resolution", "status", "issuetype", "securitylevel":
-		// System fields that accept {"name": "..."} or {"id": "..."} format
 		if _, err := strconv.Atoi(value); err == nil {
 			return map[string]string{"id": value}
 		}
@@ -145,11 +135,9 @@ func (c *Client) GetFieldOptions(fieldID string) ([]FieldOptionValue, error) {
 		return nil, fmt.Errorf("field ID is required")
 	}
 
-	// Use the field context options endpoint for custom fields
 	urlStr := fmt.Sprintf("%s/field/%s/context/defaultValue", c.BaseURL, fieldID)
 	body, err := c.get(urlStr)
 	if err != nil {
-		// If the default endpoint fails, try the options endpoint directly
 		urlStr = fmt.Sprintf("%s/field/%s/option", c.BaseURL, fieldID)
 		body, err = c.get(urlStr)
 		if err != nil {
@@ -159,7 +147,6 @@ func (c *Client) GetFieldOptions(fieldID string) ([]FieldOptionValue, error) {
 
 	var result FieldOptionsResponse
 	if err := json.Unmarshal(body, &result); err != nil {
-		// Try parsing as a simple array
 		var options []FieldOptionValue
 		if err2 := json.Unmarshal(body, &options); err2 != nil {
 			return nil, fmt.Errorf("failed to parse field options: %w", err)

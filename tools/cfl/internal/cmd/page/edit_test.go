@@ -1211,6 +1211,123 @@ func TestRunEdit_MoveWithTitleOnly_NoEditorOpened(t *testing.T) {
 	assert.Equal(t, "New Title", receivedBody["title"])
 }
 
+func TestRunEdit_StorageFlag_Stdin(t *testing.T) {
+	var receivedBody map[string]interface{}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case "GET":
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{
+				"id": "12345",
+				"title": "Test",
+				"version": {"number": 1},
+				"body": {"storage": {"value": "<p>Old</p>"}},
+				"_links": {"webui": "/pages/12345"}
+			}`))
+		case "PUT":
+			body, _ := io.ReadAll(r.Body)
+			json.Unmarshal(body, &receivedBody)
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{
+				"id": "12345",
+				"title": "Test",
+				"version": {"number": 2},
+				"_links": {"webui": "/pages/12345"}
+			}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	rootOpts := newEditTestRootOptions()
+	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+	rootOpts.Stdin = strings.NewReader(`<ac:structured-macro ac:name="toc"/><p>Content with <ac:link><ri:user ri:account-id="abc123"/></ac:link></p>`)
+	useMd := false
+	opts := &editOptions{
+		Options:  rootOpts,
+		pageID:   "12345",
+		storage:  true,
+		markdown: &useMd,
+	}
+
+	err := runEdit(opts)
+	require.NoError(t, err)
+
+	// Verify storage format was used (not atlas_doc_format)
+	bodyMap := receivedBody["body"].(map[string]interface{})
+	storageMap := bodyMap["storage"].(map[string]interface{})
+	content := storageMap["value"].(string)
+
+	// Content should be passed through as-is, preserving Confluence-specific markup
+	assert.Contains(t, content, `ac:structured-macro`)
+	assert.Contains(t, content, `ri:user`)
+
+	// Should NOT have atlas_doc_format
+	assert.Nil(t, bodyMap["atlas_doc_format"])
+}
+
+func TestRunEdit_StorageFlag_File(t *testing.T) {
+	tmpDir := t.TempDir()
+	htmlFile := filepath.Join(tmpDir, "content.html")
+	err := os.WriteFile(htmlFile, []byte("<p>Direct storage XHTML</p>"), 0644)
+	require.NoError(t, err)
+
+	var receivedBody map[string]interface{}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case "GET":
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{
+				"id": "12345",
+				"title": "Test",
+				"version": {"number": 1},
+				"body": {"storage": {"value": "<p>Old</p>"}},
+				"_links": {"webui": "/pages/12345"}
+			}`))
+		case "PUT":
+			body, _ := io.ReadAll(r.Body)
+			json.Unmarshal(body, &receivedBody)
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{
+				"id": "12345",
+				"title": "Test",
+				"version": {"number": 2},
+				"_links": {"webui": "/pages/12345"}
+			}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	rootOpts := newEditTestRootOptions()
+	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+	rootOpts.Stdin = nil
+	useMd := false
+	opts := &editOptions{
+		Options:  rootOpts,
+		pageID:   "12345",
+		file:     htmlFile,
+		storage:  true,
+		markdown: &useMd,
+	}
+
+	err = runEdit(opts)
+	require.NoError(t, err)
+
+	// Verify storage format was used without --legacy
+	bodyMap := receivedBody["body"].(map[string]interface{})
+	storageMap := bodyMap["storage"].(map[string]interface{})
+	content := storageMap["value"].(string)
+	assert.Equal(t, "<p>Direct storage XHTML</p>", content)
+
+	// Should NOT have atlas_doc_format
+	assert.Nil(t, bodyMap["atlas_doc_format"])
+}
+
 func TestRunEdit_MoveOnly_BodyPreserved(t *testing.T) {
 	// Test: move-only operation preserves original body exactly
 	// Verifies: received body in PUT request matches original page body

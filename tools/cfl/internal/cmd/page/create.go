@@ -25,6 +25,7 @@ type createOptions struct {
 	editor   bool
 	markdown *bool // nil = auto-detect, true = force markdown, false = force storage format
 	legacy   bool  // Use legacy editor (storage format) instead of cloud editor (ADF)
+	storage  bool  // Use storage representation directly (implies --no-markdown)
 }
 
 func newCreateCmd(rootOpts *root.Options) *cobra.Command {
@@ -46,6 +47,8 @@ Content can be provided via:
 Content format:
 - Markdown is the default for stdin, editor, and .md files
 - Use --no-markdown to provide raw Confluence format (XHTML for legacy, ADF JSON for cloud)
+- Use --storage to provide raw Confluence storage format (XHTML) and send it directly
+  via the storage representation API, regardless of the page's editor type
 - Files with .html/.xhtml extensions are treated as storage format`,
 		Example: `  # Create a page with title (opens markdown editor, cloud editor format)
   cfl page create --space DEV --title "My Page"
@@ -65,9 +68,18 @@ Content format:
   # Create from stdin with legacy format (XHTML)
   echo "<p>Hello</p>" | cfl page create -s DEV -t "My Page" --no-markdown --legacy
 
+  # Create from storage format XHTML (sent via storage representation API)
+  echo "<p>Hello</p>" | cfl page create -s DEV -t "My Page" --storage
+
   # Create as child of another page
   cfl page create -s DEV -t "Child Page" --parent 12345`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			opts.storage, _ = cmd.Flags().GetBool("storage")
+			if opts.storage {
+				// --storage implies --no-markdown (input is raw XHTML)
+				useMd := false
+				opts.markdown = &useMd
+			}
 			if cmd.Flags().Changed("no-markdown") {
 				noMd, _ := cmd.Flags().GetBool("no-markdown")
 				useMd := !noMd
@@ -84,6 +96,7 @@ Content format:
 	cmd.Flags().StringVarP(&opts.file, "file", "f", "", "Read content from file")
 	cmd.Flags().BoolVar(&opts.editor, "editor", false, "Open editor for content")
 	cmd.Flags().Bool("no-markdown", false, "Disable markdown conversion (use raw XHTML)")
+	cmd.Flags().Bool("storage", false, "Input is Confluence storage format (XHTML); sends via storage representation API")
 	cmd.Flags().Bool("legacy", false, "Create page in legacy editor format (default: cloud editor)")
 
 	_ = cmd.MarkFlagRequired("title")
@@ -135,7 +148,7 @@ func runCreate(opts *createOptions) error {
 
 	var body *api.Body
 
-	if opts.legacy {
+	if opts.storage || opts.legacy {
 		if isMarkdown {
 			converted, err := md.ToConfluenceStorage([]byte(content))
 			if err != nil {

@@ -302,6 +302,9 @@ cfl page create -s DEV -t "My Page" --file content.html
 # Create from XHTML stdin (disable markdown conversion)
 echo "<p>Hello</p>" | cfl page create -s DEV -t "My Page" --no-markdown
 
+# Create from storage format XHTML (sent via storage representation API)
+echo "<p>Hello</p>" | cfl page create -s DEV -t "My Page" --storage
+
 # Create as child of another page
 cfl page create -s DEV -t "Child Page" --parent 12345
 
@@ -317,6 +320,7 @@ cfl page create -s DEV -t "Legacy Page" --file content.md --legacy
 | `--file` | `-f` | | Read content from file |
 | `--editor` | | `false` | Force open in $EDITOR |
 | `--no-markdown` | | `false` | Disable markdown conversion (use raw XHTML) |
+| `--storage` | | `false` | Input is Confluence storage format (XHTML); sends via storage representation API |
 | `--legacy` | | `false` | Use legacy storage format instead of cloud editor (ADF) |
 
 **Format detection:**
@@ -358,6 +362,13 @@ cfl page edit 12345 --parent 67890 --title "New Title"
 
 # Edit using legacy storage format (for pages created in legacy editor)
 cfl page edit 12345 --file content.md --legacy
+
+# Pipe raw Confluence storage format (XHTML) directly
+echo "<p>Updated</p>" | cfl page edit 12345 --storage
+
+# Extract, transform, and re-upload storage-format content
+cfl page view 12345 --output json | jq -r '.body.storage.value' | \
+  sed 's/old/new/g' | cfl page edit 12345 --storage
 ```
 
 | Flag | Short | Default | Description |
@@ -367,6 +378,7 @@ cfl page edit 12345 --file content.md --legacy
 | `--file` | `-f` | | Read content from file |
 | `--editor` | | `false` | Force open in $EDITOR |
 | `--no-markdown` | | `false` | Disable markdown conversion (use raw XHTML) |
+| `--storage` | | `false` | Input is Confluence storage format (XHTML); sends via storage representation API |
 | `--legacy` | | `false` | Use legacy storage format instead of cloud editor (ADF) |
 
 **Arguments:**

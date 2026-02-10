@@ -19,13 +19,14 @@ import (
 
 type editOptions struct {
 	*root.Options
-	pageID   string
-	title    string
-	file     string
-	editor   bool
+	pageID  string
+	title   string
+	file    string
+	editor  bool
 	markdown *bool // nil = auto-detect, true = force markdown, false = force storage format
-	legacy   bool  // Use legacy editor (storage format) instead of cloud editor (ADF)
-	parent   string
+	legacy  bool   // Use legacy editor (storage format) instead of cloud editor (ADF)
+	storage bool   // Use storage representation directly (implies --no-markdown)
+	parent  string
 }
 
 func newEditCmd(rootOpts *root.Options) *cobra.Command {
@@ -47,6 +48,8 @@ Content can be provided via:
 Content format:
 - Markdown is the default for stdin, editor, and .md files
 - Use --no-markdown to provide raw Confluence format (XHTML for legacy, ADF JSON for cloud)
+- Use --storage to provide raw Confluence storage format (XHTML) and send it directly
+  via the storage representation API, regardless of the page's editor type
 - Files with .html/.xhtml extensions are treated as storage format`,
 		Example: `  # Edit a page (opens editor with current content)
   cfl page edit 12345
@@ -67,10 +70,23 @@ Content format:
   cfl page edit 12345 --parent 67890
 
   # Move page and update title
-  cfl page edit 12345 --parent 67890 --title "New Title"`,
+  cfl page edit 12345 --parent 67890 --title "New Title"
+
+  # Pipe raw Confluence storage format (XHTML) directly
+  echo "<p>Updated</p>" | cfl page edit 12345 --storage
+
+  # Extract, transform, and re-upload storage-format content
+  cfl page view 12345 --output json | jq -r '.body.storage.value' | \
+    sed 's/old/new/g' | cfl page edit 12345 --storage`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			opts.pageID = args[0]
+			opts.storage, _ = cmd.Flags().GetBool("storage")
+			if opts.storage {
+				// --storage implies --no-markdown (input is raw XHTML)
+				useMd := false
+				opts.markdown = &useMd
+			}
 			if cmd.Flags().Changed("no-markdown") {
 				noMd, _ := cmd.Flags().GetBool("no-markdown")
 				useMd := !noMd
@@ -86,6 +102,7 @@ Content format:
 	cmd.Flags().StringVarP(&opts.parent, "parent", "p", "", "Move page to new parent page ID")
 	cmd.Flags().BoolVar(&opts.editor, "editor", false, "Open editor for content")
 	cmd.Flags().Bool("no-markdown", false, "Disable markdown conversion (use raw XHTML)")
+	cmd.Flags().Bool("storage", false, "Input is Confluence storage format (XHTML); sends via storage representation API")
 	cmd.Flags().Bool("legacy", false, "Edit page in legacy editor format (default: cloud editor)")
 
 	return cmd
@@ -141,7 +158,7 @@ func runEdit(opts *editOptions) error {
 			return fmt.Errorf("page content cannot be empty")
 		}
 
-		newContent, err = convertEditContent(content, isMarkdown, opts.legacy)
+		newContent, err = convertEditContent(content, isMarkdown, opts.storage || opts.legacy)
 		if err != nil {
 			return err
 		}
@@ -158,7 +175,7 @@ func runEdit(opts *editOptions) error {
 			return fmt.Errorf("page content cannot be empty")
 		}
 
-		newContent, err = convertEditContent(content, isMarkdown, opts.legacy)
+		newContent, err = convertEditContent(content, isMarkdown, opts.storage || opts.legacy)
 		if err != nil {
 			return err
 		}
@@ -176,9 +193,11 @@ func runEdit(opts *editOptions) error {
 	}
 
 	if hasNewContent {
-		if opts.legacy {
-			v := opts.View()
-			v.Warning("Using --legacy flag. If this page uses the cloud editor, it may switch to the legacy editor.")
+		if opts.storage || opts.legacy {
+			if opts.legacy {
+				v := opts.View()
+				v.Warning("Using --legacy flag. If this page uses the cloud editor, it may switch to the legacy editor.")
+			}
 
 			req.Body = &api.Body{
 				Storage: &api.BodyRepresentation{

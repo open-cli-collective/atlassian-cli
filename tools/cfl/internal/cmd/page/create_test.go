@@ -564,6 +564,99 @@ func TestRunCreate_Stdin_NoMarkdown_Legacy(t *testing.T) {
 	assert.Equal(t, "<p>Raw XHTML content</p>", content)
 }
 
+func TestRunCreate_StorageFlag_Stdin(t *testing.T) {
+	var receivedBody map[string]interface{}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == "GET" && strings.Contains(r.URL.Path, "/spaces"):
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"results": [{"id": "123456", "key": "DEV"}]}`))
+		case r.Method == "POST" && strings.Contains(r.URL.Path, "/pages"):
+			body, _ := io.ReadAll(r.Body)
+			_ = json.Unmarshal(body, &receivedBody)
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"id": "99999", "title": "Test", "version": {"number": 1}}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	rootOpts := newCreateTestRootOptions()
+	rootOpts.Stdin = strings.NewReader(`<ac:structured-macro ac:name="toc"/><p>Storage format content</p>`)
+	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
+	useMd := false
+	opts := &createOptions{
+		Options:  rootOpts,
+		space:    "DEV",
+		title:    "Test Page",
+		storage:  true,
+		markdown: &useMd,
+	}
+
+	err := runCreate(opts)
+	require.NoError(t, err)
+
+	// Verify storage format was used (not atlas_doc_format)
+	bodyMap := receivedBody["body"].(map[string]interface{})
+	storageMap := bodyMap["storage"].(map[string]interface{})
+	content := storageMap["value"].(string)
+
+	// Content should be passed through as-is
+	assert.Contains(t, content, `ac:structured-macro`)
+	assert.Nil(t, bodyMap["atlas_doc_format"])
+}
+
+func TestRunCreate_StorageFlag_File(t *testing.T) {
+	tmpDir := t.TempDir()
+	htmlFile := filepath.Join(tmpDir, "content.html")
+	err := os.WriteFile(htmlFile, []byte("<p>Direct storage XHTML</p>"), 0644)
+	require.NoError(t, err)
+
+	var receivedBody map[string]interface{}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == "GET" && strings.Contains(r.URL.Path, "/spaces"):
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"results": [{"id": "123456", "key": "DEV"}]}`))
+		case r.Method == "POST" && strings.Contains(r.URL.Path, "/pages"):
+			body, _ := io.ReadAll(r.Body)
+			_ = json.Unmarshal(body, &receivedBody)
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"id": "99999", "title": "Test", "version": {"number": 1}}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	rootOpts := newCreateTestRootOptions()
+	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
+	useMd := false
+	opts := &createOptions{
+		Options:  rootOpts,
+		space:    "DEV",
+		title:    "Test Page",
+		file:     htmlFile,
+		storage:  true,
+		markdown: &useMd,
+	}
+
+	err = runCreate(opts)
+	require.NoError(t, err)
+
+	// Verify storage format was used without --legacy
+	bodyMap := receivedBody["body"].(map[string]interface{})
+	storageMap := bodyMap["storage"].(map[string]interface{})
+	content := storageMap["value"].(string)
+	assert.Equal(t, "<p>Direct storage XHTML</p>", content)
+	assert.Nil(t, bodyMap["atlas_doc_format"])
+}
+
 func TestRunCreate_ComplexMarkdown_ADF(t *testing.T) {
 	var receivedBody map[string]interface{}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

@@ -19,14 +19,14 @@ import (
 
 type editOptions struct {
 	*root.Options
-	pageID  string
-	title   string
-	file    string
-	editor  bool
+	pageID   string
+	title    string
+	file     string
+	editor   bool
 	markdown *bool // nil = auto-detect, true = force markdown, false = force storage format
-	legacy  bool   // Use legacy editor (storage format) instead of cloud editor (ADF)
-	storage bool   // Use storage representation directly (implies --no-markdown)
-	parent  string
+	legacy   bool  // Use legacy editor (storage format) instead of cloud editor (ADF)
+	storage  bool  // Use storage representation directly (implies --no-markdown)
+	parent   string
 }
 
 func newEditCmd(rootOpts *root.Options) *cobra.Command {

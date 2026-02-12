@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `fields` command group for custom field management: `create`, `delete` (trash), `restore`, `contexts` (list/create/delete), and `options` (list/add/update/delete) ([#155](https://github.com/open-cli-collective/atlassian-cli/issues/155))
 - `projects create`, `update`, `delete`, `restore`, `types` commands for full project management ([#106](https://github.com/open-cli-collective/atlassian-cli/pull/106))
 - `automation create` command to create rules from JSON files ([#79](https://github.com/open-cli-collective/atlassian-cli/pull/79))
 - `automation enable`, `disable`, `update`, `export` commands for full automation rule management ([#76](https://github.com/open-cli-collective/atlassian-cli/pull/76))

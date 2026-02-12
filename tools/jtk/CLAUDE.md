@@ -56,6 +56,7 @@ jira-ticket-cli/
 │   ├── cmd/                     # Cobra commands (one package per resource)
 │   │   ├── root/                # Root command, Options struct, global flags
 │   │   ├── issues/              # issues list, get, create, update, delete, search, assign, fields, field-options, types, move
+│   │   ├── fields/              # fields list, create, delete, restore, contexts (list/create/delete), options (list/add/update/delete)
 │   │   ├── projects/            # projects list, get, create, update, delete, restore, types
 │   │   ├── transitions/         # transitions list, do
 │   │   ├── comments/            # comments list, add, delete

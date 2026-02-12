@@ -50,6 +50,13 @@ jtk sprints list -b $BOARD_ID -s active
 # $AUTO_UUID — pick an enabled automation rule
 jtk auto list --state ENABLED
 # Note a UUID from the first column
+
+# $CUSTOM_FIELD — pick a custom field ID
+jtk fields list --custom
+# Note an ID, e.g., customfield_10001
+
+# $SELECT_FIELD — pick a select/multiselect custom field with options
+# (same as $CUSTOM_FIELD if it's a select type)
 ```
 
 ### Test Data Conventions
@@ -522,6 +529,8 @@ Verify each alias produces the same output as the full command:
 | 8 | `jtk tr list $EXISTING_ISSUE` | `jtk transitions list $EXISTING_ISSUE` |
 | 9 | `jtk c list $EXISTING_ISSUE --max 1` | `jtk comments list $EXISTING_ISSUE --max 1` |
 | 10 | `jtk att list $EXISTING_ISSUE` | `jtk attachments list $EXISTING_ISSUE` |
+| 11 | `jtk f list --max 1` | `jtk fields list --max 1` |
+| 12 | `jtk field list --max 1` | `jtk fields list --max 1` |
 
 ### Shell completion
 
@@ -545,12 +554,145 @@ Verify each alias produces the same output as the full command:
 
 ---
 
+## 13. Fields (Read-Only)
+
+### fields list
+
+| # | Command | Expected Output |
+|---|---------|-----------------|
+| 1 | `jtk fields list` | Table with columns: ID, NAME, TYPE, CUSTOM |
+| 2 | `jtk fields list --custom` | Same table but only rows where CUSTOM = yes |
+| 3 | `jtk fields list -o json` | Valid JSON array |
+
+### fields contexts list
+
+| # | Command | Expected Output |
+|---|---------|-----------------|
+| 1 | `jtk fields contexts list $CUSTOM_FIELD` | Table with columns: ID, NAME, GLOBAL, ANY_ISSUE_TYPE |
+| 2 | `jtk fields contexts list $CUSTOM_FIELD -o json` | Valid JSON array |
+| 3 | `jtk fields contexts list customfield_99999` | Error: 404 |
+
+### fields options list
+
+> Options list auto-detects the default context when `--context` is omitted.
+
+| # | Command | Expected Output |
+|---|---------|-----------------|
+| 1 | `jtk fields options list $SELECT_FIELD` | Table with columns: ID, VALUE, DISABLED |
+| 2 | `jtk fields options list $SELECT_FIELD -o json` | Valid JSON array |
+
+---
+
+## 14. Field Mutations
+
+Run these steps in order. Each step depends on the previous.
+
+> Field management requires "Administer Jira" global permission. If you get 403 errors, verify your account has this permission.
+
+### Create and manage a test field
+
+1. **Create a select field:**
+   ```bash
+   jtk fields create --name "[Test] Integration Select" --type com.atlassian.jira.plugin.system.customfieldtypes:select
+   ```
+   Expected: `✓ Created field customfield_XXXXX ([Test] Integration Select)`
+   Capture the field ID → `$TEST_FIELD`
+
+2. **Verify creation:**
+   ```bash
+   jtk fields list --custom -o json | jq '.[] | select(.name == "[Test] Integration Select")'
+   ```
+   Expected: JSON object with matching `name` and `id`
+
+3. **List contexts:**
+   ```bash
+   jtk fields contexts list $TEST_FIELD
+   ```
+   Expected: Table showing the default context. Capture context ID → `$TEST_CTX`
+
+4. **Add options:**
+   ```bash
+   jtk fields options add $TEST_FIELD --value "Option A"
+   ```
+   Expected: `✓ Added option XXXXX (Option A)`
+   ```bash
+   jtk fields options add $TEST_FIELD --value "Option B"
+   ```
+   Expected: `✓ Added option XXXXX (Option B)`
+
+5. **List options:**
+   ```bash
+   jtk fields options list $TEST_FIELD
+   ```
+   Expected: Table showing Option A and Option B
+   Capture an option ID → `$OPT_ID`
+
+6. **Update option:**
+   ```bash
+   jtk fields options update $TEST_FIELD --option $OPT_ID --value "Option A (updated)"
+   ```
+   Expected: `✓ Updated option $OPT_ID`
+
+7. **Verify update:**
+   ```bash
+   jtk fields options list $TEST_FIELD
+   ```
+   Expected: Shows "Option A (updated)" instead of "Option A"
+
+8. **Delete option:**
+   ```bash
+   jtk fields options delete $TEST_FIELD --option $OPT_ID --force
+   ```
+   Expected: `✓ Deleted option $OPT_ID from field $TEST_FIELD`
+
+9. **Create context:**
+   ```bash
+   jtk fields contexts create $TEST_FIELD --name "[Test] Context"
+   ```
+   Expected: `✓ Created context XXXXX ([Test] Context)`
+   Capture context ID → `$NEW_CTX`
+
+10. **Delete context:**
+    ```bash
+    jtk fields contexts delete $TEST_FIELD $NEW_CTX --force
+    ```
+    Expected: `✓ Deleted context $NEW_CTX from field $TEST_FIELD`
+
+11. **Trash field:**
+    ```bash
+    jtk fields delete $TEST_FIELD --force
+    ```
+    Expected: `✓ Trashed field $TEST_FIELD`
+
+12. **Restore field:**
+    ```bash
+    jtk fields restore $TEST_FIELD
+    ```
+    Expected: `✓ Restored field $TEST_FIELD`
+
+13. **Final cleanup — trash again:**
+    ```bash
+    jtk fields delete $TEST_FIELD --force
+    ```
+    Expected: `✓ Trashed field $TEST_FIELD`
+
+### Error cases
+
+| # | Command | Expected Output |
+|---|---------|-----------------|
+| 1 | `jtk fields create` | `Error: required flag(s) "name", "type" not set` |
+| 2 | `jtk fields delete customfield_99999 --force` | Error: 404 |
+| 3 | `jtk fields contexts list customfield_99999` | Error: 404 |
+| 4 | `jtk fields options add customfield_99999 --value "Nope"` | Error |
+
+---
+
 ## Test Execution Checklist
 
 ### Setup
 - [ ] `make build-jtk`
 - [ ] `jtk me` works
-- [ ] Discover: `$PROJECT`, `$BOARD_ID`, `$SPRINT_ID`, `$ACCOUNT_ID`, `$AUTO_UUID`, `$EXISTING_ISSUE`
+- [ ] Discover: `$PROJECT`, `$BOARD_ID`, `$SPRINT_ID`, `$ACCOUNT_ID`, `$AUTO_UUID`, `$EXISTING_ISSUE`, `$CUSTOM_FIELD`, `$SELECT_FIELD`
 - [ ] `jtk issues types -p $PROJECT` to learn `$ISSUE_TYPE`
 
 ### Config & Init (Section 1)
@@ -604,14 +746,26 @@ Verify each alias produces the same output as the full command:
 
 ### Global Flags & Aliases (Section 11)
 - [ ] `--no-color`, `--verbose`, `-o json`, `-o plain`
-- [ ] All aliases verified
+- [ ] All aliases verified (including `jtk f`, `jtk field`)
 
 ### Error Cases (Section 12)
 - [ ] 404, bad JQL, missing flags
 
+### Fields Read-Only (Section 13)
+- [ ] `fields list` (all, custom, JSON)
+- [ ] `fields contexts list` (table, JSON, 404)
+- [ ] `fields options list` (table, JSON)
+
+### Field Mutations (Section 14)
+- [ ] Create field → list contexts → add options → update option → delete option
+- [ ] Create context → delete context
+- [ ] Trash field → restore → trash again (cleanup)
+- [ ] Error cases (missing flags, 404)
+
 ### Cleanup
 - [ ] Delete test projects: `jtk projects delete ZTEST --force` (etc.)
 - [ ] Delete test issues: search for `[Test]` prefix, delete with `--force`
+- [ ] Trash test fields: `jtk fields delete $TEST_FIELD --force`
 - [ ] Disable + rename automation test copies to `[DELETEME]`
 - [ ] Manually purge `[DELETEME]` rules in Jira UI (Settings → System → Automation rules)
 - [ ] Verify: `jtk auto list -o json | jq '.[] | select(.name | startswith("[Test]") or startswith("[DELETEME]"))'`

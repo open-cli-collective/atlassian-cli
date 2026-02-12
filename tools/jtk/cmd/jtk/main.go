@@ -13,6 +13,7 @@ import (
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/comments"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/completion"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/configcmd"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/fields"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/initcmd"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/issues"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/me"
@@ -36,6 +37,7 @@ func run() error {
 	// Register all commands
 	initcmd.Register(rootCmd, opts)
 	configcmd.Register(rootCmd, opts)
+	fields.Register(rootCmd, opts)
 	issues.Register(rootCmd, opts)
 	transitions.Register(rootCmd, opts)
 	comments.Register(rootCmd, opts)

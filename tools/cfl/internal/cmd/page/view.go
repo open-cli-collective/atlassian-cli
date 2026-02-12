@@ -144,42 +144,42 @@ func runView(pageID string, opts *viewOptions) error {
 		if page.Version != nil {
 			v.RenderKeyValue("Version", fmt.Sprintf("%d", page.Version.Number))
 		}
-		fmt.Println()
+		_, _ = fmt.Fprintln(v.Out)
 	}
 
 	if hasStorageContent(page) {
 		content := page.Body.Storage.Value
 		if opts.raw {
-			fmt.Println(truncateContent(content, opts))
+			_, _ = fmt.Fprintln(v.Out, truncateContent(content, opts))
 		} else {
 			convertOpts := md.ConvertOptions{
 				ShowMacros: opts.showMacros,
 			}
 			markdown, err := md.FromConfluenceStorageWithOptions(content, convertOpts)
 			if err != nil {
-				fmt.Println("(Failed to convert to markdown, showing raw HTML)")
-				fmt.Println()
-				fmt.Println(truncateContent(content, opts))
+				_, _ = fmt.Fprintln(v.Out, "(Failed to convert to markdown, showing raw HTML)")
+				_, _ = fmt.Fprintln(v.Out)
+				_, _ = fmt.Fprintln(v.Out, truncateContent(content, opts))
 			} else {
-				fmt.Println(truncateContent(markdown, opts))
+				_, _ = fmt.Fprintln(v.Out, truncateContent(markdown, opts))
 			}
 		}
 	} else if hasADFContent(page) {
 		content := page.Body.AtlasDocFormat.Value
 		if opts.raw {
-			fmt.Println(truncateContent(content, opts))
+			_, _ = fmt.Fprintln(v.Out, truncateContent(content, opts))
 		} else {
 			markdown, err := md.FromADF(content)
 			if err != nil {
-				fmt.Println("(Failed to convert ADF to markdown, showing raw ADF)")
-				fmt.Println()
-				fmt.Println(truncateContent(content, opts))
+				_, _ = fmt.Fprintln(v.Out, "(Failed to convert ADF to markdown, showing raw ADF)")
+				_, _ = fmt.Fprintln(v.Out)
+				_, _ = fmt.Fprintln(v.Out, truncateContent(content, opts))
 			} else {
-				fmt.Println(truncateContent(markdown, opts))
+				_, _ = fmt.Fprintln(v.Out, truncateContent(markdown, opts))
 			}
 		}
 	} else {
-		fmt.Println("(No content)")
+		_, _ = fmt.Fprintln(v.Out, "(No content)")
 	}
 
 	return nil

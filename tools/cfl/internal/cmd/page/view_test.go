@@ -51,6 +51,10 @@ func TestRunView_Success(t *testing.T) {
 
 	err := runView("12345", opts)
 	require.NoError(t, err)
+
+	stdout := rootOpts.Stdout.(*bytes.Buffer)
+	assert.Contains(t, stdout.String(), "Hello", "should render storage content")
+	assert.Contains(t, stdout.String(), "World", "should render bold text")
 }
 
 func TestRunView_RawFormat(t *testing.T) {
@@ -77,6 +81,9 @@ func TestRunView_RawFormat(t *testing.T) {
 
 	err := runView("12345", opts)
 	require.NoError(t, err)
+
+	stdout := rootOpts.Stdout.(*bytes.Buffer)
+	assert.Contains(t, stdout.String(), "<p>Raw HTML Content</p>", "should output raw storage HTML")
 }
 
 func TestRunView_JSONOutput(t *testing.T) {
@@ -505,6 +512,9 @@ func TestRunView_ADFPage_FallbackToAtlasDocFormat(t *testing.T) {
 
 	// Should make 3 calls: storage (empty), atlas_doc_format (has content), GetSpace
 	assert.Equal(t, 3, callCount, "should fallback to atlas_doc_format when storage is empty")
+
+	stdout := rootOpts.Stdout.(*bytes.Buffer)
+	assert.Contains(t, stdout.String(), "Hello ADF", "should render ADF content as markdown")
 }
 
 func TestRunView_ADFPage_RawFormat(t *testing.T) {
@@ -550,7 +560,10 @@ func TestRunView_ADFPage_RawFormat(t *testing.T) {
 
 	err := runView("12345", opts)
 	require.NoError(t, err)
-	// In raw mode, should output the ADF JSON string directly
+
+	stdout := rootOpts.Stdout.(*bytes.Buffer)
+	assert.Contains(t, stdout.String(), "Raw ADF", "should output raw ADF JSON")
+	assert.Contains(t, stdout.String(), `"type"`, "should contain ADF JSON structure")
 }
 
 func TestRunView_StoragePage_NoFallback(t *testing.T) {
@@ -588,6 +601,9 @@ func TestRunView_StoragePage_NoFallback(t *testing.T) {
 
 	// Should only make 2 calls: GetPage (storage has content) + GetSpace, no fallback
 	assert.Equal(t, 2, callCount, "should not fallback when storage has content")
+
+	stdout := rootOpts.Stdout.(*bytes.Buffer)
+	assert.Contains(t, stdout.String(), "Has content", "should render storage content as markdown")
 }
 
 func TestRunView_ADFPage_NullBody(t *testing.T) {
@@ -628,5 +644,7 @@ func TestRunView_ADFPage_NullBody(t *testing.T) {
 
 	err := runView("12345", opts)
 	require.NoError(t, err)
-	// Should display "(No content)" without error
+
+	stdout := rootOpts.Stdout.(*bytes.Buffer)
+	assert.Contains(t, stdout.String(), "(No content)", "should display no content message")
 }

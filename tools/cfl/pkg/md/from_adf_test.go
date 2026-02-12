@@ -246,6 +246,44 @@ func TestFromADF_InlineCard(t *testing.T) {
 	assert.Contains(t, result, "https://example.com/page")
 }
 
+func TestFromADF_ListItem_ContinuationParagraph(t *testing.T) {
+	// List item with two paragraphs: first gets bullet prefix, second gets indent only.
+	input := `{"type":"doc","version":1,"content":[{"type":"bulletList","content":[{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"First para"}]},{"type":"paragraph","content":[{"type":"text","text":"Second para"}]}]}]}]}`
+	result, err := FromADF(input)
+	require.NoError(t, err)
+	assert.Contains(t, result, "- First para")
+	assert.Contains(t, result, "  Second para")
+	// Second paragraph should NOT have a bullet prefix.
+	assert.NotContains(t, result, "- Second para")
+}
+
+func TestFromADF_ListItem_NestedOrderedList(t *testing.T) {
+	// Bullet list item containing a nested ordered list.
+	input := `{"type":"doc","version":1,"content":[{"type":"bulletList","content":[{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"Outer"}]},{"type":"orderedList","attrs":{"order":1},"content":[{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"Inner"}]}]}]}]}]}]}`
+	result, err := FromADF(input)
+	require.NoError(t, err)
+	assert.Contains(t, result, "- Outer")
+	assert.Contains(t, result, "  1. Inner")
+}
+
+func TestFromADF_ListItem_WithCodeBlock(t *testing.T) {
+	// List item containing a paragraph followed by a code block.
+	input := `{"type":"doc","version":1,"content":[{"type":"bulletList","content":[{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"Item with code"}]},{"type":"codeBlock","attrs":{"language":"go"},"content":[{"type":"text","text":"fmt.Println()"}]}]}]}]}`
+	result, err := FromADF(input)
+	require.NoError(t, err)
+	assert.Contains(t, result, "- Item with code")
+	assert.Contains(t, result, "```go")
+	assert.Contains(t, result, "fmt.Println()")
+}
+
+func TestFromADF_ListItem_DefaultChild(t *testing.T) {
+	// List item containing a blockquote (falls through to the default case).
+	input := `{"type":"doc","version":1,"content":[{"type":"bulletList","content":[{"type":"listItem","content":[{"type":"blockquote","content":[{"type":"paragraph","content":[{"type":"text","text":"Quoted"}]}]}]}]}]}`
+	result, err := FromADF(input)
+	require.NoError(t, err)
+	assert.Contains(t, result, "- > Quoted")
+}
+
 // Test helpers for building ADF JSON strings.
 
 func adfDoc(blocks ...string) string {

@@ -70,7 +70,7 @@ homebrew_casks:
       token: "{{ .Env.TAP_GITHUB_TOKEN }}"
     homepage: https://github.com/open-cli-collective/atlassian-cli
     description: "Command-line interface for Jira Cloud"
-    binary: jtk
+    binaries: [jtk]
     hooks:
       post:
         install: |

@@ -32,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `--field parent=PROJ-123` and issuelink-type custom fields now format correctly instead of producing a `"data was not an object"` API error ([#140](https://github.com/open-cli-collective/atlassian-cli/pull/140))
 - `config show -o json` no longer appends trailing plain text after JSON body ([#124](https://github.com/open-cli-collective/atlassian-cli/pull/124))
 - `projects create` success message uses the input name instead of the empty API response name ([#121](https://github.com/open-cli-collective/atlassian-cli/pull/121))
 - `ProjectDetail.ID` uses `json.Number` to handle numeric API responses ([#116](https://github.com/open-cli-collective/atlassian-cli/pull/116))

@@ -127,9 +127,7 @@ func runEdit(opts *editOptions) error {
 		return err
 	}
 
-	existingPage, err := client.GetPage(context.Background(), opts.pageID, &api.GetPageOptions{
-		BodyFormat: "storage",
-	})
+	existingPage, err := getPageWithBodyFallback(context.Background(), client, opts.pageID)
 	if err != nil {
 		return fmt.Errorf("failed to get page: %w", err)
 	}
@@ -322,6 +320,12 @@ func openEditorForEdit(existingPage *api.Page, isMarkdown bool) (string, error) 
 	existingContent := ""
 	if existingPage.Body != nil && existingPage.Body.Storage != nil {
 		existingContent = existingPage.Body.Storage.Value
+	} else if existingPage.Body != nil && existingPage.Body.AtlasDocFormat != nil {
+		// ADF-native page: convert to markdown for the editor.
+		markdown, err := md.FromADF(existingPage.Body.AtlasDocFormat.Value)
+		if err == nil {
+			existingContent = markdown
+		}
 	}
 
 	editContent := existingContent

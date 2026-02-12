@@ -454,3 +454,179 @@ func TestTruncateContent(t *testing.T) {
 		assert.Equal(t, exact, result)
 	})
 }
+
+func TestRunView_ADFPage_FallbackToAtlasDocFormat(t *testing.T) {
+	callCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		callCount++
+		if strings.Contains(r.URL.Path, "/pages/12345") && r.Method == "GET" {
+			switch r.URL.Query().Get("body-format") {
+			case "storage":
+				// Storage returns empty body for this ADF page
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(`{
+					"id": "12345",
+					"title": "ADF Page",
+					"spaceId": "98765",
+					"version": {"number": 3},
+					"body": {"storage": {"representation": "storage", "value": ""}},
+					"_links": {"webui": "/pages/12345"}
+				}`))
+			case "atlas_doc_format":
+				// ADF format returns content
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(`{
+					"id": "12345",
+					"title": "ADF Page",
+					"spaceId": "98765",
+					"version": {"number": 3},
+					"body": {"atlas_doc_format": {"representation": "atlas_doc_format", "value": "{\"type\":\"doc\",\"version\":1,\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Hello ADF\"}]}]}"}},
+					"_links": {"webui": "/pages/12345"}
+				}`))
+			}
+			return
+		}
+		if strings.Contains(r.URL.Path, "/spaces/") {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"id": "98765", "key": "TEST"}`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	rootOpts := newViewTestRootOptions()
+	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+	opts := &viewOptions{Options: rootOpts}
+
+	err := runView("12345", opts)
+	require.NoError(t, err)
+
+	// Should make 3 calls: storage (empty), atlas_doc_format (has content), GetSpace
+	assert.Equal(t, 3, callCount, "should fallback to atlas_doc_format when storage is empty")
+}
+
+func TestRunView_ADFPage_RawFormat(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "/pages/12345") {
+			switch r.URL.Query().Get("body-format") {
+			case "storage":
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(`{
+					"id": "12345",
+					"title": "ADF Page",
+					"spaceId": "98765",
+					"version": {"number": 1},
+					"body": {"storage": {"representation": "storage", "value": ""}},
+					"_links": {"webui": "/pages/12345"}
+				}`))
+			case "atlas_doc_format":
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(`{
+					"id": "12345",
+					"title": "ADF Page",
+					"spaceId": "98765",
+					"version": {"number": 1},
+					"body": {"atlas_doc_format": {"representation": "atlas_doc_format", "value": "{\"type\":\"doc\",\"version\":1,\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Raw ADF\"}]}]}"}},
+					"_links": {"webui": "/pages/12345"}
+				}`))
+			}
+			return
+		}
+		if strings.Contains(r.URL.Path, "/spaces/") {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"id": "98765", "key": "TEST"}`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	rootOpts := newViewTestRootOptions()
+	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+	opts := &viewOptions{Options: rootOpts, raw: true}
+
+	err := runView("12345", opts)
+	require.NoError(t, err)
+	// In raw mode, should output the ADF JSON string directly
+}
+
+func TestRunView_StoragePage_NoFallback(t *testing.T) {
+	callCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		callCount++
+		if strings.Contains(r.URL.Path, "/pages/12345") {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{
+				"id": "12345",
+				"title": "Storage Page",
+				"spaceId": "98765",
+				"version": {"number": 1},
+				"body": {"storage": {"representation": "storage", "value": "<p>Has content</p>"}},
+				"_links": {"webui": "/pages/12345"}
+			}`))
+			return
+		}
+		if strings.Contains(r.URL.Path, "/spaces/") {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"id": "98765", "key": "DEV"}`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	rootOpts := newViewTestRootOptions()
+	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+	opts := &viewOptions{Options: rootOpts}
+
+	err := runView("12345", opts)
+	require.NoError(t, err)
+
+	// Should only make 2 calls: GetPage (storage has content) + GetSpace, no fallback
+	assert.Equal(t, 2, callCount, "should not fallback when storage has content")
+}
+
+func TestRunView_ADFPage_NullBody(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "/pages/12345") {
+			switch r.URL.Query().Get("body-format") {
+			case "storage":
+				// Body field is completely empty (no storage, no ADF)
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(`{
+					"id": "12345",
+					"title": "Empty Page",
+					"version": {"number": 1},
+					"body": {},
+					"_links": {"webui": "/pages/12345"}
+				}`))
+			case "atlas_doc_format":
+				// ADF also returns empty
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(`{
+					"id": "12345",
+					"title": "Empty Page",
+					"version": {"number": 1},
+					"body": {},
+					"_links": {"webui": "/pages/12345"}
+				}`))
+			}
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	rootOpts := newViewTestRootOptions()
+	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+	opts := &viewOptions{Options: rootOpts}
+
+	err := runView("12345", opts)
+	require.NoError(t, err)
+	// Should display "(No content)" without error
+}

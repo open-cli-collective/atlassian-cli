@@ -110,9 +110,7 @@ func runView(pageID string, opts *viewOptions) error {
 		return openBrowser(url)
 	}
 
-	page, err := client.GetPage(context.Background(), pageID, &api.GetPageOptions{
-		BodyFormat: "storage",
-	})
+	page, err := getPageWithBodyFallback(context.Background(), client, pageID)
 	if err != nil {
 		return fmt.Errorf("failed to get page: %w", err)
 	}
@@ -149,7 +147,7 @@ func runView(pageID string, opts *viewOptions) error {
 		fmt.Println()
 	}
 
-	if page.Body != nil && page.Body.Storage != nil {
+	if hasStorageContent(page) {
 		content := page.Body.Storage.Value
 		if opts.raw {
 			fmt.Println(truncateContent(content, opts))
@@ -160,6 +158,20 @@ func runView(pageID string, opts *viewOptions) error {
 			markdown, err := md.FromConfluenceStorageWithOptions(content, convertOpts)
 			if err != nil {
 				fmt.Println("(Failed to convert to markdown, showing raw HTML)")
+				fmt.Println()
+				fmt.Println(truncateContent(content, opts))
+			} else {
+				fmt.Println(truncateContent(markdown, opts))
+			}
+		}
+	} else if hasADFContent(page) {
+		content := page.Body.AtlasDocFormat.Value
+		if opts.raw {
+			fmt.Println(truncateContent(content, opts))
+		} else {
+			markdown, err := md.FromADF(content)
+			if err != nil {
+				fmt.Println("(Failed to convert ADF to markdown, showing raw ADF)")
 				fmt.Println()
 				fmt.Println(truncateContent(content, opts))
 			} else {

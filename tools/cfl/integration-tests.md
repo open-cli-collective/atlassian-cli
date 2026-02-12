@@ -417,6 +417,59 @@ curl -s -u "$EMAIL:$TOKEN" "$URL/api/v2/pages/<page-id>?body-format=atlas_doc_fo
 
 ---
 
+## ADF / Cloud Editor Body Fallback (Issue #150)
+
+Some pages created with Confluence's cloud editor (ADF format) return empty `body.storage` from the v2 API, even with `body-format=storage`. The server-side ADF→XHTML conversion fails silently for these pages. The fix implements a fallback: if storage body is empty, retry with `body-format=atlas_doc_format` and convert the ADF to markdown using `pkg/md.FromADF()`.
+
+### Test Case Pages
+
+Copies in the TEST space (originals from INT, CUS, PROD, PLAYBOOK):
+
+| Page ID | Title | Storage? | ADF? |
+|---------|-------|----------|------|
+| 3411542018 | [Test #150] Central Bank (MO) BAI | Yes (5235) | Yes (13744) |
+| 3411312646 | [Test #150] BAI | No (0) | Minimal (59) |
+| 3411378178 | [Test #150] CFG bank txn proposal | Yes (11151) | Yes (25572) |
+| 3411509253 | [Test #150] Identity and metadata exchange | Yes (7082) | Yes (10858) |
+| 3411476495 | [Test #150] Business Profile Setup - CLI Path | Yes (6672) | Yes (11532) |
+| 3411542033 | [Test #150] Positive pay onboarding - b1bank | Yes (3656) | Yes (6788) |
+| 3410952195 | [Test #150] Onboarding CheckSync + MoniCore | Yes (8442) | Yes (15513) |
+
+### Diagnostic Experiments
+
+| Experiment | Command | Expected Result |
+|-----------|---------|-----------------|
+| Storage for ADF page | `curl -s -u "$EMAIL:$TOKEN" "$URL/api/v2/pages/<id>?body-format=storage" \| jq '.body'` | May return empty `storage.value` |
+| ADF for ADF page | `curl -s -u "$EMAIL:$TOKEN" "$URL/api/v2/pages/<id>?body-format=atlas_doc_format" \| jq '.body'` | Returns non-empty `atlas_doc_format` |
+| No body-format | `curl -s -u "$EMAIL:$TOKEN" "$URL/api/v2/pages/<id>" \| jq '.body'` | Returns `{}` (empty body) |
+
+### View Tests
+
+| Test Case | Command | Expected Result |
+|-----------|---------|-----------------|
+| View ADF page (default) | `cfl page view <adf-id>` | Shows markdown content (not "(No content)") |
+| View ADF page (raw) | `cfl page view <adf-id> --raw` | Shows ADF JSON content |
+| View ADF page (JSON) | `cfl page view <adf-id> -o json` | `body.atlas_doc_format` populated if storage was empty |
+| View ADF page (content-only) | `cfl page view <adf-id> --content-only` | Shows content without headers |
+| View legacy page (no regression) | `cfl page view <legacy-id>` | Shows markdown content via storage path |
+
+### Edit Tests
+
+| Test Case | Command | Expected Result |
+|-----------|---------|-----------------|
+| Edit ADF page (title only) | `cfl page edit <adf-id> --title "New Title"` | Title updated, ADF body preserved |
+| Edit ADF page (from file) | `cfl page edit <test-copy-id> --file content.md` | Content updated via ADF |
+| Edit ADF page (stdin) | `echo "# Updated" \| cfl page edit <test-copy-id>` | Content updated via ADF |
+| Edit legacy page (no regression) | `cfl page edit <legacy-id> --file content.md` | No regression |
+
+### Roundtrip Tests
+
+| Test Case | Steps | Expected Result |
+|-----------|-------|-----------------|
+| View then edit ADF page | 1. `cfl page view <id> --content-only > /tmp/out.md`<br>2. `cat /tmp/out.md \| cfl page edit <id>` | Content preserved |
+
+---
+
 ## Edge Cases & Error Handling
 
 ### Unicode & Special Characters
@@ -479,6 +532,14 @@ Before GA release, run through this checklist:
 - [ ] Copy page (different space)
 - [ ] Delete page (with confirmation)
 - [ ] Delete page (--force)
+
+### ADF Body Fallback (#150)
+- [ ] View ADF page with empty storage → content displayed via ADF fallback
+- [ ] View ADF page (raw) → shows ADF JSON
+- [ ] View ADF page (JSON output) → body.atlas_doc_format populated
+- [ ] Edit ADF page (title only) → ADF body preserved
+- [ ] Edit ADF page (new content) → submitted as ADF
+- [ ] View/edit legacy page → no regression (storage path used)
 
 ### Wiki Links
 - [ ] Create page with same-space wiki link

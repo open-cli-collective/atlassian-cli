@@ -1380,3 +1380,132 @@ func TestRunEdit_MoveOnly_BodyPreserved(t *testing.T) {
 	storageMap := bodyMap["storage"].(map[string]interface{})
 	assert.Equal(t, "<p>Original content that must be preserved</p>", storageMap["value"])
 }
+
+func TestRunEdit_ADFPage_TitleOnly_PreservesBody(t *testing.T) {
+	var receivedBody map[string]interface{}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == "GET" && strings.Contains(r.URL.Path, "/pages/12345"):
+			switch r.URL.Query().Get("body-format") {
+			case "storage":
+				// Storage returns empty for this ADF page
+				w.WriteHeader(http.StatusOK)
+				w.Write([]byte(`{
+					"id": "12345",
+					"title": "ADF Page",
+					"version": {"number": 3},
+					"body": {"storage": {"representation": "storage", "value": ""}},
+					"_links": {"webui": "/pages/12345"}
+				}`))
+			case "atlas_doc_format":
+				// ADF has content
+				w.WriteHeader(http.StatusOK)
+				w.Write([]byte(`{
+					"id": "12345",
+					"title": "ADF Page",
+					"version": {"number": 3},
+					"body": {"atlas_doc_format": {"representation": "atlas_doc_format", "value": "{\"type\":\"doc\",\"version\":1,\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"ADF body\"}]}]}"}},
+					"_links": {"webui": "/pages/12345"}
+				}`))
+			}
+		case r.Method == "PUT" && strings.Contains(r.URL.Path, "/pages/12345"):
+			body, _ := io.ReadAll(r.Body)
+			json.Unmarshal(body, &receivedBody)
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{
+				"id": "12345",
+				"title": "New Title",
+				"version": {"number": 4},
+				"_links": {"webui": "/pages/12345"}
+			}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	rootOpts := newEditTestRootOptions()
+	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+	rootOpts.Stdin = nil
+
+	opts := &editOptions{
+		Options: rootOpts,
+		pageID:  "12345",
+		title:   "New Title",
+	}
+
+	err := runEdit(opts)
+	require.NoError(t, err)
+
+	// Verify body was preserved as ADF (not storage)
+	bodyMap := receivedBody["body"].(map[string]interface{})
+	adfMap := bodyMap["atlas_doc_format"].(map[string]interface{})
+	assert.Contains(t, adfMap["value"], "ADF body")
+}
+
+func TestRunEdit_ADFPage_NewContent(t *testing.T) {
+	tmpDir := t.TempDir()
+	mdFile := filepath.Join(tmpDir, "content.md")
+	err := os.WriteFile(mdFile, []byte("# Updated Content"), 0644)
+	require.NoError(t, err)
+
+	var receivedBody map[string]interface{}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == "GET" && strings.Contains(r.URL.Path, "/pages/12345"):
+			switch r.URL.Query().Get("body-format") {
+			case "storage":
+				w.WriteHeader(http.StatusOK)
+				w.Write([]byte(`{
+					"id": "12345",
+					"title": "ADF Page",
+					"version": {"number": 2},
+					"body": {"storage": {"representation": "storage", "value": ""}},
+					"_links": {"webui": "/pages/12345"}
+				}`))
+			case "atlas_doc_format":
+				w.WriteHeader(http.StatusOK)
+				w.Write([]byte(`{
+					"id": "12345",
+					"title": "ADF Page",
+					"version": {"number": 2},
+					"body": {"atlas_doc_format": {"representation": "atlas_doc_format", "value": "{\"type\":\"doc\",\"version\":1,\"content\":[]}"}},
+					"_links": {"webui": "/pages/12345"}
+				}`))
+			}
+		case r.Method == "PUT" && strings.Contains(r.URL.Path, "/pages/12345"):
+			body, _ := io.ReadAll(r.Body)
+			json.Unmarshal(body, &receivedBody)
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{
+				"id": "12345",
+				"title": "ADF Page",
+				"version": {"number": 3},
+				"_links": {"webui": "/pages/12345"}
+			}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	rootOpts := newEditTestRootOptions()
+	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+	rootOpts.Stdin = nil
+
+	opts := &editOptions{
+		Options: rootOpts,
+		pageID:  "12345",
+		file:    mdFile,
+	}
+
+	err = runEdit(opts)
+	require.NoError(t, err)
+
+	// New content should be submitted as ADF (default path)
+	bodyMap := receivedBody["body"].(map[string]interface{})
+	adfMap := bodyMap["atlas_doc_format"].(map[string]interface{})
+	assert.Contains(t, adfMap["value"], "Updated Content")
+}

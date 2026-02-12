@@ -174,6 +174,61 @@ This document catalogs the manual integration test suite for `cfl`. These tests 
 | JSON output | `cfl space list --output json` | Valid JSON array |
 | Limit results | `cfl space list --limit 5` | Shows first 5 spaces |
 
+### space view
+
+| Test Case | Command | Expected Result |
+|-----------|---------|-----------------|
+| View space by key | `cfl space view confluence` | Key-value pairs: KEY, NAME, ID, TYPE, STATUS, DESCRIPTION |
+| JSON output | `cfl space view confluence -o json` | Valid JSON object with id, key, name, type, status, description |
+| Non-existent space | `cfl space view NONEXISTENT` | Error: Space with key 'NONEXISTENT' not found |
+| View personal space | `cfl space view ~accountid` | Shows personal space details (if accessible) |
+| Alias: get | `cfl space get confluence` | Same output as `space view` |
+
+### space create
+
+| Test Case | Command | Expected Result |
+|-----------|---------|-----------------|
+| Create global space | `cfl space create --key INTTEST --name "[Test] Integration" --description "Test space"` | Space created, shows KEY, NAME, URL |
+| Create with JSON output | `cfl space create --key INTTEST2 --name "[Test] Int2" -o json` | Valid JSON with id, key, name, type |
+| Missing key flag | `cfl space create --name "Test"` | Error: required flag(s) "key" not set |
+| Missing name flag | `cfl space create --key TST` | Error: required flag(s) "name" not set |
+| Duplicate key | `cfl space create --key INTTEST --name "Duplicate"` (after creating INTTEST) | Error: API rejects duplicate key |
+
+### space update
+
+| Test Case | Command | Expected Result |
+|-----------|---------|-----------------|
+| Update name | `cfl space update INTTEST --name "[Test] Updated Name"` | Shows updated key and name |
+| Update description | `cfl space update INTTEST --description "Updated description"` | Shows updated key and name |
+| Update both | `cfl space update INTTEST --name "[Test] Both" --description "Both updated"` | Both name and description changed |
+| JSON output | `cfl space update INTTEST --name "[Test] JSON" -o json` | Valid JSON with updated fields |
+| No flags provided | `cfl space update INTTEST` | Error: at least one of --name or --description required |
+| Non-existent space | `cfl space update NONEXISTENT --name "X"` | Error: not found |
+| Verify update | `cfl space view INTTEST` | Shows new name and description |
+
+### space delete
+
+| Test Case | Command | Expected Result |
+|-----------|---------|-----------------|
+| Delete with confirmation | `cfl space delete INTTEST` (type "y") | Space deleted after confirmation prompt |
+| Delete cancelled | `cfl space delete INTTEST` (type "n") | "Deletion cancelled" message |
+| Delete with --force | `cfl space delete INTTEST --force` | Space deleted without confirmation |
+| JSON output | `cfl space delete INTTEST --force -o json` | `{"status": "deleted", "space_key": "INTTEST", "name": "..."}` |
+| Non-existent space | `cfl space delete NONEXISTENT --force` | Error: not found |
+
+### Space CRUD End-to-End (sequential)
+
+| Step | Command | Expected Result |
+|------|---------|-----------------|
+| 1. Create | `cfl space create --key INTTEST --name "[Test] Integration" --description "Test space"` | Space created |
+| 2. Verify create | `cfl space view INTTEST` | Shows key=INTTEST, name="[Test] Integration" |
+| 3. Update name | `cfl space update INTTEST --name "[Test] Updated"` | Name updated |
+| 4. Verify update | `cfl space view INTTEST` | Shows new name |
+| 5. Update desc | `cfl space update INTTEST --description "New description"` | Description updated |
+| 6. List includes it | `cfl space list -o json \| jq '.[] \| select(.key == "INTTEST")'` | Space appears in list |
+| 7. Delete | `cfl space delete INTTEST --force` | "Deleted space INTTEST" |
+| 8. Verify gone | `cfl space view INTTEST` | Error: not found |
+
 ---
 
 ## Search Operations
@@ -567,6 +622,21 @@ Before GA release, run through this checklist:
 - [ ] JSON output is valid
 - [ ] Raw CQL works
 
+### Space CRUD
+- [ ] View space (table output)
+- [ ] View space (JSON output)
+- [ ] View non-existent space (expect error)
+- [ ] Create space with key, name, description
+- [ ] Create space (JSON output)
+- [ ] Create duplicate key (expect error)
+- [ ] Update space name
+- [ ] Update space description
+- [ ] Update with no flags (expect error)
+- [ ] Delete space (with confirmation, type "y")
+- [ ] Delete space (with confirmation, type "n" — cancelled)
+- [ ] Delete space (--force, no confirmation)
+- [ ] End-to-end lifecycle: create → view → update → delete → verify gone
+
 ### Edge Cases
 - [ ] Unicode in titles/content
 - [ ] Empty content
@@ -576,6 +646,8 @@ Before GA release, run through this checklist:
 
 ### Cleanup
 - [ ] Delete all [Test] prefixed pages
+- [ ] `cfl space delete INTTEST --force`
+- [ ] `cfl space delete INTTEST2 --force`
 - [ ] Verify no test data remains
 
 ---

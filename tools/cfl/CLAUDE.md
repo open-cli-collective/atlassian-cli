@@ -33,7 +33,7 @@ api/                     → Confluence REST API client (pages, spaces, attachme
 internal/cmd/            → Cobra command implementations
   root/                  → Root command with global flags
   page/                  → page list|view|create|edit|delete
-  space/                 → space list
+  space/                 → space list|view|create|update|delete
   attachment/            → attachment list|upload|download
   init/                  → Configuration wizard
 internal/config/         → YAML config loading with env var overrides

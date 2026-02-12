@@ -13,10 +13,14 @@ func Register(rootCmd *cobra.Command, opts *root.Options) {
 		Use:     "space",
 		Aliases: []string{"spaces"},
 		Short:   "Manage Confluence spaces",
-		Long:    `Commands for listing and viewing Confluence spaces.`,
+		Long:    `Commands for listing, viewing, creating, updating, and deleting Confluence spaces.`,
 	}
 
 	cmd.AddCommand(newListCmd(opts))
+	cmd.AddCommand(newViewCmd(opts))
+	cmd.AddCommand(newCreateCmd(opts))
+	cmd.AddCommand(newUpdateCmd(opts))
+	cmd.AddCommand(newDeleteCmd(opts))
 
 	rootCmd.AddCommand(cmd)
 }

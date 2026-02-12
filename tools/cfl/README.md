@@ -264,7 +264,7 @@ cfl page view 12345 --show-macros --content-only | cfl page edit 12345 --legacy 
 
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
-| `--raw` | | `false` | Show raw Confluence format instead of markdown (XHTML for legacy pages, ADF JSON for cloud editor pages) |
+| `--raw` | | `false` | Show raw Confluence format instead of markdown (XHTML storage format, or ADF JSON if storage is empty) |
 | `--web` | `-w` | `false` | Open page in browser instead of displaying |
 | `--full` | | `false` | Show full content without truncation |
 | `--show-macros` | | `false` | Show Confluence macro placeholders (e.g., `[TOC]`) instead of stripping them |

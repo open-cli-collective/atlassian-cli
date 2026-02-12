@@ -419,7 +419,9 @@ curl -s -u "$EMAIL:$TOKEN" "$URL/api/v2/pages/<page-id>?body-format=atlas_doc_fo
 
 ## ADF / Cloud Editor Body Fallback (Issue #150)
 
-Some pages created with Confluence's cloud editor (ADF format) return empty `body.storage` from the v2 API, even with `body-format=storage`. The server-side ADF→XHTML conversion fails silently for these pages. The fix implements a fallback: if storage body is empty, retry with `body-format=atlas_doc_format` and convert the ADF to markdown using `pkg/md.FromADF()`.
+Pages created with Confluence's cloud editor use ADF internally. Most of these pages return valid XHTML when requested with `body-format=storage` (the API converts ADF→XHTML server-side). However, in rare cases the server-side conversion fails silently, returning an empty `storage.value`. The fix implements a fallback: if storage body is empty, retry with `body-format=atlas_doc_format` and convert the ADF to markdown using `pkg/md.FromADF()`.
+
+**Note:** During diagnostic experiments (Feb 2026), 6 of 7 test pages returned valid storage content. Only page 3390537731 (BAI) had empty storage, and its ADF was also essentially empty. The fallback is defense-in-depth for edge cases.
 
 ### Test Case Pages
 
@@ -439,17 +441,17 @@ Copies in the TEST space (originals from INT, CUS, PROD, PLAYBOOK):
 
 | Experiment | Command | Expected Result |
 |-----------|---------|-----------------|
-| Storage for ADF page | `curl -s -u "$EMAIL:$TOKEN" "$URL/api/v2/pages/<id>?body-format=storage" \| jq '.body'` | May return empty `storage.value` |
-| ADF for ADF page | `curl -s -u "$EMAIL:$TOKEN" "$URL/api/v2/pages/<id>?body-format=atlas_doc_format" \| jq '.body'` | Returns non-empty `atlas_doc_format` |
-| No body-format | `curl -s -u "$EMAIL:$TOKEN" "$URL/api/v2/pages/<id>" \| jq '.body'` | Returns `{}` (empty body) |
+| Storage for ADF page | `curl -s -u "$EMAIL:$TOKEN" "$URL/api/v2/pages/<id>?body-format=storage" \| jq '.body'` | Usually returns XHTML in `storage.value`; may be empty for some ADF-native pages |
+| ADF for ADF page | `curl -s -u "$EMAIL:$TOKEN" "$URL/api/v2/pages/<id>?body-format=atlas_doc_format" \| jq '.body'` | Returns ADF JSON in `atlas_doc_format.value` |
+| No body-format | `curl -s -u "$EMAIL:$TOKEN" "$URL/api/v2/pages/<id>" \| jq '.body'` | Returns `{}` (no body without explicit format) |
 
 ### View Tests
 
 | Test Case | Command | Expected Result |
 |-----------|---------|-----------------|
 | View ADF page (default) | `cfl page view <adf-id>` | Shows markdown content (not "(No content)") |
-| View ADF page (raw) | `cfl page view <adf-id> --raw` | Shows ADF JSON content |
-| View ADF page (JSON) | `cfl page view <adf-id> -o json` | `body.atlas_doc_format` populated if storage was empty |
+| View ADF page (raw) | `cfl page view <adf-id> --raw` | Shows raw XHTML (or ADF JSON if storage was empty) |
+| View ADF page (JSON) | `cfl page view <adf-id> -o json` | `body.storage` populated (or `body.atlas_doc_format` if storage was empty) |
 | View ADF page (content-only) | `cfl page view <adf-id> --content-only` | Shows content without headers |
 | View legacy page (no regression) | `cfl page view <legacy-id>` | Shows markdown content via storage path |
 

@@ -6,8 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"github.com/open-cli-collective/atlassian-go/testutil"
 
 	"github.com/open-cli-collective/confluence-cli/api"
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
@@ -45,7 +44,7 @@ func TestRunList_Success(t *testing.T) {
 	}
 
 	err := runList(opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 }
 
 func TestRunList_Empty(t *testing.T) {
@@ -66,7 +65,7 @@ func TestRunList_Empty(t *testing.T) {
 	}
 
 	err := runList(opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 }
 
 func TestRunList_APIError(t *testing.T) {
@@ -87,8 +86,8 @@ func TestRunList_APIError(t *testing.T) {
 	}
 
 	err := runList(opts)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to list attachments")
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "failed to list attachments")
 }
 
 func TestRunList_JSONOutput(t *testing.T) {
@@ -114,7 +113,7 @@ func TestRunList_JSONOutput(t *testing.T) {
 	}
 
 	err := runList(opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 }
 
 func TestRunList_InvalidOutputFormat(t *testing.T) {
@@ -128,8 +127,8 @@ func TestRunList_InvalidOutputFormat(t *testing.T) {
 	}
 
 	err := runList(opts)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid output format")
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "invalid output format")
 }
 
 func TestFormatFileSize(t *testing.T) {
@@ -150,7 +149,7 @@ func TestFormatFileSize(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.expected, func(t *testing.T) {
 			result := formatFileSize(tt.bytes)
-			assert.Equal(t, tt.expected, result)
+			testutil.Equal(t, tt.expected, result)
 		})
 	}
 }
@@ -203,7 +202,7 @@ func TestIsAttachmentReferenced(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := isAttachmentReferenced(tt.filename, tt.content)
-			assert.Equal(t, tt.expected, result)
+			testutil.Equal(t, tt.expected, result)
 		})
 	}
 }
@@ -222,9 +221,9 @@ func TestFilterUnusedAttachments(t *testing.T) {
 
 	unused := filterUnusedAttachments(attachments, content)
 
-	require.Len(t, unused, 1)
-	assert.Equal(t, "att2", unused[0].ID)
-	assert.Equal(t, "unused-doc.pdf", unused[0].Title)
+	testutil.Len(t, unused, 1)
+	testutil.Equal(t, "att2", unused[0].ID)
+	testutil.Equal(t, "unused-doc.pdf", unused[0].Title)
 }
 
 func TestFilterUnusedAttachments_AllUnused(t *testing.T) {
@@ -237,7 +236,7 @@ func TestFilterUnusedAttachments_AllUnused(t *testing.T) {
 
 	unused := filterUnusedAttachments(attachments, content)
 
-	require.Len(t, unused, 2)
+	testutil.Len(t, unused, 2)
 }
 
 func TestFilterUnusedAttachments_NoneUnused(t *testing.T) {
@@ -249,7 +248,7 @@ func TestFilterUnusedAttachments_NoneUnused(t *testing.T) {
 
 	unused := filterUnusedAttachments(attachments, content)
 
-	assert.Empty(t, unused)
+	testutil.Empty(t, unused)
 }
 
 func TestRunList_UnusedFlag(t *testing.T) {
@@ -295,8 +294,8 @@ func TestRunList_UnusedFlag(t *testing.T) {
 	}
 
 	err := runList(opts)
-	require.NoError(t, err)
-	assert.Equal(t, 2, requestCount) // Both attachments and page content fetched
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, 2, requestCount) // Both attachments and page content fetched
 }
 
 func TestRunList_UnusedFlag_NoUnused(t *testing.T) {
@@ -337,5 +336,5 @@ func TestRunList_UnusedFlag_NoUnused(t *testing.T) {
 	}
 
 	err := runList(opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 }

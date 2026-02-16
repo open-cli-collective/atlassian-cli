@@ -2,12 +2,12 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"github.com/open-cli-collective/atlassian-go/testutil"
 )
 
 func newTestClient(t *testing.T, server *httptest.Server) *Client {
@@ -17,7 +17,7 @@ func newTestClient(t *testing.T, server *httptest.Server) *Client {
 		Email:    "test@example.com",
 		APIToken: "test-token",
 	})
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 	if server != nil {
 		client.BaseURL = server.URL + "/rest/api/3"
 	}
@@ -26,14 +26,14 @@ func newTestClient(t *testing.T, server *httptest.Server) *Client {
 
 func TestCreateField(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, http.MethodPost, r.Method)
-		assert.Equal(t, "/rest/api/3/field", r.URL.Path)
+		testutil.Equal(t, r.Method, http.MethodPost)
+		testutil.Equal(t, r.URL.Path, "/rest/api/3/field")
 
 		var req CreateFieldRequest
 		err := json.NewDecoder(r.Body).Decode(&req)
-		require.NoError(t, err)
-		assert.Equal(t, "Environment", req.Name)
-		assert.Equal(t, "com.atlassian.jira.plugin.system.customfieldtypes:select", req.Type)
+		testutil.RequireNoError(t, err)
+		testutil.Equal(t, req.Name, "Environment")
+		testutil.Equal(t, req.Type, "com.atlassian.jira.plugin.system.customfieldtypes:select")
 
 		w.WriteHeader(http.StatusCreated)
 		json.NewEncoder(w).Encode(Field{
@@ -49,10 +49,10 @@ func TestCreateField(t *testing.T) {
 		Name: "Environment",
 		Type: "com.atlassian.jira.plugin.system.customfieldtypes:select",
 	})
-	require.NoError(t, err)
-	assert.Equal(t, "customfield_10100", field.ID)
-	assert.Equal(t, "Environment", field.Name)
-	assert.True(t, field.Custom)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, field.ID, "customfield_10100")
+	testutil.Equal(t, field.Name, "Environment")
+	testutil.True(t, field.Custom)
 }
 
 func TestCreateField_ServerError(t *testing.T) {
@@ -64,51 +64,51 @@ func TestCreateField_ServerError(t *testing.T) {
 
 	client := newTestClient(t, server)
 	_, err := client.CreateField(&CreateFieldRequest{Name: "Dupe", Type: "select"})
-	assert.Error(t, err)
+	testutil.Error(t, err)
 }
 
 func TestTrashField(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, http.MethodPost, r.Method)
-		assert.Equal(t, "/rest/api/3/field/customfield_10100/trash", r.URL.Path)
+		testutil.Equal(t, r.Method, http.MethodPost)
+		testutil.Equal(t, r.URL.Path, "/rest/api/3/field/customfield_10100/trash")
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()
 
 	client := newTestClient(t, server)
 	err := client.TrashField("customfield_10100")
-	assert.NoError(t, err)
+	testutil.NoError(t, err)
 }
 
 func TestTrashField_EmptyID(t *testing.T) {
 	client := newTestClient(t, nil)
 	err := client.TrashField("")
-	assert.ErrorIs(t, err, ErrFieldIDRequired)
+	testutil.True(t, errors.Is(err, ErrFieldIDRequired))
 }
 
 func TestRestoreField(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, http.MethodPost, r.Method)
-		assert.Equal(t, "/rest/api/3/field/customfield_10100/restore", r.URL.Path)
+		testutil.Equal(t, r.Method, http.MethodPost)
+		testutil.Equal(t, r.URL.Path, "/rest/api/3/field/customfield_10100/restore")
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()
 
 	client := newTestClient(t, server)
 	err := client.RestoreField("customfield_10100")
-	assert.NoError(t, err)
+	testutil.NoError(t, err)
 }
 
 func TestRestoreField_EmptyID(t *testing.T) {
 	client := newTestClient(t, nil)
 	err := client.RestoreField("")
-	assert.ErrorIs(t, err, ErrFieldIDRequired)
+	testutil.True(t, errors.Is(err, ErrFieldIDRequired))
 }
 
 func TestGetFieldContexts(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, http.MethodGet, r.Method)
-		assert.Equal(t, "/rest/api/3/field/customfield_10100/context", r.URL.Path)
+		testutil.Equal(t, r.Method, http.MethodGet)
+		testutil.Equal(t, r.URL.Path, "/rest/api/3/field/customfield_10100/context")
 		json.NewEncoder(w).Encode(FieldContextsResponse{
 			MaxResults: 50,
 			Total:      2,
@@ -123,16 +123,16 @@ func TestGetFieldContexts(t *testing.T) {
 
 	client := newTestClient(t, server)
 	result, err := client.GetFieldContexts("customfield_10100")
-	require.NoError(t, err)
-	assert.Len(t, result.Values, 2)
-	assert.Equal(t, "Default", result.Values[0].Name)
-	assert.True(t, result.Values[0].IsGlobalContext)
+	testutil.RequireNoError(t, err)
+	testutil.Len(t, result.Values, 2)
+	testutil.Equal(t, result.Values[0].Name, "Default")
+	testutil.True(t, result.Values[0].IsGlobalContext)
 }
 
 func TestGetFieldContexts_EmptyID(t *testing.T) {
 	client := newTestClient(t, nil)
 	_, err := client.GetFieldContexts("")
-	assert.ErrorIs(t, err, ErrFieldIDRequired)
+	testutil.True(t, errors.Is(err, ErrFieldIDRequired))
 }
 
 func TestGetDefaultFieldContext(t *testing.T) {
@@ -147,9 +147,9 @@ func TestGetDefaultFieldContext(t *testing.T) {
 
 	client := newTestClient(t, server)
 	ctx, err := client.GetDefaultFieldContext("customfield_10100")
-	require.NoError(t, err)
-	assert.Equal(t, "10001", ctx.ID)
-	assert.Equal(t, "Default", ctx.Name)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, ctx.ID, "10001")
+	testutil.Equal(t, ctx.Name, "Default")
 }
 
 func TestGetDefaultFieldContext_NoContexts(t *testing.T) {
@@ -160,19 +160,19 @@ func TestGetDefaultFieldContext_NoContexts(t *testing.T) {
 
 	client := newTestClient(t, server)
 	_, err := client.GetDefaultFieldContext("customfield_10100")
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "no contexts found")
+	testutil.Error(t, err)
+	testutil.Contains(t, err.Error(), "no contexts found")
 }
 
 func TestCreateFieldContext(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, http.MethodPost, r.Method)
-		assert.Equal(t, "/rest/api/3/field/customfield_10100/context", r.URL.Path)
+		testutil.Equal(t, r.Method, http.MethodPost)
+		testutil.Equal(t, r.URL.Path, "/rest/api/3/field/customfield_10100/context")
 
 		var req CreateFieldContextRequest
 		err := json.NewDecoder(r.Body).Decode(&req)
-		require.NoError(t, err)
-		assert.Equal(t, "Bug Context", req.Name)
+		testutil.RequireNoError(t, err)
+		testutil.Equal(t, req.Name, "Bug Context")
 
 		w.WriteHeader(http.StatusCreated)
 		json.NewEncoder(w).Encode(FieldContext{
@@ -186,40 +186,40 @@ func TestCreateFieldContext(t *testing.T) {
 	ctx, err := client.CreateFieldContext("customfield_10100", &CreateFieldContextRequest{
 		Name: "Bug Context",
 	})
-	require.NoError(t, err)
-	assert.Equal(t, "10003", ctx.ID)
-	assert.Equal(t, "Bug Context", ctx.Name)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, ctx.ID, "10003")
+	testutil.Equal(t, ctx.Name, "Bug Context")
 }
 
 func TestCreateFieldContext_EmptyID(t *testing.T) {
 	client := newTestClient(t, nil)
 	_, err := client.CreateFieldContext("", &CreateFieldContextRequest{Name: "test"})
-	assert.ErrorIs(t, err, ErrFieldIDRequired)
+	testutil.True(t, errors.Is(err, ErrFieldIDRequired))
 }
 
 func TestDeleteFieldContext(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, http.MethodDelete, r.Method)
-		assert.Equal(t, "/rest/api/3/field/customfield_10100/context/10003", r.URL.Path)
+		testutil.Equal(t, r.Method, http.MethodDelete)
+		testutil.Equal(t, r.URL.Path, "/rest/api/3/field/customfield_10100/context/10003")
 		w.WriteHeader(http.StatusNoContent)
 	}))
 	defer server.Close()
 
 	client := newTestClient(t, server)
 	err := client.DeleteFieldContext("customfield_10100", "10003")
-	assert.NoError(t, err)
+	testutil.NoError(t, err)
 }
 
 func TestDeleteFieldContext_EmptyID(t *testing.T) {
 	client := newTestClient(t, nil)
 	err := client.DeleteFieldContext("", "10003")
-	assert.ErrorIs(t, err, ErrFieldIDRequired)
+	testutil.True(t, errors.Is(err, ErrFieldIDRequired))
 }
 
 func TestGetFieldContextOptions(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, http.MethodGet, r.Method)
-		assert.Equal(t, "/rest/api/3/field/customfield_10100/context/10001/option", r.URL.Path)
+		testutil.Equal(t, r.Method, http.MethodGet)
+		testutil.Equal(t, r.URL.Path, "/rest/api/3/field/customfield_10100/context/10001/option")
 		json.NewEncoder(w).Encode(FieldContextOptionsResponse{
 			MaxResults: 50,
 			Total:      2,
@@ -234,27 +234,27 @@ func TestGetFieldContextOptions(t *testing.T) {
 
 	client := newTestClient(t, server)
 	result, err := client.GetFieldContextOptions("customfield_10100", "10001")
-	require.NoError(t, err)
-	assert.Len(t, result.Values, 2)
-	assert.Equal(t, "Production", result.Values[0].Value)
+	testutil.RequireNoError(t, err)
+	testutil.Len(t, result.Values, 2)
+	testutil.Equal(t, result.Values[0].Value, "Production")
 }
 
 func TestGetFieldContextOptions_EmptyID(t *testing.T) {
 	client := newTestClient(t, nil)
 	_, err := client.GetFieldContextOptions("", "10001")
-	assert.ErrorIs(t, err, ErrFieldIDRequired)
+	testutil.True(t, errors.Is(err, ErrFieldIDRequired))
 }
 
 func TestCreateFieldContextOptions(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, http.MethodPost, r.Method)
-		assert.Equal(t, "/rest/api/3/field/customfield_10100/context/10001/option", r.URL.Path)
+		testutil.Equal(t, r.Method, http.MethodPost)
+		testutil.Equal(t, r.URL.Path, "/rest/api/3/field/customfield_10100/context/10001/option")
 
 		var req CreateFieldContextOptionsRequest
 		err := json.NewDecoder(r.Body).Decode(&req)
-		require.NoError(t, err)
-		assert.Len(t, req.Options, 1)
-		assert.Equal(t, "Option A", req.Options[0].Value)
+		testutil.RequireNoError(t, err)
+		testutil.Len(t, req.Options, 1)
+		testutil.Equal(t, req.Options[0].Value, "Option A")
 
 		json.NewEncoder(w).Encode(FieldContextOptionsResponse{
 			Values: []FieldContextOption{
@@ -270,28 +270,28 @@ func TestCreateFieldContextOptions(t *testing.T) {
 			{Value: "Option A"},
 		},
 	})
-	require.NoError(t, err)
-	assert.Len(t, options, 1)
-	assert.Equal(t, "Option A", options[0].Value)
+	testutil.RequireNoError(t, err)
+	testutil.Len(t, options, 1)
+	testutil.Equal(t, options[0].Value, "Option A")
 }
 
 func TestCreateFieldContextOptions_EmptyID(t *testing.T) {
 	client := newTestClient(t, nil)
 	_, err := client.CreateFieldContextOptions("", "10001", &CreateFieldContextOptionsRequest{})
-	assert.ErrorIs(t, err, ErrFieldIDRequired)
+	testutil.True(t, errors.Is(err, ErrFieldIDRequired))
 }
 
 func TestUpdateFieldContextOptions(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, http.MethodPut, r.Method)
-		assert.Equal(t, "/rest/api/3/field/customfield_10100/context/10001/option", r.URL.Path)
+		testutil.Equal(t, r.Method, http.MethodPut)
+		testutil.Equal(t, r.URL.Path, "/rest/api/3/field/customfield_10100/context/10001/option")
 
 		var req UpdateFieldContextOptionsRequest
 		err := json.NewDecoder(r.Body).Decode(&req)
-		require.NoError(t, err)
-		assert.Len(t, req.Options, 1)
-		assert.Equal(t, "3", req.Options[0].ID)
-		assert.Equal(t, "Option A (updated)", req.Options[0].Value)
+		testutil.RequireNoError(t, err)
+		testutil.Len(t, req.Options, 1)
+		testutil.Equal(t, req.Options[0].ID, "3")
+		testutil.Equal(t, req.Options[0].Value, "Option A (updated)")
 
 		json.NewEncoder(w).Encode(FieldContextOptionsResponse{
 			Values: []FieldContextOption{
@@ -307,32 +307,32 @@ func TestUpdateFieldContextOptions(t *testing.T) {
 			{ID: "3", Value: "Option A (updated)"},
 		},
 	})
-	require.NoError(t, err)
-	assert.Len(t, options, 1)
-	assert.Equal(t, "Option A (updated)", options[0].Value)
+	testutil.RequireNoError(t, err)
+	testutil.Len(t, options, 1)
+	testutil.Equal(t, options[0].Value, "Option A (updated)")
 }
 
 func TestUpdateFieldContextOptions_EmptyID(t *testing.T) {
 	client := newTestClient(t, nil)
 	_, err := client.UpdateFieldContextOptions("", "10001", &UpdateFieldContextOptionsRequest{})
-	assert.ErrorIs(t, err, ErrFieldIDRequired)
+	testutil.True(t, errors.Is(err, ErrFieldIDRequired))
 }
 
 func TestDeleteFieldContextOption(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, http.MethodDelete, r.Method)
-		assert.Equal(t, "/rest/api/3/field/customfield_10100/context/10001/option/3", r.URL.Path)
+		testutil.Equal(t, r.Method, http.MethodDelete)
+		testutil.Equal(t, r.URL.Path, "/rest/api/3/field/customfield_10100/context/10001/option/3")
 		w.WriteHeader(http.StatusNoContent)
 	}))
 	defer server.Close()
 
 	client := newTestClient(t, server)
 	err := client.DeleteFieldContextOption("customfield_10100", "10001", "3")
-	assert.NoError(t, err)
+	testutil.NoError(t, err)
 }
 
 func TestDeleteFieldContextOption_EmptyID(t *testing.T) {
 	client := newTestClient(t, nil)
 	err := client.DeleteFieldContextOption("", "10001", "3")
-	assert.ErrorIs(t, err, ErrFieldIDRequired)
+	testutil.True(t, errors.Is(err, ErrFieldIDRequired))
 }

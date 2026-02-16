@@ -7,8 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"github.com/open-cli-collective/atlassian-go/testutil"
 
 	"github.com/open-cli-collective/confluence-cli/api"
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
@@ -65,7 +64,7 @@ func TestRunSearch_Success(t *testing.T) {
 	}
 
 	err := runSearch(opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 }
 
 func TestRunSearch_EmptyResults(t *testing.T) {
@@ -88,7 +87,7 @@ func TestRunSearch_EmptyResults(t *testing.T) {
 	}
 
 	err := runSearch(opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 }
 
 func TestRunSearch_JSONOutput(t *testing.T) {
@@ -117,7 +116,7 @@ func TestRunSearch_JSONOutput(t *testing.T) {
 	}
 
 	err := runSearch(opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 }
 
 func TestRunSearch_PlainOutput(t *testing.T) {
@@ -146,7 +145,7 @@ func TestRunSearch_PlainOutput(t *testing.T) {
 	}
 
 	err := runSearch(opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 }
 
 func TestRunSearch_InvalidOutputFormat(t *testing.T) {
@@ -160,8 +159,8 @@ func TestRunSearch_InvalidOutputFormat(t *testing.T) {
 	}
 
 	err := runSearch(opts)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid output format")
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "invalid output format")
 }
 
 func TestRunSearch_InvalidType(t *testing.T) {
@@ -175,9 +174,9 @@ func TestRunSearch_InvalidType(t *testing.T) {
 	}
 
 	err := runSearch(opts)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid type")
-	assert.Contains(t, err.Error(), "invalid")
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "invalid type")
+	testutil.Contains(t, err.Error(), "invalid")
 }
 
 func TestRunSearch_ValidTypes(t *testing.T) {
@@ -200,7 +199,7 @@ func TestRunSearch_ValidTypes(t *testing.T) {
 			}
 
 			err := runSearch(opts)
-			require.NoError(t, err)
+			testutil.RequireNoError(t, err)
 		})
 	}
 }
@@ -214,8 +213,8 @@ func TestRunSearch_NoQuery(t *testing.T) {
 	}
 
 	err := runSearch(opts)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "search requires a query")
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "search requires a query")
 }
 
 func TestRunSearch_NegativeLimit(t *testing.T) {
@@ -228,8 +227,8 @@ func TestRunSearch_NegativeLimit(t *testing.T) {
 	}
 
 	err := runSearch(opts)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid limit")
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "invalid limit")
 }
 
 func TestRunSearch_ZeroLimit(t *testing.T) {
@@ -243,13 +242,13 @@ func TestRunSearch_ZeroLimit(t *testing.T) {
 
 	// Zero limit should return empty without making API call
 	err := runSearch(opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 }
 
 func TestRunSearch_WithSpaceFilter(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		cql := r.URL.Query().Get("cql")
-		assert.Contains(t, cql, `space = "DEV"`)
+		testutil.Contains(t, cql, `space = "DEV"`)
 
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"results": [], "totalSize": 0}`))
@@ -268,13 +267,13 @@ func TestRunSearch_WithSpaceFilter(t *testing.T) {
 	}
 
 	err := runSearch(opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 }
 
 func TestRunSearch_WithTypeFilter(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		cql := r.URL.Query().Get("cql")
-		assert.Contains(t, cql, `type = "page"`)
+		testutil.Contains(t, cql, `type = "page"`)
 
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"results": [], "totalSize": 0}`))
@@ -293,13 +292,13 @@ func TestRunSearch_WithTypeFilter(t *testing.T) {
 	}
 
 	err := runSearch(opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 }
 
 func TestRunSearch_WithTitleFilter(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		cql := r.URL.Query().Get("cql")
-		assert.Contains(t, cql, `title ~ "Getting Started"`)
+		testutil.Contains(t, cql, `title ~ "Getting Started"`)
 
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"results": [], "totalSize": 0}`))
@@ -317,13 +316,13 @@ func TestRunSearch_WithTitleFilter(t *testing.T) {
 	}
 
 	err := runSearch(opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 }
 
 func TestRunSearch_WithLabelFilter(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		cql := r.URL.Query().Get("cql")
-		assert.Contains(t, cql, `label = "documentation"`)
+		testutil.Contains(t, cql, `label = "documentation"`)
 
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"results": [], "totalSize": 0}`))
@@ -341,14 +340,14 @@ func TestRunSearch_WithLabelFilter(t *testing.T) {
 	}
 
 	err := runSearch(opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 }
 
 func TestRunSearch_WithRawCQL(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		cql := r.URL.Query().Get("cql")
 		// Raw CQL should be used as-is
-		assert.Equal(t, `type=page AND lastModified > now("-7d")`, cql)
+		testutil.Equal(t, `type=page AND lastModified > now("-7d")`, cql)
 
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"results": [], "totalSize": 0}`))
@@ -366,16 +365,16 @@ func TestRunSearch_WithRawCQL(t *testing.T) {
 	}
 
 	err := runSearch(opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 }
 
 func TestRunSearch_CombinedFilters(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		cql := r.URL.Query().Get("cql")
-		assert.Contains(t, cql, `text ~ "kubernetes"`)
-		assert.Contains(t, cql, `space = "DEV"`)
-		assert.Contains(t, cql, `type = "page"`)
-		assert.Contains(t, cql, `label = "infrastructure"`)
+		testutil.Contains(t, cql, `text ~ "kubernetes"`)
+		testutil.Contains(t, cql, `space = "DEV"`)
+		testutil.Contains(t, cql, `type = "page"`)
+		testutil.Contains(t, cql, `label = "infrastructure"`)
 
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"results": [], "totalSize": 0}`))
@@ -396,7 +395,7 @@ func TestRunSearch_CombinedFilters(t *testing.T) {
 	}
 
 	err := runSearch(opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 }
 
 func TestRunSearch_APIError(t *testing.T) {
@@ -417,8 +416,8 @@ func TestRunSearch_APIError(t *testing.T) {
 	}
 
 	err := runSearch(opts)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "search failed")
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "search failed")
 }
 
 func TestRunSearch_HasMore(t *testing.T) {
@@ -446,7 +445,7 @@ func TestRunSearch_HasMore(t *testing.T) {
 	}
 
 	err := runSearch(opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 }
 
 func TestRunSearch_LongTitle(t *testing.T) {
@@ -475,7 +474,7 @@ func TestRunSearch_LongTitle(t *testing.T) {
 	}
 
 	err := runSearch(opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 }
 
 func TestRunSearch_SpaceOnlyFilter(t *testing.T) {
@@ -494,13 +493,13 @@ func TestRunSearch_SpaceOnlyFilter(t *testing.T) {
 	}
 
 	err := runSearch(opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 }
 
 func TestRunSearch_LimitParameter(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		limit := r.URL.Query().Get("limit")
-		assert.Equal(t, "50", limit)
+		testutil.Equal(t, "50", limit)
 
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"results": [], "totalSize": 0}`))
@@ -518,7 +517,7 @@ func TestRunSearch_LimitParameter(t *testing.T) {
 	}
 
 	err := runSearch(opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 }
 
 func TestExtractSpaceKey(t *testing.T) {
@@ -567,7 +566,7 @@ func TestExtractSpaceKey(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := extractSpaceKey(tt.displayURL)
-			assert.Equal(t, tt.want, got)
+			testutil.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -599,6 +598,6 @@ func TestRunSearch_DisplaysSpaceKey(t *testing.T) {
 	}
 
 	err := runSearch(opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 	// The output should contain the space key "DEV" extracted from displayUrl
 }

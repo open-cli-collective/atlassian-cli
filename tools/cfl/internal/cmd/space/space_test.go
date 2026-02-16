@@ -8,8 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"github.com/open-cli-collective/atlassian-go/testutil"
 
 	"github.com/open-cli-collective/confluence-cli/api"
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
@@ -42,9 +41,9 @@ const v1SpaceUpdateResponse = `{
 
 func TestRunView_Table(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "GET", r.Method)
-		assert.Contains(t, r.URL.Path, "/spaces")
-		assert.Equal(t, "TEST", r.URL.Query().Get("keys"))
+		testutil.Equal(t, "GET", r.Method)
+		testutil.Contains(t, r.URL.Path, "/spaces")
+		testutil.Equal(t, "TEST", r.URL.Query().Get("keys"))
 
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(spaceListResponse))
@@ -64,12 +63,12 @@ func TestRunView_Table(t *testing.T) {
 	opts := &viewOptions{Options: rootOpts}
 	err := runView("TEST", opts)
 
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 	output := stdout.String()
-	assert.Contains(t, output, "TEST")
-	assert.Contains(t, output, "Test Space")
-	assert.Contains(t, output, "global")
-	assert.Contains(t, output, "A test space")
+	testutil.Contains(t, output, "TEST")
+	testutil.Contains(t, output, "Test Space")
+	testutil.Contains(t, output, "global")
+	testutil.Contains(t, output, "A test space")
 }
 
 func TestRunView_JSON(t *testing.T) {
@@ -92,11 +91,11 @@ func TestRunView_JSON(t *testing.T) {
 	opts := &viewOptions{Options: rootOpts}
 	err := runView("TEST", opts)
 
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 	var result map[string]interface{}
 	err = json.Unmarshal(stdout.Bytes(), &result)
-	require.NoError(t, err)
-	assert.Equal(t, "TEST", result["key"])
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "TEST", result["key"])
 }
 
 func TestRunView_NotFound(t *testing.T) {
@@ -113,23 +112,23 @@ func TestRunView_NotFound(t *testing.T) {
 	opts := &viewOptions{Options: rootOpts}
 	err := runView("NONEXISTENT", opts)
 
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "not found")
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "not found")
 }
 
 // --- Create tests ---
 
 func TestRunCreate(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "POST", r.Method)
-		assert.Equal(t, "/api/v2/spaces", r.URL.Path)
+		testutil.Equal(t, "POST", r.Method)
+		testutil.Equal(t, "/api/v2/spaces", r.URL.Path)
 
 		var req api.CreateSpaceRequest
 		err := json.NewDecoder(r.Body).Decode(&req)
-		require.NoError(t, err)
-		assert.Equal(t, "TEST", req.Key)
-		assert.Equal(t, "Test Space", req.Name)
-		assert.Equal(t, "global", req.Type)
+		testutil.RequireNoError(t, err)
+		testutil.Equal(t, "TEST", req.Key)
+		testutil.Equal(t, "Test Space", req.Name)
+		testutil.Equal(t, "global", req.Type)
 
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{
@@ -162,11 +161,11 @@ func TestRunCreate(t *testing.T) {
 
 	err := runCreate(opts)
 
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 	output := stdout.String()
-	assert.Contains(t, output, "Created space")
-	assert.Contains(t, output, "Test Space")
-	assert.Contains(t, output, "TEST")
+	testutil.Contains(t, output, "Created space")
+	testutil.Contains(t, output, "Test Space")
+	testutil.Contains(t, output, "TEST")
 }
 
 func TestRunCreate_JSON(t *testing.T) {
@@ -201,20 +200,20 @@ func TestRunCreate_JSON(t *testing.T) {
 
 	err := runCreate(opts)
 
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 	var result map[string]interface{}
 	err = json.Unmarshal(stdout.Bytes(), &result)
-	require.NoError(t, err)
-	assert.Equal(t, "TEST", result["key"])
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "TEST", result["key"])
 }
 
 func TestRunCreate_WithDescription(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req api.CreateSpaceRequest
 		err := json.NewDecoder(r.Body).Decode(&req)
-		require.NoError(t, err)
-		assert.NotNil(t, req.Description)
-		assert.Equal(t, "A test space", req.Description.Plain.Value)
+		testutil.RequireNoError(t, err)
+		testutil.NotNil(t, req.Description)
+		testutil.Equal(t, "A test space", req.Description.Plain.Value)
 
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{
@@ -240,21 +239,21 @@ func TestRunCreate_WithDescription(t *testing.T) {
 	}
 
 	err := runCreate(opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 }
 
 // --- Update tests ---
 
 func TestRunUpdate(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "PUT", r.Method)
-		assert.Equal(t, "/rest/api/space/TEST", r.URL.Path)
+		testutil.Equal(t, "PUT", r.Method)
+		testutil.Equal(t, "/rest/api/space/TEST", r.URL.Path)
 
 		var req api.UpdateSpaceRequest
 		err := json.NewDecoder(r.Body).Decode(&req)
-		require.NoError(t, err)
-		assert.Equal(t, "TEST", req.Key)
-		assert.Equal(t, "Updated Name", req.Name)
+		testutil.RequireNoError(t, err)
+		testutil.Equal(t, "TEST", req.Key)
+		testutil.Equal(t, "Updated Name", req.Name)
 
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(v1SpaceUpdateResponse))
@@ -278,10 +277,10 @@ func TestRunUpdate(t *testing.T) {
 
 	err := runUpdate("TEST", opts)
 
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 	output := stdout.String()
-	assert.Contains(t, output, "Updated space")
-	assert.Contains(t, output, "Updated Name")
+	testutil.Contains(t, output, "Updated space")
+	testutil.Contains(t, output, "Updated Name")
 }
 
 func TestRunUpdate_JSON(t *testing.T) {
@@ -308,11 +307,11 @@ func TestRunUpdate_JSON(t *testing.T) {
 
 	err := runUpdate("TEST", opts)
 
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 	var result map[string]interface{}
 	err = json.Unmarshal(stdout.Bytes(), &result)
-	require.NoError(t, err)
-	assert.Equal(t, "TEST", result["key"])
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "TEST", result["key"])
 }
 
 func TestRunUpdate_NoFlags(t *testing.T) {
@@ -324,18 +323,18 @@ func TestRunUpdate_NoFlags(t *testing.T) {
 
 	err := runUpdate("TEST", opts)
 
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "at least one of --name or --description is required")
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "at least one of --name or --description is required")
 }
 
 func TestRunUpdate_WithDescription(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req api.UpdateSpaceRequest
 		err := json.NewDecoder(r.Body).Decode(&req)
-		require.NoError(t, err)
-		assert.NotNil(t, req.Description)
-		assert.Equal(t, "New description", req.Description.Plain.Value)
-		assert.Equal(t, "plain", req.Description.Plain.Representation)
+		testutil.RequireNoError(t, err)
+		testutil.NotNil(t, req.Description)
+		testutil.Equal(t, "New description", req.Description.Plain.Value)
+		testutil.Equal(t, "plain", req.Description.Plain.Representation)
 
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(v1SpaceUpdateResponse))
@@ -352,7 +351,7 @@ func TestRunUpdate_WithDescription(t *testing.T) {
 	}
 
 	err := runUpdate("TEST", opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 }
 
 // --- Delete tests ---
@@ -363,14 +362,14 @@ func TestRunDelete_Force(t *testing.T) {
 		callCount++
 		if callCount == 1 {
 			// GetSpaceByKey call
-			assert.Equal(t, "GET", r.Method)
+			testutil.Equal(t, "GET", r.Method)
 			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write([]byte(spaceListResponse))
 			return
 		}
 		// DeleteSpace call
-		assert.Equal(t, "DELETE", r.Method)
-		assert.Equal(t, "/rest/api/space/TEST", r.URL.Path)
+		testutil.Equal(t, "DELETE", r.Method)
+		testutil.Equal(t, "/rest/api/space/TEST", r.URL.Path)
 		w.WriteHeader(http.StatusAccepted)
 	}))
 	defer server.Close()
@@ -392,10 +391,10 @@ func TestRunDelete_Force(t *testing.T) {
 
 	err := runDelete("TEST", opts)
 
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 	output := stdout.String()
-	assert.Contains(t, output, "Deleted space")
-	assert.Contains(t, output, "Test Space")
+	testutil.Contains(t, output, "Deleted space")
+	testutil.Contains(t, output, "Test Space")
 }
 
 func TestRunDelete_Force_JSON(t *testing.T) {
@@ -428,13 +427,13 @@ func TestRunDelete_Force_JSON(t *testing.T) {
 
 	err := runDelete("TEST", opts)
 
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 	var result map[string]string
 	err = json.Unmarshal(stdout.Bytes(), &result)
-	require.NoError(t, err)
-	assert.Equal(t, "deleted", result["status"])
-	assert.Equal(t, "TEST", result["space_key"])
-	assert.Equal(t, "Test Space", result["name"])
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "deleted", result["status"])
+	testutil.Equal(t, "TEST", result["space_key"])
+	testutil.Equal(t, "Test Space", result["name"])
 }
 
 func TestRunDelete_NoForce_Declined(t *testing.T) {
@@ -456,7 +455,7 @@ func TestRunDelete_NoForce_Declined(t *testing.T) {
 
 	err := runDelete("TEST", opts)
 
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 }
 
 func TestRunDelete_NoForce_Accepted(t *testing.T) {
@@ -484,8 +483,8 @@ func TestRunDelete_NoForce_Accepted(t *testing.T) {
 
 	err := runDelete("TEST", opts)
 
-	require.NoError(t, err)
-	assert.Equal(t, 2, callCount)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, 2, callCount)
 }
 
 func TestRunDelete_NotFound(t *testing.T) {
@@ -506,6 +505,6 @@ func TestRunDelete_NotFound(t *testing.T) {
 
 	err := runDelete("NONEXISTENT", opts)
 
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "not found")
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "not found")
 }

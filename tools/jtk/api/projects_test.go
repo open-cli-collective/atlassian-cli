@@ -5,9 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"github.com/open-cli-collective/atlassian-go/testutil"
 )
 
 func TestSearchProjects(t *testing.T) {
@@ -54,9 +52,9 @@ func TestSearchProjects(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				assert.Equal(t, "/rest/api/3/project/search", r.URL.Path)
+				testutil.Equal(t, r.URL.Path, "/rest/api/3/project/search")
 				if tt.query != "" {
-					assert.Equal(t, tt.query, r.URL.Query().Get("query"))
+					testutil.Equal(t, r.URL.Query().Get("query"), tt.query)
 				}
 				w.WriteHeader(tt.statusCode)
 				w.Write([]byte(tt.response))
@@ -68,17 +66,17 @@ func TestSearchProjects(t *testing.T) {
 				Email:    "test@example.com",
 				APIToken: "test-token",
 			})
-			require.NoError(t, err)
+			testutil.RequireNoError(t, err)
 			client.BaseURL = server.URL + "/rest/api/3"
 
 			result, err := client.SearchProjects(tt.query, 0, 50)
 			if tt.wantErr {
-				assert.Error(t, err)
+				testutil.Error(t, err)
 				return
 			}
 
-			require.NoError(t, err)
-			assert.Len(t, result.Values, tt.wantCount)
+			testutil.RequireNoError(t, err)
+			testutil.Len(t, result.Values, tt.wantCount)
 		})
 	}
 }
@@ -127,14 +125,14 @@ func TestGetProject(t *testing.T) {
 					Email:    "test@example.com",
 					APIToken: "test-token",
 				})
-				require.NoError(t, err)
+				testutil.RequireNoError(t, err)
 				_, err = client.GetProject("")
-				assert.Error(t, err)
+				testutil.Error(t, err)
 				return
 			}
 
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				assert.Equal(t, "/rest/api/3/project/"+tt.keyOrID, r.URL.Path)
+				testutil.Equal(t, r.URL.Path, "/rest/api/3/project/"+tt.keyOrID)
 				w.WriteHeader(tt.statusCode)
 				w.Write([]byte(tt.response))
 			}))
@@ -145,34 +143,34 @@ func TestGetProject(t *testing.T) {
 				Email:    "test@example.com",
 				APIToken: "test-token",
 			})
-			require.NoError(t, err)
+			testutil.RequireNoError(t, err)
 			client.BaseURL = server.URL + "/rest/api/3"
 
 			project, err := client.GetProject(tt.keyOrID)
 			if tt.wantErr {
-				assert.Error(t, err)
+				testutil.Error(t, err)
 				return
 			}
 
-			require.NoError(t, err)
-			assert.Equal(t, tt.wantKey, project.Key)
-			assert.Equal(t, "John Smith", project.Lead.DisplayName)
+			testutil.RequireNoError(t, err)
+			testutil.Equal(t, project.Key, tt.wantKey)
+			testutil.Equal(t, project.Lead.DisplayName, "John Smith")
 		})
 	}
 }
 
 func TestCreateProject(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, http.MethodPost, r.Method)
-		assert.Equal(t, "/rest/api/3/project", r.URL.Path)
+		testutil.Equal(t, r.Method, http.MethodPost)
+		testutil.Equal(t, r.URL.Path, "/rest/api/3/project")
 
 		var req CreateProjectRequest
 		err := json.NewDecoder(r.Body).Decode(&req)
-		require.NoError(t, err)
-		assert.Equal(t, "TST", req.Key)
-		assert.Equal(t, "Test Project", req.Name)
-		assert.Equal(t, "software", req.ProjectTypeKey)
-		assert.Equal(t, "abc123", req.LeadAccountID)
+		testutil.RequireNoError(t, err)
+		testutil.Equal(t, req.Key, "TST")
+		testutil.Equal(t, req.Name, "Test Project")
+		testutil.Equal(t, req.ProjectTypeKey, "software")
+		testutil.Equal(t, req.LeadAccountID, "abc123")
 
 		w.WriteHeader(http.StatusCreated)
 		json.NewEncoder(w).Encode(ProjectDetail{
@@ -189,7 +187,7 @@ func TestCreateProject(t *testing.T) {
 		Email:    "test@example.com",
 		APIToken: "test-token",
 	})
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 	client.BaseURL = server.URL + "/rest/api/3"
 
 	project, err := client.CreateProject(&CreateProjectRequest{
@@ -198,9 +196,9 @@ func TestCreateProject(t *testing.T) {
 		ProjectTypeKey: "software",
 		LeadAccountID:  "abc123",
 	})
-	require.NoError(t, err)
-	assert.Equal(t, "TST", project.Key)
-	assert.Equal(t, "Test Project", project.Name)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, project.Key, "TST")
+	testutil.Equal(t, project.Name, "Test Project")
 }
 
 func TestCreateProject_NumericID(t *testing.T) {
@@ -218,7 +216,7 @@ func TestCreateProject_NumericID(t *testing.T) {
 		Email:    "test@example.com",
 		APIToken: "test-token",
 	})
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 	client.BaseURL = server.URL + "/rest/api/3"
 
 	project, err := client.CreateProject(&CreateProjectRequest{
@@ -227,20 +225,20 @@ func TestCreateProject_NumericID(t *testing.T) {
 		ProjectTypeKey: "software",
 		LeadAccountID:  "abc123",
 	})
-	require.NoError(t, err)
-	assert.Equal(t, "NEW", project.Key)
-	assert.Equal(t, "10031", project.ID.String())
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, project.Key, "NEW")
+	testutil.Equal(t, project.ID.String(), "10031")
 }
 
 func TestUpdateProject(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, http.MethodPut, r.Method)
-		assert.Equal(t, "/rest/api/3/project/TST", r.URL.Path)
+		testutil.Equal(t, r.Method, http.MethodPut)
+		testutil.Equal(t, r.URL.Path, "/rest/api/3/project/TST")
 
 		var req UpdateProjectRequest
 		err := json.NewDecoder(r.Body).Decode(&req)
-		require.NoError(t, err)
-		assert.Equal(t, "Updated Name", req.Name)
+		testutil.RequireNoError(t, err)
+		testutil.Equal(t, req.Name, "Updated Name")
 
 		json.NewEncoder(w).Encode(ProjectDetail{
 			ID:   json.Number("10001"),
@@ -255,14 +253,14 @@ func TestUpdateProject(t *testing.T) {
 		Email:    "test@example.com",
 		APIToken: "test-token",
 	})
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 	client.BaseURL = server.URL + "/rest/api/3"
 
 	project, err := client.UpdateProject("TST", &UpdateProjectRequest{
 		Name: "Updated Name",
 	})
-	require.NoError(t, err)
-	assert.Equal(t, "Updated Name", project.Name)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, project.Name, "Updated Name")
 }
 
 func TestUpdateProject_EmptyKey(t *testing.T) {
@@ -271,16 +269,16 @@ func TestUpdateProject_EmptyKey(t *testing.T) {
 		Email:    "test@example.com",
 		APIToken: "test-token",
 	})
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	_, err = client.UpdateProject("", &UpdateProjectRequest{Name: "test"})
-	assert.Error(t, err)
+	testutil.Error(t, err)
 }
 
 func TestDeleteProject(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, http.MethodDelete, r.Method)
-		assert.Equal(t, "/rest/api/3/project/TST", r.URL.Path)
+		testutil.Equal(t, r.Method, http.MethodDelete)
+		testutil.Equal(t, r.URL.Path, "/rest/api/3/project/TST")
 		w.WriteHeader(http.StatusNoContent)
 	}))
 	defer server.Close()
@@ -290,11 +288,11 @@ func TestDeleteProject(t *testing.T) {
 		Email:    "test@example.com",
 		APIToken: "test-token",
 	})
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 	client.BaseURL = server.URL + "/rest/api/3"
 
 	err = client.DeleteProject("TST")
-	assert.NoError(t, err)
+	testutil.NoError(t, err)
 }
 
 func TestDeleteProject_EmptyKey(t *testing.T) {
@@ -303,16 +301,16 @@ func TestDeleteProject_EmptyKey(t *testing.T) {
 		Email:    "test@example.com",
 		APIToken: "test-token",
 	})
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	err = client.DeleteProject("")
-	assert.Error(t, err)
+	testutil.Error(t, err)
 }
 
 func TestRestoreProject(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, http.MethodPost, r.Method)
-		assert.Equal(t, "/rest/api/3/project/TST/restore", r.URL.Path)
+		testutil.Equal(t, r.Method, http.MethodPost)
+		testutil.Equal(t, r.URL.Path, "/rest/api/3/project/TST/restore")
 		json.NewEncoder(w).Encode(ProjectDetail{
 			ID:   json.Number("10001"),
 			Key:  "TST",
@@ -326,12 +324,12 @@ func TestRestoreProject(t *testing.T) {
 		Email:    "test@example.com",
 		APIToken: "test-token",
 	})
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 	client.BaseURL = server.URL + "/rest/api/3"
 
 	project, err := client.RestoreProject("TST")
-	require.NoError(t, err)
-	assert.Equal(t, "TST", project.Key)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, project.Key, "TST")
 }
 
 func TestRestoreProject_EmptyKey(t *testing.T) {
@@ -340,15 +338,15 @@ func TestRestoreProject_EmptyKey(t *testing.T) {
 		Email:    "test@example.com",
 		APIToken: "test-token",
 	})
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	_, err = client.RestoreProject("")
-	assert.Error(t, err)
+	testutil.Error(t, err)
 }
 
 func TestListProjectTypes(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/rest/api/3/project/type", r.URL.Path)
+		testutil.Equal(t, r.URL.Path, "/rest/api/3/project/type")
 		json.NewEncoder(w).Encode([]ProjectType{
 			{Key: "software", FormattedKey: "Software"},
 			{Key: "business", FormattedKey: "Business"},
@@ -362,11 +360,11 @@ func TestListProjectTypes(t *testing.T) {
 		Email:    "test@example.com",
 		APIToken: "test-token",
 	})
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 	client.BaseURL = server.URL + "/rest/api/3"
 
 	types, err := client.ListProjectTypes()
-	require.NoError(t, err)
-	assert.Len(t, types, 3)
-	assert.Equal(t, "software", types[0].Key)
+	testutil.RequireNoError(t, err)
+	testutil.Len(t, types, 3)
+	testutil.Equal(t, types[0].Key, "software")
 }

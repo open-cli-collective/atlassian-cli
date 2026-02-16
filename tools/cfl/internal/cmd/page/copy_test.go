@@ -7,8 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"github.com/open-cli-collective/atlassian-go/testutil"
 
 	"github.com/open-cli-collective/confluence-cli/api"
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
@@ -58,8 +57,8 @@ func newTestRootOptions() *root.Options {
 
 func TestRunCopy_Success(t *testing.T) {
 	server := mockCopyServer(t, nil, func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "POST", r.Method)
-		assert.Equal(t, "/rest/api/content/12345/copy", r.URL.Path)
+		testutil.Equal(t, "POST", r.Method)
+		testutil.Equal(t, "/rest/api/content/12345/copy", r.URL.Path)
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{
 			"id": "99999",
@@ -82,7 +81,7 @@ func TestRunCopy_Success(t *testing.T) {
 	}
 
 	err := runCopy("12345", opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 }
 
 func TestRunCopy_InfersSourceSpace(t *testing.T) {
@@ -136,8 +135,8 @@ func TestRunCopy_InfersSourceSpace(t *testing.T) {
 	}
 
 	err := runCopy("12345", opts)
-	require.NoError(t, err)
-	assert.Equal(t, 3, callCount) // GetPage + GetSpace + CopyPage
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, 3, callCount) // GetPage + GetSpace + CopyPage
 }
 
 func TestRunCopy_PageNotFound(t *testing.T) {
@@ -158,8 +157,8 @@ func TestRunCopy_PageNotFound(t *testing.T) {
 	}
 
 	err := runCopy("99999", opts)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to copy page")
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "failed to copy page")
 }
 
 func TestRunCopy_JSONOutput(t *testing.T) {
@@ -187,7 +186,7 @@ func TestRunCopy_JSONOutput(t *testing.T) {
 	}
 
 	err := runCopy("12345", opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 }
 
 func TestRunCopy_InvalidOutputFormat(t *testing.T) {
@@ -203,8 +202,8 @@ func TestRunCopy_InvalidOutputFormat(t *testing.T) {
 	}
 
 	err := runCopy("12345", opts)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid output format")
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "invalid output format")
 }
 
 func TestRunCopy_GetSourcePageFails(t *testing.T) {
@@ -228,8 +227,8 @@ func TestRunCopy_GetSourcePageFails(t *testing.T) {
 	}
 
 	err := runCopy("invalid", opts)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to get source page")
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "failed to get source page")
 }
 
 func TestRunCopy_WithNoAttachments(t *testing.T) {
@@ -257,7 +256,7 @@ func TestRunCopy_WithNoAttachments(t *testing.T) {
 	}
 
 	err := runCopy("12345", opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 }
 
 func TestRunCopy_WithNoLabels(t *testing.T) {
@@ -285,7 +284,7 @@ func TestRunCopy_WithNoLabels(t *testing.T) {
 	}
 
 	err := runCopy("12345", opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 }
 
 func TestRunCopy_PermissionDenied(t *testing.T) {
@@ -306,8 +305,8 @@ func TestRunCopy_PermissionDenied(t *testing.T) {
 	}
 
 	err := runCopy("12345", opts)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to copy page")
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "failed to copy page")
 }
 
 func TestRunCopy_GetSpaceFails(t *testing.T) {
@@ -343,6 +342,6 @@ func TestRunCopy_GetSpaceFails(t *testing.T) {
 	}
 
 	err := runCopy("12345", opts)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to get space")
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "failed to get space")
 }

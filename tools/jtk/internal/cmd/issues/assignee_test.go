@@ -5,10 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
+	"github.com/open-cli-collective/atlassian-go/testutil"
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 )
 
@@ -18,11 +15,11 @@ func TestResolveAssignee_RawAccountID(t *testing.T) {
 		Email:    "test@example.com",
 		APIToken: "token",
 	})
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	id, err := resolveAssignee(client, "61292e4c4f29230069621c5f")
-	require.NoError(t, err)
-	assert.Equal(t, "61292e4c4f29230069621c5f", id)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, id, "61292e4c4f29230069621c5f")
 }
 
 func TestResolveAssignee_Me(t *testing.T) {
@@ -43,11 +40,11 @@ func TestResolveAssignee_Me(t *testing.T) {
 		Email:    "test@example.com",
 		APIToken: "token",
 	})
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	id, err := resolveAssignee(client, "me")
-	require.NoError(t, err)
-	assert.Equal(t, "me-account-id", id)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, id, "me-account-id")
 }
 
 func TestResolveAssignee_MeCaseInsensitive(t *testing.T) {
@@ -68,11 +65,11 @@ func TestResolveAssignee_MeCaseInsensitive(t *testing.T) {
 		Email:    "test@example.com",
 		APIToken: "token",
 	})
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	id, err := resolveAssignee(client, "Me")
-	require.NoError(t, err)
-	assert.Equal(t, "me-account-id", id)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, id, "me-account-id")
 }
 
 func TestResolveAssignee_Email(t *testing.T) {
@@ -92,11 +89,11 @@ func TestResolveAssignee_Email(t *testing.T) {
 		Email:    "test@example.com",
 		APIToken: "token",
 	})
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	id, err := resolveAssignee(client, "user@example.com")
-	require.NoError(t, err)
-	assert.Equal(t, "email-account-id", id)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, id, "email-account-id")
 }
 
 func TestResolveAssignee_EmailNotFound(t *testing.T) {
@@ -114,9 +111,9 @@ func TestResolveAssignee_EmailNotFound(t *testing.T) {
 		Email:    "test@example.com",
 		APIToken: "token",
 	})
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	_, err = resolveAssignee(client, "nobody@example.com")
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "no user found")
+	testutil.Error(t, err)
+	testutil.Contains(t, err.Error(), "no user found")
 }

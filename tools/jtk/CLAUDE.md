@@ -132,7 +132,7 @@ v.JSON(data)
 ## Testing
 
 - Unit tests in `*_test.go` files alongside source
-- Use `testify/assert` for assertions
+- Use `shared/testutil` for assertions (no testify)
 - Table-driven tests for multiple scenarios
 - Use `httptest.NewServer()` to mock API responses
 
@@ -199,4 +199,4 @@ Use `ATLASSIAN_*` for shared credentials across jtk and cfl. Use `JIRA_*` to ove
 Key dependencies:
 - `github.com/spf13/cobra` - CLI framework
 - `github.com/fatih/color` - Colored terminal output
-- `github.com/stretchr/testify` - Testing assertions
+- `shared/testutil` - Testing assertions (stdlib-based, no third-party deps)

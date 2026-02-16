@@ -9,8 +9,7 @@ import (
 	"testing"
 
 	"github.com/spf13/cobra"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"github.com/open-cli-collective/atlassian-go/testutil"
 
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
 	"github.com/open-cli-collective/confluence-cli/internal/config"
@@ -19,15 +18,15 @@ import (
 func TestVerifyConnection_Success(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Verify the request
-		assert.Equal(t, "/api/v2/spaces", r.URL.Path)
-		assert.Equal(t, "1", r.URL.Query().Get("limit"))
-		assert.Equal(t, "application/json", r.Header.Get("Accept"))
+		testutil.Equal(t, "/api/v2/spaces", r.URL.Path)
+		testutil.Equal(t, "1", r.URL.Query().Get("limit"))
+		testutil.Equal(t, "application/json", r.Header.Get("Accept"))
 
 		// Verify basic auth is present
 		user, pass, ok := r.BasicAuth()
-		assert.True(t, ok, "basic auth should be present")
-		assert.Equal(t, "test@example.com", user)
-		assert.Equal(t, "test-token", pass)
+		testutil.True(t, ok, "basic auth should be present")
+		testutil.Equal(t, "test@example.com", user)
+		testutil.Equal(t, "test-token", pass)
 
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"results": []}`))
@@ -41,7 +40,7 @@ func TestVerifyConnection_Success(t *testing.T) {
 	}
 
 	err := verifyConnection(cfg)
-	assert.NoError(t, err)
+	testutil.NoError(t, err)
 }
 
 func TestVerifyConnection_Unauthorized(t *testing.T) {
@@ -58,9 +57,9 @@ func TestVerifyConnection_Unauthorized(t *testing.T) {
 	}
 
 	err := verifyConnection(cfg)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "authentication failed")
-	assert.Contains(t, err.Error(), "email and API token")
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "authentication failed")
+	testutil.Contains(t, err.Error(), "email and API token")
 }
 
 func TestVerifyConnection_Forbidden(t *testing.T) {
@@ -77,9 +76,9 @@ func TestVerifyConnection_Forbidden(t *testing.T) {
 	}
 
 	err := verifyConnection(cfg)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "access denied")
-	assert.Contains(t, err.Error(), "permissions")
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "access denied")
+	testutil.Contains(t, err.Error(), "permissions")
 }
 
 func TestVerifyConnection_ServerError(t *testing.T) {
@@ -95,8 +94,8 @@ func TestVerifyConnection_ServerError(t *testing.T) {
 	}
 
 	err := verifyConnection(cfg)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "unexpected status code: 500")
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "unexpected status code: 500")
 }
 
 func TestVerifyConnection_NetworkError(t *testing.T) {
@@ -107,7 +106,7 @@ func TestVerifyConnection_NetworkError(t *testing.T) {
 	}
 
 	err := verifyConnection(cfg)
-	require.Error(t, err)
+	testutil.RequireError(t, err)
 	// Should fail to connect
 }
 
@@ -170,10 +169,10 @@ func TestVerifyConnection_StatusCodes(t *testing.T) {
 
 			err := verifyConnection(cfg)
 			if tt.wantErr {
-				require.Error(t, err)
-				assert.Contains(t, err.Error(), tt.errContain)
+				testutil.RequireError(t, err)
+				testutil.Contains(t, err.Error(), tt.errContain)
 			} else {
-				assert.NoError(t, err)
+				testutil.NoError(t, err)
 			}
 		})
 	}
@@ -192,16 +191,16 @@ func TestConfigFilePermissions(t *testing.T) {
 
 	// Save the config
 	err := cfg.Save(configPath)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	// Check the file permissions
 	info, err := os.Stat(configPath)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	// On Unix, permissions should be 0600 (user read/write only)
 	// The exact mode includes the file type bits, so we mask with 0777
 	perm := info.Mode().Perm()
-	assert.Equal(t, os.FileMode(0600), perm, "config file should have 0600 permissions")
+	testutil.Equal(t, perm, os.FileMode(0600))
 }
 
 func TestConfigFilePermissions_DirectoryCreation(t *testing.T) {
@@ -217,16 +216,16 @@ func TestConfigFilePermissions_DirectoryCreation(t *testing.T) {
 
 	// Save should create the directory structure
 	err := cfg.Save(configPath)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	// Verify file exists
 	_, err = os.Stat(configPath)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	// Verify directory was created
 	dirInfo, err := os.Stat(filepath.Dir(configPath))
-	require.NoError(t, err)
-	assert.True(t, dirInfo.IsDir())
+	testutil.RequireNoError(t, err)
+	testutil.True(t, dirInfo.IsDir())
 }
 
 func TestInitCommand_Flags(t *testing.T) {
@@ -247,23 +246,23 @@ func TestInitCommand_Flags(t *testing.T) {
 
 	// Find the init command
 	initCmd, _, err := rootCmd.Find([]string{"init"})
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	// Verify command structure
-	assert.Equal(t, "init", initCmd.Use)
-	assert.NotEmpty(t, initCmd.Short)
-	assert.NotEmpty(t, initCmd.Long)
+	testutil.Equal(t, "init", initCmd.Use)
+	testutil.NotEmpty(t, initCmd.Short)
+	testutil.NotEmpty(t, initCmd.Long)
 
 	// Verify flags exist
 	urlFlag := initCmd.Flags().Lookup("url")
-	require.NotNil(t, urlFlag)
-	assert.Equal(t, "", urlFlag.DefValue)
+	testutil.NotNil(t, urlFlag)
+	testutil.Equal(t, "", urlFlag.DefValue)
 
 	emailFlag := initCmd.Flags().Lookup("email")
-	require.NotNil(t, emailFlag)
-	assert.Equal(t, "", emailFlag.DefValue)
+	testutil.NotNil(t, emailFlag)
+	testutil.Equal(t, "", emailFlag.DefValue)
 
 	noVerifyFlag := initCmd.Flags().Lookup("no-verify")
-	require.NotNil(t, noVerifyFlag)
-	assert.Equal(t, "false", noVerifyFlag.DefValue)
+	testutil.NotNil(t, noVerifyFlag)
+	testutil.Equal(t, "false", noVerifyFlag.DefValue)
 }

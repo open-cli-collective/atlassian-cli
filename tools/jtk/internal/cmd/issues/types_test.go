@@ -7,10 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
+	"github.com/open-cli-collective/atlassian-go/testutil"
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 )
@@ -19,18 +16,18 @@ func TestNewTypesCmd(t *testing.T) {
 	opts := &root.Options{}
 	cmd := newTypesCmd(opts)
 
-	assert.Equal(t, "types", cmd.Use)
-	assert.Equal(t, "List valid issue types for a project", cmd.Short)
+	testutil.Equal(t, cmd.Use, "types")
+	testutil.Equal(t, cmd.Short, "List valid issue types for a project")
 
 	// Check that project flag exists and is required
 	projectFlag := cmd.Flags().Lookup("project")
-	require.NotNil(t, projectFlag)
-	assert.Equal(t, "p", projectFlag.Shorthand)
+	testutil.NotNil(t, projectFlag)
+	testutil.Equal(t, projectFlag.Shorthand, "p")
 }
 
 func TestRunTypes_Success(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/rest/api/3/project/TEST", r.URL.Path)
+		testutil.Equal(t, r.URL.Path, "/rest/api/3/project/TEST")
 
 		response := api.ProjectDetail{
 			ID:   json.Number("10000"),
@@ -52,7 +49,7 @@ func TestRunTypes_Success(t *testing.T) {
 		Email:    "test@example.com",
 		APIToken: "token",
 	})
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
 	opts := &root.Options{
@@ -63,13 +60,13 @@ func TestRunTypes_Success(t *testing.T) {
 	opts.SetAPIClient(client)
 
 	err = runTypes(opts, "TEST")
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	output := stdout.String()
-	assert.Contains(t, output, "Bug")
-	assert.Contains(t, output, "Task")
-	assert.Contains(t, output, "Sub-task")
-	assert.Contains(t, output, "yes") // subtask column
+	testutil.Contains(t, output, "Bug")
+	testutil.Contains(t, output, "Task")
+	testutil.Contains(t, output, "Sub-task")
+	testutil.Contains(t, output, "yes") // subtask column
 }
 
 func TestRunTypes_ProjectNotFound(t *testing.T) {
@@ -84,7 +81,7 @@ func TestRunTypes_ProjectNotFound(t *testing.T) {
 		Email:    "test@example.com",
 		APIToken: "token",
 	})
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	opts := &root.Options{
 		Output: "table",
@@ -94,8 +91,8 @@ func TestRunTypes_ProjectNotFound(t *testing.T) {
 	opts.SetAPIClient(client)
 
 	err = runTypes(opts, "INVALID")
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "not found")
+	testutil.Error(t, err)
+	testutil.Contains(t, err.Error(), "not found")
 }
 
 func TestRunTypes_EmptyIssueTypes(t *testing.T) {
@@ -116,7 +113,7 @@ func TestRunTypes_EmptyIssueTypes(t *testing.T) {
 		Email:    "test@example.com",
 		APIToken: "token",
 	})
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
 	opts := &root.Options{
@@ -127,8 +124,8 @@ func TestRunTypes_EmptyIssueTypes(t *testing.T) {
 	opts.SetAPIClient(client)
 
 	err = runTypes(opts, "EMPTY")
-	require.NoError(t, err)
-	assert.Contains(t, stdout.String(), "No issue types found")
+	testutil.RequireNoError(t, err)
+	testutil.Contains(t, stdout.String(), "No issue types found")
 }
 
 func TestRunTypes_JSONOutput(t *testing.T) {
@@ -152,7 +149,7 @@ func TestRunTypes_JSONOutput(t *testing.T) {
 		Email:    "test@example.com",
 		APIToken: "token",
 	})
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
 	opts := &root.Options{
@@ -163,18 +160,18 @@ func TestRunTypes_JSONOutput(t *testing.T) {
 	opts.SetAPIClient(client)
 
 	err = runTypes(opts, "TEST")
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	// Verify JSON output
 	output := stdout.String()
-	assert.True(t, strings.HasPrefix(strings.TrimSpace(output), "["))
+	testutil.True(t, strings.HasPrefix(strings.TrimSpace(output), "["))
 
 	var issueTypes []api.IssueType
 	err = json.Unmarshal([]byte(output), &issueTypes)
-	require.NoError(t, err)
-	assert.Len(t, issueTypes, 2)
-	assert.Equal(t, "Bug", issueTypes[0].Name)
-	assert.Equal(t, "Story", issueTypes[1].Name)
+	testutil.RequireNoError(t, err)
+	testutil.Len(t, issueTypes, 2)
+	testutil.Equal(t, issueTypes[0].Name, "Bug")
+	testutil.Equal(t, issueTypes[1].Name, "Story")
 }
 
 func TestRunTypes_DescriptionTruncation(t *testing.T) {
@@ -199,7 +196,7 @@ func TestRunTypes_DescriptionTruncation(t *testing.T) {
 		Email:    "test@example.com",
 		APIToken: "token",
 	})
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
 	opts := &root.Options{
@@ -210,10 +207,10 @@ func TestRunTypes_DescriptionTruncation(t *testing.T) {
 	opts.SetAPIClient(client)
 
 	err = runTypes(opts, "TEST")
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	output := stdout.String()
 	// Description should be truncated to 60 chars
-	assert.NotContains(t, output, longDesc)
-	assert.Contains(t, output, "...")
+	testutil.NotContains(t, output, longDesc)
+	testutil.Contains(t, output, "...")
 }

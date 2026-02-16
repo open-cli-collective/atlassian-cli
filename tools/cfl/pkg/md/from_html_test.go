@@ -4,8 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"github.com/open-cli-collective/atlassian-go/testutil"
 )
 
 func TestFromConfluenceStorage(t *testing.T) {
@@ -94,8 +93,8 @@ func TestFromConfluenceStorage(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := FromConfluenceStorage(tt.input)
-			require.NoError(t, err)
-			assert.Equal(t, tt.expected, result)
+			testutil.RequireNoError(t, err)
+			testutil.Equal(t, tt.expected, result)
 		})
 	}
 }
@@ -160,9 +159,9 @@ func TestFromConfluenceStorage_ConfluenceCodeMacro(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := FromConfluenceStorage(tt.input)
-			require.NoError(t, err)
+			testutil.RequireNoError(t, err)
 			for _, expected := range tt.contains {
-				assert.Contains(t, result, expected, "should contain: %s", expected)
+				testutil.Contains(t, result, expected)
 			}
 		})
 	}
@@ -216,9 +215,9 @@ func TestFromConfluenceStorage_Tables(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := FromConfluenceStorage(tt.input)
-			require.NoError(t, err)
+			testutil.RequireNoError(t, err)
 			for _, expected := range tt.contains {
-				assert.Contains(t, result, expected, "should contain: %s", expected)
+				testutil.Contains(t, result, expected)
 			}
 		})
 	}
@@ -233,11 +232,11 @@ func TestFromConfluenceStorage_NonCodeMacrosStripped(t *testing.T) {
 	<p>After</p>`
 
 	result, err := FromConfluenceStorage(input)
-	require.NoError(t, err)
-	assert.Contains(t, result, "Before")
-	assert.Contains(t, result, "After")
-	assert.NotContains(t, result, "toc")
-	assert.NotContains(t, result, "maxLevel")
+	testutil.RequireNoError(t, err)
+	testutil.Contains(t, result, "Before")
+	testutil.Contains(t, result, "After")
+	testutil.NotContains(t, result, "toc")
+	testutil.NotContains(t, result, "maxLevel")
 }
 
 func TestFromConfluenceStorage_TOCWithShowMacros(t *testing.T) {
@@ -288,8 +287,8 @@ func TestFromConfluenceStorage_TOCWithShowMacros(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			opts := ConvertOptions{ShowMacros: true}
 			result, err := FromConfluenceStorageWithOptions(tt.input, opts)
-			require.NoError(t, err)
-			assert.Contains(t, result, tt.expected)
+			testutil.RequireNoError(t, err)
+			testutil.Contains(t, result, tt.expected)
 		})
 	}
 }
@@ -367,9 +366,9 @@ func TestFromConfluenceStorage_PanelMacrosWithShowMacros(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			opts := ConvertOptions{ShowMacros: true}
 			result, err := FromConfluenceStorageWithOptions(tt.input, opts)
-			require.NoError(t, err)
+			testutil.RequireNoError(t, err)
 			for _, expected := range tt.contains {
-				assert.Contains(t, result, expected, "should contain: %s", expected)
+				testutil.Contains(t, result, expected)
 			}
 		})
 	}
@@ -391,17 +390,17 @@ func TestFromConfluenceStorage_ComplexDocument(t *testing.T) {
 <p>For more info, see <a href="https://example.com">the docs</a>.</p>`
 
 	result, err := FromConfluenceStorage(input)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	// Verify key elements are present
-	assert.Contains(t, result, "# Project README")
-	assert.Contains(t, result, "**introduction**")
-	assert.Contains(t, result, "## Features")
-	assert.Contains(t, result, "- Feature one")
-	assert.Contains(t, result, "## Code Example")
-	assert.Contains(t, result, "```")
-	assert.Contains(t, result, "fmt.Println")
-	assert.Contains(t, result, "[the docs](https://example.com)")
+	testutil.Contains(t, result, "# Project README")
+	testutil.Contains(t, result, "**introduction**")
+	testutil.Contains(t, result, "## Features")
+	testutil.Contains(t, result, "- Feature one")
+	testutil.Contains(t, result, "## Code Example")
+	testutil.Contains(t, result, "```")
+	testutil.Contains(t, result, "fmt.Println")
+	testutil.Contains(t, result, "[the docs](https://example.com)")
 }
 
 func TestFromConfluenceStorage_NestedMacros(t *testing.T) {
@@ -418,16 +417,16 @@ func TestFromConfluenceStorage_NestedMacros(t *testing.T) {
 
 	opts := ConvertOptions{ShowMacros: true}
 	result, err := FromConfluenceStorageWithOptions(input, opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	// Should have both INFO panel and nested TOC
-	assert.Contains(t, result, "[INFO]")
-	assert.Contains(t, result, "[/INFO]")
-	assert.Contains(t, result, "[TOC maxLevel=2]")
-	assert.Contains(t, result, "# Title")
+	testutil.Contains(t, result, "[INFO]")
+	testutil.Contains(t, result, "[/INFO]")
+	testutil.Contains(t, result, "[TOC maxLevel=2]")
+	testutil.Contains(t, result, "# Title")
 
 	// INFO should not have TOC's parameters
-	assert.NotContains(t, result, "[INFO maxLevel=2]")
+	testutil.NotContains(t, result, "[INFO maxLevel=2]")
 }
 
 // TestXHTMLToMD_NestedMacroPositionPreserved verifies that when converting XHTML back to
@@ -492,11 +491,11 @@ func TestXHTMLToMD_NestedMacroPositionPreserved(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			opts := ConvertOptions{ShowMacros: true}
 			result, err := FromConfluenceStorageWithOptions(tt.input, opts)
-			require.NoError(t, err)
+			testutil.RequireNoError(t, err)
 
 			// Verify all expected strings are present
 			for _, expected := range tt.verifyOrder {
-				assert.Contains(t, result, expected, "should contain: %s", expected)
+				testutil.Contains(t, result, expected)
 			}
 
 			// Verify order: each string should come after the previous one
@@ -514,9 +513,9 @@ func TestXHTMLToMD_NestedMacroPositionPreserved(t *testing.T) {
 			}
 
 			// No placeholders should remain
-			assert.NotContains(t, result, "CFXMLCHILD", "XML child placeholders should be replaced")
-			assert.NotContains(t, result, "CFMACROOPEN", "Macro placeholders should be replaced")
-			assert.NotContains(t, result, "CFMACROCLOSE", "Macro placeholders should be replaced")
+			testutil.NotContains(t, result, "CFXMLCHILD")
+			testutil.NotContains(t, result, "CFMACROOPEN")
+			testutil.NotContains(t, result, "CFMACROCLOSE")
 		})
 	}
 }
@@ -539,18 +538,18 @@ func TestXHTMLToMD_NestedMacroOrderPreserved(t *testing.T) {
 
 	opts := ConvertOptions{ShowMacros: true}
 	result, err := FromConfluenceStorageWithOptions(input, opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	beforeIdx := strings.Index(result, "Before")
 	tocIdx := strings.Index(result, "[TOC]")
 	afterIdx := strings.Index(result, "After")
 
-	assert.True(t, beforeIdx >= 0, "Before should be found")
-	assert.True(t, tocIdx >= 0, "[TOC] should be found")
-	assert.True(t, afterIdx >= 0, "After should be found")
+	testutil.True(t, beforeIdx >= 0, "Before should be found")
+	testutil.True(t, tocIdx >= 0, "[TOC] should be found")
+	testutil.True(t, afterIdx >= 0, "After should be found")
 
-	assert.True(t, beforeIdx < tocIdx, "Before should come before [TOC]")
-	assert.True(t, tocIdx < afterIdx, "[TOC] should come before After")
+	testutil.True(t, beforeIdx < tocIdx, "Before should come before [TOC]")
+	testutil.True(t, tocIdx < afterIdx, "[TOC] should come before After")
 }
 
 // TestFromConfluenceStorage_NestedMacroInParagraph tests the exact bug scenario from issue #56.
@@ -567,25 +566,25 @@ func TestFromConfluenceStorage_NestedMacroInParagraph(t *testing.T) {
 
 	opts := ConvertOptions{ShowMacros: true}
 	result, err := FromConfluenceStorageWithOptions(input, opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	// Should contain both INFO and TOC macros without "unclosed macro" warning
-	assert.Contains(t, result, "[INFO]", "should contain [INFO] macro")
-	assert.Contains(t, result, "[TOC]", "should contain [TOC] macro")
-	assert.Contains(t, result, "[/INFO]", "should contain [/INFO] close tag")
-	assert.Contains(t, result, "# Header 1", "should contain header")
+	testutil.Contains(t, result, "[INFO]")
+	testutil.Contains(t, result, "[TOC]")
+	testutil.Contains(t, result, "[/INFO]")
+	testutil.Contains(t, result, "# Header 1")
 
 	// TOC should be inside INFO (between [INFO] and [/INFO])
 	infoStart := strings.Index(result, "[INFO]")
 	tocPos := strings.Index(result, "[TOC]")
 	infoEnd := strings.Index(result, "[/INFO]")
 
-	assert.True(t, infoStart >= 0, "[INFO] should be found")
-	assert.True(t, tocPos >= 0, "[TOC] should be found")
-	assert.True(t, infoEnd >= 0, "[/INFO] should be found")
+	testutil.True(t, infoStart >= 0, "[INFO] should be found")
+	testutil.True(t, tocPos >= 0, "[TOC] should be found")
+	testutil.True(t, infoEnd >= 0, "[/INFO] should be found")
 
-	assert.True(t, infoStart < tocPos, "[INFO] should come before [TOC]")
-	assert.True(t, tocPos < infoEnd, "[TOC] should come before [/INFO]")
+	testutil.True(t, infoStart < tocPos, "[INFO] should come before [TOC]")
+	testutil.True(t, tocPos < infoEnd, "[TOC] should come before [/INFO]")
 }
 
 // TestFromConfluenceStorage_MultipleSelfClosingNestedMacros tests multiple self-closing
@@ -603,15 +602,15 @@ func TestFromConfluenceStorage_MultipleSelfClosingNestedMacros(t *testing.T) {
 
 	opts := ConvertOptions{ShowMacros: true}
 	result, err := FromConfluenceStorageWithOptions(input, opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	// All macros should be present
-	assert.Contains(t, result, "[INFO]")
-	assert.Contains(t, result, "[TOC]")
-	assert.Contains(t, result, "[/INFO]")
+	testutil.Contains(t, result, "[INFO]")
+	testutil.Contains(t, result, "[TOC]")
+	testutil.Contains(t, result, "[/INFO]")
 
 	// Content should be preserved
-	assert.Contains(t, result, "First paragraph")
-	assert.Contains(t, result, "Middle text")
-	assert.Contains(t, result, "Last paragraph")
+	testutil.Contains(t, result, "First paragraph")
+	testutil.Contains(t, result, "Middle text")
+	testutil.Contains(t, result, "Last paragraph")
 }

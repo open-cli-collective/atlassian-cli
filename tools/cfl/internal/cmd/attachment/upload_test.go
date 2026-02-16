@@ -8,8 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"github.com/open-cli-collective/atlassian-go/testutil"
 
 	"github.com/open-cli-collective/confluence-cli/api"
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
@@ -29,11 +28,11 @@ func TestRunUpload_Success(t *testing.T) {
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "upload.txt")
 	err := os.WriteFile(testFile, []byte("test content"), 0644)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "POST", r.Method)
-		assert.Contains(t, r.URL.Path, "/child/attachment")
+		testutil.Equal(t, "POST", r.Method)
+		testutil.Contains(t, r.URL.Path, "/child/attachment")
 
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{
@@ -58,19 +57,19 @@ func TestRunUpload_Success(t *testing.T) {
 	}
 
 	err = runUpload(opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 }
 
 func TestRunUpload_WithComment(t *testing.T) {
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "upload.txt")
 	err := os.WriteFile(testFile, []byte("test content"), 0644)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	var receivedComment string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		err := r.ParseMultipartForm(10 << 20)
-		require.NoError(t, err)
+		testutil.RequireNoError(t, err)
 		receivedComment = r.FormValue("comment")
 
 		w.WriteHeader(http.StatusOK)
@@ -97,8 +96,8 @@ func TestRunUpload_WithComment(t *testing.T) {
 	}
 
 	err = runUpload(opts)
-	require.NoError(t, err)
-	assert.Equal(t, "My upload comment", receivedComment)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "My upload comment", receivedComment)
 }
 
 func TestRunUpload_FileNotFound(t *testing.T) {
@@ -113,15 +112,15 @@ func TestRunUpload_FileNotFound(t *testing.T) {
 	}
 
 	err := runUpload(opts)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to open file")
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "failed to open file")
 }
 
 func TestRunUpload_APIError(t *testing.T) {
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "upload.txt")
 	err := os.WriteFile(testFile, []byte("test content"), 0644)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusForbidden)
@@ -140,15 +139,15 @@ func TestRunUpload_APIError(t *testing.T) {
 	}
 
 	err = runUpload(opts)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to upload attachment")
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "failed to upload attachment")
 }
 
 func TestRunUpload_JSONOutput(t *testing.T) {
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "upload.txt")
 	err := os.WriteFile(testFile, []byte("test content"), 0644)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -175,5 +174,5 @@ func TestRunUpload_JSONOutput(t *testing.T) {
 	}
 
 	err = runUpload(opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 }

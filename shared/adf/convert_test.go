@@ -2,30 +2,30 @@ package adf
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"github.com/open-cli-collective/atlassian-go/testutil"
 )
 
 func TestToJSON_Paragraph(t *testing.T) {
 	input := "Hello world"
 	result, err := ToJSON([]byte(input))
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	var doc Document
 	err = json.Unmarshal([]byte(result), &doc)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
-	assert.Equal(t, "doc", doc.Type)
-	assert.Equal(t, 1, doc.Version)
-	require.Len(t, doc.Content, 1)
+	testutil.Equal(t, doc.Type, "doc")
+	testutil.Equal(t, doc.Version, 1)
+	testutil.RequireEqual(t, len(doc.Content), 1)
 
 	para := doc.Content[0]
-	assert.Equal(t, "paragraph", para.Type)
-	require.Len(t, para.Content, 1)
-	assert.Equal(t, "text", para.Content[0].Type)
-	assert.Equal(t, "Hello world", para.Content[0].Text)
+	testutil.Equal(t, para.Type, "paragraph")
+	testutil.RequireEqual(t, len(para.Content), 1)
+	testutil.Equal(t, para.Content[0].Type, "text")
+	testutil.Equal(t, para.Content[0].Text, "Hello world")
 }
 
 func TestToJSON_Headings(t *testing.T) {
@@ -46,18 +46,18 @@ func TestToJSON_Headings(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := ToJSON([]byte(tt.markdown))
-			require.NoError(t, err)
+			testutil.RequireNoError(t, err)
 
 			var doc Document
 			err = json.Unmarshal([]byte(result), &doc)
-			require.NoError(t, err)
+			testutil.RequireNoError(t, err)
 
-			require.Len(t, doc.Content, 1)
+			testutil.RequireEqual(t, len(doc.Content), 1)
 			heading := doc.Content[0]
-			assert.Equal(t, "heading", heading.Type)
-			assert.EqualValues(t, tt.level, heading.Attrs["level"])
-			require.Len(t, heading.Content, 1)
-			assert.Equal(t, tt.text, heading.Content[0].Text)
+			testutil.Equal(t, heading.Type, "heading")
+			testutil.Equal(t, heading.Attrs["level"], float64(tt.level))
+			testutil.RequireEqual(t, len(heading.Content), 1)
+			testutil.Equal(t, heading.Content[0].Text, tt.text)
 		})
 	}
 }
@@ -77,15 +77,15 @@ func TestToJSON_Formatting(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := ToJSON([]byte(tt.markdown))
-			require.NoError(t, err)
+			testutil.RequireNoError(t, err)
 
 			var doc Document
 			err = json.Unmarshal([]byte(result), &doc)
-			require.NoError(t, err)
+			testutil.RequireNoError(t, err)
 
-			require.Len(t, doc.Content, 1)
+			testutil.RequireEqual(t, len(doc.Content), 1)
 			para := doc.Content[0]
-			assert.Equal(t, "paragraph", para.Type)
+			testutil.Equal(t, para.Type, "paragraph")
 
 			var foundMark bool
 			for _, node := range para.Content {
@@ -98,7 +98,7 @@ func TestToJSON_Formatting(t *testing.T) {
 					}
 				}
 			}
-			assert.True(t, foundMark, "expected to find mark %s", tt.mark)
+			testutil.True(t, foundMark, fmt.Sprintf("expected to find mark %s", tt.mark))
 		})
 	}
 }
@@ -106,13 +106,13 @@ func TestToJSON_Formatting(t *testing.T) {
 func TestToJSON_Links(t *testing.T) {
 	input := "[Example](https://example.com)"
 	result, err := ToJSON([]byte(input))
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	var doc Document
 	err = json.Unmarshal([]byte(result), &doc)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
-	require.Len(t, doc.Content, 1)
+	testutil.RequireEqual(t, len(doc.Content), 1)
 	para := doc.Content[0]
 
 	var foundLink bool
@@ -120,53 +120,53 @@ func TestToJSON_Links(t *testing.T) {
 		for _, mark := range node.Marks {
 			if mark.Type == "link" {
 				foundLink = true
-				assert.Equal(t, "https://example.com", mark.Attrs["href"])
-				assert.Equal(t, "Example", node.Text)
+				testutil.Equal(t, mark.Attrs["href"], "https://example.com")
+				testutil.Equal(t, node.Text, "Example")
 			}
 		}
 	}
-	assert.True(t, foundLink, "expected to find link mark")
+	testutil.True(t, foundLink, "expected to find link mark")
 }
 
 func TestToJSON_BulletList(t *testing.T) {
 	input := "- Item one\n- Item two\n- Item three"
 	result, err := ToJSON([]byte(input))
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	var doc Document
 	err = json.Unmarshal([]byte(result), &doc)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
-	require.Len(t, doc.Content, 1)
+	testutil.RequireEqual(t, len(doc.Content), 1)
 	list := doc.Content[0]
-	assert.Equal(t, "bulletList", list.Type)
-	assert.Len(t, list.Content, 3)
+	testutil.Equal(t, list.Type, "bulletList")
+	testutil.Len(t, list.Content, 3)
 
 	for i, item := range list.Content {
-		assert.Equal(t, "listItem", item.Type)
-		require.Len(t, item.Content, 1)
+		testutil.Equal(t, item.Type, "listItem")
+		testutil.RequireEqual(t, len(item.Content), 1)
 		para := item.Content[0]
-		assert.Equal(t, "paragraph", para.Type)
+		testutil.Equal(t, para.Type, "paragraph")
 		expected := []string{"Item one", "Item two", "Item three"}[i]
-		require.Len(t, para.Content, 1)
-		assert.Equal(t, expected, para.Content[0].Text)
+		testutil.RequireEqual(t, len(para.Content), 1)
+		testutil.Equal(t, para.Content[0].Text, expected)
 	}
 }
 
 func TestToJSON_OrderedList(t *testing.T) {
 	input := "1. First\n2. Second\n3. Third"
 	result, err := ToJSON([]byte(input))
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	var doc Document
 	err = json.Unmarshal([]byte(result), &doc)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
-	require.Len(t, doc.Content, 1)
+	testutil.RequireEqual(t, len(doc.Content), 1)
 	list := doc.Content[0]
-	assert.Equal(t, "orderedList", list.Type)
-	assert.EqualValues(t, 1, list.Attrs["order"])
-	assert.Len(t, list.Content, 3)
+	testutil.Equal(t, list.Type, "orderedList")
+	testutil.Equal(t, list.Attrs["order"], float64(1))
+	testutil.Len(t, list.Content, 3)
 }
 
 func TestToJSON_CodeBlock(t *testing.T) {
@@ -199,22 +199,22 @@ func TestToJSON_CodeBlock(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := ToJSON([]byte(tt.markdown))
-			require.NoError(t, err)
+			testutil.RequireNoError(t, err)
 
 			var doc Document
 			err = json.Unmarshal([]byte(result), &doc)
-			require.NoError(t, err)
+			testutil.RequireNoError(t, err)
 
-			require.Len(t, doc.Content, 1)
+			testutil.RequireEqual(t, len(doc.Content), 1)
 			block := doc.Content[0]
-			assert.Equal(t, "codeBlock", block.Type)
+			testutil.Equal(t, block.Type, "codeBlock")
 
 			if tt.language != "" {
-				assert.Equal(t, tt.language, block.Attrs["language"])
+				testutil.Equal(t, block.Attrs["language"], tt.language)
 			}
 
-			require.Len(t, block.Content, 1)
-			assert.Equal(t, tt.code, block.Content[0].Text)
+			testutil.RequireEqual(t, len(block.Content), 1)
+			testutil.Equal(t, block.Content[0].Text, tt.code)
 		})
 	}
 }
@@ -222,108 +222,108 @@ func TestToJSON_CodeBlock(t *testing.T) {
 func TestToJSON_Blockquote(t *testing.T) {
 	input := "> This is a quote"
 	result, err := ToJSON([]byte(input))
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	var doc Document
 	err = json.Unmarshal([]byte(result), &doc)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
-	require.Len(t, doc.Content, 1)
+	testutil.RequireEqual(t, len(doc.Content), 1)
 	quote := doc.Content[0]
-	assert.Equal(t, "blockquote", quote.Type)
-	require.Len(t, quote.Content, 1)
-	assert.Equal(t, "paragraph", quote.Content[0].Type)
+	testutil.Equal(t, quote.Type, "blockquote")
+	testutil.RequireEqual(t, len(quote.Content), 1)
+	testutil.Equal(t, quote.Content[0].Type, "paragraph")
 }
 
 func TestToJSON_HorizontalRule(t *testing.T) {
 	input := "Above\n\n---\n\nBelow"
 	result, err := ToJSON([]byte(input))
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	var doc Document
 	err = json.Unmarshal([]byte(result), &doc)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
-	assert.Len(t, doc.Content, 3)
-	assert.Equal(t, "paragraph", doc.Content[0].Type)
-	assert.Equal(t, "rule", doc.Content[1].Type)
-	assert.Equal(t, "paragraph", doc.Content[2].Type)
+	testutil.Len(t, doc.Content, 3)
+	testutil.Equal(t, doc.Content[0].Type, "paragraph")
+	testutil.Equal(t, doc.Content[1].Type, "rule")
+	testutil.Equal(t, doc.Content[2].Type, "paragraph")
 }
 
 func TestToJSON_Table(t *testing.T) {
 	input := "| Header 1 | Header 2 |\n|----------|----------|\n| Cell 1   | Cell 2   |"
 	result, err := ToJSON([]byte(input))
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	var doc Document
 	err = json.Unmarshal([]byte(result), &doc)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
-	require.Len(t, doc.Content, 1)
+	testutil.RequireEqual(t, len(doc.Content), 1)
 	table := doc.Content[0]
-	assert.Equal(t, "table", table.Type)
-	assert.Len(t, table.Content, 2)
+	testutil.Equal(t, table.Type, "table")
+	testutil.Len(t, table.Content, 2)
 
 	headerRow := table.Content[0]
-	assert.Equal(t, "tableRow", headerRow.Type)
-	assert.Len(t, headerRow.Content, 2)
-	assert.Equal(t, "tableHeader", headerRow.Content[0].Type)
+	testutil.Equal(t, headerRow.Type, "tableRow")
+	testutil.Len(t, headerRow.Content, 2)
+	testutil.Equal(t, headerRow.Content[0].Type, "tableHeader")
 
 	dataRow := table.Content[1]
-	assert.Equal(t, "tableRow", dataRow.Type)
-	assert.Len(t, dataRow.Content, 2)
-	assert.Equal(t, "tableCell", dataRow.Content[0].Type)
+	testutil.Equal(t, dataRow.Type, "tableRow")
+	testutil.Len(t, dataRow.Content, 2)
+	testutil.Equal(t, dataRow.Content[0].Type, "tableCell")
 }
 
 func TestToJSON_EmptyInput(t *testing.T) {
 	result, err := ToJSON([]byte(""))
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	var doc Document
 	err = json.Unmarshal([]byte(result), &doc)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
-	assert.Equal(t, "doc", doc.Type)
-	assert.Equal(t, 1, doc.Version)
-	assert.Empty(t, doc.Content)
+	testutil.Equal(t, doc.Type, "doc")
+	testutil.Equal(t, doc.Version, 1)
+	testutil.Empty(t, doc.Content)
 }
 
 func TestToJSON_NestedList(t *testing.T) {
 	input := "- Item one\n  - Nested one\n  - Nested two\n- Item two"
 	result, err := ToJSON([]byte(input))
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	var doc Document
 	err = json.Unmarshal([]byte(result), &doc)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
-	require.Len(t, doc.Content, 1)
+	testutil.RequireEqual(t, len(doc.Content), 1)
 	list := doc.Content[0]
-	assert.Equal(t, "bulletList", list.Type)
+	testutil.Equal(t, list.Type, "bulletList")
 
 	firstItem := list.Content[0]
-	assert.Equal(t, "listItem", firstItem.Type)
+	testutil.Equal(t, firstItem.Type, "listItem")
 
 	var foundNestedList bool
 	for _, child := range firstItem.Content {
 		if child.Type == "bulletList" {
 			foundNestedList = true
-			assert.Len(t, child.Content, 2)
+			testutil.Len(t, child.Content, 2)
 		}
 	}
-	assert.True(t, foundNestedList, "expected nested bullet list")
+	testutil.True(t, foundNestedList, "expected nested bullet list")
 }
 
 func TestToJSON_BoldAndItalicCombined(t *testing.T) {
 	input := "***bold and italic***"
 	result, err := ToJSON([]byte(input))
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	var doc Document
 	err = json.Unmarshal([]byte(result), &doc)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
-	require.Len(t, doc.Content, 1)
+	testutil.RequireEqual(t, len(doc.Content), 1)
 	para := doc.Content[0]
 
 	var foundStrong, foundEm bool
@@ -337,8 +337,8 @@ func TestToJSON_BoldAndItalicCombined(t *testing.T) {
 			}
 		}
 	}
-	assert.True(t, foundStrong, "expected strong mark")
-	assert.True(t, foundEm, "expected em mark")
+	testutil.True(t, foundStrong, "expected strong mark")
+	testutil.True(t, foundEm, "expected em mark")
 }
 
 func TestToJSON_OutputIsValidJSON(t *testing.T) {
@@ -352,79 +352,79 @@ func TestToJSON_OutputIsValidJSON(t *testing.T) {
 
 	for _, input := range inputs {
 		result, err := ToJSON([]byte(input))
-		require.NoError(t, err)
+		testutil.RequireNoError(t, err)
 
 		var parsed map[string]interface{}
 		err = json.Unmarshal([]byte(result), &parsed)
-		require.NoError(t, err, "Output should be valid JSON for input: %s", input)
+		testutil.RequireNoError(t, err)
 
-		assert.Equal(t, "doc", parsed["type"])
-		assert.EqualValues(t, 1, parsed["version"])
+		testutil.Equal(t, parsed["type"], "doc")
+		testutil.Equal(t, parsed["version"], float64(1))
 	}
 }
 
 func TestToJSON_Images_AltText(t *testing.T) {
 	input := "![Alt text](https://example.com/image.png)"
 	result, err := ToJSON([]byte(input))
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	var doc Document
 	err = json.Unmarshal([]byte(result), &doc)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
-	require.Len(t, doc.Content, 1)
+	testutil.RequireEqual(t, len(doc.Content), 1)
 	para := doc.Content[0]
-	assert.Equal(t, "paragraph", para.Type)
-	require.Len(t, para.Content, 1)
-	assert.Equal(t, "Alt text", para.Content[0].Text)
+	testutil.Equal(t, para.Type, "paragraph")
+	testutil.RequireEqual(t, len(para.Content), 1)
+	testutil.Equal(t, para.Content[0].Text, "Alt text")
 }
 
 func TestToJSON_WhitespaceInCodeBlock(t *testing.T) {
 	input := "```\n    indented code\n        more indented\n```"
 	result, err := ToJSON([]byte(input))
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	var doc Document
 	err = json.Unmarshal([]byte(result), &doc)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
-	require.Len(t, doc.Content, 1)
+	testutil.RequireEqual(t, len(doc.Content), 1)
 	block := doc.Content[0]
-	assert.Equal(t, "codeBlock", block.Type)
-	require.Len(t, block.Content, 1)
+	testutil.Equal(t, block.Type, "codeBlock")
+	testutil.RequireEqual(t, len(block.Content), 1)
 
 	text := block.Content[0].Text
-	assert.Contains(t, text, "    indented")
-	assert.Contains(t, text, "        more indented")
+	testutil.Contains(t, text, "    indented")
+	testutil.Contains(t, text, "        more indented")
 }
 
 func TestToJSON_NestedBlockquote(t *testing.T) {
 	input := "> Quote with **bold** text\n>\n> And a list:\n> - Item 1\n> - Item 2"
 	result, err := ToJSON([]byte(input))
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	var doc Document
 	err = json.Unmarshal([]byte(result), &doc)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
-	require.Len(t, doc.Content, 1)
+	testutil.RequireEqual(t, len(doc.Content), 1)
 	quote := doc.Content[0]
-	assert.Equal(t, "blockquote", quote.Type)
-	assert.True(t, len(quote.Content) > 0, "blockquote should have content")
+	testutil.Equal(t, quote.Type, "blockquote")
+	testutil.True(t, len(quote.Content) > 0, "blockquote should have content")
 }
 
 func TestToJSON_HardLineBreak(t *testing.T) {
 	input := "Line one  \nLine two"
 	result, err := ToJSON([]byte(input))
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	var doc Document
 	err = json.Unmarshal([]byte(result), &doc)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
-	require.Len(t, doc.Content, 1)
+	testutil.RequireEqual(t, len(doc.Content), 1)
 	para := doc.Content[0]
-	assert.Equal(t, "paragraph", para.Type)
+	testutil.Equal(t, para.Type, "paragraph")
 
 	var foundBreak bool
 	for _, node := range para.Content {
@@ -433,19 +433,19 @@ func TestToJSON_HardLineBreak(t *testing.T) {
 			break
 		}
 	}
-	assert.True(t, foundBreak, "expected hardBreak node")
+	testutil.True(t, foundBreak, "expected hardBreak node")
 }
 
 func TestToJSON_InlineCodePreservesContent(t *testing.T) {
 	input := "Use `fmt.Println()` to print"
 	result, err := ToJSON([]byte(input))
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	var doc Document
 	err = json.Unmarshal([]byte(result), &doc)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
-	require.Len(t, doc.Content, 1)
+	testutil.RequireEqual(t, len(doc.Content), 1)
 	para := doc.Content[0]
 
 	var foundCode bool
@@ -453,73 +453,73 @@ func TestToJSON_InlineCodePreservesContent(t *testing.T) {
 		for _, mark := range node.Marks {
 			if mark.Type == "code" {
 				foundCode = true
-				assert.Equal(t, "fmt.Println()", node.Text)
+				testutil.Equal(t, node.Text, "fmt.Println()")
 			}
 		}
 	}
-	assert.True(t, foundCode, "expected code mark")
+	testutil.True(t, foundCode, "expected code mark")
 }
 
 func TestToDocument_Empty(t *testing.T) {
 	doc := ToDocument("")
-	assert.Nil(t, doc)
+	testutil.Nil(t, doc)
 }
 
 func TestToDocument_PlainText(t *testing.T) {
 	doc := ToDocument("Hello world")
-	require.NotNil(t, doc)
-	assert.Equal(t, "doc", doc.Type)
-	assert.Equal(t, 1, doc.Version)
-	require.Len(t, doc.Content, 1)
-	assert.Equal(t, "paragraph", doc.Content[0].Type)
-	require.Len(t, doc.Content[0].Content, 1)
-	assert.Equal(t, "Hello world", doc.Content[0].Content[0].Text)
+	testutil.NotNil(t, doc)
+	testutil.Equal(t, doc.Type, "doc")
+	testutil.Equal(t, doc.Version, 1)
+	testutil.RequireEqual(t, len(doc.Content), 1)
+	testutil.Equal(t, doc.Content[0].Type, "paragraph")
+	testutil.RequireEqual(t, len(doc.Content[0].Content), 1)
+	testutil.Equal(t, doc.Content[0].Content[0].Text, "Hello world")
 }
 
 func TestToDocument_ToPlainText(t *testing.T) {
 	doc := ToDocument("# Title\n\nSome text\n\n- Item 1\n- Item 2")
-	require.NotNil(t, doc)
+	testutil.NotNil(t, doc)
 
 	text := doc.ToPlainText()
-	assert.Contains(t, text, "Title")
-	assert.Contains(t, text, "Some text")
-	assert.Contains(t, text, "Item 1")
-	assert.Contains(t, text, "Item 2")
+	testutil.Contains(t, text, "Title")
+	testutil.Contains(t, text, "Some text")
+	testutil.Contains(t, text, "Item 1")
+	testutil.Contains(t, text, "Item 2")
 }
 
 func TestToPlainText_Nil(t *testing.T) {
 	var doc *Document
-	assert.Equal(t, "", doc.ToPlainText())
+	testutil.Equal(t, doc.ToPlainText(), "")
 }
 
 func TestToJSON_IndentedCodeBlock(t *testing.T) {
 	input := "    code line one\n    code line two"
 	result, err := ToJSON([]byte(input))
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	var doc Document
 	err = json.Unmarshal([]byte(result), &doc)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
-	require.Len(t, doc.Content, 1)
+	testutil.RequireEqual(t, len(doc.Content), 1)
 	block := doc.Content[0]
-	assert.Equal(t, "codeBlock", block.Type)
-	assert.Nil(t, block.Attrs, "indented code blocks should have no language attr")
-	require.Len(t, block.Content, 1)
-	assert.Contains(t, block.Content[0].Text, "code line one")
-	assert.Contains(t, block.Content[0].Text, "code line two")
+	testutil.Equal(t, block.Type, "codeBlock")
+	testutil.Nil(t, block.Attrs)
+	testutil.RequireEqual(t, len(block.Content), 1)
+	testutil.Contains(t, block.Content[0].Text, "code line one")
+	testutil.Contains(t, block.Content[0].Text, "code line two")
 }
 
 func TestToJSON_AutoLink(t *testing.T) {
 	input := "Visit <https://example.com> for info"
 	result, err := ToJSON([]byte(input))
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	var doc Document
 	err = json.Unmarshal([]byte(result), &doc)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
-	require.Len(t, doc.Content, 1)
+	testutil.RequireEqual(t, len(doc.Content), 1)
 	para := doc.Content[0]
 
 	var foundAutoLink bool
@@ -527,24 +527,24 @@ func TestToJSON_AutoLink(t *testing.T) {
 		for _, mark := range node.Marks {
 			if mark.Type == "link" {
 				foundAutoLink = true
-				assert.Equal(t, "https://example.com", mark.Attrs["href"])
-				assert.Equal(t, "https://example.com", node.Text)
+				testutil.Equal(t, mark.Attrs["href"], "https://example.com")
+				testutil.Equal(t, node.Text, "https://example.com")
 			}
 		}
 	}
-	assert.True(t, foundAutoLink, "expected to find auto-linked URL")
+	testutil.True(t, foundAutoLink, "expected to find auto-linked URL")
 }
 
 func TestToJSON_RawHTMLDropped(t *testing.T) {
 	input := "Before <span>raw</span> after"
 	result, err := ToJSON([]byte(input))
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	var doc Document
 	err = json.Unmarshal([]byte(result), &doc)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
-	require.Len(t, doc.Content, 1)
+	testutil.RequireEqual(t, len(doc.Content), 1)
 	para := doc.Content[0]
 
 	// Raw HTML should be dropped; surrounding text should remain
@@ -552,9 +552,9 @@ func TestToJSON_RawHTMLDropped(t *testing.T) {
 	for _, node := range para.Content {
 		allText += node.Text
 	}
-	assert.Contains(t, allText, "Before")
-	assert.Contains(t, allText, "after")
-	assert.NotContains(t, allText, "<span>")
+	testutil.Contains(t, allText, "Before")
+	testutil.Contains(t, allText, "after")
+	testutil.NotContains(t, allText, "<span>")
 }
 
 func TestSplitLines(t *testing.T) {
@@ -573,7 +573,7 @@ func TestSplitLines(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := splitLines(tt.input)
-			assert.Equal(t, tt.want, got)
+			testutil.Equal(t, got, tt.want)
 		})
 	}
 }
@@ -593,7 +593,7 @@ func TestToPlainText_CodeBlock(t *testing.T) {
 	}
 
 	text := doc.ToPlainText()
-	assert.Contains(t, text, "fmt.Println()")
+	testutil.Contains(t, text, "fmt.Println()")
 }
 
 func TestToPlainText_Blockquote(t *testing.T) {
@@ -616,7 +616,7 @@ func TestToPlainText_Blockquote(t *testing.T) {
 	}
 
 	text := doc.ToPlainText()
-	assert.Contains(t, text, "> Quoted")
+	testutil.Contains(t, text, "> Quoted")
 }
 
 func TestToPlainText_Rule(t *testing.T) {
@@ -629,7 +629,7 @@ func TestToPlainText_Rule(t *testing.T) {
 	}
 
 	text := doc.ToPlainText()
-	assert.Contains(t, text, "---")
+	testutil.Contains(t, text, "---")
 }
 
 func TestToPlainText_UnknownNodeType(t *testing.T) {
@@ -642,7 +642,7 @@ func TestToPlainText_UnknownNodeType(t *testing.T) {
 	}
 
 	text := doc.ToPlainText()
-	assert.Contains(t, text, "fallback text")
+	testutil.Contains(t, text, "fallback text")
 }
 
 func TestToPlainText_UnknownNodeWithChildren(t *testing.T) {
@@ -665,5 +665,5 @@ func TestToPlainText_UnknownNodeWithChildren(t *testing.T) {
 	}
 
 	text := doc.ToPlainText()
-	assert.Contains(t, text, "inner")
+	testutil.Contains(t, text, "inner")
 }

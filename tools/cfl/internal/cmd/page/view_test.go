@@ -8,8 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"github.com/open-cli-collective/atlassian-go/testutil"
 
 	"github.com/open-cli-collective/confluence-cli/api"
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
@@ -26,9 +25,9 @@ func newViewTestRootOptions() *root.Options {
 
 func TestRunView_Success(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Contains(t, r.URL.Path, "/pages/12345")
-		assert.Equal(t, "GET", r.Method)
-		assert.Equal(t, "storage", r.URL.Query().Get("body-format"), "must request body-format=storage to get page content")
+		testutil.Contains(t, r.URL.Path, "/pages/12345")
+		testutil.Equal(t, "GET", r.Method)
+		testutil.Equal(t, "storage", r.URL.Query().Get("body-format"))
 
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{
@@ -50,11 +49,11 @@ func TestRunView_Success(t *testing.T) {
 	}
 
 	err := runView("12345", opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	stdout := rootOpts.Stdout.(*bytes.Buffer)
-	assert.Contains(t, stdout.String(), "Hello", "should render storage content")
-	assert.Contains(t, stdout.String(), "World", "should render bold text")
+	testutil.Contains(t, stdout.String(), "Hello")
+	testutil.Contains(t, stdout.String(), "World")
 }
 
 func TestRunView_RawFormat(t *testing.T) {
@@ -80,10 +79,10 @@ func TestRunView_RawFormat(t *testing.T) {
 	}
 
 	err := runView("12345", opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	stdout := rootOpts.Stdout.(*bytes.Buffer)
-	assert.Contains(t, stdout.String(), "<p>Raw HTML Content</p>", "should output raw storage HTML")
+	testutil.Contains(t, stdout.String(), "<p>Raw HTML Content</p>")
 }
 
 func TestRunView_JSONOutput(t *testing.T) {
@@ -109,7 +108,7 @@ func TestRunView_JSONOutput(t *testing.T) {
 	}
 
 	err := runView("12345", opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 }
 
 func TestRunView_PageNotFound(t *testing.T) {
@@ -128,8 +127,8 @@ func TestRunView_PageNotFound(t *testing.T) {
 	}
 
 	err := runView("99999", opts)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to get page")
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "failed to get page")
 }
 
 func TestRunView_EmptyContent(t *testing.T) {
@@ -153,7 +152,7 @@ func TestRunView_EmptyContent(t *testing.T) {
 	}
 
 	err := runView("12345", opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 }
 
 func TestRunView_InvalidOutputFormat(t *testing.T) {
@@ -165,8 +164,8 @@ func TestRunView_InvalidOutputFormat(t *testing.T) {
 	}
 
 	err := runView("12345", opts)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid output format")
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "invalid output format")
 }
 
 func TestRunView_ShowMacros(t *testing.T) {
@@ -192,7 +191,7 @@ func TestRunView_ShowMacros(t *testing.T) {
 	}
 
 	err := runView("12345", opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 }
 
 func TestRunView_ContentOnly(t *testing.T) {
@@ -218,7 +217,7 @@ func TestRunView_ContentOnly(t *testing.T) {
 	}
 
 	err := runView("12345", opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 	// Output should only contain markdown content, no Title:/ID:/Version: headers
 }
 
@@ -246,7 +245,7 @@ func TestRunView_ContentOnly_Raw(t *testing.T) {
 	}
 
 	err := runView("12345", opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 	// Output should only contain raw XHTML, no Title:/ID:/Version: headers
 }
 
@@ -274,7 +273,7 @@ func TestRunView_ContentOnly_ShowMacros(t *testing.T) {
 	}
 
 	err := runView("12345", opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 	// Output should contain markdown with [TOC] macro placeholder
 }
 
@@ -288,8 +287,8 @@ func TestRunView_ContentOnly_JSON_Error(t *testing.T) {
 	}
 
 	err := runView("12345", opts)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "--content-only is incompatible with --output json")
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "--content-only is incompatible with --output json")
 }
 
 func TestRunView_ContentOnly_Web_Error(t *testing.T) {
@@ -302,8 +301,8 @@ func TestRunView_ContentOnly_Web_Error(t *testing.T) {
 	}
 
 	err := runView("12345", opts)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "--content-only is incompatible with --web")
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "--content-only is incompatible with --web")
 }
 
 func TestRunView_ContentOnly_EmptyBody(t *testing.T) {
@@ -328,7 +327,7 @@ func TestRunView_ContentOnly_EmptyBody(t *testing.T) {
 	}
 
 	err := runView("12345", opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 	// Output should be "(No content)" without metadata headers
 }
 
@@ -338,7 +337,7 @@ func TestRunView_WithSpaceKey(t *testing.T) {
 		callCount++
 		if callCount == 1 {
 			// First call: GetPage
-			assert.Contains(t, r.URL.Path, "/pages/12345")
+			testutil.Contains(t, r.URL.Path, "/pages/12345")
 			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write([]byte(`{
 				"id": "12345",
@@ -350,7 +349,7 @@ func TestRunView_WithSpaceKey(t *testing.T) {
 			}`))
 		} else {
 			// Second call: GetSpace
-			assert.Contains(t, r.URL.Path, "/spaces/98765")
+			testutil.Contains(t, r.URL.Path, "/spaces/98765")
 			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write([]byte(`{
 				"id": "98765",
@@ -371,8 +370,8 @@ func TestRunView_WithSpaceKey(t *testing.T) {
 	}
 
 	err := runView("12345", opts)
-	require.NoError(t, err)
-	assert.Equal(t, 2, callCount, "should call both GetPage and GetSpace")
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, 2, callCount)
 }
 
 func TestRunView_SpaceLookupFails_Graceful(t *testing.T) {
@@ -408,7 +407,7 @@ func TestRunView_SpaceLookupFails_Graceful(t *testing.T) {
 
 	// Should succeed even if space lookup fails
 	err := runView("12345", opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 }
 
 func TestEnrichPageWithSpaceKey(t *testing.T) {
@@ -420,45 +419,45 @@ func TestEnrichPageWithSpaceKey(t *testing.T) {
 
 	enriched := enrichPageWithSpaceKey(page, "DEV")
 
-	assert.Equal(t, "12345", enriched.ID)
-	assert.Equal(t, "Test Page", enriched.Title)
-	assert.Equal(t, "DEV", enriched.SpaceKey)
+	testutil.Equal(t, "12345", enriched.ID)
+	testutil.Equal(t, "Test Page", enriched.Title)
+	testutil.Equal(t, "DEV", enriched.SpaceKey)
 }
 
 func TestTruncateContent(t *testing.T) {
 	t.Run("short content is not truncated", func(t *testing.T) {
 		opts := &viewOptions{}
 		result := truncateContent("short", opts)
-		assert.Equal(t, "short", result)
+		testutil.Equal(t, "short", result)
 	})
 
 	t.Run("long content is truncated by default", func(t *testing.T) {
 		opts := &viewOptions{}
 		long := strings.Repeat("x", maxViewChars+100)
 		result := truncateContent(long, opts)
-		assert.Len(t, strings.SplitN(result, "\n\n... [truncated", 2)[0], maxViewChars)
-		assert.Contains(t, result, fmt.Sprintf("... [truncated at %d chars, use --full for complete text]", maxViewChars))
+		testutil.Len(t, strings.SplitN(result, "\n\n... [truncated", 2)[0], maxViewChars)
+		testutil.Contains(t, result, fmt.Sprintf("... [truncated at %d chars, use --full for complete text]", maxViewChars))
 	})
 
 	t.Run("--full bypasses truncation", func(t *testing.T) {
 		opts := &viewOptions{full: true}
 		long := strings.Repeat("x", maxViewChars+100)
 		result := truncateContent(long, opts)
-		assert.Equal(t, long, result)
+		testutil.Equal(t, long, result)
 	})
 
 	t.Run("--content-only implies full", func(t *testing.T) {
 		opts := &viewOptions{contentOnly: true}
 		long := strings.Repeat("x", maxViewChars+100)
 		result := truncateContent(long, opts)
-		assert.Equal(t, long, result)
+		testutil.Equal(t, long, result)
 	})
 
 	t.Run("content at exact limit is not truncated", func(t *testing.T) {
 		opts := &viewOptions{}
 		exact := strings.Repeat("x", maxViewChars)
 		result := truncateContent(exact, opts)
-		assert.Equal(t, exact, result)
+		testutil.Equal(t, exact, result)
 	})
 }
 
@@ -508,13 +507,13 @@ func TestRunView_ADFPage_FallbackToAtlasDocFormat(t *testing.T) {
 	opts := &viewOptions{Options: rootOpts}
 
 	err := runView("12345", opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	// Should make 3 calls: storage (empty), atlas_doc_format (has content), GetSpace
-	assert.Equal(t, 3, callCount, "should fallback to atlas_doc_format when storage is empty")
+	testutil.Equal(t, 3, callCount)
 
 	stdout := rootOpts.Stdout.(*bytes.Buffer)
-	assert.Contains(t, stdout.String(), "Hello ADF", "should render ADF content as markdown")
+	testutil.Contains(t, stdout.String(), "Hello ADF")
 }
 
 func TestRunView_ADFPage_RawFormat(t *testing.T) {
@@ -559,11 +558,11 @@ func TestRunView_ADFPage_RawFormat(t *testing.T) {
 	opts := &viewOptions{Options: rootOpts, raw: true}
 
 	err := runView("12345", opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	stdout := rootOpts.Stdout.(*bytes.Buffer)
-	assert.Contains(t, stdout.String(), "Raw ADF", "should output raw ADF JSON")
-	assert.Contains(t, stdout.String(), `"type"`, "should contain ADF JSON structure")
+	testutil.Contains(t, stdout.String(), "Raw ADF")
+	testutil.Contains(t, stdout.String(), `"type"`)
 }
 
 func TestRunView_StoragePage_NoFallback(t *testing.T) {
@@ -597,13 +596,13 @@ func TestRunView_StoragePage_NoFallback(t *testing.T) {
 	opts := &viewOptions{Options: rootOpts}
 
 	err := runView("12345", opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	// Should only make 2 calls: GetPage (storage has content) + GetSpace, no fallback
-	assert.Equal(t, 2, callCount, "should not fallback when storage has content")
+	testutil.Equal(t, 2, callCount)
 
 	stdout := rootOpts.Stdout.(*bytes.Buffer)
-	assert.Contains(t, stdout.String(), "Has content", "should render storage content as markdown")
+	testutil.Contains(t, stdout.String(), "Has content")
 }
 
 func TestRunView_ADFPage_NullBody(t *testing.T) {
@@ -643,8 +642,8 @@ func TestRunView_ADFPage_NullBody(t *testing.T) {
 	opts := &viewOptions{Options: rootOpts}
 
 	err := runView("12345", opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	stdout := rootOpts.Stdout.(*bytes.Buffer)
-	assert.Contains(t, stdout.String(), "(No content)", "should display no content message")
+	testutil.Contains(t, stdout.String(), "(No content)")
 }

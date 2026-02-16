@@ -1,12 +1,12 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"github.com/open-cli-collective/atlassian-go/testutil"
 )
 
 func getTestFields() []Field {
@@ -54,10 +54,10 @@ func TestFindFieldByName(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := FindFieldByName(fields, tt.searchName)
 			if tt.wantNil {
-				assert.Nil(t, result)
+				testutil.Nil(t, result)
 			} else {
-				assert.NotNil(t, result)
-				assert.Equal(t, tt.wantID, result.ID)
+				testutil.NotNil(t, result)
+				testutil.Equal(t, result.ID, tt.wantID)
 			}
 		})
 	}
@@ -98,10 +98,10 @@ func TestFindFieldByID(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := FindFieldByID(fields, tt.searchID)
 			if tt.wantNil {
-				assert.Nil(t, result)
+				testutil.Nil(t, result)
 			} else {
-				assert.NotNil(t, result)
-				assert.Equal(t, tt.wantName, result.Name)
+				testutil.NotNil(t, result)
+				testutil.Equal(t, result.Name, tt.wantName)
 			}
 		})
 	}
@@ -142,10 +142,10 @@ func TestResolveFieldID(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			id, err := ResolveFieldID(fields, tt.nameOrID)
 			if tt.wantError {
-				assert.Error(t, err)
+				testutil.Error(t, err)
 			} else {
-				require.NoError(t, err)
-				assert.Equal(t, tt.wantID, id)
+				testutil.RequireNoError(t, err)
+				testutil.Equal(t, id, tt.wantID)
 			}
 		})
 	}
@@ -153,17 +153,17 @@ func TestResolveFieldID(t *testing.T) {
 
 func TestFindFieldByName_EmptySlice(t *testing.T) {
 	result := FindFieldByName([]Field{}, "Summary")
-	assert.Nil(t, result)
+	testutil.Nil(t, result)
 }
 
 func TestFindFieldByID_EmptySlice(t *testing.T) {
 	result := FindFieldByID([]Field{}, "summary")
-	assert.Nil(t, result)
+	testutil.Nil(t, result)
 }
 
 func TestResolveFieldID_EmptySlice(t *testing.T) {
 	_, err := ResolveFieldID([]Field{}, "summary")
-	assert.Error(t, err)
+	testutil.Error(t, err)
 }
 
 func TestFormatFieldValue(t *testing.T) {
@@ -408,7 +408,7 @@ func TestFormatFieldValue(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := FormatFieldValue(tt.field, tt.value)
-			assert.Equal(t, tt.want, got)
+			testutil.Equal(t, got, tt.want)
 		})
 	}
 }
@@ -427,17 +427,17 @@ func TestFormatFieldValue_TextareaField(t *testing.T) {
 
 	// Textarea fields should return ADF document
 	adf, ok := got.(*ADFDocument)
-	require.True(t, ok, "expected *ADFDocument, got %T", got)
-	require.NotNil(t, adf)
-	assert.Equal(t, "doc", adf.Type)
-	assert.Equal(t, 1, adf.Version)
-	require.Len(t, adf.Content, 1)
-	assert.Equal(t, "paragraph", adf.Content[0].Type)
+	testutil.True(t, ok, fmt.Sprintf("expected *ADFDocument, got %T", got))
+	testutil.NotNil(t, adf)
+	testutil.Equal(t, adf.Type, "doc")
+	testutil.Equal(t, adf.Version, 1)
+	testutil.Len(t, adf.Content, 1)
+	testutil.Equal(t, adf.Content[0].Type, "paragraph")
 }
 
 func TestClient_GetFieldOptionsFromEditMeta(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Contains(t, r.URL.Path, "/issue/PROJ-123/editmeta")
+		testutil.Contains(t, r.URL.Path, "/issue/PROJ-123/editmeta")
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(`{
 			"fields": {
@@ -469,28 +469,28 @@ func TestClient_GetFieldOptionsFromEditMeta(t *testing.T) {
 		Email:    "user@example.com",
 		APIToken: "token",
 	})
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	t.Run("priority field with name values", func(t *testing.T) {
 		options, err := client.GetFieldOptionsFromEditMeta("PROJ-123", "priority")
-		require.NoError(t, err)
-		assert.Len(t, options, 5)
-		assert.Equal(t, "1", options[0].ID)
-		assert.Equal(t, "Highest", options[0].Name)
+		testutil.RequireNoError(t, err)
+		testutil.Len(t, options, 5)
+		testutil.Equal(t, options[0].ID, "1")
+		testutil.Equal(t, options[0].Name, "Highest")
 	})
 
 	t.Run("custom field with value format", func(t *testing.T) {
 		options, err := client.GetFieldOptionsFromEditMeta("PROJ-123", "customfield_10001")
-		require.NoError(t, err)
-		assert.Len(t, options, 3)
-		assert.Equal(t, "Feature", options[0].Value)
-		assert.Equal(t, "Refactor", options[2].Value)
-		assert.True(t, options[2].Disabled)
+		testutil.RequireNoError(t, err)
+		testutil.Len(t, options, 3)
+		testutil.Equal(t, options[0].Value, "Feature")
+		testutil.Equal(t, options[2].Value, "Refactor")
+		testutil.True(t, options[2].Disabled)
 	})
 
 	t.Run("field not found", func(t *testing.T) {
 		_, err := client.GetFieldOptionsFromEditMeta("PROJ-123", "nonexistent")
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "not found")
+		testutil.Error(t, err)
+		testutil.Contains(t, err.Error(), "not found")
 	})
 }

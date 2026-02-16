@@ -4,138 +4,137 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"github.com/open-cli-collective/atlassian-go/testutil"
 )
 
 func TestTokenizeConfluenceXML_EmptyInput(t *testing.T) {
 	tokens, err := TokenizeConfluenceXML("")
-	require.NoError(t, err)
-	assert.Empty(t, tokens)
+	testutil.RequireNoError(t, err)
+	testutil.Empty(t, tokens)
 }
 
 func TestTokenizeConfluenceXML_PlainHTML(t *testing.T) {
 	input := "<p>Hello world</p>"
 	tokens, err := TokenizeConfluenceXML(input)
-	require.NoError(t, err)
-	require.Len(t, tokens, 1)
-	assert.Equal(t, XMLTokenText, tokens[0].Type)
-	assert.Equal(t, input, tokens[0].Text)
+	testutil.RequireNoError(t, err)
+	testutil.Len(t, tokens, 1)
+	testutil.Equal(t, XMLTokenText, tokens[0].Type)
+	testutil.Equal(t, input, tokens[0].Text)
 }
 
 func TestTokenizeConfluenceXML_SimpleMacro(t *testing.T) {
 	input := `<ac:structured-macro ac:name="toc" ac:schema-version="1"></ac:structured-macro>`
 	tokens, err := TokenizeConfluenceXML(input)
-	require.NoError(t, err)
-	require.Len(t, tokens, 2)
+	testutil.RequireNoError(t, err)
+	testutil.Len(t, tokens, 2)
 
-	assert.Equal(t, XMLTokenOpenTag, tokens[0].Type)
-	assert.Equal(t, "toc", tokens[0].MacroName)
+	testutil.Equal(t, XMLTokenOpenTag, tokens[0].Type)
+	testutil.Equal(t, "toc", tokens[0].MacroName)
 
-	assert.Equal(t, XMLTokenCloseTag, tokens[1].Type)
+	testutil.Equal(t, XMLTokenCloseTag, tokens[1].Type)
 }
 
 func TestTokenizeConfluenceXML_MacroWithParameter(t *testing.T) {
 	input := `<ac:structured-macro ac:name="toc" ac:schema-version="1"><ac:parameter ac:name="maxLevel">3</ac:parameter></ac:structured-macro>`
 	tokens, err := TokenizeConfluenceXML(input)
-	require.NoError(t, err)
-	require.Len(t, tokens, 3)
+	testutil.RequireNoError(t, err)
+	testutil.Len(t, tokens, 3)
 
-	assert.Equal(t, XMLTokenOpenTag, tokens[0].Type)
-	assert.Equal(t, "toc", tokens[0].MacroName)
+	testutil.Equal(t, XMLTokenOpenTag, tokens[0].Type)
+	testutil.Equal(t, "toc", tokens[0].MacroName)
 
-	assert.Equal(t, XMLTokenParameter, tokens[1].Type)
-	assert.Equal(t, "maxLevel", tokens[1].ParamName)
-	assert.Equal(t, "3", tokens[1].Value)
+	testutil.Equal(t, XMLTokenParameter, tokens[1].Type)
+	testutil.Equal(t, "maxLevel", tokens[1].ParamName)
+	testutil.Equal(t, "3", tokens[1].Value)
 
-	assert.Equal(t, XMLTokenCloseTag, tokens[2].Type)
+	testutil.Equal(t, XMLTokenCloseTag, tokens[2].Type)
 }
 
 func TestTokenizeConfluenceXML_MacroWithMultipleParameters(t *testing.T) {
 	input := `<ac:structured-macro ac:name="toc" ac:schema-version="1"><ac:parameter ac:name="maxLevel">3</ac:parameter><ac:parameter ac:name="minLevel">1</ac:parameter><ac:parameter ac:name="type">flat</ac:parameter></ac:structured-macro>`
 	tokens, err := TokenizeConfluenceXML(input)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	// Open, 3 params, close = 5 tokens
-	require.Len(t, tokens, 5)
+	testutil.Len(t, tokens, 5)
 
-	assert.Equal(t, XMLTokenParameter, tokens[1].Type)
-	assert.Equal(t, "maxLevel", tokens[1].ParamName)
-	assert.Equal(t, "3", tokens[1].Value)
+	testutil.Equal(t, XMLTokenParameter, tokens[1].Type)
+	testutil.Equal(t, "maxLevel", tokens[1].ParamName)
+	testutil.Equal(t, "3", tokens[1].Value)
 
-	assert.Equal(t, XMLTokenParameter, tokens[2].Type)
-	assert.Equal(t, "minLevel", tokens[2].ParamName)
-	assert.Equal(t, "1", tokens[2].Value)
+	testutil.Equal(t, XMLTokenParameter, tokens[2].Type)
+	testutil.Equal(t, "minLevel", tokens[2].ParamName)
+	testutil.Equal(t, "1", tokens[2].Value)
 
-	assert.Equal(t, XMLTokenParameter, tokens[3].Type)
-	assert.Equal(t, "type", tokens[3].ParamName)
-	assert.Equal(t, "flat", tokens[3].Value)
+	testutil.Equal(t, XMLTokenParameter, tokens[3].Type)
+	testutil.Equal(t, "type", tokens[3].ParamName)
+	testutil.Equal(t, "flat", tokens[3].Value)
 }
 
 func TestTokenizeConfluenceXML_PanelWithRichTextBody(t *testing.T) {
 	input := `<ac:structured-macro ac:name="info" ac:schema-version="1"><ac:rich-text-body><p>Content</p></ac:rich-text-body></ac:structured-macro>`
 	tokens, err := TokenizeConfluenceXML(input)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	// Open, body open, text, body close, close = 5 tokens
-	require.Len(t, tokens, 5)
+	testutil.Len(t, tokens, 5)
 
-	assert.Equal(t, XMLTokenOpenTag, tokens[0].Type)
-	assert.Equal(t, "info", tokens[0].MacroName)
+	testutil.Equal(t, XMLTokenOpenTag, tokens[0].Type)
+	testutil.Equal(t, "info", tokens[0].MacroName)
 
-	assert.Equal(t, XMLTokenBody, tokens[1].Type)
-	assert.Equal(t, "rich-text", tokens[1].Value)
+	testutil.Equal(t, XMLTokenBody, tokens[1].Type)
+	testutil.Equal(t, "rich-text", tokens[1].Value)
 
-	assert.Equal(t, XMLTokenText, tokens[2].Type)
-	assert.Equal(t, "<p>Content</p>", tokens[2].Text)
+	testutil.Equal(t, XMLTokenText, tokens[2].Type)
+	testutil.Equal(t, "<p>Content</p>", tokens[2].Text)
 
-	assert.Equal(t, XMLTokenBodyEnd, tokens[3].Type)
-	assert.Equal(t, "rich-text", tokens[3].Value)
+	testutil.Equal(t, XMLTokenBodyEnd, tokens[3].Type)
+	testutil.Equal(t, "rich-text", tokens[3].Value)
 
-	assert.Equal(t, XMLTokenCloseTag, tokens[4].Type)
+	testutil.Equal(t, XMLTokenCloseTag, tokens[4].Type)
 }
 
 func TestTokenizeConfluenceXML_PanelWithTitleAndBody(t *testing.T) {
 	input := `<ac:structured-macro ac:name="warning" ac:schema-version="1"><ac:parameter ac:name="title">Watch Out</ac:parameter><ac:rich-text-body><p>Warning content</p></ac:rich-text-body></ac:structured-macro>`
 	tokens, err := TokenizeConfluenceXML(input)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	// Open, param, body open, text, body close, close = 6 tokens
-	require.Len(t, tokens, 6)
+	testutil.Len(t, tokens, 6)
 
-	assert.Equal(t, "warning", tokens[0].MacroName)
-	assert.Equal(t, "title", tokens[1].ParamName)
-	assert.Equal(t, "Watch Out", tokens[1].Value)
-	assert.Equal(t, XMLTokenBody, tokens[2].Type)
-	assert.Contains(t, tokens[3].Text, "Warning content")
+	testutil.Equal(t, "warning", tokens[0].MacroName)
+	testutil.Equal(t, "title", tokens[1].ParamName)
+	testutil.Equal(t, "Watch Out", tokens[1].Value)
+	testutil.Equal(t, XMLTokenBody, tokens[2].Type)
+	testutil.Contains(t, tokens[3].Text, "Warning content")
 }
 
 func TestTokenizeConfluenceXML_CodeMacroWithCDATA(t *testing.T) {
 	input := `<ac:structured-macro ac:name="code" ac:schema-version="1"><ac:parameter ac:name="language">python</ac:parameter><ac:plain-text-body><![CDATA[print("Hello")]]></ac:plain-text-body></ac:structured-macro>`
 	tokens, err := TokenizeConfluenceXML(input)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	// Open, param, body open, text (CDATA content), body close, close = 6 tokens
-	require.Len(t, tokens, 6)
+	testutil.Len(t, tokens, 6)
 
-	assert.Equal(t, "code", tokens[0].MacroName)
-	assert.Equal(t, "language", tokens[1].ParamName)
-	assert.Equal(t, "python", tokens[1].Value)
+	testutil.Equal(t, "code", tokens[0].MacroName)
+	testutil.Equal(t, "language", tokens[1].ParamName)
+	testutil.Equal(t, "python", tokens[1].Value)
 
-	assert.Equal(t, XMLTokenBody, tokens[2].Type)
-	assert.Equal(t, "plain-text", tokens[2].Value)
+	testutil.Equal(t, XMLTokenBody, tokens[2].Type)
+	testutil.Equal(t, "plain-text", tokens[2].Value)
 
-	assert.Equal(t, XMLTokenText, tokens[3].Type)
-	assert.Equal(t, `print("Hello")`, tokens[3].Text)
+	testutil.Equal(t, XMLTokenText, tokens[3].Type)
+	testutil.Equal(t, `print("Hello")`, tokens[3].Text)
 
-	assert.Equal(t, XMLTokenBodyEnd, tokens[4].Type)
-	assert.Equal(t, "plain-text", tokens[4].Value)
+	testutil.Equal(t, XMLTokenBodyEnd, tokens[4].Type)
+	testutil.Equal(t, "plain-text", tokens[4].Value)
 }
 
 func TestTokenizeConfluenceXML_NestedMacros(t *testing.T) {
 	input := `<ac:structured-macro ac:name="info" ac:schema-version="1"><ac:rich-text-body><p>Before</p><ac:structured-macro ac:name="toc" ac:schema-version="1"></ac:structured-macro><p>After</p></ac:rich-text-body></ac:structured-macro>`
 	tokens, err := TokenizeConfluenceXML(input)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	// Count token types
 	openCount := 0
@@ -149,28 +148,28 @@ func TestTokenizeConfluenceXML_NestedMacros(t *testing.T) {
 		}
 	}
 
-	assert.Equal(t, 2, openCount, "should have 2 macro opens (info and toc)")
-	assert.Equal(t, 2, closeCount, "should have 2 macro closes")
+	testutil.Equal(t, 2, openCount)
+	testutil.Equal(t, 2, closeCount)
 }
 
 func TestTokenizeConfluenceXML_WithSurroundingHTML(t *testing.T) {
 	input := `<h1>Title</h1><ac:structured-macro ac:name="toc" ac:schema-version="1"></ac:structured-macro><p>Content</p>`
 	tokens, err := TokenizeConfluenceXML(input)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	// text, open, close, text = 4 tokens
-	require.Len(t, tokens, 4)
+	testutil.Len(t, tokens, 4)
 
-	assert.Equal(t, XMLTokenText, tokens[0].Type)
-	assert.Equal(t, "<h1>Title</h1>", tokens[0].Text)
+	testutil.Equal(t, XMLTokenText, tokens[0].Type)
+	testutil.Equal(t, "<h1>Title</h1>", tokens[0].Text)
 
-	assert.Equal(t, XMLTokenOpenTag, tokens[1].Type)
-	assert.Equal(t, "toc", tokens[1].MacroName)
+	testutil.Equal(t, XMLTokenOpenTag, tokens[1].Type)
+	testutil.Equal(t, "toc", tokens[1].MacroName)
 
-	assert.Equal(t, XMLTokenCloseTag, tokens[2].Type)
+	testutil.Equal(t, XMLTokenCloseTag, tokens[2].Type)
 
-	assert.Equal(t, XMLTokenText, tokens[3].Type)
-	assert.Equal(t, "<p>Content</p>", tokens[3].Text)
+	testutil.Equal(t, XMLTokenText, tokens[3].Type)
+	testutil.Equal(t, "<p>Content</p>", tokens[3].Text)
 }
 
 func TestTokenizeConfluenceXML_AllPanelTypes(t *testing.T) {
@@ -180,9 +179,9 @@ func TestTokenizeConfluenceXML_AllPanelTypes(t *testing.T) {
 		t.Run(pt, func(t *testing.T) {
 			input := `<ac:structured-macro ac:name="` + pt + `" ac:schema-version="1"><ac:rich-text-body><p>Content</p></ac:rich-text-body></ac:structured-macro>`
 			tokens, err := TokenizeConfluenceXML(input)
-			require.NoError(t, err)
-			require.GreaterOrEqual(t, len(tokens), 2)
-			assert.Equal(t, pt, tokens[0].MacroName)
+			testutil.RequireNoError(t, err)
+			testutil.GreaterOrEqual(t, len(tokens), 2)
+			testutil.Equal(t, pt, tokens[0].MacroName)
 		})
 	}
 }
@@ -190,11 +189,11 @@ func TestTokenizeConfluenceXML_AllPanelTypes(t *testing.T) {
 func TestTokenizeConfluenceXML_Positions(t *testing.T) {
 	input := `abc<ac:structured-macro ac:name="toc" ac:schema-version="1"></ac:structured-macro>def`
 	tokens, err := TokenizeConfluenceXML(input)
-	require.NoError(t, err)
-	require.Len(t, tokens, 4)
+	testutil.RequireNoError(t, err)
+	testutil.Len(t, tokens, 4)
 
-	assert.Equal(t, 0, tokens[0].Position) // "abc"
-	assert.Equal(t, 3, tokens[1].Position) // macro open
+	testutil.Equal(t, 0, tokens[0].Position) // "abc"
+	testutil.Equal(t, 3, tokens[1].Position) // macro open
 	// Close and "def" positions will follow
 }
 
@@ -203,7 +202,7 @@ func TestTokenizeConfluenceXML_CDATAWithSpecialChars(t *testing.T) {
     fmt.Println("test")
 }]]></ac:plain-text-body></ac:structured-macro>`
 	tokens, err := TokenizeConfluenceXML(input)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	// Find the CDATA content token
 	var cdataToken *XMLToken
@@ -214,10 +213,10 @@ func TestTokenizeConfluenceXML_CDATAWithSpecialChars(t *testing.T) {
 		}
 	}
 
-	require.NotNil(t, cdataToken, "should find CDATA content")
-	assert.Contains(t, cdataToken.Text, "x < 10")
-	assert.Contains(t, cdataToken.Text, "&&")
-	assert.Contains(t, cdataToken.Text, "y > 5")
+	testutil.NotNil(t, cdataToken)
+	testutil.Contains(t, cdataToken.Text, "x < 10")
+	testutil.Contains(t, cdataToken.Text, "&&")
+	testutil.Contains(t, cdataToken.Text, "y > 5")
 }
 
 func TestTokenizeConfluenceXML_MultilineCDATA(t *testing.T) {
@@ -227,25 +226,25 @@ line2
 line3
 ]]></ac:plain-text-body></ac:structured-macro>`
 	tokens, err := TokenizeConfluenceXML(input)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	// Find CDATA content
 	var found bool
 	for _, tok := range tokens {
 		if tok.Type == XMLTokenText && strings.Contains(tok.Text, "line1") {
 			found = true
-			assert.Contains(t, tok.Text, "line2")
-			assert.Contains(t, tok.Text, "line3")
-			assert.Contains(t, tok.Text, "\n")
+			testutil.Contains(t, tok.Text, "line2")
+			testutil.Contains(t, tok.Text, "line3")
+			testutil.Contains(t, tok.Text, "\n")
 		}
 	}
-	assert.True(t, found, "should find multiline CDATA content")
+	testutil.True(t, found, "should find multiline CDATA content")
 }
 
 func TestTokenizeConfluenceXML_DeeplyNestedMacros(t *testing.T) {
 	input := `<ac:structured-macro ac:name="info" ac:schema-version="1"><ac:rich-text-body><ac:structured-macro ac:name="warning" ac:schema-version="1"><ac:rich-text-body><ac:structured-macro ac:name="note" ac:schema-version="1"><ac:rich-text-body><p>Deep</p></ac:rich-text-body></ac:structured-macro></ac:rich-text-body></ac:structured-macro></ac:rich-text-body></ac:structured-macro>`
 	tokens, err := TokenizeConfluenceXML(input)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	// Count opens and closes
 	openCount := 0
@@ -261,11 +260,11 @@ func TestTokenizeConfluenceXML_DeeplyNestedMacros(t *testing.T) {
 		}
 	}
 
-	assert.Equal(t, 3, openCount, "should have 3 macro opens")
-	assert.Equal(t, 3, closeCount, "should have 3 macro closes")
-	assert.Contains(t, macroNames, "info")
-	assert.Contains(t, macroNames, "warning")
-	assert.Contains(t, macroNames, "note")
+	testutil.Equal(t, 3, openCount)
+	testutil.Equal(t, 3, closeCount)
+	testutil.Contains(t, strings.Join(macroNames, ","), "info")
+	testutil.Contains(t, strings.Join(macroNames, ","), "warning")
+	testutil.Contains(t, strings.Join(macroNames, ","), "note")
 }
 
 func TestTokenizeConfluenceXML_WhitespaceInMacro(t *testing.T) {
@@ -273,38 +272,38 @@ func TestTokenizeConfluenceXML_WhitespaceInMacro(t *testing.T) {
     <ac:parameter ac:name="maxLevel">3</ac:parameter>
 </ac:structured-macro>`
 	tokens, err := TokenizeConfluenceXML(input)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	// Should still find open, param, close (whitespace becomes text tokens)
 	var foundParam bool
 	for _, tok := range tokens {
 		if tok.Type == XMLTokenParameter && tok.ParamName == "maxLevel" {
 			foundParam = true
-			assert.Equal(t, "3", tok.Value)
+			testutil.Equal(t, "3", tok.Value)
 		}
 	}
-	assert.True(t, foundParam, "should find maxLevel parameter")
+	testutil.True(t, foundParam, "should find maxLevel parameter")
 }
 
 func TestTokenizeConfluenceXML_EmptyParameter(t *testing.T) {
 	input := `<ac:structured-macro ac:name="toc" ac:schema-version="1"><ac:parameter ac:name="title"></ac:parameter></ac:structured-macro>`
 	tokens, err := TokenizeConfluenceXML(input)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	var foundParam bool
 	for _, tok := range tokens {
 		if tok.Type == XMLTokenParameter && tok.ParamName == "title" {
 			foundParam = true
-			assert.Equal(t, "", tok.Value)
+			testutil.Equal(t, "", tok.Value)
 		}
 	}
-	assert.True(t, foundParam, "should find empty parameter")
+	testutil.True(t, foundParam, "should find empty parameter")
 }
 
 func TestTokenizeConfluenceXML_EmptyRichTextBody(t *testing.T) {
 	input := `<ac:structured-macro ac:name="info" ac:schema-version="1"><ac:rich-text-body></ac:rich-text-body></ac:structured-macro>`
 	tokens, err := TokenizeConfluenceXML(input)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	// Open, body open, body close, close = 4 tokens (no text between body tags)
 	bodyOpenCount := 0
@@ -317,8 +316,8 @@ func TestTokenizeConfluenceXML_EmptyRichTextBody(t *testing.T) {
 			bodyCloseCount++
 		}
 	}
-	assert.Equal(t, 1, bodyOpenCount)
-	assert.Equal(t, 1, bodyCloseCount)
+	testutil.Equal(t, 1, bodyOpenCount)
+	testutil.Equal(t, 1, bodyCloseCount)
 }
 
 func TestTokenizeConfluenceXML_MacroNameCaseInsensitive(t *testing.T) {
@@ -331,10 +330,10 @@ func TestTokenizeConfluenceXML_MacroNameCaseInsensitive(t *testing.T) {
 	for _, input := range inputs {
 		t.Run(input, func(t *testing.T) {
 			tokens, err := TokenizeConfluenceXML(input)
-			require.NoError(t, err)
-			require.GreaterOrEqual(t, len(tokens), 1)
+			testutil.RequireNoError(t, err)
+			testutil.GreaterOrEqual(t, len(tokens), 1)
 			// All should normalize to lowercase
-			assert.Equal(t, "toc", tokens[0].MacroName)
+			testutil.Equal(t, "toc", tokens[0].MacroName)
 		})
 	}
 }
@@ -354,7 +353,7 @@ func TestExtractCDATAContent(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
 			result := ExtractCDATAContent(tt.input)
-			assert.Equal(t, tt.expected, result)
+			testutil.Equal(t, tt.expected, result)
 		})
 	}
 }
@@ -401,7 +400,7 @@ func TestTokenizeConfluenceXML_SelfClosingMacro(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tokens, err := TokenizeConfluenceXML(tt.input)
-			require.NoError(t, err)
+			testutil.RequireNoError(t, err)
 
 			openCount := 0
 			closeCount := 0
@@ -416,10 +415,10 @@ func TestTokenizeConfluenceXML_SelfClosingMacro(t *testing.T) {
 				}
 			}
 
-			assert.Equal(t, tt.expectedOpens, openCount, "open tag count mismatch")
-			assert.Equal(t, tt.expectedCloses, closeCount, "close tag count mismatch")
+			testutil.Equal(t, tt.expectedOpens, openCount)
+			testutil.Equal(t, tt.expectedCloses, closeCount)
 			for _, expected := range tt.expectedMacros {
-				assert.Contains(t, macroNames, expected, "expected macro %s not found", expected)
+				testutil.Contains(t, strings.Join(macroNames, ","), expected)
 			}
 		})
 	}
@@ -430,7 +429,7 @@ func TestTokenizeConfluenceXML_SelfClosingNestedInBodyMacro(t *testing.T) {
 	input := `<ac:structured-macro ac:name="info" ac:schema-version="1"><ac:rich-text-body><p><ac:structured-macro ac:name="toc" ac:schema-version="1" /></p></ac:rich-text-body></ac:structured-macro>`
 
 	tokens, err := TokenizeConfluenceXML(input)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	// Expected token sequence:
 	// 1. XMLTokenOpenTag (info)
@@ -455,10 +454,10 @@ func TestTokenizeConfluenceXML_SelfClosingNestedInBodyMacro(t *testing.T) {
 		}
 	}
 
-	assert.Equal(t, 2, openCount, "should have 2 macro opens (info + toc)")
-	assert.Equal(t, 2, closeCount, "should have 2 macro closes (info + toc)")
-	assert.Contains(t, macroNames, "info")
-	assert.Contains(t, macroNames, "toc")
+	testutil.Equal(t, 2, openCount)
+	testutil.Equal(t, 2, closeCount)
+	testutil.Contains(t, strings.Join(macroNames, ","), "info")
+	testutil.Contains(t, strings.Join(macroNames, ","), "toc")
 
 	// Verify token order: info open should come before toc open
 	var infoIdx, tocIdx int
@@ -470,7 +469,7 @@ func TestTokenizeConfluenceXML_SelfClosingNestedInBodyMacro(t *testing.T) {
 			tocIdx = i
 		}
 	}
-	assert.Less(t, infoIdx, tocIdx, "info should open before toc")
+	testutil.True(t, infoIdx < tocIdx, "info should open before toc")
 }
 
 func TestTokenizeConfluenceXML_SelfClosingVsRegularMacro(t *testing.T) {
@@ -479,10 +478,10 @@ func TestTokenizeConfluenceXML_SelfClosingVsRegularMacro(t *testing.T) {
 	selfClosing := `<ac:structured-macro ac:name="toc" ac:schema-version="1" />`
 
 	regularTokens, err := TokenizeConfluenceXML(regular)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	selfClosingTokens, err := TokenizeConfluenceXML(selfClosing)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	// Both should have 1 open and 1 close
 	countTokens := func(tokens []XMLToken) (opens, closes int) {
@@ -500,8 +499,8 @@ func TestTokenizeConfluenceXML_SelfClosingVsRegularMacro(t *testing.T) {
 	regularOpens, regularCloses := countTokens(regularTokens)
 	selfClosingOpens, selfClosingCloses := countTokens(selfClosingTokens)
 
-	assert.Equal(t, 1, regularOpens)
-	assert.Equal(t, 1, regularCloses)
-	assert.Equal(t, 1, selfClosingOpens)
-	assert.Equal(t, 1, selfClosingCloses)
+	testutil.Equal(t, 1, regularOpens)
+	testutil.Equal(t, 1, regularCloses)
+	testutil.Equal(t, 1, selfClosingOpens)
+	testutil.Equal(t, 1, selfClosingCloses)
 }

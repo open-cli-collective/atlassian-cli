@@ -7,8 +7,7 @@ import (
 	"testing"
 
 	sharedconfig "github.com/open-cli-collective/atlassian-go/config"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"github.com/open-cli-collective/atlassian-go/testutil"
 )
 
 func TestConfig_Validate(t *testing.T) {
@@ -70,10 +69,10 @@ func TestConfig_Validate(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			err := tt.config.Validate()
 			if tt.wantErr {
-				require.Error(t, err)
-				assert.Contains(t, err.Error(), tt.errMsg)
+				testutil.RequireError(t, err)
+				testutil.Contains(t, err.Error(), tt.errMsg)
 			} else {
-				assert.NoError(t, err)
+				testutil.NoError(t, err)
 			}
 		})
 	}
@@ -111,7 +110,7 @@ func TestConfig_NormalizeURL(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := Config{URL: tt.inputURL}
 			cfg.NormalizeURL()
-			assert.Equal(t, tt.expected, cfg.URL)
+			testutil.Equal(t, tt.expected, cfg.URL)
 		})
 	}
 }
@@ -140,10 +139,10 @@ func TestConfig_LoadFromEnv(t *testing.T) {
 		cfg := &Config{}
 		cfg.LoadFromEnv()
 
-		assert.Equal(t, "https://env.atlassian.net", cfg.URL)
-		assert.Equal(t, "env@example.com", cfg.Email)
-		assert.Equal(t, "env-token", cfg.APIToken)
-		assert.Equal(t, "ENV", cfg.DefaultSpace)
+		testutil.Equal(t, "https://env.atlassian.net", cfg.URL)
+		testutil.Equal(t, "env@example.com", cfg.Email)
+		testutil.Equal(t, "env-token", cfg.APIToken)
+		testutil.Equal(t, "ENV", cfg.DefaultSpace)
 	})
 
 	t.Run("env vars override existing values", func(t *testing.T) {
@@ -159,9 +158,9 @@ func TestConfig_LoadFromEnv(t *testing.T) {
 		cfg.LoadFromEnv()
 
 		// URL should be overridden
-		assert.Equal(t, "https://override.atlassian.net", cfg.URL)
+		testutil.Equal(t, "https://override.atlassian.net", cfg.URL)
 		// Email should remain (empty env var doesn't override)
-		assert.Equal(t, "original@example.com", cfg.Email)
+		testutil.Equal(t, "original@example.com", cfg.Email)
 	})
 }
 
@@ -170,11 +169,11 @@ func TestDefaultConfigPath(t *testing.T) {
 
 	// Should be under home directory
 	home, err := os.UserHomeDir()
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
-	assert.True(t, strings.HasPrefix(path, home))
-	assert.Contains(t, path, "cfl")
-	assert.True(t, filepath.Ext(path) == ".yml" || filepath.Ext(path) == ".yaml")
+	testutil.True(t, strings.HasPrefix(path, home))
+	testutil.Contains(t, path, "cfl")
+	testutil.True(t, filepath.Ext(path) == ".yml" || filepath.Ext(path) == ".yaml")
 }
 
 func TestConfig_Save_and_Load(t *testing.T) {
@@ -192,22 +191,22 @@ func TestConfig_Save_and_Load(t *testing.T) {
 
 	// Save
 	err := original.Save(configPath)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	// Load
 	loaded, err := Load(configPath)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
-	assert.Equal(t, original.URL, loaded.URL)
-	assert.Equal(t, original.Email, loaded.Email)
-	assert.Equal(t, original.APIToken, loaded.APIToken)
-	assert.Equal(t, original.DefaultSpace, loaded.DefaultSpace)
-	assert.Equal(t, original.OutputFormat, loaded.OutputFormat)
+	testutil.Equal(t, original.URL, loaded.URL)
+	testutil.Equal(t, original.Email, loaded.Email)
+	testutil.Equal(t, original.APIToken, loaded.APIToken)
+	testutil.Equal(t, original.DefaultSpace, loaded.DefaultSpace)
+	testutil.Equal(t, original.OutputFormat, loaded.OutputFormat)
 }
 
 func TestLoad_FileNotFound(t *testing.T) {
 	_, err := Load("/nonexistent/path/config.yml")
-	require.Error(t, err)
+	testutil.RequireError(t, err)
 }
 
 func TestConfig_LoadFromEnv_AtlassianFallback(t *testing.T) {
@@ -232,9 +231,9 @@ func TestConfig_LoadFromEnv_AtlassianFallback(t *testing.T) {
 		cfg := &Config{}
 		cfg.LoadFromEnv()
 
-		assert.Equal(t, "https://shared.atlassian.net", cfg.URL)
-		assert.Equal(t, "shared@example.com", cfg.Email)
-		assert.Equal(t, "shared-token", cfg.APIToken)
+		testutil.Equal(t, "https://shared.atlassian.net", cfg.URL)
+		testutil.Equal(t, "shared@example.com", cfg.Email)
+		testutil.Equal(t, "shared-token", cfg.APIToken)
 	})
 
 	t.Run("CFL_* takes precedence over ATLASSIAN_*", func(t *testing.T) {
@@ -251,9 +250,9 @@ func TestConfig_LoadFromEnv_AtlassianFallback(t *testing.T) {
 		cfg := &Config{}
 		cfg.LoadFromEnv()
 
-		assert.Equal(t, "https://cfl.atlassian.net", cfg.URL)
-		assert.Equal(t, "cfl@example.com", cfg.Email)
-		assert.Equal(t, "cfl-token", cfg.APIToken)
+		testutil.Equal(t, "https://cfl.atlassian.net", cfg.URL)
+		testutil.Equal(t, "cfl@example.com", cfg.Email)
+		testutil.Equal(t, "cfl-token", cfg.APIToken)
 	})
 
 	t.Run("mixed CFL_* and ATLASSIAN_*", func(t *testing.T) {
@@ -268,9 +267,9 @@ func TestConfig_LoadFromEnv_AtlassianFallback(t *testing.T) {
 		cfg := &Config{}
 		cfg.LoadFromEnv()
 
-		assert.Equal(t, "https://cfl.atlassian.net", cfg.URL)
-		assert.Equal(t, "shared@example.com", cfg.Email)
-		assert.Equal(t, "shared-token", cfg.APIToken)
+		testutil.Equal(t, "https://cfl.atlassian.net", cfg.URL)
+		testutil.Equal(t, "shared@example.com", cfg.Email)
+		testutil.Equal(t, "shared-token", cfg.APIToken)
 	})
 }
 
@@ -285,18 +284,18 @@ func TestGetEnvWithFallback(t *testing.T) {
 	t.Run("returns primary when set", func(t *testing.T) {
 		os.Setenv("TEST_PRIMARY", "primary-value")
 		os.Setenv("TEST_FALLBACK", "fallback-value")
-		assert.Equal(t, "primary-value", sharedconfig.GetEnvWithFallback("TEST_PRIMARY", "TEST_FALLBACK"))
+		testutil.Equal(t, "primary-value", sharedconfig.GetEnvWithFallback("TEST_PRIMARY", "TEST_FALLBACK"))
 	})
 
 	t.Run("returns fallback when primary empty", func(t *testing.T) {
 		os.Unsetenv("TEST_PRIMARY")
 		os.Setenv("TEST_FALLBACK", "fallback-value")
-		assert.Equal(t, "fallback-value", sharedconfig.GetEnvWithFallback("TEST_PRIMARY", "TEST_FALLBACK"))
+		testutil.Equal(t, "fallback-value", sharedconfig.GetEnvWithFallback("TEST_PRIMARY", "TEST_FALLBACK"))
 	})
 
 	t.Run("returns empty when both empty", func(t *testing.T) {
 		os.Unsetenv("TEST_PRIMARY")
 		os.Unsetenv("TEST_FALLBACK")
-		assert.Equal(t, "", sharedconfig.GetEnvWithFallback("TEST_PRIMARY", "TEST_FALLBACK"))
+		testutil.Equal(t, "", sharedconfig.GetEnvWithFallback("TEST_PRIMARY", "TEST_FALLBACK"))
 	})
 }

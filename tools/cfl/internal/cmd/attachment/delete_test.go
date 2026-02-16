@@ -7,8 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"github.com/open-cli-collective/atlassian-go/testutil"
 
 	"github.com/open-cli-collective/confluence-cli/api"
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
@@ -52,8 +51,8 @@ func newTestRootOptions() *root.Options {
 
 func TestRunDeleteAttachment_ForceDelete(t *testing.T) {
 	server := mockAttachmentServer(t, nil, func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "DELETE", r.Method)
-		assert.Equal(t, "/api/v2/attachments/att123", r.URL.Path)
+		testutil.Equal(t, "DELETE", r.Method)
+		testutil.Equal(t, "/api/v2/attachments/att123", r.URL.Path)
 		w.WriteHeader(http.StatusNoContent)
 	})
 	defer server.Close()
@@ -68,7 +67,7 @@ func TestRunDeleteAttachment_ForceDelete(t *testing.T) {
 	}
 
 	err := runDeleteAttachment("att123", opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 }
 
 func TestRunDeleteAttachment_ConfirmWithY(t *testing.T) {
@@ -90,8 +89,8 @@ func TestRunDeleteAttachment_ConfirmWithY(t *testing.T) {
 	}
 
 	err := runDeleteAttachment("att123", opts)
-	require.NoError(t, err)
-	assert.True(t, deleted, "attachment should have been deleted")
+	testutil.RequireNoError(t, err)
+	testutil.True(t, deleted, "attachment should have been deleted")
 }
 
 func TestRunDeleteAttachment_ConfirmWithUpperY(t *testing.T) {
@@ -113,8 +112,8 @@ func TestRunDeleteAttachment_ConfirmWithUpperY(t *testing.T) {
 	}
 
 	err := runDeleteAttachment("att123", opts)
-	require.NoError(t, err)
-	assert.True(t, deleted, "attachment should have been deleted")
+	testutil.RequireNoError(t, err)
+	testutil.True(t, deleted, "attachment should have been deleted")
 }
 
 func TestRunDeleteAttachment_CancelWithN(t *testing.T) {
@@ -136,8 +135,8 @@ func TestRunDeleteAttachment_CancelWithN(t *testing.T) {
 	}
 
 	err := runDeleteAttachment("att123", opts)
-	require.NoError(t, err)
-	assert.False(t, deleted, "attachment should NOT have been deleted")
+	testutil.RequireNoError(t, err)
+	testutil.False(t, deleted, "attachment should NOT have been deleted")
 }
 
 func TestRunDeleteAttachment_CancelWithEmpty(t *testing.T) {
@@ -159,8 +158,8 @@ func TestRunDeleteAttachment_CancelWithEmpty(t *testing.T) {
 	}
 
 	err := runDeleteAttachment("att123", opts)
-	require.NoError(t, err)
-	assert.False(t, deleted, "attachment should NOT have been deleted")
+	testutil.RequireNoError(t, err)
+	testutil.False(t, deleted, "attachment should NOT have been deleted")
 }
 
 func TestRunDeleteAttachment_CancelWithOther(t *testing.T) {
@@ -182,8 +181,8 @@ func TestRunDeleteAttachment_CancelWithOther(t *testing.T) {
 	}
 
 	err := runDeleteAttachment("att123", opts)
-	require.NoError(t, err)
-	assert.False(t, deleted, "attachment should NOT have been deleted")
+	testutil.RequireNoError(t, err)
+	testutil.False(t, deleted, "attachment should NOT have been deleted")
 }
 
 func TestRunDeleteAttachment_GetAttachmentFails(t *testing.T) {
@@ -206,8 +205,8 @@ func TestRunDeleteAttachment_GetAttachmentFails(t *testing.T) {
 	}
 
 	err := runDeleteAttachment("invalid", opts)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to get attachment")
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "failed to get attachment")
 }
 
 func TestRunDeleteAttachment_DeleteFails(t *testing.T) {
@@ -229,6 +228,6 @@ func TestRunDeleteAttachment_DeleteFails(t *testing.T) {
 	}
 
 	err := runDeleteAttachment("att123", opts)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to delete attachment")
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "failed to delete attachment")
 }

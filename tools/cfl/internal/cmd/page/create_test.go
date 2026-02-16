@@ -11,8 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"github.com/open-cli-collective/atlassian-go/testutil"
 
 	"github.com/open-cli-collective/confluence-cli/api"
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
@@ -62,7 +61,7 @@ func TestRunCreate_Success(t *testing.T) {
 	tmpDir := t.TempDir()
 	mdFile := filepath.Join(tmpDir, "content.md")
 	err := os.WriteFile(mdFile, []byte("# Hello\n\nWorld"), 0644)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	server := mockCreateServer(t, "DEV", "123456", http.StatusOK)
 	defer server.Close()
@@ -79,7 +78,7 @@ func TestRunCreate_Success(t *testing.T) {
 	}
 
 	err = runCreate(opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 }
 
 func TestRunCreate_HTMLFile_Legacy(t *testing.T) {
@@ -87,7 +86,7 @@ func TestRunCreate_HTMLFile_Legacy(t *testing.T) {
 	tmpDir := t.TempDir()
 	htmlFile := filepath.Join(tmpDir, "content.html")
 	err := os.WriteFile(htmlFile, []byte("<p>Hello World</p>"), 0644)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	var receivedBody map[string]interface{}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -119,13 +118,13 @@ func TestRunCreate_HTMLFile_Legacy(t *testing.T) {
 	}
 
 	err = runCreate(opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	// Verify HTML was not converted (should be passed as-is in storage format)
 	bodyMap := receivedBody["body"].(map[string]interface{})
 	storageMap := bodyMap["storage"].(map[string]interface{})
 	content := storageMap["value"].(string)
-	assert.Equal(t, "<p>Hello World</p>", content)
+	testutil.Equal(t, "<p>Hello World</p>", content)
 }
 
 func TestRunCreate_NoMarkdownFlag_Legacy(t *testing.T) {
@@ -133,7 +132,7 @@ func TestRunCreate_NoMarkdownFlag_Legacy(t *testing.T) {
 	tmpDir := t.TempDir()
 	mdFile := filepath.Join(tmpDir, "content.md")
 	err := os.WriteFile(mdFile, []byte("<p>Raw XHTML</p>"), 0644)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	var receivedBody map[string]interface{}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -167,20 +166,20 @@ func TestRunCreate_NoMarkdownFlag_Legacy(t *testing.T) {
 	}
 
 	err = runCreate(opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	// Verify content was not converted even though file has .md extension
 	bodyMap := receivedBody["body"].(map[string]interface{})
 	storageMap := bodyMap["storage"].(map[string]interface{})
 	content := storageMap["value"].(string)
-	assert.Equal(t, "<p>Raw XHTML</p>", content)
+	testutil.Equal(t, "<p>Raw XHTML</p>", content)
 }
 
 func TestRunCreate_MissingSpace(t *testing.T) {
 	tmpDir := t.TempDir()
 	mdFile := filepath.Join(tmpDir, "content.md")
 	err := os.WriteFile(mdFile, []byte("# Hello"), 0644)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	// Don't need server - should fail before API call
 	rootOpts := newCreateTestRootOptions()
@@ -195,15 +194,15 @@ func TestRunCreate_MissingSpace(t *testing.T) {
 	}
 
 	err = runCreate(opts)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "space is required")
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "space is required")
 }
 
 func TestRunCreate_SpaceNotFound(t *testing.T) {
 	tmpDir := t.TempDir()
 	mdFile := filepath.Join(tmpDir, "content.md")
 	err := os.WriteFile(mdFile, []byte("# Hello"), 0644)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Return empty results for space lookup
@@ -224,15 +223,15 @@ func TestRunCreate_SpaceNotFound(t *testing.T) {
 	}
 
 	err = runCreate(opts)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to find space")
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "failed to find space")
 }
 
 func TestRunCreate_CreateFailed(t *testing.T) {
 	tmpDir := t.TempDir()
 	mdFile := filepath.Join(tmpDir, "content.md")
 	err := os.WriteFile(mdFile, []byte("# Hello"), 0644)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	server := mockCreateServer(t, "DEV", "123456", http.StatusForbidden)
 	defer server.Close()
@@ -249,15 +248,15 @@ func TestRunCreate_CreateFailed(t *testing.T) {
 	}
 
 	err = runCreate(opts)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to create page")
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "failed to create page")
 }
 
 func TestRunCreate_WithParent(t *testing.T) {
 	tmpDir := t.TempDir()
 	mdFile := filepath.Join(tmpDir, "content.md")
 	err := os.WriteFile(mdFile, []byte("# Child Page"), 0644)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	var receivedBody map[string]interface{}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -289,17 +288,17 @@ func TestRunCreate_WithParent(t *testing.T) {
 	}
 
 	err = runCreate(opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	// Verify parent ID was included in request
-	assert.Equal(t, "12345", receivedBody["parentId"])
+	testutil.Equal(t, "12345", receivedBody["parentId"])
 }
 
 func TestRunCreate_JSONOutput(t *testing.T) {
 	tmpDir := t.TempDir()
 	mdFile := filepath.Join(tmpDir, "content.md")
 	err := os.WriteFile(mdFile, []byte("# Hello"), 0644)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	server := mockCreateServer(t, "DEV", "123456", http.StatusOK)
 	defer server.Close()
@@ -317,14 +316,14 @@ func TestRunCreate_JSONOutput(t *testing.T) {
 	}
 
 	err = runCreate(opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 }
 
 func TestRunCreate_MarkdownConversion_Legacy(t *testing.T) {
 	tmpDir := t.TempDir()
 	mdFile := filepath.Join(tmpDir, "content.md")
 	err := os.WriteFile(mdFile, []byte("# Hello World\n\nThis is **bold** text."), 0644)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	var receivedBody map[string]interface{}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -356,7 +355,7 @@ func TestRunCreate_MarkdownConversion_Legacy(t *testing.T) {
 	}
 
 	err = runCreate(opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	// Verify markdown was converted to HTML storage format
 	bodyMap := receivedBody["body"].(map[string]interface{})
@@ -364,15 +363,15 @@ func TestRunCreate_MarkdownConversion_Legacy(t *testing.T) {
 	content := storageMap["value"].(string)
 
 	// Should have HTML heading and strong tag from markdown conversion
-	assert.Contains(t, content, "<h1")
-	assert.Contains(t, content, "<strong>bold</strong>")
+	testutil.Contains(t, content, "<h1")
+	testutil.Contains(t, content, "<strong>bold</strong>")
 }
 
 func TestRunCreate_MarkdownToADF(t *testing.T) {
 	tmpDir := t.TempDir()
 	mdFile := filepath.Join(tmpDir, "content.md")
 	err := os.WriteFile(mdFile, []byte("# Hello World\n\nThis is **bold** text."), 0644)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	var receivedBody map[string]interface{}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -404,7 +403,7 @@ func TestRunCreate_MarkdownToADF(t *testing.T) {
 	}
 
 	err = runCreate(opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	// Verify ADF format was used (default)
 	bodyMap := receivedBody["body"].(map[string]interface{})
@@ -412,9 +411,9 @@ func TestRunCreate_MarkdownToADF(t *testing.T) {
 	content := adfMap["value"].(string)
 
 	// Should be valid ADF JSON with heading and strong mark
-	assert.Contains(t, content, `"type":"doc"`)
-	assert.Contains(t, content, `"type":"heading"`)
-	assert.Contains(t, content, `"type":"strong"`)
+	testutil.Contains(t, content, `"type":"doc"`)
+	testutil.Contains(t, content, `"type":"heading"`)
+	testutil.Contains(t, content, `"type":"strong"`)
 }
 
 func TestRunCreate_FileReadError(t *testing.T) {
@@ -433,8 +432,8 @@ func TestRunCreate_FileReadError(t *testing.T) {
 	}
 
 	err := runCreate(opts)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to read file")
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "failed to read file")
 }
 
 func TestRunCreate_Stdin_ADF(t *testing.T) {
@@ -467,16 +466,16 @@ func TestRunCreate_Stdin_ADF(t *testing.T) {
 	}
 
 	err := runCreate(opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	// Verify ADF format was used
 	bodyMap := receivedBody["body"].(map[string]interface{})
 	adfMap := bodyMap["atlas_doc_format"].(map[string]interface{})
 	content := adfMap["value"].(string)
 
-	assert.Contains(t, content, `"type":"doc"`)
-	assert.Contains(t, content, `"type":"heading"`)
-	assert.Contains(t, content, `"type":"strong"`)
+	testutil.Contains(t, content, `"type":"doc"`)
+	testutil.Contains(t, content, `"type":"heading"`)
+	testutil.Contains(t, content, `"type":"strong"`)
 }
 
 func TestRunCreate_Stdin_Legacy(t *testing.T) {
@@ -510,15 +509,15 @@ func TestRunCreate_Stdin_Legacy(t *testing.T) {
 	}
 
 	err := runCreate(opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	// Verify storage format was used
 	bodyMap := receivedBody["body"].(map[string]interface{})
 	storageMap := bodyMap["storage"].(map[string]interface{})
 	content := storageMap["value"].(string)
 
-	assert.Contains(t, content, "<h1")
-	assert.Contains(t, content, "<strong>bold</strong>")
+	testutil.Contains(t, content, "<h1")
+	testutil.Contains(t, content, "<strong>bold</strong>")
 }
 
 func TestRunCreate_Stdin_NoMarkdown_Legacy(t *testing.T) {
@@ -554,14 +553,14 @@ func TestRunCreate_Stdin_NoMarkdown_Legacy(t *testing.T) {
 	}
 
 	err := runCreate(opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	// Verify raw content passed through without conversion
 	bodyMap := receivedBody["body"].(map[string]interface{})
 	storageMap := bodyMap["storage"].(map[string]interface{})
 	content := storageMap["value"].(string)
 
-	assert.Equal(t, "<p>Raw XHTML content</p>", content)
+	testutil.Equal(t, "<p>Raw XHTML content</p>", content)
 }
 
 func TestRunCreate_StorageFlag_Stdin(t *testing.T) {
@@ -597,7 +596,7 @@ func TestRunCreate_StorageFlag_Stdin(t *testing.T) {
 	}
 
 	err := runCreate(opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	// Verify storage format was used (not atlas_doc_format)
 	bodyMap := receivedBody["body"].(map[string]interface{})
@@ -605,15 +604,15 @@ func TestRunCreate_StorageFlag_Stdin(t *testing.T) {
 	content := storageMap["value"].(string)
 
 	// Content should be passed through as-is
-	assert.Contains(t, content, `ac:structured-macro`)
-	assert.Nil(t, bodyMap["atlas_doc_format"])
+	testutil.Contains(t, content, `ac:structured-macro`)
+	testutil.Nil(t, bodyMap["atlas_doc_format"])
 }
 
 func TestRunCreate_StorageFlag_File(t *testing.T) {
 	tmpDir := t.TempDir()
 	htmlFile := filepath.Join(tmpDir, "content.html")
 	err := os.WriteFile(htmlFile, []byte("<p>Direct storage XHTML</p>"), 0644)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	var receivedBody map[string]interface{}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -647,14 +646,14 @@ func TestRunCreate_StorageFlag_File(t *testing.T) {
 	}
 
 	err = runCreate(opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	// Verify storage format was used without --legacy
 	bodyMap := receivedBody["body"].(map[string]interface{})
 	storageMap := bodyMap["storage"].(map[string]interface{})
 	content := storageMap["value"].(string)
-	assert.Equal(t, "<p>Direct storage XHTML</p>", content)
-	assert.Nil(t, bodyMap["atlas_doc_format"])
+	testutil.Equal(t, "<p>Direct storage XHTML</p>", content)
+	testutil.Nil(t, bodyMap["atlas_doc_format"])
 }
 
 func TestRunCreate_ComplexMarkdown_ADF(t *testing.T) {
@@ -699,17 +698,17 @@ func TestRunCreate_ComplexMarkdown_ADF(t *testing.T) {
 	}
 
 	err := runCreate(opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	// Verify ADF contains complex elements
 	bodyMap := receivedBody["body"].(map[string]interface{})
 	adfMap := bodyMap["atlas_doc_format"].(map[string]interface{})
 	content := adfMap["value"].(string)
 
-	assert.Contains(t, content, `"type":"table"`)
-	assert.Contains(t, content, `"type":"bulletList"`)
-	assert.Contains(t, content, `"type":"codeBlock"`)
-	assert.Contains(t, content, `"language":"go"`)
+	testutil.Contains(t, content, `"type":"table"`)
+	testutil.Contains(t, content, `"type":"bulletList"`)
+	testutil.Contains(t, content, `"type":"codeBlock"`)
+	testutil.Contains(t, content, `"language":"go"`)
 }
 
 func TestRunCreate_EmptyContentFromStdin(t *testing.T) {
@@ -728,8 +727,8 @@ func TestRunCreate_EmptyContentFromStdin(t *testing.T) {
 	}
 
 	err := runCreate(opts)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "page content cannot be empty")
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "page content cannot be empty")
 }
 
 func TestRunCreate_WhitespaceOnlyFromStdin(t *testing.T) {
@@ -748,15 +747,15 @@ func TestRunCreate_WhitespaceOnlyFromStdin(t *testing.T) {
 	}
 
 	err := runCreate(opts)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "page content cannot be empty")
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "page content cannot be empty")
 }
 
 func TestRunCreate_EmptyFile(t *testing.T) {
 	tmpDir := t.TempDir()
 	emptyFile := filepath.Join(tmpDir, "empty.md")
 	err := os.WriteFile(emptyFile, []byte(""), 0644)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	server := mockCreateServer(t, "DEV", "123456", http.StatusOK)
 	defer server.Close()
@@ -773,15 +772,15 @@ func TestRunCreate_EmptyFile(t *testing.T) {
 	}
 
 	err = runCreate(opts)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "page content cannot be empty")
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "page content cannot be empty")
 }
 
 func TestRunCreate_WhitespaceOnlyFile(t *testing.T) {
 	tmpDir := t.TempDir()
 	whitespaceFile := filepath.Join(tmpDir, "whitespace.md")
 	err := os.WriteFile(whitespaceFile, []byte("   \n\t\n   "), 0644)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	server := mockCreateServer(t, "DEV", "123456", http.StatusOK)
 	defer server.Close()
@@ -798,6 +797,6 @@ func TestRunCreate_WhitespaceOnlyFile(t *testing.T) {
 	}
 
 	err = runCreate(opts)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "page content cannot be empty")
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "page content cannot be empty")
 }

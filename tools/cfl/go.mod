@@ -7,7 +7,6 @@ require (
 	github.com/charmbracelet/huh v0.8.0
 	github.com/open-cli-collective/atlassian-go v0.0.0-00010101000000-000000000000
 	github.com/spf13/cobra v1.8.1
-	github.com/stretchr/testify v1.11.1
 	github.com/yuin/goldmark v1.7.16
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -29,7 +28,6 @@ require (
 	github.com/charmbracelet/x/term v0.2.1 // indirect
 	github.com/clipperhouse/stringish v0.1.1 // indirect
 	github.com/clipperhouse/uax29/v2 v2.3.0 // indirect
-	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/erikgeiser/coninput v0.0.0-20211004153227-1c3628e74d0f // indirect
 	github.com/fatih/color v1.18.0 // indirect

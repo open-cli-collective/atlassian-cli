@@ -2,12 +2,12 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"github.com/open-cli-collective/atlassian-go/testutil"
 )
 
 func TestFindTransitionByName(t *testing.T) {
@@ -54,10 +54,10 @@ func TestFindTransitionByName(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := FindTransitionByName(transitions, tt.searchName)
 			if tt.wantNil {
-				assert.Nil(t, result)
+				testutil.Nil(t, result)
 			} else {
-				assert.NotNil(t, result)
-				assert.Equal(t, tt.wantID, result.ID)
+				testutil.NotNil(t, result)
+				testutil.Equal(t, result.ID, tt.wantID)
 			}
 		})
 	}
@@ -65,18 +65,18 @@ func TestFindTransitionByName(t *testing.T) {
 
 func TestFindTransitionByName_EmptySlice(t *testing.T) {
 	result := FindTransitionByName([]Transition{}, "In Progress")
-	assert.Nil(t, result)
+	testutil.Nil(t, result)
 }
 
 func TestFindTransitionByName_NilSlice(t *testing.T) {
 	result := FindTransitionByName(nil, "In Progress")
-	assert.Nil(t, result)
+	testutil.Nil(t, result)
 }
 
 func TestClient_GetTransitions(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Contains(t, r.URL.Path, "/issue/PROJ-123/transitions")
-		assert.Empty(t, r.URL.Query().Get("expand"))
+		testutil.Contains(t, r.URL.Path, "/issue/PROJ-123/transitions")
+		testutil.Empty(t, r.URL.Query().Get("expand"))
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(`{
 			"transitions": [
@@ -92,13 +92,13 @@ func TestClient_GetTransitions(t *testing.T) {
 		Email:    "user@example.com",
 		APIToken: "token",
 	})
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	transitions, err := client.GetTransitions("PROJ-123")
-	require.NoError(t, err)
-	assert.Len(t, transitions, 2)
-	assert.Equal(t, "11", transitions[0].ID)
-	assert.Equal(t, "To Do", transitions[0].Name)
+	testutil.RequireNoError(t, err)
+	testutil.Len(t, transitions, 2)
+	testutil.Equal(t, transitions[0].ID, "11")
+	testutil.Equal(t, transitions[0].Name, "To Do")
 }
 
 func TestClient_GetTransitionsWithFields(t *testing.T) {
@@ -133,16 +133,16 @@ func TestClient_GetTransitionsWithFields(t *testing.T) {
 			if tt.wantErr != nil {
 				client := &Client{}
 				_, err := client.GetTransitionsWithFields(tt.issueKey, tt.includeFields)
-				assert.ErrorIs(t, err, tt.wantErr)
+				testutil.True(t, errors.Is(err, tt.wantErr))
 				return
 			}
 
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				assert.Contains(t, r.URL.Path, "/issue/"+tt.issueKey+"/transitions")
+				testutil.Contains(t, r.URL.Path, "/issue/"+tt.issueKey+"/transitions")
 				if tt.wantExpand {
-					assert.Equal(t, "transitions.fields", r.URL.Query().Get("expand"))
+					testutil.Equal(t, r.URL.Query().Get("expand"), "transitions.fields")
 				} else {
-					assert.Empty(t, r.URL.Query().Get("expand"))
+					testutil.Empty(t, r.URL.Query().Get("expand"))
 				}
 				w.WriteHeader(http.StatusOK)
 				w.Write([]byte(`{
@@ -172,18 +172,18 @@ func TestClient_GetTransitionsWithFields(t *testing.T) {
 				Email:    "user@example.com",
 				APIToken: "token",
 			})
-			require.NoError(t, err)
+			testutil.RequireNoError(t, err)
 
 			transitions, err := client.GetTransitionsWithFields(tt.issueKey, tt.includeFields)
-			require.NoError(t, err)
-			assert.Len(t, transitions, 1)
-			assert.Equal(t, "In Progress", transitions[0].Name)
+			testutil.RequireNoError(t, err)
+			testutil.Len(t, transitions, 1)
+			testutil.Equal(t, transitions[0].Name, "In Progress")
 			if tt.includeFields {
-				assert.NotEmpty(t, transitions[0].Fields)
+				testutil.NotEmpty(t, transitions[0].Fields)
 				field, ok := transitions[0].Fields["resolution"]
-				assert.True(t, ok)
-				assert.True(t, field.Required)
-				assert.Equal(t, "Resolution", field.Name)
+				testutil.True(t, ok)
+				testutil.True(t, field.Required)
+				testutil.Equal(t, field.Name, "Resolution")
 			}
 		})
 	}
@@ -224,16 +224,16 @@ func TestClient_DoTransition(t *testing.T) {
 			if tt.wantErr != nil {
 				client := &Client{}
 				err := client.DoTransition(tt.issueKey, tt.transitionID, tt.fields)
-				assert.ErrorIs(t, err, tt.wantErr)
+				testutil.True(t, errors.Is(err, tt.wantErr))
 				return
 			}
 
 			var receivedBody TransitionRequest
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				assert.Equal(t, http.MethodPost, r.Method)
-				assert.Contains(t, r.URL.Path, "/issue/"+tt.issueKey+"/transitions")
+				testutil.Equal(t, r.Method, http.MethodPost)
+				testutil.Contains(t, r.URL.Path, "/issue/"+tt.issueKey+"/transitions")
 				err := json.NewDecoder(r.Body).Decode(&receivedBody)
-				require.NoError(t, err)
+				testutil.RequireNoError(t, err)
 				w.WriteHeader(http.StatusNoContent)
 			}))
 			defer server.Close()
@@ -243,13 +243,13 @@ func TestClient_DoTransition(t *testing.T) {
 				Email:    "user@example.com",
 				APIToken: "token",
 			})
-			require.NoError(t, err)
+			testutil.RequireNoError(t, err)
 
 			err = client.DoTransition(tt.issueKey, tt.transitionID, tt.fields)
-			require.NoError(t, err)
-			assert.Equal(t, tt.transitionID, receivedBody.Transition.ID)
+			testutil.RequireNoError(t, err)
+			testutil.Equal(t, receivedBody.Transition.ID, tt.transitionID)
 			if tt.fields != nil {
-				assert.NotEmpty(t, receivedBody.Fields)
+				testutil.NotEmpty(t, receivedBody.Fields)
 			}
 		})
 	}

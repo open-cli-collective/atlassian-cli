@@ -5,8 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"github.com/open-cli-collective/atlassian-go/testutil"
 )
 
 func TestParseWikiLink(t *testing.T) {
@@ -60,7 +59,7 @@ func TestParseWikiLink(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := ParseWikiLink(tt.input)
-			assert.Equal(t, tt.expected, result)
+			testutil.Equal(t, tt.expected, result)
 		})
 	}
 }
@@ -86,7 +85,7 @@ func TestIsSpaceKey(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
-			assert.Equal(t, tt.expected, isSpaceKey(tt.input))
+			testutil.Equal(t, tt.expected, isSpaceKey(tt.input))
 		})
 	}
 }
@@ -120,7 +119,7 @@ func TestRenderWikiLinkToStorage(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := RenderWikiLinkToStorage(tt.wl)
-			assert.Equal(t, tt.expected, result)
+			testutil.Equal(t, tt.expected, result)
 		})
 	}
 }
@@ -146,7 +145,7 @@ func TestRenderWikiLinkToBracket(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := RenderWikiLinkToBracket(tt.wl)
-			assert.Equal(t, tt.expected, result)
+			testutil.Equal(t, tt.expected, result)
 		})
 	}
 }
@@ -163,10 +162,10 @@ func TestPreprocessWikiLinks(t *testing.T) {
 			input:         "See [[My Page]] for details",
 			expectedLinks: 1,
 			checkOutput: func(t *testing.T, output string, links map[int]WikiLink) {
-				assert.Contains(t, output, "See ")
-				assert.Contains(t, output, " for details")
-				assert.Contains(t, output, wikiLinkPlaceholderPrefix)
-				assert.Equal(t, WikiLink{Title: "My Page"}, links[0])
+				testutil.Contains(t, output, "See ")
+				testutil.Contains(t, output, " for details")
+				testutil.Contains(t, output, wikiLinkPlaceholderPrefix)
+				testutil.Equal(t, WikiLink{Title: "My Page"}, links[0])
 			},
 		},
 		{
@@ -174,8 +173,8 @@ func TestPreprocessWikiLinks(t *testing.T) {
 			input:         "See [[Page A]] and [[DEV:Page B]]",
 			expectedLinks: 2,
 			checkOutput: func(t *testing.T, output string, links map[int]WikiLink) {
-				assert.Equal(t, WikiLink{Title: "Page A"}, links[0])
-				assert.Equal(t, WikiLink{SpaceKey: "DEV", Title: "Page B"}, links[1])
+				testutil.Equal(t, WikiLink{Title: "Page A"}, links[0])
+				testutil.Equal(t, WikiLink{SpaceKey: "DEV", Title: "Page B"}, links[1])
 			},
 		},
 		{
@@ -183,7 +182,7 @@ func TestPreprocessWikiLinks(t *testing.T) {
 			input:         "Just regular text",
 			expectedLinks: 0,
 			checkOutput: func(t *testing.T, output string, links map[int]WikiLink) {
-				assert.Equal(t, "Just regular text", output)
+				testutil.Equal(t, "Just regular text", output)
 			},
 		},
 		{
@@ -191,7 +190,7 @@ func TestPreprocessWikiLinks(t *testing.T) {
 			input:         "See [[]] for details",
 			expectedLinks: 0,
 			checkOutput: func(t *testing.T, output string, links map[int]WikiLink) {
-				assert.Contains(t, output, "[[]]")
+				testutil.Contains(t, output, "[[]]")
 			},
 		},
 	}
@@ -199,7 +198,7 @@ func TestPreprocessWikiLinks(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			output, links := preprocessWikiLinks([]byte(tt.input))
-			assert.Equal(t, tt.expectedLinks, len(links))
+			testutil.Equal(t, tt.expectedLinks, len(links))
 			tt.checkOutput(t, string(output), links)
 		})
 	}
@@ -250,9 +249,9 @@ func TestToConfluenceStorage_WikiLinks(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := ToConfluenceStorage([]byte(tt.markdown))
-			require.NoError(t, err)
+			testutil.RequireNoError(t, err)
 			for _, s := range tt.contains {
-				assert.Contains(t, result, s)
+				testutil.Contains(t, result, s)
 			}
 		})
 	}
@@ -268,25 +267,25 @@ func TestToADF_WikiLinks(t *testing.T) {
 			name:     "same-space wiki link produces link mark",
 			markdown: "See [[My Page]] for details.",
 			check: func(t *testing.T, jsonStr string) {
-				assert.Contains(t, jsonStr, `"type":"link"`)
-				assert.Contains(t, jsonStr, `confluence-wiki:///My%20Page`)
-				assert.Contains(t, jsonStr, `"text":"My Page"`)
+				testutil.Contains(t, jsonStr, `"type":"link"`)
+				testutil.Contains(t, jsonStr, `confluence-wiki:///My%20Page`)
+				testutil.Contains(t, jsonStr, `"text":"My Page"`)
 			},
 		},
 		{
 			name:     "cross-space wiki link produces link mark with space",
 			markdown: "Check [[DEV:Architecture]] for info.",
 			check: func(t *testing.T, jsonStr string) {
-				assert.Contains(t, jsonStr, `confluence-wiki://DEV/Architecture`)
-				assert.Contains(t, jsonStr, `"text":"Architecture"`)
+				testutil.Contains(t, jsonStr, `confluence-wiki://DEV/Architecture`)
+				testutil.Contains(t, jsonStr, `"text":"Architecture"`)
 			},
 		},
 		{
 			name:     "wiki link in heading",
 			markdown: "# See [[My Page]]",
 			check: func(t *testing.T, jsonStr string) {
-				assert.Contains(t, jsonStr, `"type":"heading"`)
-				assert.Contains(t, jsonStr, `"type":"link"`)
+				testutil.Contains(t, jsonStr, `"type":"heading"`)
+				testutil.Contains(t, jsonStr, `"type":"link"`)
 			},
 		},
 	}
@@ -294,11 +293,11 @@ func TestToADF_WikiLinks(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := ToADF([]byte(tt.markdown))
-			require.NoError(t, err)
+			testutil.RequireNoError(t, err)
 
 			// Verify it's valid JSON
 			var doc map[string]interface{}
-			require.NoError(t, json.Unmarshal([]byte(result), &doc))
+			testutil.RequireNoError(t, json.Unmarshal([]byte(result), &doc))
 
 			tt.check(t, result)
 		})
@@ -318,8 +317,8 @@ func TestConvertACLinksToPlaceholders(t *testing.T) {
 				`<ac:plain-text-link-body><![CDATA[My Page]]></ac:plain-text-link-body></ac:link> for details.</p>`,
 			expectedLinks: 1,
 			checkOutput: func(t *testing.T, output string, links map[int]WikiLink) {
-				assert.Contains(t, output, wikiLinkFromHTMLPlaceholderPrefix)
-				assert.Equal(t, WikiLink{Title: "My Page"}, links[0])
+				testutil.Contains(t, output, wikiLinkFromHTMLPlaceholderPrefix)
+				testutil.Equal(t, WikiLink{Title: "My Page"}, links[0])
 			},
 		},
 		{
@@ -328,7 +327,7 @@ func TestConvertACLinksToPlaceholders(t *testing.T) {
 				`<ac:plain-text-link-body><![CDATA[Architecture]]></ac:plain-text-link-body></ac:link></p>`,
 			expectedLinks: 1,
 			checkOutput: func(t *testing.T, output string, links map[int]WikiLink) {
-				assert.Equal(t, WikiLink{SpaceKey: "DEV", Title: "Architecture"}, links[0])
+				testutil.Equal(t, WikiLink{SpaceKey: "DEV", Title: "Architecture"}, links[0])
 			},
 		},
 		{
@@ -337,8 +336,8 @@ func TestConvertACLinksToPlaceholders(t *testing.T) {
 				`<ac:link><ri:page ri:content-title="Page B" ri:space-key="ENG" /></ac:link></p>`,
 			expectedLinks: 2,
 			checkOutput: func(t *testing.T, output string, links map[int]WikiLink) {
-				assert.Equal(t, WikiLink{Title: "Page A"}, links[0])
-				assert.Equal(t, WikiLink{SpaceKey: "ENG", Title: "Page B"}, links[1])
+				testutil.Equal(t, WikiLink{Title: "Page A"}, links[0])
+				testutil.Equal(t, WikiLink{SpaceKey: "ENG", Title: "Page B"}, links[1])
 			},
 		},
 		{
@@ -347,7 +346,7 @@ func TestConvertACLinksToPlaceholders(t *testing.T) {
 				`<ac:plain-text-link-body><![CDATA[Page & "Stuff"]]></ac:plain-text-link-body></ac:link>`,
 			expectedLinks: 1,
 			checkOutput: func(t *testing.T, output string, links map[int]WikiLink) {
-				assert.Equal(t, `Page & "Stuff"`, links[0].Title)
+				testutil.Equal(t, `Page & "Stuff"`, links[0].Title)
 			},
 		},
 		{
@@ -355,7 +354,7 @@ func TestConvertACLinksToPlaceholders(t *testing.T) {
 			html:          `<p>Just plain HTML</p>`,
 			expectedLinks: 0,
 			checkOutput: func(t *testing.T, output string, links map[int]WikiLink) {
-				assert.Equal(t, `<p>Just plain HTML</p>`, output)
+				testutil.Equal(t, `<p>Just plain HTML</p>`, output)
 			},
 		},
 	}
@@ -363,7 +362,7 @@ func TestConvertACLinksToPlaceholders(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			output, links := convertACLinksToPlaceholders(tt.html)
-			assert.Equal(t, tt.expectedLinks, len(links))
+			testutil.Equal(t, tt.expectedLinks, len(links))
 			tt.checkOutput(t, output, links)
 		})
 	}
@@ -403,7 +402,7 @@ func TestConvertACLinksToMarkdownLinks(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := convertACLinksToMarkdownLinks(tt.html)
-			assert.Equal(t, tt.expected, result)
+			testutil.Equal(t, tt.expected, result)
 		})
 	}
 }
@@ -414,16 +413,16 @@ func TestRoundtrip_WikiLinks_Storage(t *testing.T) {
 
 	// Convert to storage format
 	storage, err := ToConfluenceStorage([]byte(input))
-	require.NoError(t, err)
-	assert.Contains(t, storage, `ri:content-title="My Page"`)
-	assert.Contains(t, storage, `ri:content-title="Architecture"`)
-	assert.Contains(t, storage, `ri:space-key="DEV"`)
+	testutil.RequireNoError(t, err)
+	testutil.Contains(t, storage, `ri:content-title="My Page"`)
+	testutil.Contains(t, storage, `ri:content-title="Architecture"`)
+	testutil.Contains(t, storage, `ri:space-key="DEV"`)
 
 	// Convert back to markdown with --show-macros
 	markdown, err := FromConfluenceStorageWithOptions(storage, ConvertOptions{ShowMacros: true})
-	require.NoError(t, err)
-	assert.Contains(t, markdown, "[[My Page]]")
-	assert.Contains(t, markdown, "[[DEV:Architecture]]")
+	testutil.RequireNoError(t, err)
+	testutil.Contains(t, markdown, "[[My Page]]")
+	testutil.Contains(t, markdown, "[[DEV:Architecture]]")
 }
 
 func TestRoundtrip_WikiLinks_WithMacros(t *testing.T) {
@@ -432,24 +431,24 @@ func TestRoundtrip_WikiLinks_WithMacros(t *testing.T) {
 
 	// Forward: markdown → storage
 	storage, err := ToConfluenceStorage([]byte(input))
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	// Verify both macros and wiki links are present in storage
-	assert.Contains(t, storage, `ac:name="toc"`)
-	assert.Contains(t, storage, `ri:content-title="My Page"`)
-	assert.Contains(t, storage, `ri:content-title="Architecture"`)
+	testutil.Contains(t, storage, `ac:name="toc"`)
+	testutil.Contains(t, storage, `ri:content-title="My Page"`)
+	testutil.Contains(t, storage, `ri:content-title="Architecture"`)
 
 	// Reverse: storage → markdown with show-macros
 	markdown, err := FromConfluenceStorageWithOptions(storage, ConvertOptions{ShowMacros: true})
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	// Verify wiki links survived roundtrip
-	assert.Contains(t, markdown, "[[My Page]]")
-	assert.Contains(t, markdown, "[[DEV:Architecture]]")
+	testutil.Contains(t, markdown, "[[My Page]]")
+	testutil.Contains(t, markdown, "[[DEV:Architecture]]")
 	// Verify macros survived roundtrip
-	assert.Contains(t, markdown, "[TOC]")
-	assert.Contains(t, markdown, "[INFO]")
-	assert.Contains(t, markdown, "[/INFO]")
+	testutil.Contains(t, markdown, "[TOC]")
+	testutil.Contains(t, markdown, "[INFO]")
+	testutil.Contains(t, markdown, "[/INFO]")
 }
 
 func TestFromConfluenceStorage_WikiLinks_Default(t *testing.T) {
@@ -458,11 +457,11 @@ func TestFromConfluenceStorage_WikiLinks_Default(t *testing.T) {
 		`<ac:plain-text-link-body><![CDATA[My Page]]></ac:plain-text-link-body></ac:link> for details.</p>`
 
 	result, err := FromConfluenceStorage(html)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 	// Should contain the link text (as a markdown link or plain text)
-	assert.Contains(t, result, "My Page")
+	testutil.Contains(t, result, "My Page")
 	// Should NOT contain wiki-link syntax
-	assert.NotContains(t, result, "[[")
+	testutil.NotContains(t, result, "[[")
 }
 
 func TestFromConfluenceStorage_WikiLinks_ShowMacros(t *testing.T) {
@@ -470,8 +469,8 @@ func TestFromConfluenceStorage_WikiLinks_ShowMacros(t *testing.T) {
 		`<ac:plain-text-link-body><![CDATA[My Page]]></ac:plain-text-link-body></ac:link> for details.</p>`
 
 	result, err := FromConfluenceStorageWithOptions(html, ConvertOptions{ShowMacros: true})
-	require.NoError(t, err)
-	assert.Contains(t, result, "[[My Page]]")
+	testutil.RequireNoError(t, err)
+	testutil.Contains(t, result, "[[My Page]]")
 }
 
 func TestPreprocessWikiLinksForADF(t *testing.T) {
@@ -505,7 +504,7 @@ func TestPreprocessWikiLinksForADF(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := preprocessWikiLinksForADF([]byte(tt.input))
-			assert.Equal(t, tt.expected, string(result))
+			testutil.Equal(t, tt.expected, string(result))
 		})
 	}
 }
@@ -522,7 +521,7 @@ func TestPreprocessWikiLinks_CodeBlockProtection(t *testing.T) {
 			input:         "```\n[[My Page]]\n```",
 			expectedLinks: 0,
 			checkOutput: func(t *testing.T, output string, links map[int]WikiLink) {
-				assert.Contains(t, output, "[[My Page]]")
+				testutil.Contains(t, output, "[[My Page]]")
 			},
 		},
 		{
@@ -530,7 +529,7 @@ func TestPreprocessWikiLinks_CodeBlockProtection(t *testing.T) {
 			input:         "Use `[[My Page]]` syntax",
 			expectedLinks: 0,
 			checkOutput: func(t *testing.T, output string, links map[int]WikiLink) {
-				assert.Contains(t, output, "`[[My Page]]`")
+				testutil.Contains(t, output, "`[[My Page]]`")
 			},
 		},
 		{
@@ -538,9 +537,9 @@ func TestPreprocessWikiLinks_CodeBlockProtection(t *testing.T) {
 			input:         "```\n[[Code Page]]\n```\n\nSee [[Real Page]] here.",
 			expectedLinks: 1,
 			checkOutput: func(t *testing.T, output string, links map[int]WikiLink) {
-				assert.Contains(t, output, "[[Code Page]]")
-				assert.NotContains(t, output, "[[Real Page]]")
-				assert.Equal(t, WikiLink{Title: "Real Page"}, links[0])
+				testutil.Contains(t, output, "[[Code Page]]")
+				testutil.NotContains(t, output, "[[Real Page]]")
+				testutil.Equal(t, WikiLink{Title: "Real Page"}, links[0])
 			},
 		},
 		{
@@ -548,8 +547,8 @@ func TestPreprocessWikiLinks_CodeBlockProtection(t *testing.T) {
 			input:         "Use `[[syntax]]` to link to [[Real Page]]",
 			expectedLinks: 1,
 			checkOutput: func(t *testing.T, output string, links map[int]WikiLink) {
-				assert.Contains(t, output, "`[[syntax]]`")
-				assert.Equal(t, WikiLink{Title: "Real Page"}, links[0])
+				testutil.Contains(t, output, "`[[syntax]]`")
+				testutil.Equal(t, WikiLink{Title: "Real Page"}, links[0])
 			},
 		},
 	}
@@ -557,7 +556,7 @@ func TestPreprocessWikiLinks_CodeBlockProtection(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			output, links := preprocessWikiLinks([]byte(tt.input))
-			assert.Equal(t, tt.expectedLinks, len(links))
+			testutil.Equal(t, tt.expectedLinks, len(links))
 			tt.checkOutput(t, string(output), links)
 		})
 	}
@@ -604,12 +603,12 @@ func TestToConfluenceStorage_WikiLinksInCodeBlock(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := ToConfluenceStorage([]byte(tt.markdown))
-			require.NoError(t, err)
+			testutil.RequireNoError(t, err)
 			for _, s := range tt.contains {
-				assert.Contains(t, result, s)
+				testutil.Contains(t, result, s)
 			}
 			for _, s := range tt.notContains {
-				assert.NotContains(t, result, s)
+				testutil.NotContains(t, result, s)
 			}
 		})
 	}
@@ -625,25 +624,25 @@ func TestToADF_WikiLinksInCodeBlock(t *testing.T) {
 			name:     "wiki link in fenced code block not converted to link",
 			markdown: "```\n[[My Page]]\n```",
 			check: func(t *testing.T, jsonStr string) {
-				assert.Contains(t, jsonStr, "codeBlock")
-				assert.Contains(t, jsonStr, "[[My Page]]")
-				assert.NotContains(t, jsonStr, "confluence-wiki://")
+				testutil.Contains(t, jsonStr, "codeBlock")
+				testutil.Contains(t, jsonStr, "[[My Page]]")
+				testutil.NotContains(t, jsonStr, "confluence-wiki://")
 			},
 		},
 		{
 			name:     "wiki link in inline code not converted to link",
 			markdown: "Use `[[My Page]]` syntax.",
 			check: func(t *testing.T, jsonStr string) {
-				assert.Contains(t, jsonStr, "[[My Page]]")
-				assert.NotContains(t, jsonStr, "confluence-wiki://")
+				testutil.Contains(t, jsonStr, "[[My Page]]")
+				testutil.NotContains(t, jsonStr, "confluence-wiki://")
 			},
 		},
 		{
 			name:     "wiki link outside code converted, inside preserved",
 			markdown: "```\n[[Code Page]]\n```\n\nSee [[Real Page]].",
 			check: func(t *testing.T, jsonStr string) {
-				assert.Contains(t, jsonStr, "[[Code Page]]")
-				assert.Contains(t, jsonStr, "confluence-wiki:///Real%20Page")
+				testutil.Contains(t, jsonStr, "[[Code Page]]")
+				testutil.Contains(t, jsonStr, "confluence-wiki:///Real%20Page")
 			},
 		},
 	}
@@ -651,10 +650,10 @@ func TestToADF_WikiLinksInCodeBlock(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := ToADF([]byte(tt.markdown))
-			require.NoError(t, err)
+			testutil.RequireNoError(t, err)
 
 			var doc map[string]interface{}
-			require.NoError(t, json.Unmarshal([]byte(result), &doc))
+			testutil.RequireNoError(t, json.Unmarshal([]byte(result), &doc))
 
 			tt.check(t, result)
 		})
@@ -687,7 +686,7 @@ func TestPreprocessWikiLinksForADF_CodeBlockProtection(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := preprocessWikiLinksForADF([]byte(tt.input))
-			assert.Equal(t, tt.expected, string(result))
+			testutil.Equal(t, tt.expected, string(result))
 		})
 	}
 }
@@ -696,39 +695,39 @@ func TestWikiLink_EscapedTitleInStorage(t *testing.T) {
 	// Titles with XML-special characters should be properly escaped in storage format
 	wl := WikiLink{Title: `Page & "Stuff" <here>`}
 	storage := RenderWikiLinkToStorage(wl)
-	assert.Contains(t, storage, `ri:content-title="Page &amp; &quot;Stuff&quot; &lt;here&gt;"`)
+	testutil.Contains(t, storage, `ri:content-title="Page &amp; &quot;Stuff&quot; &lt;here&gt;"`)
 	// CDATA doesn't need escaping
-	assert.Contains(t, storage, `<![CDATA[Page & "Stuff" <here>]]>`)
+	testutil.Contains(t, storage, `<![CDATA[Page & "Stuff" <here>]]>`)
 }
 
 func TestWikiLink_NotConfusedWithMarkdownLinks(t *testing.T) {
 	// Standard markdown links should not be affected
 	input := "[regular link](https://example.com)"
 	output, links := preprocessWikiLinks([]byte(input))
-	assert.Equal(t, 0, len(links))
-	assert.Equal(t, input, string(output))
+	testutil.Equal(t, 0, len(links))
+	testutil.Equal(t, input, string(output))
 }
 
 func TestWikiLink_NotConfusedWithBracketMacros(t *testing.T) {
 	// Bracket macros use single brackets and should not be confused with wiki-links
 	input := "[TOC]\n\n[[My Page]]"
 	output, links := preprocessWikiLinks([]byte(input))
-	assert.Equal(t, 1, len(links))
-	assert.Contains(t, string(output), "[TOC]") // single bracket preserved
-	assert.Equal(t, WikiLink{Title: "My Page"}, links[0])
+	testutil.Equal(t, 1, len(links))
+	testutil.Contains(t, string(output), "[TOC]") // single bracket preserved
+	testutil.Equal(t, WikiLink{Title: "My Page"}, links[0])
 }
 
 func TestMultipleWikiLinksInLine(t *testing.T) {
 	input := "Compare [[Page A]], [[Page B]], and [[DEV:Page C]]."
 	storage, err := ToConfluenceStorage([]byte(input))
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	// All three should be present
-	assert.Equal(t, 3, strings.Count(storage, "<ac:link>"))
-	assert.Contains(t, storage, `ri:content-title="Page A"`)
-	assert.Contains(t, storage, `ri:content-title="Page B"`)
-	assert.Contains(t, storage, `ri:content-title="Page C"`)
-	assert.Contains(t, storage, `ri:space-key="DEV"`)
+	testutil.Equal(t, 3, strings.Count(storage, "<ac:link>"))
+	testutil.Contains(t, storage, `ri:content-title="Page A"`)
+	testutil.Contains(t, storage, `ri:content-title="Page B"`)
+	testutil.Contains(t, storage, `ri:content-title="Page C"`)
+	testutil.Contains(t, storage, `ri:space-key="DEV"`)
 }
 
 func TestToADF_WikiLink_SpecialCharsInTitle(t *testing.T) {
@@ -742,16 +741,16 @@ func TestToADF_WikiLink_SpecialCharsInTitle(t *testing.T) {
 			name:     "title with ampersand",
 			markdown: "See [[Q&A Page]] here.",
 			check: func(t *testing.T, jsonStr string) {
-				assert.Contains(t, jsonStr, `"type":"link"`)
-				assert.Contains(t, jsonStr, `"text":"Q\u0026A Page"`)
+				testutil.Contains(t, jsonStr, `"type":"link"`)
+				testutil.Contains(t, jsonStr, `"text":"Q\u0026A Page"`)
 			},
 		},
 		{
 			name:     "title with special URL chars",
 			markdown: "Check [[Page #1 (draft)]].",
 			check: func(t *testing.T, jsonStr string) {
-				assert.Contains(t, jsonStr, `"type":"link"`)
-				assert.Contains(t, jsonStr, `"text":"Page #1 (draft)"`)
+				testutil.Contains(t, jsonStr, `"type":"link"`)
+				testutil.Contains(t, jsonStr, `"text":"Page #1 (draft)"`)
 			},
 		},
 	}
@@ -759,10 +758,10 @@ func TestToADF_WikiLink_SpecialCharsInTitle(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := ToADF([]byte(tt.markdown))
-			require.NoError(t, err)
+			testutil.RequireNoError(t, err)
 
 			var doc map[string]interface{}
-			require.NoError(t, json.Unmarshal([]byte(result), &doc))
+			testutil.RequireNoError(t, json.Unmarshal([]byte(result), &doc))
 
 			tt.check(t, result)
 		})

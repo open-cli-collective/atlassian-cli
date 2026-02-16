@@ -7,8 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"github.com/open-cli-collective/atlassian-go/testutil"
 
 	"github.com/open-cli-collective/confluence-cli/api"
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
@@ -60,7 +59,7 @@ func TestRunDelete_ConfirmYes(t *testing.T) {
 	}
 
 	err := runDelete("12345", opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 }
 
 func TestRunDelete_ConfirmYesUppercase(t *testing.T) {
@@ -78,7 +77,7 @@ func TestRunDelete_ConfirmYesUppercase(t *testing.T) {
 	}
 
 	err := runDelete("12345", opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 }
 
 func TestRunDelete_ConfirmNo(t *testing.T) {
@@ -96,7 +95,7 @@ func TestRunDelete_ConfirmNo(t *testing.T) {
 	}
 
 	err := runDelete("12345", opts)
-	require.NoError(t, err) // Cancellation is not an error
+	testutil.RequireNoError(t, err) // Cancellation is not an error
 }
 
 func TestRunDelete_ConfirmEmpty(t *testing.T) {
@@ -114,7 +113,7 @@ func TestRunDelete_ConfirmEmpty(t *testing.T) {
 	}
 
 	err := runDelete("12345", opts)
-	require.NoError(t, err) // Empty input should cancel
+	testutil.RequireNoError(t, err) // Empty input should cancel
 }
 
 func TestRunDelete_ConfirmOther(t *testing.T) {
@@ -132,7 +131,7 @@ func TestRunDelete_ConfirmOther(t *testing.T) {
 	}
 
 	err := runDelete("12345", opts)
-	require.NoError(t, err) // Any non-y/Y input should cancel
+	testutil.RequireNoError(t, err) // Any non-y/Y input should cancel
 }
 
 func TestRunDelete_Force(t *testing.T) {
@@ -149,7 +148,7 @@ func TestRunDelete_Force(t *testing.T) {
 	}
 
 	err := runDelete("12345", opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 }
 
 func TestRunDelete_PageNotFound(t *testing.T) {
@@ -169,8 +168,8 @@ func TestRunDelete_PageNotFound(t *testing.T) {
 	}
 
 	err := runDelete("99999", opts)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to get page")
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "failed to get page")
 }
 
 func TestRunDelete_DeleteFailed(t *testing.T) {
@@ -187,8 +186,8 @@ func TestRunDelete_DeleteFailed(t *testing.T) {
 	}
 
 	err := runDelete("12345", opts)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to delete page")
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "failed to delete page")
 }
 
 func TestRunDelete_JSONOutput(t *testing.T) {
@@ -206,7 +205,7 @@ func TestRunDelete_JSONOutput(t *testing.T) {
 	}
 
 	err := runDelete("12345", opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 }
 
 func TestRunDelete_ConfirmationInputs(t *testing.T) {
@@ -251,8 +250,8 @@ func TestRunDelete_ConfirmationInputs(t *testing.T) {
 			}
 
 			err := runDelete("12345", opts)
-			require.NoError(t, err)
-			assert.Equal(t, tt.shouldProceed, deleteCalled, "delete should have been called: %v", tt.shouldProceed)
+			testutil.RequireNoError(t, err)
+			testutil.Equal(t, deleteCalled, tt.shouldProceed)
 		})
 	}
 }

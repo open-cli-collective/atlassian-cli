@@ -6,16 +6,16 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"github.com/open-cli-collective/atlassian-go/testutil"
 )
 
 func loadTestData(t *testing.T, filename string) []byte {
 	t.Helper()
 	data, err := os.ReadFile(filepath.Join("testdata", filename))
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 	return data
 }
 
@@ -23,11 +23,11 @@ func TestClient_ListSpaces(t *testing.T) {
 	testData := loadTestData(t, "spaces.json")
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/api/v2/spaces", r.URL.Path)
-		assert.Equal(t, "GET", r.Method)
+		testutil.Equal(t, "/api/v2/spaces", r.URL.Path)
+		testutil.Equal(t, "GET", r.Method)
 
 		// Check query params
-		assert.Equal(t, "25", r.URL.Query().Get("limit"))
+		testutil.Equal(t, "25", r.URL.Query().Get("limit"))
 
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write(testData)
@@ -37,23 +37,23 @@ func TestClient_ListSpaces(t *testing.T) {
 	client := NewClient(server.URL, "user@example.com", "token")
 	result, err := client.ListSpaces(context.Background(), nil)
 
-	require.NoError(t, err)
-	assert.Len(t, result.Results, 2)
-	assert.True(t, result.HasMore())
+	testutil.RequireNoError(t, err)
+	testutil.Len(t, result.Results, 2)
+	testutil.True(t, result.HasMore())
 
 	// Check first space
 	space := result.Results[0]
-	assert.Equal(t, "123456", space.ID)
-	assert.Equal(t, "DEV", space.Key)
-	assert.Equal(t, "Development", space.Name)
-	assert.Equal(t, "global", space.Type)
+	testutil.Equal(t, "123456", space.ID)
+	testutil.Equal(t, "DEV", space.Key)
+	testutil.Equal(t, "Development", space.Name)
+	testutil.Equal(t, "global", space.Type)
 }
 
 func TestClient_ListSpaces_WithOptions(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "50", r.URL.Query().Get("limit"))
-		assert.Equal(t, "global", r.URL.Query().Get("type"))
-		assert.Equal(t, "current", r.URL.Query().Get("status"))
+		testutil.Equal(t, "50", r.URL.Query().Get("limit"))
+		testutil.Equal(t, "global", r.URL.Query().Get("type"))
+		testutil.Equal(t, "current", r.URL.Query().Get("status"))
 
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"results": []}`))
@@ -67,13 +67,13 @@ func TestClient_ListSpaces_WithOptions(t *testing.T) {
 		Status: "current",
 	}
 	_, err := client.ListSpaces(context.Background(), opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 }
 
 func TestClient_GetSpace(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/api/v2/spaces/123456", r.URL.Path)
-		assert.Equal(t, "GET", r.Method)
+		testutil.Equal(t, "/api/v2/spaces/123456", r.URL.Path)
+		testutil.Equal(t, "GET", r.Method)
 
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{
@@ -88,10 +88,10 @@ func TestClient_GetSpace(t *testing.T) {
 	client := NewClient(server.URL, "user@example.com", "token")
 	space, err := client.GetSpace(context.Background(), "123456")
 
-	require.NoError(t, err)
-	assert.Equal(t, "123456", space.ID)
-	assert.Equal(t, "DEV", space.Key)
-	assert.Equal(t, "Development", space.Name)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "123456", space.ID)
+	testutil.Equal(t, "DEV", space.Key)
+	testutil.Equal(t, "Development", space.Name)
 }
 
 func TestClient_GetSpace_NotFound(t *testing.T) {
@@ -104,15 +104,15 @@ func TestClient_GetSpace_NotFound(t *testing.T) {
 	client := NewClient(server.URL, "user@example.com", "token")
 	_, err := client.GetSpace(context.Background(), "invalid")
 
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "Space not found")
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "Space not found")
 }
 
 func TestClient_GetSpaceByKey_Success(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/api/v2/spaces", r.URL.Path)
-		assert.Equal(t, "DEV", r.URL.Query().Get("keys"))
-		assert.Equal(t, "1", r.URL.Query().Get("limit"))
+		testutil.Equal(t, "/api/v2/spaces", r.URL.Path)
+		testutil.Equal(t, "DEV", r.URL.Query().Get("keys"))
+		testutil.Equal(t, "1", r.URL.Query().Get("limit"))
 
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{
@@ -129,15 +129,15 @@ func TestClient_GetSpaceByKey_Success(t *testing.T) {
 	client := NewClient(server.URL, "user@example.com", "token")
 	space, err := client.GetSpaceByKey(context.Background(), "DEV")
 
-	require.NoError(t, err)
-	assert.Equal(t, "123456", space.ID)
-	assert.Equal(t, "DEV", space.Key)
-	assert.Equal(t, "Development", space.Name)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "123456", space.ID)
+	testutil.Equal(t, "DEV", space.Key)
+	testutil.Equal(t, "Development", space.Name)
 }
 
 func TestClient_GetSpaceByKey_NotFound(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "NONEXISTENT", r.URL.Query().Get("keys"))
+		testutil.Equal(t, "NONEXISTENT", r.URL.Query().Get("keys"))
 
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"results": []}`))
@@ -147,17 +147,18 @@ func TestClient_GetSpaceByKey_NotFound(t *testing.T) {
 	client := NewClient(server.URL, "user@example.com", "token")
 	_, err := client.GetSpaceByKey(context.Background(), "NONEXISTENT")
 
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "not found")
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "not found")
 }
 
 func TestClient_ListSpaces_WithMultipleKeys(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Check that multiple keys are passed correctly
 		keys := r.URL.Query()["keys"]
-		assert.Contains(t, keys, "DEV")
-		assert.Contains(t, keys, "PROD")
-		assert.Contains(t, keys, "TEST")
+		keysStr := strings.Join(keys, ",")
+		testutil.Contains(t, keysStr, "DEV")
+		testutil.Contains(t, keysStr, "PROD")
+		testutil.Contains(t, keysStr, "TEST")
 
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{
@@ -176,8 +177,8 @@ func TestClient_ListSpaces_WithMultipleKeys(t *testing.T) {
 	}
 	result, err := client.ListSpaces(context.Background(), opts)
 
-	require.NoError(t, err)
-	assert.Len(t, result.Results, 3)
+	testutil.RequireNoError(t, err)
+	testutil.Len(t, result.Results, 3)
 }
 
 func TestClient_ListSpaces_EmptyResults(t *testing.T) {
@@ -190,9 +191,9 @@ func TestClient_ListSpaces_EmptyResults(t *testing.T) {
 	client := NewClient(server.URL, "user@example.com", "token")
 	result, err := client.ListSpaces(context.Background(), nil)
 
-	require.NoError(t, err)
-	assert.Empty(t, result.Results)
-	assert.False(t, result.HasMore())
+	testutil.RequireNoError(t, err)
+	testutil.Empty(t, result.Results)
+	testutil.False(t, result.HasMore())
 }
 
 func TestClient_ListSpaces_NullDescription(t *testing.T) {
@@ -212,9 +213,9 @@ func TestClient_ListSpaces_NullDescription(t *testing.T) {
 	client := NewClient(server.URL, "user@example.com", "token")
 	result, err := client.ListSpaces(context.Background(), nil)
 
-	require.NoError(t, err)
-	require.Len(t, result.Results, 1)
-	assert.Equal(t, "TEST", result.Results[0].Key)
+	testutil.RequireNoError(t, err)
+	testutil.Len(t, result.Results, 1)
+	testutil.Equal(t, "TEST", result.Results[0].Key)
 }
 
 func TestClient_ListSpaces_APIError(t *testing.T) {
@@ -227,5 +228,5 @@ func TestClient_ListSpaces_APIError(t *testing.T) {
 	client := NewClient(server.URL, "user@example.com", "bad-token")
 	_, err := client.ListSpaces(context.Background(), nil)
 
-	require.Error(t, err)
+	testutil.RequireError(t, err)
 }

@@ -5,10 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
+	"github.com/open-cli-collective/atlassian-go/testutil"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 )
 
@@ -17,7 +14,7 @@ func TestRunUpdate(t *testing.T) {
 		dir := t.TempDir()
 		filePath := filepath.Join(dir, "bad.json")
 		err := os.WriteFile(filePath, []byte(`not valid json`), 0644)
-		require.NoError(t, err)
+		testutil.RequireNoError(t, err)
 
 		var stdout, stderr bytes.Buffer
 		opts := &root.Options{
@@ -27,8 +24,8 @@ func TestRunUpdate(t *testing.T) {
 		}
 
 		err = runUpdate(opts, "12345", filePath)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "does not contain valid JSON")
+		testutil.RequireError(t, err)
+		testutil.Contains(t, err.Error(), "does not contain valid JSON")
 	})
 
 	t.Run("file not found", func(t *testing.T) {
@@ -40,7 +37,7 @@ func TestRunUpdate(t *testing.T) {
 		}
 
 		err := runUpdate(opts, "12345", "/nonexistent/path/rule.json")
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to read file")
+		testutil.RequireError(t, err)
+		testutil.Contains(t, err.Error(), "failed to read file")
 	})
 }

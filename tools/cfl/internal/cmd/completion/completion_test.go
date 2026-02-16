@@ -5,8 +5,7 @@ import (
 	"testing"
 
 	"github.com/spf13/cobra"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"github.com/open-cli-collective/atlassian-go/testutil"
 
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
 )
@@ -34,12 +33,12 @@ func TestCompletionCommand(t *testing.T) {
 
 	// Find the completion command
 	completionCmd, _, err := rootCmd.Find([]string{"completion"})
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
-	assert.Equal(t, "completion [bash|zsh|fish|powershell]", completionCmd.Use)
-	assert.NotEmpty(t, completionCmd.Short)
-	assert.NotEmpty(t, completionCmd.Long)
-	assert.Equal(t, []string{"bash", "zsh", "fish", "powershell"}, completionCmd.ValidArgs)
+	testutil.Equal(t, "completion [bash|zsh|fish|powershell]", completionCmd.Use)
+	testutil.NotEmpty(t, completionCmd.Short)
+	testutil.NotEmpty(t, completionCmd.Long)
+	testutil.Equal(t, []string{"bash", "zsh", "fish", "powershell"}, completionCmd.ValidArgs)
 }
 
 func TestBashCompletion(t *testing.T) {
@@ -50,12 +49,12 @@ func TestBashCompletion(t *testing.T) {
 	root.SetArgs([]string{"completion", "bash"})
 
 	err := root.Execute()
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	output := buf.String()
-	assert.NotEmpty(t, output)
+	testutil.NotEmpty(t, output)
 	// Bash completions should contain bash-specific markers
-	assert.Contains(t, output, "bash completion")
+	testutil.Contains(t, output, "bash completion")
 }
 
 func TestZshCompletion(t *testing.T) {
@@ -66,12 +65,12 @@ func TestZshCompletion(t *testing.T) {
 	root.SetArgs([]string{"completion", "zsh"})
 
 	err := root.Execute()
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	output := buf.String()
-	assert.NotEmpty(t, output)
+	testutil.NotEmpty(t, output)
 	// Zsh completions should contain zsh-specific markers
-	assert.Contains(t, output, "compdef")
+	testutil.Contains(t, output, "compdef")
 }
 
 func TestFishCompletion(t *testing.T) {
@@ -82,12 +81,12 @@ func TestFishCompletion(t *testing.T) {
 	root.SetArgs([]string{"completion", "fish"})
 
 	err := root.Execute()
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	output := buf.String()
-	assert.NotEmpty(t, output)
+	testutil.NotEmpty(t, output)
 	// Fish completions should contain fish-specific markers
-	assert.Contains(t, output, "complete -c")
+	testutil.Contains(t, output, "complete -c")
 }
 
 func TestPowerShellCompletion(t *testing.T) {
@@ -98,12 +97,12 @@ func TestPowerShellCompletion(t *testing.T) {
 	root.SetArgs([]string{"completion", "powershell"})
 
 	err := root.Execute()
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	output := buf.String()
-	assert.NotEmpty(t, output)
+	testutil.NotEmpty(t, output)
 	// PowerShell completions should contain PowerShell-specific markers
-	assert.Contains(t, output, "Register-ArgumentCompleter")
+	testutil.Contains(t, output, "Register-ArgumentCompleter")
 }
 
 func TestCompletionRequiresShellArg(t *testing.T) {
@@ -113,8 +112,8 @@ func TestCompletionRequiresShellArg(t *testing.T) {
 	root.SetErr(&bytes.Buffer{}) // Suppress error output
 
 	err := root.Execute()
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "accepts 1 arg(s)")
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "accepts 1 arg(s)")
 }
 
 func TestCompletionRejectsInvalidShell(t *testing.T) {
@@ -124,8 +123,8 @@ func TestCompletionRejectsInvalidShell(t *testing.T) {
 	root.SetErr(&bytes.Buffer{}) // Suppress error output
 
 	err := root.Execute()
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid argument")
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "invalid argument")
 }
 
 func TestCompletionRejectsExtraArgs(t *testing.T) {
@@ -135,6 +134,6 @@ func TestCompletionRejectsExtraArgs(t *testing.T) {
 	root.SetErr(&bytes.Buffer{}) // Suppress error output
 
 	err := root.Execute()
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "accepts 1 arg(s)")
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "accepts 1 arg(s)")
 }

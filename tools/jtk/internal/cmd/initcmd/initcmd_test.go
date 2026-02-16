@@ -2,9 +2,7 @@ package initcmd
 
 import (
 	"testing"
-
-	"github.com/stretchr/testify/assert"
-
+	"github.com/open-cli-collective/atlassian-go/testutil"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/config"
 )
 
@@ -12,7 +10,7 @@ func TestConfig_GetDefaultProject_Env(t *testing.T) {
 	t.Setenv("JIRA_DEFAULT_PROJECT", "ENVPROJ")
 
 	got := config.GetDefaultProject()
-	assert.Equal(t, "ENVPROJ", got)
+	testutil.Equal(t, got, "ENVPROJ")
 }
 
 func TestConfig_GetDefaultProject_NoConfig(t *testing.T) {
@@ -24,7 +22,7 @@ func TestConfig_GetDefaultProject_NoConfig(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", homeDir)
 
 	got := config.GetDefaultProject()
-	assert.Equal(t, "", got)
+	testutil.Equal(t, got, "")
 }
 
 func TestConfig_DefaultProject_Struct(t *testing.T) {
@@ -35,7 +33,7 @@ func TestConfig_DefaultProject_Struct(t *testing.T) {
 		APIToken:       "token",
 		DefaultProject: "MYPROJ",
 	}
-	assert.Equal(t, "MYPROJ", cfg.DefaultProject)
+	testutil.Equal(t, cfg.DefaultProject, "MYPROJ")
 }
 
 // Note: Interactive huh form tests are skipped because huh requires a TTY

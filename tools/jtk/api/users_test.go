@@ -5,9 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"github.com/open-cli-collective/atlassian-go/testutil"
 )
 
 func TestGetUser(t *testing.T) {
@@ -44,8 +42,8 @@ func TestGetUser(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				assert.Equal(t, "/rest/api/3/user", r.URL.Path)
-				assert.Equal(t, tt.accountID, r.URL.Query().Get("accountId"))
+				testutil.Equal(t, r.URL.Path, "/rest/api/3/user")
+				testutil.Equal(t, r.URL.Query().Get("accountId"), tt.accountID)
 				w.WriteHeader(tt.statusCode)
 				w.Write([]byte(tt.response))
 			}))
@@ -56,24 +54,24 @@ func TestGetUser(t *testing.T) {
 				Email:    "test@example.com",
 				APIToken: "test-token",
 			})
-			require.NoError(t, err)
+			testutil.RequireNoError(t, err)
 			client.BaseURL = server.URL + "/rest/api/3"
 
 			user, err := client.GetUser(tt.accountID)
 			if tt.wantErr {
-				assert.Error(t, err)
+				testutil.Error(t, err)
 				return
 			}
 
-			require.NoError(t, err)
-			assert.Equal(t, tt.wantDisplay, user.DisplayName)
+			testutil.RequireNoError(t, err)
+			testutil.Equal(t, user.DisplayName, tt.wantDisplay)
 		})
 	}
 }
 
 func TestGetCurrentUser(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/rest/api/3/myself", r.URL.Path)
+		testutil.Equal(t, r.URL.Path, "/rest/api/3/myself")
 		user := User{
 			AccountID:    "5b10ac8d82e05b22cc7d4ef5",
 			DisplayName:  "Current User",
@@ -89,19 +87,19 @@ func TestGetCurrentUser(t *testing.T) {
 		Email:    "test@example.com",
 		APIToken: "test-token",
 	})
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 	client.BaseURL = server.URL + "/rest/api/3"
 
 	user, err := client.GetCurrentUser()
-	require.NoError(t, err)
-	assert.Equal(t, "Current User", user.DisplayName)
-	assert.Equal(t, "5b10ac8d82e05b22cc7d4ef5", user.AccountID)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, user.DisplayName, "Current User")
+	testutil.Equal(t, user.AccountID, "5b10ac8d82e05b22cc7d4ef5")
 }
 
 func TestSearchUsers(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/rest/api/3/user/search", r.URL.Path)
-		assert.Equal(t, "john", r.URL.Query().Get("query"))
+		testutil.Equal(t, r.URL.Path, "/rest/api/3/user/search")
+		testutil.Equal(t, r.URL.Query().Get("query"), "john")
 		users := []User{
 			{
 				AccountID:    "5b10ac8d82e05b22cc7d4ef5",
@@ -125,12 +123,12 @@ func TestSearchUsers(t *testing.T) {
 		Email:    "test@example.com",
 		APIToken: "test-token",
 	})
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 	client.BaseURL = server.URL + "/rest/api/3"
 
 	users, err := client.SearchUsers("john", 0)
-	require.NoError(t, err)
-	assert.Len(t, users, 2)
-	assert.Equal(t, "John Smith", users[0].DisplayName)
-	assert.Equal(t, "John Doe", users[1].DisplayName)
+	testutil.RequireNoError(t, err)
+	testutil.Len(t, users, 2)
+	testutil.Equal(t, users[0].DisplayName, "John Smith")
+	testutil.Equal(t, users[1].DisplayName, "John Doe")
 }

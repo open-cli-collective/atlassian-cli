@@ -7,9 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"github.com/open-cli-collective/atlassian-go/testutil"
 )
 
 func TestFlexibleID_UnmarshalJSON(t *testing.T) {
@@ -51,11 +49,11 @@ func TestFlexibleID_UnmarshalJSON(t *testing.T) {
 			var id FlexibleID
 			err := json.Unmarshal([]byte(tt.input), &id)
 			if tt.wantErr {
-				assert.Error(t, err)
+				testutil.Error(t, err)
 			} else {
-				require.NoError(t, err)
-				assert.Equal(t, tt.expected, id)
-				assert.Equal(t, string(tt.expected), id.String())
+				testutil.RequireNoError(t, err)
+				testutil.Equal(t, id, tt.expected)
+				testutil.Equal(t, id.String(), string(tt.expected))
 			}
 		})
 	}
@@ -63,8 +61,8 @@ func TestFlexibleID_UnmarshalJSON(t *testing.T) {
 
 func TestGetIssueAttachments(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/rest/api/3/issue/PROJ-123", r.URL.Path)
-		assert.Equal(t, "attachment", r.URL.Query().Get("fields"))
+		testutil.Equal(t, r.URL.Path, "/rest/api/3/issue/PROJ-123")
+		testutil.Equal(t, r.URL.Query().Get("fields"), "attachment")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{
 			"fields": {
@@ -89,17 +87,17 @@ func TestGetIssueAttachments(t *testing.T) {
 		Email:    "test@example.com",
 		APIToken: "token",
 	})
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	attachments, err := client.GetIssueAttachments("PROJ-123")
-	require.NoError(t, err)
-	require.Len(t, attachments, 1)
+	testutil.RequireNoError(t, err)
+	testutil.Len(t, attachments, 1)
 
 	att := attachments[0]
-	assert.Equal(t, "10001", att.ID.String())
-	assert.Equal(t, "test.txt", att.Filename)
-	assert.Equal(t, int64(1024), att.Size)
-	assert.Equal(t, "Test User", att.Author.DisplayName)
+	testutil.Equal(t, att.ID.String(), "10001")
+	testutil.Equal(t, att.Filename, "test.txt")
+	testutil.Equal(t, att.Size, int64(1024))
+	testutil.Equal(t, att.Author.DisplayName, "Test User")
 }
 
 func TestGetIssueAttachments_EmptyIssueKey(t *testing.T) {
@@ -110,13 +108,13 @@ func TestGetIssueAttachments_EmptyIssueKey(t *testing.T) {
 	})
 
 	_, err := client.GetIssueAttachments("")
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "issue key is required")
+	testutil.Error(t, err)
+	testutil.Contains(t, err.Error(), "issue key is required")
 }
 
 func TestGetAttachment(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/rest/api/3/attachment/10001", r.URL.Path)
+		testutil.Equal(t, r.URL.Path, "/rest/api/3/attachment/10001")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{
 			"id": "10001",
@@ -133,13 +131,13 @@ func TestGetAttachment(t *testing.T) {
 		Email:    "test@example.com",
 		APIToken: "token",
 	})
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	att, err := client.GetAttachment("10001")
-	require.NoError(t, err)
-	assert.Equal(t, "10001", att.ID.String())
-	assert.Equal(t, "document.pdf", att.Filename)
-	assert.Equal(t, int64(2048), att.Size)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, att.ID.String(), "10001")
+	testutil.Equal(t, att.Filename, "document.pdf")
+	testutil.Equal(t, att.Size, int64(2048))
 }
 
 func TestGetAttachment_EmptyID(t *testing.T) {
@@ -150,14 +148,14 @@ func TestGetAttachment_EmptyID(t *testing.T) {
 	})
 
 	_, err := client.GetAttachment("")
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "attachment ID is required")
+	testutil.Error(t, err)
+	testutil.Contains(t, err.Error(), "attachment ID is required")
 }
 
 func TestDeleteAttachment(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, http.MethodDelete, r.Method)
-		assert.Equal(t, "/rest/api/3/attachment/10001", r.URL.Path)
+		testutil.Equal(t, r.Method, http.MethodDelete)
+		testutil.Equal(t, r.URL.Path, "/rest/api/3/attachment/10001")
 		w.WriteHeader(http.StatusNoContent)
 	}))
 	defer server.Close()
@@ -167,10 +165,10 @@ func TestDeleteAttachment(t *testing.T) {
 		Email:    "test@example.com",
 		APIToken: "token",
 	})
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	err = client.DeleteAttachment("10001")
-	assert.NoError(t, err)
+	testutil.NoError(t, err)
 }
 
 func TestDeleteAttachment_EmptyID(t *testing.T) {
@@ -181,8 +179,8 @@ func TestDeleteAttachment_EmptyID(t *testing.T) {
 	})
 
 	err := client.DeleteAttachment("")
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "attachment ID is required")
+	testutil.Error(t, err)
+	testutil.Contains(t, err.Error(), "attachment ID is required")
 }
 
 func TestDownloadAttachment(t *testing.T) {
@@ -198,7 +196,7 @@ func TestDownloadAttachment(t *testing.T) {
 		Email:    "test@example.com",
 		APIToken: "token",
 	})
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	tmpDir := t.TempDir()
 	outPath := filepath.Join(tmpDir, "downloaded.txt")
@@ -209,11 +207,11 @@ func TestDownloadAttachment(t *testing.T) {
 	}
 
 	err = client.DownloadAttachment(att, outPath)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	downloaded, err := os.ReadFile(outPath)
-	require.NoError(t, err)
-	assert.Equal(t, content, downloaded)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, downloaded, content)
 }
 
 func TestDownloadAttachment_ToDirectory(t *testing.T) {
@@ -229,7 +227,7 @@ func TestDownloadAttachment_ToDirectory(t *testing.T) {
 		Email:    "test@example.com",
 		APIToken: "token",
 	})
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	tmpDir := t.TempDir()
 
@@ -239,12 +237,12 @@ func TestDownloadAttachment_ToDirectory(t *testing.T) {
 	}
 
 	err = client.DownloadAttachment(att, tmpDir)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	// Should use original filename
 	downloaded, err := os.ReadFile(filepath.Join(tmpDir, "original.txt"))
-	require.NoError(t, err)
-	assert.Equal(t, content, downloaded)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, downloaded, content)
 }
 
 func TestDownloadAttachment_NilAttachment(t *testing.T) {
@@ -255,8 +253,8 @@ func TestDownloadAttachment_NilAttachment(t *testing.T) {
 	})
 
 	err := client.DownloadAttachment(nil, "/tmp/test.txt")
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "attachment is required")
+	testutil.Error(t, err)
+	testutil.Contains(t, err.Error(), "attachment is required")
 }
 
 func TestDownloadAttachment_NoContentURL(t *testing.T) {
@@ -268,8 +266,8 @@ func TestDownloadAttachment_NoContentURL(t *testing.T) {
 
 	att := &Attachment{Filename: "test.txt"}
 	err := client.DownloadAttachment(att, "/tmp/test.txt")
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "no content URL")
+	testutil.Error(t, err)
+	testutil.Contains(t, err.Error(), "no content URL")
 }
 
 func TestFormatFileSize(t *testing.T) {
@@ -289,7 +287,7 @@ func TestFormatFileSize(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.expected, func(t *testing.T) {
 			result := FormatFileSize(tt.bytes)
-			assert.Equal(t, tt.expected, result)
+			testutil.Equal(t, result, tt.expected)
 		})
 	}
 }

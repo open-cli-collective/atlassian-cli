@@ -4,16 +4,16 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/open-cli-collective/atlassian-go/testutil"
 )
 
 func TestRenderMacroToXML_SimpleTOC(t *testing.T) {
 	node := &MacroNode{Name: "toc"}
 	xml := RenderMacroToXML(node)
 
-	assert.Contains(t, xml, `ac:name="toc"`)
-	assert.Contains(t, xml, `ac:schema-version="1"`)
-	assert.Contains(t, xml, `</ac:structured-macro>`)
+	testutil.Contains(t, xml, `ac:name="toc"`)
+	testutil.Contains(t, xml, `ac:schema-version="1"`)
+	testutil.Contains(t, xml, `</ac:structured-macro>`)
 }
 
 func TestRenderMacroToXML_TOCWithParams(t *testing.T) {
@@ -23,8 +23,8 @@ func TestRenderMacroToXML_TOCWithParams(t *testing.T) {
 	}
 	xml := RenderMacroToXML(node)
 
-	assert.Contains(t, xml, `<ac:parameter ac:name="maxLevel">3</ac:parameter>`)
-	assert.Contains(t, xml, `<ac:parameter ac:name="minLevel">1</ac:parameter>`)
+	testutil.Contains(t, xml, `<ac:parameter ac:name="maxLevel">3</ac:parameter>`)
+	testutil.Contains(t, xml, `<ac:parameter ac:name="minLevel">1</ac:parameter>`)
 }
 
 func TestRenderMacroToXML_PanelWithBody(t *testing.T) {
@@ -34,10 +34,10 @@ func TestRenderMacroToXML_PanelWithBody(t *testing.T) {
 	}
 	xml := RenderMacroToXML(node)
 
-	assert.Contains(t, xml, `ac:name="info"`)
-	assert.Contains(t, xml, `<ac:rich-text-body>`)
-	assert.Contains(t, xml, `<p>Content</p>`)
-	assert.Contains(t, xml, `</ac:rich-text-body>`)
+	testutil.Contains(t, xml, `ac:name="info"`)
+	testutil.Contains(t, xml, `<ac:rich-text-body>`)
+	testutil.Contains(t, xml, `<p>Content</p>`)
+	testutil.Contains(t, xml, `</ac:rich-text-body>`)
 }
 
 func TestRenderMacroToXML_CodeWithCDATA(t *testing.T) {
@@ -48,10 +48,10 @@ func TestRenderMacroToXML_CodeWithCDATA(t *testing.T) {
 	}
 	xml := RenderMacroToXML(node)
 
-	assert.Contains(t, xml, `ac:name="code"`)
-	assert.Contains(t, xml, `<ac:plain-text-body><![CDATA[`)
-	assert.Contains(t, xml, `fmt.Println("hello")`)
-	assert.Contains(t, xml, `]]></ac:plain-text-body>`)
+	testutil.Contains(t, xml, `ac:name="code"`)
+	testutil.Contains(t, xml, `<ac:plain-text-body><![CDATA[`)
+	testutil.Contains(t, xml, `fmt.Println("hello")`)
+	testutil.Contains(t, xml, `]]></ac:plain-text-body>`)
 }
 
 func TestRenderMacroToXML_EscapesXML(t *testing.T) {
@@ -61,14 +61,14 @@ func TestRenderMacroToXML_EscapesXML(t *testing.T) {
 	}
 	xml := RenderMacroToXML(node)
 
-	assert.Contains(t, xml, `A &amp; B &lt;test&gt;`)
+	testutil.Contains(t, xml, `A &amp; B &lt;test&gt;`)
 }
 
 func TestRenderMacroToBracket_SimpleTOC(t *testing.T) {
 	node := &MacroNode{Name: "toc"}
 	bracket := RenderMacroToBracket(node)
 
-	assert.Equal(t, "[TOC]", bracket)
+	testutil.Equal(t, "[TOC]", bracket)
 }
 
 func TestRenderMacroToBracket_TOCWithParams(t *testing.T) {
@@ -78,9 +78,9 @@ func TestRenderMacroToBracket_TOCWithParams(t *testing.T) {
 	}
 	bracket := RenderMacroToBracket(node)
 
-	assert.Contains(t, bracket, "[TOC")
-	assert.Contains(t, bracket, "maxLevel=3")
-	assert.Contains(t, bracket, "]")
+	testutil.Contains(t, bracket, "[TOC")
+	testutil.Contains(t, bracket, "maxLevel=3")
+	testutil.Contains(t, bracket, "]")
 }
 
 func TestRenderMacroToBracket_PanelWithBody(t *testing.T) {
@@ -91,10 +91,10 @@ func TestRenderMacroToBracket_PanelWithBody(t *testing.T) {
 	}
 	bracket := RenderMacroToBracket(node)
 
-	assert.Contains(t, bracket, "[INFO")
-	assert.Contains(t, bracket, "title=Important")
-	assert.Contains(t, bracket, "Content here")
-	assert.Contains(t, bracket, "[/INFO]")
+	testutil.Contains(t, bracket, "[INFO")
+	testutil.Contains(t, bracket, "title=Important")
+	testutil.Contains(t, bracket, "Content here")
+	testutil.Contains(t, bracket, "[/INFO]")
 }
 
 func TestRenderMacroToBracket_QuotedValues(t *testing.T) {
@@ -104,13 +104,13 @@ func TestRenderMacroToBracket_QuotedValues(t *testing.T) {
 	}
 	bracket := RenderMacroToBracket(node)
 
-	assert.Contains(t, bracket, `title="Hello World"`)
+	testutil.Contains(t, bracket, `title="Hello World"`)
 }
 
 func TestRenderMacroToBracketOpen_SimpleTOC(t *testing.T) {
 	node := &MacroNode{Name: "toc"}
 	bracket := RenderMacroToBracketOpen(node)
-	assert.Equal(t, "[TOC]", bracket)
+	testutil.Equal(t, "[TOC]", bracket)
 }
 
 func TestRenderMacroToBracketOpen_WithParams(t *testing.T) {
@@ -119,12 +119,12 @@ func TestRenderMacroToBracketOpen_WithParams(t *testing.T) {
 		Parameters: map[string]string{"title": "Hello World"},
 	}
 	bracket := RenderMacroToBracketOpen(node)
-	assert.Contains(t, bracket, "[INFO")
-	assert.Contains(t, bracket, `title="Hello World"`)
-	assert.True(t, strings.HasSuffix(bracket, "]"))
+	testutil.Contains(t, bracket, "[INFO")
+	testutil.Contains(t, bracket, `title="Hello World"`)
+	testutil.True(t, strings.HasSuffix(bracket, "]"))
 }
 
 func TestFormatPlaceholder(t *testing.T) {
-	assert.Equal(t, "CFMACRO0END", FormatPlaceholder(0))
-	assert.Equal(t, "CFMACRO42END", FormatPlaceholder(42))
+	testutil.Equal(t, "CFMACRO0END", FormatPlaceholder(0))
+	testutil.Equal(t, "CFMACRO42END", FormatPlaceholder(42))
 }

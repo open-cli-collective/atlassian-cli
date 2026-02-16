@@ -7,8 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"github.com/open-cli-collective/atlassian-go/testutil"
 
 	"github.com/open-cli-collective/confluence-cli/api"
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
@@ -41,7 +40,7 @@ func TestRunTest_Success(t *testing.T) {
 	rootOpts.SetAPIClient(client)
 
 	err := runTest(rootOpts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 	// Note: Output goes to real stdout via fmt.Print, not opts.Stdout
 	// Just verifying no error is sufficient for this test
 }
@@ -58,8 +57,8 @@ func TestRunTest_AuthFailure(t *testing.T) {
 	rootOpts.SetAPIClient(client)
 
 	err := runTest(rootOpts)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "connection test failed")
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "connection test failed")
 }
 
 func TestRunTest_ServerError(t *testing.T) {
@@ -74,6 +73,6 @@ func TestRunTest_ServerError(t *testing.T) {
 	rootOpts.SetAPIClient(client)
 
 	err := runTest(rootOpts)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "connection test failed")
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "connection test failed")
 }

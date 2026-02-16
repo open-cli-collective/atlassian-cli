@@ -7,10 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
+	"github.com/open-cli-collective/atlassian-go/testutil"
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 )
@@ -37,7 +34,7 @@ func TestRunCreate_RequestBodyNoDoubleQuoting(t *testing.T) {
 		Email:    "test@example.com",
 		APIToken: "token",
 	})
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
 	opts := &root.Options{
@@ -48,36 +45,35 @@ func TestRunCreate_RequestBodyNoDoubleQuoting(t *testing.T) {
 	opts.SetAPIClient(client)
 
 	err = runCreate(opts, "MYPROJECT", "Task", "Fix login bug", "Users cannot log in with SSO credentials", "", "", nil)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	// Parse the captured request body
-	require.NotEmpty(t, capturedBody, "request body should have been captured")
+	testutil.NotEmpty(t, capturedBody)
 
 	var reqBody map[string]interface{}
 	err = json.Unmarshal(capturedBody, &reqBody)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	fields := reqBody["fields"].(map[string]interface{})
 
 	// Summary must be the exact string without extra quotes
 	summary := fields["summary"].(string)
-	assert.Equal(t, "Fix login bug", summary, "summary should not have extra quotes")
-	assert.NotContains(t, summary, `"`, "summary should not contain literal quote characters")
+	testutil.Equal(t, summary, "Fix login bug")
+	testutil.NotContains(t, summary, `"`)
 
 	// Description should be ADF format, extract text from first paragraph
 	desc := fields["description"].(map[string]interface{})
-	assert.Equal(t, "doc", desc["type"], "description should be ADF document")
+	testutil.Equal(t, desc["type"], "doc")
 	content := desc["content"].([]interface{})
-	require.NotEmpty(t, content)
+	testutil.NotEmpty(t, content)
 
 	// Walk ADF to extract text
 	firstPara := content[0].(map[string]interface{})
 	paraContent := firstPara["content"].([]interface{})
 	firstTextNode := paraContent[0].(map[string]interface{})
 	descText := firstTextNode["text"].(string)
-	assert.Equal(t, "Users cannot log in with SSO credentials", descText,
-		"description text should not have extra quotes")
-	assert.NotContains(t, descText, `"`, "description text should not contain literal quote characters")
+	testutil.Equal(t, descText, "Users cannot log in with SSO credentials")
+	testutil.NotContains(t, descText, `"`)
 }
 
 func TestRunCreate_SummaryWithSpecialCharacters(t *testing.T) {
@@ -99,7 +95,7 @@ func TestRunCreate_SummaryWithSpecialCharacters(t *testing.T) {
 		Email:    "test@example.com",
 		APIToken: "token",
 	})
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
 	opts := &root.Options{
@@ -110,45 +106,44 @@ func TestRunCreate_SummaryWithSpecialCharacters(t *testing.T) {
 	opts.SetAPIClient(client)
 
 	err = runCreate(opts, "PROJ", "Bug", `Error: "unexpected token" in parser`, "", "", "", nil)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	var reqBody map[string]interface{}
 	err = json.Unmarshal(capturedBody, &reqBody)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	fields := reqBody["fields"].(map[string]interface{})
 	summary := fields["summary"].(string)
-	assert.Equal(t, `Error: "unexpected token" in parser`, summary,
-		"summary with embedded quotes should be preserved exactly")
+	testutil.Equal(t, summary, `Error: "unexpected token" in parser`)
 }
 
 func TestNewCreateCmd(t *testing.T) {
 	opts := &root.Options{}
 	cmd := newCreateCmd(opts)
 
-	assert.Equal(t, "create", cmd.Use)
-	assert.Equal(t, "Create a new issue", cmd.Short)
+	testutil.Equal(t, cmd.Use, "create")
+	testutil.Equal(t, cmd.Short, "Create a new issue")
 
 	// Check required flags
 	summaryFlag := cmd.Flags().Lookup("summary")
-	require.NotNil(t, summaryFlag)
-	assert.Equal(t, "s", summaryFlag.Shorthand)
+	testutil.NotNil(t, summaryFlag)
+	testutil.Equal(t, summaryFlag.Shorthand, "s")
 
 	projectFlag := cmd.Flags().Lookup("project")
-	require.NotNil(t, projectFlag)
-	assert.Equal(t, "p", projectFlag.Shorthand)
+	testutil.NotNil(t, projectFlag)
+	testutil.Equal(t, projectFlag.Shorthand, "p")
 
 	descFlag := cmd.Flags().Lookup("description")
-	require.NotNil(t, descFlag)
-	assert.Equal(t, "d", descFlag.Shorthand)
+	testutil.NotNil(t, descFlag)
+	testutil.Equal(t, descFlag.Shorthand, "d")
 
 	parentFlag := cmd.Flags().Lookup("parent")
-	require.NotNil(t, parentFlag)
-	assert.Equal(t, "", parentFlag.Shorthand, "parent flag should have no shorthand")
+	testutil.NotNil(t, parentFlag)
+	testutil.Equal(t, parentFlag.Shorthand, "")
 
 	assigneeFlag := cmd.Flags().Lookup("assignee")
-	require.NotNil(t, assigneeFlag)
-	assert.Equal(t, "a", assigneeFlag.Shorthand)
+	testutil.NotNil(t, assigneeFlag)
+	testutil.Equal(t, assigneeFlag.Shorthand, "a")
 }
 
 func TestCreateCmd_CobraExecution_NoDoubleQuoting(t *testing.T) {
@@ -170,7 +165,7 @@ func TestCreateCmd_CobraExecution_NoDoubleQuoting(t *testing.T) {
 		Email:    "test@example.com",
 		APIToken: "token",
 	})
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
 	opts := &root.Options{
@@ -189,19 +184,19 @@ func TestCreateCmd_CobraExecution_NoDoubleQuoting(t *testing.T) {
 	})
 
 	err = cmd.Execute()
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
-	require.NotEmpty(t, capturedBody)
+	testutil.NotEmpty(t, capturedBody)
 	var reqBody map[string]interface{}
 	err = json.Unmarshal(capturedBody, &reqBody)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	fields := reqBody["fields"].(map[string]interface{})
 
 	// Verify no double-quoting via Cobra flag parsing
 	summary := fields["summary"].(string)
-	assert.Equal(t, "Fix login bug", summary)
-	assert.False(t, summary[0] == '"', "summary must not start with a literal quote")
+	testutil.Equal(t, summary, "Fix login bug")
+	testutil.False(t, summary[0] == '"', "summary must not start with a literal quote")
 }
 
 func TestRunCreate_WithParent(t *testing.T) {
@@ -223,7 +218,7 @@ func TestRunCreate_WithParent(t *testing.T) {
 		Email:    "test@example.com",
 		APIToken: "token",
 	})
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
 	opts := &root.Options{
@@ -234,18 +229,18 @@ func TestRunCreate_WithParent(t *testing.T) {
 	opts.SetAPIClient(client)
 
 	err = runCreate(opts, "PROJ", "Task", "Child task", "", "PROJ-100", "", nil)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
-	require.NotEmpty(t, capturedBody)
+	testutil.NotEmpty(t, capturedBody)
 	var reqBody map[string]interface{}
 	err = json.Unmarshal(capturedBody, &reqBody)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	fields := reqBody["fields"].(map[string]interface{})
 
 	// Parent should be an object with "key" field
 	parentField := fields["parent"].(map[string]interface{})
-	assert.Equal(t, "PROJ-100", parentField["key"], "parent key should match")
+	testutil.Equal(t, parentField["key"], "PROJ-100")
 }
 
 func TestRunCreate_WithoutParent(t *testing.T) {
@@ -267,7 +262,7 @@ func TestRunCreate_WithoutParent(t *testing.T) {
 		Email:    "test@example.com",
 		APIToken: "token",
 	})
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
 	opts := &root.Options{
@@ -278,15 +273,15 @@ func TestRunCreate_WithoutParent(t *testing.T) {
 	opts.SetAPIClient(client)
 
 	err = runCreate(opts, "PROJ", "Task", "Standalone task", "", "", "", nil)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
-	require.NotEmpty(t, capturedBody)
+	testutil.NotEmpty(t, capturedBody)
 	var reqBody map[string]interface{}
 	err = json.Unmarshal(capturedBody, &reqBody)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	fields := reqBody["fields"].(map[string]interface{})
-	assert.Nil(t, fields["parent"], "parent should not be present when empty")
+	testutil.Nil(t, fields["parent"])
 }
 
 func TestCreateCmd_CobraExecution_WithParent(t *testing.T) {
@@ -308,7 +303,7 @@ func TestCreateCmd_CobraExecution_WithParent(t *testing.T) {
 		Email:    "test@example.com",
 		APIToken: "token",
 	})
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
 	opts := &root.Options{
@@ -327,16 +322,16 @@ func TestCreateCmd_CobraExecution_WithParent(t *testing.T) {
 	})
 
 	err = cmd.Execute()
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
-	require.NotEmpty(t, capturedBody)
+	testutil.NotEmpty(t, capturedBody)
 	var reqBody map[string]interface{}
 	err = json.Unmarshal(capturedBody, &reqBody)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	fields := reqBody["fields"].(map[string]interface{})
 	parentField := fields["parent"].(map[string]interface{})
-	assert.Equal(t, "PROJ-100", parentField["key"])
+	testutil.Equal(t, parentField["key"], "PROJ-100")
 }
 
 func TestRunCreate_WithAssigneeAccountID(t *testing.T) {
@@ -358,7 +353,7 @@ func TestRunCreate_WithAssigneeAccountID(t *testing.T) {
 		Email:    "test@example.com",
 		APIToken: "token",
 	})
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
 	opts := &root.Options{
@@ -369,16 +364,16 @@ func TestRunCreate_WithAssigneeAccountID(t *testing.T) {
 	opts.SetAPIClient(client)
 
 	err = runCreate(opts, "PROJ", "Task", "Assigned task", "", "", "61292e4c4f29230069621c5f", nil)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
-	require.NotEmpty(t, capturedBody)
+	testutil.NotEmpty(t, capturedBody)
 	var reqBody map[string]interface{}
 	err = json.Unmarshal(capturedBody, &reqBody)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	fields := reqBody["fields"].(map[string]interface{})
 	assigneeField := fields["assignee"].(map[string]interface{})
-	assert.Equal(t, "61292e4c4f29230069621c5f", assigneeField["accountId"])
+	testutil.Equal(t, assigneeField["accountId"], "61292e4c4f29230069621c5f")
 }
 
 func TestRunCreate_WithAssigneeMe(t *testing.T) {
@@ -407,7 +402,7 @@ func TestRunCreate_WithAssigneeMe(t *testing.T) {
 		Email:    "test@example.com",
 		APIToken: "token",
 	})
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
 	opts := &root.Options{
@@ -418,16 +413,16 @@ func TestRunCreate_WithAssigneeMe(t *testing.T) {
 	opts.SetAPIClient(client)
 
 	err = runCreate(opts, "PROJ", "Task", "My task", "", "", "me", nil)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
-	require.NotEmpty(t, capturedBody)
+	testutil.NotEmpty(t, capturedBody)
 	var reqBody map[string]interface{}
 	err = json.Unmarshal(capturedBody, &reqBody)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	fields := reqBody["fields"].(map[string]interface{})
 	assigneeField := fields["assignee"].(map[string]interface{})
-	assert.Equal(t, "myself-account-id", assigneeField["accountId"])
+	testutil.Equal(t, assigneeField["accountId"], "myself-account-id")
 }
 
 func TestRunCreate_WithAssigneeEmail(t *testing.T) {
@@ -455,7 +450,7 @@ func TestRunCreate_WithAssigneeEmail(t *testing.T) {
 		Email:    "test@example.com",
 		APIToken: "token",
 	})
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
 	opts := &root.Options{
@@ -466,16 +461,16 @@ func TestRunCreate_WithAssigneeEmail(t *testing.T) {
 	opts.SetAPIClient(client)
 
 	err = runCreate(opts, "PROJ", "Task", "Their task", "", "", "user@example.com", nil)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
-	require.NotEmpty(t, capturedBody)
+	testutil.NotEmpty(t, capturedBody)
 	var reqBody map[string]interface{}
 	err = json.Unmarshal(capturedBody, &reqBody)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	fields := reqBody["fields"].(map[string]interface{})
 	assigneeField := fields["assignee"].(map[string]interface{})
-	assert.Equal(t, "found-account-id", assigneeField["accountId"])
+	testutil.Equal(t, assigneeField["accountId"], "found-account-id")
 }
 
 func TestRunCreate_DescriptionEscapeSequences(t *testing.T) {
@@ -546,7 +541,7 @@ func TestRunCreate_WithoutAssignee(t *testing.T) {
 		Email:    "test@example.com",
 		APIToken: "token",
 	})
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
 	opts := &root.Options{
@@ -557,13 +552,13 @@ func TestRunCreate_WithoutAssignee(t *testing.T) {
 	opts.SetAPIClient(client)
 
 	err = runCreate(opts, "PROJ", "Task", "Unassigned task", "", "", "", nil)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
-	require.NotEmpty(t, capturedBody)
+	testutil.NotEmpty(t, capturedBody)
 	var reqBody map[string]interface{}
 	err = json.Unmarshal(capturedBody, &reqBody)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	fields := reqBody["fields"].(map[string]interface{})
-	assert.Nil(t, fields["assignee"], "assignee should not be present when empty")
+	testutil.Nil(t, fields["assignee"])
 }

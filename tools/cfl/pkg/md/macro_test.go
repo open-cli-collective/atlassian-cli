@@ -1,9 +1,10 @@
 package md
 
 import (
+	"fmt"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/open-cli-collective/atlassian-go/testutil"
 )
 
 func TestMacroRegistry_ContainsExpectedMacros(t *testing.T) {
@@ -12,8 +13,8 @@ func TestMacroRegistry_ContainsExpectedMacros(t *testing.T) {
 	for _, name := range expectedMacros {
 		t.Run(name, func(t *testing.T) {
 			mt, ok := MacroRegistry[name]
-			assert.True(t, ok, "MacroRegistry should contain %q", name)
-			assert.Equal(t, name, mt.Name)
+			testutil.True(t, ok, fmt.Sprintf("MacroRegistry should contain %q", name))
+			testutil.Equal(t, name, mt.Name)
 		})
 	}
 }
@@ -36,9 +37,9 @@ func TestLookupMacro_CaseInsensitive(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
 			mt, ok := LookupMacro(tt.input)
-			assert.Equal(t, tt.found, ok)
+			testutil.Equal(t, tt.found, ok)
 			if tt.found {
-				assert.Equal(t, tt.expected, mt.Name)
+				testutil.Equal(t, tt.expected, mt.Name)
 			}
 		})
 	}
@@ -62,9 +63,9 @@ func TestMacroType_BodyConfiguration(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mt, ok := MacroRegistry[tt.name]
-			assert.True(t, ok)
-			assert.Equal(t, tt.hasBody, mt.HasBody)
-			assert.Equal(t, tt.bodyType, mt.BodyType)
+			testutil.True(t, ok)
+			testutil.Equal(t, tt.hasBody, mt.HasBody)
+			testutil.Equal(t, tt.bodyType, mt.BodyType)
 		})
 	}
 }
@@ -78,10 +79,10 @@ func TestMacroNode_Construction(t *testing.T) {
 		Children:   nil,
 	}
 
-	assert.Equal(t, "info", node.Name)
-	assert.Equal(t, "Important", node.Parameters["title"])
-	assert.Equal(t, "This is the content", node.Body)
-	assert.Nil(t, node.Children)
+	testutil.Equal(t, "info", node.Name)
+	testutil.Equal(t, "Important", node.Parameters["title"])
+	testutil.Equal(t, "This is the content", node.Body)
+	testutil.Nil(t, node.Children)
 }
 
 func TestMacroNode_WithChildren(t *testing.T) {
@@ -99,8 +100,8 @@ func TestMacroNode_WithChildren(t *testing.T) {
 		Children:   []*MacroNode{child},
 	}
 
-	assert.Equal(t, "expand", parent.Name)
-	assert.Len(t, parent.Children, 1)
-	assert.Equal(t, "code", parent.Children[0].Name)
-	assert.Equal(t, "go", parent.Children[0].Parameters["language"])
+	testutil.Equal(t, "expand", parent.Name)
+	testutil.Len(t, parent.Children, 1)
+	testutil.Equal(t, "code", parent.Children[0].Name)
+	testutil.Equal(t, "go", parent.Children[0].Parameters["language"])
 }

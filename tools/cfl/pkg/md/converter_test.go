@@ -4,8 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"github.com/open-cli-collective/atlassian-go/testutil"
 )
 
 func TestToConfluenceStorage(t *testing.T) {
@@ -114,8 +113,8 @@ func TestToConfluenceStorage(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := ToConfluenceStorage([]byte(tt.input))
-			require.NoError(t, err)
-			assert.Equal(t, tt.expected, result)
+			testutil.RequireNoError(t, err)
+			testutil.Equal(t, tt.expected, result)
 		})
 	}
 }
@@ -143,17 +142,17 @@ For more info, see [the docs](https://example.com).
 `
 
 	result, err := ToConfluenceStorage([]byte(input))
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	// Verify key elements are present
-	assert.Contains(t, result, "<h1>Project README</h1>")
-	assert.Contains(t, result, "<strong>introduction</strong>")
-	assert.Contains(t, result, "<h2>Features</h2>")
-	assert.Contains(t, result, "<li>Feature one</li>")
-	assert.Contains(t, result, "<h2>Code Example</h2>")
-	assert.Contains(t, result, "language-go")
-	assert.Contains(t, result, "fmt.Println")
-	assert.Contains(t, result, `<a href="https://example.com">the docs</a>`)
+	testutil.Contains(t, result, "<h1>Project README</h1>")
+	testutil.Contains(t, result, "<strong>introduction</strong>")
+	testutil.Contains(t, result, "<h2>Features</h2>")
+	testutil.Contains(t, result, "<li>Feature one</li>")
+	testutil.Contains(t, result, "<h2>Code Example</h2>")
+	testutil.Contains(t, result, "language-go")
+	testutil.Contains(t, result, "fmt.Println")
+	testutil.Contains(t, result, `<a href="https://example.com">the docs</a>`)
 }
 
 func TestToConfluenceStorage_TOCMacro(t *testing.T) {
@@ -220,9 +219,9 @@ func TestToConfluenceStorage_TOCMacro(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := ToConfluenceStorage([]byte(tt.input))
-			require.NoError(t, err)
+			testutil.RequireNoError(t, err)
 			for _, expected := range tt.contains {
-				assert.Contains(t, result, expected, "should contain: %s", expected)
+				testutil.Contains(t, result, expected)
 			}
 		})
 	}
@@ -240,17 +239,17 @@ Some content here.
 More content.
 `
 	result, err := ToConfluenceStorage([]byte(input))
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	// Verify TOC macro is present
-	assert.Contains(t, result, `<ac:structured-macro ac:name="toc" ac:schema-version="1">`)
-	assert.Contains(t, result, `<ac:parameter ac:name="maxLevel">3</ac:parameter>`)
-	assert.Contains(t, result, `</ac:structured-macro>`)
+	testutil.Contains(t, result, `<ac:structured-macro ac:name="toc" ac:schema-version="1">`)
+	testutil.Contains(t, result, `<ac:parameter ac:name="maxLevel">3</ac:parameter>`)
+	testutil.Contains(t, result, `</ac:structured-macro>`)
 
 	// Verify other content is preserved
-	assert.Contains(t, result, "<h1>Heading 1</h1>")
-	assert.Contains(t, result, "Some content here.")
-	assert.Contains(t, result, "<h2>Heading 2</h2>")
+	testutil.Contains(t, result, "<h1>Heading 1</h1>")
+	testutil.Contains(t, result, "Some content here.")
+	testutil.Contains(t, result, "<h2>Heading 2</h2>")
 }
 
 func TestToConfluenceStorage_TOCRoundtrip(t *testing.T) {
@@ -267,21 +266,21 @@ func TestToConfluenceStorage_TOCRoundtrip(t *testing.T) {
 	// Convert to markdown with ShowMacros
 	opts := ConvertOptions{ShowMacros: true}
 	markdown, err := FromConfluenceStorageWithOptions(originalXHTML, opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	// Verify markdown has TOC placeholder with params
-	assert.Contains(t, markdown, "[TOC")
-	assert.Contains(t, markdown, "maxLevel=3")
-	assert.Contains(t, markdown, "minLevel=1")
+	testutil.Contains(t, markdown, "[TOC")
+	testutil.Contains(t, markdown, "maxLevel=3")
+	testutil.Contains(t, markdown, "minLevel=1")
 
 	// Convert back to storage format
 	resultXHTML, err := ToConfluenceStorage([]byte(markdown))
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	// Verify TOC macro is restored
-	assert.Contains(t, resultXHTML, `<ac:structured-macro ac:name="toc" ac:schema-version="1">`)
-	assert.Contains(t, resultXHTML, `<ac:parameter ac:name="maxLevel">3</ac:parameter>`)
-	assert.Contains(t, resultXHTML, `<ac:parameter ac:name="minLevel">1</ac:parameter>`)
+	testutil.Contains(t, resultXHTML, `<ac:structured-macro ac:name="toc" ac:schema-version="1">`)
+	testutil.Contains(t, resultXHTML, `<ac:parameter ac:name="maxLevel">3</ac:parameter>`)
+	testutil.Contains(t, resultXHTML, `<ac:parameter ac:name="minLevel">1</ac:parameter>`)
 }
 
 func TestParseKeyValueParams(t *testing.T) {
@@ -325,7 +324,7 @@ func TestParseKeyValueParams(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := parseKeyValueParams(tt.input)
-			assert.Equal(t, tt.expected, result)
+			testutil.Equal(t, tt.expected, result)
 		})
 	}
 }
@@ -430,9 +429,9 @@ func TestToConfluenceStorage_PanelMacros(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := ToConfluenceStorage([]byte(tt.input))
-			require.NoError(t, err)
+			testutil.RequireNoError(t, err)
 			for _, expected := range tt.contains {
-				assert.Contains(t, result, expected, "should contain: %s", expected)
+				testutil.Contains(t, result, expected)
 			}
 		})
 	}
@@ -450,16 +449,16 @@ This is a warning.
 More text after.
 `
 	result, err := ToConfluenceStorage([]byte(input))
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	// Verify all parts are present
-	assert.Contains(t, result, "<h1>Heading</h1>")
-	assert.Contains(t, result, "Some intro text.")
-	assert.Contains(t, result, `<ac:structured-macro ac:name="warning" ac:schema-version="1">`)
-	assert.Contains(t, result, `<ac:parameter ac:name="title">Important</ac:parameter>`)
-	assert.Contains(t, result, "This is a warning.")
-	assert.Contains(t, result, "</ac:structured-macro>")
-	assert.Contains(t, result, "More text after.")
+	testutil.Contains(t, result, "<h1>Heading</h1>")
+	testutil.Contains(t, result, "Some intro text.")
+	testutil.Contains(t, result, `<ac:structured-macro ac:name="warning" ac:schema-version="1">`)
+	testutil.Contains(t, result, `<ac:parameter ac:name="title">Important</ac:parameter>`)
+	testutil.Contains(t, result, "This is a warning.")
+	testutil.Contains(t, result, "</ac:structured-macro>")
+	testutil.Contains(t, result, "More text after.")
 }
 
 func TestToConfluenceStorage_PanelRoundtrip(t *testing.T) {
@@ -475,23 +474,23 @@ func TestToConfluenceStorage_PanelRoundtrip(t *testing.T) {
 	// Convert to markdown with ShowMacros
 	opts := ConvertOptions{ShowMacros: true}
 	markdown, err := FromConfluenceStorageWithOptions(originalXHTML, opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	// Verify markdown has panel placeholder (brackets may be escaped by markdown converter)
-	assert.Contains(t, markdown, "INFO")
-	assert.Contains(t, markdown, "title=Important")
-	assert.Contains(t, markdown, "Panel content")
+	testutil.Contains(t, markdown, "INFO")
+	testutil.Contains(t, markdown, "title=Important")
+	testutil.Contains(t, markdown, "Panel content")
 
 	// Convert back to storage format
 	resultXHTML, err := ToConfluenceStorage([]byte(markdown))
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	// Verify panel macro is restored
-	assert.Contains(t, resultXHTML, `<ac:structured-macro ac:name="info" ac:schema-version="1">`)
-	assert.Contains(t, resultXHTML, `<ac:parameter ac:name="title">Important</ac:parameter>`)
-	assert.Contains(t, resultXHTML, `<ac:rich-text-body>`)
-	assert.Contains(t, resultXHTML, `Panel content`)
-	assert.Contains(t, resultXHTML, `</ac:rich-text-body>`)
+	testutil.Contains(t, resultXHTML, `<ac:structured-macro ac:name="info" ac:schema-version="1">`)
+	testutil.Contains(t, resultXHTML, `<ac:parameter ac:name="title">Important</ac:parameter>`)
+	testutil.Contains(t, resultXHTML, `<ac:rich-text-body>`)
+	testutil.Contains(t, resultXHTML, `Panel content`)
+	testutil.Contains(t, resultXHTML, `</ac:rich-text-body>`)
 }
 
 func TestToConfluenceStorage_NestedMacros(t *testing.T) {
@@ -501,15 +500,15 @@ Check out the table of contents: [TOC]
 [/INFO]`
 
 	result, err := ToConfluenceStorage([]byte(input))
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	// The result should have both the panel macro and TOC macro
-	assert.Contains(t, result, `<ac:structured-macro ac:name="info"`)
-	assert.Contains(t, result, `<ac:structured-macro ac:name="toc"`)
+	testutil.Contains(t, result, `<ac:structured-macro ac:name="info"`)
+	testutil.Contains(t, result, `<ac:structured-macro ac:name="toc"`)
 
 	// Make sure placeholders are not left behind
-	assert.NotContains(t, result, "CFMACRO")
-	assert.NotContains(t, result, "END")
+	testutil.NotContains(t, result, "CFMACRO")
+	testutil.NotContains(t, result, "END")
 }
 
 // TestPanelMacro_CloseTagConsumed verifies that panel macro close tags like [/INFO]
@@ -548,16 +547,16 @@ func TestPanelMacro_CloseTagConsumed(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := ToConfluenceStorage([]byte(tt.input))
-			require.NoError(t, err)
+			testutil.RequireNoError(t, err)
 
 			// Close tag should NOT appear as literal text
-			assert.NotContains(t, result, "[/INFO]", "literal close tag should not appear")
-			assert.NotContains(t, result, "[/info]", "literal close tag should not appear")
-			assert.NotContains(t, result, "[/WARNING]", "literal close tag should not appear")
-			assert.NotContains(t, result, "[/NOTE]", "literal close tag should not appear")
+			testutil.NotContains(t, result, "[/INFO]")
+			testutil.NotContains(t, result, "[/info]")
+			testutil.NotContains(t, result, "[/WARNING]")
+			testutil.NotContains(t, result, "[/NOTE]")
 
 			// Content should appear exactly once
-			assert.Equal(t, 1, strings.Count(result, "content"), "content should appear only once")
+			testutil.Equal(t, 1, strings.Count(result, "content"))
 		})
 	}
 }
@@ -624,18 +623,18 @@ func TestNestedMacros_ProcessedAtCorrectLevel(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := ToConfluenceStorage([]byte(tt.input))
-			require.NoError(t, err)
+			testutil.RequireNoError(t, err)
 
 			for _, expected := range tt.verifyContains {
-				assert.Contains(t, result, expected, "should contain: %s", expected)
+				testutil.Contains(t, result, expected)
 			}
 			for _, notExpected := range tt.verifyNotContains {
-				assert.NotContains(t, result, notExpected, "should not contain: %s", notExpected)
+				testutil.NotContains(t, result, notExpected)
 			}
 
 			// No placeholders should remain
-			assert.NotContains(t, result, "CFMACRO")
-			assert.NotContains(t, result, "CFCHILD")
+			testutil.NotContains(t, result, "CFMACRO")
+			testutil.NotContains(t, result, "CFCHILD")
 		})
 	}
 }
@@ -645,7 +644,7 @@ func TestNestedMacros_ProcessedAtCorrectLevel(t *testing.T) {
 func TestNestedMacros_XMLStructureCorrect(t *testing.T) {
 	input := "[INFO]Before [TOC] After[/INFO]"
 	result, err := ToConfluenceStorage([]byte(input))
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	// Verify TOC is inside INFO's rich-text-body
 	infoStart := strings.Index(result, `ac:name="info"`)
@@ -655,10 +654,10 @@ func TestNestedMacros_XMLStructureCorrect(t *testing.T) {
 	// Use LastIndex for INFO's closing tag since TOC also uses </ac:structured-macro>
 	infoEnd := strings.LastIndex(result, `</ac:structured-macro>`)
 
-	assert.True(t, infoStart < richTextStart, "INFO should start before rich-text-body")
-	assert.True(t, richTextStart < tocStart, "rich-text-body should start before TOC")
-	assert.True(t, tocStart < richTextEnd, "TOC should be before rich-text-body end")
-	assert.True(t, richTextEnd < infoEnd, "rich-text-body should end before INFO")
+	testutil.True(t, infoStart < richTextStart, "INFO should start before rich-text-body")
+	testutil.True(t, richTextStart < tocStart, "rich-text-body should start before TOC")
+	testutil.True(t, tocStart < richTextEnd, "TOC should be before rich-text-body end")
+	testutil.True(t, richTextEnd < infoEnd, "rich-text-body should end before INFO")
 }
 
 // TestToConfluenceStorage_MacrosInCodeBlock verifies that bracket macros inside fenced
@@ -700,12 +699,12 @@ func TestToConfluenceStorage_MacrosInCodeBlock(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := ToConfluenceStorage([]byte(tt.input))
-			require.NoError(t, err)
+			testutil.RequireNoError(t, err)
 			for _, s := range tt.contains {
-				assert.Contains(t, result, s, "should contain: %s", s)
+				testutil.Contains(t, result, s)
 			}
 			for _, s := range tt.notContains {
-				assert.NotContains(t, result, s, "should not contain: %s", s)
+				testutil.NotContains(t, result, s)
 			}
 		})
 	}
@@ -726,10 +725,10 @@ More outer
 	// Run 100 times to catch non-deterministic behavior
 	for i := 0; i < 100; i++ {
 		result, err := ToConfluenceStorage([]byte(input))
-		require.NoError(t, err, "iteration %d", i)
-		assert.Contains(t, result, `ac:name="toc"`, "iteration %d: TOC macro missing", i)
-		assert.Contains(t, result, `ac:name="warning"`, "iteration %d: WARNING macro missing", i)
-		assert.Contains(t, result, `ac:name="info"`, "iteration %d: INFO macro missing", i)
-		assert.NotContains(t, result, "CFMACRO", "iteration %d: unresolved placeholder", i)
+		testutil.RequireNoError(t, err)
+		testutil.Contains(t, result, `ac:name="toc"`)
+		testutil.Contains(t, result, `ac:name="warning"`)
+		testutil.Contains(t, result, `ac:name="info"`)
+		testutil.NotContains(t, result, "CFMACRO")
 	}
 }

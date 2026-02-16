@@ -2,8 +2,7 @@ package api
 
 import (
 	"testing"
-
-	"github.com/stretchr/testify/assert"
+	"github.com/open-cli-collective/atlassian-go/testutil"
 )
 
 func TestIsWikiMarkup(t *testing.T) {
@@ -82,7 +81,7 @@ func TestIsWikiMarkup(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := IsWikiMarkup(tt.input)
-			assert.Equal(t, tt.expected, result)
+			testutil.Equal(t, result, tt.expected)
 		})
 	}
 }
@@ -188,7 +187,7 @@ func TestWikiToMarkdown(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := WikiToMarkdown(tt.input)
-			assert.Equal(t, tt.expected, result)
+			testutil.Equal(t, result, tt.expected)
 		})
 	}
 }
@@ -225,7 +224,7 @@ func TestWikiToMarkdownPreservesMarkdown(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := WikiToMarkdown(tt.input)
-			assert.Equal(t, tt.input, result)
+			testutil.Equal(t, result, tt.input)
 		})
 	}
 }
@@ -255,13 +254,13 @@ func TestMarkdownToADFWithWikiMarkup(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			doc := MarkdownToADF(tt.input)
-			assert.NotNil(t, doc)
-			assert.Equal(t, "doc", doc.Type)
-			assert.NotEmpty(t, doc.Content)
+			testutil.NotNil(t, doc)
+			testutil.Equal(t, doc.Type, "doc")
+			testutil.NotEmpty(t, doc.Content)
 
 			if tt.checkType == "heading" {
-				assert.Equal(t, "heading", doc.Content[0].Type)
-				assert.Equal(t, tt.checkAttr, doc.Content[0].Attrs["level"])
+				testutil.Equal(t, doc.Content[0].Type, "heading")
+				testutil.Equal(t, doc.Content[0].Attrs["level"], tt.checkAttr)
 			}
 		})
 	}

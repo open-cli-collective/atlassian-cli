@@ -3,22 +3,21 @@ package md
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"github.com/open-cli-collective/atlassian-go/testutil"
 )
 
 func TestTokenizeBrackets_EmptyInput(t *testing.T) {
 	tokens, err := TokenizeBrackets("")
-	require.NoError(t, err)
-	assert.Empty(t, tokens)
+	testutil.RequireNoError(t, err)
+	testutil.Empty(t, tokens)
 }
 
 func TestTokenizeBrackets_PlainText(t *testing.T) {
 	tokens, err := TokenizeBrackets("Hello world")
-	require.NoError(t, err)
-	require.Len(t, tokens, 1)
-	assert.Equal(t, BracketTokenText, tokens[0].Type)
-	assert.Equal(t, "Hello world", tokens[0].Text)
+	testutil.RequireNoError(t, err)
+	testutil.Len(t, tokens, 1)
+	testutil.Equal(t, BracketTokenText, tokens[0].Type)
+	testutil.Equal(t, "Hello world", tokens[0].Text)
 }
 
 func TestTokenizeBrackets_SimpleMacro(t *testing.T) {
@@ -44,10 +43,10 @@ func TestTokenizeBrackets_SimpleMacro(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tokens, err := TokenizeBrackets(tt.input)
-			require.NoError(t, err)
-			require.Len(t, tokens, tt.wantCount)
-			assert.Equal(t, tt.wantType, tokens[0].Type)
-			assert.Equal(t, tt.wantName, tokens[0].MacroName)
+			testutil.RequireNoError(t, err)
+			testutil.Len(t, tokens, tt.wantCount)
+			testutil.Equal(t, tt.wantType, tokens[0].Type)
+			testutil.Equal(t, tt.wantName, tokens[0].MacroName)
 		})
 	}
 }
@@ -93,10 +92,10 @@ func TestTokenizeBrackets_WithParameters(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tokens, err := TokenizeBrackets(tt.input)
-			require.NoError(t, err)
-			require.Len(t, tokens, 1)
-			assert.Equal(t, BracketTokenOpenTag, tokens[0].Type)
-			assert.Equal(t, tt.wantParams, tokens[0].Parameters)
+			testutil.RequireNoError(t, err)
+			testutil.Len(t, tokens, 1)
+			testutil.Equal(t, BracketTokenOpenTag, tokens[0].Type)
+			testutil.Equal(t, tt.wantParams, tokens[0].Parameters)
 		})
 	}
 }
@@ -104,93 +103,93 @@ func TestTokenizeBrackets_WithParameters(t *testing.T) {
 func TestTokenizeBrackets_OpenAndClose(t *testing.T) {
 	input := "[INFO]content[/INFO]"
 	tokens, err := TokenizeBrackets(input)
-	require.NoError(t, err)
-	require.Len(t, tokens, 3)
+	testutil.RequireNoError(t, err)
+	testutil.Len(t, tokens, 3)
 
-	assert.Equal(t, BracketTokenOpenTag, tokens[0].Type)
-	assert.Equal(t, "INFO", tokens[0].MacroName)
+	testutil.Equal(t, BracketTokenOpenTag, tokens[0].Type)
+	testutil.Equal(t, "INFO", tokens[0].MacroName)
 
-	assert.Equal(t, BracketTokenText, tokens[1].Type)
-	assert.Equal(t, "content", tokens[1].Text)
+	testutil.Equal(t, BracketTokenText, tokens[1].Type)
+	testutil.Equal(t, "content", tokens[1].Text)
 
-	assert.Equal(t, BracketTokenCloseTag, tokens[2].Type)
-	assert.Equal(t, "INFO", tokens[2].MacroName)
+	testutil.Equal(t, BracketTokenCloseTag, tokens[2].Type)
+	testutil.Equal(t, "INFO", tokens[2].MacroName)
 }
 
 func TestTokenizeBrackets_WithSurroundingText(t *testing.T) {
 	input := "Before [TOC] after"
 	tokens, err := TokenizeBrackets(input)
-	require.NoError(t, err)
-	require.Len(t, tokens, 3)
+	testutil.RequireNoError(t, err)
+	testutil.Len(t, tokens, 3)
 
-	assert.Equal(t, BracketTokenText, tokens[0].Type)
-	assert.Equal(t, "Before ", tokens[0].Text)
+	testutil.Equal(t, BracketTokenText, tokens[0].Type)
+	testutil.Equal(t, "Before ", tokens[0].Text)
 
-	assert.Equal(t, BracketTokenOpenTag, tokens[1].Type)
-	assert.Equal(t, "TOC", tokens[1].MacroName)
+	testutil.Equal(t, BracketTokenOpenTag, tokens[1].Type)
+	testutil.Equal(t, "TOC", tokens[1].MacroName)
 
-	assert.Equal(t, BracketTokenText, tokens[2].Type)
-	assert.Equal(t, " after", tokens[2].Text)
+	testutil.Equal(t, BracketTokenText, tokens[2].Type)
+	testutil.Equal(t, " after", tokens[2].Text)
 }
 
 func TestTokenizeBrackets_NestedMacros(t *testing.T) {
 	input := "[INFO]outer [TOC] content[/INFO]"
 	tokens, err := TokenizeBrackets(input)
-	require.NoError(t, err)
-	require.Len(t, tokens, 5)
+	testutil.RequireNoError(t, err)
+	testutil.Len(t, tokens, 5)
 
-	assert.Equal(t, BracketTokenOpenTag, tokens[0].Type)
-	assert.Equal(t, "INFO", tokens[0].MacroName)
+	testutil.Equal(t, BracketTokenOpenTag, tokens[0].Type)
+	testutil.Equal(t, "INFO", tokens[0].MacroName)
 
-	assert.Equal(t, BracketTokenText, tokens[1].Type)
-	assert.Equal(t, "outer ", tokens[1].Text)
+	testutil.Equal(t, BracketTokenText, tokens[1].Type)
+	testutil.Equal(t, "outer ", tokens[1].Text)
 
-	assert.Equal(t, BracketTokenOpenTag, tokens[2].Type)
-	assert.Equal(t, "TOC", tokens[2].MacroName)
+	testutil.Equal(t, BracketTokenOpenTag, tokens[2].Type)
+	testutil.Equal(t, "TOC", tokens[2].MacroName)
 
-	assert.Equal(t, BracketTokenText, tokens[3].Type)
-	assert.Equal(t, " content", tokens[3].Text)
+	testutil.Equal(t, BracketTokenText, tokens[3].Type)
+	testutil.Equal(t, " content", tokens[3].Text)
 
-	assert.Equal(t, BracketTokenCloseTag, tokens[4].Type)
-	assert.Equal(t, "INFO", tokens[4].MacroName)
+	testutil.Equal(t, BracketTokenCloseTag, tokens[4].Type)
+	testutil.Equal(t, "INFO", tokens[4].MacroName)
 }
 
 func TestTokenizeBrackets_MultipleMacros(t *testing.T) {
 	input := "[INFO]first[/INFO]\n[WARNING]second[/WARNING]"
 	tokens, err := TokenizeBrackets(input)
-	require.NoError(t, err)
-	require.Len(t, tokens, 7)
+	testutil.RequireNoError(t, err)
+	testutil.Len(t, tokens, 7)
 
 	// First macro
-	assert.Equal(t, BracketTokenOpenTag, tokens[0].Type)
-	assert.Equal(t, "INFO", tokens[0].MacroName)
-	assert.Equal(t, BracketTokenText, tokens[1].Type)
-	assert.Equal(t, "first", tokens[1].Text)
-	assert.Equal(t, BracketTokenCloseTag, tokens[2].Type)
-	assert.Equal(t, "INFO", tokens[2].MacroName)
+	testutil.Equal(t, BracketTokenOpenTag, tokens[0].Type)
+	testutil.Equal(t, "INFO", tokens[0].MacroName)
+	testutil.Equal(t, BracketTokenText, tokens[1].Type)
+	testutil.Equal(t, "first", tokens[1].Text)
+	testutil.Equal(t, BracketTokenCloseTag, tokens[2].Type)
+	testutil.Equal(t, "INFO", tokens[2].MacroName)
 
 	// Text between
-	assert.Equal(t, BracketTokenText, tokens[3].Type)
-	assert.Equal(t, "\n", tokens[3].Text)
+	testutil.Equal(t, BracketTokenText, tokens[3].Type)
+	testutil.Equal(t, "\n", tokens[3].Text)
 
 	// Second macro
-	assert.Equal(t, BracketTokenOpenTag, tokens[4].Type)
-	assert.Equal(t, "WARNING", tokens[4].MacroName)
-	assert.Equal(t, BracketTokenText, tokens[5].Type)
-	assert.Equal(t, "second", tokens[5].Text)
-	assert.Equal(t, BracketTokenCloseTag, tokens[6].Type)
-	assert.Equal(t, "WARNING", tokens[6].MacroName)
+	testutil.Equal(t, BracketTokenOpenTag, tokens[4].Type)
+	testutil.Equal(t, "WARNING", tokens[4].MacroName)
+	testutil.Equal(t, BracketTokenText, tokens[5].Type)
+	testutil.Equal(t, "second", tokens[5].Text)
+	testutil.Equal(t, BracketTokenCloseTag, tokens[6].Type)
+	testutil.Equal(t, "WARNING", tokens[6].MacroName)
 }
 
 func TestTokenizeBrackets_Positions(t *testing.T) {
 	input := "abc[TOC]def"
 	tokens, err := TokenizeBrackets(input)
-	require.NoError(t, err)
-	require.Len(t, tokens, 3)
+	testutil.RequireNoError(t, err)
+	testutil.Len(t, tokens, 3)
 
-	assert.Equal(t, 0, tokens[0].Position) // "abc"
-	assert.Equal(t, 3, tokens[1].Position) // "[TOC]"
-	assert.Equal(t, 8, tokens[2].Position) // "def"
+	testutil.Equal(t, 0, tokens[0].Position) // "abc"
+	testutil.Equal(t, 3, tokens[1].Position) // "[TOC]"
+	testutil.Equal(t, 8, tokens[2].Position) // "def"
 }
 
 func TestTokenizeBrackets_MalformedSyntax(t *testing.T) {
@@ -224,7 +223,7 @@ func TestTokenizeBrackets_MalformedSyntax(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tokens, err := TokenizeBrackets(tt.input)
-			require.NoError(t, err, "should not error on malformed input")
+			testutil.RequireNoError(t, err)
 			// Malformed macro syntax should be treated as text
 			for _, tok := range tokens {
 				if tok.Type == BracketTokenOpenTag || tok.Type == BracketTokenCloseTag {
@@ -241,12 +240,12 @@ func TestTokenizeBrackets_MalformedSyntax(t *testing.T) {
 func TestTokenizeBrackets_BracketsInQuotedValues(t *testing.T) {
 	input := `[INFO title="[Important]"]content[/INFO]`
 	tokens, err := TokenizeBrackets(input)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	// Should have: open tag, text, close tag
-	require.Len(t, tokens, 3)
-	assert.Equal(t, BracketTokenOpenTag, tokens[0].Type)
-	assert.Equal(t, "[Important]", tokens[0].Parameters["title"])
+	testutil.Len(t, tokens, 3)
+	testutil.Equal(t, BracketTokenOpenTag, tokens[0].Type)
+	testutil.Equal(t, "[Important]", tokens[0].Parameters["title"])
 }
 
 func TestTokenizeBrackets_EscapedQuotes(t *testing.T) {
@@ -275,8 +274,8 @@ func TestTokenizeBrackets_EscapedQuotes(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tokens, err := TokenizeBrackets(tt.input)
-			require.NoError(t, err)
-			require.Len(t, tokens, 1)
+			testutil.RequireNoError(t, err)
+			testutil.Len(t, tokens, 1)
 			// Escaped quotes should be unescaped in the returned value
 			var actual string
 			if val, ok := tokens[0].Parameters["title"]; ok {
@@ -284,7 +283,7 @@ func TestTokenizeBrackets_EscapedQuotes(t *testing.T) {
 			} else if val, ok := tokens[0].Parameters["msg"]; ok {
 				actual = val
 			}
-			assert.Equal(t, tt.expected, actual, "parameter value should have unescaped quotes")
+			testutil.Equal(t, tt.expected, actual)
 		})
 	}
 }
@@ -296,13 +295,13 @@ multiline
 content
 [/INFO]`
 	tokens, err := TokenizeBrackets(input)
-	require.NoError(t, err)
-	require.Len(t, tokens, 3)
+	testutil.RequireNoError(t, err)
+	testutil.Len(t, tokens, 3)
 
-	assert.Equal(t, BracketTokenOpenTag, tokens[0].Type)
-	assert.Equal(t, BracketTokenText, tokens[1].Type)
-	assert.Contains(t, tokens[1].Text, "\n")
-	assert.Equal(t, BracketTokenCloseTag, tokens[2].Type)
+	testutil.Equal(t, BracketTokenOpenTag, tokens[0].Type)
+	testutil.Equal(t, BracketTokenText, tokens[1].Type)
+	testutil.Contains(t, tokens[1].Text, "\n")
+	testutil.Equal(t, BracketTokenCloseTag, tokens[2].Type)
 }
 
 func TestTokenizeBrackets_SelfClosing(t *testing.T) {
@@ -346,11 +345,11 @@ func TestTokenizeBrackets_SelfClosing(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tokens, err := TokenizeBrackets(tt.input)
-			require.NoError(t, err)
-			require.Len(t, tokens, tt.wantCount)
-			assert.Equal(t, tt.wantType, tokens[0].Type)
-			assert.Equal(t, "TOC", tokens[0].MacroName)
-			assert.Equal(t, tt.wantParams, tokens[0].Parameters)
+			testutil.RequireNoError(t, err)
+			testutil.Len(t, tokens, tt.wantCount)
+			testutil.Equal(t, tt.wantType, tokens[0].Type)
+			testutil.Equal(t, "TOC", tokens[0].MacroName)
+			testutil.Equal(t, tt.wantParams, tokens[0].Parameters)
 		})
 	}
 }
@@ -358,7 +357,7 @@ func TestTokenizeBrackets_SelfClosing(t *testing.T) {
 func TestTokenizeBrackets_DeeplyNested(t *testing.T) {
 	input := "[INFO][WARNING][NOTE]deep[/NOTE][/WARNING][/INFO]"
 	tokens, err := TokenizeBrackets(input)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	// Count token types
 	openCount := 0
@@ -375,20 +374,20 @@ func TestTokenizeBrackets_DeeplyNested(t *testing.T) {
 		}
 	}
 
-	assert.Equal(t, 3, openCount, "should have 3 open tags")
-	assert.Equal(t, 3, closeCount, "should have 3 close tags")
-	assert.Equal(t, 1, textCount, "should have 1 text token")
+	testutil.Equal(t, 3, openCount)
+	testutil.Equal(t, 3, closeCount)
+	testutil.Equal(t, 1, textCount)
 }
 
 func TestTokenizeBrackets_SpecialCharactersInBody(t *testing.T) {
 	input := "[INFO]<script>alert('xss')</script> & < > \"[/INFO]"
 	tokens, err := TokenizeBrackets(input)
-	require.NoError(t, err)
-	require.Len(t, tokens, 3)
+	testutil.RequireNoError(t, err)
+	testutil.Len(t, tokens, 3)
 
-	assert.Equal(t, BracketTokenText, tokens[1].Type)
-	assert.Contains(t, tokens[1].Text, "<script>")
-	assert.Contains(t, tokens[1].Text, "&")
+	testutil.Equal(t, BracketTokenText, tokens[1].Type)
+	testutil.Contains(t, tokens[1].Text, "<script>")
+	testutil.Contains(t, tokens[1].Text, "&")
 }
 
 func TestTokenizeBrackets_WhitespaceHandling(t *testing.T) {
@@ -427,16 +426,16 @@ func TestTokenizeBrackets_WhitespaceHandling(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tokens, err := TokenizeBrackets(tt.input)
-			require.NoError(t, err)
-			require.GreaterOrEqual(t, len(tokens), 1)
-			assert.Equal(t, tt.wantName, tokens[0].MacroName)
+			testutil.RequireNoError(t, err)
+			testutil.GreaterOrEqual(t, len(tokens), 1)
+			testutil.Equal(t, tt.wantName, tokens[0].MacroName)
 			if tt.wantParam != "" {
 				if tokens[0].Type == BracketTokenOpenTag {
 					val, exists := tokens[0].Parameters["maxLevel"]
 					if !exists {
 						val = tokens[0].Parameters["title"]
 					}
-					assert.Equal(t, tt.wantParam, val)
+					testutil.Equal(t, tt.wantParam, val)
 				}
 			}
 		})

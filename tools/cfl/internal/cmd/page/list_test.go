@@ -7,8 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"github.com/open-cli-collective/atlassian-go/testutil"
 
 	"github.com/open-cli-collective/confluence-cli/api"
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
@@ -66,7 +65,7 @@ func TestRunList_PageList_Success(t *testing.T) {
 	}
 
 	err := runList(opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 }
 
 func TestRunList_PageList_EmptyResults(t *testing.T) {
@@ -85,7 +84,7 @@ func TestRunList_PageList_EmptyResults(t *testing.T) {
 	}
 
 	err := runList(opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 }
 
 func TestRunList_PageList_JSONOutput(t *testing.T) {
@@ -109,7 +108,7 @@ func TestRunList_PageList_JSONOutput(t *testing.T) {
 	}
 
 	err := runList(opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 }
 
 func TestRunList_PageList_InvalidOutputFormat(t *testing.T) {
@@ -123,8 +122,8 @@ func TestRunList_PageList_InvalidOutputFormat(t *testing.T) {
 	}
 
 	err := runList(opts)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid output format")
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "invalid output format")
 }
 
 func TestRunList_PageList_NegativeLimit(t *testing.T) {
@@ -138,8 +137,8 @@ func TestRunList_PageList_NegativeLimit(t *testing.T) {
 	}
 
 	err := runList(opts)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid limit")
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "invalid limit")
 }
 
 func TestRunList_PageList_ZeroLimit(t *testing.T) {
@@ -154,7 +153,7 @@ func TestRunList_PageList_ZeroLimit(t *testing.T) {
 
 	// Zero limit should return empty without making API call
 	err := runList(opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 }
 
 func TestRunList_PageList_MissingSpace(t *testing.T) {
@@ -176,8 +175,8 @@ func TestRunList_PageList_MissingSpace(t *testing.T) {
 	}
 
 	err := runList(opts)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "space is required")
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "space is required")
 }
 
 func TestRunList_PageList_SpaceNotFound(t *testing.T) {
@@ -200,8 +199,8 @@ func TestRunList_PageList_SpaceNotFound(t *testing.T) {
 	}
 
 	err := runList(opts)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to find space")
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "failed to find space")
 }
 
 func TestRunList_PageList_NullVersion(t *testing.T) {
@@ -224,7 +223,7 @@ func TestRunList_PageList_NullVersion(t *testing.T) {
 	}
 
 	err := runList(opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 }
 
 func TestRunList_PageList_HasMore(t *testing.T) {
@@ -248,7 +247,7 @@ func TestRunList_PageList_HasMore(t *testing.T) {
 	}
 
 	err := runList(opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 }
 
 func TestRunList_PageList_LongTitle(t *testing.T) {
@@ -272,13 +271,13 @@ func TestRunList_PageList_LongTitle(t *testing.T) {
 	}
 
 	err := runList(opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 }
 
 func TestRunList_PageList_StatusFilter(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(r.URL.Path, "/pages") {
-			assert.Equal(t, "archived", r.URL.Query().Get("status"))
+			testutil.Equal(t, "archived", r.URL.Query().Get("status"))
 		}
 		if r.URL.Query().Get("keys") != "" {
 			w.WriteHeader(http.StatusOK)
@@ -302,7 +301,7 @@ func TestRunList_PageList_StatusFilter(t *testing.T) {
 	}
 
 	err := runList(opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 }
 
 func TestRunList_PageList_InvalidStatus(t *testing.T) {
@@ -316,15 +315,15 @@ func TestRunList_PageList_InvalidStatus(t *testing.T) {
 	}
 
 	err := runList(opts)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid status")
-	assert.Contains(t, err.Error(), "draft")
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "invalid status")
+	testutil.Contains(t, err.Error(), "draft")
 }
 
 func TestRunList_PageList_TrashedStatus(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(r.URL.Path, "/pages") {
-			assert.Equal(t, "trashed", r.URL.Query().Get("status"))
+			testutil.Equal(t, "trashed", r.URL.Query().Get("status"))
 		}
 		if r.URL.Query().Get("keys") != "" {
 			w.WriteHeader(http.StatusOK)
@@ -348,5 +347,5 @@ func TestRunList_PageList_TrashedStatus(t *testing.T) {
 	}
 
 	err := runList(opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 }

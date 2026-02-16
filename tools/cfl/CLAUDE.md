@@ -128,7 +128,7 @@ type pageAPI interface {
 - `*_test.go` next to implementation
 - `testdata/` for JSON fixtures
 - Table-driven tests with `t.Run()`
-- Use `github.com/stretchr/testify/assert` and `require`
+- Use `shared/testutil` for assertions (no testify)
 
 ### Integration Tests
 After significant code changes, run through the manual integration test suite in [integration-tests.md](integration-tests.md). These tests verify real-world behavior against a live Confluence instance and catch edge cases that unit tests miss.

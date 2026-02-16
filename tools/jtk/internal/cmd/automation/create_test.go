@@ -8,10 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
+	"github.com/open-cli-collective/atlassian-go/testutil"
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 )
@@ -43,7 +40,7 @@ func TestRunCreate(t *testing.T) {
 			Email:    "test@example.com",
 			APIToken: "token",
 		})
-		require.NoError(t, err)
+		testutil.RequireNoError(t, err)
 
 		var stdout, stderr bytes.Buffer
 		opts := &root.Options{
@@ -66,25 +63,25 @@ func TestRunCreate(t *testing.T) {
 			"state": "DISABLED"
 		}`
 		err = os.WriteFile(filePath, []byte(inputJSON), 0644)
-		require.NoError(t, err)
+		testutil.RequireNoError(t, err)
 
 		err = runCreate(opts, filePath)
-		require.NoError(t, err)
+		testutil.RequireNoError(t, err)
 
 		// Verify server-assigned fields were stripped
-		assert.Nil(t, receivedBody["uuid"], "uuid should be stripped")
-		assert.Nil(t, receivedBody["id"], "id should be stripped")
-		assert.Nil(t, receivedBody["ruleKey"], "ruleKey should be stripped")
-		assert.Nil(t, receivedBody["created"], "created should be stripped")
-		assert.Nil(t, receivedBody["updated"], "updated should be stripped")
+		testutil.Nil(t, receivedBody["uuid"])
+		testutil.Nil(t, receivedBody["id"])
+		testutil.Nil(t, receivedBody["ruleKey"])
+		testutil.Nil(t, receivedBody["created"])
+		testutil.Nil(t, receivedBody["updated"])
 
 		// Verify non-server fields are preserved
-		assert.Equal(t, "Test Rule", receivedBody["name"])
-		assert.Equal(t, "DISABLED", receivedBody["state"])
+		testutil.Equal(t, receivedBody["name"], "Test Rule")
+		testutil.Equal(t, receivedBody["state"], "DISABLED")
 
 		// Verify output shows the new UUID from response
-		assert.Contains(t, stdout.String(), "Test Rule")
-		assert.Contains(t, stdout.String(), "new-uuid-456")
+		testutil.Contains(t, stdout.String(), "Test Rule")
+		testutil.Contains(t, stdout.String(), "new-uuid-456")
 	})
 
 	t.Run("response with ruleUuid field", func(t *testing.T) {
@@ -105,7 +102,7 @@ func TestRunCreate(t *testing.T) {
 			Email:    "test@example.com",
 			APIToken: "token",
 		})
-		require.NoError(t, err)
+		testutil.RequireNoError(t, err)
 
 		var stdout, stderr bytes.Buffer
 		opts := &root.Options{
@@ -118,11 +115,11 @@ func TestRunCreate(t *testing.T) {
 		dir := t.TempDir()
 		filePath := filepath.Join(dir, "rule.json")
 		err = os.WriteFile(filePath, []byte(`{"name":"New Rule","state":"DISABLED"}`), 0644)
-		require.NoError(t, err)
+		testutil.RequireNoError(t, err)
 
 		err = runCreate(opts, filePath)
-		require.NoError(t, err)
-		assert.Contains(t, stdout.String(), "rule-uuid-789")
+		testutil.RequireNoError(t, err)
+		testutil.Contains(t, stdout.String(), "rule-uuid-789")
 	})
 
 	t.Run("response prefers uuid over ruleUuid", func(t *testing.T) {
@@ -143,7 +140,7 @@ func TestRunCreate(t *testing.T) {
 			Email:    "test@example.com",
 			APIToken: "token",
 		})
-		require.NoError(t, err)
+		testutil.RequireNoError(t, err)
 
 		var stdout, stderr bytes.Buffer
 		opts := &root.Options{
@@ -156,19 +153,19 @@ func TestRunCreate(t *testing.T) {
 		dir := t.TempDir()
 		filePath := filepath.Join(dir, "rule.json")
 		err = os.WriteFile(filePath, []byte(`{"name":"Both UUIDs","state":"DISABLED"}`), 0644)
-		require.NoError(t, err)
+		testutil.RequireNoError(t, err)
 
 		err = runCreate(opts, filePath)
-		require.NoError(t, err)
-		assert.Contains(t, stdout.String(), "preferred-uuid")
-		assert.NotContains(t, stdout.String(), "fallback-uuid")
+		testutil.RequireNoError(t, err)
+		testutil.Contains(t, stdout.String(), "preferred-uuid")
+		testutil.NotContains(t, stdout.String(), "fallback-uuid")
 	})
 
 	t.Run("invalid JSON file", func(t *testing.T) {
 		dir := t.TempDir()
 		filePath := filepath.Join(dir, "bad.json")
 		err := os.WriteFile(filePath, []byte(`not valid json`), 0644)
-		require.NoError(t, err)
+		testutil.RequireNoError(t, err)
 
 		var stdout, stderr bytes.Buffer
 		opts := &root.Options{
@@ -178,8 +175,8 @@ func TestRunCreate(t *testing.T) {
 		}
 
 		err = runCreate(opts, filePath)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "does not contain valid JSON")
+		testutil.RequireError(t, err)
+		testutil.Contains(t, err.Error(), "does not contain valid JSON")
 	})
 
 	t.Run("file not found", func(t *testing.T) {
@@ -191,7 +188,7 @@ func TestRunCreate(t *testing.T) {
 		}
 
 		err := runCreate(opts, "/nonexistent/path/rule.json")
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to read file")
+		testutil.RequireError(t, err)
+		testutil.Contains(t, err.Error(), "failed to read file")
 	})
 }

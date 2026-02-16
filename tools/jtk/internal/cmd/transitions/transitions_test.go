@@ -2,9 +2,7 @@ package transitions
 
 import (
 	"testing"
-
-	"github.com/stretchr/testify/assert"
-
+	"github.com/open-cli-collective/atlassian-go/testutil"
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 )
 
@@ -100,7 +98,7 @@ func TestFormatFieldValue(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := api.FormatFieldValue(tt.field, tt.value)
-			assert.Equal(t, tt.want, got)
+			testutil.Equal(t, got, tt.want)
 		})
 	}
 }
@@ -186,11 +184,11 @@ func TestGetRequiredFields(t *testing.T) {
 			got := getRequiredFields(tt.transition)
 			// For multiple fields, check both are present (order may vary due to map iteration)
 			if tt.name == "multiple required fields" {
-				assert.Contains(t, got, "Resolution")
-				assert.Contains(t, got, "Root Cause")
-				assert.NotContains(t, got, "Comment")
+				testutil.Contains(t, got, "Resolution")
+				testutil.Contains(t, got, "Root Cause")
+				testutil.NotContains(t, got, "Comment")
 			} else {
-				assert.Equal(t, tt.want, got)
+				testutil.Equal(t, got, tt.want)
 			}
 		})
 	}

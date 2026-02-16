@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	sharederrors "github.com/open-cli-collective/atlassian-go/errors"
-	"github.com/stretchr/testify/assert"
+	"github.com/open-cli-collective/atlassian-go/testutil"
 )
 
 func TestAPIError_Error(t *testing.T) {
@@ -57,7 +57,7 @@ func TestAPIError_Error(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := tt.apiErr.Error()
-			assert.Equal(t, tt.want, got)
+			testutil.Equal(t, got, tt.want)
 		})
 	}
 }
@@ -132,10 +132,10 @@ func TestParseAPIError(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Use shared ParseAPIError which takes (statusCode, body)
 			err := sharederrors.ParseAPIError(tt.statusCode, []byte(tt.body))
-			assert.True(t, errors.Is(err, tt.wantErr), "expected %v, got %v", tt.wantErr, err)
+			testutil.True(t, errors.Is(err, tt.wantErr), fmt.Sprintf("expected %v, got %v", tt.wantErr, err))
 
 			if tt.wantMsg != "" {
-				assert.Contains(t, err.Error(), tt.wantMsg)
+				testutil.Contains(t, err.Error(), tt.wantMsg)
 			}
 		})
 	}
@@ -149,26 +149,26 @@ func TestParseAPIError_418_NonStandard(t *testing.T) {
 
 	// Should return an APIError, not a sentinel error
 	var apiErr *APIError
-	assert.True(t, errors.As(err, &apiErr))
-	assert.Equal(t, 418, apiErr.StatusCode)
-	assert.Contains(t, err.Error(), "I'm a teapot")
+	testutil.True(t, errors.As(err, &apiErr))
+	testutil.Equal(t, apiErr.StatusCode, 418)
+	testutil.Contains(t, err.Error(), "I'm a teapot")
 }
 
 func TestIsNotFound(t *testing.T) {
-	assert.True(t, sharederrors.IsNotFound(sharederrors.ErrNotFound))
-	assert.True(t, sharederrors.IsNotFound(fmt.Errorf("wrapped: %w", sharederrors.ErrNotFound)))
-	assert.False(t, sharederrors.IsNotFound(sharederrors.ErrUnauthorized))
-	assert.False(t, sharederrors.IsNotFound(nil))
+	testutil.True(t, sharederrors.IsNotFound(sharederrors.ErrNotFound))
+	testutil.True(t, sharederrors.IsNotFound(fmt.Errorf("wrapped: %w", sharederrors.ErrNotFound)))
+	testutil.False(t, sharederrors.IsNotFound(sharederrors.ErrUnauthorized))
+	testutil.False(t, sharederrors.IsNotFound(nil))
 }
 
 func TestIsUnauthorized(t *testing.T) {
-	assert.True(t, sharederrors.IsUnauthorized(sharederrors.ErrUnauthorized))
-	assert.False(t, sharederrors.IsUnauthorized(sharederrors.ErrNotFound))
-	assert.False(t, sharederrors.IsUnauthorized(nil))
+	testutil.True(t, sharederrors.IsUnauthorized(sharederrors.ErrUnauthorized))
+	testutil.False(t, sharederrors.IsUnauthorized(sharederrors.ErrNotFound))
+	testutil.False(t, sharederrors.IsUnauthorized(nil))
 }
 
 func TestIsForbidden(t *testing.T) {
-	assert.True(t, sharederrors.IsForbidden(sharederrors.ErrForbidden))
-	assert.False(t, sharederrors.IsForbidden(sharederrors.ErrNotFound))
-	assert.False(t, sharederrors.IsForbidden(nil))
+	testutil.True(t, sharederrors.IsForbidden(sharederrors.ErrForbidden))
+	testutil.False(t, sharederrors.IsForbidden(sharederrors.ErrNotFound))
+	testutil.False(t, sharederrors.IsForbidden(nil))
 }

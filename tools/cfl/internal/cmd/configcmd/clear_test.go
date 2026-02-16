@@ -7,8 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"github.com/open-cli-collective/atlassian-go/testutil"
 
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
 )
@@ -32,7 +31,7 @@ func TestRunClear_FileNotFound(t *testing.T) {
 	}
 
 	err := runClear(opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 }
 
 func TestRunClear_WithForce(t *testing.T) {
@@ -41,10 +40,10 @@ func TestRunClear_WithForce(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", tempDir)
 
 	configDir := filepath.Join(tempDir, "cfl")
-	require.NoError(t, os.MkdirAll(configDir, 0755))
+	testutil.RequireNoError(t, os.MkdirAll(configDir, 0755))
 	configPath := filepath.Join(configDir, "config.yml")
 	err := os.WriteFile(configPath, []byte("url: https://test.atlassian.net"), 0600)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	rootOpts := &root.Options{
 		Output:  "table",
@@ -60,11 +59,11 @@ func TestRunClear_WithForce(t *testing.T) {
 	}
 
 	err = runClear(opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	// Verify file is deleted
 	_, err = os.Stat(configPath)
-	assert.True(t, os.IsNotExist(err))
+	testutil.True(t, os.IsNotExist(err))
 }
 
 func TestRunClear_WithConfirmation(t *testing.T) {
@@ -73,10 +72,10 @@ func TestRunClear_WithConfirmation(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", tempDir)
 
 	configDir := filepath.Join(tempDir, "cfl")
-	require.NoError(t, os.MkdirAll(configDir, 0755))
+	testutil.RequireNoError(t, os.MkdirAll(configDir, 0755))
 	configPath := filepath.Join(configDir, "config.yml")
 	err := os.WriteFile(configPath, []byte("url: https://test.atlassian.net"), 0600)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	rootOpts := &root.Options{
 		Output:  "table",
@@ -92,11 +91,11 @@ func TestRunClear_WithConfirmation(t *testing.T) {
 	}
 
 	err = runClear(opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	// Verify file is deleted
 	_, err = os.Stat(configPath)
-	assert.True(t, os.IsNotExist(err))
+	testutil.True(t, os.IsNotExist(err))
 }
 
 func TestRunClear_Cancelled(t *testing.T) {
@@ -105,10 +104,10 @@ func TestRunClear_Cancelled(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", tempDir)
 
 	configDir := filepath.Join(tempDir, "cfl")
-	require.NoError(t, os.MkdirAll(configDir, 0755))
+	testutil.RequireNoError(t, os.MkdirAll(configDir, 0755))
 	configPath := filepath.Join(configDir, "config.yml")
 	err := os.WriteFile(configPath, []byte("url: https://test.atlassian.net"), 0600)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	rootOpts := &root.Options{
 		Output:  "table",
@@ -124,9 +123,9 @@ func TestRunClear_Cancelled(t *testing.T) {
 	}
 
 	err = runClear(opts)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	// Verify file still exists
 	_, err = os.Stat(configPath)
-	assert.NoError(t, err)
+	testutil.NoError(t, err)
 }

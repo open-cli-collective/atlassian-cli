@@ -3,7 +3,7 @@ package md
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/open-cli-collective/atlassian-go/testutil"
 )
 
 func TestProtectCodeRegions_FencedBlock(t *testing.T) {
@@ -18,11 +18,11 @@ func TestProtectCodeRegions_FencedBlock(t *testing.T) {
 			input:          "before\n```\n[[My Page]]\n```\nafter",
 			expectedRegion: 1,
 			checkOutput: func(t *testing.T, output string, regions []codeRegion) {
-				assert.Contains(t, output, "before\n")
-				assert.Contains(t, output, "after")
-				assert.NotContains(t, output, "[[My Page]]")
-				assert.Contains(t, regions[0].content, "[[My Page]]")
-				assert.Contains(t, regions[0].content, "```")
+				testutil.Contains(t, output, "before\n")
+				testutil.Contains(t, output, "after")
+				testutil.NotContains(t, output, "[[My Page]]")
+				testutil.Contains(t, regions[0].content, "[[My Page]]")
+				testutil.Contains(t, regions[0].content, "```")
 			},
 		},
 		{
@@ -30,8 +30,8 @@ func TestProtectCodeRegions_FencedBlock(t *testing.T) {
 			input:          "before\n~~~\n[[My Page]]\n~~~\nafter",
 			expectedRegion: 1,
 			checkOutput: func(t *testing.T, output string, regions []codeRegion) {
-				assert.NotContains(t, output, "[[My Page]]")
-				assert.Contains(t, regions[0].content, "[[My Page]]")
+				testutil.NotContains(t, output, "[[My Page]]")
+				testutil.Contains(t, regions[0].content, "[[My Page]]")
 			},
 		},
 		{
@@ -39,9 +39,9 @@ func TestProtectCodeRegions_FencedBlock(t *testing.T) {
 			input:          "before\n```markdown\nUse [[Page Title]] syntax\n```\nafter",
 			expectedRegion: 1,
 			checkOutput: func(t *testing.T, output string, regions []codeRegion) {
-				assert.NotContains(t, output, "[[Page Title]]")
-				assert.Contains(t, regions[0].content, "[[Page Title]]")
-				assert.Contains(t, regions[0].content, "```markdown")
+				testutil.NotContains(t, output, "[[Page Title]]")
+				testutil.Contains(t, regions[0].content, "[[Page Title]]")
+				testutil.Contains(t, regions[0].content, "```markdown")
 			},
 		},
 		{
@@ -49,7 +49,7 @@ func TestProtectCodeRegions_FencedBlock(t *testing.T) {
 			input:          "See [[My Page]] for details",
 			expectedRegion: 0,
 			checkOutput: func(t *testing.T, output string, regions []codeRegion) {
-				assert.Equal(t, "See [[My Page]] for details", output)
+				testutil.Equal(t, "See [[My Page]] for details", output)
 			},
 		},
 		{
@@ -57,9 +57,9 @@ func TestProtectCodeRegions_FencedBlock(t *testing.T) {
 			input:          "```\n[[A]]\n```\ntext\n```\n[[B]]\n```",
 			expectedRegion: 2,
 			checkOutput: func(t *testing.T, output string, regions []codeRegion) {
-				assert.Contains(t, output, "text")
-				assert.NotContains(t, output, "[[A]]")
-				assert.NotContains(t, output, "[[B]]")
+				testutil.Contains(t, output, "text")
+				testutil.NotContains(t, output, "[[A]]")
+				testutil.NotContains(t, output, "[[B]]")
 			},
 		},
 	}
@@ -67,7 +67,7 @@ func TestProtectCodeRegions_FencedBlock(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			output, regions := protectCodeRegions([]byte(tt.input))
-			assert.Equal(t, tt.expectedRegion, len(regions))
+			testutil.Equal(t, tt.expectedRegion, len(regions))
 			tt.checkOutput(t, string(output), regions)
 		})
 	}
@@ -85,10 +85,10 @@ func TestProtectCodeRegions_InlineCode(t *testing.T) {
 			input:          "Use `[[My Page]]` for links",
 			expectedRegion: 1,
 			checkOutput: func(t *testing.T, output string, regions []codeRegion) {
-				assert.NotContains(t, output, "[[My Page]]")
-				assert.Contains(t, output, "Use ")
-				assert.Contains(t, output, " for links")
-				assert.Equal(t, "`[[My Page]]`", regions[0].content)
+				testutil.NotContains(t, output, "[[My Page]]")
+				testutil.Contains(t, output, "Use ")
+				testutil.Contains(t, output, " for links")
+				testutil.Equal(t, "`[[My Page]]`", regions[0].content)
 			},
 		},
 		{
@@ -96,8 +96,8 @@ func TestProtectCodeRegions_InlineCode(t *testing.T) {
 			input:          "Use ``[[My Page]]`` for links",
 			expectedRegion: 1,
 			checkOutput: func(t *testing.T, output string, regions []codeRegion) {
-				assert.NotContains(t, output, "[[My Page]]")
-				assert.Equal(t, "``[[My Page]]``", regions[0].content)
+				testutil.NotContains(t, output, "[[My Page]]")
+				testutil.Equal(t, "``[[My Page]]``", regions[0].content)
 			},
 		},
 		{
@@ -105,7 +105,7 @@ func TestProtectCodeRegions_InlineCode(t *testing.T) {
 			input:          "See [[My Page]] here",
 			expectedRegion: 0,
 			checkOutput: func(t *testing.T, output string, regions []codeRegion) {
-				assert.Equal(t, "See [[My Page]] here", output)
+				testutil.Equal(t, "See [[My Page]] here", output)
 			},
 		},
 		{
@@ -113,9 +113,9 @@ func TestProtectCodeRegions_InlineCode(t *testing.T) {
 			input:          "Use `[[syntax]]` to link to [[Real Page]]",
 			expectedRegion: 1,
 			checkOutput: func(t *testing.T, output string, regions []codeRegion) {
-				assert.Contains(t, output, "[[Real Page]]")
-				assert.NotContains(t, output, "`[[syntax]]`")
-				assert.Equal(t, "`[[syntax]]`", regions[0].content)
+				testutil.Contains(t, output, "[[Real Page]]")
+				testutil.NotContains(t, output, "`[[syntax]]`")
+				testutil.Equal(t, "`[[syntax]]`", regions[0].content)
 			},
 		},
 	}
@@ -123,7 +123,7 @@ func TestProtectCodeRegions_InlineCode(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			output, regions := protectCodeRegions([]byte(tt.input))
-			assert.Equal(t, tt.expectedRegion, len(regions))
+			testutil.Equal(t, tt.expectedRegion, len(regions))
 			tt.checkOutput(t, string(output), regions)
 		})
 	}
@@ -136,13 +136,13 @@ func TestProtectCodeRegions_Mixed(t *testing.T) {
 	outputStr := string(output)
 
 	// Code regions should be protected
-	assert.Equal(t, 2, len(regions))
-	assert.NotContains(t, outputStr, "[[Page B]]")
-	assert.NotContains(t, outputStr, "[[Page C]]")
+	testutil.Equal(t, 2, len(regions))
+	testutil.NotContains(t, outputStr, "[[Page B]]")
+	testutil.NotContains(t, outputStr, "[[Page C]]")
 
 	// Non-code wiki links should remain
-	assert.Contains(t, outputStr, "[[Page A]]")
-	assert.Contains(t, outputStr, "[[Page D]]")
+	testutil.Contains(t, outputStr, "[[Page A]]")
+	testutil.Contains(t, outputStr, "[[Page D]]")
 }
 
 func TestRestoreCodeRegions(t *testing.T) {
@@ -153,26 +153,26 @@ func TestRestoreCodeRegions(t *testing.T) {
 
 	// Simulate wiki-link replacement on the non-code parts
 	protectedStr := string(protected)
-	assert.Contains(t, protectedStr, "[[Link]]")
+	testutil.Contains(t, protectedStr, "[[Link]]")
 
 	// Restore
 	restored := restoreCodeRegions(protected, regions)
-	assert.Equal(t, input, string(restored))
+	testutil.Equal(t, input, string(restored))
 }
 
 func TestProtectCodeRegions_UnclosedFence(t *testing.T) {
 	// Unclosed fence should protect to end of input
 	input := "before\n```\n[[My Page]]\nno closing fence"
 	output, regions := protectCodeRegions([]byte(input))
-	assert.Equal(t, 1, len(regions))
-	assert.Contains(t, string(output), "before\n")
-	assert.NotContains(t, string(output), "[[My Page]]")
+	testutil.Equal(t, 1, len(regions))
+	testutil.Contains(t, string(output), "before\n")
+	testutil.NotContains(t, string(output), "[[My Page]]")
 }
 
 func TestProtectCodeRegions_UnmatchedBacktick(t *testing.T) {
 	// Unmatched backtick should not swallow content
 	input := "text `unclosed [[My Page]]"
 	output, regions := protectCodeRegions([]byte(input))
-	assert.Equal(t, 0, len(regions))
-	assert.Equal(t, input, string(output))
+	testutil.Equal(t, 0, len(regions))
+	testutil.Equal(t, input, string(output))
 }

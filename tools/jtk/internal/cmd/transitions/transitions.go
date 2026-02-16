@@ -1,3 +1,4 @@
+// Package transitions provides CLI commands for managing Jira issue transitions.
 package transitions
 
 import (

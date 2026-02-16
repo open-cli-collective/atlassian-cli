@@ -8,6 +8,10 @@ linters:
     - staticcheck
     - unused
     - misspell
+    - revive
+    - gosec
+    - errorlint
+    - exhaustive
   settings:
     errcheck:
       exclude-functions:

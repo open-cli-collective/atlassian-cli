@@ -14,7 +14,7 @@ import (
 )
 
 // mockAttachmentServer creates a test server that handles attachment get and delete
-func mockAttachmentServer(t *testing.T, getHandler, deleteHandler func(w http.ResponseWriter, r *http.Request)) *httptest.Server {
+func mockAttachmentServer(_ *testing.T, getHandler, deleteHandler func(w http.ResponseWriter, r *http.Request)) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "GET" && strings.HasPrefix(r.URL.Path, "/api/v2/attachments/") {
 			if getHandler != nil {
@@ -72,7 +72,7 @@ func TestRunDeleteAttachment_ForceDelete(t *testing.T) {
 
 func TestRunDeleteAttachment_ConfirmWithY(t *testing.T) {
 	deleted := false
-	server := mockAttachmentServer(t, nil, func(w http.ResponseWriter, r *http.Request) {
+	server := mockAttachmentServer(t, nil, func(w http.ResponseWriter, _ *http.Request) {
 		deleted = true
 		w.WriteHeader(http.StatusNoContent)
 	})
@@ -95,7 +95,7 @@ func TestRunDeleteAttachment_ConfirmWithY(t *testing.T) {
 
 func TestRunDeleteAttachment_ConfirmWithUpperY(t *testing.T) {
 	deleted := false
-	server := mockAttachmentServer(t, nil, func(w http.ResponseWriter, r *http.Request) {
+	server := mockAttachmentServer(t, nil, func(w http.ResponseWriter, _ *http.Request) {
 		deleted = true
 		w.WriteHeader(http.StatusNoContent)
 	})
@@ -118,7 +118,7 @@ func TestRunDeleteAttachment_ConfirmWithUpperY(t *testing.T) {
 
 func TestRunDeleteAttachment_CancelWithN(t *testing.T) {
 	deleted := false
-	server := mockAttachmentServer(t, nil, func(w http.ResponseWriter, r *http.Request) {
+	server := mockAttachmentServer(t, nil, func(w http.ResponseWriter, _ *http.Request) {
 		deleted = true
 		w.WriteHeader(http.StatusNoContent)
 	})
@@ -141,7 +141,7 @@ func TestRunDeleteAttachment_CancelWithN(t *testing.T) {
 
 func TestRunDeleteAttachment_CancelWithEmpty(t *testing.T) {
 	deleted := false
-	server := mockAttachmentServer(t, nil, func(w http.ResponseWriter, r *http.Request) {
+	server := mockAttachmentServer(t, nil, func(w http.ResponseWriter, _ *http.Request) {
 		deleted = true
 		w.WriteHeader(http.StatusNoContent)
 	})
@@ -164,7 +164,7 @@ func TestRunDeleteAttachment_CancelWithEmpty(t *testing.T) {
 
 func TestRunDeleteAttachment_CancelWithOther(t *testing.T) {
 	deleted := false
-	server := mockAttachmentServer(t, nil, func(w http.ResponseWriter, r *http.Request) {
+	server := mockAttachmentServer(t, nil, func(w http.ResponseWriter, _ *http.Request) {
 		deleted = true
 		w.WriteHeader(http.StatusNoContent)
 	})
@@ -187,7 +187,7 @@ func TestRunDeleteAttachment_CancelWithOther(t *testing.T) {
 
 func TestRunDeleteAttachment_GetAttachmentFails(t *testing.T) {
 	server := mockAttachmentServer(t,
-		func(w http.ResponseWriter, r *http.Request) {
+		func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusNotFound)
 			_, _ = w.Write([]byte(`{"message": "Attachment not found"}`))
 		},
@@ -211,7 +211,7 @@ func TestRunDeleteAttachment_GetAttachmentFails(t *testing.T) {
 
 func TestRunDeleteAttachment_DeleteFails(t *testing.T) {
 	server := mockAttachmentServer(t, nil,
-		func(w http.ResponseWriter, r *http.Request) {
+		func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusForbidden)
 			_, _ = w.Write([]byte(`{"message": "Permission denied"}`))
 		},

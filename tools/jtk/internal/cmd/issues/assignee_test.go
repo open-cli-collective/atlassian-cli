@@ -6,7 +6,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
 	"github.com/open-cli-collective/atlassian-go/testutil"
+
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 )
 
@@ -26,7 +28,7 @@ func TestResolveAssignee_RawAccountID(t *testing.T) {
 func TestResolveAssignee_Me(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/rest/api/3/myself" {
-			json.NewEncoder(w).Encode(api.User{
+			_ = json.NewEncoder(w).Encode(api.User{
 				AccountID:   "me-account-id",
 				DisplayName: "Current User",
 			})
@@ -51,7 +53,7 @@ func TestResolveAssignee_Me(t *testing.T) {
 func TestResolveAssignee_MeCaseInsensitive(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/rest/api/3/myself" {
-			json.NewEncoder(w).Encode(api.User{
+			_ = json.NewEncoder(w).Encode(api.User{
 				AccountID:   "me-account-id",
 				DisplayName: "Current User",
 			})
@@ -76,7 +78,7 @@ func TestResolveAssignee_MeCaseInsensitive(t *testing.T) {
 func TestResolveAssignee_Email(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/rest/api/3/user/search" {
-			json.NewEncoder(w).Encode([]api.User{
+			_ = json.NewEncoder(w).Encode([]api.User{
 				{AccountID: "email-account-id", DisplayName: "Email User"},
 			})
 			return
@@ -100,7 +102,7 @@ func TestResolveAssignee_Email(t *testing.T) {
 func TestResolveAssignee_EmailNotFound(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/rest/api/3/user/search" {
-			json.NewEncoder(w).Encode([]api.User{})
+			_ = json.NewEncoder(w).Encode([]api.User{})
 			return
 		}
 		w.WriteHeader(http.StatusNotFound)

@@ -1,3 +1,4 @@
+// Package attachments provides CLI commands for managing Jira issue attachments.
 package attachments
 
 import (

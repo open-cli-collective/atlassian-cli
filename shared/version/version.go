@@ -5,7 +5,7 @@
 //	go build -ldflags "-X github.com/open-cli-collective/atlassian-go/version.Version=1.0.0 \
 //	                   -X github.com/open-cli-collective/atlassian-go/version.Commit=abc123 \
 //	                   -X github.com/open-cli-collective/atlassian-go/version.BuildDate=2024-01-01"
-package version
+package version //nolint:revive // package name does not conflict in practice
 
 // Build information, set via ldflags
 var (

@@ -1,7 +1,9 @@
+// Package comments provides CLI commands for managing Jira issue comments.
 package comments
 
 import (
 	"context"
+
 	"github.com/spf13/cobra"
 
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"

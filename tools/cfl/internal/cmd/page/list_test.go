@@ -158,7 +158,7 @@ func TestRunList_PageList_ZeroLimit(t *testing.T) {
 
 func TestRunList_PageList_MissingSpace(t *testing.T) {
 	// Create a mock client to avoid config loading
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()
@@ -180,7 +180,7 @@ func TestRunList_PageList_MissingSpace(t *testing.T) {
 }
 
 func TestRunList_PageList_SpaceNotFound(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		// Return empty results for space lookup
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"results": []}`))

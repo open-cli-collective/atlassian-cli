@@ -1,4 +1,3 @@
-// parser.go defines shared types for macro parsing in both directions.
 package md
 
 import (
@@ -9,6 +8,7 @@ import (
 // SegmentType indicates whether a segment is text or a macro.
 type SegmentType int
 
+// SegmentType constants classify parts of a parsed macro stream.
 const (
 	SegmentText  SegmentType = iota // plain text/HTML content
 	SegmentMacro                    // parsed macro node

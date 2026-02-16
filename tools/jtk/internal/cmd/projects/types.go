@@ -14,7 +14,7 @@ func newTypesCmd(opts *root.Options) *cobra.Command {
 		Short:   "List project types",
 		Long:    "List available project types for creating new projects.",
 		Example: `  jtk projects types`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runTypes(cmd.Context(), opts)
 		},
 	}

@@ -1,4 +1,4 @@
-package api
+package api //nolint:revive // package name is intentional
 
 import (
 	"context"
@@ -79,7 +79,7 @@ func TestClient_GetTransitions(t *testing.T) {
 		testutil.Contains(t, r.URL.Path, "/issue/PROJ-123/transitions")
 		testutil.Empty(t, r.URL.Query().Get("expand"))
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{
+		_, _ = w.Write([]byte(`{
 			"transitions": [
 				{"id": "11", "name": "To Do", "to": {"id": "1", "name": "To Do"}},
 				{"id": "21", "name": "In Progress", "to": {"id": "2", "name": "In Progress"}}
@@ -146,7 +146,7 @@ func TestClient_GetTransitionsWithFields(t *testing.T) {
 					testutil.Empty(t, r.URL.Query().Get("expand"))
 				}
 				w.WriteHeader(http.StatusOK)
-				w.Write([]byte(`{
+				_, _ = w.Write([]byte(`{
 					"transitions": [
 						{
 							"id": "21",

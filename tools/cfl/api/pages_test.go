@@ -1,4 +1,4 @@
-package api
+package api //nolint:revive // package name is intentional
 
 import (
 	"context"
@@ -222,7 +222,7 @@ func TestClient_MovePage_Success(t *testing.T) {
 }
 
 func TestClient_MovePage_NotFound(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 		_, _ = w.Write([]byte(`{"message": "Page not found"}`))
 	}))
@@ -235,7 +235,7 @@ func TestClient_MovePage_NotFound(t *testing.T) {
 }
 
 func TestClient_MovePage_PermissionDenied(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusForbidden)
 		_, _ = w.Write([]byte(`{"message": "You do not have permission to move this page"}`))
 	}))
@@ -320,7 +320,7 @@ func TestClient_CopyPage_NilOptions(t *testing.T) {
 }
 
 func TestClient_CopyPage_APIError(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 		_, _ = w.Write([]byte(`{"message": "Page not found"}`))
 	}))
@@ -440,7 +440,7 @@ func TestClient_CopyPage_WithoutLabels(t *testing.T) {
 }
 
 func TestClient_UpdatePage_VersionConflict(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusConflict)
 		_, _ = w.Write([]byte(`{
 			"message": "Version conflict: expected version 5 but page is at version 6",
@@ -463,7 +463,7 @@ func TestClient_UpdatePage_VersionConflict(t *testing.T) {
 }
 
 func TestClient_GetPage_MissingBody(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{
 			"id": "98765",
@@ -484,7 +484,7 @@ func TestClient_GetPage_MissingBody(t *testing.T) {
 }
 
 func TestClient_GetPage_EmptyBodyStorage(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{
 			"id": "98765",
@@ -548,7 +548,7 @@ func TestClient_ListPages_WithCursor(t *testing.T) {
 }
 
 func TestClient_ListPages_EmptyResults(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"results": []}`))
 	}))
@@ -563,7 +563,7 @@ func TestClient_ListPages_EmptyResults(t *testing.T) {
 }
 
 func TestClient_ListPages_NullVersion(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{
 			"results": [{

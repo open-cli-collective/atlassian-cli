@@ -1,4 +1,3 @@
-// parser_xml.go parses Confluence XML into MacroNode trees.
 package md
 
 import (
@@ -113,11 +112,9 @@ func ParseConfluenceXML(input string) (*ParseResult, error) {
 		current := stack[len(stack)-1]
 		result.AddWarning("unclosed macro: %s", current.node.Name)
 		stack = stack[:len(stack)-1]
-		// Treat unclosed macro as text
-		if len(stack) > 0 {
-			// Add to parent body as-is (can't reconstruct XML properly)
-		} else {
-			result.AddMacroSegment(current.node) // best effort
+		// Treat unclosed macro as text; if top-level, add as best-effort segment
+		if len(stack) == 0 {
+			result.AddMacroSegment(current.node)
 		}
 	}
 

@@ -131,7 +131,7 @@ func NotNil(t *testing.T, v interface{}) {
 func Len(t *testing.T, v interface{}, expected int) {
 	t.Helper()
 	rv := reflect.ValueOf(v)
-	switch rv.Kind() {
+	switch rv.Kind() { //nolint:exhaustive // covered by default case
 	case reflect.String, reflect.Slice, reflect.Array, reflect.Map, reflect.Chan:
 		if rv.Len() != expected {
 			t.Errorf("expected length %d, got %d", expected, rv.Len())
@@ -145,7 +145,7 @@ func Len(t *testing.T, v interface{}, expected int) {
 func Empty(t *testing.T, v interface{}) {
 	t.Helper()
 	rv := reflect.ValueOf(v)
-	switch rv.Kind() {
+	switch rv.Kind() { //nolint:exhaustive // covered by default case
 	case reflect.String, reflect.Slice, reflect.Array, reflect.Map, reflect.Chan:
 		if rv.Len() != 0 {
 			t.Errorf("expected empty, got length %d", rv.Len())
@@ -159,7 +159,7 @@ func Empty(t *testing.T, v interface{}) {
 func NotEmpty(t *testing.T, v interface{}) {
 	t.Helper()
 	rv := reflect.ValueOf(v)
-	switch rv.Kind() {
+	switch rv.Kind() { //nolint:exhaustive // covered by default case
 	case reflect.String, reflect.Slice, reflect.Array, reflect.Map, reflect.Chan:
 		if rv.Len() == 0 {
 			t.Errorf("expected not empty")

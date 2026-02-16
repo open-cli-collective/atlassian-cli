@@ -2,7 +2,9 @@ package initcmd
 
 import (
 	"testing"
+
 	"github.com/open-cli-collective/atlassian-go/testutil"
+
 	"github.com/open-cli-collective/jira-ticket-cli/internal/config"
 )
 

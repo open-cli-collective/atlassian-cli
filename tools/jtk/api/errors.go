@@ -1,4 +1,4 @@
-package api
+package api //nolint:revive // package name is intentional
 
 import (
 	"errors"
@@ -14,4 +14,4 @@ var (
 )
 
 // APIError is an alias for the shared APIError type
-type APIError = sharederrors.APIError
+type APIError = sharederrors.APIError //nolint:revive // preserving backward compat alias

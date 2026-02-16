@@ -1,4 +1,4 @@
-package api
+package api //nolint:revive // package name is intentional
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
 	"github.com/open-cli-collective/atlassian-go/testutil"
 )
 
@@ -46,7 +47,7 @@ func TestGetUser(t *testing.T) {
 				testutil.Equal(t, r.URL.Path, "/rest/api/3/user")
 				testutil.Equal(t, r.URL.Query().Get("accountId"), tt.accountID)
 				w.WriteHeader(tt.statusCode)
-				w.Write([]byte(tt.response))
+				_, _ = w.Write([]byte(tt.response))
 			}))
 			defer server.Close()
 
@@ -79,7 +80,7 @@ func TestGetCurrentUser(t *testing.T) {
 			EmailAddress: "current@example.com",
 			Active:       true,
 		}
-		json.NewEncoder(w).Encode(user)
+		_ = json.NewEncoder(w).Encode(user)
 	}))
 	defer server.Close()
 
@@ -115,7 +116,7 @@ func TestSearchUsers(t *testing.T) {
 				Active:       true,
 			},
 		}
-		json.NewEncoder(w).Encode(users)
+		_ = json.NewEncoder(w).Encode(users)
 	}))
 	defer server.Close()
 

@@ -1,13 +1,15 @@
 package projects
 
 import (
-	"context"
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
 	"github.com/open-cli-collective/atlassian-go/testutil"
+
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 )
@@ -39,8 +41,8 @@ func TestNewListCmd(t *testing.T) {
 }
 
 func TestRunList_Table(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(api.ProjectSearchResponse{
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(api.ProjectSearchResponse{
 			Values: []api.ProjectDetail{
 				{Key: "TST", Name: "Test", ProjectTypeKey: "software", Lead: &api.User{DisplayName: "Lead"}},
 			},
@@ -64,8 +66,8 @@ func TestRunList_Table(t *testing.T) {
 }
 
 func TestRunList_JSON(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(api.ProjectSearchResponse{
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(api.ProjectSearchResponse{
 			Values: []api.ProjectDetail{
 				{Key: "TST", Name: "Test", ProjectTypeKey: "software"},
 			},
@@ -89,8 +91,8 @@ func TestRunList_JSON(t *testing.T) {
 }
 
 func TestRunList_Empty(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(api.ProjectSearchResponse{Values: []api.ProjectDetail{}, Total: 0, IsLast: true})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(api.ProjectSearchResponse{Values: []api.ProjectDetail{}, Total: 0, IsLast: true})
 	}))
 	defer server.Close()
 
@@ -114,8 +116,8 @@ func TestNewGetCmd(t *testing.T) {
 }
 
 func TestRunGet_Table(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(api.ProjectDetail{
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(api.ProjectDetail{
 			ID:             json.Number("10001"),
 			Key:            "TST",
 			Name:           "Test",
@@ -157,9 +159,9 @@ func TestNewCreateCmd(t *testing.T) {
 func TestRunCreate(t *testing.T) {
 	// Jira's create endpoint returns an empty name, so the success message
 	// should use the input name, not the response name.
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(api.ProjectDetail{
+		_ = json.NewEncoder(w).Encode(api.ProjectDetail{
 			ID:   json.Number("10001"),
 			Key:  "TST",
 			Name: "",
@@ -192,7 +194,7 @@ func TestNewDeleteCmd(t *testing.T) {
 }
 
 func TestRunDelete_Force(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 	}))
 	defer server.Close()
@@ -254,7 +256,7 @@ func TestRunDelete_NoForce_Accepted(t *testing.T) {
 func TestRunUpdate(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testutil.Equal(t, r.Method, http.MethodPut)
-		json.NewEncoder(w).Encode(api.ProjectDetail{
+		_ = json.NewEncoder(w).Encode(api.ProjectDetail{
 			ID:   json.Number("10001"),
 			Key:  "TST",
 			Name: "Updated Name",
@@ -275,8 +277,8 @@ func TestRunUpdate(t *testing.T) {
 }
 
 func TestRunRestore(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(api.ProjectDetail{
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(api.ProjectDetail{
 			ID:   json.Number("10001"),
 			Key:  "TST",
 			Name: "Test Project",
@@ -297,8 +299,8 @@ func TestRunRestore(t *testing.T) {
 }
 
 func TestRunTypes(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode([]api.ProjectType{
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode([]api.ProjectType{
 			{Key: "software", FormattedKey: "Software"},
 			{Key: "business", FormattedKey: "Business"},
 		})

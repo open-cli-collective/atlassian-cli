@@ -1,9 +1,4 @@
-// codeprotect.go provides utilities for protecting code regions (fenced code
-// blocks and inline code spans) from preprocessing transformations.
-//
-// The protect/restore cycle allows regex-based preprocessors (wiki-links,
-// macros) to skip content inside code regions without needing markdown-aware
-// parsing.
+// Package md provides bidirectional Markdown-Confluence conversion.
 package md
 
 import (

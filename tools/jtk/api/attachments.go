@@ -1,4 +1,5 @@
-package api
+// Package api provides a Go client for the Jira REST API.
+package api //nolint:revive // package name is intentional
 
 import (
 	"context"
@@ -103,6 +104,7 @@ func (c *Client) GetAttachment(ctx context.Context, attachmentID string) (*Attac
 
 // AddAttachment uploads a file as an attachment to an issue
 func (c *Client) AddAttachment(ctx context.Context, issueKey, filePath string) ([]Attachment, error) {
+	_ = ctx // TODO: wire context through when switching to context-aware HTTP calls
 	if issueKey == "" {
 		return nil, fmt.Errorf("issue key is required")
 	}
@@ -110,7 +112,7 @@ func (c *Client) AddAttachment(ctx context.Context, issueKey, filePath string) (
 		return nil, fmt.Errorf("file path is required")
 	}
 
-	file, err := os.Open(filePath)
+	file, err := os.Open(filePath) //nolint:gosec // CLI tool opens user-provided file paths
 	if err != nil {
 		return nil, fmt.Errorf("opening file: %w", err)
 	}
@@ -201,6 +203,7 @@ func (c *Client) DeleteAttachment(ctx context.Context, attachmentID string) erro
 
 // DownloadAttachment downloads an attachment to the specified output path
 func (c *Client) DownloadAttachment(ctx context.Context, attachment *Attachment, outputPath string) error {
+	_ = ctx // TODO: wire context through when switching to context-aware HTTP calls
 	if attachment == nil {
 		return fmt.Errorf("attachment is required")
 	}
@@ -242,7 +245,7 @@ func (c *Client) DownloadAttachment(ctx context.Context, attachment *Attachment,
 	}
 
 	// Create the output file
-	file, err := os.Create(outFile)
+	file, err := os.Create(outFile) //nolint:gosec // CLI tool creates user-provided file paths
 	if err != nil {
 		return fmt.Errorf("creating output file: %w", err)
 	}

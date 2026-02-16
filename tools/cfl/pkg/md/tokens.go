@@ -1,9 +1,9 @@
-// tokens.go defines token types for macro parsing in both directions.
 package md
 
 // BracketTokenType represents token types for bracket syntax [MACRO]...[/MACRO]
 type BracketTokenType int
 
+// BracketTokenType constants enumerate the token types for bracket macro syntax.
 const (
 	BracketTokenText      BracketTokenType = iota // plain text between macros
 	BracketTokenOpenTag                           // [MACRO] or [MACRO params]
@@ -25,6 +25,7 @@ type BracketToken struct {
 // XMLTokenType represents token types for Confluence XML parsing.
 type XMLTokenType int
 
+// XMLTokenType constants enumerate the token types for Confluence XML parsing.
 const (
 	XMLTokenText      XMLTokenType = iota // text/HTML between macros
 	XMLTokenOpenTag                       // <ac:structured-macro ac:name="...">

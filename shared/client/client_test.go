@@ -84,7 +84,7 @@ func TestClient_Do(t *testing.T) {
 			}
 
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"result": "success"}`))
+			_, _ = w.Write([]byte(`{"result": "success"}`))
 		}))
 		defer server.Close()
 
@@ -113,14 +113,14 @@ func TestClient_Do(t *testing.T) {
 			// Read and verify body
 			body, _ := io.ReadAll(r.Body)
 			var data map[string]string
-			json.Unmarshal(body, &data)
+			_ = json.Unmarshal(body, &data)
 
 			if data["name"] != "test" {
 				t.Errorf("Body name = %v, want test", data["name"])
 			}
 
 			w.WriteHeader(http.StatusCreated)
-			w.Write([]byte(`{"id": "123"}`))
+			_, _ = w.Write([]byte(`{"id": "123"}`))
 		}))
 		defer server.Close()
 
@@ -194,7 +194,7 @@ func TestClient_Do(t *testing.T) {
 				t.Errorf("Path = %v, want /custom/endpoint", r.URL.Path)
 			}
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"success": true}`))
+			_, _ = w.Write([]byte(`{"success": true}`))
 		}))
 		defer server.Close()
 
@@ -264,9 +264,9 @@ func TestClient_ErrorHandling(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				w.WriteHeader(tt.statusCode)
-				w.Write([]byte(tt.body))
+				_, _ = w.Write([]byte(tt.body))
 			}))
 			defer server.Close()
 
@@ -277,13 +277,13 @@ func TestClient_ErrorHandling(t *testing.T) {
 				t.Fatal("Expected error, got nil")
 			}
 
-			if !errors.IsNotFound(err) && tt.wantErr == errors.ErrNotFound {
+			if errors.IsNotFound(tt.wantErr) && !errors.IsNotFound(err) {
 				t.Errorf("Expected ErrNotFound, got %v", err)
 			}
-			if !errors.IsUnauthorized(err) && tt.wantErr == errors.ErrUnauthorized {
+			if errors.IsUnauthorized(tt.wantErr) && !errors.IsUnauthorized(err) {
 				t.Errorf("Expected ErrUnauthorized, got %v", err)
 			}
-			if !errors.IsForbidden(err) && tt.wantErr == errors.ErrForbidden {
+			if errors.IsForbidden(tt.wantErr) && !errors.IsForbidden(err) {
 				t.Errorf("Expected ErrForbidden, got %v", err)
 			}
 		})
@@ -291,9 +291,9 @@ func TestClient_ErrorHandling(t *testing.T) {
 }
 
 func TestClient_VerboseOutput(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{}`))
+		_, _ = w.Write([]byte(`{}`))
 	}))
 	defer server.Close()
 
@@ -322,7 +322,7 @@ func TestClient_VerboseOutput(t *testing.T) {
 }
 
 func TestClient_ContextCancellation(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		time.Sleep(100 * time.Millisecond)
 		w.WriteHeader(http.StatusOK)
 	}))

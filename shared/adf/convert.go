@@ -1,3 +1,4 @@
+// Package adf provides Atlassian Document Format (ADF) conversion from markdown.
 package adf
 
 import (

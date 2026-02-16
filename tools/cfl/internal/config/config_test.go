@@ -224,9 +224,9 @@ func TestConfig_LoadFromEnv_AtlassianFallback(t *testing.T) {
 		clearEnvVars()
 		defer clearEnvVars()
 
-		os.Setenv("ATLASSIAN_URL", "https://shared.atlassian.net")
-		os.Setenv("ATLASSIAN_EMAIL", "shared@example.com")
-		os.Setenv("ATLASSIAN_API_TOKEN", "shared-token")
+		t.Setenv("ATLASSIAN_URL", "https://shared.atlassian.net")
+		t.Setenv("ATLASSIAN_EMAIL", "shared@example.com")
+		t.Setenv("ATLASSIAN_API_TOKEN", "shared-token")
 
 		cfg := &Config{}
 		cfg.LoadFromEnv()
@@ -240,12 +240,12 @@ func TestConfig_LoadFromEnv_AtlassianFallback(t *testing.T) {
 		clearEnvVars()
 		defer clearEnvVars()
 
-		os.Setenv("CFL_URL", "https://cfl.atlassian.net")
-		os.Setenv("CFL_EMAIL", "cfl@example.com")
-		os.Setenv("CFL_API_TOKEN", "cfl-token")
-		os.Setenv("ATLASSIAN_URL", "https://shared.atlassian.net")
-		os.Setenv("ATLASSIAN_EMAIL", "shared@example.com")
-		os.Setenv("ATLASSIAN_API_TOKEN", "shared-token")
+		t.Setenv("CFL_URL", "https://cfl.atlassian.net")
+		t.Setenv("CFL_EMAIL", "cfl@example.com")
+		t.Setenv("CFL_API_TOKEN", "cfl-token")
+		t.Setenv("ATLASSIAN_URL", "https://shared.atlassian.net")
+		t.Setenv("ATLASSIAN_EMAIL", "shared@example.com")
+		t.Setenv("ATLASSIAN_API_TOKEN", "shared-token")
 
 		cfg := &Config{}
 		cfg.LoadFromEnv()
@@ -260,9 +260,9 @@ func TestConfig_LoadFromEnv_AtlassianFallback(t *testing.T) {
 		defer clearEnvVars()
 
 		// Only URL is CFL-specific, rest use shared
-		os.Setenv("CFL_URL", "https://cfl.atlassian.net")
-		os.Setenv("ATLASSIAN_EMAIL", "shared@example.com")
-		os.Setenv("ATLASSIAN_API_TOKEN", "shared-token")
+		t.Setenv("CFL_URL", "https://cfl.atlassian.net")
+		t.Setenv("ATLASSIAN_EMAIL", "shared@example.com")
+		t.Setenv("ATLASSIAN_API_TOKEN", "shared-token")
 
 		cfg := &Config{}
 		cfg.LoadFromEnv()
@@ -282,14 +282,14 @@ func TestGetEnvWithFallback(t *testing.T) {
 	}()
 
 	t.Run("returns primary when set", func(t *testing.T) {
-		os.Setenv("TEST_PRIMARY", "primary-value")
-		os.Setenv("TEST_FALLBACK", "fallback-value")
+		t.Setenv("TEST_PRIMARY", "primary-value")
+		t.Setenv("TEST_FALLBACK", "fallback-value")
 		testutil.Equal(t, "primary-value", sharedconfig.GetEnvWithFallback("TEST_PRIMARY", "TEST_FALLBACK"))
 	})
 
 	t.Run("returns fallback when primary empty", func(t *testing.T) {
 		os.Unsetenv("TEST_PRIMARY")
-		os.Setenv("TEST_FALLBACK", "fallback-value")
+		t.Setenv("TEST_FALLBACK", "fallback-value")
 		testutil.Equal(t, "fallback-value", sharedconfig.GetEnvWithFallback("TEST_PRIMARY", "TEST_FALLBACK"))
 	})
 

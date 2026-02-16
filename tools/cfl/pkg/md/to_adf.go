@@ -8,9 +8,13 @@ import (
 	"github.com/open-cli-collective/atlassian-go/adf"
 )
 
-// Type aliases for backward compatibility with the shared adf package.
+// ADFDocument is an alias for adf.Document.
 type ADFDocument = adf.Document
+
+// ADFNode is an alias for adf.Node.
 type ADFNode = adf.Node
+
+// ADFMark is an alias for adf.Mark.
 type ADFMark = adf.Mark
 
 // ToADF converts markdown content to Atlassian Document Format (ADF) JSON.

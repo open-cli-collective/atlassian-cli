@@ -1,4 +1,4 @@
-package api
+package api //nolint:revive // package name is intentional
 
 import (
 	"context"
@@ -14,7 +14,7 @@ import (
 
 func loadTestData(t *testing.T, filename string) []byte {
 	t.Helper()
-	data, err := os.ReadFile(filepath.Join("testdata", filename))
+	data, err := os.ReadFile(filepath.Join("testdata", filename)) //nolint:gosec // reading test fixture data
 	testutil.RequireNoError(t, err)
 	return data
 }
@@ -182,7 +182,7 @@ func TestClient_ListSpaces_WithMultipleKeys(t *testing.T) {
 }
 
 func TestClient_ListSpaces_EmptyResults(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"results": []}`))
 	}))
@@ -197,7 +197,7 @@ func TestClient_ListSpaces_EmptyResults(t *testing.T) {
 }
 
 func TestClient_ListSpaces_NullDescription(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{
 			"results": [{
@@ -219,7 +219,7 @@ func TestClient_ListSpaces_NullDescription(t *testing.T) {
 }
 
 func TestClient_ListSpaces_APIError(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 		_, _ = w.Write([]byte(`{"message": "Authentication required"}`))
 	}))

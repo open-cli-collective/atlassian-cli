@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/open-cli-collective/atlassian-go/testutil"
+
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 )
@@ -441,7 +442,7 @@ func TestRunUpdate_AssigneeMe(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/rest/api/3/myself" && r.Method == "GET" {
-			json.NewEncoder(w).Encode(api.User{
+			_ = json.NewEncoder(w).Encode(api.User{
 				AccountID:   "myself-account-id",
 				DisplayName: "Test User",
 			})

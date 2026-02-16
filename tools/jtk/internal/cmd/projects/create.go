@@ -1,7 +1,9 @@
+// Package projects provides CLI commands for managing Jira projects.
 package projects
 
 import (
 	"context"
+
 	"github.com/spf13/cobra"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
@@ -30,7 +32,7 @@ Use 'jtk users search' to find account IDs, or 'jtk me' to get your own.`,
 
   # Project types: software (default), service_desk, business
   jtk projects types`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runCreate(cmd.Context(), opts, key, name, projectType, lead, description)
 		},
 	}

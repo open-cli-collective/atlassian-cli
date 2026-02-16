@@ -1,14 +1,16 @@
 package comments
 
 import (
-	"context"
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+
 	"github.com/open-cli-collective/atlassian-go/testutil"
+
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 )
@@ -30,8 +32,8 @@ func TestNewListCmd(t *testing.T) {
 	testutil.Equal(t, maxFlag.DefValue, "50")
 }
 
-func newTestCommentsServer(t *testing.T, comments []api.Comment) *httptest.Server {
-	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+func newTestCommentsServer(_ *testing.T, comments []api.Comment) *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		response := api.CommentsResponse{
 			StartAt:    0,
 			MaxResults: 50,
@@ -39,7 +41,7 @@ func newTestCommentsServer(t *testing.T, comments []api.Comment) *httptest.Serve
 			Comments:   comments,
 		}
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(response)
+		_ = json.NewEncoder(w).Encode(response)
 	}))
 }
 

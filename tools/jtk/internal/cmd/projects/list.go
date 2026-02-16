@@ -24,7 +24,7 @@ func newListCmd(opts *root.Options) *cobra.Command {
 
   # Limit results
   jtk projects list --max 10`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runList(cmd.Context(), opts, query, maxResults)
 		},
 	}

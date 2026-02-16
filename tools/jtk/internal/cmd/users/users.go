@@ -1,7 +1,9 @@
+// Package users provides CLI commands for searching Jira users.
 package users
 
 import (
 	"context"
+
 	"github.com/spf13/cobra"
 
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"

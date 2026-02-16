@@ -1,3 +1,4 @@
+// Package boards provides CLI commands for managing Jira agile boards.
 package boards
 
 import (
@@ -37,7 +38,7 @@ func newListCmd(opts *root.Options) *cobra.Command {
 
   # List boards for a project
   jtk boards list --project MYPROJECT`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runList(cmd.Context(), opts, project, maxResults)
 		},
 	}

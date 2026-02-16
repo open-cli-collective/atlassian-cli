@@ -60,7 +60,7 @@ func TestRunCreate_Success(t *testing.T) {
 	// Create temp markdown file
 	tmpDir := t.TempDir()
 	mdFile := filepath.Join(tmpDir, "content.md")
-	err := os.WriteFile(mdFile, []byte("# Hello\n\nWorld"), 0644)
+	err := os.WriteFile(mdFile, []byte("# Hello\n\nWorld"), 0600)
 	testutil.RequireNoError(t, err)
 
 	server := mockCreateServer(t, "DEV", "123456", http.StatusOK)
@@ -85,7 +85,7 @@ func TestRunCreate_HTMLFile_Legacy(t *testing.T) {
 	// Create temp HTML file - should be treated as storage format in legacy mode
 	tmpDir := t.TempDir()
 	htmlFile := filepath.Join(tmpDir, "content.html")
-	err := os.WriteFile(htmlFile, []byte("<p>Hello World</p>"), 0644)
+	err := os.WriteFile(htmlFile, []byte("<p>Hello World</p>"), 0600)
 	testutil.RequireNoError(t, err)
 
 	var receivedBody map[string]interface{}
@@ -131,7 +131,7 @@ func TestRunCreate_NoMarkdownFlag_Legacy(t *testing.T) {
 	// Create temp file with markdown extension
 	tmpDir := t.TempDir()
 	mdFile := filepath.Join(tmpDir, "content.md")
-	err := os.WriteFile(mdFile, []byte("<p>Raw XHTML</p>"), 0644)
+	err := os.WriteFile(mdFile, []byte("<p>Raw XHTML</p>"), 0600)
 	testutil.RequireNoError(t, err)
 
 	var receivedBody map[string]interface{}
@@ -178,7 +178,7 @@ func TestRunCreate_NoMarkdownFlag_Legacy(t *testing.T) {
 func TestRunCreate_MissingSpace(t *testing.T) {
 	tmpDir := t.TempDir()
 	mdFile := filepath.Join(tmpDir, "content.md")
-	err := os.WriteFile(mdFile, []byte("# Hello"), 0644)
+	err := os.WriteFile(mdFile, []byte("# Hello"), 0600)
 	testutil.RequireNoError(t, err)
 
 	// Don't need server - should fail before API call
@@ -201,10 +201,10 @@ func TestRunCreate_MissingSpace(t *testing.T) {
 func TestRunCreate_SpaceNotFound(t *testing.T) {
 	tmpDir := t.TempDir()
 	mdFile := filepath.Join(tmpDir, "content.md")
-	err := os.WriteFile(mdFile, []byte("# Hello"), 0644)
+	err := os.WriteFile(mdFile, []byte("# Hello"), 0600)
 	testutil.RequireNoError(t, err)
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		// Return empty results for space lookup
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"results": []}`))
@@ -230,7 +230,7 @@ func TestRunCreate_SpaceNotFound(t *testing.T) {
 func TestRunCreate_CreateFailed(t *testing.T) {
 	tmpDir := t.TempDir()
 	mdFile := filepath.Join(tmpDir, "content.md")
-	err := os.WriteFile(mdFile, []byte("# Hello"), 0644)
+	err := os.WriteFile(mdFile, []byte("# Hello"), 0600)
 	testutil.RequireNoError(t, err)
 
 	server := mockCreateServer(t, "DEV", "123456", http.StatusForbidden)
@@ -255,7 +255,7 @@ func TestRunCreate_CreateFailed(t *testing.T) {
 func TestRunCreate_WithParent(t *testing.T) {
 	tmpDir := t.TempDir()
 	mdFile := filepath.Join(tmpDir, "content.md")
-	err := os.WriteFile(mdFile, []byte("# Child Page"), 0644)
+	err := os.WriteFile(mdFile, []byte("# Child Page"), 0600)
 	testutil.RequireNoError(t, err)
 
 	var receivedBody map[string]interface{}
@@ -297,7 +297,7 @@ func TestRunCreate_WithParent(t *testing.T) {
 func TestRunCreate_JSONOutput(t *testing.T) {
 	tmpDir := t.TempDir()
 	mdFile := filepath.Join(tmpDir, "content.md")
-	err := os.WriteFile(mdFile, []byte("# Hello"), 0644)
+	err := os.WriteFile(mdFile, []byte("# Hello"), 0600)
 	testutil.RequireNoError(t, err)
 
 	server := mockCreateServer(t, "DEV", "123456", http.StatusOK)
@@ -322,7 +322,7 @@ func TestRunCreate_JSONOutput(t *testing.T) {
 func TestRunCreate_MarkdownConversion_Legacy(t *testing.T) {
 	tmpDir := t.TempDir()
 	mdFile := filepath.Join(tmpDir, "content.md")
-	err := os.WriteFile(mdFile, []byte("# Hello World\n\nThis is **bold** text."), 0644)
+	err := os.WriteFile(mdFile, []byte("# Hello World\n\nThis is **bold** text."), 0600)
 	testutil.RequireNoError(t, err)
 
 	var receivedBody map[string]interface{}
@@ -370,7 +370,7 @@ func TestRunCreate_MarkdownConversion_Legacy(t *testing.T) {
 func TestRunCreate_MarkdownToADF(t *testing.T) {
 	tmpDir := t.TempDir()
 	mdFile := filepath.Join(tmpDir, "content.md")
-	err := os.WriteFile(mdFile, []byte("# Hello World\n\nThis is **bold** text."), 0644)
+	err := os.WriteFile(mdFile, []byte("# Hello World\n\nThis is **bold** text."), 0600)
 	testutil.RequireNoError(t, err)
 
 	var receivedBody map[string]interface{}
@@ -611,7 +611,7 @@ func TestRunCreate_StorageFlag_Stdin(t *testing.T) {
 func TestRunCreate_StorageFlag_File(t *testing.T) {
 	tmpDir := t.TempDir()
 	htmlFile := filepath.Join(tmpDir, "content.html")
-	err := os.WriteFile(htmlFile, []byte("<p>Direct storage XHTML</p>"), 0644)
+	err := os.WriteFile(htmlFile, []byte("<p>Direct storage XHTML</p>"), 0600)
 	testutil.RequireNoError(t, err)
 
 	var receivedBody map[string]interface{}
@@ -754,7 +754,7 @@ func TestRunCreate_WhitespaceOnlyFromStdin(t *testing.T) {
 func TestRunCreate_EmptyFile(t *testing.T) {
 	tmpDir := t.TempDir()
 	emptyFile := filepath.Join(tmpDir, "empty.md")
-	err := os.WriteFile(emptyFile, []byte(""), 0644)
+	err := os.WriteFile(emptyFile, []byte(""), 0600)
 	testutil.RequireNoError(t, err)
 
 	server := mockCreateServer(t, "DEV", "123456", http.StatusOK)
@@ -779,7 +779,7 @@ func TestRunCreate_EmptyFile(t *testing.T) {
 func TestRunCreate_WhitespaceOnlyFile(t *testing.T) {
 	tmpDir := t.TempDir()
 	whitespaceFile := filepath.Join(tmpDir, "whitespace.md")
-	err := os.WriteFile(whitespaceFile, []byte("   \n\t\n   "), 0644)
+	err := os.WriteFile(whitespaceFile, []byte("   \n\t\n   "), 0600)
 	testutil.RequireNoError(t, err)
 
 	server := mockCreateServer(t, "DEV", "123456", http.StatusOK)

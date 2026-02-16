@@ -1,7 +1,9 @@
+// Package me provides the CLI command for displaying the current user.
 package me
 
 import (
 	"context"
+
 	"github.com/spf13/cobra"
 
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
@@ -18,7 +20,7 @@ func Register(parent *cobra.Command, opts *root.Options) {
 
   # Show just the account ID (for scripting)
   jtk me -o plain`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			return run(cmd.Context(), opts)
 		},
 	}

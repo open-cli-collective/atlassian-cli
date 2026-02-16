@@ -104,7 +104,7 @@ func TestGetPageWithBodyFallback_NullBody_FallsBackToADF(t *testing.T) {
 }
 
 func TestGetPageWithBodyFallback_BothEmpty(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{
 			"id": "12345",
@@ -124,7 +124,7 @@ func TestGetPageWithBodyFallback_BothEmpty(t *testing.T) {
 }
 
 func TestGetPageWithBodyFallback_GetPageError(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 		_, _ = w.Write([]byte(`{"message": "Page not found"}`))
 	}))

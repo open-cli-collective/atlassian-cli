@@ -1,5 +1,5 @@
 // Package errors provides error types for Atlassian API responses.
-package errors
+package errors //nolint:revive // intentional shadow of stdlib errors for ergonomic API
 
 import (
 	"encoding/json"

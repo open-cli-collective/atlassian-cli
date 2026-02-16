@@ -1,4 +1,4 @@
-package api
+package api //nolint:revive // package name is intentional
 
 import (
 	"context"
@@ -47,7 +47,7 @@ func TestGetCloudID(t *testing.T) {
 	})
 
 	t.Run("empty cloud ID", func(t *testing.T) {
-		client, server := newTestClientWithServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		client, server := newTestClientWithServer(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write([]byte(`{"cloudId":""}`))
 		}))
@@ -59,7 +59,7 @@ func TestGetCloudID(t *testing.T) {
 	})
 
 	t.Run("server error", func(t *testing.T) {
-		client, server := newTestClientWithServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		client, server := newTestClientWithServer(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusInternalServerError)
 			_, _ = w.Write([]byte(`{"error":"internal"}`))
 		}))

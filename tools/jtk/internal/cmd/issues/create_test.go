@@ -1,14 +1,16 @@
 package issues
 
 import (
-	"context"
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
 	"github.com/open-cli-collective/atlassian-go/testutil"
+
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 )
@@ -20,7 +22,7 @@ func TestRunCreate_RequestBodyNoDoubleQuoting(t *testing.T) {
 		if r.URL.Path == "/rest/api/3/issue" && r.Method == "POST" {
 			capturedBody, _ = io.ReadAll(r.Body)
 			w.WriteHeader(http.StatusCreated)
-			json.NewEncoder(w).Encode(api.Issue{
+			_ = json.NewEncoder(w).Encode(api.Issue{
 				Key: "TEST-1",
 				ID:  "10001",
 			})
@@ -84,7 +86,7 @@ func TestRunCreate_SummaryWithSpecialCharacters(t *testing.T) {
 		if r.URL.Path == "/rest/api/3/issue" && r.Method == "POST" {
 			capturedBody, _ = io.ReadAll(r.Body)
 			w.WriteHeader(http.StatusCreated)
-			json.NewEncoder(w).Encode(api.Issue{Key: "TEST-2", ID: "10002"})
+			_ = json.NewEncoder(w).Encode(api.Issue{Key: "TEST-2", ID: "10002"})
 			return
 		}
 		w.WriteHeader(http.StatusNotFound)
@@ -154,7 +156,7 @@ func TestCreateCmd_CobraExecution_NoDoubleQuoting(t *testing.T) {
 		if r.URL.Path == "/rest/api/3/issue" && r.Method == "POST" {
 			capturedBody, _ = io.ReadAll(r.Body)
 			w.WriteHeader(http.StatusCreated)
-			json.NewEncoder(w).Encode(api.Issue{Key: "TEST-1", ID: "10001"})
+			_ = json.NewEncoder(w).Encode(api.Issue{Key: "TEST-1", ID: "10001"})
 			return
 		}
 		w.WriteHeader(http.StatusNotFound)
@@ -207,7 +209,7 @@ func TestRunCreate_WithParent(t *testing.T) {
 		if r.URL.Path == "/rest/api/3/issue" && r.Method == "POST" {
 			capturedBody, _ = io.ReadAll(r.Body)
 			w.WriteHeader(http.StatusCreated)
-			json.NewEncoder(w).Encode(api.Issue{Key: "PROJ-456", ID: "10456"})
+			_ = json.NewEncoder(w).Encode(api.Issue{Key: "PROJ-456", ID: "10456"})
 			return
 		}
 		w.WriteHeader(http.StatusNotFound)
@@ -251,7 +253,7 @@ func TestRunCreate_WithoutParent(t *testing.T) {
 		if r.URL.Path == "/rest/api/3/issue" && r.Method == "POST" {
 			capturedBody, _ = io.ReadAll(r.Body)
 			w.WriteHeader(http.StatusCreated)
-			json.NewEncoder(w).Encode(api.Issue{Key: "PROJ-789", ID: "10789"})
+			_ = json.NewEncoder(w).Encode(api.Issue{Key: "PROJ-789", ID: "10789"})
 			return
 		}
 		w.WriteHeader(http.StatusNotFound)
@@ -292,7 +294,7 @@ func TestCreateCmd_CobraExecution_WithParent(t *testing.T) {
 		if r.URL.Path == "/rest/api/3/issue" && r.Method == "POST" {
 			capturedBody, _ = io.ReadAll(r.Body)
 			w.WriteHeader(http.StatusCreated)
-			json.NewEncoder(w).Encode(api.Issue{Key: "PROJ-456", ID: "10456"})
+			_ = json.NewEncoder(w).Encode(api.Issue{Key: "PROJ-456", ID: "10456"})
 			return
 		}
 		w.WriteHeader(http.StatusNotFound)
@@ -342,7 +344,7 @@ func TestRunCreate_WithAssigneeAccountID(t *testing.T) {
 		if r.URL.Path == "/rest/api/3/issue" && r.Method == "POST" {
 			capturedBody, _ = io.ReadAll(r.Body)
 			w.WriteHeader(http.StatusCreated)
-			json.NewEncoder(w).Encode(api.Issue{Key: "PROJ-500", ID: "10500"})
+			_ = json.NewEncoder(w).Encode(api.Issue{Key: "PROJ-500", ID: "10500"})
 			return
 		}
 		w.WriteHeader(http.StatusNotFound)
@@ -382,7 +384,7 @@ func TestRunCreate_WithAssigneeMe(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/rest/api/3/myself" && r.Method == "GET" {
-			json.NewEncoder(w).Encode(api.User{
+			_ = json.NewEncoder(w).Encode(api.User{
 				AccountID:   "myself-account-id",
 				DisplayName: "Test User",
 			})
@@ -391,7 +393,7 @@ func TestRunCreate_WithAssigneeMe(t *testing.T) {
 		if r.URL.Path == "/rest/api/3/issue" && r.Method == "POST" {
 			capturedBody, _ = io.ReadAll(r.Body)
 			w.WriteHeader(http.StatusCreated)
-			json.NewEncoder(w).Encode(api.Issue{Key: "PROJ-501", ID: "10501"})
+			_ = json.NewEncoder(w).Encode(api.Issue{Key: "PROJ-501", ID: "10501"})
 			return
 		}
 		w.WriteHeader(http.StatusNotFound)
@@ -431,7 +433,7 @@ func TestRunCreate_WithAssigneeEmail(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/rest/api/3/user/search" && r.Method == "GET" {
-			json.NewEncoder(w).Encode([]api.User{
+			_ = json.NewEncoder(w).Encode([]api.User{
 				{AccountID: "found-account-id", DisplayName: "Found User"},
 			})
 			return
@@ -439,7 +441,7 @@ func TestRunCreate_WithAssigneeEmail(t *testing.T) {
 		if r.URL.Path == "/rest/api/3/issue" && r.Method == "POST" {
 			capturedBody, _ = io.ReadAll(r.Body)
 			w.WriteHeader(http.StatusCreated)
-			json.NewEncoder(w).Encode(api.Issue{Key: "PROJ-502", ID: "10502"})
+			_ = json.NewEncoder(w).Encode(api.Issue{Key: "PROJ-502", ID: "10502"})
 			return
 		}
 		w.WriteHeader(http.StatusNotFound)
@@ -530,7 +532,7 @@ func TestRunCreate_WithoutAssignee(t *testing.T) {
 		if r.URL.Path == "/rest/api/3/issue" && r.Method == "POST" {
 			capturedBody, _ = io.ReadAll(r.Body)
 			w.WriteHeader(http.StatusCreated)
-			json.NewEncoder(w).Encode(api.Issue{Key: "PROJ-503", ID: "10503"})
+			_ = json.NewEncoder(w).Encode(api.Issue{Key: "PROJ-503", ID: "10503"})
 			return
 		}
 		w.WriteHeader(http.StatusNotFound)

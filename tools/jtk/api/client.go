@@ -1,4 +1,4 @@
-package api
+package api //nolint:revive // package name is intentional
 
 import (
 	"context"
@@ -69,7 +69,6 @@ var (
 	ErrEmailRequired    = stderrors.New("email is required")
 	ErrAPITokenRequired = stderrors.New("API token is required")
 )
-
 
 // buildURL builds a URL with query parameters
 func buildURL(base string, params map[string]string) string {

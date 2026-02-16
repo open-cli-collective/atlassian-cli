@@ -1,4 +1,4 @@
-package api
+package api //nolint:revive // package name is intentional
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
 	"github.com/open-cli-collective/atlassian-go/testutil"
 )
 
@@ -186,7 +187,7 @@ func TestDeleteAttachment_EmptyID(t *testing.T) {
 
 func TestDownloadAttachment(t *testing.T) {
 	content := []byte("Test file content")
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write(content)
 	}))
@@ -210,14 +211,14 @@ func TestDownloadAttachment(t *testing.T) {
 	err = client.DownloadAttachment(context.Background(), att, outPath)
 	testutil.RequireNoError(t, err)
 
-	downloaded, err := os.ReadFile(outPath)
+	downloaded, err := os.ReadFile(outPath) //nolint:gosec // test reading known temp file
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, downloaded, content)
 }
 
 func TestDownloadAttachment_ToDirectory(t *testing.T) {
 	content := []byte("Test file content")
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write(content)
 	}))
@@ -241,7 +242,7 @@ func TestDownloadAttachment_ToDirectory(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	// Should use original filename
-	downloaded, err := os.ReadFile(filepath.Join(tmpDir, "original.txt"))
+	downloaded, err := os.ReadFile(filepath.Join(tmpDir, "original.txt")) //nolint:gosec // test reading known temp file
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, downloaded, content)
 }

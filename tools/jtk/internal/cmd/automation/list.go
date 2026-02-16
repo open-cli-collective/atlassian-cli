@@ -21,7 +21,7 @@ func newListCmd(opts *root.Options) *cobra.Command {
 		Example: `  jtk automation list
   jtk automation list --state ENABLED
   jtk auto list -o json`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runList(cmd.Context(), opts, strings.ToUpper(state))
 		},
 	}

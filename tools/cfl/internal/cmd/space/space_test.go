@@ -399,7 +399,7 @@ func TestRunDelete_Force(t *testing.T) {
 
 func TestRunDelete_Force_JSON(t *testing.T) {
 	callCount := 0
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		callCount++
 		if callCount == 1 {
 			w.WriteHeader(http.StatusOK)

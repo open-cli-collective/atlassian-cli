@@ -292,7 +292,7 @@ Enter your content here using markdown.
 		editor = "vi"
 	}
 
-	cmd := exec.Command(editor, tmpfile.Name())
+	cmd := exec.Command(editor, tmpfile.Name()) //nolint:gosec // launching user's editor is intentional CLI behavior
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

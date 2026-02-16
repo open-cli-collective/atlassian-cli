@@ -1,3 +1,4 @@
+// Package initcmd provides the interactive setup wizard for the jtk CLI.
 package initcmd
 
 import (
@@ -37,7 +38,7 @@ Get your API token from: https://id.atlassian.com/manage-profile/security/api-to
 
   # Skip connection verification
   jtk init --no-verify`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runInit(cmd.Context(), opts, url, email, token, noVerify)
 		},
 	}

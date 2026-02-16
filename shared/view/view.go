@@ -146,6 +146,8 @@ func (v *View) Render(headers []string, rows [][]string, jsonData interface{}) e
 		return v.JSON(jsonData)
 	case FormatPlain:
 		return v.Plain(rows)
+	case FormatTable:
+		return v.Table(headers, rows)
 	default:
 		return v.Table(headers, rows)
 	}

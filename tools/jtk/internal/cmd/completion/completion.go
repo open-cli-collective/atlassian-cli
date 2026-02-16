@@ -1,3 +1,4 @@
+// Package completion provides shell completion script generation for the jtk CLI.
 package completion
 
 import (
@@ -9,7 +10,7 @@ import (
 )
 
 // Register registers the completion command
-func Register(parent *cobra.Command, opts *root.Options) {
+func Register(parent *cobra.Command, _ *root.Options) {
 	cmd := &cobra.Command{
 		Use:   "completion [bash|zsh|fish|powershell]",
 		Short: "Generate shell completion scripts",

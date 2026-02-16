@@ -1,3 +1,4 @@
+// Package config manages the jtk configuration file.
 package config
 
 import (
@@ -42,7 +43,7 @@ func Load() (*Config, error) {
 		return nil, err
 	}
 
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) //nolint:gosec // CLI tool reading its own config file
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return &Config{}, nil

@@ -42,7 +42,7 @@ func newCreateCmd(opts *root.Options) *cobra.Command {
 
   # Create with custom fields
   jtk issues create --project MYPROJECT --type Story --summary "New feature" --field priority=High`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runCreate(cmd.Context(), opts, project, issueType, summary, description, parent, assignee, fields)
 		},
 	}

@@ -1,4 +1,4 @@
-package errors
+package errors //nolint:revive // test file for errors package
 
 import (
 	"encoding/json"

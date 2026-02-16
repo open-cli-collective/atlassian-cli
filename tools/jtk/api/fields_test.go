@@ -1,4 +1,4 @@
-package api
+package api //nolint:revive // package name is intentional
 
 import (
 	"context"
@@ -440,7 +440,7 @@ func TestClient_GetFieldOptionsFromEditMeta(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testutil.Contains(t, r.URL.Path, "/issue/PROJ-123/editmeta")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{
+		_, _ = w.Write([]byte(`{
 			"fields": {
 				"priority": {
 					"name": "Priority",

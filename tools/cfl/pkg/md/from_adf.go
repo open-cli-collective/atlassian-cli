@@ -104,7 +104,7 @@ func renderHeading(sb *strings.Builder, node *adf.Node) {
 	sb.WriteString("\n")
 }
 
-func renderParagraph(sb *strings.Builder, node *adf.Node, depth int) {
+func renderParagraph(sb *strings.Builder, node *adf.Node, _ int) {
 	renderInlineNodes(sb, node.Content)
 	sb.WriteString("\n")
 }

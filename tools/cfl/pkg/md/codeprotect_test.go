@@ -48,7 +48,7 @@ func TestProtectCodeRegions_FencedBlock(t *testing.T) {
 			name:           "no code block",
 			input:          "See [[My Page]] for details",
 			expectedRegion: 0,
-			checkOutput: func(t *testing.T, output string, regions []codeRegion) {
+			checkOutput: func(t *testing.T, output string, _ []codeRegion) {
 				testutil.Equal(t, "See [[My Page]] for details", output)
 			},
 		},
@@ -56,7 +56,7 @@ func TestProtectCodeRegions_FencedBlock(t *testing.T) {
 			name:           "multiple code blocks",
 			input:          "```\n[[A]]\n```\ntext\n```\n[[B]]\n```",
 			expectedRegion: 2,
-			checkOutput: func(t *testing.T, output string, regions []codeRegion) {
+			checkOutput: func(t *testing.T, output string, _ []codeRegion) {
 				testutil.Contains(t, output, "text")
 				testutil.NotContains(t, output, "[[A]]")
 				testutil.NotContains(t, output, "[[B]]")
@@ -104,7 +104,7 @@ func TestProtectCodeRegions_InlineCode(t *testing.T) {
 			name:           "no inline code",
 			input:          "See [[My Page]] here",
 			expectedRegion: 0,
-			checkOutput: func(t *testing.T, output string, regions []codeRegion) {
+			checkOutput: func(t *testing.T, output string, _ []codeRegion) {
 				testutil.Equal(t, "See [[My Page]] here", output)
 			},
 		},

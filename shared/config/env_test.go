@@ -1,34 +1,13 @@
 package config
 
 import (
-	"os"
 	"testing"
 )
 
 func TestGetEnvWithFallback(t *testing.T) {
-	// Save and restore environment
-	cleanup := func(keys ...string) func() {
-		saved := make(map[string]string)
-		for _, key := range keys {
-			saved[key] = os.Getenv(key)
-		}
-		return func() {
-			for key, val := range saved {
-				if val == "" {
-					os.Unsetenv(key)
-				} else {
-					os.Setenv(key, val)
-				}
-			}
-		}
-	}
-
 	t.Run("primary set", func(t *testing.T) {
-		restore := cleanup("TEST_PRIMARY", "TEST_FALLBACK")
-		defer restore()
-
-		os.Setenv("TEST_PRIMARY", "primary-value")
-		os.Setenv("TEST_FALLBACK", "fallback-value")
+		t.Setenv("TEST_PRIMARY", "primary-value")
+		t.Setenv("TEST_FALLBACK", "fallback-value")
 
 		got := GetEnvWithFallback("TEST_PRIMARY", "TEST_FALLBACK")
 		if got != "primary-value" {
@@ -37,11 +16,8 @@ func TestGetEnvWithFallback(t *testing.T) {
 	})
 
 	t.Run("primary empty uses fallback", func(t *testing.T) {
-		restore := cleanup("TEST_PRIMARY", "TEST_FALLBACK")
-		defer restore()
-
-		os.Unsetenv("TEST_PRIMARY")
-		os.Setenv("TEST_FALLBACK", "fallback-value")
+		t.Setenv("TEST_PRIMARY", "")
+		t.Setenv("TEST_FALLBACK", "fallback-value")
 
 		got := GetEnvWithFallback("TEST_PRIMARY", "TEST_FALLBACK")
 		if got != "fallback-value" {
@@ -50,11 +26,8 @@ func TestGetEnvWithFallback(t *testing.T) {
 	})
 
 	t.Run("both empty", func(t *testing.T) {
-		restore := cleanup("TEST_PRIMARY", "TEST_FALLBACK")
-		defer restore()
-
-		os.Unsetenv("TEST_PRIMARY")
-		os.Unsetenv("TEST_FALLBACK")
+		t.Setenv("TEST_PRIMARY", "")
+		t.Setenv("TEST_FALLBACK", "")
 
 		got := GetEnvWithFallback("TEST_PRIMARY", "TEST_FALLBACK")
 		if got != "" {
@@ -63,11 +36,8 @@ func TestGetEnvWithFallback(t *testing.T) {
 	})
 
 	t.Run("primary explicitly empty string", func(t *testing.T) {
-		restore := cleanup("TEST_PRIMARY", "TEST_FALLBACK")
-		defer restore()
-
-		os.Setenv("TEST_PRIMARY", "")
-		os.Setenv("TEST_FALLBACK", "fallback-value")
+		t.Setenv("TEST_PRIMARY", "")
+		t.Setenv("TEST_FALLBACK", "fallback-value")
 
 		got := GetEnvWithFallback("TEST_PRIMARY", "TEST_FALLBACK")
 		if got != "fallback-value" {
@@ -77,22 +47,8 @@ func TestGetEnvWithFallback(t *testing.T) {
 }
 
 func TestGetEnvWithDefault(t *testing.T) {
-	cleanup := func(key string) func() {
-		saved := os.Getenv(key)
-		return func() {
-			if saved == "" {
-				os.Unsetenv(key)
-			} else {
-				os.Setenv(key, saved)
-			}
-		}
-	}
-
 	t.Run("env set", func(t *testing.T) {
-		restore := cleanup("TEST_ENV")
-		defer restore()
-
-		os.Setenv("TEST_ENV", "env-value")
+		t.Setenv("TEST_ENV", "env-value")
 
 		got := GetEnvWithDefault("TEST_ENV", "default-value")
 		if got != "env-value" {
@@ -101,10 +57,7 @@ func TestGetEnvWithDefault(t *testing.T) {
 	})
 
 	t.Run("env not set uses default", func(t *testing.T) {
-		restore := cleanup("TEST_ENV")
-		defer restore()
-
-		os.Unsetenv("TEST_ENV")
+		t.Setenv("TEST_ENV", "")
 
 		got := GetEnvWithDefault("TEST_ENV", "default-value")
 		if got != "default-value" {
@@ -113,10 +66,7 @@ func TestGetEnvWithDefault(t *testing.T) {
 	})
 
 	t.Run("env empty uses default", func(t *testing.T) {
-		restore := cleanup("TEST_ENV")
-		defer restore()
-
-		os.Setenv("TEST_ENV", "")
+		t.Setenv("TEST_ENV", "")
 
 		got := GetEnvWithDefault("TEST_ENV", "default-value")
 		if got != "default-value" {

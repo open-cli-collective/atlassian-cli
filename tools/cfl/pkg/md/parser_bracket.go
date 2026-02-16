@@ -1,4 +1,3 @@
-// parser_bracket.go parses bracket syntax [MACRO]...[/MACRO] into MacroNode trees.
 package md
 
 import (

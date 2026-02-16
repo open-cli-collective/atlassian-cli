@@ -1,4 +1,3 @@
-// macro.go defines the core data structures for macro parsing.
 package md
 
 import "strings"
@@ -14,6 +13,7 @@ type MacroNode struct {
 // BodyType indicates how a macro's body content should be handled.
 type BodyType string
 
+// BodyType constants define how a macro's body content is handled.
 const (
 	BodyTypeNone      BodyType = ""           // no body (e.g., TOC)
 	BodyTypeRichText  BodyType = "rich-text"  // HTML content (e.g., panels)

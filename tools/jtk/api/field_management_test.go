@@ -1,4 +1,4 @@
-package api
+package api //nolint:revive // package name is intentional
 
 import (
 	"context"
@@ -37,7 +37,7 @@ func TestCreateField(t *testing.T) {
 		testutil.Equal(t, req.Type, "com.atlassian.jira.plugin.system.customfieldtypes:select")
 
 		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(Field{
+		_ = json.NewEncoder(w).Encode(Field{
 			ID:     "customfield_10100",
 			Name:   "Environment",
 			Custom: true,
@@ -57,9 +57,9 @@ func TestCreateField(t *testing.T) {
 }
 
 func TestCreateField_ServerError(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(`{"errorMessages":["Field name already exists"]}`))
+		_, _ = w.Write([]byte(`{"errorMessages":["Field name already exists"]}`))
 	}))
 	defer server.Close()
 
@@ -110,7 +110,7 @@ func TestGetFieldContexts(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testutil.Equal(t, r.Method, http.MethodGet)
 		testutil.Equal(t, r.URL.Path, "/rest/api/3/field/customfield_10100/context")
-		json.NewEncoder(w).Encode(FieldContextsResponse{
+		_ = json.NewEncoder(w).Encode(FieldContextsResponse{
 			MaxResults: 50,
 			Total:      2,
 			IsLast:     true,
@@ -137,8 +137,8 @@ func TestGetFieldContexts_EmptyID(t *testing.T) {
 }
 
 func TestGetDefaultFieldContext(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(FieldContextsResponse{
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(FieldContextsResponse{
 			Values: []FieldContext{
 				{ID: "10001", Name: "Default"},
 			},
@@ -154,8 +154,8 @@ func TestGetDefaultFieldContext(t *testing.T) {
 }
 
 func TestGetDefaultFieldContext_NoContexts(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(FieldContextsResponse{Values: []FieldContext{}})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(FieldContextsResponse{Values: []FieldContext{}})
 	}))
 	defer server.Close()
 
@@ -176,7 +176,7 @@ func TestCreateFieldContext(t *testing.T) {
 		testutil.Equal(t, req.Name, "Bug Context")
 
 		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(FieldContext{
+		_ = json.NewEncoder(w).Encode(FieldContext{
 			ID:   "10003",
 			Name: "Bug Context",
 		})
@@ -221,7 +221,7 @@ func TestGetFieldContextOptions(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testutil.Equal(t, r.Method, http.MethodGet)
 		testutil.Equal(t, r.URL.Path, "/rest/api/3/field/customfield_10100/context/10001/option")
-		json.NewEncoder(w).Encode(FieldContextOptionsResponse{
+		_ = json.NewEncoder(w).Encode(FieldContextOptionsResponse{
 			MaxResults: 50,
 			Total:      2,
 			IsLast:     true,
@@ -257,7 +257,7 @@ func TestCreateFieldContextOptions(t *testing.T) {
 		testutil.Len(t, req.Options, 1)
 		testutil.Equal(t, req.Options[0].Value, "Option A")
 
-		json.NewEncoder(w).Encode(FieldContextOptionsResponse{
+		_ = json.NewEncoder(w).Encode(FieldContextOptionsResponse{
 			Values: []FieldContextOption{
 				{ID: "3", Value: "Option A"},
 			},
@@ -294,7 +294,7 @@ func TestUpdateFieldContextOptions(t *testing.T) {
 		testutil.Equal(t, req.Options[0].ID, "3")
 		testutil.Equal(t, req.Options[0].Value, "Option A (updated)")
 
-		json.NewEncoder(w).Encode(FieldContextOptionsResponse{
+		_ = json.NewEncoder(w).Encode(FieldContextOptionsResponse{
 			Values: []FieldContextOption{
 				{ID: "3", Value: "Option A (updated)"},
 			},

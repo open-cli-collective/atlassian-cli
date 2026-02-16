@@ -7,7 +7,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
 	"github.com/open-cli-collective/atlassian-go/testutil"
+
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 )
@@ -35,8 +37,8 @@ func TestNewListCmd(t *testing.T) {
 }
 
 func TestRunList_Table(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode([]api.Field{
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode([]api.Field{
 			{ID: "summary", Name: "Summary", Schema: api.FieldSchema{Type: "string"}},
 			{ID: "customfield_10100", Name: "Environment", Custom: true, Schema: api.FieldSchema{Type: "option"}},
 		})
@@ -58,8 +60,8 @@ func TestRunList_Table(t *testing.T) {
 }
 
 func TestRunList_JSON(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode([]api.Field{
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode([]api.Field{
 			{ID: "customfield_10100", Name: "Environment", Custom: true},
 		})
 	}))
@@ -79,8 +81,8 @@ func TestRunList_JSON(t *testing.T) {
 }
 
 func TestRunList_Empty(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode([]api.Field{})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode([]api.Field{})
 	}))
 	defer server.Close()
 
@@ -116,7 +118,7 @@ func TestRunCreate(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testutil.Equal(t, r.Method, http.MethodPost)
 		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(api.Field{
+		_ = json.NewEncoder(w).Encode(api.Field{
 			ID:     "customfield_10100",
 			Name:   "Environment",
 			Custom: true,
@@ -138,9 +140,9 @@ func TestRunCreate(t *testing.T) {
 }
 
 func TestRunCreate_JSON(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(api.Field{
+		_ = json.NewEncoder(w).Encode(api.Field{
 			ID:     "customfield_10100",
 			Name:   "Environment",
 			Custom: true,
@@ -266,8 +268,8 @@ func TestNewContextsCmd(t *testing.T) {
 }
 
 func TestRunContextsList_Table(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(api.FieldContextsResponse{
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(api.FieldContextsResponse{
 			Values: []api.FieldContext{
 				{ID: "10001", Name: "Default", IsGlobalContext: true, IsAnyIssueType: true},
 				{ID: "10002", Name: "Bug Context", IsGlobalContext: false, IsAnyIssueType: false},
@@ -290,8 +292,8 @@ func TestRunContextsList_Table(t *testing.T) {
 }
 
 func TestRunContextsList_Empty(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(api.FieldContextsResponse{Values: []api.FieldContext{}})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(api.FieldContextsResponse{Values: []api.FieldContext{}})
 	}))
 	defer server.Close()
 
@@ -311,7 +313,7 @@ func TestRunContextsCreate(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testutil.Equal(t, r.Method, http.MethodPost)
 		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(api.FieldContext{
+		_ = json.NewEncoder(w).Encode(api.FieldContext{
 			ID:   "10003",
 			Name: "Bug Context",
 		})
@@ -388,8 +390,8 @@ func TestResolveContextID_Explicit(t *testing.T) {
 }
 
 func TestResolveContextID_AutoDetect(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(api.FieldContextsResponse{
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(api.FieldContextsResponse{
 			Values: []api.FieldContext{
 				{ID: "10001", Name: "Default"},
 			},
@@ -407,17 +409,17 @@ func TestResolveContextID_AutoDetect(t *testing.T) {
 
 func TestRunOptionsList_Table(t *testing.T) {
 	callCount := 0
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		callCount++
 		if callCount == 1 {
 			// GetFieldContexts (auto-detect)
-			json.NewEncoder(w).Encode(api.FieldContextsResponse{
+			_ = json.NewEncoder(w).Encode(api.FieldContextsResponse{
 				Values: []api.FieldContext{{ID: "10001", Name: "Default"}},
 			})
 			return
 		}
 		// GetFieldContextOptions
-		json.NewEncoder(w).Encode(api.FieldContextOptionsResponse{
+		_ = json.NewEncoder(w).Encode(api.FieldContextOptionsResponse{
 			Values: []api.FieldContextOption{
 				{ID: "1", Value: "Production", Disabled: false},
 				{ID: "2", Value: "Staging", Disabled: true},
@@ -441,15 +443,15 @@ func TestRunOptionsList_Table(t *testing.T) {
 
 func TestRunOptionsList_Empty(t *testing.T) {
 	callCount := 0
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		callCount++
 		if callCount == 1 {
-			json.NewEncoder(w).Encode(api.FieldContextsResponse{
+			_ = json.NewEncoder(w).Encode(api.FieldContextsResponse{
 				Values: []api.FieldContext{{ID: "10001", Name: "Default"}},
 			})
 			return
 		}
-		json.NewEncoder(w).Encode(api.FieldContextOptionsResponse{Values: []api.FieldContextOption{}})
+		_ = json.NewEncoder(w).Encode(api.FieldContextOptionsResponse{Values: []api.FieldContextOption{}})
 	}))
 	defer server.Close()
 
@@ -470,13 +472,13 @@ func TestRunOptionsAdd(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		callCount++
 		if callCount == 1 {
-			json.NewEncoder(w).Encode(api.FieldContextsResponse{
+			_ = json.NewEncoder(w).Encode(api.FieldContextsResponse{
 				Values: []api.FieldContext{{ID: "10001", Name: "Default"}},
 			})
 			return
 		}
 		testutil.Equal(t, r.Method, http.MethodPost)
-		json.NewEncoder(w).Encode(api.FieldContextOptionsResponse{
+		_ = json.NewEncoder(w).Encode(api.FieldContextOptionsResponse{
 			Values: []api.FieldContextOption{
 				{ID: "3", Value: "Option A"},
 			},
@@ -502,13 +504,13 @@ func TestRunOptionsUpdate(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		callCount++
 		if callCount == 1 {
-			json.NewEncoder(w).Encode(api.FieldContextsResponse{
+			_ = json.NewEncoder(w).Encode(api.FieldContextsResponse{
 				Values: []api.FieldContext{{ID: "10001", Name: "Default"}},
 			})
 			return
 		}
 		testutil.Equal(t, r.Method, http.MethodPut)
-		json.NewEncoder(w).Encode(api.FieldContextOptionsResponse{
+		_ = json.NewEncoder(w).Encode(api.FieldContextOptionsResponse{
 			Values: []api.FieldContextOption{
 				{ID: "3", Value: "Option A (updated)"},
 			},
@@ -533,7 +535,7 @@ func TestRunOptionsDelete_Force(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		callCount++
 		if callCount == 1 {
-			json.NewEncoder(w).Encode(api.FieldContextsResponse{
+			_ = json.NewEncoder(w).Encode(api.FieldContextsResponse{
 				Values: []api.FieldContext{{ID: "10001", Name: "Default"}},
 			})
 			return

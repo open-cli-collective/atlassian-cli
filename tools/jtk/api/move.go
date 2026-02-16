@@ -1,4 +1,4 @@
-package api
+package api //nolint:revive // package name is intentional
 
 import (
 	"context"
@@ -14,7 +14,7 @@ type MoveIssuesRequest struct {
 
 // MoveIssuesSourceSpec specifies which issues to move and how to map fields
 type MoveIssuesSourceSpec struct {
-	IssueIdsOrKeys        []string               `json:"issueIdsOrKeys"`
+	IssueIdsOrKeys        []string               `json:"issueIdsOrKeys"` //nolint:revive // JSON field name matches Jira API
 	InferFieldDefaults    bool                   `json:"inferFieldDefaults"`
 	InferStatusDefaults   bool                   `json:"inferStatusDefaults"`
 	TargetStatus          []StatusMapping        `json:"targetStatus,omitempty"`

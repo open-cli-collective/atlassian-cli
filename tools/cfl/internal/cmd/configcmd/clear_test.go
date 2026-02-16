@@ -40,7 +40,7 @@ func TestRunClear_WithForce(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", tempDir)
 
 	configDir := filepath.Join(tempDir, "cfl")
-	testutil.RequireNoError(t, os.MkdirAll(configDir, 0755))
+	testutil.RequireNoError(t, os.MkdirAll(configDir, 0750))
 	configPath := filepath.Join(configDir, "config.yml")
 	err := os.WriteFile(configPath, []byte("url: https://test.atlassian.net"), 0600)
 	testutil.RequireNoError(t, err)
@@ -72,7 +72,7 @@ func TestRunClear_WithConfirmation(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", tempDir)
 
 	configDir := filepath.Join(tempDir, "cfl")
-	testutil.RequireNoError(t, os.MkdirAll(configDir, 0755))
+	testutil.RequireNoError(t, os.MkdirAll(configDir, 0750))
 	configPath := filepath.Join(configDir, "config.yml")
 	err := os.WriteFile(configPath, []byte("url: https://test.atlassian.net"), 0600)
 	testutil.RequireNoError(t, err)
@@ -104,7 +104,7 @@ func TestRunClear_Cancelled(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", tempDir)
 
 	configDir := filepath.Join(tempDir, "cfl")
-	testutil.RequireNoError(t, os.MkdirAll(configDir, 0755))
+	testutil.RequireNoError(t, os.MkdirAll(configDir, 0750))
 	configPath := filepath.Join(configDir, "config.yml")
 	err := os.WriteFile(configPath, []byte("url: https://test.atlassian.net"), 0600)
 	testutil.RequireNoError(t, err)

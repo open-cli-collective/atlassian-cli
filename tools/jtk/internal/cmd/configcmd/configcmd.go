@@ -1,3 +1,4 @@
+// Package configcmd provides CLI commands for managing jtk configuration.
 package configcmd
 
 import (
@@ -43,7 +44,7 @@ func newShowCmd(opts *root.Options) *cobra.Command {
 		Use:   "show",
 		Short: "Show current configuration",
 		Long:  "Display the current configuration values (token is masked).",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, _ []string) error {
 			v := opts.View()
 
 			url := config.GetURL()
@@ -104,7 +105,7 @@ Note: Environment variables (JIRA_*, ATLASSIAN_*) will still be used if set.`,
 
   # Clear without confirmation
   jtk config clear --force`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runClear(cmd.Context(), clearOpts)
 		},
 	}
@@ -115,6 +116,7 @@ Note: Environment variables (JIRA_*, ATLASSIAN_*) will still be used if set.`,
 }
 
 func runClear(ctx context.Context, opts *clearOptions) error {
+	_ = ctx
 	v := opts.View()
 	configPath := config.Path()
 
@@ -252,7 +254,7 @@ This command tests authentication and API access, providing clear
 pass/fail status and troubleshooting suggestions on failure.`,
 		Example: `  # Test connection
   jtk config test`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			v := opts.View()
 
 			url := config.GetURL()

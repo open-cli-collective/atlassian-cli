@@ -1,4 +1,4 @@
-package api
+package api //nolint:revive // package name is intentional
 
 import (
 	"encoding/json"
@@ -457,11 +457,11 @@ func TestIssueFields_CustomFields(t *testing.T) {
 	testutil.NotNil(t, fields.CustomFields)
 	testutil.Equal(t, fields.CustomFields["customfield_10001"], float64(5))
 
-	customfield_10002 := fields.CustomFields["customfield_10002"].(map[string]interface{})
-	testutil.Equal(t, customfield_10002["value"], "Feature")
+	customField10002 := fields.CustomFields["customfield_10002"].(map[string]interface{})
+	testutil.Equal(t, customField10002["value"], "Feature")
 
-	customfield_10003 := fields.CustomFields["customfield_10003"].([]interface{})
-	testutil.Len(t, customfield_10003, 2)
+	customField10003 := fields.CustomFields["customfield_10003"].([]interface{})
+	testutil.Len(t, customField10003, 2)
 }
 
 func TestIssueFields_MarshalJSON_IncludesCustomFields(t *testing.T) {
@@ -486,8 +486,8 @@ func TestIssueFields_MarshalJSON_IncludesCustomFields(t *testing.T) {
 
 	// Custom fields should be included
 	testutil.Equal(t, result["customfield_10001"], float64(5))
-	customfield_10002 := result["customfield_10002"].(map[string]interface{})
-	testutil.Equal(t, customfield_10002["value"], "Feature")
+	customField10002 := result["customfield_10002"].(map[string]interface{})
+	testutil.Equal(t, customField10002["value"], "Feature")
 }
 
 func TestExtractText_Headings(t *testing.T) {

@@ -1,8 +1,3 @@
-// wikilink.go provides wiki-link syntax support for Confluence internal page links.
-//
-// Syntax:
-//   - [[Page Title]]          — link to page in same space
-//   - [[SPACE:Page Title]]    — link to page in different space
 package md
 
 import (

@@ -1,3 +1,4 @@
+// Package root provides the root command and shared options for the jtk CLI.
 package root
 
 import (
@@ -65,7 +66,7 @@ func NewCmd() (*cobra.Command, *Options) {
 		Short:   "A CLI for managing Jira tickets",
 		Long:    "jtk is a command-line interface for managing Jira Cloud tickets.",
 		Version: version.Info(),
-		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		PersistentPreRun: func(_ *cobra.Command, _ []string) {
 			// Setup is done in flag binding
 		},
 		SilenceUsage:  true,

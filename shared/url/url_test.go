@@ -1,4 +1,4 @@
-package url
+package url //nolint:revive // test file for url package
 
 import "testing"
 

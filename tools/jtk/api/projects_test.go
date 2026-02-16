@@ -1,4 +1,4 @@
-package api
+package api //nolint:revive // package name is intentional
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
 	"github.com/open-cli-collective/atlassian-go/testutil"
 )
 
@@ -58,7 +59,7 @@ func TestSearchProjects(t *testing.T) {
 					testutil.Equal(t, r.URL.Query().Get("query"), tt.query)
 				}
 				w.WriteHeader(tt.statusCode)
-				w.Write([]byte(tt.response))
+				_, _ = w.Write([]byte(tt.response))
 			}))
 			defer server.Close()
 
@@ -135,7 +136,7 @@ func TestGetProject(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				testutil.Equal(t, r.URL.Path, "/rest/api/3/project/"+tt.keyOrID)
 				w.WriteHeader(tt.statusCode)
-				w.Write([]byte(tt.response))
+				_, _ = w.Write([]byte(tt.response))
 			}))
 			defer server.Close()
 
@@ -174,7 +175,7 @@ func TestCreateProject(t *testing.T) {
 		testutil.Equal(t, req.LeadAccountID, "abc123")
 
 		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(ProjectDetail{
+		_ = json.NewEncoder(w).Encode(ProjectDetail{
 			ID:             json.Number("10001"),
 			Key:            "TST",
 			Name:           "Test Project",
@@ -205,10 +206,10 @@ func TestCreateProject(t *testing.T) {
 func TestCreateProject_NumericID(t *testing.T) {
 	// Jira's create endpoint returns the ID as a number, not a string.
 	// This verifies we can parse both shapes.
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusCreated)
 		// Raw JSON with numeric id (the actual API response shape)
-		w.Write([]byte(`{"id": 10031, "key": "NEW", "name": "New Project"}`))
+		_, _ = w.Write([]byte(`{"id": 10031, "key": "NEW", "name": "New Project"}`))
 	}))
 	defer server.Close()
 
@@ -241,7 +242,7 @@ func TestUpdateProject(t *testing.T) {
 		testutil.RequireNoError(t, err)
 		testutil.Equal(t, req.Name, "Updated Name")
 
-		json.NewEncoder(w).Encode(ProjectDetail{
+		_ = json.NewEncoder(w).Encode(ProjectDetail{
 			ID:   json.Number("10001"),
 			Key:  "TST",
 			Name: "Updated Name",
@@ -312,7 +313,7 @@ func TestRestoreProject(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testutil.Equal(t, r.Method, http.MethodPost)
 		testutil.Equal(t, r.URL.Path, "/rest/api/3/project/TST/restore")
-		json.NewEncoder(w).Encode(ProjectDetail{
+		_ = json.NewEncoder(w).Encode(ProjectDetail{
 			ID:   json.Number("10001"),
 			Key:  "TST",
 			Name: "Test Project",
@@ -348,7 +349,7 @@ func TestRestoreProject_EmptyKey(t *testing.T) {
 func TestListProjectTypes(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testutil.Equal(t, r.URL.Path, "/rest/api/3/project/type")
-		json.NewEncoder(w).Encode([]ProjectType{
+		_ = json.NewEncoder(w).Encode([]ProjectType{
 			{Key: "software", FormattedKey: "Software"},
 			{Key: "business", FormattedKey: "Business"},
 			{Key: "service_desk", FormattedKey: "Service Desk"},

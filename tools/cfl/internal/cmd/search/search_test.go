@@ -399,7 +399,7 @@ func TestRunSearch_CombinedFilters(t *testing.T) {
 }
 
 func TestRunSearch_APIError(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		_, _ = w.Write([]byte(`{"message": "Invalid CQL query"}`))
 	}))

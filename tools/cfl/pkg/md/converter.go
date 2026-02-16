@@ -1,4 +1,3 @@
-// Package md provides markdown conversion utilities for Confluence.
 package md
 
 import (
@@ -153,13 +152,13 @@ func postprocessMacros(html string, macros map[int]string) string {
 	// The inner macro placeholder ends up embedded in the outer macro's XML.
 	for _, id := range ids {
 		macroXML := macros[id]
-		for _, innerId := range ids {
-			if innerId >= id {
+		for _, innerID := range ids {
+			if innerID >= id {
 				continue // Only replace placeholders from earlier (inner) macros
 			}
-			placeholder := FormatPlaceholder(innerId)
+			placeholder := FormatPlaceholder(innerID)
 			if strings.Contains(macroXML, placeholder) {
-				macros[id] = strings.Replace(macroXML, placeholder, macros[innerId], 1)
+				macros[id] = strings.Replace(macroXML, placeholder, macros[innerID], 1)
 				macroXML = macros[id]
 			}
 		}

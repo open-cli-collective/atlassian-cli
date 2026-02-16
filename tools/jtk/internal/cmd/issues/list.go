@@ -26,7 +26,7 @@ func newListCmd(opts *root.Options) *cobra.Command {
 
   # List issues with custom limit
   jtk issues list --project MYPROJECT --max 100`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runList(cmd.Context(), opts, project, sprint, maxResults)
 		},
 	}

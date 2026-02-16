@@ -1,4 +1,4 @@
-package api
+package api //nolint:revive // package name is intentional
 
 import (
 	"encoding/json"
@@ -132,9 +132,13 @@ func (f IssueFields) MarshalJSON() ([]byte, error) {
 	return json.Marshal(result)
 }
 
-// Type aliases for backward compatibility with the shared adf package.
+// ADFDocument is a type alias for the shared ADF Document type.
 type ADFDocument = adf.Document
+
+// ADFNode is a type alias for the shared ADF Node type.
 type ADFNode = adf.Node
+
+// ADFMark is a type alias for the shared ADF Mark type.
 type ADFMark = adf.Mark
 
 // NewADFDocument creates an ADF document from markdown text.

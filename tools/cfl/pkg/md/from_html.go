@@ -176,7 +176,7 @@ func (t *macroIDTracker) addMacrosWithPlaceholders(node *MacroNode, output *stri
 }
 
 // renderMacroToPlaceholders creates a macroPlaceholder from a MacroNode.
-func renderMacroToPlaceholders(node *MacroNode, id int) macroPlaceholder {
+func renderMacroToPlaceholders(node *MacroNode, _ int) macroPlaceholder {
 	macroType, _ := LookupMacro(node.Name)
 
 	openTag := RenderMacroToBracketOpen(node)

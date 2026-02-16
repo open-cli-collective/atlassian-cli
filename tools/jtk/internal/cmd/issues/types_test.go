@@ -1,14 +1,16 @@
 package issues
 
 import (
-	"context"
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+
 	"github.com/open-cli-collective/atlassian-go/testutil"
+
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 )
@@ -41,7 +43,7 @@ func TestRunTypes_Success(t *testing.T) {
 			},
 		}
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(response)
+		_ = json.NewEncoder(w).Encode(response)
 	}))
 	defer server.Close()
 
@@ -71,9 +73,9 @@ func TestRunTypes_Success(t *testing.T) {
 }
 
 func TestRunTypes_ProjectNotFound(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"errorMessages":["No project could be found with key 'INVALID'."]}`))
+		_, _ = w.Write([]byte(`{"errorMessages":["No project could be found with key 'INVALID'."]}`))
 	}))
 	defer server.Close()
 
@@ -97,7 +99,7 @@ func TestRunTypes_ProjectNotFound(t *testing.T) {
 }
 
 func TestRunTypes_EmptyIssueTypes(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		response := api.ProjectDetail{
 			ID:         json.Number("10000"),
 			Key:        "EMPTY",
@@ -105,7 +107,7 @@ func TestRunTypes_EmptyIssueTypes(t *testing.T) {
 			IssueTypes: []api.IssueType{},
 		}
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(response)
+		_ = json.NewEncoder(w).Encode(response)
 	}))
 	defer server.Close()
 
@@ -130,7 +132,7 @@ func TestRunTypes_EmptyIssueTypes(t *testing.T) {
 }
 
 func TestRunTypes_JSONOutput(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		response := api.ProjectDetail{
 			ID:   json.Number("10000"),
 			Key:  "TEST",
@@ -141,7 +143,7 @@ func TestRunTypes_JSONOutput(t *testing.T) {
 			},
 		}
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(response)
+		_ = json.NewEncoder(w).Encode(response)
 	}))
 	defer server.Close()
 
@@ -178,7 +180,7 @@ func TestRunTypes_JSONOutput(t *testing.T) {
 func TestRunTypes_DescriptionTruncation(t *testing.T) {
 	longDesc := strings.Repeat("A", 100) // 100 character description
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		response := api.ProjectDetail{
 			ID:   json.Number("10000"),
 			Key:  "TEST",
@@ -188,7 +190,7 @@ func TestRunTypes_DescriptionTruncation(t *testing.T) {
 			},
 		}
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(response)
+		_ = json.NewEncoder(w).Encode(response)
 	}))
 	defer server.Close()
 

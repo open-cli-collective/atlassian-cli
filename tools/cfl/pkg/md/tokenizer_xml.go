@@ -1,4 +1,3 @@
-// tokenizer_xml.go implements tokenization for Confluence storage format XML.
 package md
 
 import (

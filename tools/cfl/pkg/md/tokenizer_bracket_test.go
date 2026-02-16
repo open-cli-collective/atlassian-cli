@@ -371,6 +371,8 @@ func TestTokenizeBrackets_DeeplyNested(t *testing.T) {
 			closeCount++
 		case BracketTokenText:
 			textCount++
+		case BracketTokenSelfClose:
+			// not expected in this test
 		}
 	}
 

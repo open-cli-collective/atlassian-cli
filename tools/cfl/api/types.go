@@ -1,5 +1,4 @@
-// Package api provides the Confluence Cloud REST API client.
-package api
+package api //nolint:revive // package name is intentional
 
 import "time"
 

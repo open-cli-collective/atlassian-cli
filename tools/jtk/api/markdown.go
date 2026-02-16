@@ -1,4 +1,4 @@
-package api
+package api //nolint:revive // package name is intentional
 
 import (
 	"github.com/open-cli-collective/atlassian-go/adf"

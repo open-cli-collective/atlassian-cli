@@ -14,7 +14,7 @@ import (
 )
 
 // mockCopyServer creates a test server that handles page get and copy operations
-func mockCopyServer(t *testing.T, getHandler, copyHandler func(w http.ResponseWriter, r *http.Request)) *httptest.Server {
+func mockCopyServer(_ *testing.T, getHandler, copyHandler func(w http.ResponseWriter, r *http.Request)) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "GET" && strings.HasPrefix(r.URL.Path, "/api/v2/pages/") {
 			if getHandler != nil {
@@ -140,7 +140,7 @@ func TestRunCopy_InfersSourceSpace(t *testing.T) {
 }
 
 func TestRunCopy_PageNotFound(t *testing.T) {
-	server := mockCopyServer(t, nil, func(w http.ResponseWriter, r *http.Request) {
+	server := mockCopyServer(t, nil, func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 		_, _ = w.Write([]byte(`{"message": "Page not found"}`))
 	})
@@ -162,7 +162,7 @@ func TestRunCopy_PageNotFound(t *testing.T) {
 }
 
 func TestRunCopy_JSONOutput(t *testing.T) {
-	server := mockCopyServer(t, nil, func(w http.ResponseWriter, r *http.Request) {
+	server := mockCopyServer(t, nil, func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{
 			"id": "99999",
@@ -208,7 +208,7 @@ func TestRunCopy_InvalidOutputFormat(t *testing.T) {
 
 func TestRunCopy_GetSourcePageFails(t *testing.T) {
 	server := mockCopyServer(t,
-		func(w http.ResponseWriter, r *http.Request) {
+		func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusNotFound)
 			_, _ = w.Write([]byte(`{"message": "Page not found"}`))
 		},
@@ -232,7 +232,7 @@ func TestRunCopy_GetSourcePageFails(t *testing.T) {
 }
 
 func TestRunCopy_WithNoAttachments(t *testing.T) {
-	server := mockCopyServer(t, nil, func(w http.ResponseWriter, r *http.Request) {
+	server := mockCopyServer(t, nil, func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{
 			"id": "99999",
@@ -260,7 +260,7 @@ func TestRunCopy_WithNoAttachments(t *testing.T) {
 }
 
 func TestRunCopy_WithNoLabels(t *testing.T) {
-	server := mockCopyServer(t, nil, func(w http.ResponseWriter, r *http.Request) {
+	server := mockCopyServer(t, nil, func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{
 			"id": "99999",
@@ -288,7 +288,7 @@ func TestRunCopy_WithNoLabels(t *testing.T) {
 }
 
 func TestRunCopy_PermissionDenied(t *testing.T) {
-	server := mockCopyServer(t, nil, func(w http.ResponseWriter, r *http.Request) {
+	server := mockCopyServer(t, nil, func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusForbidden)
 		_, _ = w.Write([]byte(`{"message": "You do not have permission to copy this page"}`))
 	})

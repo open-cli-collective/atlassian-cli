@@ -1,3 +1,4 @@
+// Package fields provides CLI commands for managing Jira custom fields.
 package fields
 
 import (

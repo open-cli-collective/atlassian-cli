@@ -1,5 +1,3 @@
-// render.go provides functions to render MacroNodes to Confluence storage format
-// and ADF extension nodes.
 package md
 
 import (
@@ -47,6 +45,8 @@ func RenderMacroToXML(node *MacroNode) string {
 			sb.WriteString(`<ac:plain-text-body><![CDATA[`)
 			sb.WriteString(node.Body)
 			sb.WriteString(`]]></ac:plain-text-body>`)
+		case BodyTypeNone:
+			// no body wrapper needed
 		}
 	}
 

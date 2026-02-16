@@ -1,4 +1,4 @@
-package api
+package api //nolint:revive // package name is intentional
 
 import "encoding/json"
 
@@ -35,6 +35,7 @@ type AutomationRule struct {
 	Extra map[string]json.RawMessage `json:"-"`
 }
 
+// Identifier returns the best available identifier for the rule (UUID, RuleKey, or ID).
 func (r AutomationRule) Identifier() string {
 	if r.UUID != "" {
 		return r.UUID
@@ -91,6 +92,7 @@ type AutomationRuleSummary struct {
 	RuleScopeARIs   []string      `json:"ruleScopeARIs,omitempty"`
 }
 
+// Identifier returns the best available identifier for the rule summary (UUID, RuleKey, or ID).
 func (s AutomationRuleSummary) Identifier() string {
 	if s.UUID != "" {
 		return s.UUID
@@ -130,6 +132,7 @@ type AutomationRuleSummaryResponse struct {
 	Next   string                  `json:"next,omitempty"`
 }
 
+// Items returns the rule summaries from either the newer Cloud or legacy response shape.
 func (r AutomationRuleSummaryResponse) Items() []AutomationRuleSummary {
 	if len(r.Data) > 0 {
 		return r.Data
@@ -137,6 +140,7 @@ func (r AutomationRuleSummaryResponse) Items() []AutomationRuleSummary {
 	return r.Values
 }
 
+// NextURL returns the URL for the next page of results, if available.
 func (r AutomationRuleSummaryResponse) NextURL() string {
 	if r.Links.Next != nil {
 		return *r.Links.Next

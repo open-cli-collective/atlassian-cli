@@ -1,15 +1,17 @@
 package automation
 
 import (
-	"context"
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
+
 	"github.com/open-cli-collective/atlassian-go/testutil"
+
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 )
@@ -63,7 +65,7 @@ func TestRunCreate(t *testing.T) {
 			"name": "Test Rule",
 			"state": "DISABLED"
 		}`
-		err = os.WriteFile(filePath, []byte(inputJSON), 0644)
+		err = os.WriteFile(filePath, []byte(inputJSON), 0600)
 		testutil.RequireNoError(t, err)
 
 		err = runCreate(context.Background(), opts, filePath)
@@ -115,7 +117,7 @@ func TestRunCreate(t *testing.T) {
 
 		dir := t.TempDir()
 		filePath := filepath.Join(dir, "rule.json")
-		err = os.WriteFile(filePath, []byte(`{"name":"New Rule","state":"DISABLED"}`), 0644)
+		err = os.WriteFile(filePath, []byte(`{"name":"New Rule","state":"DISABLED"}`), 0600)
 		testutil.RequireNoError(t, err)
 
 		err = runCreate(context.Background(), opts, filePath)
@@ -153,7 +155,7 @@ func TestRunCreate(t *testing.T) {
 
 		dir := t.TempDir()
 		filePath := filepath.Join(dir, "rule.json")
-		err = os.WriteFile(filePath, []byte(`{"name":"Both UUIDs","state":"DISABLED"}`), 0644)
+		err = os.WriteFile(filePath, []byte(`{"name":"Both UUIDs","state":"DISABLED"}`), 0600)
 		testutil.RequireNoError(t, err)
 
 		err = runCreate(context.Background(), opts, filePath)
@@ -165,7 +167,7 @@ func TestRunCreate(t *testing.T) {
 	t.Run("invalid JSON file", func(t *testing.T) {
 		dir := t.TempDir()
 		filePath := filepath.Join(dir, "bad.json")
-		err := os.WriteFile(filePath, []byte(`not valid json`), 0644)
+		err := os.WriteFile(filePath, []byte(`not valid json`), 0600)
 		testutil.RequireNoError(t, err)
 
 		var stdout, stderr bytes.Buffer

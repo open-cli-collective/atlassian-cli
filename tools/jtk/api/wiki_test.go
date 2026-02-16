@@ -1,7 +1,8 @@
-package api
+package api //nolint:revive // package name is intentional
 
 import (
 	"testing"
+
 	"github.com/open-cli-collective/atlassian-go/testutil"
 )
 

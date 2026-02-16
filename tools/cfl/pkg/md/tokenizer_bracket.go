@@ -1,4 +1,3 @@
-// tokenizer_bracket.go implements tokenization for [MACRO]...[/MACRO] bracket syntax.
 package md
 
 import (

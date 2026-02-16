@@ -46,7 +46,7 @@ func newListCmd(opts *root.Options) *cobra.Command {
 
   # List fields as JSON
   jtk fields list -o json`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runList(cmd.Context(), opts, customOnly)
 		},
 	}
@@ -116,7 +116,7 @@ Common field types:
 
   # Create a text field with description
   jtk fields create --name "Release Notes" --type com.atlassian.jira.plugin.system.customfieldtypes:textarea --description "Notes for the release"`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runCreate(cmd.Context(), opts, name, fieldType, description)
 		},
 	}

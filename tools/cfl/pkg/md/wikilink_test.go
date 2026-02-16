@@ -172,7 +172,7 @@ func TestPreprocessWikiLinks(t *testing.T) {
 			name:          "multiple wiki links",
 			input:         "See [[Page A]] and [[DEV:Page B]]",
 			expectedLinks: 2,
-			checkOutput: func(t *testing.T, output string, links map[int]WikiLink) {
+			checkOutput: func(t *testing.T, _ string, links map[int]WikiLink) {
 				testutil.Equal(t, WikiLink{Title: "Page A"}, links[0])
 				testutil.Equal(t, WikiLink{SpaceKey: "DEV", Title: "Page B"}, links[1])
 			},
@@ -181,7 +181,7 @@ func TestPreprocessWikiLinks(t *testing.T) {
 			name:          "no wiki links",
 			input:         "Just regular text",
 			expectedLinks: 0,
-			checkOutput: func(t *testing.T, output string, links map[int]WikiLink) {
+			checkOutput: func(t *testing.T, output string, _ map[int]WikiLink) {
 				testutil.Equal(t, "Just regular text", output)
 			},
 		},
@@ -189,7 +189,7 @@ func TestPreprocessWikiLinks(t *testing.T) {
 			name:          "empty wiki link ignored",
 			input:         "See [[]] for details",
 			expectedLinks: 0,
-			checkOutput: func(t *testing.T, output string, links map[int]WikiLink) {
+			checkOutput: func(t *testing.T, output string, _ map[int]WikiLink) {
 				testutil.Contains(t, output, "[[]]")
 			},
 		},
@@ -326,7 +326,7 @@ func TestConvertACLinksToPlaceholders(t *testing.T) {
 			html: `<p>Check <ac:link><ri:page ri:content-title="Architecture" ri:space-key="DEV" />` +
 				`<ac:plain-text-link-body><![CDATA[Architecture]]></ac:plain-text-link-body></ac:link></p>`,
 			expectedLinks: 1,
-			checkOutput: func(t *testing.T, output string, links map[int]WikiLink) {
+			checkOutput: func(t *testing.T, _ string, links map[int]WikiLink) {
 				testutil.Equal(t, WikiLink{SpaceKey: "DEV", Title: "Architecture"}, links[0])
 			},
 		},
@@ -335,7 +335,7 @@ func TestConvertACLinksToPlaceholders(t *testing.T) {
 			html: `<p><ac:link><ri:page ri:content-title="Page A" /></ac:link> and ` +
 				`<ac:link><ri:page ri:content-title="Page B" ri:space-key="ENG" /></ac:link></p>`,
 			expectedLinks: 2,
-			checkOutput: func(t *testing.T, output string, links map[int]WikiLink) {
+			checkOutput: func(t *testing.T, _ string, links map[int]WikiLink) {
 				testutil.Equal(t, WikiLink{Title: "Page A"}, links[0])
 				testutil.Equal(t, WikiLink{SpaceKey: "ENG", Title: "Page B"}, links[1])
 			},
@@ -345,7 +345,7 @@ func TestConvertACLinksToPlaceholders(t *testing.T) {
 			html: `<ac:link><ri:page ri:content-title="Page &amp; &quot;Stuff&quot;" />` +
 				`<ac:plain-text-link-body><![CDATA[Page & "Stuff"]]></ac:plain-text-link-body></ac:link>`,
 			expectedLinks: 1,
-			checkOutput: func(t *testing.T, output string, links map[int]WikiLink) {
+			checkOutput: func(t *testing.T, _ string, links map[int]WikiLink) {
 				testutil.Equal(t, `Page & "Stuff"`, links[0].Title)
 			},
 		},
@@ -353,7 +353,7 @@ func TestConvertACLinksToPlaceholders(t *testing.T) {
 			name:          "no ac:link elements",
 			html:          `<p>Just plain HTML</p>`,
 			expectedLinks: 0,
-			checkOutput: func(t *testing.T, output string, links map[int]WikiLink) {
+			checkOutput: func(t *testing.T, output string, _ map[int]WikiLink) {
 				testutil.Equal(t, `<p>Just plain HTML</p>`, output)
 			},
 		},
@@ -520,7 +520,7 @@ func TestPreprocessWikiLinks_CodeBlockProtection(t *testing.T) {
 			name:          "wiki link in fenced code block not converted",
 			input:         "```\n[[My Page]]\n```",
 			expectedLinks: 0,
-			checkOutput: func(t *testing.T, output string, links map[int]WikiLink) {
+			checkOutput: func(t *testing.T, output string, _ map[int]WikiLink) {
 				testutil.Contains(t, output, "[[My Page]]")
 			},
 		},
@@ -528,7 +528,7 @@ func TestPreprocessWikiLinks_CodeBlockProtection(t *testing.T) {
 			name:          "wiki link in inline code not converted",
 			input:         "Use `[[My Page]]` syntax",
 			expectedLinks: 0,
-			checkOutput: func(t *testing.T, output string, links map[int]WikiLink) {
+			checkOutput: func(t *testing.T, output string, _ map[int]WikiLink) {
 				testutil.Contains(t, output, "`[[My Page]]`")
 			},
 		},

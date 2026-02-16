@@ -1,3 +1,4 @@
+// Package automation provides CLI commands for managing Jira automation rules.
 package automation
 
 import (

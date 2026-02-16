@@ -73,7 +73,7 @@ func runDownload(attachmentID string, opts *downloadOptions) error {
 	}
 	defer func() { _ = reader.Close() }()
 
-	outFile, err := os.Create(outputPath)
+	outFile, err := os.Create(outputPath) //nolint:gosec // CLI tool creates user-specified output file
 	if err != nil {
 		return fmt.Errorf("creating output file: %w", err)
 	}

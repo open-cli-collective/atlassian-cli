@@ -29,14 +29,14 @@ func newEditTestRootOptions() *root.Options {
 func TestRunEdit_Success(t *testing.T) {
 	tmpDir := t.TempDir()
 	mdFile := filepath.Join(tmpDir, "content.md")
-	err := os.WriteFile(mdFile, []byte("# Updated Content\n\nNew text here."), 0644)
+	err := os.WriteFile(mdFile, []byte("# Updated Content\n\nNew text here."), 0600)
 	testutil.RequireNoError(t, err)
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.Method == "GET" && strings.Contains(r.URL.Path, "/pages/12345"):
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{
+			_, _ = w.Write([]byte(`{
 				"id": "12345",
 				"title": "Test Page",
 				"version": {"number": 5},
@@ -45,7 +45,7 @@ func TestRunEdit_Success(t *testing.T) {
 			}`))
 		case r.Method == "PUT" && strings.Contains(r.URL.Path, "/pages/12345"):
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{
+			_, _ = w.Write([]byte(`{
 				"id": "12345",
 				"title": "Test Page",
 				"version": {"number": 6},
@@ -77,7 +77,7 @@ func TestRunEdit_TitleOnly(t *testing.T) {
 		switch {
 		case r.Method == "GET" && strings.Contains(r.URL.Path, "/pages/12345"):
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{
+			_, _ = w.Write([]byte(`{
 				"id": "12345",
 				"title": "Old Title",
 				"version": {"number": 3},
@@ -86,9 +86,9 @@ func TestRunEdit_TitleOnly(t *testing.T) {
 			}`))
 		case r.Method == "PUT" && strings.Contains(r.URL.Path, "/pages/12345"):
 			body, _ := io.ReadAll(r.Body)
-			json.Unmarshal(body, &receivedBody)
+			_ = json.Unmarshal(body, &receivedBody)
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{
+			_, _ = w.Write([]byte(`{
 				"id": "12345",
 				"title": "New Title",
 				"version": {"number": 4},
@@ -115,7 +115,7 @@ func TestRunEdit_TitleOnly(t *testing.T) {
 	// we need to provide a file to avoid the editor path.
 	tmpDir := t.TempDir()
 	mdFile := filepath.Join(tmpDir, "content.md")
-	err := os.WriteFile(mdFile, []byte("<p>Keep this</p>"), 0644)
+	err := os.WriteFile(mdFile, []byte("<p>Keep this</p>"), 0600)
 	testutil.RequireNoError(t, err)
 
 	useMd := false
@@ -130,9 +130,9 @@ func TestRunEdit_TitleOnly(t *testing.T) {
 }
 
 func TestRunEdit_PageNotFound(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"message": "Page not found"}`))
+		_, _ = w.Write([]byte(`{"message": "Page not found"}`))
 	}))
 	defer server.Close()
 
@@ -154,14 +154,14 @@ func TestRunEdit_PageNotFound(t *testing.T) {
 func TestRunEdit_UpdateFailed(t *testing.T) {
 	tmpDir := t.TempDir()
 	mdFile := filepath.Join(tmpDir, "content.md")
-	err := os.WriteFile(mdFile, []byte("# New Content"), 0644)
+	err := os.WriteFile(mdFile, []byte("# New Content"), 0600)
 	testutil.RequireNoError(t, err)
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case "GET":
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{
+			_, _ = w.Write([]byte(`{
 				"id": "12345",
 				"title": "Test",
 				"version": {"number": 1},
@@ -170,7 +170,7 @@ func TestRunEdit_UpdateFailed(t *testing.T) {
 			}`))
 		case "PUT":
 			w.WriteHeader(http.StatusForbidden)
-			w.Write([]byte(`{"message": "Permission denied"}`))
+			_, _ = w.Write([]byte(`{"message": "Permission denied"}`))
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -195,7 +195,7 @@ func TestRunEdit_UpdateFailed(t *testing.T) {
 func TestRunEdit_VersionIncrement(t *testing.T) {
 	tmpDir := t.TempDir()
 	mdFile := filepath.Join(tmpDir, "content.md")
-	err := os.WriteFile(mdFile, []byte("# Updated"), 0644)
+	err := os.WriteFile(mdFile, []byte("# Updated"), 0600)
 	testutil.RequireNoError(t, err)
 
 	var receivedVersion int
@@ -203,7 +203,7 @@ func TestRunEdit_VersionIncrement(t *testing.T) {
 		switch r.Method {
 		case "GET":
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{
+			_, _ = w.Write([]byte(`{
 				"id": "12345",
 				"title": "Test",
 				"version": {"number": 7},
@@ -213,12 +213,12 @@ func TestRunEdit_VersionIncrement(t *testing.T) {
 		case "PUT":
 			body, _ := io.ReadAll(r.Body)
 			var req map[string]interface{}
-			json.Unmarshal(body, &req)
+			_ = json.Unmarshal(body, &req)
 			if v, ok := req["version"].(map[string]interface{}); ok {
 				receivedVersion = int(v["number"].(float64))
 			}
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{
+			_, _ = w.Write([]byte(`{
 				"id": "12345",
 				"title": "Test",
 				"version": {"number": 8},
@@ -250,7 +250,7 @@ func TestRunEdit_VersionIncrement(t *testing.T) {
 func TestRunEdit_HTMLFile(t *testing.T) {
 	tmpDir := t.TempDir()
 	htmlFile := filepath.Join(tmpDir, "content.html")
-	err := os.WriteFile(htmlFile, []byte("<p>Direct HTML</p>"), 0644)
+	err := os.WriteFile(htmlFile, []byte("<p>Direct HTML</p>"), 0600)
 	testutil.RequireNoError(t, err)
 
 	var receivedBody map[string]interface{}
@@ -258,7 +258,7 @@ func TestRunEdit_HTMLFile(t *testing.T) {
 		switch r.Method {
 		case "GET":
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{
+			_, _ = w.Write([]byte(`{
 				"id": "12345",
 				"title": "Test",
 				"version": {"number": 1},
@@ -267,9 +267,9 @@ func TestRunEdit_HTMLFile(t *testing.T) {
 			}`))
 		case "PUT":
 			body, _ := io.ReadAll(r.Body)
-			json.Unmarshal(body, &receivedBody)
+			_ = json.Unmarshal(body, &receivedBody)
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{
+			_, _ = w.Write([]byte(`{
 				"id": "12345",
 				"title": "Test",
 				"version": {"number": 2},
@@ -306,7 +306,7 @@ func TestRunEdit_HTMLFile(t *testing.T) {
 func TestRunEdit_NoMarkdownFlag(t *testing.T) {
 	tmpDir := t.TempDir()
 	mdFile := filepath.Join(tmpDir, "content.md")
-	err := os.WriteFile(mdFile, []byte("<p>Raw XHTML in .md file</p>"), 0644)
+	err := os.WriteFile(mdFile, []byte("<p>Raw XHTML in .md file</p>"), 0600)
 	testutil.RequireNoError(t, err)
 
 	var receivedBody map[string]interface{}
@@ -314,7 +314,7 @@ func TestRunEdit_NoMarkdownFlag(t *testing.T) {
 		switch r.Method {
 		case "GET":
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{
+			_, _ = w.Write([]byte(`{
 				"id": "12345",
 				"title": "Test",
 				"version": {"number": 1},
@@ -323,9 +323,9 @@ func TestRunEdit_NoMarkdownFlag(t *testing.T) {
 			}`))
 		case "PUT":
 			body, _ := io.ReadAll(r.Body)
-			json.Unmarshal(body, &receivedBody)
+			_ = json.Unmarshal(body, &receivedBody)
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{
+			_, _ = w.Write([]byte(`{
 				"id": "12345",
 				"title": "Test",
 				"version": {"number": 2},
@@ -363,7 +363,7 @@ func TestRunEdit_NoMarkdownFlag(t *testing.T) {
 func TestRunEdit_MarkdownToADF(t *testing.T) {
 	tmpDir := t.TempDir()
 	mdFile := filepath.Join(tmpDir, "content.md")
-	err := os.WriteFile(mdFile, []byte("# Updated\n\nNew **bold** text."), 0644)
+	err := os.WriteFile(mdFile, []byte("# Updated\n\nNew **bold** text."), 0600)
 	testutil.RequireNoError(t, err)
 
 	var receivedBody map[string]interface{}
@@ -371,7 +371,7 @@ func TestRunEdit_MarkdownToADF(t *testing.T) {
 		switch r.Method {
 		case "GET":
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{
+			_, _ = w.Write([]byte(`{
 				"id": "12345",
 				"title": "Test",
 				"version": {"number": 1},
@@ -380,9 +380,9 @@ func TestRunEdit_MarkdownToADF(t *testing.T) {
 			}`))
 		case "PUT":
 			body, _ := io.ReadAll(r.Body)
-			json.Unmarshal(body, &receivedBody)
+			_ = json.Unmarshal(body, &receivedBody)
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{
+			_, _ = w.Write([]byte(`{
 				"id": "12345",
 				"title": "Test",
 				"version": {"number": 2},
@@ -423,14 +423,14 @@ func TestRunEdit_MarkdownToADF(t *testing.T) {
 func TestRunEdit_JSONOutput(t *testing.T) {
 	tmpDir := t.TempDir()
 	mdFile := filepath.Join(tmpDir, "content.md")
-	err := os.WriteFile(mdFile, []byte("# Updated"), 0644)
+	err := os.WriteFile(mdFile, []byte("# Updated"), 0600)
 	testutil.RequireNoError(t, err)
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case "GET":
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{
+			_, _ = w.Write([]byte(`{
 				"id": "12345",
 				"title": "Test",
 				"version": {"number": 1},
@@ -439,7 +439,7 @@ func TestRunEdit_JSONOutput(t *testing.T) {
 			}`))
 		case "PUT":
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{
+			_, _ = w.Write([]byte(`{
 				"id": "12345",
 				"title": "Test",
 				"version": {"number": 2},
@@ -466,9 +466,9 @@ func TestRunEdit_JSONOutput(t *testing.T) {
 }
 
 func TestRunEdit_FileReadError(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{
+		_, _ = w.Write([]byte(`{
 			"id": "12345",
 			"title": "Test",
 			"version": {"number": 1},
@@ -499,7 +499,7 @@ func TestRunEdit_Stdin_ADF(t *testing.T) {
 		switch r.Method {
 		case "GET":
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{
+			_, _ = w.Write([]byte(`{
 				"id": "12345",
 				"title": "Test",
 				"version": {"number": 1},
@@ -508,9 +508,9 @@ func TestRunEdit_Stdin_ADF(t *testing.T) {
 			}`))
 		case "PUT":
 			body, _ := io.ReadAll(r.Body)
-			json.Unmarshal(body, &receivedBody)
+			_ = json.Unmarshal(body, &receivedBody)
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{
+			_, _ = w.Write([]byte(`{
 				"id": "12345",
 				"title": "Test",
 				"version": {"number": 2},
@@ -550,7 +550,7 @@ func TestRunEdit_Stdin_Legacy(t *testing.T) {
 		switch r.Method {
 		case "GET":
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{
+			_, _ = w.Write([]byte(`{
 				"id": "12345",
 				"title": "Test",
 				"version": {"number": 1},
@@ -559,9 +559,9 @@ func TestRunEdit_Stdin_Legacy(t *testing.T) {
 			}`))
 		case "PUT":
 			body, _ := io.ReadAll(r.Body)
-			json.Unmarshal(body, &receivedBody)
+			_ = json.Unmarshal(body, &receivedBody)
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{
+			_, _ = w.Write([]byte(`{
 				"id": "12345",
 				"title": "Test",
 				"version": {"number": 2},
@@ -601,7 +601,7 @@ func TestRunEdit_TitleAndContent(t *testing.T) {
 		switch r.Method {
 		case "GET":
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{
+			_, _ = w.Write([]byte(`{
 				"id": "12345",
 				"title": "Old Title",
 				"version": {"number": 1},
@@ -610,9 +610,9 @@ func TestRunEdit_TitleAndContent(t *testing.T) {
 			}`))
 		case "PUT":
 			body, _ := io.ReadAll(r.Body)
-			json.Unmarshal(body, &receivedBody)
+			_ = json.Unmarshal(body, &receivedBody)
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{
+			_, _ = w.Write([]byte(`{
 				"id": "12345",
 				"title": "New Title",
 				"version": {"number": 2},
@@ -626,7 +626,7 @@ func TestRunEdit_TitleAndContent(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	mdFile := filepath.Join(tmpDir, "content.md")
-	err := os.WriteFile(mdFile, []byte("# New Content\n\nUpdated text here."), 0644)
+	err := os.WriteFile(mdFile, []byte("# New Content\n\nUpdated text here."), 0600)
 	testutil.RequireNoError(t, err)
 
 	rootOpts := newEditTestRootOptions()
@@ -655,7 +655,7 @@ func TestRunEdit_ComplexMarkdown_ADF(t *testing.T) {
 		switch r.Method {
 		case "GET":
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{
+			_, _ = w.Write([]byte(`{
 				"id": "12345",
 				"title": "Test",
 				"version": {"number": 1},
@@ -664,9 +664,9 @@ func TestRunEdit_ComplexMarkdown_ADF(t *testing.T) {
 			}`))
 		case "PUT":
 			body, _ := io.ReadAll(r.Body)
-			json.Unmarshal(body, &receivedBody)
+			_ = json.Unmarshal(body, &receivedBody)
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{
+			_, _ = w.Write([]byte(`{
 				"id": "12345",
 				"title": "Test",
 				"version": {"number": 2},
@@ -692,7 +692,7 @@ func TestRunEdit_ComplexMarkdown_ADF(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	mdFile := filepath.Join(tmpDir, "complex.md")
-	err := os.WriteFile(mdFile, []byte(complexMarkdown), 0644)
+	err := os.WriteFile(mdFile, []byte(complexMarkdown), 0600)
 	testutil.RequireNoError(t, err)
 
 	rootOpts := newEditTestRootOptions()
@@ -724,7 +724,7 @@ func TestRunEdit_MoveToParent(t *testing.T) {
 		switch {
 		case r.Method == "GET" && strings.Contains(r.URL.Path, "/api/v2/pages/12345"):
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{
+			_, _ = w.Write([]byte(`{
 				"id": "12345",
 				"title": "Test Page",
 				"version": {"number": 1},
@@ -733,7 +733,7 @@ func TestRunEdit_MoveToParent(t *testing.T) {
 			}`))
 		case r.Method == "PUT" && strings.Contains(r.URL.Path, "/api/v2/pages/12345"):
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{
+			_, _ = w.Write([]byte(`{
 				"id": "12345",
 				"title": "Test Page",
 				"version": {"number": 2},
@@ -742,7 +742,7 @@ func TestRunEdit_MoveToParent(t *testing.T) {
 		case r.Method == "PUT" && strings.Contains(r.URL.Path, "/rest/api/content/12345/move/append/67890"):
 			moveCalled = true
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{}`))
+			_, _ = w.Write([]byte(`{}`))
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -772,7 +772,7 @@ func TestRunEdit_MoveAndRename(t *testing.T) {
 		switch {
 		case r.Method == "GET" && strings.Contains(r.URL.Path, "/api/v2/pages/12345"):
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{
+			_, _ = w.Write([]byte(`{
 				"id": "12345",
 				"title": "Old Title",
 				"version": {"number": 1},
@@ -782,10 +782,10 @@ func TestRunEdit_MoveAndRename(t *testing.T) {
 		case r.Method == "PUT" && strings.Contains(r.URL.Path, "/api/v2/pages/12345"):
 			body, _ := io.ReadAll(r.Body)
 			var req map[string]interface{}
-			json.Unmarshal(body, &req)
+			_ = json.Unmarshal(body, &req)
 			receivedTitle = req["title"].(string)
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{
+			_, _ = w.Write([]byte(`{
 				"id": "12345",
 				"title": "New Title",
 				"version": {"number": 2},
@@ -794,7 +794,7 @@ func TestRunEdit_MoveAndRename(t *testing.T) {
 		case r.Method == "PUT" && strings.Contains(r.URL.Path, "/rest/api/content/12345/move/append/67890"):
 			moveCalled = true
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{}`))
+			_, _ = w.Write([]byte(`{}`))
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -823,7 +823,7 @@ func TestRunEdit_MoveFailed(t *testing.T) {
 		switch {
 		case r.Method == "GET" && strings.Contains(r.URL.Path, "/api/v2/pages/12345"):
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{
+			_, _ = w.Write([]byte(`{
 				"id": "12345",
 				"title": "Test Page",
 				"version": {"number": 1},
@@ -832,7 +832,7 @@ func TestRunEdit_MoveFailed(t *testing.T) {
 			}`))
 		case r.Method == "PUT" && strings.Contains(r.URL.Path, "/api/v2/pages/12345"):
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{
+			_, _ = w.Write([]byte(`{
 				"id": "12345",
 				"title": "Test Page",
 				"version": {"number": 2},
@@ -840,7 +840,7 @@ func TestRunEdit_MoveFailed(t *testing.T) {
 			}`))
 		case r.Method == "PUT" && strings.Contains(r.URL.Path, "/rest/api/content/12345/move"):
 			w.WriteHeader(http.StatusNotFound)
-			w.Write([]byte(`{"message": "Target page not found"}`))
+			_, _ = w.Write([]byte(`{"message": "Target page not found"}`))
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -871,7 +871,7 @@ func TestRunEdit_MoveWithContent(t *testing.T) {
 		switch {
 		case r.Method == "GET" && strings.Contains(r.URL.Path, "/api/v2/pages/12345"):
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{
+			_, _ = w.Write([]byte(`{
 				"id": "12345",
 				"title": "Test Page",
 				"version": {"number": 1},
@@ -880,9 +880,9 @@ func TestRunEdit_MoveWithContent(t *testing.T) {
 			}`))
 		case r.Method == "PUT" && strings.Contains(r.URL.Path, "/api/v2/pages/12345"):
 			body, _ := io.ReadAll(r.Body)
-			json.Unmarshal(body, &receivedBody)
+			_ = json.Unmarshal(body, &receivedBody)
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{
+			_, _ = w.Write([]byte(`{
 				"id": "12345",
 				"title": "Test Page",
 				"version": {"number": 2},
@@ -891,7 +891,7 @@ func TestRunEdit_MoveWithContent(t *testing.T) {
 		case r.Method == "PUT" && strings.Contains(r.URL.Path, "/rest/api/content/12345/move/append/67890"):
 			moveCalled = true
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{}`))
+			_, _ = w.Write([]byte(`{}`))
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -922,7 +922,7 @@ func TestRunEdit_EmptyContentFromStdin(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "GET" {
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{
+			_, _ = w.Write([]byte(`{
 				"id": "12345",
 				"title": "Test",
 				"version": {"number": 1},
@@ -953,7 +953,7 @@ func TestRunEdit_WhitespaceOnlyFromStdin(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "GET" {
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{
+			_, _ = w.Write([]byte(`{
 				"id": "12345",
 				"title": "Test",
 				"version": {"number": 1},
@@ -983,13 +983,13 @@ func TestRunEdit_WhitespaceOnlyFromStdin(t *testing.T) {
 func TestRunEdit_EmptyFile(t *testing.T) {
 	tmpDir := t.TempDir()
 	emptyFile := filepath.Join(tmpDir, "empty.md")
-	err := os.WriteFile(emptyFile, []byte(""), 0644)
+	err := os.WriteFile(emptyFile, []byte(""), 0600)
 	testutil.RequireNoError(t, err)
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "GET" {
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{
+			_, _ = w.Write([]byte(`{
 				"id": "12345",
 				"title": "Test",
 				"version": {"number": 1},
@@ -1020,13 +1020,13 @@ func TestRunEdit_EmptyFile(t *testing.T) {
 func TestRunEdit_WhitespaceOnlyFile(t *testing.T) {
 	tmpDir := t.TempDir()
 	whitespaceFile := filepath.Join(tmpDir, "whitespace.md")
-	err := os.WriteFile(whitespaceFile, []byte("   \n\t\n   "), 0644)
+	err := os.WriteFile(whitespaceFile, []byte("   \n\t\n   "), 0600)
 	testutil.RequireNoError(t, err)
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "GET" {
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{
+			_, _ = w.Write([]byte(`{
 				"id": "12345",
 				"title": "Test",
 				"version": {"number": 1},
@@ -1061,7 +1061,7 @@ func TestRunEdit_TitleOnlyUpdate_NoContentValidation(t *testing.T) {
 		switch r.Method {
 		case "GET":
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{
+			_, _ = w.Write([]byte(`{
 				"id": "12345",
 				"title": "Old Title",
 				"version": {"number": 1},
@@ -1071,7 +1071,7 @@ func TestRunEdit_TitleOnlyUpdate_NoContentValidation(t *testing.T) {
 		case "PUT":
 			updateCalled = true
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{
+			_, _ = w.Write([]byte(`{
 				"id": "12345",
 				"title": "New Title",
 				"version": {"number": 2},
@@ -1090,7 +1090,7 @@ func TestRunEdit_TitleOnlyUpdate_NoContentValidation(t *testing.T) {
 	// Provide a file with valid content to avoid editor
 	tmpDir := t.TempDir()
 	mdFile := filepath.Join(tmpDir, "content.md")
-	err := os.WriteFile(mdFile, []byte("# Valid Content"), 0644)
+	err := os.WriteFile(mdFile, []byte("# Valid Content"), 0600)
 	testutil.RequireNoError(t, err)
 
 	rootOpts.Stdin = nil
@@ -1115,7 +1115,7 @@ func TestRunEdit_MoveOnly_NoEditorOpened(t *testing.T) {
 		switch {
 		case r.Method == "GET" && strings.Contains(r.URL.Path, "/api/v2/pages/12345"):
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{
+			_, _ = w.Write([]byte(`{
 				"id": "12345",
 				"title": "Test Page",
 				"version": {"number": 1},
@@ -1125,7 +1125,7 @@ func TestRunEdit_MoveOnly_NoEditorOpened(t *testing.T) {
 		case r.Method == "PUT" && strings.Contains(r.URL.Path, "/api/v2/pages/12345"):
 			updateCalled = true
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{
+			_, _ = w.Write([]byte(`{
 				"id": "12345",
 				"title": "Test Page",
 				"version": {"number": 2},
@@ -1134,7 +1134,7 @@ func TestRunEdit_MoveOnly_NoEditorOpened(t *testing.T) {
 		case r.Method == "PUT" && strings.Contains(r.URL.Path, "/rest/api/content/12345/move/append/67890"):
 			moveCalled = true
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{}`))
+			_, _ = w.Write([]byte(`{}`))
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -1166,7 +1166,7 @@ func TestRunEdit_MoveWithTitleOnly_NoEditorOpened(t *testing.T) {
 		switch {
 		case r.Method == "GET" && strings.Contains(r.URL.Path, "/api/v2/pages/12345"):
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{
+			_, _ = w.Write([]byte(`{
 				"id": "12345",
 				"title": "Old Title",
 				"version": {"number": 1},
@@ -1175,9 +1175,9 @@ func TestRunEdit_MoveWithTitleOnly_NoEditorOpened(t *testing.T) {
 			}`))
 		case r.Method == "PUT" && strings.Contains(r.URL.Path, "/api/v2/pages/12345"):
 			body, _ := io.ReadAll(r.Body)
-			json.Unmarshal(body, &receivedBody)
+			_ = json.Unmarshal(body, &receivedBody)
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{
+			_, _ = w.Write([]byte(`{
 				"id": "12345",
 				"title": "New Title",
 				"version": {"number": 2},
@@ -1186,7 +1186,7 @@ func TestRunEdit_MoveWithTitleOnly_NoEditorOpened(t *testing.T) {
 		case r.Method == "PUT" && strings.Contains(r.URL.Path, "/rest/api/content/12345/move/append/67890"):
 			moveCalled = true
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{}`))
+			_, _ = w.Write([]byte(`{}`))
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -1216,7 +1216,7 @@ func TestRunEdit_StorageFlag_Stdin(t *testing.T) {
 		switch r.Method {
 		case "GET":
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{
+			_, _ = w.Write([]byte(`{
 				"id": "12345",
 				"title": "Test",
 				"version": {"number": 1},
@@ -1225,9 +1225,9 @@ func TestRunEdit_StorageFlag_Stdin(t *testing.T) {
 			}`))
 		case "PUT":
 			body, _ := io.ReadAll(r.Body)
-			json.Unmarshal(body, &receivedBody)
+			_ = json.Unmarshal(body, &receivedBody)
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{
+			_, _ = w.Write([]byte(`{
 				"id": "12345",
 				"title": "Test",
 				"version": {"number": 2},
@@ -1270,7 +1270,7 @@ func TestRunEdit_StorageFlag_Stdin(t *testing.T) {
 func TestRunEdit_StorageFlag_File(t *testing.T) {
 	tmpDir := t.TempDir()
 	htmlFile := filepath.Join(tmpDir, "content.html")
-	err := os.WriteFile(htmlFile, []byte("<p>Direct storage XHTML</p>"), 0644)
+	err := os.WriteFile(htmlFile, []byte("<p>Direct storage XHTML</p>"), 0600)
 	testutil.RequireNoError(t, err)
 
 	var receivedBody map[string]interface{}
@@ -1278,7 +1278,7 @@ func TestRunEdit_StorageFlag_File(t *testing.T) {
 		switch r.Method {
 		case "GET":
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{
+			_, _ = w.Write([]byte(`{
 				"id": "12345",
 				"title": "Test",
 				"version": {"number": 1},
@@ -1287,9 +1287,9 @@ func TestRunEdit_StorageFlag_File(t *testing.T) {
 			}`))
 		case "PUT":
 			body, _ := io.ReadAll(r.Body)
-			json.Unmarshal(body, &receivedBody)
+			_ = json.Unmarshal(body, &receivedBody)
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{
+			_, _ = w.Write([]byte(`{
 				"id": "12345",
 				"title": "Test",
 				"version": {"number": 2},
@@ -1335,7 +1335,7 @@ func TestRunEdit_MoveOnly_BodyPreserved(t *testing.T) {
 		switch {
 		case r.Method == "GET" && strings.Contains(r.URL.Path, "/api/v2/pages/12345"):
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{
+			_, _ = w.Write([]byte(`{
 				"id": "12345",
 				"title": "Test Page",
 				"version": {"number": 1},
@@ -1344,9 +1344,9 @@ func TestRunEdit_MoveOnly_BodyPreserved(t *testing.T) {
 			}`))
 		case r.Method == "PUT" && strings.Contains(r.URL.Path, "/api/v2/pages/12345"):
 			body, _ := io.ReadAll(r.Body)
-			json.Unmarshal(body, &receivedBody)
+			_ = json.Unmarshal(body, &receivedBody)
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{
+			_, _ = w.Write([]byte(`{
 				"id": "12345",
 				"title": "Test Page",
 				"version": {"number": 2},
@@ -1354,7 +1354,7 @@ func TestRunEdit_MoveOnly_BodyPreserved(t *testing.T) {
 			}`))
 		case r.Method == "PUT" && strings.Contains(r.URL.Path, "/rest/api/content/12345/move/append/67890"):
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{}`))
+			_, _ = w.Write([]byte(`{}`))
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -1389,7 +1389,7 @@ func TestRunEdit_ADFPage_TitleOnly_PreservesBody(t *testing.T) {
 			case "storage":
 				// Storage returns empty for this ADF page
 				w.WriteHeader(http.StatusOK)
-				w.Write([]byte(`{
+				_, _ = w.Write([]byte(`{
 					"id": "12345",
 					"title": "ADF Page",
 					"version": {"number": 3},
@@ -1399,7 +1399,7 @@ func TestRunEdit_ADFPage_TitleOnly_PreservesBody(t *testing.T) {
 			case "atlas_doc_format":
 				// ADF has content
 				w.WriteHeader(http.StatusOK)
-				w.Write([]byte(`{
+				_, _ = w.Write([]byte(`{
 					"id": "12345",
 					"title": "ADF Page",
 					"version": {"number": 3},
@@ -1409,9 +1409,9 @@ func TestRunEdit_ADFPage_TitleOnly_PreservesBody(t *testing.T) {
 			}
 		case r.Method == "PUT" && strings.Contains(r.URL.Path, "/pages/12345"):
 			body, _ := io.ReadAll(r.Body)
-			json.Unmarshal(body, &receivedBody)
+			_ = json.Unmarshal(body, &receivedBody)
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{
+			_, _ = w.Write([]byte(`{
 				"id": "12345",
 				"title": "New Title",
 				"version": {"number": 4},
@@ -1446,7 +1446,7 @@ func TestRunEdit_ADFPage_TitleOnly_PreservesBody(t *testing.T) {
 func TestRunEdit_ADFPage_NewContent(t *testing.T) {
 	tmpDir := t.TempDir()
 	mdFile := filepath.Join(tmpDir, "content.md")
-	err := os.WriteFile(mdFile, []byte("# Updated Content"), 0644)
+	err := os.WriteFile(mdFile, []byte("# Updated Content"), 0600)
 	testutil.RequireNoError(t, err)
 
 	var receivedBody map[string]interface{}
@@ -1456,7 +1456,7 @@ func TestRunEdit_ADFPage_NewContent(t *testing.T) {
 			switch r.URL.Query().Get("body-format") {
 			case "storage":
 				w.WriteHeader(http.StatusOK)
-				w.Write([]byte(`{
+				_, _ = w.Write([]byte(`{
 					"id": "12345",
 					"title": "ADF Page",
 					"version": {"number": 2},
@@ -1465,7 +1465,7 @@ func TestRunEdit_ADFPage_NewContent(t *testing.T) {
 				}`))
 			case "atlas_doc_format":
 				w.WriteHeader(http.StatusOK)
-				w.Write([]byte(`{
+				_, _ = w.Write([]byte(`{
 					"id": "12345",
 					"title": "ADF Page",
 					"version": {"number": 2},
@@ -1475,9 +1475,9 @@ func TestRunEdit_ADFPage_NewContent(t *testing.T) {
 			}
 		case r.Method == "PUT" && strings.Contains(r.URL.Path, "/pages/12345"):
 			body, _ := io.ReadAll(r.Body)
-			json.Unmarshal(body, &receivedBody)
+			_ = json.Unmarshal(body, &receivedBody)
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{
+			_, _ = w.Write([]byte(`{
 				"id": "12345",
 				"title": "ADF Page",
 				"version": {"number": 3},

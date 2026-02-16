@@ -1,3 +1,4 @@
+// Package sprints provides CLI commands for managing Jira sprints.
 package sprints
 
 import (
@@ -40,7 +41,7 @@ func newListCmd(opts *root.Options) *cobra.Command {
 
   # List only active sprints
   jtk sprints list --board 123 --state active`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			if boardID == 0 {
 				return fmt.Errorf("--board is required")
 			}
@@ -110,7 +111,7 @@ func newCurrentCmd(opts *root.Options) *cobra.Command {
 		Short:   "Show current sprint",
 		Long:    "Show the current active sprint for a board.",
 		Example: `  jtk sprints current --board 123`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			if boardID == 0 {
 				return fmt.Errorf("--board is required")
 			}

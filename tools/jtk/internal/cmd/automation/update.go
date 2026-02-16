@@ -52,7 +52,7 @@ func runUpdate(ctx context.Context, opts *root.Options, ruleID, filePath string)
 
 	// Read and validate file before creating the API client so we fail
 	// fast on bad input without needing network access.
-	data, err := os.ReadFile(filePath)
+	data, err := os.ReadFile(filePath) //nolint:gosec // CLI tool reads user-provided file paths
 	if err != nil {
 		return fmt.Errorf("reading file %s: %w", filePath, err)
 	}

@@ -1,5 +1,5 @@
 // Package api provides a client for the Confluence REST API.
-package api
+package api //nolint:revive // package name is intentional
 
 import (
 	"context"

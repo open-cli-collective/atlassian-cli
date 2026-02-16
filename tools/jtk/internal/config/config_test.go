@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
 	"github.com/open-cli-collective/atlassian-go/testutil"
 	"github.com/open-cli-collective/atlassian-go/url"
 )
@@ -138,12 +139,10 @@ func TestGetURL_EnvOverride(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	// Without env, should return config value
-	os.Unsetenv("JIRA_URL")
 	testutil.Equal(t, GetURL(), "https://config.atlassian.net")
 
 	// With env, should return env value
-	os.Setenv("JIRA_URL", "https://env.atlassian.net")
-	defer os.Unsetenv("JIRA_URL")
+	t.Setenv("JIRA_URL", "https://env.atlassian.net")
 	testutil.Equal(t, GetURL(), "https://env.atlassian.net")
 }
 
@@ -160,8 +159,7 @@ func TestGetURL_LegacyDomainFallback(t *testing.T) {
 	testutil.Equal(t, GetURL(), "https://legacy.atlassian.net")
 
 	// JIRA_DOMAIN env should also work
-	os.Setenv("JIRA_DOMAIN", "env-legacy")
-	defer os.Unsetenv("JIRA_DOMAIN")
+	t.Setenv("JIRA_DOMAIN", "env-legacy")
 	testutil.Equal(t, GetURL(), "https://env-legacy.atlassian.net")
 }
 
@@ -211,12 +209,10 @@ func TestGetDomain_EnvOverride(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	// Without env, should return config value
-	os.Unsetenv("JIRA_DOMAIN")
 	testutil.Equal(t, GetDomain(), "config-domain")
 
 	// With env, should return env value
-	os.Setenv("JIRA_DOMAIN", "env-domain")
-	defer os.Unsetenv("JIRA_DOMAIN")
+	t.Setenv("JIRA_DOMAIN", "env-domain")
 	testutil.Equal(t, GetDomain(), "env-domain")
 }
 
@@ -230,12 +226,10 @@ func TestGetEmail_EnvOverride(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	// Without env, should return config value
-	os.Unsetenv("JIRA_EMAIL")
 	testutil.Equal(t, GetEmail(), "config@example.com")
 
 	// With env, should return env value
-	os.Setenv("JIRA_EMAIL", "env@example.com")
-	defer os.Unsetenv("JIRA_EMAIL")
+	t.Setenv("JIRA_EMAIL", "env@example.com")
 	testutil.Equal(t, GetEmail(), "env@example.com")
 }
 
@@ -249,12 +243,10 @@ func TestGetAPIToken_EnvOverride(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	// Without env, should return config value
-	os.Unsetenv("JIRA_API_TOKEN")
 	testutil.Equal(t, GetAPIToken(), "config-token")
 
 	// With env, should return env value
-	os.Setenv("JIRA_API_TOKEN", "env-token")
-	defer os.Unsetenv("JIRA_API_TOKEN")
+	t.Setenv("JIRA_API_TOKEN", "env-token")
 	testutil.Equal(t, GetAPIToken(), "env-token")
 }
 
@@ -267,7 +259,8 @@ func TestIsConfigured(t *testing.T) {
 
 	// Partially configured (URL only)
 	cfg := &Config{URL: "https://test.atlassian.net"}
-	Save(cfg)
+	err := Save(cfg)
+	testutil.RequireNoError(t, err)
 	testutil.False(t, IsConfigured())
 
 	// Fully configured with URL
@@ -276,7 +269,8 @@ func TestIsConfigured(t *testing.T) {
 		Email:    "test@example.com",
 		APIToken: "token",
 	}
-	Save(cfg)
+	err = Save(cfg)
+	testutil.RequireNoError(t, err)
 	testutil.True(t, IsConfigured())
 }
 
@@ -290,7 +284,8 @@ func TestIsConfigured_LegacyDomain(t *testing.T) {
 		Email:    "test@example.com",
 		APIToken: "token",
 	}
-	Save(cfg)
+	err := Save(cfg)
+	testutil.RequireNoError(t, err)
 	testutil.True(t, IsConfigured())
 }
 
@@ -299,14 +294,9 @@ func TestIsConfigured_EnvOnly(t *testing.T) {
 	defer cleanup()
 
 	// Set all env vars with JIRA_URL
-	os.Setenv("JIRA_URL", "https://env.atlassian.net")
-	os.Setenv("JIRA_EMAIL", "env@example.com")
-	os.Setenv("JIRA_API_TOKEN", "env-token")
-	defer func() {
-		os.Unsetenv("JIRA_URL")
-		os.Unsetenv("JIRA_EMAIL")
-		os.Unsetenv("JIRA_API_TOKEN")
-	}()
+	t.Setenv("JIRA_URL", "https://env.atlassian.net")
+	t.Setenv("JIRA_EMAIL", "env@example.com")
+	t.Setenv("JIRA_API_TOKEN", "env-token")
 
 	// Should be configured via env vars only
 	testutil.True(t, IsConfigured())
@@ -317,14 +307,9 @@ func TestIsConfigured_LegacyEnvOnly(t *testing.T) {
 	defer cleanup()
 
 	// Set all env vars with legacy JIRA_DOMAIN
-	os.Setenv("JIRA_DOMAIN", "env-domain")
-	os.Setenv("JIRA_EMAIL", "env@example.com")
-	os.Setenv("JIRA_API_TOKEN", "env-token")
-	defer func() {
-		os.Unsetenv("JIRA_DOMAIN")
-		os.Unsetenv("JIRA_EMAIL")
-		os.Unsetenv("JIRA_API_TOKEN")
-	}()
+	t.Setenv("JIRA_DOMAIN", "env-domain")
+	t.Setenv("JIRA_EMAIL", "env@example.com")
+	t.Setenv("JIRA_API_TOKEN", "env-token")
 
 	// Should be configured via legacy env vars
 	testutil.True(t, IsConfigured())
@@ -399,13 +384,15 @@ func TestGetURL_FullPrecedenceChain(t *testing.T) {
 		URL:    "https://config-url.atlassian.net",
 		Domain: "config-domain",
 	}
-	Save(cfg)
+	err := Save(cfg)
+	testutil.RequireNoError(t, err)
 
 	// Config URL should be returned
 	testutil.Equal(t, GetURL(), "https://config-url.atlassian.net")
 
 	// Clear config, set legacy JIRA_DOMAIN
-	Clear()
+	err = Clear()
+	testutil.RequireNoError(t, err)
 	t.Setenv("JIRA_DOMAIN", "env-domain")
 	testutil.Equal(t, GetURL(), "https://env-domain.atlassian.net")
 

@@ -113,7 +113,7 @@ func runEdit(opts *editOptions) error {
 	// fast on bad input without needing config or API access.
 	if opts.file != "" {
 		if _, err := os.Stat(opts.file); err != nil {
-			return fmt.Errorf("failed to read file: %w", err)
+			return fmt.Errorf("reading file: %w", err)
 		}
 	}
 
@@ -129,7 +129,7 @@ func runEdit(opts *editOptions) error {
 
 	existingPage, err := getPageWithBodyFallback(context.Background(), client, opts.pageID)
 	if err != nil {
-		return fmt.Errorf("failed to get page: %w", err)
+		return fmt.Errorf("getting page: %w", err)
 	}
 
 	newTitle := opts.title
@@ -217,12 +217,12 @@ func runEdit(opts *editOptions) error {
 
 	page, err := client.UpdatePage(context.Background(), opts.pageID, req)
 	if err != nil {
-		return fmt.Errorf("failed to update page: %w", err)
+		return fmt.Errorf("updating page: %w", err)
 	}
 
 	if opts.parent != "" {
 		if err := client.MovePage(context.Background(), opts.pageID, opts.parent); err != nil {
-			return fmt.Errorf("failed to move page to new parent: %w", err)
+			return fmt.Errorf("moving page to new parent: %w", err)
 		}
 	}
 
@@ -246,7 +246,7 @@ func convertEditContent(content string, isMarkdown, legacy bool) (string, error)
 		if isMarkdown {
 			converted, err := md.ToConfluenceStorage([]byte(content))
 			if err != nil {
-				return "", fmt.Errorf("failed to convert markdown: %w", err)
+				return "", fmt.Errorf("converting markdown: %w", err)
 			}
 			return converted, nil
 		}
@@ -256,7 +256,7 @@ func convertEditContent(content string, isMarkdown, legacy bool) (string, error)
 	if isMarkdown {
 		adfContent, err := md.ToADF([]byte(content))
 		if err != nil {
-			return "", fmt.Errorf("failed to convert markdown to ADF: %w", err)
+			return "", fmt.Errorf("converting markdown to ADF: %w", err)
 		}
 		return adfContent, nil
 	}
@@ -284,7 +284,7 @@ func getEditContent(opts *editOptions, existingPage *api.Page) (string, bool, er
 	if opts.file != "" {
 		data, err := os.ReadFile(opts.file)
 		if err != nil {
-			return "", false, fmt.Errorf("failed to read file: %w", err)
+			return "", false, fmt.Errorf("reading file: %w", err)
 		}
 		return string(data), useMarkdown(opts.file), nil
 	}
@@ -292,7 +292,7 @@ func getEditContent(opts *editOptions, existingPage *api.Page) (string, bool, er
 	if opts.Stdin != nil && opts.Stdin != os.Stdin {
 		data, err := io.ReadAll(opts.Stdin)
 		if err != nil {
-			return "", false, fmt.Errorf("failed to read stdin: %w", err)
+			return "", false, fmt.Errorf("reading stdin: %w", err)
 		}
 		return string(data), useMarkdown(""), nil
 	}
@@ -301,7 +301,7 @@ func getEditContent(opts *editOptions, existingPage *api.Page) (string, bool, er
 	if (stat.Mode() & os.ModeCharDevice) == 0 {
 		data, err := io.ReadAll(os.Stdin)
 		if err != nil {
-			return "", false, fmt.Errorf("failed to read stdin: %w", err)
+			return "", false, fmt.Errorf("reading stdin: %w", err)
 		}
 		return string(data), useMarkdown(""), nil
 	}
@@ -335,7 +335,7 @@ func openEditorForEdit(existingPage *api.Page, isMarkdown bool) (string, error) 
 
 	tmpfile, err := os.CreateTemp("", "cfl-edit-*"+ext)
 	if err != nil {
-		return "", fmt.Errorf("failed to create temp file: %w", err)
+		return "", fmt.Errorf("creating temp file: %w", err)
 	}
 	defer func() { _ = os.Remove(tmpfile.Name()) }()
 
@@ -363,7 +363,7 @@ func openEditorForEdit(existingPage *api.Page, isMarkdown bool) (string, error) 
 
 	data, err := os.ReadFile(tmpfile.Name())
 	if err != nil {
-		return "", fmt.Errorf("failed to read edited content: %w", err)
+		return "", fmt.Errorf("reading edited content: %w", err)
 	}
 
 	content := strings.TrimSpace(string(data))

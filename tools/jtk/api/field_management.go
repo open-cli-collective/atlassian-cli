@@ -90,7 +90,7 @@ func (c *Client) CreateField(ctx context.Context, req *CreateFieldRequest) (*Fie
 
 	var field Field
 	if err := json.Unmarshal(body, &field); err != nil {
-		return nil, fmt.Errorf("failed to parse created field: %w", err)
+		return nil, fmt.Errorf("parsing created field: %w", err)
 	}
 
 	return &field, nil
@@ -132,7 +132,7 @@ func (c *Client) GetFieldContexts(ctx context.Context, fieldID string) (*FieldCo
 
 	var result FieldContextsResponse
 	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, fmt.Errorf("failed to parse field contexts: %w", err)
+		return nil, fmt.Errorf("parsing field contexts: %w", err)
 	}
 
 	return &result, nil
@@ -167,7 +167,7 @@ func (c *Client) CreateFieldContext(ctx context.Context, fieldID string, req *Cr
 
 	var result FieldContext
 	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, fmt.Errorf("failed to parse created field context: %w", err)
+		return nil, fmt.Errorf("parsing created field context: %w", err)
 	}
 
 	return &result, nil
@@ -198,7 +198,7 @@ func (c *Client) GetFieldContextOptions(ctx context.Context, fieldID, contextID 
 
 	var result FieldContextOptionsResponse
 	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, fmt.Errorf("failed to parse field context options: %w", err)
+		return nil, fmt.Errorf("parsing field context options: %w", err)
 	}
 
 	return &result, nil
@@ -218,7 +218,7 @@ func (c *Client) CreateFieldContextOptions(ctx context.Context, fieldID, context
 
 	var result FieldContextOptionsResponse
 	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, fmt.Errorf("failed to parse created field context options: %w", err)
+		return nil, fmt.Errorf("parsing created field context options: %w", err)
 	}
 
 	return result.Values, nil
@@ -238,7 +238,7 @@ func (c *Client) UpdateFieldContextOptions(ctx context.Context, fieldID, context
 
 	var result FieldContextOptionsResponse
 	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, fmt.Errorf("failed to parse updated field context options: %w", err)
+		return nil, fmt.Errorf("parsing updated field context options: %w", err)
 	}
 
 	return result.Values, nil

@@ -142,7 +142,7 @@ func runAdd(ctx context.Context, opts *root.Options, issueKey string, files []st
 
 		attachments, err := client.AddAttachment(ctx, issueKey, absPath)
 		if err != nil {
-			return fmt.Errorf("failed to upload %s: %w", filepath.Base(filePath), err)
+			return fmt.Errorf("uploading %s: %w", filepath.Base(filePath), err)
 		}
 
 		for _, att := range attachments {
@@ -191,12 +191,12 @@ func runGet(ctx context.Context, opts *root.Options, attachmentID, outputPath st
 	// Get attachment metadata
 	attachment, err := client.GetAttachment(ctx, attachmentID)
 	if err != nil {
-		return fmt.Errorf("failed to get attachment: %w", err)
+		return fmt.Errorf("getting attachment: %w", err)
 	}
 
 	// Download the file
 	if err := client.DownloadAttachment(ctx, attachment, outputPath); err != nil {
-		return fmt.Errorf("failed to download attachment: %w", err)
+		return fmt.Errorf("downloading attachment: %w", err)
 	}
 
 	// Determine actual output path for message
@@ -235,7 +235,7 @@ func runDelete(ctx context.Context, opts *root.Options, attachmentID string) err
 	}
 
 	if err := client.DeleteAttachment(ctx, attachmentID); err != nil {
-		return fmt.Errorf("failed to delete attachment: %w", err)
+		return fmt.Errorf("deleting attachment: %w", err)
 	}
 
 	v.Success("Deleted attachment %s", attachmentID)

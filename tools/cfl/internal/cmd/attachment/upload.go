@@ -53,7 +53,7 @@ func runUpload(opts *uploadOptions) error {
 
 	file, err := os.Open(opts.file)
 	if err != nil {
-		return fmt.Errorf("failed to open file: %w", err)
+		return fmt.Errorf("opening file: %w", err)
 	}
 	defer func() { _ = file.Close() }()
 
@@ -61,7 +61,7 @@ func runUpload(opts *uploadOptions) error {
 
 	attachment, err := client.UploadAttachment(context.Background(), opts.pageID, filename, file, opts.comment)
 	if err != nil {
-		return fmt.Errorf("failed to upload attachment: %w", err)
+		return fmt.Errorf("uploading attachment: %w", err)
 	}
 
 	v := opts.View()

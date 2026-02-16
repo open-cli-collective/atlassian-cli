@@ -169,7 +169,7 @@ func TestRunDelete_PageNotFound(t *testing.T) {
 
 	err := runDelete("99999", opts)
 	testutil.RequireError(t, err)
-	testutil.Contains(t, err.Error(), "failed to get page")
+	testutil.Contains(t, err.Error(), "getting page")
 }
 
 func TestRunDelete_DeleteFailed(t *testing.T) {
@@ -187,7 +187,7 @@ func TestRunDelete_DeleteFailed(t *testing.T) {
 
 	err := runDelete("12345", opts)
 	testutil.RequireError(t, err)
-	testutil.Contains(t, err.Error(), "failed to delete page")
+	testutil.Contains(t, err.Error(), "deleting page")
 }
 
 func TestRunDelete_JSONOutput(t *testing.T) {

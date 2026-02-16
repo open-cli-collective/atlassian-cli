@@ -224,7 +224,7 @@ func TestRunCreate_SpaceNotFound(t *testing.T) {
 
 	err = runCreate(opts)
 	testutil.RequireError(t, err)
-	testutil.Contains(t, err.Error(), "failed to find space")
+	testutil.Contains(t, err.Error(), "finding space")
 }
 
 func TestRunCreate_CreateFailed(t *testing.T) {
@@ -249,7 +249,7 @@ func TestRunCreate_CreateFailed(t *testing.T) {
 
 	err = runCreate(opts)
 	testutil.RequireError(t, err)
-	testutil.Contains(t, err.Error(), "failed to create page")
+	testutil.Contains(t, err.Error(), "creating page")
 }
 
 func TestRunCreate_WithParent(t *testing.T) {
@@ -433,7 +433,7 @@ func TestRunCreate_FileReadError(t *testing.T) {
 
 	err := runCreate(opts)
 	testutil.RequireError(t, err)
-	testutil.Contains(t, err.Error(), "failed to read file")
+	testutil.Contains(t, err.Error(), "reading file")
 }
 
 func TestRunCreate_Stdin_ADF(t *testing.T) {

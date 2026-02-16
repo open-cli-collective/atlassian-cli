@@ -104,7 +104,7 @@ func runView(pageID string, opts *viewOptions) error {
 	if opts.web {
 		page, err := client.GetPage(context.Background(), pageID, nil)
 		if err != nil {
-			return fmt.Errorf("failed to get page: %w", err)
+			return fmt.Errorf("getting page: %w", err)
 		}
 		url := cfg.URL + page.Links.WebUI
 		return openBrowser(url)
@@ -112,7 +112,7 @@ func runView(pageID string, opts *viewOptions) error {
 
 	page, err := getPageWithBodyFallback(context.Background(), client, pageID)
 	if err != nil {
-		return fmt.Errorf("failed to get page: %w", err)
+		return fmt.Errorf("getting page: %w", err)
 	}
 
 	v := opts.View()

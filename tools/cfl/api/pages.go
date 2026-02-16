@@ -57,7 +57,7 @@ func (c *Client) ListPages(ctx context.Context, spaceID string, opts *ListPagesO
 
 	var result PaginatedResponse[Page]
 	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, fmt.Errorf("failed to parse pages response: %w", err)
+		return nil, fmt.Errorf("parsing pages response: %w", err)
 	}
 
 	return &result, nil
@@ -82,7 +82,7 @@ func (c *Client) GetPage(ctx context.Context, pageID string, opts *GetPageOption
 
 	var page Page
 	if err := json.Unmarshal(body, &page); err != nil {
-		return nil, fmt.Errorf("failed to parse page response: %w", err)
+		return nil, fmt.Errorf("parsing page response: %w", err)
 	}
 
 	return &page, nil
@@ -97,7 +97,7 @@ func (c *Client) CreatePage(ctx context.Context, req *CreatePageRequest) (*Page,
 
 	var page Page
 	if err := json.Unmarshal(body, &page); err != nil {
-		return nil, fmt.Errorf("failed to parse create page response: %w", err)
+		return nil, fmt.Errorf("parsing create page response: %w", err)
 	}
 
 	return &page, nil
@@ -113,7 +113,7 @@ func (c *Client) UpdatePage(ctx context.Context, pageID string, req *UpdatePageR
 
 	var page Page
 	if err := json.Unmarshal(body, &page); err != nil {
-		return nil, fmt.Errorf("failed to parse update page response: %w", err)
+		return nil, fmt.Errorf("parsing update page response: %w", err)
 	}
 
 	return &page, nil
@@ -225,7 +225,7 @@ func (c *Client) CopyPage(ctx context.Context, pageID string, opts *CopyPageOpti
 
 	var response v1PageResponse
 	if err := json.Unmarshal(body, &response); err != nil {
-		return nil, fmt.Errorf("failed to parse copy response: %w", err)
+		return nil, fmt.Errorf("parsing copy response: %w", err)
 	}
 
 	return response.toPage(), nil

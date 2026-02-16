@@ -18,7 +18,7 @@ func (c *Client) GetFields(ctx context.Context) ([]Field, error) {
 
 	var fields []Field
 	if err := json.Unmarshal(body, &fields); err != nil {
-		return nil, fmt.Errorf("failed to parse fields: %w", err)
+		return nil, fmt.Errorf("parsing fields: %w", err)
 	}
 
 	return fields, nil
@@ -166,7 +166,7 @@ func (c *Client) GetFieldOptions(ctx context.Context, fieldID string) ([]FieldOp
 	if err := json.Unmarshal(body, &result); err != nil {
 		var options []FieldOptionValue
 		if err2 := json.Unmarshal(body, &options); err2 != nil {
-			return nil, fmt.Errorf("failed to parse field options: %w", err)
+			return nil, fmt.Errorf("parsing field options: %w", err)
 		}
 		return options, nil
 	}

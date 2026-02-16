@@ -29,7 +29,7 @@ func (c *Client) ListBoards(ctx context.Context, projectKeyOrID string, startAt,
 
 	var result BoardsResponse
 	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, fmt.Errorf("failed to parse boards: %w", err)
+		return nil, fmt.Errorf("parsing boards: %w", err)
 	}
 
 	return &result, nil
@@ -45,7 +45,7 @@ func (c *Client) GetBoard(ctx context.Context, boardID int) (*Board, error) {
 
 	var board Board
 	if err := json.Unmarshal(body, &board); err != nil {
-		return nil, fmt.Errorf("failed to parse board: %w", err)
+		return nil, fmt.Errorf("parsing board: %w", err)
 	}
 
 	return &board, nil

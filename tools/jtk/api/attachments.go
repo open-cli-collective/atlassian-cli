@@ -75,7 +75,7 @@ func (c *Client) GetIssueAttachments(ctx context.Context, issueKey string) ([]At
 		} `json:"fields"`
 	}
 	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, fmt.Errorf("failed to parse attachments: %w", err)
+		return nil, fmt.Errorf("parsing attachments: %w", err)
 	}
 
 	return result.Fields.Attachment, nil
@@ -95,7 +95,7 @@ func (c *Client) GetAttachment(ctx context.Context, attachmentID string) (*Attac
 
 	var attachment Attachment
 	if err := json.Unmarshal(body, &attachment); err != nil {
-		return nil, fmt.Errorf("failed to parse attachment: %w", err)
+		return nil, fmt.Errorf("parsing attachment: %w", err)
 	}
 
 	return &attachment, nil
@@ -112,7 +112,7 @@ func (c *Client) AddAttachment(ctx context.Context, issueKey, filePath string) (
 
 	file, err := os.Open(filePath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open file: %w", err)
+		return nil, fmt.Errorf("opening file: %w", err)
 	}
 	defer file.Close()
 
@@ -128,12 +128,12 @@ func (c *Client) AddAttachment(ctx context.Context, issueKey, filePath string) (
 
 		part, err := writer.CreateFormFile("file", filepath.Base(filePath))
 		if err != nil {
-			errChan <- fmt.Errorf("failed to create form file: %w", err)
+			errChan <- fmt.Errorf("creating form file: %w", err)
 			return
 		}
 
 		if _, err := io.Copy(part, file); err != nil {
-			errChan <- fmt.Errorf("failed to copy file content: %w", err)
+			errChan <- fmt.Errorf("copying file content: %w", err)
 			return
 		}
 		errChan <- nil
@@ -143,7 +143,7 @@ func (c *Client) AddAttachment(ctx context.Context, issueKey, filePath string) (
 
 	req, err := http.NewRequest(http.MethodPost, urlStr, pr)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
+		return nil, fmt.Errorf("creating request: %w", err)
 	}
 
 	req.Header.Set("Authorization", c.GetAuthHeader())
@@ -169,7 +169,7 @@ func (c *Client) AddAttachment(ctx context.Context, issueKey, filePath string) (
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read response: %w", err)
+		return nil, fmt.Errorf("reading response: %w", err)
 	}
 
 	if c.Verbose {
@@ -182,7 +182,7 @@ func (c *Client) AddAttachment(ctx context.Context, issueKey, filePath string) (
 
 	var attachments []Attachment
 	if err := json.Unmarshal(respBody, &attachments); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %w", err)
+		return nil, fmt.Errorf("parsing response: %w", err)
 	}
 
 	return attachments, nil
@@ -211,7 +211,7 @@ func (c *Client) DownloadAttachment(ctx context.Context, attachment *Attachment,
 	// Create the request
 	req, err := http.NewRequest(http.MethodGet, attachment.Content, nil)
 	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
+		return fmt.Errorf("creating request: %w", err)
 	}
 
 	req.Header.Set("Authorization", c.GetAuthHeader())
@@ -244,13 +244,13 @@ func (c *Client) DownloadAttachment(ctx context.Context, attachment *Attachment,
 	// Create the output file
 	file, err := os.Create(outFile)
 	if err != nil {
-		return fmt.Errorf("failed to create output file: %w", err)
+		return fmt.Errorf("creating output file: %w", err)
 	}
 	defer file.Close()
 
 	// Copy the content
 	if _, err := io.Copy(file, resp.Body); err != nil {
-		return fmt.Errorf("failed to write file: %w", err)
+		return fmt.Errorf("writing file: %w", err)
 	}
 
 	return nil

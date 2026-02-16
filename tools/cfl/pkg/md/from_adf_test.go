@@ -23,7 +23,7 @@ func TestFromADF_EmptyDocument(t *testing.T) {
 func TestFromADF_InvalidJSON(t *testing.T) {
 	_, err := FromADF("{invalid")
 	testutil.RequireError(t, err)
-	testutil.Contains(t, err.Error(), "failed to parse ADF JSON")
+	testutil.Contains(t, err.Error(), "parsing ADF JSON")
 }
 
 func TestFromADF_Paragraph(t *testing.T) {

@@ -39,6 +39,6 @@ func TestRunUpdate(t *testing.T) {
 
 		err := runUpdate(context.Background(), opts, "12345", "/nonexistent/path/rule.json")
 		testutil.RequireError(t, err)
-		testutil.Contains(t, err.Error(), "failed to read file")
+		testutil.Contains(t, err.Error(), "reading file")
 	})
 }

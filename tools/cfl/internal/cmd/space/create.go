@@ -77,7 +77,7 @@ func runCreate(opts *createOptions) error {
 
 	space, err := client.CreateSpace(context.Background(), req)
 	if err != nil {
-		return fmt.Errorf("failed to create space: %w", err)
+		return fmt.Errorf("creating space: %w", err)
 	}
 
 	v := opts.View()

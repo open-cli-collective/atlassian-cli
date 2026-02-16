@@ -148,7 +148,7 @@ func TestRunEdit_PageNotFound(t *testing.T) {
 
 	err := runEdit(opts)
 	testutil.RequireError(t, err)
-	testutil.Contains(t, err.Error(), "failed to get page")
+	testutil.Contains(t, err.Error(), "getting page")
 }
 
 func TestRunEdit_UpdateFailed(t *testing.T) {
@@ -189,7 +189,7 @@ func TestRunEdit_UpdateFailed(t *testing.T) {
 
 	err = runEdit(opts)
 	testutil.RequireError(t, err)
-	testutil.Contains(t, err.Error(), "failed to update page")
+	testutil.Contains(t, err.Error(), "updating page")
 }
 
 func TestRunEdit_VersionIncrement(t *testing.T) {
@@ -490,7 +490,7 @@ func TestRunEdit_FileReadError(t *testing.T) {
 
 	err := runEdit(opts)
 	testutil.RequireError(t, err)
-	testutil.Contains(t, err.Error(), "failed to read file")
+	testutil.Contains(t, err.Error(), "reading file")
 }
 
 func TestRunEdit_Stdin_ADF(t *testing.T) {
@@ -861,7 +861,7 @@ func TestRunEdit_MoveFailed(t *testing.T) {
 
 	err := runEdit(opts)
 	testutil.RequireError(t, err)
-	testutil.Contains(t, err.Error(), "failed to move page to new parent")
+	testutil.Contains(t, err.Error(), "moving page to new parent")
 }
 
 func TestRunEdit_MoveWithContent(t *testing.T) {

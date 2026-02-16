@@ -30,7 +30,7 @@ func (c *Client) GetComments(ctx context.Context, issueKey string, startAt, maxR
 
 	var result CommentsResponse
 	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, fmt.Errorf("failed to parse comments: %w", err)
+		return nil, fmt.Errorf("parsing comments: %w", err)
 	}
 
 	return &result, nil
@@ -54,7 +54,7 @@ func (c *Client) AddComment(ctx context.Context, issueKey, commentBody string) (
 
 	var comment Comment
 	if err := json.Unmarshal(body, &comment); err != nil {
-		return nil, fmt.Errorf("failed to parse comment: %w", err)
+		return nil, fmt.Errorf("parsing comment: %w", err)
 	}
 
 	return &comment, nil

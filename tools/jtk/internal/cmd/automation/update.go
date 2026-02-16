@@ -54,7 +54,7 @@ func runUpdate(ctx context.Context, opts *root.Options, ruleID, filePath string)
 	// fast on bad input without needing network access.
 	data, err := os.ReadFile(filePath)
 	if err != nil {
-		return fmt.Errorf("failed to read file %s: %w", filePath, err)
+		return fmt.Errorf("reading file %s: %w", filePath, err)
 	}
 
 	if !json.Valid(data) {
@@ -69,7 +69,7 @@ func runUpdate(ctx context.Context, opts *root.Options, ruleID, filePath string)
 	// Fetch current rule to show what we're updating
 	current, err := client.GetAutomationRule(ctx, ruleID)
 	if err != nil {
-		return fmt.Errorf("failed to fetch current rule: %w", err)
+		return fmt.Errorf("fetching current rule: %w", err)
 	}
 
 	v.Info("Updating rule: %s (UUID: %s, State: %s)", current.Name, current.Identifier(), current.State)

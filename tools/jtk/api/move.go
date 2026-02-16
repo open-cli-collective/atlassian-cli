@@ -67,7 +67,7 @@ func (c *Client) MoveIssues(ctx context.Context, req MoveIssuesRequest) (*MoveIs
 
 	var resp MoveIssuesResponse
 	if err := json.Unmarshal(body, &resp); err != nil {
-		return nil, fmt.Errorf("failed to parse move response: %w", err)
+		return nil, fmt.Errorf("parsing move response: %w", err)
 	}
 
 	return &resp, nil
@@ -89,7 +89,7 @@ func (c *Client) GetMoveTaskStatus(ctx context.Context, taskID string) (*MoveTas
 
 	var status MoveTaskStatus
 	if err := json.Unmarshal(body, &status); err != nil {
-		return nil, fmt.Errorf("failed to parse task status: %w", err)
+		return nil, fmt.Errorf("parsing task status: %w", err)
 	}
 
 	return &status, nil
@@ -112,7 +112,7 @@ func (c *Client) GetProjectIssueTypes(ctx context.Context, projectKey string) ([
 		IssueTypes []IssueType `json:"issueTypes"`
 	}
 	if err := json.Unmarshal(body, &project); err != nil {
-		return nil, fmt.Errorf("failed to parse project: %w", err)
+		return nil, fmt.Errorf("parsing project: %w", err)
 	}
 
 	return project.IssueTypes, nil
@@ -133,7 +133,7 @@ func (c *Client) GetProjectStatuses(ctx context.Context, projectKey string) ([]P
 
 	var statuses []ProjectStatus
 	if err := json.Unmarshal(body, &statuses); err != nil {
-		return nil, fmt.Errorf("failed to parse statuses: %w", err)
+		return nil, fmt.Errorf("parsing statuses: %w", err)
 	}
 
 	return statuses, nil

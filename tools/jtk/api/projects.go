@@ -65,7 +65,7 @@ func (c *Client) ListProjects(ctx context.Context) ([]Project, error) {
 
 	var projects []Project
 	if err := json.Unmarshal(body, &projects); err != nil {
-		return nil, fmt.Errorf("failed to parse projects: %w", err)
+		return nil, fmt.Errorf("parsing projects: %w", err)
 	}
 
 	return projects, nil
@@ -93,7 +93,7 @@ func (c *Client) SearchProjects(ctx context.Context, query string, startAt, maxR
 
 	var result ProjectSearchResponse
 	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, fmt.Errorf("failed to parse project search results: %w", err)
+		return nil, fmt.Errorf("parsing project search results: %w", err)
 	}
 
 	return &result, nil
@@ -113,7 +113,7 @@ func (c *Client) GetProject(ctx context.Context, projectKeyOrID string) (*Projec
 
 	var project ProjectDetail
 	if err := json.Unmarshal(body, &project); err != nil {
-		return nil, fmt.Errorf("failed to parse project: %w", err)
+		return nil, fmt.Errorf("parsing project: %w", err)
 	}
 
 	return &project, nil
@@ -129,7 +129,7 @@ func (c *Client) CreateProject(ctx context.Context, req *CreateProjectRequest) (
 
 	var project ProjectDetail
 	if err := json.Unmarshal(body, &project); err != nil {
-		return nil, fmt.Errorf("failed to parse created project: %w", err)
+		return nil, fmt.Errorf("parsing created project: %w", err)
 	}
 
 	return &project, nil
@@ -149,7 +149,7 @@ func (c *Client) UpdateProject(ctx context.Context, projectKeyOrID string, req *
 
 	var project ProjectDetail
 	if err := json.Unmarshal(body, &project); err != nil {
-		return nil, fmt.Errorf("failed to parse updated project: %w", err)
+		return nil, fmt.Errorf("parsing updated project: %w", err)
 	}
 
 	return &project, nil
@@ -180,7 +180,7 @@ func (c *Client) RestoreProject(ctx context.Context, projectKeyOrID string) (*Pr
 
 	var project ProjectDetail
 	if err := json.Unmarshal(body, &project); err != nil {
-		return nil, fmt.Errorf("failed to parse restored project: %w", err)
+		return nil, fmt.Errorf("parsing restored project: %w", err)
 	}
 
 	return &project, nil
@@ -196,7 +196,7 @@ func (c *Client) ListProjectTypes(ctx context.Context) ([]ProjectType, error) {
 
 	var types []ProjectType
 	if err := json.Unmarshal(body, &types); err != nil {
-		return nil, fmt.Errorf("failed to parse project types: %w", err)
+		return nil, fmt.Errorf("parsing project types: %w", err)
 	}
 
 	return types, nil

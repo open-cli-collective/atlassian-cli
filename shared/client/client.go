@@ -87,14 +87,14 @@ func (c *Client) Do(ctx context.Context, method, path string, body interface{}) 
 	if body != nil {
 		jsonBody, err := json.Marshal(body)
 		if err != nil {
-			return nil, fmt.Errorf("failed to marshal request body: %w", err)
+			return nil, fmt.Errorf("marshaling request body: %w", err)
 		}
 		reqBody = bytes.NewReader(jsonBody)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, method, url, reqBody)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
+		return nil, fmt.Errorf("creating request: %w", err)
 	}
 
 	// Set headers
@@ -114,7 +114,7 @@ func (c *Client) Do(ctx context.Context, method, path string, body interface{}) 
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %w", err)
+		return nil, fmt.Errorf("reading response body: %w", err)
 	}
 
 	if c.Verbose {

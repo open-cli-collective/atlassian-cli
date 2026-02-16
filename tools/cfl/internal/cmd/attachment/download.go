@@ -50,7 +50,7 @@ func runDownload(attachmentID string, opts *downloadOptions) error {
 
 	attachment, err := client.GetAttachment(context.Background(), attachmentID)
 	if err != nil {
-		return fmt.Errorf("failed to get attachment info: %w", err)
+		return fmt.Errorf("getting attachment info: %w", err)
 	}
 
 	outputPath := opts.outputFile
@@ -69,19 +69,19 @@ func runDownload(attachmentID string, opts *downloadOptions) error {
 
 	reader, err := client.DownloadAttachment(context.Background(), attachmentID)
 	if err != nil {
-		return fmt.Errorf("failed to download attachment: %w", err)
+		return fmt.Errorf("downloading attachment: %w", err)
 	}
 	defer func() { _ = reader.Close() }()
 
 	outFile, err := os.Create(outputPath)
 	if err != nil {
-		return fmt.Errorf("failed to create output file: %w", err)
+		return fmt.Errorf("creating output file: %w", err)
 	}
 	defer func() { _ = outFile.Close() }()
 
 	bytesWritten, err := io.Copy(outFile, reader)
 	if err != nil {
-		return fmt.Errorf("failed to write file: %w", err)
+		return fmt.Errorf("writing file: %w", err)
 	}
 
 	v := opts.View()

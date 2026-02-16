@@ -83,7 +83,7 @@ func runList(opts *listOptions) error {
 
 	result, err := client.ListSpaces(context.Background(), apiOpts)
 	if err != nil {
-		return fmt.Errorf("failed to list spaces: %w", err)
+		return fmt.Errorf("listing spaces: %w", err)
 	}
 
 	if len(result.Results) == 0 {

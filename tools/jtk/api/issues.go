@@ -21,7 +21,7 @@ func (c *Client) GetIssue(ctx context.Context, issueKey string) (*Issue, error) 
 
 	var issue Issue
 	if err := json.Unmarshal(body, &issue); err != nil {
-		return nil, fmt.Errorf("failed to parse issue: %w", err)
+		return nil, fmt.Errorf("parsing issue: %w", err)
 	}
 
 	return &issue, nil
@@ -37,7 +37,7 @@ func (c *Client) CreateIssue(ctx context.Context, req *CreateIssueRequest) (*Iss
 
 	var issue Issue
 	if err := json.Unmarshal(body, &issue); err != nil {
-		return nil, fmt.Errorf("failed to parse created issue: %w", err)
+		return nil, fmt.Errorf("parsing created issue: %w", err)
 	}
 
 	return &issue, nil
@@ -99,7 +99,7 @@ func (c *Client) GetIssueEditMeta(ctx context.Context, issueKey string) (map[str
 
 	var result map[string]interface{}
 	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, fmt.Errorf("failed to parse edit metadata: %w", err)
+		return nil, fmt.Errorf("parsing edit metadata: %w", err)
 	}
 
 	return result, nil

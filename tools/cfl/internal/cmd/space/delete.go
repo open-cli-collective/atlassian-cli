@@ -52,7 +52,7 @@ func runDelete(spaceKey string, opts *deleteOptions) error {
 
 	space, err := client.GetSpaceByKey(context.Background(), spaceKey)
 	if err != nil {
-		return fmt.Errorf("failed to get space: %w", err)
+		return fmt.Errorf("getting space: %w", err)
 	}
 
 	v := opts.View()
@@ -63,7 +63,7 @@ func runDelete(spaceKey string, opts *deleteOptions) error {
 
 		confirmed, err := prompt.Confirm(opts.Stdin)
 		if err != nil {
-			return fmt.Errorf("failed to read confirmation: %w", err)
+			return fmt.Errorf("reading confirmation: %w", err)
 		}
 		if !confirmed {
 			fmt.Println("Deletion cancelled.")
@@ -72,7 +72,7 @@ func runDelete(spaceKey string, opts *deleteOptions) error {
 	}
 
 	if err := client.DeleteSpace(context.Background(), spaceKey); err != nil {
-		return fmt.Errorf("failed to delete space: %w", err)
+		return fmt.Errorf("deleting space: %w", err)
 	}
 
 	if opts.Output == "json" {

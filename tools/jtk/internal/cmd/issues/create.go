@@ -75,7 +75,7 @@ func runCreate(ctx context.Context, opts *root.Options, project, issueType, summ
 		// Get field metadata to resolve names to IDs
 		allFields, err := client.GetFields(ctx)
 		if err != nil {
-			return fmt.Errorf("failed to get field metadata: %w", err)
+			return fmt.Errorf("getting field metadata: %w", err)
 		}
 
 		for _, f := range fieldArgs {

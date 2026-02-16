@@ -70,14 +70,14 @@ func runFieldOptions(ctx context.Context, opts *root.Options, fieldNameOrID, iss
 		// Use edit metadata for issue-specific context
 		options, err = client.GetFieldOptionsFromEditMeta(ctx, issueKey, fieldID)
 		if err != nil {
-			return fmt.Errorf("failed to get options for field %s: %w", fieldName, err)
+			return fmt.Errorf("getting options for field %s: %w", fieldName, err)
 		}
 	} else {
 		// Try to get options without issue context
 		options, err = client.GetFieldOptions(ctx, fieldID)
 		if err != nil {
 			v.Warning("Could not get field options without issue context. Use --issue flag for better results.")
-			return fmt.Errorf("failed to get options for field %s: %w", fieldName, err)
+			return fmt.Errorf("getting options for field %s: %w", fieldName, err)
 		}
 	}
 

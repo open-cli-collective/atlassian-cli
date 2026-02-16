@@ -164,7 +164,7 @@ func runInit(ctx context.Context, opts *root.Options, prefillURL, prefillEmail, 
 			APIToken: cfg.APIToken,
 		})
 		if err != nil {
-			return fmt.Errorf("failed to create client: %w", err)
+			return fmt.Errorf("creating client: %w", err)
 		}
 
 		user, err := client.GetCurrentUser(ctx)
@@ -182,7 +182,7 @@ func runInit(ctx context.Context, opts *root.Options, prefillURL, prefillEmail, 
 
 	// Save configuration
 	if err := config.Save(cfg); err != nil {
-		return fmt.Errorf("failed to save configuration: %w", err)
+		return fmt.Errorf("saving configuration: %w", err)
 	}
 
 	v.Success("Configuration saved to %s", configPath)

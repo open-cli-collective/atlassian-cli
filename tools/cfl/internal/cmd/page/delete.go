@@ -48,7 +48,7 @@ func runDelete(pageID string, opts *deleteOptions) error {
 	// nil opts: body content is not needed, only title for the confirmation prompt
 	page, err := client.GetPage(context.Background(), pageID, nil)
 	if err != nil {
-		return fmt.Errorf("failed to get page: %w", err)
+		return fmt.Errorf("getting page: %w", err)
 	}
 
 	v := opts.View()
@@ -59,7 +59,7 @@ func runDelete(pageID string, opts *deleteOptions) error {
 
 		confirmed, err := prompt.Confirm(opts.Stdin)
 		if err != nil {
-			return fmt.Errorf("failed to read confirmation: %w", err)
+			return fmt.Errorf("reading confirmation: %w", err)
 		}
 		if !confirmed {
 			fmt.Println("Deletion cancelled.")
@@ -68,7 +68,7 @@ func runDelete(pageID string, opts *deleteOptions) error {
 	}
 
 	if err := client.DeletePage(context.Background(), pageID); err != nil {
-		return fmt.Errorf("failed to delete page: %w", err)
+		return fmt.Errorf("deleting page: %w", err)
 	}
 
 	if opts.Output == "json" {

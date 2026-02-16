@@ -48,7 +48,7 @@ func (c *Client) ListAttachments(ctx context.Context, pageID string, opts *ListA
 
 	var result PaginatedResponse[Attachment]
 	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, fmt.Errorf("failed to parse attachments response: %w", err)
+		return nil, fmt.Errorf("parsing attachments response: %w", err)
 	}
 
 	return &result, nil
@@ -64,7 +64,7 @@ func (c *Client) GetAttachment(ctx context.Context, attachmentID string) (*Attac
 
 	var att Attachment
 	if err := json.Unmarshal(body, &att); err != nil {
-		return nil, fmt.Errorf("failed to parse attachment response: %w", err)
+		return nil, fmt.Errorf("parsing attachment response: %w", err)
 	}
 
 	return &att, nil
@@ -75,7 +75,7 @@ func (c *Client) DownloadAttachment(ctx context.Context, attachmentID string) (i
 	// Get attachment metadata which includes the download URL
 	att, err := c.GetAttachment(ctx, attachmentID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get attachment: %w", err)
+		return nil, fmt.Errorf("getting attachment: %w", err)
 	}
 
 	if att.DownloadLink == "" {
@@ -114,21 +114,21 @@ func (c *Client) UploadAttachment(ctx context.Context, pageID, filename string, 
 	// Add file part
 	part, err := writer.CreateFormFile("file", filename)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create form file: %w", err)
+		return nil, fmt.Errorf("creating form file: %w", err)
 	}
 	if _, err := io.Copy(part, content); err != nil {
-		return nil, fmt.Errorf("failed to copy file content: %w", err)
+		return nil, fmt.Errorf("copying file content: %w", err)
 	}
 
 	// Add comment if provided
 	if comment != "" {
 		if err := writer.WriteField("comment", comment); err != nil {
-			return nil, fmt.Errorf("failed to write comment field: %w", err)
+			return nil, fmt.Errorf("writing comment field: %w", err)
 		}
 	}
 
 	if err := writer.Close(); err != nil {
-		return nil, fmt.Errorf("failed to close multipart writer: %w", err)
+		return nil, fmt.Errorf("closing multipart writer: %w", err)
 	}
 
 	// Use v1 API for uploads
@@ -166,7 +166,7 @@ func (c *Client) UploadAttachment(ctx context.Context, pageID, filename string, 
 		Results []Attachment `json:"results"`
 	}
 	if err := json.Unmarshal(respBody, &result); err != nil {
-		return nil, fmt.Errorf("failed to parse upload response: %w", err)
+		return nil, fmt.Errorf("parsing upload response: %w", err)
 	}
 
 	if len(result.Results) == 0 {

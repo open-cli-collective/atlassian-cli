@@ -14,7 +14,7 @@ func resolveAssignee(ctx context.Context, client *api.Client, assignee string) (
 	if strings.EqualFold(assignee, "me") {
 		user, err := client.GetCurrentUser(ctx)
 		if err != nil {
-			return "", fmt.Errorf("failed to resolve current user: %w", err)
+			return "", fmt.Errorf("resolving current user: %w", err)
 		}
 		return user.AccountID, nil
 	}
@@ -22,7 +22,7 @@ func resolveAssignee(ctx context.Context, client *api.Client, assignee string) (
 	if strings.Contains(assignee, "@") {
 		users, err := client.SearchUsers(ctx, assignee, 1)
 		if err != nil {
-			return "", fmt.Errorf("failed to search for user %q: %w", assignee, err)
+			return "", fmt.Errorf("searching for user %q: %w", assignee, err)
 		}
 		if len(users) == 0 {
 			return "", fmt.Errorf("no user found matching %q", assignee)

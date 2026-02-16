@@ -49,7 +49,7 @@ func runView(spaceKey string, opts *viewOptions) error {
 
 	space, err := client.GetSpaceByKey(context.Background(), spaceKey)
 	if err != nil {
-		return fmt.Errorf("failed to get space: %w", err)
+		return fmt.Errorf("getting space: %w", err)
 	}
 
 	v := opts.View()

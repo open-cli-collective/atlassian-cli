@@ -109,7 +109,7 @@ func runCreate(opts *createOptions) error {
 	// fast on bad input without needing config or API access.
 	if opts.file != "" {
 		if _, err := os.Stat(opts.file); err != nil {
-			return fmt.Errorf("failed to read file: %w", err)
+			return fmt.Errorf("reading file: %w", err)
 		}
 	}
 
@@ -134,7 +134,7 @@ func runCreate(opts *createOptions) error {
 
 	space, err := client.GetSpaceByKey(context.Background(), spaceKey)
 	if err != nil {
-		return fmt.Errorf("failed to find space '%s': %w", spaceKey, err)
+		return fmt.Errorf("finding space '%s': %w", spaceKey, err)
 	}
 
 	content, isMarkdown, err := getContent(opts)
@@ -152,7 +152,7 @@ func runCreate(opts *createOptions) error {
 		if isMarkdown {
 			converted, err := md.ToConfluenceStorage([]byte(content))
 			if err != nil {
-				return fmt.Errorf("failed to convert markdown: %w", err)
+				return fmt.Errorf("converting markdown: %w", err)
 			}
 			content = converted
 		}
@@ -166,7 +166,7 @@ func runCreate(opts *createOptions) error {
 		if isMarkdown {
 			adfContent, err := md.ToADF([]byte(content))
 			if err != nil {
-				return fmt.Errorf("failed to convert markdown to ADF: %w", err)
+				return fmt.Errorf("converting markdown to ADF: %w", err)
 			}
 			content = adfContent
 		}
@@ -191,7 +191,7 @@ func runCreate(opts *createOptions) error {
 
 	page, err := client.CreatePage(context.Background(), req)
 	if err != nil {
-		return fmt.Errorf("failed to create page: %w", err)
+		return fmt.Errorf("creating page: %w", err)
 	}
 
 	v := opts.View()
@@ -229,7 +229,7 @@ func getContent(opts *createOptions) (string, bool, error) {
 	if opts.file != "" {
 		data, err := os.ReadFile(opts.file)
 		if err != nil {
-			return "", false, fmt.Errorf("failed to read file: %w", err)
+			return "", false, fmt.Errorf("reading file: %w", err)
 		}
 		return string(data), useMarkdown(opts.file), nil
 	}
@@ -237,7 +237,7 @@ func getContent(opts *createOptions) (string, bool, error) {
 	if opts.Stdin != nil && opts.Stdin != os.Stdin {
 		data, err := io.ReadAll(opts.Stdin)
 		if err != nil {
-			return "", false, fmt.Errorf("failed to read stdin: %w", err)
+			return "", false, fmt.Errorf("reading stdin: %w", err)
 		}
 		return string(data), useMarkdown(""), nil
 	}
@@ -246,7 +246,7 @@ func getContent(opts *createOptions) (string, bool, error) {
 	if (stat.Mode() & os.ModeCharDevice) == 0 {
 		data, err := io.ReadAll(os.Stdin)
 		if err != nil {
-			return "", false, fmt.Errorf("failed to read stdin: %w", err)
+			return "", false, fmt.Errorf("reading stdin: %w", err)
 		}
 		return string(data), useMarkdown(""), nil
 	}
@@ -275,7 +275,7 @@ Enter your content here using markdown.
 
 	tmpfile, err := os.CreateTemp("", "cfl-*"+ext)
 	if err != nil {
-		return "", fmt.Errorf("failed to create temp file: %w", err)
+		return "", fmt.Errorf("creating temp file: %w", err)
 	}
 	defer func() { _ = os.Remove(tmpfile.Name()) }()
 
@@ -303,7 +303,7 @@ Enter your content here using markdown.
 
 	data, err := os.ReadFile(tmpfile.Name())
 	if err != nil {
-		return "", fmt.Errorf("failed to read edited content: %w", err)
+		return "", fmt.Errorf("reading edited content: %w", err)
 	}
 
 	content := strings.TrimSpace(string(data))

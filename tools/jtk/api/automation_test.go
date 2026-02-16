@@ -67,7 +67,7 @@ func TestGetCloudID(t *testing.T) {
 
 		_, err := client.GetCloudID()
 		testutil.Error(t, err)
-		testutil.Contains(t, err.Error(), "failed to fetch cloud ID")
+		testutil.Contains(t, err.Error(), "fetching cloud ID")
 	})
 }
 

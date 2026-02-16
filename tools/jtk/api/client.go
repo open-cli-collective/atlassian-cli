@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	stderrors "errors"
 	"fmt"
 	"net/http"
 	neturl "net/url"
@@ -64,9 +65,9 @@ func New(cfg ClientConfig) (*Client, error) {
 
 // Validation errors
 var (
-	ErrURLRequired      = fmt.Errorf("URL is required")
-	ErrEmailRequired    = fmt.Errorf("email is required")
-	ErrAPITokenRequired = fmt.Errorf("API token is required")
+	ErrURLRequired      = stderrors.New("URL is required")
+	ErrEmailRequired    = stderrors.New("email is required")
+	ErrAPITokenRequired = stderrors.New("API token is required")
 )
 
 
@@ -113,18 +114,18 @@ func (c *Client) GetCloudID() (string, error) {
 		urlStr := fmt.Sprintf("%s/_edge/tenant_info", c.URL)
 		body, err := c.Get(context.Background(), urlStr)
 		if err != nil {
-			c.cloudErr = fmt.Errorf("failed to fetch cloud ID from %s: %w", urlStr, err)
+			c.cloudErr = fmt.Errorf("fetching cloud ID from %s: %w", urlStr, err)
 			return
 		}
 
 		var info tenantInfo
 		if err := json.Unmarshal(body, &info); err != nil {
-			c.cloudErr = fmt.Errorf("failed to parse tenant info: %w", err)
+			c.cloudErr = fmt.Errorf("parsing tenant info: %w", err)
 			return
 		}
 
 		if info.CloudID == "" {
-			c.cloudErr = fmt.Errorf("tenant info returned empty cloud ID")
+			c.cloudErr = stderrors.New("tenant info returned empty cloud ID")
 			return
 		}
 

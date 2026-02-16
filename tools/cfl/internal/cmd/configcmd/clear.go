@@ -76,7 +76,7 @@ func runClear(opts *clearOptions) error {
 
 	// Remove the file
 	if err := os.Remove(configPath); err != nil {
-		return fmt.Errorf("failed to remove config file: %w", err)
+		return fmt.Errorf("removing config file: %w", err)
 	}
 
 	fmt.Printf("Configuration file removed: %s\n", configPath)

@@ -227,7 +227,7 @@ func TestRunList_APIError(t *testing.T) {
 
 	err := runList(opts)
 	testutil.RequireError(t, err)
-	testutil.Contains(t, err.Error(), "failed to list spaces")
+	testutil.Contains(t, err.Error(), "listing spaces")
 }
 
 func TestRunList_HasMore(t *testing.T) {

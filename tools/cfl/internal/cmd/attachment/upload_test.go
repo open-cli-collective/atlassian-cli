@@ -113,7 +113,7 @@ func TestRunUpload_FileNotFound(t *testing.T) {
 
 	err := runUpload(opts)
 	testutil.RequireError(t, err)
-	testutil.Contains(t, err.Error(), "failed to open file")
+	testutil.Contains(t, err.Error(), "opening file")
 }
 
 func TestRunUpload_APIError(t *testing.T) {
@@ -140,7 +140,7 @@ func TestRunUpload_APIError(t *testing.T) {
 
 	err = runUpload(opts)
 	testutil.RequireError(t, err)
-	testutil.Contains(t, err.Error(), "failed to upload attachment")
+	testutil.Contains(t, err.Error(), "uploading attachment")
 }
 
 func TestRunUpload_JSONOutput(t *testing.T) {

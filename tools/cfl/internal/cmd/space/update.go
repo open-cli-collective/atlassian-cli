@@ -78,7 +78,7 @@ func runUpdate(spaceKey string, opts *updateOptions) error {
 
 	space, err := client.UpdateSpace(context.Background(), spaceKey, req)
 	if err != nil {
-		return fmt.Errorf("failed to update space: %w", err)
+		return fmt.Errorf("updating space: %w", err)
 	}
 
 	v := opts.View()

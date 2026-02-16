@@ -158,7 +158,7 @@ func TestRunCopy_PageNotFound(t *testing.T) {
 
 	err := runCopy("99999", opts)
 	testutil.RequireError(t, err)
-	testutil.Contains(t, err.Error(), "failed to copy page")
+	testutil.Contains(t, err.Error(), "copying page")
 }
 
 func TestRunCopy_JSONOutput(t *testing.T) {
@@ -228,7 +228,7 @@ func TestRunCopy_GetSourcePageFails(t *testing.T) {
 
 	err := runCopy("invalid", opts)
 	testutil.RequireError(t, err)
-	testutil.Contains(t, err.Error(), "failed to get source page")
+	testutil.Contains(t, err.Error(), "getting source page")
 }
 
 func TestRunCopy_WithNoAttachments(t *testing.T) {
@@ -306,7 +306,7 @@ func TestRunCopy_PermissionDenied(t *testing.T) {
 
 	err := runCopy("12345", opts)
 	testutil.RequireError(t, err)
-	testutil.Contains(t, err.Error(), "failed to copy page")
+	testutil.Contains(t, err.Error(), "copying page")
 }
 
 func TestRunCopy_GetSpaceFails(t *testing.T) {
@@ -343,5 +343,5 @@ func TestRunCopy_GetSpaceFails(t *testing.T) {
 
 	err := runCopy("12345", opts)
 	testutil.RequireError(t, err)
-	testutil.Contains(t, err.Error(), "failed to get space")
+	testutil.Contains(t, err.Error(), "getting space")
 }

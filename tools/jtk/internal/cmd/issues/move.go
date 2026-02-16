@@ -78,7 +78,7 @@ func runMove(ctx context.Context, opts *root.Options, issueKeys []string, target
 	// Get target project's issue types to validate or default the type
 	issueTypes, err := client.GetProjectIssueTypes(ctx, targetProject)
 	if err != nil {
-		return fmt.Errorf("failed to get target project issue types: %w", err)
+		return fmt.Errorf("getting target project issue types: %w", err)
 	}
 
 	if len(issueTypes) == 0 {
@@ -91,7 +91,7 @@ func runMove(ctx context.Context, opts *root.Options, issueKeys []string, target
 		// Get the source issue's type to use as default
 		issue, err := client.GetIssue(ctx, issueKeys[0])
 		if err != nil {
-			return fmt.Errorf("failed to get source issue: %w", err)
+			return fmt.Errorf("getting source issue: %w", err)
 		}
 
 		sourceTypeName := issue.Fields.IssueType.Name
@@ -143,7 +143,7 @@ func runMove(ctx context.Context, opts *root.Options, issueKeys []string, target
 		if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "not found") {
 			return fmt.Errorf("move operation failed - this feature is only available on Jira Cloud")
 		}
-		return fmt.Errorf("failed to initiate move: %w", err)
+		return fmt.Errorf("initiating move: %w", err)
 	}
 
 	if !wait {
@@ -158,7 +158,7 @@ func runMove(ctx context.Context, opts *root.Options, issueKeys []string, target
 	for {
 		status, err := client.GetMoveTaskStatus(ctx, resp.TaskID)
 		if err != nil {
-			return fmt.Errorf("failed to get task status: %w", err)
+			return fmt.Errorf("getting task status: %w", err)
 		}
 
 		switch status.Status {

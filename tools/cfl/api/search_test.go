@@ -182,7 +182,7 @@ func TestClient_Search_MalformedResponse(t *testing.T) {
 	_, err := client.Search(context.Background(), &SearchOptions{Text: "test"})
 
 	testutil.RequireError(t, err)
-	testutil.Contains(t, err.Error(), "failed to parse search response")
+	testutil.Contains(t, err.Error(), "parsing search response")
 }
 
 func TestClient_Search_Pagination(t *testing.T) {

@@ -45,7 +45,7 @@ func runDelete(ctx context.Context, opts *root.Options, keyOrID string, force bo
 
 		confirmed, err := prompt.Confirm(opts.Stdin)
 		if err != nil {
-			return fmt.Errorf("failed to read confirmation: %w", err)
+			return fmt.Errorf("reading confirmation: %w", err)
 		}
 		if !confirmed {
 			v.Info("Deletion cancelled.")

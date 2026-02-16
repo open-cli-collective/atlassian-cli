@@ -16,7 +16,7 @@ func (c *Client) GetCurrentUser(ctx context.Context) (*User, error) {
 
 	var user User
 	if err := json.Unmarshal(body, &user); err != nil {
-		return nil, fmt.Errorf("failed to parse user: %w", err)
+		return nil, fmt.Errorf("parsing user: %w", err)
 	}
 
 	return &user, nil
@@ -35,7 +35,7 @@ func (c *Client) GetUser(ctx context.Context, accountID string) (*User, error) {
 
 	var user User
 	if err := json.Unmarshal(body, &user); err != nil {
-		return nil, fmt.Errorf("failed to parse user: %w", err)
+		return nil, fmt.Errorf("parsing user: %w", err)
 	}
 
 	return &user, nil
@@ -58,7 +58,7 @@ func (c *Client) SearchUsers(ctx context.Context, query string, maxResults int) 
 
 	var users []User
 	if err := json.Unmarshal(body, &users); err != nil {
-		return nil, fmt.Errorf("failed to parse users: %w", err)
+		return nil, fmt.Errorf("parsing users: %w", err)
 	}
 
 	return users, nil

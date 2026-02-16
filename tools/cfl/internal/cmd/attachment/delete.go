@@ -46,7 +46,7 @@ func runDeleteAttachment(attachmentID string, opts *deleteOptions) error {
 
 	attachment, err := client.GetAttachment(context.Background(), attachmentID)
 	if err != nil {
-		return fmt.Errorf("failed to get attachment: %w", err)
+		return fmt.Errorf("getting attachment: %w", err)
 	}
 
 	v := opts.View()
@@ -68,7 +68,7 @@ func runDeleteAttachment(attachmentID string, opts *deleteOptions) error {
 	}
 
 	if err := client.DeleteAttachment(context.Background(), attachmentID); err != nil {
-		return fmt.Errorf("failed to delete attachment: %w", err)
+		return fmt.Errorf("deleting attachment: %w", err)
 	}
 
 	if opts.Output == "json" {

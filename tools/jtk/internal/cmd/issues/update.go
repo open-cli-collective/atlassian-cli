@@ -108,7 +108,7 @@ func runUpdate(ctx context.Context, opts *root.Options, issueKey, summary, descr
 	if len(fieldArgs) > 0 {
 		allFields, err := client.GetFields(ctx)
 		if err != nil {
-			return fmt.Errorf("failed to get field metadata: %w", err)
+			return fmt.Errorf("getting field metadata: %w", err)
 		}
 
 		for _, f := range fieldArgs {

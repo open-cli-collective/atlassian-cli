@@ -48,7 +48,7 @@ func (c *Client) ListSpaces(ctx context.Context, opts *ListSpacesOptions) (*Pagi
 
 	var result PaginatedResponse[Space]
 	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, fmt.Errorf("failed to parse spaces response: %w", err)
+		return nil, fmt.Errorf("parsing spaces response: %w", err)
 	}
 
 	return &result, nil
@@ -64,7 +64,7 @@ func (c *Client) GetSpace(ctx context.Context, spaceID string) (*Space, error) {
 
 	var space Space
 	if err := json.Unmarshal(body, &space); err != nil {
-		return nil, fmt.Errorf("failed to parse space response: %w", err)
+		return nil, fmt.Errorf("parsing space response: %w", err)
 	}
 
 	return &space, nil

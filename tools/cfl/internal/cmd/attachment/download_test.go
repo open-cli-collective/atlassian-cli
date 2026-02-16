@@ -262,7 +262,7 @@ func TestRunDownload_AttachmentNotFound(t *testing.T) {
 
 	err := runDownload("nonexistent", opts)
 	testutil.RequireError(t, err)
-	testutil.Contains(t, err.Error(), "failed to get attachment info")
+	testutil.Contains(t, err.Error(), "getting attachment info")
 }
 
 func TestRunDownload_DownloadFailed(t *testing.T) {
@@ -296,7 +296,7 @@ func TestRunDownload_DownloadFailed(t *testing.T) {
 
 	err := runDownload("att123", opts)
 	testutil.RequireError(t, err)
-	testutil.Contains(t, err.Error(), "failed to download attachment")
+	testutil.Contains(t, err.Error(), "downloading attachment")
 }
 
 func TestRunDownload_InvalidFilename(t *testing.T) {

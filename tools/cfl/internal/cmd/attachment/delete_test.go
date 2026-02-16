@@ -206,7 +206,7 @@ func TestRunDeleteAttachment_GetAttachmentFails(t *testing.T) {
 
 	err := runDeleteAttachment("invalid", opts)
 	testutil.RequireError(t, err)
-	testutil.Contains(t, err.Error(), "failed to get attachment")
+	testutil.Contains(t, err.Error(), "getting attachment")
 }
 
 func TestRunDeleteAttachment_DeleteFails(t *testing.T) {
@@ -229,5 +229,5 @@ func TestRunDeleteAttachment_DeleteFails(t *testing.T) {
 
 	err := runDeleteAttachment("att123", opts)
 	testutil.RequireError(t, err)
-	testutil.Contains(t, err.Error(), "failed to delete attachment")
+	testutil.Contains(t, err.Error(), "deleting attachment")
 }

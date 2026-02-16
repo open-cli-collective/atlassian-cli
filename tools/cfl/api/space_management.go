@@ -80,7 +80,7 @@ func (c *Client) CreateSpace(ctx context.Context, req *CreateSpaceRequest) (*Spa
 
 	var space Space
 	if err := json.Unmarshal(body, &space); err != nil {
-		return nil, fmt.Errorf("failed to parse create space response: %w", err)
+		return nil, fmt.Errorf("parsing create space response: %w", err)
 	}
 
 	return &space, nil
@@ -97,7 +97,7 @@ func (c *Client) UpdateSpace(ctx context.Context, spaceKey string, req *UpdateSp
 
 	var response v1SpaceResponse
 	if err := json.Unmarshal(body, &response); err != nil {
-		return nil, fmt.Errorf("failed to parse update space response: %w", err)
+		return nil, fmt.Errorf("parsing update space response: %w", err)
 	}
 
 	return response.toSpace(), nil

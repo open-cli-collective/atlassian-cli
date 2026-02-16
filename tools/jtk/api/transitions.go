@@ -32,7 +32,7 @@ func (c *Client) GetTransitionsWithFields(ctx context.Context, issueKey string, 
 
 	var result TransitionsResponse
 	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, fmt.Errorf("failed to parse transitions: %w", err)
+		return nil, fmt.Errorf("parsing transitions: %w", err)
 	}
 
 	return result.Transitions, nil

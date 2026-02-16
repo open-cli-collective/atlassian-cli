@@ -52,7 +52,7 @@ func (o *Options) Config() (*config.Config, error) {
 	}
 	cfg, err := config.LoadWithEnv(config.DefaultConfigPath())
 	if err != nil {
-		return nil, fmt.Errorf("failed to load config: %w (run 'cfl init' to configure)", err)
+		return nil, fmt.Errorf("loading config: %w (run 'cfl init' to configure)", err)
 	}
 	if err := cfg.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid config: %w (run 'cfl init' to configure)", err)

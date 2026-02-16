@@ -104,7 +104,7 @@ func runList(opts *listOptions) error {
 
 	space, err := client.GetSpaceByKey(context.Background(), spaceKey)
 	if err != nil {
-		return fmt.Errorf("failed to find space '%s': %w", spaceKey, err)
+		return fmt.Errorf("finding space '%s': %w", spaceKey, err)
 	}
 
 	apiOpts := &api.ListPagesOptions{
@@ -114,7 +114,7 @@ func runList(opts *listOptions) error {
 
 	result, err := client.ListPages(context.Background(), space.ID, apiOpts)
 	if err != nil {
-		return fmt.Errorf("failed to list pages: %w", err)
+		return fmt.Errorf("listing pages: %w", err)
 	}
 
 	if len(result.Results) == 0 {

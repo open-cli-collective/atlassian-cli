@@ -20,12 +20,12 @@ func (c *Client) ListAutomationRules(ctx context.Context) ([]AutomationRuleSumma
 	for urlStr != "" {
 		body, err := c.Get(ctx, urlStr)
 		if err != nil {
-			return nil, fmt.Errorf("failed to list automation rules: %w", err)
+			return nil, fmt.Errorf("listing automation rules: %w", err)
 		}
 
 		var resp AutomationRuleSummaryResponse
 		if err := json.Unmarshal(body, &resp); err != nil {
-			return nil, fmt.Errorf("failed to parse automation rules response: %w", err)
+			return nil, fmt.Errorf("parsing automation rules response: %w", err)
 		}
 
 		all = append(all, resp.Items()...)
@@ -70,7 +70,7 @@ func (c *Client) GetAutomationRule(ctx context.Context, ruleID string) (*Automat
 	urlStr := fmt.Sprintf("%s/rule/%s", base, url.PathEscape(ruleID))
 	body, err := c.Get(ctx, urlStr)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get automation rule %s: %w", ruleID, err)
+		return nil, fmt.Errorf("getting automation rule %s: %w", ruleID, err)
 	}
 
 	// Newer Cloud response shape is an envelope: {"rule": {...}, "connections": [...]}
@@ -88,7 +88,7 @@ func (c *Client) GetAutomationRule(ctx context.Context, ruleID string) (*Automat
 	// Fallback to legacy/plain shape where the rule is the top-level object.
 	var rule AutomationRule
 	if err := json.Unmarshal(body, &rule); err != nil {
-		return nil, fmt.Errorf("failed to parse automation rule: %w", err)
+		return nil, fmt.Errorf("parsing automation rule: %w", err)
 	}
 	if rule.UUID == "" && rule.RuleKey != "" {
 		rule.UUID = rule.RuleKey
@@ -108,7 +108,7 @@ func (c *Client) GetAutomationRuleRaw(ctx context.Context, ruleID string) ([]byt
 	urlStr := fmt.Sprintf("%s/rule/%s", base, url.PathEscape(ruleID))
 	body, err := c.Get(ctx, urlStr)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get automation rule %s: %w", ruleID, err)
+		return nil, fmt.Errorf("getting automation rule %s: %w", ruleID, err)
 	}
 
 	return body, nil
@@ -126,7 +126,7 @@ func (c *Client) UpdateAutomationRule(ctx context.Context, ruleID string, ruleJS
 	urlStr := fmt.Sprintf("%s/rule/%s", base, url.PathEscape(ruleID))
 	_, err = c.Put(ctx, urlStr, ruleJSON)
 	if err != nil {
-		return fmt.Errorf("failed to update automation rule %s: %w", ruleID, err)
+		return fmt.Errorf("updating automation rule %s: %w", ruleID, err)
 	}
 
 	return nil
@@ -144,7 +144,7 @@ func (c *Client) CreateAutomationRule(ctx context.Context, ruleJSON json.RawMess
 	urlStr := fmt.Sprintf("%s/rule", base)
 	body, err := c.Post(ctx, urlStr, ruleJSON)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create automation rule: %w", err)
+		return nil, fmt.Errorf("creating automation rule: %w", err)
 	}
 
 	return body, nil
@@ -165,7 +165,7 @@ func (c *Client) SetAutomationRuleState(ctx context.Context, ruleID string, enab
 	urlStr := fmt.Sprintf("%s/rule/%s/state", base, url.PathEscape(ruleID))
 	_, err = c.Put(ctx, urlStr, AutomationStateUpdate{Value: state})
 	if err != nil {
-		return fmt.Errorf("failed to set automation rule %s state to %s: %w", ruleID, state, err)
+		return fmt.Errorf("setting automation rule %s state to %s: %w", ruleID, state, err)
 	}
 
 	return nil

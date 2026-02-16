@@ -29,7 +29,7 @@ func (c *Client) ListSprints(ctx context.Context, boardID int, state string, sta
 
 	var result SprintsResponse
 	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, fmt.Errorf("failed to parse sprints: %w", err)
+		return nil, fmt.Errorf("parsing sprints: %w", err)
 	}
 
 	return &result, nil
@@ -45,7 +45,7 @@ func (c *Client) GetSprint(ctx context.Context, sprintID int) (*Sprint, error) {
 
 	var sprint Sprint
 	if err := json.Unmarshal(body, &sprint); err != nil {
-		return nil, fmt.Errorf("failed to parse sprint: %w", err)
+		return nil, fmt.Errorf("parsing sprint: %w", err)
 	}
 
 	return &sprint, nil
@@ -70,7 +70,7 @@ func (c *Client) GetSprintIssues(ctx context.Context, sprintID int, startAt, max
 
 	var result SearchResult
 	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, fmt.Errorf("failed to parse sprint issues: %w", err)
+		return nil, fmt.Errorf("parsing sprint issues: %w", err)
 	}
 
 	return &result, nil

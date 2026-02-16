@@ -99,7 +99,7 @@ func (c *Client) Search(ctx context.Context, opts *SearchOptions) (*SearchRespon
 
 	var result SearchResponse
 	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, fmt.Errorf("failed to parse search response: %w", err)
+		return nil, fmt.Errorf("parsing search response: %w", err)
 	}
 
 	return &result, nil

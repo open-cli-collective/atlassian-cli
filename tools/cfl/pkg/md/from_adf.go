@@ -18,7 +18,7 @@ func FromADF(adfJSON string) (string, error) {
 
 	var doc adf.Document
 	if err := json.Unmarshal([]byte(adfJSON), &doc); err != nil {
-		return "", fmt.Errorf("failed to parse ADF JSON: %w", err)
+		return "", fmt.Errorf("parsing ADF JSON: %w", err)
 	}
 
 	var sb strings.Builder

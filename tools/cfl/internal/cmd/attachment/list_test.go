@@ -87,7 +87,7 @@ func TestRunList_APIError(t *testing.T) {
 
 	err := runList(opts)
 	testutil.RequireError(t, err)
-	testutil.Contains(t, err.Error(), "failed to list attachments")
+	testutil.Contains(t, err.Error(), "listing attachments")
 }
 
 func TestRunList_JSONOutput(t *testing.T) {

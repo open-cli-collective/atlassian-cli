@@ -50,7 +50,7 @@ func runCreate(ctx context.Context, opts *root.Options, filePath string) error {
 	// fast on bad input without needing network access.
 	data, err := os.ReadFile(filePath)
 	if err != nil {
-		return fmt.Errorf("failed to read file %s: %w", filePath, err)
+		return fmt.Errorf("reading file %s: %w", filePath, err)
 	}
 
 	if !json.Valid(data) {
@@ -61,14 +61,14 @@ func runCreate(ctx context.Context, opts *root.Options, filePath string) error {
 	// The API rejects requests containing a UUID that already exists.
 	var ruleMap map[string]interface{}
 	if err := json.Unmarshal(data, &ruleMap); err != nil {
-		return fmt.Errorf("failed to parse rule JSON: %w", err)
+		return fmt.Errorf("parsing rule JSON: %w", err)
 	}
 	for _, key := range []string{"uuid", "id", "ruleKey", "created", "updated"} {
 		delete(ruleMap, key)
 	}
 	data, err = json.Marshal(ruleMap)
 	if err != nil {
-		return fmt.Errorf("failed to re-encode rule JSON: %w", err)
+		return fmt.Errorf("re-encoding rule JSON: %w", err)
 	}
 
 	client, err := opts.APIClient()

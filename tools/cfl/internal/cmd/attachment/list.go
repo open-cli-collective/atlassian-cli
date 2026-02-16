@@ -67,7 +67,7 @@ func runList(opts *listOptions) error {
 
 	result, err := client.ListAttachments(context.Background(), opts.pageID, apiOpts)
 	if err != nil {
-		return fmt.Errorf("failed to list attachments: %w", err)
+		return fmt.Errorf("listing attachments: %w", err)
 	}
 
 	attachments := result.Results
@@ -77,7 +77,7 @@ func runList(opts *listOptions) error {
 			BodyFormat: "storage",
 		})
 		if err != nil {
-			return fmt.Errorf("failed to get page content: %w", err)
+			return fmt.Errorf("getting page content: %w", err)
 		}
 
 		pageContent := ""

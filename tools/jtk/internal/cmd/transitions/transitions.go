@@ -185,7 +185,7 @@ func runDo(ctx context.Context, opts *root.Options, issueKey, transitionNameOrID
 		// Get field metadata for name resolution and type detection
 		allFields, err := client.GetFields(ctx)
 		if err != nil {
-			return fmt.Errorf("failed to get field metadata: %w", err)
+			return fmt.Errorf("getting field metadata: %w", err)
 		}
 
 		for _, f := range fieldArgs {

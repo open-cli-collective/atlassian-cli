@@ -200,7 +200,7 @@ func TestRunList_PageList_SpaceNotFound(t *testing.T) {
 
 	err := runList(opts)
 	testutil.RequireError(t, err)
-	testutil.Contains(t, err.Error(), "failed to find space")
+	testutil.Contains(t, err.Error(), "finding space")
 }
 
 func TestRunList_PageList_NullVersion(t *testing.T) {

@@ -1,6 +1,7 @@
 package configcmd
 
 import (
+	"context"
 	"bytes"
 	"encoding/json"
 	"net/http"
@@ -219,7 +220,7 @@ func TestRunClear_WithConfirmation(t *testing.T) {
 		stdin:   strings.NewReader("y\n"),
 	}
 
-	err := runClear(clearOpts)
+	err := runClear(context.Background(), clearOpts)
 	testutil.RequireNoError(t, err)
 
 	// Verify file was deleted
@@ -243,7 +244,7 @@ func TestRunClear_Cancelled(t *testing.T) {
 		stdin:   strings.NewReader("n\n"),
 	}
 
-	err := runClear(clearOpts)
+	err := runClear(context.Background(), clearOpts)
 	testutil.RequireNoError(t, err)
 
 	// Verify file still exists
@@ -264,7 +265,7 @@ func TestRunClear_Force(t *testing.T) {
 		stdin:   strings.NewReader(""), // No input needed with --force
 	}
 
-	err := runClear(clearOpts)
+	err := runClear(context.Background(), clearOpts)
 	testutil.RequireNoError(t, err)
 
 	// Verify file was deleted

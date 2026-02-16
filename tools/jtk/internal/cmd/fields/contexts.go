@@ -1,6 +1,7 @@
 package fields
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -34,12 +35,12 @@ func newContextsListCmd(opts *root.Options) *cobra.Command {
   jtk fields contexts list customfield_10100`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runContextsList(opts, args[0])
+			return runContextsList(cmd.Context(), opts, args[0])
 		},
 	}
 }
 
-func runContextsList(opts *root.Options, fieldID string) error {
+func runContextsList(ctx context.Context, opts *root.Options, fieldID string) error {
 	v := opts.View()
 
 	client, err := opts.APIClient()
@@ -47,7 +48,7 @@ func runContextsList(opts *root.Options, fieldID string) error {
 		return err
 	}
 
-	result, err := client.GetFieldContexts(fieldID)
+	result, err := client.GetFieldContexts(ctx, fieldID)
 	if err != nil {
 		return err
 	}
@@ -92,7 +93,7 @@ func newContextsCreateCmd(opts *root.Options) *cobra.Command {
   jtk fields contexts create customfield_10100 --name "Project Context" --project 10001`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runContextsCreate(opts, args[0], name, project)
+			return runContextsCreate(cmd.Context(), opts, args[0], name, project)
 		},
 	}
 
@@ -104,7 +105,7 @@ func newContextsCreateCmd(opts *root.Options) *cobra.Command {
 	return cmd
 }
 
-func runContextsCreate(opts *root.Options, fieldID, name, project string) error {
+func runContextsCreate(ctx context.Context, opts *root.Options, fieldID, name, project string) error {
 	v := opts.View()
 
 	client, err := opts.APIClient()
@@ -119,16 +120,16 @@ func runContextsCreate(opts *root.Options, fieldID, name, project string) error 
 		req.ProjectIDs = []string{project}
 	}
 
-	ctx, err := client.CreateFieldContext(fieldID, req)
+	fc, err := client.CreateFieldContext(ctx, fieldID, req)
 	if err != nil {
 		return err
 	}
 
 	if opts.Output == "json" {
-		return v.JSON(ctx)
+		return v.JSON(fc)
 	}
 
-	v.Success("Created context %s (%s)", ctx.ID, ctx.Name)
+	v.Success("Created context %s (%s)", fc.ID, fc.Name)
 	return nil
 }
 
@@ -145,7 +146,7 @@ func newContextsDeleteCmd(opts *root.Options) *cobra.Command {
   jtk fields contexts delete customfield_10100 10003 --force`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runContextsDelete(opts, args[0], args[1], force)
+			return runContextsDelete(cmd.Context(), opts, args[0], args[1], force)
 		},
 	}
 
@@ -154,7 +155,7 @@ func newContextsDeleteCmd(opts *root.Options) *cobra.Command {
 	return cmd
 }
 
-func runContextsDelete(opts *root.Options, fieldID, contextID string, force bool) error {
+func runContextsDelete(ctx context.Context, opts *root.Options, fieldID, contextID string, force bool) error {
 	v := opts.View()
 
 	if !force {
@@ -176,7 +177,7 @@ func runContextsDelete(opts *root.Options, fieldID, contextID string, force bool
 		return err
 	}
 
-	if err := client.DeleteFieldContext(fieldID, contextID); err != nil {
+	if err := client.DeleteFieldContext(ctx, fieldID, contextID); err != nil {
 		return err
 	}
 

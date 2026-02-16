@@ -1,6 +1,7 @@
 package projects
 
 import (
+	"context"
 	"github.com/spf13/cobra"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
@@ -30,7 +31,7 @@ Use 'jtk users search' to find account IDs, or 'jtk me' to get your own.`,
   # Project types: software (default), service_desk, business
   jtk projects types`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCreate(opts, key, name, projectType, lead, description)
+			return runCreate(cmd.Context(), opts, key, name, projectType, lead, description)
 		},
 	}
 
@@ -47,7 +48,7 @@ Use 'jtk users search' to find account IDs, or 'jtk me' to get your own.`,
 	return cmd
 }
 
-func runCreate(opts *root.Options, key, name, projectType, lead, description string) error {
+func runCreate(ctx context.Context, opts *root.Options, key, name, projectType, lead, description string) error {
 	v := opts.View()
 
 	client, err := opts.APIClient()
@@ -63,7 +64,7 @@ func runCreate(opts *root.Options, key, name, projectType, lead, description str
 		Description:    description,
 	}
 
-	project, err := client.CreateProject(req)
+	project, err := client.CreateProject(ctx, req)
 	if err != nil {
 		return err
 	}

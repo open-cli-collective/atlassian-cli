@@ -1,6 +1,7 @@
 package issues
 
 import (
+	"context"
 	"github.com/spf13/cobra"
 
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
@@ -24,7 +25,7 @@ func newAssignCmd(opts *root.Options) *cobra.Command {
 			if len(args) > 1 {
 				accountID = args[1]
 			}
-			return runAssign(opts, args[0], accountID, unassign)
+			return runAssign(cmd.Context(), opts, args[0], accountID, unassign)
 		},
 	}
 
@@ -33,7 +34,7 @@ func newAssignCmd(opts *root.Options) *cobra.Command {
 	return cmd
 }
 
-func runAssign(opts *root.Options, issueKey, accountID string, unassign bool) error {
+func runAssign(ctx context.Context, opts *root.Options, issueKey, accountID string, unassign bool) error {
 	v := opts.View()
 
 	client, err := opts.APIClient()
@@ -45,7 +46,7 @@ func runAssign(opts *root.Options, issueKey, accountID string, unassign bool) er
 		accountID = ""
 	}
 
-	if err := client.AssignIssue(issueKey, accountID); err != nil {
+	if err := client.AssignIssue(ctx, issueKey, accountID); err != nil {
 		return err
 	}
 
@@ -54,7 +55,7 @@ func runAssign(opts *root.Options, issueKey, accountID string, unassign bool) er
 	} else {
 		// Try to get the user's display name for a friendlier message
 		displayName := accountID
-		if user, err := client.GetUser(accountID); err == nil && user.DisplayName != "" {
+		if user, err := client.GetUser(ctx, accountID); err == nil && user.DisplayName != "" {
 			displayName = user.DisplayName
 		}
 		v.Success("Assigned issue %s to %s", issueKey, displayName)

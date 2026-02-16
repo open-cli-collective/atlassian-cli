@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -45,7 +46,7 @@ func TestCreateField(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(t, server)
-	field, err := client.CreateField(&CreateFieldRequest{
+	field, err := client.CreateField(context.Background(), &CreateFieldRequest{
 		Name: "Environment",
 		Type: "com.atlassian.jira.plugin.system.customfieldtypes:select",
 	})
@@ -63,7 +64,7 @@ func TestCreateField_ServerError(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(t, server)
-	_, err := client.CreateField(&CreateFieldRequest{Name: "Dupe", Type: "select"})
+	_, err := client.CreateField(context.Background(), &CreateFieldRequest{Name: "Dupe", Type: "select"})
 	testutil.Error(t, err)
 }
 
@@ -76,13 +77,13 @@ func TestTrashField(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(t, server)
-	err := client.TrashField("customfield_10100")
+	err := client.TrashField(context.Background(), "customfield_10100")
 	testutil.NoError(t, err)
 }
 
 func TestTrashField_EmptyID(t *testing.T) {
 	client := newTestClient(t, nil)
-	err := client.TrashField("")
+	err := client.TrashField(context.Background(), "")
 	testutil.True(t, errors.Is(err, ErrFieldIDRequired))
 }
 
@@ -95,13 +96,13 @@ func TestRestoreField(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(t, server)
-	err := client.RestoreField("customfield_10100")
+	err := client.RestoreField(context.Background(), "customfield_10100")
 	testutil.NoError(t, err)
 }
 
 func TestRestoreField_EmptyID(t *testing.T) {
 	client := newTestClient(t, nil)
-	err := client.RestoreField("")
+	err := client.RestoreField(context.Background(), "")
 	testutil.True(t, errors.Is(err, ErrFieldIDRequired))
 }
 
@@ -122,7 +123,7 @@ func TestGetFieldContexts(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(t, server)
-	result, err := client.GetFieldContexts("customfield_10100")
+	result, err := client.GetFieldContexts(context.Background(), "customfield_10100")
 	testutil.RequireNoError(t, err)
 	testutil.Len(t, result.Values, 2)
 	testutil.Equal(t, result.Values[0].Name, "Default")
@@ -131,7 +132,7 @@ func TestGetFieldContexts(t *testing.T) {
 
 func TestGetFieldContexts_EmptyID(t *testing.T) {
 	client := newTestClient(t, nil)
-	_, err := client.GetFieldContexts("")
+	_, err := client.GetFieldContexts(context.Background(), "")
 	testutil.True(t, errors.Is(err, ErrFieldIDRequired))
 }
 
@@ -146,7 +147,7 @@ func TestGetDefaultFieldContext(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(t, server)
-	ctx, err := client.GetDefaultFieldContext("customfield_10100")
+	ctx, err := client.GetDefaultFieldContext(context.Background(), "customfield_10100")
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, ctx.ID, "10001")
 	testutil.Equal(t, ctx.Name, "Default")
@@ -159,7 +160,7 @@ func TestGetDefaultFieldContext_NoContexts(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(t, server)
-	_, err := client.GetDefaultFieldContext("customfield_10100")
+	_, err := client.GetDefaultFieldContext(context.Background(), "customfield_10100")
 	testutil.Error(t, err)
 	testutil.Contains(t, err.Error(), "no contexts found")
 }
@@ -183,7 +184,7 @@ func TestCreateFieldContext(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(t, server)
-	ctx, err := client.CreateFieldContext("customfield_10100", &CreateFieldContextRequest{
+	ctx, err := client.CreateFieldContext(context.Background(), "customfield_10100", &CreateFieldContextRequest{
 		Name: "Bug Context",
 	})
 	testutil.RequireNoError(t, err)
@@ -193,7 +194,7 @@ func TestCreateFieldContext(t *testing.T) {
 
 func TestCreateFieldContext_EmptyID(t *testing.T) {
 	client := newTestClient(t, nil)
-	_, err := client.CreateFieldContext("", &CreateFieldContextRequest{Name: "test"})
+	_, err := client.CreateFieldContext(context.Background(), "", &CreateFieldContextRequest{Name: "test"})
 	testutil.True(t, errors.Is(err, ErrFieldIDRequired))
 }
 
@@ -206,13 +207,13 @@ func TestDeleteFieldContext(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(t, server)
-	err := client.DeleteFieldContext("customfield_10100", "10003")
+	err := client.DeleteFieldContext(context.Background(), "customfield_10100", "10003")
 	testutil.NoError(t, err)
 }
 
 func TestDeleteFieldContext_EmptyID(t *testing.T) {
 	client := newTestClient(t, nil)
-	err := client.DeleteFieldContext("", "10003")
+	err := client.DeleteFieldContext(context.Background(), "", "10003")
 	testutil.True(t, errors.Is(err, ErrFieldIDRequired))
 }
 
@@ -233,7 +234,7 @@ func TestGetFieldContextOptions(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(t, server)
-	result, err := client.GetFieldContextOptions("customfield_10100", "10001")
+	result, err := client.GetFieldContextOptions(context.Background(), "customfield_10100", "10001")
 	testutil.RequireNoError(t, err)
 	testutil.Len(t, result.Values, 2)
 	testutil.Equal(t, result.Values[0].Value, "Production")
@@ -241,7 +242,7 @@ func TestGetFieldContextOptions(t *testing.T) {
 
 func TestGetFieldContextOptions_EmptyID(t *testing.T) {
 	client := newTestClient(t, nil)
-	_, err := client.GetFieldContextOptions("", "10001")
+	_, err := client.GetFieldContextOptions(context.Background(), "", "10001")
 	testutil.True(t, errors.Is(err, ErrFieldIDRequired))
 }
 
@@ -265,7 +266,7 @@ func TestCreateFieldContextOptions(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(t, server)
-	options, err := client.CreateFieldContextOptions("customfield_10100", "10001", &CreateFieldContextOptionsRequest{
+	options, err := client.CreateFieldContextOptions(context.Background(), "customfield_10100", "10001", &CreateFieldContextOptionsRequest{
 		Options: []CreateFieldContextOptionEntry{
 			{Value: "Option A"},
 		},
@@ -277,7 +278,7 @@ func TestCreateFieldContextOptions(t *testing.T) {
 
 func TestCreateFieldContextOptions_EmptyID(t *testing.T) {
 	client := newTestClient(t, nil)
-	_, err := client.CreateFieldContextOptions("", "10001", &CreateFieldContextOptionsRequest{})
+	_, err := client.CreateFieldContextOptions(context.Background(), "", "10001", &CreateFieldContextOptionsRequest{})
 	testutil.True(t, errors.Is(err, ErrFieldIDRequired))
 }
 
@@ -302,7 +303,7 @@ func TestUpdateFieldContextOptions(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(t, server)
-	options, err := client.UpdateFieldContextOptions("customfield_10100", "10001", &UpdateFieldContextOptionsRequest{
+	options, err := client.UpdateFieldContextOptions(context.Background(), "customfield_10100", "10001", &UpdateFieldContextOptionsRequest{
 		Options: []UpdateFieldContextOptionEntry{
 			{ID: "3", Value: "Option A (updated)"},
 		},
@@ -314,7 +315,7 @@ func TestUpdateFieldContextOptions(t *testing.T) {
 
 func TestUpdateFieldContextOptions_EmptyID(t *testing.T) {
 	client := newTestClient(t, nil)
-	_, err := client.UpdateFieldContextOptions("", "10001", &UpdateFieldContextOptionsRequest{})
+	_, err := client.UpdateFieldContextOptions(context.Background(), "", "10001", &UpdateFieldContextOptionsRequest{})
 	testutil.True(t, errors.Is(err, ErrFieldIDRequired))
 }
 
@@ -327,12 +328,12 @@ func TestDeleteFieldContextOption(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(t, server)
-	err := client.DeleteFieldContextOption("customfield_10100", "10001", "3")
+	err := client.DeleteFieldContextOption(context.Background(), "customfield_10100", "10001", "3")
 	testutil.NoError(t, err)
 }
 
 func TestDeleteFieldContextOption_EmptyID(t *testing.T) {
 	client := newTestClient(t, nil)
-	err := client.DeleteFieldContextOption("", "10001", "3")
+	err := client.DeleteFieldContextOption(context.Background(), "", "10001", "3")
 	testutil.True(t, errors.Is(err, ErrFieldIDRequired))
 }

@@ -1,6 +1,7 @@
 package issues
 
 import (
+	"context"
 	"bytes"
 	"encoding/json"
 	"net/http"
@@ -59,7 +60,7 @@ func TestRunTypes_Success(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runTypes(opts, "TEST")
+	err = runTypes(context.Background(), opts, "TEST")
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()
@@ -90,7 +91,7 @@ func TestRunTypes_ProjectNotFound(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runTypes(opts, "INVALID")
+	err = runTypes(context.Background(), opts, "INVALID")
 	testutil.Error(t, err)
 	testutil.Contains(t, err.Error(), "not found")
 }
@@ -123,7 +124,7 @@ func TestRunTypes_EmptyIssueTypes(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runTypes(opts, "EMPTY")
+	err = runTypes(context.Background(), opts, "EMPTY")
 	testutil.RequireNoError(t, err)
 	testutil.Contains(t, stdout.String(), "No issue types found")
 }
@@ -159,7 +160,7 @@ func TestRunTypes_JSONOutput(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runTypes(opts, "TEST")
+	err = runTypes(context.Background(), opts, "TEST")
 	testutil.RequireNoError(t, err)
 
 	// Verify JSON output
@@ -206,7 +207,7 @@ func TestRunTypes_DescriptionTruncation(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runTypes(opts, "TEST")
+	err = runTypes(context.Background(), opts, "TEST")
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()

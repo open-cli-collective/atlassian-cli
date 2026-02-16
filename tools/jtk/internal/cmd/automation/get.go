@@ -1,6 +1,7 @@
 package automation
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -27,7 +28,7 @@ For the exact JSON needed for editing, use 'jtk auto export' instead.`,
   jtk auto get 12345 -o json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runGet(opts, args[0], full)
+			return runGet(cmd.Context(), opts, args[0], full)
 		},
 	}
 
@@ -36,7 +37,7 @@ For the exact JSON needed for editing, use 'jtk auto export' instead.`,
 	return cmd
 }
 
-func runGet(opts *root.Options, ruleID string, full bool) error {
+func runGet(ctx context.Context, opts *root.Options, ruleID string, full bool) error {
 	v := opts.View()
 
 	client, err := opts.APIClient()
@@ -44,7 +45,7 @@ func runGet(opts *root.Options, ruleID string, full bool) error {
 		return err
 	}
 
-	rule, err := client.GetAutomationRule(ruleID)
+	rule, err := client.GetAutomationRule(ctx, ruleID)
 	if err != nil {
 		return err
 	}

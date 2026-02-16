@@ -1,6 +1,7 @@
 package issues
 
 import (
+	"context"
 	"github.com/spf13/cobra"
 
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
@@ -23,7 +24,7 @@ func newSearchCmd(opts *root.Options) *cobra.Command {
   # Search issues assigned to current user
   jtk issues search --jql "assignee = currentUser() AND resolution = Unresolved"`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runSearch(opts, jql, maxResults)
+			return runSearch(cmd.Context(), opts, jql, maxResults)
 		},
 	}
 
@@ -34,7 +35,7 @@ func newSearchCmd(opts *root.Options) *cobra.Command {
 	return cmd
 }
 
-func runSearch(opts *root.Options, jql string, maxResults int) error {
+func runSearch(ctx context.Context, opts *root.Options, jql string, maxResults int) error {
 	v := opts.View()
 
 	client, err := opts.APIClient()
@@ -42,7 +43,7 @@ func runSearch(opts *root.Options, jql string, maxResults int) error {
 		return err
 	}
 
-	issues, err := client.SearchAll(jql, maxResults)
+	issues, err := client.SearchAll(ctx, jql, maxResults)
 	if err != nil {
 		return err
 	}

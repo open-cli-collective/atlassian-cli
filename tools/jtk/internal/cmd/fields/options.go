@@ -1,6 +1,7 @@
 package fields
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -30,15 +31,15 @@ When --context is omitted, the default (first) context is used automatically.`,
 }
 
 // resolveContextID returns the provided context ID, or auto-detects the default context.
-func resolveContextID(client *api.Client, fieldID, contextFlag string) (string, error) {
+func resolveContextID(ctx context.Context, client *api.Client, fieldID, contextFlag string) (string, error) {
 	if contextFlag != "" {
 		return contextFlag, nil
 	}
-	ctx, err := client.GetDefaultFieldContext(fieldID)
+	fc, err := client.GetDefaultFieldContext(ctx, fieldID)
 	if err != nil {
 		return "", fmt.Errorf("could not auto-detect context (use --context to specify): %w", err)
 	}
-	return ctx.ID, nil
+	return fc.ID, nil
 }
 
 func newOptionsListCmd(opts *root.Options) *cobra.Command {
@@ -55,7 +56,7 @@ func newOptionsListCmd(opts *root.Options) *cobra.Command {
   jtk fields options list customfield_10100 --context 10001`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runOptionsList(opts, args[0], contextID)
+			return runOptionsList(cmd.Context(), opts, args[0], contextID)
 		},
 	}
 
@@ -64,7 +65,7 @@ func newOptionsListCmd(opts *root.Options) *cobra.Command {
 	return cmd
 }
 
-func runOptionsList(opts *root.Options, fieldID, contextFlag string) error {
+func runOptionsList(ctx context.Context, opts *root.Options, fieldID, contextFlag string) error {
 	v := opts.View()
 
 	client, err := opts.APIClient()
@@ -72,12 +73,12 @@ func runOptionsList(opts *root.Options, fieldID, contextFlag string) error {
 		return err
 	}
 
-	ctxID, err := resolveContextID(client, fieldID, contextFlag)
+	ctxID, err := resolveContextID(ctx, client, fieldID, contextFlag)
 	if err != nil {
 		return err
 	}
 
-	result, err := client.GetFieldContextOptions(fieldID, ctxID)
+	result, err := client.GetFieldContextOptions(ctx, fieldID, ctxID)
 	if err != nil {
 		return err
 	}
@@ -119,7 +120,7 @@ func newOptionsAddCmd(opts *root.Options) *cobra.Command {
   jtk fields options add customfield_10100 --value "Staging" --context 10001`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runOptionsAdd(opts, args[0], value, contextID)
+			return runOptionsAdd(cmd.Context(), opts, args[0], value, contextID)
 		},
 	}
 
@@ -131,7 +132,7 @@ func newOptionsAddCmd(opts *root.Options) *cobra.Command {
 	return cmd
 }
 
-func runOptionsAdd(opts *root.Options, fieldID, value, contextFlag string) error {
+func runOptionsAdd(ctx context.Context, opts *root.Options, fieldID, value, contextFlag string) error {
 	v := opts.View()
 
 	client, err := opts.APIClient()
@@ -139,12 +140,12 @@ func runOptionsAdd(opts *root.Options, fieldID, value, contextFlag string) error
 		return err
 	}
 
-	ctxID, err := resolveContextID(client, fieldID, contextFlag)
+	ctxID, err := resolveContextID(ctx, client, fieldID, contextFlag)
 	if err != nil {
 		return err
 	}
 
-	options, err := client.CreateFieldContextOptions(fieldID, ctxID, &api.CreateFieldContextOptionsRequest{
+	options, err := client.CreateFieldContextOptions(ctx, fieldID, ctxID, &api.CreateFieldContextOptionsRequest{
 		Options: []api.CreateFieldContextOptionEntry{
 			{Value: value},
 		},
@@ -176,7 +177,7 @@ func newOptionsUpdateCmd(opts *root.Options) *cobra.Command {
   jtk fields options update customfield_10100 --option 10001 --value "Production (updated)"`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runOptionsUpdate(opts, args[0], optionID, value, contextID)
+			return runOptionsUpdate(cmd.Context(), opts, args[0], optionID, value, contextID)
 		},
 	}
 
@@ -190,7 +191,7 @@ func newOptionsUpdateCmd(opts *root.Options) *cobra.Command {
 	return cmd
 }
 
-func runOptionsUpdate(opts *root.Options, fieldID, optionID, value, contextFlag string) error {
+func runOptionsUpdate(ctx context.Context, opts *root.Options, fieldID, optionID, value, contextFlag string) error {
 	v := opts.View()
 
 	client, err := opts.APIClient()
@@ -198,12 +199,12 @@ func runOptionsUpdate(opts *root.Options, fieldID, optionID, value, contextFlag 
 		return err
 	}
 
-	ctxID, err := resolveContextID(client, fieldID, contextFlag)
+	ctxID, err := resolveContextID(ctx, client, fieldID, contextFlag)
 	if err != nil {
 		return err
 	}
 
-	options, err := client.UpdateFieldContextOptions(fieldID, ctxID, &api.UpdateFieldContextOptionsRequest{
+	options, err := client.UpdateFieldContextOptions(ctx, fieldID, ctxID, &api.UpdateFieldContextOptionsRequest{
 		Options: []api.UpdateFieldContextOptionEntry{
 			{ID: optionID, Value: value},
 		},
@@ -235,7 +236,7 @@ func newOptionsDeleteCmd(opts *root.Options) *cobra.Command {
   jtk fields options delete customfield_10100 --option 10001 --force`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runOptionsDelete(opts, args[0], optionID, contextID, force)
+			return runOptionsDelete(cmd.Context(), opts, args[0], optionID, contextID, force)
 		},
 	}
 
@@ -248,7 +249,7 @@ func newOptionsDeleteCmd(opts *root.Options) *cobra.Command {
 	return cmd
 }
 
-func runOptionsDelete(opts *root.Options, fieldID, optionID, contextFlag string, force bool) error {
+func runOptionsDelete(ctx context.Context, opts *root.Options, fieldID, optionID, contextFlag string, force bool) error {
 	v := opts.View()
 
 	if !force {
@@ -270,12 +271,12 @@ func runOptionsDelete(opts *root.Options, fieldID, optionID, contextFlag string,
 		return err
 	}
 
-	ctxID, err := resolveContextID(client, fieldID, contextFlag)
+	ctxID, err := resolveContextID(ctx, client, fieldID, contextFlag)
 	if err != nil {
 		return err
 	}
 
-	if err := client.DeleteFieldContextOption(fieldID, ctxID, optionID); err != nil {
+	if err := client.DeleteFieldContextOption(ctx, fieldID, ctxID, optionID); err != nil {
 		return err
 	}
 

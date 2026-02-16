@@ -1,6 +1,7 @@
 package automation
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -36,7 +37,7 @@ field mappings and workflow configuration.`,
   jtk auto update 12345 --file updated-rule.json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runUpdate(opts, args[0], filePath)
+			return runUpdate(cmd.Context(), opts, args[0], filePath)
 		},
 	}
 
@@ -46,7 +47,7 @@ field mappings and workflow configuration.`,
 	return cmd
 }
 
-func runUpdate(opts *root.Options, ruleID, filePath string) error {
+func runUpdate(ctx context.Context, opts *root.Options, ruleID, filePath string) error {
 	v := opts.View()
 
 	// Read and validate file before creating the API client so we fail
@@ -66,14 +67,14 @@ func runUpdate(opts *root.Options, ruleID, filePath string) error {
 	}
 
 	// Fetch current rule to show what we're updating
-	current, err := client.GetAutomationRule(ruleID)
+	current, err := client.GetAutomationRule(ctx, ruleID)
 	if err != nil {
 		return fmt.Errorf("failed to fetch current rule: %w", err)
 	}
 
 	v.Info("Updating rule: %s (UUID: %s, State: %s)", current.Name, current.Identifier(), current.State)
 
-	if err := client.UpdateAutomationRule(ruleID, json.RawMessage(data)); err != nil {
+	if err := client.UpdateAutomationRule(ctx, ruleID, json.RawMessage(data)); err != nil {
 		return err
 	}
 

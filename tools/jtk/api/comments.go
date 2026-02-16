@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/url"
@@ -8,7 +9,7 @@ import (
 )
 
 // GetComments returns comments for an issue
-func (c *Client) GetComments(issueKey string, startAt, maxResults int) (*CommentsResponse, error) {
+func (c *Client) GetComments(ctx context.Context, issueKey string, startAt, maxResults int) (*CommentsResponse, error) {
 	if issueKey == "" {
 		return nil, ErrIssueKeyRequired
 	}
@@ -22,7 +23,7 @@ func (c *Client) GetComments(issueKey string, startAt, maxResults int) (*Comment
 	}
 
 	urlStr := buildURL(fmt.Sprintf("%s/issue/%s/comment", c.BaseURL, url.PathEscape(issueKey)), params)
-	body, err := c.get(urlStr)
+	body, err := c.Get(ctx, urlStr)
 	if err != nil {
 		return nil, err
 	}
@@ -36,7 +37,7 @@ func (c *Client) GetComments(issueKey string, startAt, maxResults int) (*Comment
 }
 
 // AddComment adds a comment to an issue
-func (c *Client) AddComment(issueKey, commentBody string) (*Comment, error) {
+func (c *Client) AddComment(ctx context.Context, issueKey, commentBody string) (*Comment, error) {
 	if issueKey == "" {
 		return nil, ErrIssueKeyRequired
 	}
@@ -46,7 +47,7 @@ func (c *Client) AddComment(issueKey, commentBody string) (*Comment, error) {
 		Body: NewADFDocument(commentBody),
 	}
 
-	body, err := c.post(urlStr, req)
+	body, err := c.Post(ctx, urlStr, req)
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +61,7 @@ func (c *Client) AddComment(issueKey, commentBody string) (*Comment, error) {
 }
 
 // DeleteComment deletes a comment from an issue
-func (c *Client) DeleteComment(issueKey, commentID string) error {
+func (c *Client) DeleteComment(ctx context.Context, issueKey, commentID string) error {
 	if issueKey == "" {
 		return ErrIssueKeyRequired
 	}
@@ -69,6 +70,6 @@ func (c *Client) DeleteComment(issueKey, commentID string) error {
 	}
 
 	urlStr := fmt.Sprintf("%s/issue/%s/comment/%s", c.BaseURL, url.PathEscape(issueKey), url.PathEscape(commentID))
-	_, err := c.delete(urlStr)
+	_, err := c.Delete(ctx, urlStr)
 	return err
 }

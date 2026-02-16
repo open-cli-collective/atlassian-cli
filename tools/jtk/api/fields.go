@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strconv"
@@ -8,9 +9,9 @@ import (
 )
 
 // GetFields returns all field definitions
-func (c *Client) GetFields() ([]Field, error) {
+func (c *Client) GetFields(ctx context.Context) ([]Field, error) {
 	urlStr := fmt.Sprintf("%s/field", c.BaseURL)
-	body, err := c.get(urlStr)
+	body, err := c.Get(ctx, urlStr)
 	if err != nil {
 		return nil, err
 	}
@@ -24,8 +25,8 @@ func (c *Client) GetFields() ([]Field, error) {
 }
 
 // GetCustomFields returns only custom field definitions
-func (c *Client) GetCustomFields() ([]Field, error) {
-	fields, err := c.GetFields()
+func (c *Client) GetCustomFields(ctx context.Context) ([]Field, error) {
+	fields, err := c.GetFields(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -146,16 +147,16 @@ type FieldOptionValue struct {
 }
 
 // GetFieldOptions returns allowed values for a custom field
-func (c *Client) GetFieldOptions(fieldID string) ([]FieldOptionValue, error) {
+func (c *Client) GetFieldOptions(ctx context.Context, fieldID string) ([]FieldOptionValue, error) {
 	if fieldID == "" {
 		return nil, fmt.Errorf("field ID is required")
 	}
 
 	urlStr := fmt.Sprintf("%s/field/%s/context/defaultValue", c.BaseURL, fieldID)
-	body, err := c.get(urlStr)
+	body, err := c.Get(ctx, urlStr)
 	if err != nil {
 		urlStr = fmt.Sprintf("%s/field/%s/option", c.BaseURL, fieldID)
-		body, err = c.get(urlStr)
+		body, err = c.Get(ctx, urlStr)
 		if err != nil {
 			return nil, err
 		}
@@ -174,8 +175,8 @@ func (c *Client) GetFieldOptions(fieldID string) ([]FieldOptionValue, error) {
 }
 
 // GetFieldOptionsFromEditMeta returns allowed values for a field from issue edit metadata
-func (c *Client) GetFieldOptionsFromEditMeta(issueKey, fieldID string) ([]FieldOptionValue, error) {
-	meta, err := c.GetIssueEditMeta(issueKey)
+func (c *Client) GetFieldOptionsFromEditMeta(ctx context.Context, issueKey, fieldID string) ([]FieldOptionValue, error) {
+	meta, err := c.GetIssueEditMeta(ctx, issueKey)
 	if err != nil {
 		return nil, err
 	}

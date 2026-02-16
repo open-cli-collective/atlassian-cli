@@ -2,6 +2,7 @@ package automation
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -31,7 +32,7 @@ RECOMMENDED WORKFLOW:
   jtk auto export 12345 --compact`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runExport(opts, args[0], compact)
+			return runExport(cmd.Context(), opts, args[0], compact)
 		},
 	}
 
@@ -40,13 +41,13 @@ RECOMMENDED WORKFLOW:
 	return cmd
 }
 
-func runExport(opts *root.Options, ruleID string, compact bool) error {
+func runExport(ctx context.Context, opts *root.Options, ruleID string, compact bool) error {
 	client, err := opts.APIClient()
 	if err != nil {
 		return err
 	}
 
-	raw, err := client.GetAutomationRuleRaw(ruleID)
+	raw, err := client.GetAutomationRuleRaw(ctx, ruleID)
 	if err != nil {
 		return err
 	}

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -89,7 +90,7 @@ func TestGetIssueAttachments(t *testing.T) {
 	})
 	testutil.RequireNoError(t, err)
 
-	attachments, err := client.GetIssueAttachments("PROJ-123")
+	attachments, err := client.GetIssueAttachments(context.Background(), "PROJ-123")
 	testutil.RequireNoError(t, err)
 	testutil.Len(t, attachments, 1)
 
@@ -107,7 +108,7 @@ func TestGetIssueAttachments_EmptyIssueKey(t *testing.T) {
 		APIToken: "token",
 	})
 
-	_, err := client.GetIssueAttachments("")
+	_, err := client.GetIssueAttachments(context.Background(), "")
 	testutil.Error(t, err)
 	testutil.Contains(t, err.Error(), "issue key is required")
 }
@@ -133,7 +134,7 @@ func TestGetAttachment(t *testing.T) {
 	})
 	testutil.RequireNoError(t, err)
 
-	att, err := client.GetAttachment("10001")
+	att, err := client.GetAttachment(context.Background(), "10001")
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, att.ID.String(), "10001")
 	testutil.Equal(t, att.Filename, "document.pdf")
@@ -147,7 +148,7 @@ func TestGetAttachment_EmptyID(t *testing.T) {
 		APIToken: "token",
 	})
 
-	_, err := client.GetAttachment("")
+	_, err := client.GetAttachment(context.Background(), "")
 	testutil.Error(t, err)
 	testutil.Contains(t, err.Error(), "attachment ID is required")
 }
@@ -167,7 +168,7 @@ func TestDeleteAttachment(t *testing.T) {
 	})
 	testutil.RequireNoError(t, err)
 
-	err = client.DeleteAttachment("10001")
+	err = client.DeleteAttachment(context.Background(), "10001")
 	testutil.NoError(t, err)
 }
 
@@ -178,7 +179,7 @@ func TestDeleteAttachment_EmptyID(t *testing.T) {
 		APIToken: "token",
 	})
 
-	err := client.DeleteAttachment("")
+	err := client.DeleteAttachment(context.Background(), "")
 	testutil.Error(t, err)
 	testutil.Contains(t, err.Error(), "attachment ID is required")
 }
@@ -206,7 +207,7 @@ func TestDownloadAttachment(t *testing.T) {
 		Content:  server.URL + "/attachment/content",
 	}
 
-	err = client.DownloadAttachment(att, outPath)
+	err = client.DownloadAttachment(context.Background(), att, outPath)
 	testutil.RequireNoError(t, err)
 
 	downloaded, err := os.ReadFile(outPath)
@@ -236,7 +237,7 @@ func TestDownloadAttachment_ToDirectory(t *testing.T) {
 		Content:  server.URL + "/attachment/content",
 	}
 
-	err = client.DownloadAttachment(att, tmpDir)
+	err = client.DownloadAttachment(context.Background(), att, tmpDir)
 	testutil.RequireNoError(t, err)
 
 	// Should use original filename
@@ -252,7 +253,7 @@ func TestDownloadAttachment_NilAttachment(t *testing.T) {
 		APIToken: "token",
 	})
 
-	err := client.DownloadAttachment(nil, "/tmp/test.txt")
+	err := client.DownloadAttachment(context.Background(), nil, "/tmp/test.txt")
 	testutil.Error(t, err)
 	testutil.Contains(t, err.Error(), "attachment is required")
 }
@@ -265,7 +266,7 @@ func TestDownloadAttachment_NoContentURL(t *testing.T) {
 	})
 
 	att := &Attachment{Filename: "test.txt"}
-	err := client.DownloadAttachment(att, "/tmp/test.txt")
+	err := client.DownloadAttachment(context.Background(), att, "/tmp/test.txt")
 	testutil.Error(t, err)
 	testutil.Contains(t, err.Error(), "no content URL")
 }

@@ -1,6 +1,7 @@
 package automation
 
 import (
+	"context"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -21,7 +22,7 @@ func newListCmd(opts *root.Options) *cobra.Command {
   jtk automation list --state ENABLED
   jtk auto list -o json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runList(opts, strings.ToUpper(state))
+			return runList(cmd.Context(), opts, strings.ToUpper(state))
 		},
 	}
 
@@ -30,7 +31,7 @@ func newListCmd(opts *root.Options) *cobra.Command {
 	return cmd
 }
 
-func runList(opts *root.Options, state string) error {
+func runList(ctx context.Context, opts *root.Options, state string) error {
 	v := opts.View()
 
 	client, err := opts.APIClient()
@@ -38,7 +39,7 @@ func runList(opts *root.Options, state string) error {
 		return err
 	}
 
-	rules, err := client.ListAutomationRulesFiltered(state)
+	rules, err := client.ListAutomationRulesFiltered(ctx, state)
 	if err != nil {
 		return err
 	}

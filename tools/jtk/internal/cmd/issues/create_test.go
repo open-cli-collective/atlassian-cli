@@ -1,6 +1,7 @@
 package issues
 
 import (
+	"context"
 	"bytes"
 	"encoding/json"
 	"io"
@@ -44,7 +45,7 @@ func TestRunCreate_RequestBodyNoDoubleQuoting(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runCreate(opts, "MYPROJECT", "Task", "Fix login bug", "Users cannot log in with SSO credentials", "", "", nil)
+	err = runCreate(context.Background(), opts, "MYPROJECT", "Task", "Fix login bug", "Users cannot log in with SSO credentials", "", "", nil)
 	testutil.RequireNoError(t, err)
 
 	// Parse the captured request body
@@ -105,7 +106,7 @@ func TestRunCreate_SummaryWithSpecialCharacters(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runCreate(opts, "PROJ", "Bug", `Error: "unexpected token" in parser`, "", "", "", nil)
+	err = runCreate(context.Background(), opts, "PROJ", "Bug", `Error: "unexpected token" in parser`, "", "", "", nil)
 	testutil.RequireNoError(t, err)
 
 	var reqBody map[string]interface{}
@@ -228,7 +229,7 @@ func TestRunCreate_WithParent(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runCreate(opts, "PROJ", "Task", "Child task", "", "PROJ-100", "", nil)
+	err = runCreate(context.Background(), opts, "PROJ", "Task", "Child task", "", "PROJ-100", "", nil)
 	testutil.RequireNoError(t, err)
 
 	testutil.NotEmpty(t, capturedBody)
@@ -272,7 +273,7 @@ func TestRunCreate_WithoutParent(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runCreate(opts, "PROJ", "Task", "Standalone task", "", "", "", nil)
+	err = runCreate(context.Background(), opts, "PROJ", "Task", "Standalone task", "", "", "", nil)
 	testutil.RequireNoError(t, err)
 
 	testutil.NotEmpty(t, capturedBody)
@@ -363,7 +364,7 @@ func TestRunCreate_WithAssigneeAccountID(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runCreate(opts, "PROJ", "Task", "Assigned task", "", "", "61292e4c4f29230069621c5f", nil)
+	err = runCreate(context.Background(), opts, "PROJ", "Task", "Assigned task", "", "", "61292e4c4f29230069621c5f", nil)
 	testutil.RequireNoError(t, err)
 
 	testutil.NotEmpty(t, capturedBody)
@@ -412,7 +413,7 @@ func TestRunCreate_WithAssigneeMe(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runCreate(opts, "PROJ", "Task", "My task", "", "", "me", nil)
+	err = runCreate(context.Background(), opts, "PROJ", "Task", "My task", "", "", "me", nil)
 	testutil.RequireNoError(t, err)
 
 	testutil.NotEmpty(t, capturedBody)
@@ -460,7 +461,7 @@ func TestRunCreate_WithAssigneeEmail(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runCreate(opts, "PROJ", "Task", "Their task", "", "", "user@example.com", nil)
+	err = runCreate(context.Background(), opts, "PROJ", "Task", "Their task", "", "", "user@example.com", nil)
 	testutil.RequireNoError(t, err)
 
 	testutil.NotEmpty(t, capturedBody)
@@ -551,7 +552,7 @@ func TestRunCreate_WithoutAssignee(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runCreate(opts, "PROJ", "Task", "Unassigned task", "", "", "", nil)
+	err = runCreate(context.Background(), opts, "PROJ", "Task", "Unassigned task", "", "", "", nil)
 	testutil.RequireNoError(t, err)
 
 	testutil.NotEmpty(t, capturedBody)

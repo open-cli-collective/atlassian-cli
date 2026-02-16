@@ -1,6 +1,7 @@
 package issues
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -17,7 +18,7 @@ func TestResolveAssignee_RawAccountID(t *testing.T) {
 	})
 	testutil.RequireNoError(t, err)
 
-	id, err := resolveAssignee(client, "61292e4c4f29230069621c5f")
+	id, err := resolveAssignee(context.Background(), client, "61292e4c4f29230069621c5f")
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, id, "61292e4c4f29230069621c5f")
 }
@@ -42,7 +43,7 @@ func TestResolveAssignee_Me(t *testing.T) {
 	})
 	testutil.RequireNoError(t, err)
 
-	id, err := resolveAssignee(client, "me")
+	id, err := resolveAssignee(context.Background(), client, "me")
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, id, "me-account-id")
 }
@@ -67,7 +68,7 @@ func TestResolveAssignee_MeCaseInsensitive(t *testing.T) {
 	})
 	testutil.RequireNoError(t, err)
 
-	id, err := resolveAssignee(client, "Me")
+	id, err := resolveAssignee(context.Background(), client, "Me")
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, id, "me-account-id")
 }
@@ -91,7 +92,7 @@ func TestResolveAssignee_Email(t *testing.T) {
 	})
 	testutil.RequireNoError(t, err)
 
-	id, err := resolveAssignee(client, "user@example.com")
+	id, err := resolveAssignee(context.Background(), client, "user@example.com")
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, id, "email-account-id")
 }
@@ -113,7 +114,7 @@ func TestResolveAssignee_EmailNotFound(t *testing.T) {
 	})
 	testutil.RequireNoError(t, err)
 
-	_, err = resolveAssignee(client, "nobody@example.com")
+	_, err = resolveAssignee(context.Background(), client, "nobody@example.com")
 	testutil.Error(t, err)
 	testutil.Contains(t, err.Error(), "no user found")
 }

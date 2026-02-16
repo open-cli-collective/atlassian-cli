@@ -1,6 +1,7 @@
 package issues
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -26,7 +27,7 @@ func newListCmd(opts *root.Options) *cobra.Command {
   # List issues with custom limit
   jtk issues list --project MYPROJECT --max 100`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runList(opts, project, sprint, maxResults)
+			return runList(cmd.Context(), opts, project, sprint, maxResults)
 		},
 	}
 
@@ -37,7 +38,7 @@ func newListCmd(opts *root.Options) *cobra.Command {
 	return cmd
 }
 
-func runList(opts *root.Options, project, sprint string, maxResults int) error {
+func runList(ctx context.Context, opts *root.Options, project, sprint string, maxResults int) error {
 	v := opts.View()
 
 	client, err := opts.APIClient()
@@ -72,7 +73,7 @@ func runList(opts *root.Options, project, sprint string, maxResults int) error {
 		jql += " ORDER BY updated DESC"
 	}
 
-	issues, err := client.SearchAll(jql, maxResults)
+	issues, err := client.SearchAll(ctx, jql, maxResults)
 	if err != nil {
 		return err
 	}

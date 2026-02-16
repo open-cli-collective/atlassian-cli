@@ -1,6 +1,7 @@
 package transitions
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -39,7 +40,7 @@ func newListCmd(opts *root.Options) *cobra.Command {
   jtk transitions list PROJ-123 --fields`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runList(opts, args[0], showFields)
+			return runList(cmd.Context(), opts, args[0], showFields)
 		},
 	}
 
@@ -48,7 +49,7 @@ func newListCmd(opts *root.Options) *cobra.Command {
 	return cmd
 }
 
-func runList(opts *root.Options, issueKey string, showFields bool) error {
+func runList(ctx context.Context, opts *root.Options, issueKey string, showFields bool) error {
 	v := opts.View()
 
 	client, err := opts.APIClient()
@@ -56,7 +57,7 @@ func runList(opts *root.Options, issueKey string, showFields bool) error {
 		return err
 	}
 
-	transitions, err := client.GetTransitionsWithFields(issueKey, showFields)
+	transitions, err := client.GetTransitionsWithFields(ctx, issueKey, showFields)
 	if err != nil {
 		return err
 	}
@@ -126,7 +127,7 @@ Some transitions require additional fields to be set. Use --field to provide the
   jtk transitions do PROJ-123 "Done" --field customfield_10001="some value"`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runDo(opts, args[0], args[1], fields)
+			return runDo(cmd.Context(), opts, args[0], args[1], fields)
 		},
 	}
 
@@ -135,7 +136,7 @@ Some transitions require additional fields to be set. Use --field to provide the
 	return cmd
 }
 
-func runDo(opts *root.Options, issueKey, transitionNameOrID string, fieldArgs []string) error {
+func runDo(ctx context.Context, opts *root.Options, issueKey, transitionNameOrID string, fieldArgs []string) error {
 	v := opts.View()
 
 	client, err := opts.APIClient()
@@ -144,7 +145,7 @@ func runDo(opts *root.Options, issueKey, transitionNameOrID string, fieldArgs []
 	}
 
 	// Get available transitions
-	transitions, err := client.GetTransitions(issueKey)
+	transitions, err := client.GetTransitions(ctx, issueKey)
 	if err != nil {
 		return err
 	}
@@ -182,7 +183,7 @@ func runDo(opts *root.Options, issueKey, transitionNameOrID string, fieldArgs []
 		fields = make(map[string]interface{})
 
 		// Get field metadata for name resolution and type detection
-		allFields, err := client.GetFields()
+		allFields, err := client.GetFields(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to get field metadata: %w", err)
 		}
@@ -213,7 +214,7 @@ func runDo(opts *root.Options, issueKey, transitionNameOrID string, fieldArgs []
 		}
 	}
 
-	if err := client.DoTransition(issueKey, transitionID, fields); err != nil {
+	if err := client.DoTransition(ctx, issueKey, transitionID, fields); err != nil {
 		return err
 	}
 

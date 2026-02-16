@@ -69,25 +69,6 @@ var (
 	ErrAPITokenRequired = fmt.Errorf("API token is required")
 )
 
-// get performs a GET request to the specified URL
-func (c *Client) get(urlStr string) ([]byte, error) {
-	return c.Get(context.Background(), urlStr)
-}
-
-// post performs a POST request to the specified URL
-func (c *Client) post(urlStr string, body interface{}) ([]byte, error) {
-	return c.Post(context.Background(), urlStr, body)
-}
-
-// put performs a PUT request to the specified URL
-func (c *Client) put(urlStr string, body interface{}) ([]byte, error) {
-	return c.Put(context.Background(), urlStr, body)
-}
-
-// delete performs a DELETE request to the specified URL
-func (c *Client) delete(urlStr string) ([]byte, error) {
-	return c.Delete(context.Background(), urlStr)
-}
 
 // buildURL builds a URL with query parameters
 func buildURL(base string, params map[string]string) string {
@@ -130,7 +111,7 @@ type tenantInfo struct {
 func (c *Client) GetCloudID() (string, error) {
 	c.cloudOnce.Do(func() {
 		urlStr := fmt.Sprintf("%s/_edge/tenant_info", c.URL)
-		body, err := c.get(urlStr)
+		body, err := c.Get(context.Background(), urlStr)
 		if err != nil {
 			c.cloudErr = fmt.Errorf("failed to fetch cloud ID from %s: %w", urlStr, err)
 			return

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -54,7 +55,7 @@ func TestGetMoveTaskStatus(t *testing.T) {
 	})
 	testutil.RequireNoError(t, err)
 
-	status, err := client.GetMoveTaskStatus("task-123")
+	status, err := client.GetMoveTaskStatus(context.Background(), "task-123")
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, status.TaskID, "task-123")
 	testutil.Equal(t, status.Status, "COMPLETE")
@@ -71,7 +72,7 @@ func TestGetMoveTaskStatus_EmptyID(t *testing.T) {
 		APIToken: "token",
 	})
 
-	_, err := client.GetMoveTaskStatus("")
+	_, err := client.GetMoveTaskStatus(context.Background(), "")
 	testutil.Error(t, err)
 	testutil.Contains(t, err.Error(), "task ID is required")
 }
@@ -101,7 +102,7 @@ func TestGetMoveTaskStatus_WithFailures(t *testing.T) {
 	})
 	testutil.RequireNoError(t, err)
 
-	status, err := client.GetMoveTaskStatus("task-456")
+	status, err := client.GetMoveTaskStatus(context.Background(), "task-456")
 	testutil.RequireNoError(t, err)
 	testutil.NotNil(t, status.Result)
 	testutil.Len(t, status.Result.Successful, 1)
@@ -136,7 +137,7 @@ func TestMoveIssues(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	req := BuildMoveRequest([]string{"PROJ-1"}, "TARGET", "10001", true)
-	resp, err := client.MoveIssues(req)
+	resp, err := client.MoveIssues(context.Background(), req)
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, resp.TaskID, "new-task-id")
 }
@@ -162,7 +163,7 @@ func TestGetProjectIssueTypes(t *testing.T) {
 	})
 	testutil.RequireNoError(t, err)
 
-	types, err := client.GetProjectIssueTypes("PROJ")
+	types, err := client.GetProjectIssueTypes(context.Background(), "PROJ")
 	testutil.RequireNoError(t, err)
 	testutil.Len(t, types, 3)
 	testutil.Equal(t, types[0].Name, "Task")
@@ -177,7 +178,7 @@ func TestGetProjectIssueTypes_EmptyProject(t *testing.T) {
 		APIToken: "token",
 	})
 
-	_, err := client.GetProjectIssueTypes("")
+	_, err := client.GetProjectIssueTypes(context.Background(), "")
 	testutil.Error(t, err)
 	testutil.Contains(t, err.Error(), "project key is required")
 }
@@ -208,7 +209,7 @@ func TestGetProjectStatuses(t *testing.T) {
 	})
 	testutil.RequireNoError(t, err)
 
-	statuses, err := client.GetProjectStatuses("PROJ")
+	statuses, err := client.GetProjectStatuses(context.Background(), "PROJ")
 	testutil.RequireNoError(t, err)
 	testutil.Len(t, statuses, 1)
 	testutil.Equal(t, statuses[0].Name, "Task")
@@ -223,7 +224,7 @@ func TestGetProjectStatuses_EmptyProject(t *testing.T) {
 		APIToken: "token",
 	})
 
-	_, err := client.GetProjectStatuses("")
+	_, err := client.GetProjectStatuses(context.Background(), "")
 	testutil.Error(t, err)
 	testutil.Contains(t, err.Error(), "project key is required")
 }

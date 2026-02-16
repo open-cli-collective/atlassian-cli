@@ -2,6 +2,7 @@ package fields
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -49,7 +50,7 @@ func TestRunList_Table(t *testing.T) {
 	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runList(opts, false)
+	err = runList(context.Background(), opts, false)
 	testutil.RequireNoError(t, err)
 	testutil.Contains(t, stdout.String(), "summary")
 	testutil.Contains(t, stdout.String(), "customfield_10100")
@@ -71,7 +72,7 @@ func TestRunList_JSON(t *testing.T) {
 	opts := &root.Options{Output: "json", Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runList(opts, false)
+	err = runList(context.Background(), opts, false)
 	testutil.RequireNoError(t, err)
 	testutil.Contains(t, stdout.String(), `"id"`)
 	testutil.Contains(t, stdout.String(), "customfield_10100")
@@ -90,7 +91,7 @@ func TestRunList_Empty(t *testing.T) {
 	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runList(opts, false)
+	err = runList(context.Background(), opts, false)
 	testutil.RequireNoError(t, err)
 	testutil.Contains(t, stdout.String(), "No fields found")
 }
@@ -130,7 +131,7 @@ func TestRunCreate(t *testing.T) {
 	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runCreate(opts, "Environment", "com.atlassian.jira.plugin.system.customfieldtypes:select", "")
+	err = runCreate(context.Background(), opts, "Environment", "com.atlassian.jira.plugin.system.customfieldtypes:select", "")
 	testutil.RequireNoError(t, err)
 	testutil.Contains(t, stdout.String(), "Created field customfield_10100")
 	testutil.Contains(t, stdout.String(), "Environment")
@@ -154,7 +155,7 @@ func TestRunCreate_JSON(t *testing.T) {
 	opts := &root.Options{Output: "json", Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runCreate(opts, "Environment", "select", "")
+	err = runCreate(context.Background(), opts, "Environment", "select", "")
 	testutil.RequireNoError(t, err)
 	testutil.Contains(t, stdout.String(), "customfield_10100")
 }
@@ -185,7 +186,7 @@ func TestRunDelete_Force(t *testing.T) {
 	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runDelete(opts, "customfield_10100", true)
+	err = runDelete(context.Background(), opts, "customfield_10100", true)
 	testutil.RequireNoError(t, err)
 	testutil.Contains(t, stdout.String(), "Trashed field customfield_10100")
 }
@@ -203,7 +204,7 @@ func TestRunDelete_NoForce_Declined(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runDelete(opts, "customfield_10100", false)
+	err = runDelete(context.Background(), opts, "customfield_10100", false)
 	testutil.RequireNoError(t, err)
 	testutil.Contains(t, stdout.String(), "Deletion cancelled")
 }
@@ -227,7 +228,7 @@ func TestRunDelete_NoForce_Accepted(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runDelete(opts, "customfield_10100", false)
+	err = runDelete(context.Background(), opts, "customfield_10100", false)
 	testutil.RequireNoError(t, err)
 	testutil.Contains(t, stdout.String(), "Trashed field customfield_10100")
 }
@@ -247,7 +248,7 @@ func TestRunRestore(t *testing.T) {
 	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runRestore(opts, "customfield_10100")
+	err = runRestore(context.Background(), opts, "customfield_10100")
 	testutil.RequireNoError(t, err)
 	testutil.Contains(t, stdout.String(), "Restored field customfield_10100")
 }
@@ -282,7 +283,7 @@ func TestRunContextsList_Table(t *testing.T) {
 	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runContextsList(opts, "customfield_10100")
+	err = runContextsList(context.Background(), opts, "customfield_10100")
 	testutil.RequireNoError(t, err)
 	testutil.Contains(t, stdout.String(), "Default")
 	testutil.Contains(t, stdout.String(), "Bug Context")
@@ -301,7 +302,7 @@ func TestRunContextsList_Empty(t *testing.T) {
 	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runContextsList(opts, "customfield_10100")
+	err = runContextsList(context.Background(), opts, "customfield_10100")
 	testutil.RequireNoError(t, err)
 	testutil.Contains(t, stdout.String(), "No contexts found")
 }
@@ -324,7 +325,7 @@ func TestRunContextsCreate(t *testing.T) {
 	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runContextsCreate(opts, "customfield_10100", "Bug Context", "")
+	err = runContextsCreate(context.Background(), opts, "customfield_10100", "Bug Context", "")
 	testutil.RequireNoError(t, err)
 	testutil.Contains(t, stdout.String(), "Created context 10003")
 	testutil.Contains(t, stdout.String(), "Bug Context")
@@ -344,7 +345,7 @@ func TestRunContextsDelete_Force(t *testing.T) {
 	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runContextsDelete(opts, "customfield_10100", "10003", true)
+	err = runContextsDelete(context.Background(), opts, "customfield_10100", "10003", true)
 	testutil.RequireNoError(t, err)
 	testutil.Contains(t, stdout.String(), "Deleted context 10003")
 }
@@ -362,7 +363,7 @@ func TestRunContextsDelete_NoForce_Declined(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runContextsDelete(opts, "customfield_10100", "10003", false)
+	err = runContextsDelete(context.Background(), opts, "customfield_10100", "10003", false)
 	testutil.RequireNoError(t, err)
 	testutil.Contains(t, stdout.String(), "Deletion cancelled")
 }
@@ -381,7 +382,7 @@ func TestNewOptionsCmd(t *testing.T) {
 
 func TestResolveContextID_Explicit(t *testing.T) {
 	// When context flag is provided, it should be used directly
-	id, err := resolveContextID(nil, "customfield_10100", "10001")
+	id, err := resolveContextID(context.Background(), nil, "customfield_10100", "10001")
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, id, "10001")
 }
@@ -399,7 +400,7 @@ func TestResolveContextID_AutoDetect(t *testing.T) {
 	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
 	testutil.RequireNoError(t, err)
 
-	id, err := resolveContextID(client, "customfield_10100", "")
+	id, err := resolveContextID(context.Background(), client, "customfield_10100", "")
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, id, "10001")
 }
@@ -432,7 +433,7 @@ func TestRunOptionsList_Table(t *testing.T) {
 	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runOptionsList(opts, "customfield_10100", "")
+	err = runOptionsList(context.Background(), opts, "customfield_10100", "")
 	testutil.RequireNoError(t, err)
 	testutil.Contains(t, stdout.String(), "Production")
 	testutil.Contains(t, stdout.String(), "Staging")
@@ -459,7 +460,7 @@ func TestRunOptionsList_Empty(t *testing.T) {
 	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runOptionsList(opts, "customfield_10100", "")
+	err = runOptionsList(context.Background(), opts, "customfield_10100", "")
 	testutil.RequireNoError(t, err)
 	testutil.Contains(t, stdout.String(), "No options found")
 }
@@ -490,7 +491,7 @@ func TestRunOptionsAdd(t *testing.T) {
 	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runOptionsAdd(opts, "customfield_10100", "Option A", "")
+	err = runOptionsAdd(context.Background(), opts, "customfield_10100", "Option A", "")
 	testutil.RequireNoError(t, err)
 	testutil.Contains(t, stdout.String(), "Added option 3")
 	testutil.Contains(t, stdout.String(), "Option A")
@@ -522,7 +523,7 @@ func TestRunOptionsUpdate(t *testing.T) {
 	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runOptionsUpdate(opts, "customfield_10100", "3", "Option A (updated)", "")
+	err = runOptionsUpdate(context.Background(), opts, "customfield_10100", "3", "Option A (updated)", "")
 	testutil.RequireNoError(t, err)
 	testutil.Contains(t, stdout.String(), "Updated option 3")
 }
@@ -549,7 +550,7 @@ func TestRunOptionsDelete_Force(t *testing.T) {
 	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runOptionsDelete(opts, "customfield_10100", "3", "", true)
+	err = runOptionsDelete(context.Background(), opts, "customfield_10100", "3", "", true)
 	testutil.RequireNoError(t, err)
 	testutil.Contains(t, stdout.String(), "Deleted option 3")
 }
@@ -567,7 +568,7 @@ func TestRunOptionsDelete_NoForce_Declined(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runOptionsDelete(opts, "customfield_10100", "3", "", false)
+	err = runOptionsDelete(context.Background(), opts, "customfield_10100", "3", "", false)
 	testutil.RequireNoError(t, err)
 	testutil.Contains(t, stdout.String(), "Deletion cancelled")
 }

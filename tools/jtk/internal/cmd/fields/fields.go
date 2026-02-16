@@ -1,6 +1,7 @@
 package fields
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -46,7 +47,7 @@ func newListCmd(opts *root.Options) *cobra.Command {
   # List fields as JSON
   jtk fields list -o json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runList(opts, customOnly)
+			return runList(cmd.Context(), opts, customOnly)
 		},
 	}
 
@@ -55,7 +56,7 @@ func newListCmd(opts *root.Options) *cobra.Command {
 	return cmd
 }
 
-func runList(opts *root.Options, customOnly bool) error {
+func runList(ctx context.Context, opts *root.Options, customOnly bool) error {
 	v := opts.View()
 
 	client, err := opts.APIClient()
@@ -65,9 +66,9 @@ func runList(opts *root.Options, customOnly bool) error {
 
 	var fields []api.Field
 	if customOnly {
-		fields, err = client.GetCustomFields()
+		fields, err = client.GetCustomFields(ctx)
 	} else {
-		fields, err = client.GetFields()
+		fields, err = client.GetFields(ctx)
 	}
 	if err != nil {
 		return err
@@ -116,7 +117,7 @@ Common field types:
   # Create a text field with description
   jtk fields create --name "Release Notes" --type com.atlassian.jira.plugin.system.customfieldtypes:textarea --description "Notes for the release"`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCreate(opts, name, fieldType, description)
+			return runCreate(cmd.Context(), opts, name, fieldType, description)
 		},
 	}
 
@@ -130,7 +131,7 @@ Common field types:
 	return cmd
 }
 
-func runCreate(opts *root.Options, name, fieldType, description string) error {
+func runCreate(ctx context.Context, opts *root.Options, name, fieldType, description string) error {
 	v := opts.View()
 
 	client, err := opts.APIClient()
@@ -138,7 +139,7 @@ func runCreate(opts *root.Options, name, fieldType, description string) error {
 		return err
 	}
 
-	field, err := client.CreateField(&api.CreateFieldRequest{
+	field, err := client.CreateField(ctx, &api.CreateFieldRequest{
 		Name:        name,
 		Type:        fieldType,
 		Description: description,
@@ -172,7 +173,7 @@ Trashed fields are permanently deleted after 60 days.`,
   jtk fields delete customfield_10100 --force`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runDelete(opts, args[0], force)
+			return runDelete(cmd.Context(), opts, args[0], force)
 		},
 	}
 
@@ -181,7 +182,7 @@ Trashed fields are permanently deleted after 60 days.`,
 	return cmd
 }
 
-func runDelete(opts *root.Options, fieldID string, force bool) error {
+func runDelete(ctx context.Context, opts *root.Options, fieldID string, force bool) error {
 	v := opts.View()
 
 	if !force {
@@ -203,7 +204,7 @@ func runDelete(opts *root.Options, fieldID string, force bool) error {
 		return err
 	}
 
-	if err := client.TrashField(fieldID); err != nil {
+	if err := client.TrashField(ctx, fieldID); err != nil {
 		return err
 	}
 
@@ -220,12 +221,12 @@ func newRestoreCmd(opts *root.Options) *cobra.Command {
   jtk fields restore customfield_10100`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runRestore(opts, args[0])
+			return runRestore(cmd.Context(), opts, args[0])
 		},
 	}
 }
 
-func runRestore(opts *root.Options, fieldID string) error {
+func runRestore(ctx context.Context, opts *root.Options, fieldID string) error {
 	v := opts.View()
 
 	client, err := opts.APIClient()
@@ -233,7 +234,7 @@ func runRestore(opts *root.Options, fieldID string) error {
 		return err
 	}
 
-	if err := client.RestoreField(fieldID); err != nil {
+	if err := client.RestoreField(ctx, fieldID); err != nil {
 		return err
 	}
 

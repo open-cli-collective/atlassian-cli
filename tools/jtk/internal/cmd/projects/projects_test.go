@@ -1,6 +1,7 @@
 package projects
 
 import (
+	"context"
 	"bytes"
 	"encoding/json"
 	"net/http"
@@ -56,7 +57,7 @@ func TestRunList_Table(t *testing.T) {
 	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runList(opts, "", 50)
+	err = runList(context.Background(), opts, "", 50)
 	testutil.RequireNoError(t, err)
 	testutil.Contains(t, stdout.String(), "TST")
 	testutil.Contains(t, stdout.String(), "Test")
@@ -81,7 +82,7 @@ func TestRunList_JSON(t *testing.T) {
 	opts := &root.Options{Output: "json", Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runList(opts, "", 50)
+	err = runList(context.Background(), opts, "", 50)
 	testutil.RequireNoError(t, err)
 	testutil.Contains(t, stdout.String(), `"key"`)
 	testutil.Contains(t, stdout.String(), "TST")
@@ -100,7 +101,7 @@ func TestRunList_Empty(t *testing.T) {
 	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runList(opts, "", 50)
+	err = runList(context.Background(), opts, "", 50)
 	testutil.RequireNoError(t, err)
 	testutil.Contains(t, stdout.String(), "No projects found")
 }
@@ -131,7 +132,7 @@ func TestRunGet_Table(t *testing.T) {
 	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runGet(opts, "TST")
+	err = runGet(context.Background(), opts, "TST")
 	testutil.RequireNoError(t, err)
 	testutil.Contains(t, stdout.String(), "TST")
 	testutil.Contains(t, stdout.String(), "Lead")
@@ -173,7 +174,7 @@ func TestRunCreate(t *testing.T) {
 	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runCreate(opts, "TST", "Test Project", "software", "abc123", "")
+	err = runCreate(context.Background(), opts, "TST", "Test Project", "software", "abc123", "")
 	testutil.RequireNoError(t, err)
 	testutil.Contains(t, stdout.String(), "Created project TST")
 	testutil.Contains(t, stdout.String(), "Test Project")
@@ -203,7 +204,7 @@ func TestRunDelete_Force(t *testing.T) {
 	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runDelete(opts, "TST", true)
+	err = runDelete(context.Background(), opts, "TST", true)
 	testutil.RequireNoError(t, err)
 	testutil.Contains(t, stdout.String(), "Deleted project TST")
 }
@@ -221,7 +222,7 @@ func TestRunDelete_NoForce_Declined(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runDelete(opts, "TST", false)
+	err = runDelete(context.Background(), opts, "TST", false)
 	testutil.RequireNoError(t, err)
 	testutil.Contains(t, stdout.String(), "Deletion cancelled")
 }
@@ -245,7 +246,7 @@ func TestRunDelete_NoForce_Accepted(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runDelete(opts, "TST", false)
+	err = runDelete(context.Background(), opts, "TST", false)
 	testutil.RequireNoError(t, err)
 	testutil.Contains(t, stdout.String(), "Deleted project TST")
 }
@@ -268,7 +269,7 @@ func TestRunUpdate(t *testing.T) {
 	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runUpdate(opts, "TST", "Updated Name", "", "")
+	err = runUpdate(context.Background(), opts, "TST", "Updated Name", "", "")
 	testutil.RequireNoError(t, err)
 	testutil.Contains(t, stdout.String(), "Updated project TST")
 }
@@ -290,7 +291,7 @@ func TestRunRestore(t *testing.T) {
 	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runRestore(opts, "TST")
+	err = runRestore(context.Background(), opts, "TST")
 	testutil.RequireNoError(t, err)
 	testutil.Contains(t, stdout.String(), "Restored project TST")
 }
@@ -311,7 +312,7 @@ func TestRunTypes(t *testing.T) {
 	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runTypes(opts)
+	err = runTypes(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 	testutil.Contains(t, stdout.String(), "software")
 	testutil.Contains(t, stdout.String(), "Software")

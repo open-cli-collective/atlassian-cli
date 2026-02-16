@@ -1,6 +1,7 @@
 package me
 
 import (
+	"context"
 	"github.com/spf13/cobra"
 
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
@@ -18,14 +19,14 @@ func Register(parent *cobra.Command, opts *root.Options) {
   # Show just the account ID (for scripting)
   jtk me -o plain`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return run(opts)
+			return run(cmd.Context(), opts)
 		},
 	}
 
 	parent.AddCommand(cmd)
 }
 
-func run(opts *root.Options) error {
+func run(ctx context.Context, opts *root.Options) error {
 	v := opts.View()
 
 	client, err := opts.APIClient()
@@ -33,7 +34,7 @@ func run(opts *root.Options) error {
 		return err
 	}
 
-	user, err := client.GetCurrentUser()
+	user, err := client.GetCurrentUser(ctx)
 	if err != nil {
 		return err
 	}

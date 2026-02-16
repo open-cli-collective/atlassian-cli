@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -69,7 +70,7 @@ func TestSearchProjects(t *testing.T) {
 			testutil.RequireNoError(t, err)
 			client.BaseURL = server.URL + "/rest/api/3"
 
-			result, err := client.SearchProjects(tt.query, 0, 50)
+			result, err := client.SearchProjects(context.Background(), tt.query, 0, 50)
 			if tt.wantErr {
 				testutil.Error(t, err)
 				return
@@ -126,7 +127,7 @@ func TestGetProject(t *testing.T) {
 					APIToken: "test-token",
 				})
 				testutil.RequireNoError(t, err)
-				_, err = client.GetProject("")
+				_, err = client.GetProject(context.Background(), "")
 				testutil.Error(t, err)
 				return
 			}
@@ -146,7 +147,7 @@ func TestGetProject(t *testing.T) {
 			testutil.RequireNoError(t, err)
 			client.BaseURL = server.URL + "/rest/api/3"
 
-			project, err := client.GetProject(tt.keyOrID)
+			project, err := client.GetProject(context.Background(), tt.keyOrID)
 			if tt.wantErr {
 				testutil.Error(t, err)
 				return
@@ -190,7 +191,7 @@ func TestCreateProject(t *testing.T) {
 	testutil.RequireNoError(t, err)
 	client.BaseURL = server.URL + "/rest/api/3"
 
-	project, err := client.CreateProject(&CreateProjectRequest{
+	project, err := client.CreateProject(context.Background(), &CreateProjectRequest{
 		Key:            "TST",
 		Name:           "Test Project",
 		ProjectTypeKey: "software",
@@ -219,7 +220,7 @@ func TestCreateProject_NumericID(t *testing.T) {
 	testutil.RequireNoError(t, err)
 	client.BaseURL = server.URL + "/rest/api/3"
 
-	project, err := client.CreateProject(&CreateProjectRequest{
+	project, err := client.CreateProject(context.Background(), &CreateProjectRequest{
 		Key:            "NEW",
 		Name:           "New Project",
 		ProjectTypeKey: "software",
@@ -256,7 +257,7 @@ func TestUpdateProject(t *testing.T) {
 	testutil.RequireNoError(t, err)
 	client.BaseURL = server.URL + "/rest/api/3"
 
-	project, err := client.UpdateProject("TST", &UpdateProjectRequest{
+	project, err := client.UpdateProject(context.Background(), "TST", &UpdateProjectRequest{
 		Name: "Updated Name",
 	})
 	testutil.RequireNoError(t, err)
@@ -271,7 +272,7 @@ func TestUpdateProject_EmptyKey(t *testing.T) {
 	})
 	testutil.RequireNoError(t, err)
 
-	_, err = client.UpdateProject("", &UpdateProjectRequest{Name: "test"})
+	_, err = client.UpdateProject(context.Background(), "", &UpdateProjectRequest{Name: "test"})
 	testutil.Error(t, err)
 }
 
@@ -291,7 +292,7 @@ func TestDeleteProject(t *testing.T) {
 	testutil.RequireNoError(t, err)
 	client.BaseURL = server.URL + "/rest/api/3"
 
-	err = client.DeleteProject("TST")
+	err = client.DeleteProject(context.Background(), "TST")
 	testutil.NoError(t, err)
 }
 
@@ -303,7 +304,7 @@ func TestDeleteProject_EmptyKey(t *testing.T) {
 	})
 	testutil.RequireNoError(t, err)
 
-	err = client.DeleteProject("")
+	err = client.DeleteProject(context.Background(), "")
 	testutil.Error(t, err)
 }
 
@@ -327,7 +328,7 @@ func TestRestoreProject(t *testing.T) {
 	testutil.RequireNoError(t, err)
 	client.BaseURL = server.URL + "/rest/api/3"
 
-	project, err := client.RestoreProject("TST")
+	project, err := client.RestoreProject(context.Background(), "TST")
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, project.Key, "TST")
 }
@@ -340,7 +341,7 @@ func TestRestoreProject_EmptyKey(t *testing.T) {
 	})
 	testutil.RequireNoError(t, err)
 
-	_, err = client.RestoreProject("")
+	_, err = client.RestoreProject(context.Background(), "")
 	testutil.Error(t, err)
 }
 
@@ -363,7 +364,7 @@ func TestListProjectTypes(t *testing.T) {
 	testutil.RequireNoError(t, err)
 	client.BaseURL = server.URL + "/rest/api/3"
 
-	types, err := client.ListProjectTypes()
+	types, err := client.ListProjectTypes(context.Background())
 	testutil.RequireNoError(t, err)
 	testutil.Len(t, types, 3)
 	testutil.Equal(t, types[0].Key, "software")

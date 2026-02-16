@@ -15,7 +15,7 @@ func newDisableCmd(opts *root.Options) *cobra.Command {
   jtk auto disable 12345`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runSetState(opts, args[0], false)
+			return runSetState(cmd.Context(), opts, args[0], false)
 		},
 	}
 

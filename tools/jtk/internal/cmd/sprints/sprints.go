@@ -1,6 +1,7 @@
 package sprints
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -43,7 +44,7 @@ func newListCmd(opts *root.Options) *cobra.Command {
 			if boardID == 0 {
 				return fmt.Errorf("--board is required")
 			}
-			return runList(opts, boardID, state, maxResults)
+			return runList(cmd.Context(), opts, boardID, state, maxResults)
 		},
 	}
 
@@ -54,7 +55,7 @@ func newListCmd(opts *root.Options) *cobra.Command {
 	return cmd
 }
 
-func runList(opts *root.Options, boardID int, state string, maxResults int) error {
+func runList(ctx context.Context, opts *root.Options, boardID int, state string, maxResults int) error {
 	v := opts.View()
 
 	client, err := opts.APIClient()
@@ -62,7 +63,7 @@ func runList(opts *root.Options, boardID int, state string, maxResults int) erro
 		return err
 	}
 
-	result, err := client.ListSprints(boardID, state, 0, maxResults)
+	result, err := client.ListSprints(ctx, boardID, state, 0, maxResults)
 	if err != nil {
 		return err
 	}
@@ -113,7 +114,7 @@ func newCurrentCmd(opts *root.Options) *cobra.Command {
 			if boardID == 0 {
 				return fmt.Errorf("--board is required")
 			}
-			return runCurrent(opts, boardID)
+			return runCurrent(cmd.Context(), opts, boardID)
 		},
 	}
 
@@ -122,7 +123,7 @@ func newCurrentCmd(opts *root.Options) *cobra.Command {
 	return cmd
 }
 
-func runCurrent(opts *root.Options, boardID int) error {
+func runCurrent(ctx context.Context, opts *root.Options, boardID int) error {
 	v := opts.View()
 
 	client, err := opts.APIClient()
@@ -130,7 +131,7 @@ func runCurrent(opts *root.Options, boardID int) error {
 		return err
 	}
 
-	sprint, err := client.GetCurrentSprint(boardID)
+	sprint, err := client.GetCurrentSprint(ctx, boardID)
 	if err != nil {
 		return err
 	}
@@ -169,7 +170,7 @@ func newIssuesCmd(opts *root.Options) *cobra.Command {
 			if _, err := fmt.Sscanf(args[0], "%d", &sprintID); err != nil {
 				return fmt.Errorf("invalid sprint ID: %s", args[0])
 			}
-			return runIssues(opts, sprintID, maxResults)
+			return runIssues(cmd.Context(), opts, sprintID, maxResults)
 		},
 	}
 
@@ -178,7 +179,7 @@ func newIssuesCmd(opts *root.Options) *cobra.Command {
 	return cmd
 }
 
-func runIssues(opts *root.Options, sprintID int, maxResults int) error {
+func runIssues(ctx context.Context, opts *root.Options, sprintID int, maxResults int) error {
 	v := opts.View()
 
 	client, err := opts.APIClient()
@@ -186,7 +187,7 @@ func runIssues(opts *root.Options, sprintID int, maxResults int) error {
 		return err
 	}
 
-	result, err := client.GetSprintIssues(sprintID, 0, maxResults)
+	result, err := client.GetSprintIssues(ctx, sprintID, 0, maxResults)
 	if err != nil {
 		return err
 	}
@@ -252,14 +253,14 @@ func newAddCmd(opts *root.Options) *cobra.Command {
 			if _, err := fmt.Sscanf(args[0], "%d", &sprintID); err != nil {
 				return fmt.Errorf("invalid sprint ID: %s", args[0])
 			}
-			return runAdd(opts, sprintID, args[1:])
+			return runAdd(cmd.Context(), opts, sprintID, args[1:])
 		},
 	}
 
 	return cmd
 }
 
-func runAdd(opts *root.Options, sprintID int, issueKeys []string) error {
+func runAdd(ctx context.Context, opts *root.Options, sprintID int, issueKeys []string) error {
 	v := opts.View()
 
 	client, err := opts.APIClient()
@@ -267,7 +268,7 @@ func runAdd(opts *root.Options, sprintID int, issueKeys []string) error {
 		return err
 	}
 
-	if err := client.MoveIssuesToSprint(sprintID, issueKeys); err != nil {
+	if err := client.MoveIssuesToSprint(ctx, sprintID, issueKeys); err != nil {
 		return err
 	}
 

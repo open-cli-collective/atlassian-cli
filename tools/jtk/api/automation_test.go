@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -108,7 +109,7 @@ func TestListAutomationRules(t *testing.T) {
 	}))
 	defer server.Close()
 
-	rules, err := client.ListAutomationRules()
+	rules, err := client.ListAutomationRules(context.Background())
 	testutil.RequireNoError(t, err)
 	testutil.Len(t, rules, 2)
 	testutil.Equal(t, rules[0].Name, "Rule One")
@@ -139,7 +140,7 @@ func TestListAutomationRulesFiltered(t *testing.T) {
 	defer server.Close()
 
 	t.Run("filter ENABLED", func(t *testing.T) {
-		rules, err := client.ListAutomationRulesFiltered("ENABLED")
+		rules, err := client.ListAutomationRulesFiltered(context.Background(), "ENABLED")
 		testutil.RequireNoError(t, err)
 		testutil.Len(t, rules, 2)
 		for _, r := range rules {
@@ -168,14 +169,14 @@ func TestListAutomationRulesFiltered(t *testing.T) {
 		}))
 		defer server2.Close()
 
-		rules, err := client2.ListAutomationRulesFiltered("DISABLED")
+		rules, err := client2.ListAutomationRulesFiltered(context.Background(), "DISABLED")
 		testutil.RequireNoError(t, err)
 		testutil.Len(t, rules, 1)
 		testutil.Equal(t, rules[0].Name, "Disabled Rule")
 	})
 
 	t.Run("no filter", func(t *testing.T) {
-		rules, err := client.ListAutomationRulesFiltered("")
+		rules, err := client.ListAutomationRulesFiltered(context.Background(), "")
 		testutil.RequireNoError(t, err)
 		testutil.Len(t, rules, 3)
 	})
@@ -211,7 +212,7 @@ func TestGetAutomationRule(t *testing.T) {
 	}))
 	defer server.Close()
 
-	rule, err := client.GetAutomationRule("42")
+	rule, err := client.GetAutomationRule(context.Background(), "42")
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, rule.Name, "My Automation Rule")
 	testutil.Equal(t, rule.State, "ENABLED")
@@ -237,7 +238,7 @@ func TestGetAutomationRuleRaw(t *testing.T) {
 	}))
 	defer server.Close()
 
-	raw, err := client.GetAutomationRuleRaw("42")
+	raw, err := client.GetAutomationRuleRaw(context.Background(), "42")
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, string(raw), expectedJSON)
 }
@@ -264,7 +265,7 @@ func TestUpdateAutomationRule(t *testing.T) {
 	defer server.Close()
 
 	ruleJSON := json.RawMessage(`{"name":"Updated Rule","state":"ENABLED"}`)
-	err := client.UpdateAutomationRule("42", ruleJSON)
+	err := client.UpdateAutomationRule(context.Background(), "42", ruleJSON)
 	testutil.RequireNoError(t, err)
 	jsonEq(t, string(receivedBody), `{"name":"Updated Rule","state":"ENABLED"}`)
 }
@@ -286,7 +287,7 @@ func TestSetAutomationRuleState(t *testing.T) {
 		}))
 		defer server.Close()
 
-		err := client.SetAutomationRuleState("42", true)
+		err := client.SetAutomationRuleState(context.Background(), "42", true)
 		testutil.RequireNoError(t, err)
 		// Verify the JSON field name is "value" per the Automation REST API spec
 		jsonEq(t, string(rawBody), `{"value":"ENABLED"}`)
@@ -308,7 +309,7 @@ func TestSetAutomationRuleState(t *testing.T) {
 		}))
 		defer server.Close()
 
-		err := client.SetAutomationRuleState("42", false)
+		err := client.SetAutomationRuleState(context.Background(), "42", false)
 		testutil.RequireNoError(t, err)
 		jsonEq(t, string(rawBody), `{"value":"DISABLED"}`)
 	})
@@ -333,7 +334,7 @@ func TestCreateAutomationRule(t *testing.T) {
 	defer server.Close()
 
 	ruleJSON := json.RawMessage(`{"name":"New Rule","state":"DISABLED"}`)
-	resp, err := client.CreateAutomationRule(ruleJSON)
+	resp, err := client.CreateAutomationRule(context.Background(), ruleJSON)
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, receivedMethod, http.MethodPost)
 	jsonEq(t, string(receivedBody), `{"name":"New Rule","state":"DISABLED"}`)
@@ -480,7 +481,7 @@ func TestGetAutomationRuleLegacyFallback(t *testing.T) {
 		}))
 		defer server.Close()
 
-		rule, err := client.GetAutomationRule("42")
+		rule, err := client.GetAutomationRule(context.Background(), "42")
 		testutil.RequireNoError(t, err)
 		testutil.Equal(t, rule.Name, "Legacy Rule")
 		testutil.Equal(t, rule.State, "ENABLED")
@@ -499,7 +500,7 @@ func TestGetAutomationRuleLegacyFallback(t *testing.T) {
 		}))
 		defer server.Close()
 
-		rule, err := client.GetAutomationRule("rk-99")
+		rule, err := client.GetAutomationRule(context.Background(), "rk-99")
 		testutil.RequireNoError(t, err)
 		testutil.Equal(t, rule.UUID, "rk-99")
 		testutil.Equal(t, rule.RuleKey, "rk-99")
@@ -518,7 +519,7 @@ func TestGetAutomationRuleLegacyFallback(t *testing.T) {
 		}))
 		defer server.Close()
 
-		rule, err := client.GetAutomationRule("rk-envelope")
+		rule, err := client.GetAutomationRule(context.Background(), "rk-envelope")
 		testutil.RequireNoError(t, err)
 		testutil.Equal(t, rule.UUID, "rk-envelope")
 		testutil.Equal(t, rule.Name, "Envelope RuleKey")
@@ -538,7 +539,7 @@ func TestListAutomationRulesLegacyShape(t *testing.T) {
 	}))
 	defer server.Close()
 
-	rules, err := client.ListAutomationRules()
+	rules, err := client.ListAutomationRules(context.Background())
 	testutil.RequireNoError(t, err)
 	testutil.Len(t, rules, 2)
 	testutil.Equal(t, rules[0].Name, "Old Rule 1")
@@ -576,7 +577,7 @@ func TestListAutomationRulesPagination(t *testing.T) {
 	}))
 	defer server.Close()
 
-	rules, err := client.ListAutomationRules()
+	rules, err := client.ListAutomationRules(context.Background())
 	testutil.RequireNoError(t, err)
 	testutil.Len(t, rules, 3)
 	testutil.Equal(t, rules[0].Name, "Rule 1")

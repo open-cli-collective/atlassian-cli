@@ -1,6 +1,7 @@
 package issues
 
 import (
+	"context"
 	"github.com/spf13/cobra"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
@@ -28,7 +29,7 @@ func newFieldsCmd(opts *root.Options) *cobra.Command {
 			if len(args) > 0 {
 				issueKey = args[0]
 			}
-			return runFields(opts, issueKey, customOnly)
+			return runFields(cmd.Context(), opts, issueKey, customOnly)
 		},
 	}
 
@@ -37,7 +38,7 @@ func newFieldsCmd(opts *root.Options) *cobra.Command {
 	return cmd
 }
 
-func runFields(opts *root.Options, issueKey string, customOnly bool) error {
+func runFields(ctx context.Context, opts *root.Options, issueKey string, customOnly bool) error {
 	v := opts.View()
 
 	client, err := opts.APIClient()
@@ -47,7 +48,7 @@ func runFields(opts *root.Options, issueKey string, customOnly bool) error {
 
 	if issueKey != "" {
 		// Get editable fields for a specific issue
-		meta, err := client.GetIssueEditMeta(issueKey)
+		meta, err := client.GetIssueEditMeta(ctx, issueKey)
 		if err != nil {
 			return err
 		}
@@ -93,9 +94,9 @@ func runFields(opts *root.Options, issueKey string, customOnly bool) error {
 	// List all fields
 	var fields []api.Field
 	if customOnly {
-		fields, err = client.GetCustomFields()
+		fields, err = client.GetCustomFields(ctx)
 	} else {
-		fields, err = client.GetFields()
+		fields, err = client.GetFields(ctx)
 	}
 
 	if err != nil {

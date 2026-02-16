@@ -1,6 +1,7 @@
 package automation
 
 import (
+	"context"
 	"bytes"
 	"encoding/json"
 	"net/http"
@@ -65,7 +66,7 @@ func TestRunCreate(t *testing.T) {
 		err = os.WriteFile(filePath, []byte(inputJSON), 0644)
 		testutil.RequireNoError(t, err)
 
-		err = runCreate(opts, filePath)
+		err = runCreate(context.Background(), opts, filePath)
 		testutil.RequireNoError(t, err)
 
 		// Verify server-assigned fields were stripped
@@ -117,7 +118,7 @@ func TestRunCreate(t *testing.T) {
 		err = os.WriteFile(filePath, []byte(`{"name":"New Rule","state":"DISABLED"}`), 0644)
 		testutil.RequireNoError(t, err)
 
-		err = runCreate(opts, filePath)
+		err = runCreate(context.Background(), opts, filePath)
 		testutil.RequireNoError(t, err)
 		testutil.Contains(t, stdout.String(), "rule-uuid-789")
 	})
@@ -155,7 +156,7 @@ func TestRunCreate(t *testing.T) {
 		err = os.WriteFile(filePath, []byte(`{"name":"Both UUIDs","state":"DISABLED"}`), 0644)
 		testutil.RequireNoError(t, err)
 
-		err = runCreate(opts, filePath)
+		err = runCreate(context.Background(), opts, filePath)
 		testutil.RequireNoError(t, err)
 		testutil.Contains(t, stdout.String(), "preferred-uuid")
 		testutil.NotContains(t, stdout.String(), "fallback-uuid")
@@ -174,7 +175,7 @@ func TestRunCreate(t *testing.T) {
 			Stderr: &stderr,
 		}
 
-		err = runCreate(opts, filePath)
+		err = runCreate(context.Background(), opts, filePath)
 		testutil.RequireError(t, err)
 		testutil.Contains(t, err.Error(), "does not contain valid JSON")
 	})
@@ -187,7 +188,7 @@ func TestRunCreate(t *testing.T) {
 			Stderr: &stderr,
 		}
 
-		err := runCreate(opts, "/nonexistent/path/rule.json")
+		err := runCreate(context.Background(), opts, "/nonexistent/path/rule.json")
 		testutil.RequireError(t, err)
 		testutil.Contains(t, err.Error(), "failed to read file")
 	})

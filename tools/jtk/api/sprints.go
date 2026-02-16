@@ -1,13 +1,14 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strconv"
 )
 
 // ListSprints returns sprints for a board
-func (c *Client) ListSprints(boardID int, state string, startAt, maxResults int) (*SprintsResponse, error) {
+func (c *Client) ListSprints(ctx context.Context, boardID int, state string, startAt, maxResults int) (*SprintsResponse, error) {
 	params := map[string]string{}
 
 	if state != "" {
@@ -21,7 +22,7 @@ func (c *Client) ListSprints(boardID int, state string, startAt, maxResults int)
 	}
 
 	urlStr := buildURL(fmt.Sprintf("%s/board/%d/sprint", c.AgileURL, boardID), params)
-	body, err := c.get(urlStr)
+	body, err := c.Get(ctx, urlStr)
 	if err != nil {
 		return nil, err
 	}
@@ -35,9 +36,9 @@ func (c *Client) ListSprints(boardID int, state string, startAt, maxResults int)
 }
 
 // GetSprint retrieves a sprint by ID
-func (c *Client) GetSprint(sprintID int) (*Sprint, error) {
+func (c *Client) GetSprint(ctx context.Context, sprintID int) (*Sprint, error) {
 	urlStr := fmt.Sprintf("%s/sprint/%d", c.AgileURL, sprintID)
-	body, err := c.get(urlStr)
+	body, err := c.Get(ctx, urlStr)
 	if err != nil {
 		return nil, err
 	}
@@ -51,7 +52,7 @@ func (c *Client) GetSprint(sprintID int) (*Sprint, error) {
 }
 
 // GetSprintIssues returns issues in a sprint
-func (c *Client) GetSprintIssues(sprintID int, startAt, maxResults int) (*SearchResult, error) {
+func (c *Client) GetSprintIssues(ctx context.Context, sprintID int, startAt, maxResults int) (*SearchResult, error) {
 	params := map[string]string{}
 
 	if startAt > 0 {
@@ -62,7 +63,7 @@ func (c *Client) GetSprintIssues(sprintID int, startAt, maxResults int) (*Search
 	}
 
 	urlStr := buildURL(fmt.Sprintf("%s/sprint/%d/issue", c.AgileURL, sprintID), params)
-	body, err := c.get(urlStr)
+	body, err := c.Get(ctx, urlStr)
 	if err != nil {
 		return nil, err
 	}
@@ -76,8 +77,8 @@ func (c *Client) GetSprintIssues(sprintID int, startAt, maxResults int) (*Search
 }
 
 // GetCurrentSprint returns the active sprint for a board
-func (c *Client) GetCurrentSprint(boardID int) (*Sprint, error) {
-	result, err := c.ListSprints(boardID, "active", 0, 1)
+func (c *Client) GetCurrentSprint(ctx context.Context, boardID int) (*Sprint, error) {
+	result, err := c.ListSprints(ctx, boardID, "active", 0, 1)
 	if err != nil {
 		return nil, err
 	}
@@ -90,12 +91,12 @@ func (c *Client) GetCurrentSprint(boardID int) (*Sprint, error) {
 }
 
 // MoveIssuesToSprint moves issues to a sprint
-func (c *Client) MoveIssuesToSprint(sprintID int, issueKeys []string) error {
+func (c *Client) MoveIssuesToSprint(ctx context.Context, sprintID int, issueKeys []string) error {
 	urlStr := fmt.Sprintf("%s/sprint/%d/issue", c.AgileURL, sprintID)
 	req := map[string]interface{}{
 		"issues": issueKeys,
 	}
 
-	_, err := c.post(urlStr, req)
+	_, err := c.Post(ctx, urlStr, req)
 	return err
 }

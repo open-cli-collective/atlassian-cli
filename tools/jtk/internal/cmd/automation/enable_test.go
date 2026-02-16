@@ -1,6 +1,7 @@
 package automation
 
 import (
+	"context"
 	"bytes"
 	"encoding/json"
 	"net/http"
@@ -50,7 +51,7 @@ func TestRunSetState_AlreadyEnabled(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runSetState(opts, "42", true)
+	err = runSetState(context.Background(), opts, "42", true)
 	testutil.RequireNoError(t, err)
 	testutil.Contains(t, stdout.String(), "already ENABLED")
 }
@@ -80,7 +81,7 @@ func TestRunSetState_AlreadyDisabled(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runSetState(opts, "42", false)
+	err = runSetState(context.Background(), opts, "42", false)
 	testutil.RequireNoError(t, err)
 	testutil.Contains(t, stdout.String(), "already DISABLED")
 }
@@ -127,7 +128,7 @@ func TestRunSetState_EnableDisabledRule(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runSetState(opts, "42", true)
+	err = runSetState(context.Background(), opts, "42", true)
 	testutil.RequireNoError(t, err)
 	testutil.Contains(t, stdout.String(), "DISABLED")
 	testutil.Contains(t, stdout.String(), "ENABLED")

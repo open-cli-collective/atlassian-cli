@@ -1,6 +1,7 @@
 package automation
 
 import (
+	"context"
 	"github.com/spf13/cobra"
 
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
@@ -15,14 +16,14 @@ func newEnableCmd(opts *root.Options) *cobra.Command {
   jtk auto enable 12345`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runSetState(opts, args[0], true)
+			return runSetState(cmd.Context(), opts, args[0], true)
 		},
 	}
 
 	return cmd
 }
 
-func runSetState(opts *root.Options, ruleID string, enabled bool) error {
+func runSetState(ctx context.Context, opts *root.Options, ruleID string, enabled bool) error {
 	v := opts.View()
 
 	client, err := opts.APIClient()
@@ -31,7 +32,7 @@ func runSetState(opts *root.Options, ruleID string, enabled bool) error {
 	}
 
 	// Fetch current rule to show context
-	current, err := client.GetAutomationRule(ruleID)
+	current, err := client.GetAutomationRule(ctx, ruleID)
 	if err != nil {
 		return err
 	}
@@ -46,7 +47,7 @@ func runSetState(opts *root.Options, ruleID string, enabled bool) error {
 		return nil
 	}
 
-	if err := client.SetAutomationRuleState(ruleID, enabled); err != nil {
+	if err := client.SetAutomationRuleState(ctx, ruleID, enabled); err != nil {
 		return err
 	}
 

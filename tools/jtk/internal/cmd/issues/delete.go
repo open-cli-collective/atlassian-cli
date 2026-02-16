@@ -1,6 +1,7 @@
 package issues
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -24,7 +25,7 @@ func newDeleteCmd(opts *root.Options) *cobra.Command {
   jtk issues delete PROJ-123 --force`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runDelete(opts, args[0], force)
+			return runDelete(cmd.Context(), opts, args[0], force)
 		},
 	}
 
@@ -33,7 +34,7 @@ func newDeleteCmd(opts *root.Options) *cobra.Command {
 	return cmd
 }
 
-func runDelete(opts *root.Options, issueKey string, force bool) error {
+func runDelete(ctx context.Context, opts *root.Options, issueKey string, force bool) error {
 	v := opts.View()
 
 	if !force {
@@ -55,7 +56,7 @@ func runDelete(opts *root.Options, issueKey string, force bool) error {
 		return err
 	}
 
-	if err := client.DeleteIssue(issueKey); err != nil {
+	if err := client.DeleteIssue(ctx, issueKey); err != nil {
 		return err
 	}
 

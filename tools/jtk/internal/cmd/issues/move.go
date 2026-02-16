@@ -1,6 +1,7 @@
 package issues
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -48,7 +49,7 @@ Limitations:
   jtk issues move PROJ-123 --to-project NEWPROJ --no-notify`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runMove(opts, args, targetProject, targetType, notify, wait)
+			return runMove(cmd.Context(), opts, args, targetProject, targetType, notify, wait)
 		},
 	}
 
@@ -62,7 +63,7 @@ Limitations:
 	return cmd
 }
 
-func runMove(opts *root.Options, issueKeys []string, targetProject, targetType string, notify, wait bool) error {
+func runMove(ctx context.Context, opts *root.Options, issueKeys []string, targetProject, targetType string, notify, wait bool) error {
 	v := opts.View()
 
 	if len(issueKeys) > 1000 {
@@ -75,7 +76,7 @@ func runMove(opts *root.Options, issueKeys []string, targetProject, targetType s
 	}
 
 	// Get target project's issue types to validate or default the type
-	issueTypes, err := client.GetProjectIssueTypes(targetProject)
+	issueTypes, err := client.GetProjectIssueTypes(ctx, targetProject)
 	if err != nil {
 		return fmt.Errorf("failed to get target project issue types: %w", err)
 	}
@@ -88,7 +89,7 @@ func runMove(opts *root.Options, issueKeys []string, targetProject, targetType s
 	var targetIssueType *api.IssueType
 	if targetType == "" {
 		// Get the source issue's type to use as default
-		issue, err := client.GetIssue(issueKeys[0])
+		issue, err := client.GetIssue(ctx, issueKeys[0])
 		if err != nil {
 			return fmt.Errorf("failed to get source issue: %w", err)
 		}
@@ -136,7 +137,7 @@ func runMove(opts *root.Options, issueKeys []string, targetProject, targetType s
 	// Build and execute the move request
 	req := api.BuildMoveRequest(issueKeys, targetProject, targetIssueType.ID, notify)
 
-	resp, err := client.MoveIssues(req)
+	resp, err := client.MoveIssues(ctx, req)
 	if err != nil {
 		// Check if this is a Server/DC instance
 		if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "not found") {
@@ -155,7 +156,7 @@ func runMove(opts *root.Options, issueKeys []string, targetProject, targetType s
 	v.Info("Waiting for move to complete...")
 
 	for {
-		status, err := client.GetMoveTaskStatus(resp.TaskID)
+		status, err := client.GetMoveTaskStatus(ctx, resp.TaskID)
 		if err != nil {
 			return fmt.Errorf("failed to get task status: %w", err)
 		}
@@ -200,14 +201,14 @@ func newMoveStatusCmd(opts *root.Options) *cobra.Command {
   jtk issues move-status abc123`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runMoveStatus(opts, args[0])
+			return runMoveStatus(cmd.Context(), opts, args[0])
 		},
 	}
 
 	return cmd
 }
 
-func runMoveStatus(opts *root.Options, taskID string) error {
+func runMoveStatus(ctx context.Context, opts *root.Options, taskID string) error {
 	v := opts.View()
 
 	client, err := opts.APIClient()
@@ -215,7 +216,7 @@ func runMoveStatus(opts *root.Options, taskID string) error {
 		return err
 	}
 
-	status, err := client.GetMoveTaskStatus(taskID)
+	status, err := client.GetMoveTaskStatus(ctx, taskID)
 	if err != nil {
 		return err
 	}

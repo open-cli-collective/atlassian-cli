@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -57,7 +58,7 @@ func TestGetUser(t *testing.T) {
 			testutil.RequireNoError(t, err)
 			client.BaseURL = server.URL + "/rest/api/3"
 
-			user, err := client.GetUser(tt.accountID)
+			user, err := client.GetUser(context.Background(), tt.accountID)
 			if tt.wantErr {
 				testutil.Error(t, err)
 				return
@@ -90,7 +91,7 @@ func TestGetCurrentUser(t *testing.T) {
 	testutil.RequireNoError(t, err)
 	client.BaseURL = server.URL + "/rest/api/3"
 
-	user, err := client.GetCurrentUser()
+	user, err := client.GetCurrentUser(context.Background())
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, user.DisplayName, "Current User")
 	testutil.Equal(t, user.AccountID, "5b10ac8d82e05b22cc7d4ef5")
@@ -126,7 +127,7 @@ func TestSearchUsers(t *testing.T) {
 	testutil.RequireNoError(t, err)
 	client.BaseURL = server.URL + "/rest/api/3"
 
-	users, err := client.SearchUsers("john", 0)
+	users, err := client.SearchUsers(context.Background(), "john", 0)
 	testutil.RequireNoError(t, err)
 	testutil.Len(t, users, 2)
 	testutil.Equal(t, users[0].DisplayName, "John Smith")

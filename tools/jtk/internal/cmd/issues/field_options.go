@@ -1,6 +1,7 @@
 package issues
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -26,7 +27,7 @@ Without --issue, attempts to show all possible values for the field.`,
   jtk issues field-options customfield_10001 --issue PROJ-123`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runFieldOptions(opts, args[0], issueKey)
+			return runFieldOptions(cmd.Context(), opts, args[0], issueKey)
 		},
 	}
 
@@ -35,7 +36,7 @@ Without --issue, attempts to show all possible values for the field.`,
 	return cmd
 }
 
-func runFieldOptions(opts *root.Options, fieldNameOrID, issueKey string) error {
+func runFieldOptions(ctx context.Context, opts *root.Options, fieldNameOrID, issueKey string) error {
 	v := opts.View()
 
 	client, err := opts.APIClient()
@@ -44,7 +45,7 @@ func runFieldOptions(opts *root.Options, fieldNameOrID, issueKey string) error {
 	}
 
 	// Get all fields to resolve name to ID
-	fields, err := client.GetFields()
+	fields, err := client.GetFields(ctx)
 	if err != nil {
 		return err
 	}
@@ -67,13 +68,13 @@ func runFieldOptions(opts *root.Options, fieldNameOrID, issueKey string) error {
 
 	if issueKey != "" {
 		// Use edit metadata for issue-specific context
-		options, err = client.GetFieldOptionsFromEditMeta(issueKey, fieldID)
+		options, err = client.GetFieldOptionsFromEditMeta(ctx, issueKey, fieldID)
 		if err != nil {
 			return fmt.Errorf("failed to get options for field %s: %w", fieldName, err)
 		}
 	} else {
 		// Try to get options without issue context
-		options, err = client.GetFieldOptions(fieldID)
+		options, err = client.GetFieldOptions(ctx, fieldID)
 		if err != nil {
 			v.Warning("Could not get field options without issue context. Use --issue flag for better results.")
 			return fmt.Errorf("failed to get options for field %s: %w", fieldName, err)

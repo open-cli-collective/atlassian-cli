@@ -1,6 +1,8 @@
 package projects
 
 import (
+	"context"
+
 	"github.com/spf13/cobra"
 
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
@@ -23,7 +25,7 @@ func newListCmd(opts *root.Options) *cobra.Command {
   # Limit results
   jtk projects list --max 10`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runList(opts, query, maxResults)
+			return runList(cmd.Context(), opts, query, maxResults)
 		},
 	}
 
@@ -33,7 +35,7 @@ func newListCmd(opts *root.Options) *cobra.Command {
 	return cmd
 }
 
-func runList(opts *root.Options, query string, maxResults int) error {
+func runList(ctx context.Context, opts *root.Options, query string, maxResults int) error {
 	v := opts.View()
 
 	client, err := opts.APIClient()
@@ -41,7 +43,7 @@ func runList(opts *root.Options, query string, maxResults int) error {
 		return err
 	}
 
-	result, err := client.SearchProjects(query, 0, maxResults)
+	result, err := client.SearchProjects(ctx, query, 0, maxResults)
 	if err != nil {
 		return err
 	}

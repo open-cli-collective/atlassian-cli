@@ -1,6 +1,7 @@
 package attachments
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -41,14 +42,14 @@ func newListCmd(opts *root.Options) *cobra.Command {
   jtk attachments list PROJ-123 -o json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runList(opts, args[0])
+			return runList(cmd.Context(), opts, args[0])
 		},
 	}
 
 	return cmd
 }
 
-func runList(opts *root.Options, issueKey string) error {
+func runList(ctx context.Context, opts *root.Options, issueKey string) error {
 	v := opts.View()
 
 	client, err := opts.APIClient()
@@ -56,7 +57,7 @@ func runList(opts *root.Options, issueKey string) error {
 		return err
 	}
 
-	attachments, err := client.GetIssueAttachments(issueKey)
+	attachments, err := client.GetIssueAttachments(ctx, issueKey)
 	if err != nil {
 		return err
 	}
@@ -109,7 +110,7 @@ func newAddCmd(opts *root.Options) *cobra.Command {
   jtk attachments add PROJ-123 --file doc.pdf --file image.png`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runAdd(opts, args[0], files)
+			return runAdd(cmd.Context(), opts, args[0], files)
 		},
 	}
 
@@ -119,7 +120,7 @@ func newAddCmd(opts *root.Options) *cobra.Command {
 	return cmd
 }
 
-func runAdd(opts *root.Options, issueKey string, files []string) error {
+func runAdd(ctx context.Context, opts *root.Options, issueKey string, files []string) error {
 	v := opts.View()
 
 	client, err := opts.APIClient()
@@ -139,7 +140,7 @@ func runAdd(opts *root.Options, issueKey string, files []string) error {
 			return fmt.Errorf("file not found: %s", filePath)
 		}
 
-		attachments, err := client.AddAttachment(issueKey, absPath)
+		attachments, err := client.AddAttachment(ctx, issueKey, absPath)
 		if err != nil {
 			return fmt.Errorf("failed to upload %s: %w", filepath.Base(filePath), err)
 		}
@@ -170,7 +171,7 @@ func newGetCmd(opts *root.Options) *cobra.Command {
   jtk attachments get 12345 --output ./downloads/renamed.pdf`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runGet(opts, args[0], outputPath)
+			return runGet(cmd.Context(), opts, args[0], outputPath)
 		},
 	}
 
@@ -179,7 +180,7 @@ func newGetCmd(opts *root.Options) *cobra.Command {
 	return cmd
 }
 
-func runGet(opts *root.Options, attachmentID, outputPath string) error {
+func runGet(ctx context.Context, opts *root.Options, attachmentID, outputPath string) error {
 	v := opts.View()
 
 	client, err := opts.APIClient()
@@ -188,13 +189,13 @@ func runGet(opts *root.Options, attachmentID, outputPath string) error {
 	}
 
 	// Get attachment metadata
-	attachment, err := client.GetAttachment(attachmentID)
+	attachment, err := client.GetAttachment(ctx, attachmentID)
 	if err != nil {
 		return fmt.Errorf("failed to get attachment: %w", err)
 	}
 
 	// Download the file
-	if err := client.DownloadAttachment(attachment, outputPath); err != nil {
+	if err := client.DownloadAttachment(ctx, attachment, outputPath); err != nil {
 		return fmt.Errorf("failed to download attachment: %w", err)
 	}
 
@@ -218,14 +219,14 @@ func newDeleteCmd(opts *root.Options) *cobra.Command {
   jtk attachments delete 12345`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runDelete(opts, args[0])
+			return runDelete(cmd.Context(), opts, args[0])
 		},
 	}
 
 	return cmd
 }
 
-func runDelete(opts *root.Options, attachmentID string) error {
+func runDelete(ctx context.Context, opts *root.Options, attachmentID string) error {
 	v := opts.View()
 
 	client, err := opts.APIClient()
@@ -233,7 +234,7 @@ func runDelete(opts *root.Options, attachmentID string) error {
 		return err
 	}
 
-	if err := client.DeleteAttachment(attachmentID); err != nil {
+	if err := client.DeleteAttachment(ctx, attachmentID); err != nil {
 		return fmt.Errorf("failed to delete attachment: %w", err)
 	}
 

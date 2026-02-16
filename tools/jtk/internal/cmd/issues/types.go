@@ -1,6 +1,7 @@
 package issues
 
 import (
+	"context"
 	"github.com/spf13/cobra"
 
 	"github.com/open-cli-collective/atlassian-go/view"
@@ -21,7 +22,7 @@ func newTypesCmd(opts *root.Options) *cobra.Command {
   # Using short flag
   jtk issues types -p MYPROJ`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runTypes(opts, project)
+			return runTypes(cmd.Context(), opts, project)
 		},
 	}
 
@@ -31,7 +32,7 @@ func newTypesCmd(opts *root.Options) *cobra.Command {
 	return cmd
 }
 
-func runTypes(opts *root.Options, project string) error {
+func runTypes(ctx context.Context, opts *root.Options, project string) error {
 	v := opts.View()
 
 	client, err := opts.APIClient()
@@ -39,7 +40,7 @@ func runTypes(opts *root.Options, project string) error {
 		return err
 	}
 
-	projectDetail, err := client.GetProject(project)
+	projectDetail, err := client.GetProject(ctx, project)
 	if err != nil {
 		return err
 	}

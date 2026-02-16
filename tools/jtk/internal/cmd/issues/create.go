@@ -1,6 +1,7 @@
 package issues
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -42,7 +43,7 @@ func newCreateCmd(opts *root.Options) *cobra.Command {
   # Create with custom fields
   jtk issues create --project MYPROJECT --type Story --summary "New feature" --field priority=High`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCreate(opts, project, issueType, summary, description, parent, assignee, fields)
+			return runCreate(cmd.Context(), opts, project, issueType, summary, description, parent, assignee, fields)
 		},
 	}
 
@@ -60,7 +61,7 @@ func newCreateCmd(opts *root.Options) *cobra.Command {
 	return cmd
 }
 
-func runCreate(opts *root.Options, project, issueType, summary, description, parent, assignee string, fieldArgs []string) error {
+func runCreate(ctx context.Context, opts *root.Options, project, issueType, summary, description, parent, assignee string, fieldArgs []string) error {
 	v := opts.View()
 
 	client, err := opts.APIClient()
@@ -72,7 +73,7 @@ func runCreate(opts *root.Options, project, issueType, summary, description, par
 	extraFields := make(map[string]interface{})
 	if len(fieldArgs) > 0 {
 		// Get field metadata to resolve names to IDs
-		allFields, err := client.GetFields()
+		allFields, err := client.GetFields(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to get field metadata: %w", err)
 		}
@@ -108,7 +109,7 @@ func runCreate(opts *root.Options, project, issueType, summary, description, par
 	}
 
 	if assignee != "" {
-		accountID, err := resolveAssignee(client, assignee)
+		accountID, err := resolveAssignee(ctx, client, assignee)
 		if err != nil {
 			return err
 		}
@@ -117,7 +118,7 @@ func runCreate(opts *root.Options, project, issueType, summary, description, par
 
 	req := api.BuildCreateRequest(project, issueType, summary, text.InterpretEscapes(description), extraFields)
 
-	issue, err := client.CreateIssue(req)
+	issue, err := client.CreateIssue(ctx, req)
 	if err != nil {
 		return err
 	}

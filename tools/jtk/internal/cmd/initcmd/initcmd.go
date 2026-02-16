@@ -1,6 +1,7 @@
 package initcmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -37,7 +38,7 @@ Get your API token from: https://id.atlassian.com/manage-profile/security/api-to
   # Skip connection verification
   jtk init --no-verify`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runInit(opts, url, email, token, noVerify)
+			return runInit(cmd.Context(), opts, url, email, token, noVerify)
 		},
 	}
 
@@ -49,7 +50,7 @@ Get your API token from: https://id.atlassian.com/manage-profile/security/api-to
 	parent.AddCommand(cmd)
 }
 
-func runInit(opts *root.Options, prefillURL, prefillEmail, prefillToken string, noVerify bool) error {
+func runInit(ctx context.Context, opts *root.Options, prefillURL, prefillEmail, prefillToken string, noVerify bool) error {
 	v := opts.View()
 	configPath := config.Path()
 
@@ -166,7 +167,7 @@ func runInit(opts *root.Options, prefillURL, prefillEmail, prefillToken string, 
 			return fmt.Errorf("failed to create client: %w", err)
 		}
 
-		user, err := client.GetCurrentUser()
+		user, err := client.GetCurrentUser(ctx)
 		if err != nil {
 			v.Error("Connection failed: %v", err)
 			v.Println("")

@@ -1,6 +1,7 @@
 package automation
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -32,7 +33,7 @@ New rules are created in DISABLED state by default.`,
 		Example: `  jtk automation create --file rule.json
   jtk auto create -f new-rule.json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCreate(opts, filePath)
+			return runCreate(cmd.Context(), opts, filePath)
 		},
 	}
 
@@ -42,7 +43,7 @@ New rules are created in DISABLED state by default.`,
 	return cmd
 }
 
-func runCreate(opts *root.Options, filePath string) error {
+func runCreate(ctx context.Context, opts *root.Options, filePath string) error {
 	v := opts.View()
 
 	// Read and validate file before creating the API client so we fail
@@ -75,7 +76,7 @@ func runCreate(opts *root.Options, filePath string) error {
 		return err
 	}
 
-	respBody, err := client.CreateAutomationRule(json.RawMessage(data))
+	respBody, err := client.CreateAutomationRule(ctx, json.RawMessage(data))
 	if err != nil {
 		return err
 	}

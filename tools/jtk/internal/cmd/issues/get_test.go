@@ -1,6 +1,7 @@
 package issues
 
 import (
+	"context"
 	"bytes"
 	"encoding/json"
 	"net/http"
@@ -62,7 +63,7 @@ func TestRunGet_TruncatesDescription(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runGet(opts, "TEST-1", false)
+	err = runGet(context.Background(), opts, "TEST-1", false)
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()
@@ -101,7 +102,7 @@ func TestRunGet_FullDescription(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runGet(opts, "TEST-1", true)
+	err = runGet(context.Background(), opts, "TEST-1", true)
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()
@@ -138,7 +139,7 @@ func TestRunGet_ShortDescriptionNotTruncated(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runGet(opts, "TEST-1", false)
+	err = runGet(context.Background(), opts, "TEST-1", false)
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()
@@ -174,7 +175,7 @@ func TestRunGet_JSONOutputIgnoresFullFlag(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runGet(opts, "TEST-1", true)
+	err = runGet(context.Background(), opts, "TEST-1", true)
 	testutil.RequireNoError(t, err)
 
 	// Should be valid JSON

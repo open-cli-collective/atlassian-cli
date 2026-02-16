@@ -2,6 +2,7 @@ package issues
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -41,7 +42,7 @@ func TestRunUpdate_RequestBodyNoDoubleQuoting(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runUpdate(opts, "PROJ-123", "Updated summary", "Updated description", "", "", "", nil)
+	err = runUpdate(context.Background(), opts, "PROJ-123", "Updated summary", "Updated description", "", "", "", nil)
 	testutil.RequireNoError(t, err)
 
 	testutil.NotEmpty(t, capturedBody)
@@ -155,7 +156,7 @@ func TestRunUpdate_TypeChange(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runUpdate(opts, "PROJ-123", "", "", "", "", "Task", nil)
+	err = runUpdate(context.Background(), opts, "PROJ-123", "", "", "", "", "Task", nil)
 	testutil.RequireNoError(t, err)
 	testutil.True(t, moveCompleted, "should have called the move API")
 
@@ -204,7 +205,7 @@ func TestRunUpdate_TypeAlreadyCorrect(t *testing.T) {
 	opts.SetAPIClient(client)
 
 	// Should succeed without calling move API since it's already the right type
-	err = runUpdate(opts, "PROJ-123", "", "", "", "", "Task", nil)
+	err = runUpdate(context.Background(), opts, "PROJ-123", "", "", "", "", "Task", nil)
 	testutil.RequireNoError(t, err)
 }
 
@@ -236,7 +237,7 @@ func TestRunUpdate_SummaryOnly(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runUpdate(opts, "PROJ-123", "New summary", "", "", "", "", nil)
+	err = runUpdate(context.Background(), opts, "PROJ-123", "New summary", "", "", "", "", nil)
 	testutil.RequireNoError(t, err)
 
 	var reqBody map[string]interface{}
@@ -256,7 +257,7 @@ func TestRunUpdate_NoFieldsError(t *testing.T) {
 		Stderr: &bytes.Buffer{},
 	}
 
-	err := runUpdate(opts, "PROJ-123", "", "", "", "", "", nil)
+	err := runUpdate(context.Background(), opts, "PROJ-123", "", "", "", "", "", nil)
 	testutil.Error(t, err)
 	testutil.Contains(t, err.Error(), "no fields specified")
 }
@@ -289,7 +290,7 @@ func TestRunUpdate_ParentOnly(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runUpdate(opts, "PROJ-456", "", "", "PROJ-100", "", "", nil)
+	err = runUpdate(context.Background(), opts, "PROJ-456", "", "", "PROJ-100", "", "", nil)
 	testutil.RequireNoError(t, err)
 
 	testutil.NotEmpty(t, capturedBody)
@@ -332,7 +333,7 @@ func TestRunUpdate_ParentWithSummary(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runUpdate(opts, "PROJ-456", "Updated title", "", "PROJ-200", "", "", nil)
+	err = runUpdate(context.Background(), opts, "PROJ-456", "Updated title", "", "PROJ-200", "", "", nil)
 	testutil.RequireNoError(t, err)
 
 	testutil.NotEmpty(t, capturedBody)
@@ -421,7 +422,7 @@ func TestRunUpdate_AssigneeOnly(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runUpdate(opts, "PROJ-789", "", "", "", "61292e4c4f29230069621c5f", "", nil)
+	err = runUpdate(context.Background(), opts, "PROJ-789", "", "", "", "61292e4c4f29230069621c5f", "", nil)
 	testutil.RequireNoError(t, err)
 
 	testutil.NotEmpty(t, capturedBody)
@@ -470,7 +471,7 @@ func TestRunUpdate_AssigneeMe(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runUpdate(opts, "PROJ-789", "", "", "", "me", "", nil)
+	err = runUpdate(context.Background(), opts, "PROJ-789", "", "", "", "me", "", nil)
 	testutil.RequireNoError(t, err)
 
 	testutil.NotEmpty(t, capturedBody)

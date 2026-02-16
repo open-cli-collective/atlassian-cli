@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -472,7 +473,7 @@ func TestClient_GetFieldOptionsFromEditMeta(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	t.Run("priority field with name values", func(t *testing.T) {
-		options, err := client.GetFieldOptionsFromEditMeta("PROJ-123", "priority")
+		options, err := client.GetFieldOptionsFromEditMeta(context.Background(), "PROJ-123", "priority")
 		testutil.RequireNoError(t, err)
 		testutil.Len(t, options, 5)
 		testutil.Equal(t, options[0].ID, "1")
@@ -480,7 +481,7 @@ func TestClient_GetFieldOptionsFromEditMeta(t *testing.T) {
 	})
 
 	t.Run("custom field with value format", func(t *testing.T) {
-		options, err := client.GetFieldOptionsFromEditMeta("PROJ-123", "customfield_10001")
+		options, err := client.GetFieldOptionsFromEditMeta(context.Background(), "PROJ-123", "customfield_10001")
 		testutil.RequireNoError(t, err)
 		testutil.Len(t, options, 3)
 		testutil.Equal(t, options[0].Value, "Feature")
@@ -489,7 +490,7 @@ func TestClient_GetFieldOptionsFromEditMeta(t *testing.T) {
 	})
 
 	t.Run("field not found", func(t *testing.T) {
-		_, err := client.GetFieldOptionsFromEditMeta("PROJ-123", "nonexistent")
+		_, err := client.GetFieldOptionsFromEditMeta(context.Background(), "PROJ-123", "nonexistent")
 		testutil.Error(t, err)
 		testutil.Contains(t, err.Error(), "not found")
 	})

@@ -1,6 +1,7 @@
 package projects
 
 import (
+	"context"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -17,12 +18,12 @@ func newGetCmd(opts *root.Options) *cobra.Command {
   jtk projects get 10001`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runGet(opts, args[0])
+			return runGet(cmd.Context(), opts, args[0])
 		},
 	}
 }
 
-func runGet(opts *root.Options, keyOrID string) error {
+func runGet(ctx context.Context, opts *root.Options, keyOrID string) error {
 	v := opts.View()
 
 	client, err := opts.APIClient()
@@ -30,7 +31,7 @@ func runGet(opts *root.Options, keyOrID string) error {
 		return err
 	}
 
-	project, err := client.GetProject(keyOrID)
+	project, err := client.GetProject(ctx, keyOrID)
 	if err != nil {
 		return err
 	}

@@ -1,6 +1,7 @@
 package comments
 
 import (
+	"context"
 	"bytes"
 	"encoding/json"
 	"net/http"
@@ -82,7 +83,7 @@ func TestRunList_TruncatesCommentBody(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runList(opts, "TEST-1", 50, false)
+	err = runList(context.Background(), opts, "TEST-1", 50, false)
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()
@@ -131,7 +132,7 @@ func TestRunList_FullCommentBody(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runList(opts, "TEST-1", 50, true)
+	err = runList(context.Background(), opts, "TEST-1", 50, true)
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()
@@ -182,7 +183,7 @@ func TestRunList_ShortCommentNotTruncated(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runList(opts, "TEST-1", 50, false)
+	err = runList(context.Background(), opts, "TEST-1", 50, false)
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()
@@ -209,7 +210,7 @@ func TestRunList_NoComments(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runList(opts, "TEST-1", 50, false)
+	err = runList(context.Background(), opts, "TEST-1", 50, false)
 	testutil.RequireNoError(t, err)
 
 	combined := stdout.String() + stderr.String()
@@ -262,7 +263,7 @@ func TestRunList_MultipleCommentsFullMode(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runList(opts, "TEST-1", 50, true)
+	err = runList(context.Background(), opts, "TEST-1", 50, true)
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()

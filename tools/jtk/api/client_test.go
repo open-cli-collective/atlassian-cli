@@ -159,7 +159,7 @@ func TestClient_get(t *testing.T) {
 			})
 			testutil.RequireNoError(t, err)
 
-			body, err := client.get(server.URL + "/test")
+			body, err := client.Get(context.Background(), server.URL+"/test")
 
 			if tt.wantErr {
 				testutil.Error(t, err)
@@ -196,7 +196,7 @@ func TestClient_post_withBody(t *testing.T) {
 		},
 	}
 
-	_, err = client.post(server.URL+"/test", requestBody)
+	_, err = client.Post(context.Background(), server.URL+"/test", requestBody)
 	testutil.RequireNoError(t, err)
 
 	testutil.Equal(t, receivedBody["summary"], "Test issue")

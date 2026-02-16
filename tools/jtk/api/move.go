@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 )
@@ -56,10 +57,10 @@ type MoveFailedIssue struct {
 
 // MoveIssues moves issues to a target project/issue type (Jira Cloud only)
 // This is an asynchronous operation that returns a task ID
-func (c *Client) MoveIssues(req MoveIssuesRequest) (*MoveIssuesResponse, error) {
+func (c *Client) MoveIssues(ctx context.Context, req MoveIssuesRequest) (*MoveIssuesResponse, error) {
 	urlStr := fmt.Sprintf("%s/bulk/issues/move", c.BaseURL)
 
-	body, err := c.post(urlStr, req)
+	body, err := c.Post(ctx, urlStr, req)
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +74,7 @@ func (c *Client) MoveIssues(req MoveIssuesRequest) (*MoveIssuesResponse, error) 
 }
 
 // GetMoveTaskStatus gets the status of a move task
-func (c *Client) GetMoveTaskStatus(taskID string) (*MoveTaskStatus, error) {
+func (c *Client) GetMoveTaskStatus(ctx context.Context, taskID string) (*MoveTaskStatus, error) {
 	if taskID == "" {
 		return nil, fmt.Errorf("task ID is required")
 	}
@@ -81,7 +82,7 @@ func (c *Client) GetMoveTaskStatus(taskID string) (*MoveTaskStatus, error) {
 	// Status endpoint is /bulk/queue/{taskId}
 	urlStr := fmt.Sprintf("%s/bulk/queue/%s", c.BaseURL, taskID)
 
-	body, err := c.get(urlStr)
+	body, err := c.Get(ctx, urlStr)
 	if err != nil {
 		return nil, err
 	}
@@ -95,14 +96,14 @@ func (c *Client) GetMoveTaskStatus(taskID string) (*MoveTaskStatus, error) {
 }
 
 // GetProjectIssueTypes returns the issue types available in a project
-func (c *Client) GetProjectIssueTypes(projectKey string) ([]IssueType, error) {
+func (c *Client) GetProjectIssueTypes(ctx context.Context, projectKey string) ([]IssueType, error) {
 	if projectKey == "" {
 		return nil, fmt.Errorf("project key is required")
 	}
 
 	urlStr := fmt.Sprintf("%s/project/%s", c.BaseURL, projectKey)
 
-	body, err := c.get(urlStr)
+	body, err := c.Get(ctx, urlStr)
 	if err != nil {
 		return nil, err
 	}
@@ -118,14 +119,14 @@ func (c *Client) GetProjectIssueTypes(projectKey string) ([]IssueType, error) {
 }
 
 // GetProjectStatuses returns the statuses available in a project
-func (c *Client) GetProjectStatuses(projectKey string) ([]ProjectStatus, error) {
+func (c *Client) GetProjectStatuses(ctx context.Context, projectKey string) ([]ProjectStatus, error) {
 	if projectKey == "" {
 		return nil, fmt.Errorf("project key is required")
 	}
 
 	urlStr := fmt.Sprintf("%s/project/%s/statuses", c.BaseURL, projectKey)
 
-	body, err := c.get(urlStr)
+	body, err := c.Get(ctx, urlStr)
 	if err != nil {
 		return nil, err
 	}

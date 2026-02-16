@@ -1,6 +1,7 @@
 package issues
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -22,7 +23,7 @@ func newGetCmd(opts *root.Options) *cobra.Command {
   jtk issues get PROJ-123 -o json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runGet(opts, args[0], full)
+			return runGet(cmd.Context(), opts, args[0], full)
 		},
 	}
 
@@ -31,7 +32,7 @@ func newGetCmd(opts *root.Options) *cobra.Command {
 	return cmd
 }
 
-func runGet(opts *root.Options, issueKey string, full bool) error {
+func runGet(ctx context.Context, opts *root.Options, issueKey string, full bool) error {
 	v := opts.View()
 
 	client, err := opts.APIClient()
@@ -39,7 +40,7 @@ func runGet(opts *root.Options, issueKey string, full bool) error {
 		return err
 	}
 
-	issue, err := client.GetIssue(issueKey)
+	issue, err := client.GetIssue(ctx, issueKey)
 	if err != nil {
 		return err
 	}

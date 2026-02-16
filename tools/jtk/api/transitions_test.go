@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -94,7 +95,7 @@ func TestClient_GetTransitions(t *testing.T) {
 	})
 	testutil.RequireNoError(t, err)
 
-	transitions, err := client.GetTransitions("PROJ-123")
+	transitions, err := client.GetTransitions(context.Background(), "PROJ-123")
 	testutil.RequireNoError(t, err)
 	testutil.Len(t, transitions, 2)
 	testutil.Equal(t, transitions[0].ID, "11")
@@ -132,7 +133,7 @@ func TestClient_GetTransitionsWithFields(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.wantErr != nil {
 				client := &Client{}
-				_, err := client.GetTransitionsWithFields(tt.issueKey, tt.includeFields)
+				_, err := client.GetTransitionsWithFields(context.Background(), tt.issueKey, tt.includeFields)
 				testutil.True(t, errors.Is(err, tt.wantErr))
 				return
 			}
@@ -174,7 +175,7 @@ func TestClient_GetTransitionsWithFields(t *testing.T) {
 			})
 			testutil.RequireNoError(t, err)
 
-			transitions, err := client.GetTransitionsWithFields(tt.issueKey, tt.includeFields)
+			transitions, err := client.GetTransitionsWithFields(context.Background(), tt.issueKey, tt.includeFields)
 			testutil.RequireNoError(t, err)
 			testutil.Len(t, transitions, 1)
 			testutil.Equal(t, transitions[0].Name, "In Progress")
@@ -223,7 +224,7 @@ func TestClient_DoTransition(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.wantErr != nil {
 				client := &Client{}
-				err := client.DoTransition(tt.issueKey, tt.transitionID, tt.fields)
+				err := client.DoTransition(context.Background(), tt.issueKey, tt.transitionID, tt.fields)
 				testutil.True(t, errors.Is(err, tt.wantErr))
 				return
 			}
@@ -245,7 +246,7 @@ func TestClient_DoTransition(t *testing.T) {
 			})
 			testutil.RequireNoError(t, err)
 
-			err = client.DoTransition(tt.issueKey, tt.transitionID, tt.fields)
+			err = client.DoTransition(context.Background(), tt.issueKey, tt.transitionID, tt.fields)
 			testutil.RequireNoError(t, err)
 			testutil.Equal(t, receivedBody.Transition.ID, tt.transitionID)
 			if tt.fields != nil {

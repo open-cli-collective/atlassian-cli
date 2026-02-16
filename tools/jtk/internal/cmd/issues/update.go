@@ -1,6 +1,7 @@
 package issues
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -46,7 +47,7 @@ transparently (since the standard update API does not support type changes).`,
   jtk issues update PROJ-123 --field priority=High --field "Story Points"=5`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runUpdate(opts, args[0], summary, description, parent, assignee, issueType, fields)
+			return runUpdate(cmd.Context(), opts, args[0], summary, description, parent, assignee, issueType, fields)
 		},
 	}
 
@@ -60,7 +61,7 @@ transparently (since the standard update API does not support type changes).`,
 	return cmd
 }
 
-func runUpdate(opts *root.Options, issueKey, summary, description, parent, assignee, issueType string, fieldArgs []string) error {
+func runUpdate(ctx context.Context, opts *root.Options, issueKey, summary, description, parent, assignee, issueType string, fieldArgs []string) error {
 	v := opts.View()
 
 	// Validate that at least one field is being updated before making API calls
@@ -96,7 +97,7 @@ func runUpdate(opts *root.Options, issueKey, summary, description, parent, assig
 	}
 
 	if assignee != "" {
-		accountID, err := resolveAssignee(client, assignee)
+		accountID, err := resolveAssignee(ctx, client, assignee)
 		if err != nil {
 			return err
 		}
@@ -105,7 +106,7 @@ func runUpdate(opts *root.Options, issueKey, summary, description, parent, assig
 
 	// Parse additional fields
 	if len(fieldArgs) > 0 {
-		allFields, err := client.GetFields()
+		allFields, err := client.GetFields(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to get field metadata: %w", err)
 		}
@@ -143,7 +144,7 @@ func runUpdate(opts *root.Options, issueKey, summary, description, parent, assig
 
 	req := api.BuildUpdateRequest(fields)
 
-	if err := client.UpdateIssue(issueKey, req); err != nil {
+	if err := client.UpdateIssue(ctx, issueKey, req); err != nil {
 		return err
 	}
 

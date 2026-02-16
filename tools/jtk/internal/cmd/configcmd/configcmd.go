@@ -1,6 +1,7 @@
 package configcmd
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -104,7 +105,7 @@ Note: Environment variables (JIRA_*, ATLASSIAN_*) will still be used if set.`,
   # Clear without confirmation
   jtk config clear --force`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runClear(clearOpts)
+			return runClear(cmd.Context(), clearOpts)
 		},
 	}
 
@@ -113,7 +114,7 @@ Note: Environment variables (JIRA_*, ATLASSIAN_*) will still be used if set.`,
 	return cmd
 }
 
-func runClear(opts *clearOptions) error {
+func runClear(ctx context.Context, opts *clearOptions) error {
 	v := opts.View()
 	configPath := config.Path()
 
@@ -275,7 +276,7 @@ pass/fail status and troubleshooting suggestions on failure.`,
 				return nil
 			}
 
-			user, err := client.GetCurrentUser()
+			user, err := client.GetCurrentUser(cmd.Context())
 			if err != nil {
 				v.Error("Authentication failed: %v", err)
 				v.Println("")

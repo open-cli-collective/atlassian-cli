@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -57,13 +58,13 @@ func (f FlexibleID) String() string {
 }
 
 // GetIssueAttachments returns all attachments for an issue
-func (c *Client) GetIssueAttachments(issueKey string) ([]Attachment, error) {
+func (c *Client) GetIssueAttachments(ctx context.Context, issueKey string) ([]Attachment, error) {
 	if issueKey == "" {
 		return nil, fmt.Errorf("issue key is required")
 	}
 
 	urlStr := fmt.Sprintf("%s/issue/%s?fields=attachment", c.BaseURL, issueKey)
-	body, err := c.get(urlStr)
+	body, err := c.Get(ctx, urlStr)
 	if err != nil {
 		return nil, err
 	}
@@ -81,13 +82,13 @@ func (c *Client) GetIssueAttachments(issueKey string) ([]Attachment, error) {
 }
 
 // GetAttachment returns metadata for a specific attachment
-func (c *Client) GetAttachment(attachmentID string) (*Attachment, error) {
+func (c *Client) GetAttachment(ctx context.Context, attachmentID string) (*Attachment, error) {
 	if attachmentID == "" {
 		return nil, fmt.Errorf("attachment ID is required")
 	}
 
 	urlStr := fmt.Sprintf("%s/attachment/%s", c.BaseURL, attachmentID)
-	body, err := c.get(urlStr)
+	body, err := c.Get(ctx, urlStr)
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +102,7 @@ func (c *Client) GetAttachment(attachmentID string) (*Attachment, error) {
 }
 
 // AddAttachment uploads a file as an attachment to an issue
-func (c *Client) AddAttachment(issueKey, filePath string) ([]Attachment, error) {
+func (c *Client) AddAttachment(ctx context.Context, issueKey, filePath string) ([]Attachment, error) {
 	if issueKey == "" {
 		return nil, fmt.Errorf("issue key is required")
 	}
@@ -188,18 +189,18 @@ func (c *Client) AddAttachment(issueKey, filePath string) ([]Attachment, error) 
 }
 
 // DeleteAttachment deletes an attachment by ID
-func (c *Client) DeleteAttachment(attachmentID string) error {
+func (c *Client) DeleteAttachment(ctx context.Context, attachmentID string) error {
 	if attachmentID == "" {
 		return fmt.Errorf("attachment ID is required")
 	}
 
 	urlStr := fmt.Sprintf("%s/attachment/%s", c.BaseURL, attachmentID)
-	_, err := c.delete(urlStr)
+	_, err := c.Delete(ctx, urlStr)
 	return err
 }
 
 // DownloadAttachment downloads an attachment to the specified output path
-func (c *Client) DownloadAttachment(attachment *Attachment, outputPath string) error {
+func (c *Client) DownloadAttachment(ctx context.Context, attachment *Attachment, outputPath string) error {
 	if attachment == nil {
 		return fmt.Errorf("attachment is required")
 	}

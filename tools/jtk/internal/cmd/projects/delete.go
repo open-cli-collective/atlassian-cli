@@ -1,6 +1,7 @@
 package projects
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -26,7 +27,7 @@ The project can be restored from trash using 'jtk projects restore'.`,
   jtk projects delete MYPROJ --force`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runDelete(opts, args[0], force)
+			return runDelete(cmd.Context(), opts, args[0], force)
 		},
 	}
 
@@ -35,7 +36,7 @@ The project can be restored from trash using 'jtk projects restore'.`,
 	return cmd
 }
 
-func runDelete(opts *root.Options, keyOrID string, force bool) error {
+func runDelete(ctx context.Context, opts *root.Options, keyOrID string, force bool) error {
 	v := opts.View()
 
 	if !force {
@@ -57,7 +58,7 @@ func runDelete(opts *root.Options, keyOrID string, force bool) error {
 		return err
 	}
 
-	if err := client.DeleteProject(keyOrID); err != nil {
+	if err := client.DeleteProject(ctx, keyOrID); err != nil {
 		return err
 	}
 

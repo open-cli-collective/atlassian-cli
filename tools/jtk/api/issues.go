@@ -1,19 +1,20 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/url"
 )
 
 // GetIssue retrieves an issue by key
-func (c *Client) GetIssue(issueKey string) (*Issue, error) {
+func (c *Client) GetIssue(ctx context.Context, issueKey string) (*Issue, error) {
 	if issueKey == "" {
 		return nil, ErrIssueKeyRequired
 	}
 
 	urlStr := fmt.Sprintf("%s/issue/%s", c.BaseURL, url.PathEscape(issueKey))
-	body, err := c.get(urlStr)
+	body, err := c.Get(ctx, urlStr)
 	if err != nil {
 		return nil, err
 	}
@@ -27,9 +28,9 @@ func (c *Client) GetIssue(issueKey string) (*Issue, error) {
 }
 
 // CreateIssue creates a new issue
-func (c *Client) CreateIssue(req *CreateIssueRequest) (*Issue, error) {
+func (c *Client) CreateIssue(ctx context.Context, req *CreateIssueRequest) (*Issue, error) {
 	urlStr := fmt.Sprintf("%s/issue", c.BaseURL)
-	body, err := c.post(urlStr, req)
+	body, err := c.Post(ctx, urlStr, req)
 	if err != nil {
 		return nil, err
 	}
@@ -43,29 +44,29 @@ func (c *Client) CreateIssue(req *CreateIssueRequest) (*Issue, error) {
 }
 
 // UpdateIssue updates an existing issue
-func (c *Client) UpdateIssue(issueKey string, req *UpdateIssueRequest) error {
+func (c *Client) UpdateIssue(ctx context.Context, issueKey string, req *UpdateIssueRequest) error {
 	if issueKey == "" {
 		return ErrIssueKeyRequired
 	}
 
 	urlStr := fmt.Sprintf("%s/issue/%s", c.BaseURL, url.PathEscape(issueKey))
-	_, err := c.put(urlStr, req)
+	_, err := c.Put(ctx, urlStr, req)
 	return err
 }
 
 // DeleteIssue deletes an issue
-func (c *Client) DeleteIssue(issueKey string) error {
+func (c *Client) DeleteIssue(ctx context.Context, issueKey string) error {
 	if issueKey == "" {
 		return ErrIssueKeyRequired
 	}
 
 	urlStr := fmt.Sprintf("%s/issue/%s", c.BaseURL, url.PathEscape(issueKey))
-	_, err := c.delete(urlStr)
+	_, err := c.Delete(ctx, urlStr)
 	return err
 }
 
 // AssignIssue assigns an issue to a user
-func (c *Client) AssignIssue(issueKey, accountID string) error {
+func (c *Client) AssignIssue(ctx context.Context, issueKey, accountID string) error {
 	if issueKey == "" {
 		return ErrIssueKeyRequired
 	}
@@ -80,18 +81,18 @@ func (c *Client) AssignIssue(issueKey, accountID string) error {
 		body["accountId"] = nil
 	}
 
-	_, err := c.put(urlStr, body)
+	_, err := c.Put(ctx, urlStr, body)
 	return err
 }
 
 // GetIssueEditMeta returns the edit metadata for an issue
-func (c *Client) GetIssueEditMeta(issueKey string) (map[string]interface{}, error) {
+func (c *Client) GetIssueEditMeta(ctx context.Context, issueKey string) (map[string]interface{}, error) {
 	if issueKey == "" {
 		return nil, ErrIssueKeyRequired
 	}
 
 	urlStr := fmt.Sprintf("%s/issue/%s/editmeta", c.BaseURL, url.PathEscape(issueKey))
-	body, err := c.get(urlStr)
+	body, err := c.Get(ctx, urlStr)
 	if err != nil {
 		return nil, err
 	}

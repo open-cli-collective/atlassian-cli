@@ -1,6 +1,7 @@
 package projects
 
 import (
+	"context"
 	"github.com/spf13/cobra"
 
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
@@ -14,12 +15,12 @@ func newRestoreCmd(opts *root.Options) *cobra.Command {
 		Example: `  jtk projects restore MYPROJ`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runRestore(opts, args[0])
+			return runRestore(cmd.Context(), opts, args[0])
 		},
 	}
 }
 
-func runRestore(opts *root.Options, keyOrID string) error {
+func runRestore(ctx context.Context, opts *root.Options, keyOrID string) error {
 	v := opts.View()
 
 	client, err := opts.APIClient()
@@ -27,7 +28,7 @@ func runRestore(opts *root.Options, keyOrID string) error {
 		return err
 	}
 
-	project, err := client.RestoreProject(keyOrID)
+	project, err := client.RestoreProject(ctx, keyOrID)
 	if err != nil {
 		return err
 	}

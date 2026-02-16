@@ -1,13 +1,14 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strconv"
 )
 
 // ListBoards returns boards, optionally filtered by project
-func (c *Client) ListBoards(projectKeyOrID string, startAt, maxResults int) (*BoardsResponse, error) {
+func (c *Client) ListBoards(ctx context.Context, projectKeyOrID string, startAt, maxResults int) (*BoardsResponse, error) {
 	params := map[string]string{}
 
 	if projectKeyOrID != "" {
@@ -21,7 +22,7 @@ func (c *Client) ListBoards(projectKeyOrID string, startAt, maxResults int) (*Bo
 	}
 
 	urlStr := buildURL(fmt.Sprintf("%s/board", c.AgileURL), params)
-	body, err := c.get(urlStr)
+	body, err := c.Get(ctx, urlStr)
 	if err != nil {
 		return nil, err
 	}
@@ -35,9 +36,9 @@ func (c *Client) ListBoards(projectKeyOrID string, startAt, maxResults int) (*Bo
 }
 
 // GetBoard retrieves a board by ID
-func (c *Client) GetBoard(boardID int) (*Board, error) {
+func (c *Client) GetBoard(ctx context.Context, boardID int) (*Board, error) {
 	urlStr := fmt.Sprintf("%s/board/%d", c.AgileURL, boardID)
-	body, err := c.get(urlStr)
+	body, err := c.Get(ctx, urlStr)
 	if err != nil {
 		return nil, err
 	}

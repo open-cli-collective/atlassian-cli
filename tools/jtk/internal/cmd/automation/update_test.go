@@ -1,6 +1,7 @@
 package automation
 
 import (
+	"context"
 	"bytes"
 	"os"
 	"path/filepath"
@@ -23,7 +24,7 @@ func TestRunUpdate(t *testing.T) {
 			Stderr: &stderr,
 		}
 
-		err = runUpdate(opts, "12345", filePath)
+		err = runUpdate(context.Background(), opts, "12345", filePath)
 		testutil.RequireError(t, err)
 		testutil.Contains(t, err.Error(), "does not contain valid JSON")
 	})
@@ -36,7 +37,7 @@ func TestRunUpdate(t *testing.T) {
 			Stderr: &stderr,
 		}
 
-		err := runUpdate(opts, "12345", "/nonexistent/path/rule.json")
+		err := runUpdate(context.Background(), opts, "12345", "/nonexistent/path/rule.json")
 		testutil.RequireError(t, err)
 		testutil.Contains(t, err.Error(), "failed to read file")
 	})

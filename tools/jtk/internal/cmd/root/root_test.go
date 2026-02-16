@@ -1,0 +1,109 @@
+package root
+
+import (
+	"bytes"
+	"testing"
+
+	"github.com/open-cli-collective/atlassian-go/testutil"
+	"github.com/spf13/cobra"
+
+	"github.com/open-cli-collective/jira-ticket-cli/api"
+)
+
+func TestNewCmd(t *testing.T) {
+	cmd, opts := NewCmd()
+
+	testutil.Equal(t, cmd.Use, "jtk")
+	testutil.NotEmpty(t, cmd.Short)
+	testutil.NotEmpty(t, cmd.Long)
+	testutil.NotNil(t, opts)
+
+	// Verify persistent flags exist
+	outputFlag := cmd.PersistentFlags().Lookup("output")
+	testutil.NotNil(t, outputFlag)
+
+	noColorFlag := cmd.PersistentFlags().Lookup("no-color")
+	testutil.NotNil(t, noColorFlag)
+
+	verboseFlag := cmd.PersistentFlags().Lookup("verbose")
+	testutil.NotNil(t, verboseFlag)
+}
+
+func TestNewCmd_Flags(t *testing.T) {
+	cmd, _ := NewCmd()
+
+	tests := []struct {
+		name string
+		flag string
+	}{
+		{"output flag", "output"},
+		{"no-color flag", "no-color"},
+		{"verbose flag", "verbose"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := cmd.PersistentFlags().Lookup(tt.flag)
+			testutil.NotNil(t, f)
+		})
+	}
+}
+
+func TestNewCmd_FlagDefaults(t *testing.T) {
+	cmd, _ := NewCmd()
+
+	outputFlag := cmd.PersistentFlags().Lookup("output")
+	testutil.Equal(t, outputFlag.DefValue, "table")
+
+	noColorFlag := cmd.PersistentFlags().Lookup("no-color")
+	testutil.Equal(t, noColorFlag.DefValue, "false")
+
+	verboseFlag := cmd.PersistentFlags().Lookup("verbose")
+	testutil.Equal(t, verboseFlag.DefValue, "false")
+}
+
+func TestOptions_View(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	opts := &Options{
+		Output:  "json",
+		NoColor: true,
+		Stdout:  &stdout,
+		Stderr:  &stderr,
+	}
+
+	v := opts.View()
+	testutil.NotNil(t, v)
+	testutil.Equal(t, v.Out, &stdout)
+	testutil.Equal(t, v.Err, &stderr)
+	testutil.True(t, v.NoColor)
+}
+
+func TestOptions_SetAPIClient(t *testing.T) {
+	client, err := api.New(api.ClientConfig{
+		URL:      "https://test.atlassian.net",
+		Email:    "test@test.com",
+		APIToken: "token",
+	})
+	testutil.RequireNoError(t, err)
+
+	opts := &Options{}
+	opts.SetAPIClient(client)
+
+	got, err := opts.APIClient()
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, got, client)
+}
+
+func TestRegisterCommands(t *testing.T) {
+	cmd, opts := NewCmd()
+
+	called := false
+	registrar := func(parent *cobra.Command, o *Options) {
+		called = true
+		testutil.Equal(t, parent, cmd)
+		testutil.Equal(t, o, opts)
+	}
+
+	RegisterCommands(cmd, opts, registrar)
+	testutil.True(t, called)
+}

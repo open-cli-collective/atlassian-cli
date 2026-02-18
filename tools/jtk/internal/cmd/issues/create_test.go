@@ -478,6 +478,55 @@ func TestRunCreate_WithAssigneeEmail(t *testing.T) {
 	assert.Equal(t, "found-account-id", assigneeField["accountId"])
 }
 
+func TestRunCreate_DescriptionEscapeSequences(t *testing.T) {
+	var capturedBody []byte
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/rest/api/3/issue" && r.Method == "POST" {
+			capturedBody, _ = io.ReadAll(r.Body)
+			w.WriteHeader(http.StatusCreated)
+			json.NewEncoder(w).Encode(api.Issue{Key: "TEST-10", ID: "10010"})
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{
+		URL:      server.URL,
+		Email:    "test@example.com",
+		APIToken: "token",
+	})
+	require.NoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{
+		Output: "table",
+		Stdout: &stdout,
+		Stderr: &bytes.Buffer{},
+	}
+	opts.SetAPIClient(client)
+
+	// Simulate what the shell passes when user types: --description "First paragraph.\n\nSecond paragraph."
+	// The shell delivers literal backslash-n, not actual newlines.
+	err = runCreate(opts, "PROJ", "Task", "Test", `First paragraph.\n\nSecond paragraph.`, "", "", nil)
+	require.NoError(t, err)
+
+	require.NotEmpty(t, capturedBody)
+	var reqBody map[string]interface{}
+	err = json.Unmarshal(capturedBody, &reqBody)
+	require.NoError(t, err)
+
+	fields := reqBody["fields"].(map[string]interface{})
+	desc := fields["description"].(map[string]interface{})
+	assert.Equal(t, "doc", desc["type"])
+
+	// With escape interpretation, the description should produce multiple paragraphs
+	// (not a single paragraph with literal \n text)
+	content := desc["content"].([]interface{})
+	assert.GreaterOrEqual(t, len(content), 2, "escaped newlines should produce multiple ADF nodes, not one paragraph with literal \\n")
+}
+
 func TestRunCreate_WithoutAssignee(t *testing.T) {
 	var capturedBody []byte
 

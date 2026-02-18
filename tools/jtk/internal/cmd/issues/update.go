@@ -8,6 +8,7 @@ import (
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/text"
 )
 
 func newUpdateCmd(opts *root.Options) *cobra.Command {
@@ -70,7 +71,7 @@ func runUpdate(opts *root.Options, issueKey, summary, description, parent, assig
 	}
 
 	if description != "" {
-		fields["description"] = api.NewADFDocument(description)
+		fields["description"] = api.NewADFDocument(text.InterpretEscapes(description))
 	}
 
 	if parent != "" {

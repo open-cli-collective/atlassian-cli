@@ -8,6 +8,7 @@ import (
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/text"
 )
 
 func newCreateCmd(opts *root.Options) *cobra.Command {
@@ -114,7 +115,7 @@ func runCreate(opts *root.Options, project, issueType, summary, description, par
 		extraFields["assignee"] = map[string]string{"accountId": accountID}
 	}
 
-	req := api.BuildCreateRequest(project, issueType, summary, description, extraFields)
+	req := api.BuildCreateRequest(project, issueType, summary, text.InterpretEscapes(description), extraFields)
 
 	issue, err := client.CreateIssue(req)
 	if err != nil {

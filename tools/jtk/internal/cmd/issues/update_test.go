@@ -43,7 +43,7 @@ func TestRunUpdate_RequestBodyNoDoubleQuoting(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runUpdate(opts, "PROJ-123", "Updated summary", "Updated description", "", "", nil)
+	err = runUpdate(opts, "PROJ-123", "Updated summary", "Updated description", "", "", "", nil)
 	require.NoError(t, err)
 
 	require.NotEmpty(t, capturedBody)
@@ -95,6 +95,120 @@ func TestNewUpdateCmd(t *testing.T) {
 	assigneeFlag := cmd.Flags().Lookup("assignee")
 	require.NotNil(t, assigneeFlag)
 	assert.Equal(t, "a", assigneeFlag.Shorthand)
+
+	typeFlag := cmd.Flags().Lookup("type")
+	require.NotNil(t, typeFlag)
+	assert.Equal(t, "t", typeFlag.Shorthand)
+}
+
+func TestRunUpdate_TypeChange(t *testing.T) {
+	var moveBody []byte
+	moveCompleted := false
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/rest/api/3/issue/PROJ-123" && r.Method == "GET":
+			json.NewEncoder(w).Encode(api.Issue{
+				Key: "PROJ-123",
+				ID:  "10001",
+				Fields: api.IssueFields{
+					Project:   &api.Project{Key: "PROJ"},
+					IssueType: &api.IssueType{ID: "10000", Name: "Epic"},
+				},
+			})
+		case r.URL.Path == "/rest/api/3/project/PROJ" && r.Method == "GET":
+			json.NewEncoder(w).Encode(struct {
+				IssueTypes []api.IssueType `json:"issueTypes"`
+			}{
+				IssueTypes: []api.IssueType{
+					{ID: "10000", Name: "Epic"},
+					{ID: "10001", Name: "Task"},
+					{ID: "10002", Name: "Story"},
+				},
+			})
+		case r.URL.Path == "/rest/api/3/bulk/issues/move" && r.Method == "POST":
+			moveBody, _ = io.ReadAll(r.Body)
+			moveCompleted = true
+			json.NewEncoder(w).Encode(api.MoveIssuesResponse{TaskID: "task-123"})
+		case r.URL.Path == "/rest/api/3/bulk/queue/task-123" && r.Method == "GET":
+			json.NewEncoder(w).Encode(api.MoveTaskStatus{
+				TaskID:   "task-123",
+				Status:   "COMPLETE",
+				Progress: 100,
+				Result:   &api.MoveTaskResult{Successful: []string{"PROJ-123"}},
+			})
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{
+		URL:      server.URL,
+		Email:    "test@example.com",
+		APIToken: "token",
+	})
+	require.NoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{
+		Output: "table",
+		Stdout: &stdout,
+		Stderr: &bytes.Buffer{},
+	}
+	opts.SetAPIClient(client)
+
+	err = runUpdate(opts, "PROJ-123", "", "", "", "", "Task", nil)
+	require.NoError(t, err)
+	assert.True(t, moveCompleted, "should have called the move API")
+
+	// Verify move request body
+	var moveReq api.MoveIssuesRequest
+	err = json.Unmarshal(moveBody, &moveReq)
+	require.NoError(t, err)
+
+	// The target key should be "PROJ,10001" (project key, Task type ID)
+	spec, ok := moveReq.TargetToSourcesMapping["PROJ,10001"]
+	require.True(t, ok, "should have mapping for PROJ,10001")
+	assert.Equal(t, []string{"PROJ-123"}, spec.IssueIdsOrKeys)
+}
+
+func TestRunUpdate_TypeAlreadyCorrect(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/rest/api/3/issue/PROJ-123" && r.Method == "GET" {
+			json.NewEncoder(w).Encode(api.Issue{
+				Key: "PROJ-123",
+				ID:  "10001",
+				Fields: api.IssueFields{
+					Project:   &api.Project{Key: "PROJ"},
+					IssueType: &api.IssueType{ID: "10001", Name: "Task"},
+				},
+			})
+			return
+		}
+		// No move API should be called
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{
+		URL:      server.URL,
+		Email:    "test@example.com",
+		APIToken: "token",
+	})
+	require.NoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{
+		Output: "table",
+		Stdout: &stdout,
+		Stderr: &bytes.Buffer{},
+	}
+	opts.SetAPIClient(client)
+
+	// Should succeed without calling move API since it's already the right type
+	err = runUpdate(opts, "PROJ-123", "", "", "", "", "Task", nil)
+	require.NoError(t, err)
 }
 
 func TestRunUpdate_SummaryOnly(t *testing.T) {
@@ -125,7 +239,7 @@ func TestRunUpdate_SummaryOnly(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runUpdate(opts, "PROJ-123", "New summary", "", "", "", nil)
+	err = runUpdate(opts, "PROJ-123", "New summary", "", "", "", "", nil)
 	require.NoError(t, err)
 
 	var reqBody map[string]interface{}
@@ -145,7 +259,7 @@ func TestRunUpdate_NoFieldsError(t *testing.T) {
 		Stderr: &bytes.Buffer{},
 	}
 
-	err := runUpdate(opts, "PROJ-123", "", "", "", "", nil)
+	err := runUpdate(opts, "PROJ-123", "", "", "", "", "", nil)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "no fields specified")
 }
@@ -178,7 +292,7 @@ func TestRunUpdate_ParentOnly(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runUpdate(opts, "PROJ-456", "", "", "PROJ-100", "", nil)
+	err = runUpdate(opts, "PROJ-456", "", "", "PROJ-100", "", "", nil)
 	require.NoError(t, err)
 
 	require.NotEmpty(t, capturedBody)
@@ -221,7 +335,7 @@ func TestRunUpdate_ParentWithSummary(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runUpdate(opts, "PROJ-456", "Updated title", "", "PROJ-200", "", nil)
+	err = runUpdate(opts, "PROJ-456", "Updated title", "", "PROJ-200", "", "", nil)
 	require.NoError(t, err)
 
 	require.NotEmpty(t, capturedBody)
@@ -310,7 +424,7 @@ func TestRunUpdate_AssigneeOnly(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runUpdate(opts, "PROJ-789", "", "", "", "61292e4c4f29230069621c5f", nil)
+	err = runUpdate(opts, "PROJ-789", "", "", "", "61292e4c4f29230069621c5f", "", nil)
 	require.NoError(t, err)
 
 	require.NotEmpty(t, capturedBody)
@@ -359,7 +473,7 @@ func TestRunUpdate_AssigneeMe(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runUpdate(opts, "PROJ-789", "", "", "", "me", nil)
+	err = runUpdate(opts, "PROJ-789", "", "", "", "me", "", nil)
 	require.NoError(t, err)
 
 	require.NotEmpty(t, capturedBody)

@@ -3,6 +3,7 @@ package issues
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -16,17 +17,24 @@ func newUpdateCmd(opts *root.Options) *cobra.Command {
 	var description string
 	var parent string
 	var assignee string
+	var issueType string
 	var fields []string
 
 	cmd := &cobra.Command{
 		Use:   "update <issue-key>",
 		Short: "Update an issue",
-		Long:  "Update fields on an existing Jira issue.",
+		Long: `Update fields on an existing Jira issue.
+
+To change the issue type, use --type. This uses the Jira Cloud bulk move API
+transparently (since the standard update API does not support type changes).`,
 		Example: `  # Update summary
   jtk issues update PROJ-123 --summary "New summary"
 
   # Update description
   jtk issues update PROJ-123 --description "Updated description"
+
+  # Change issue type
+  jtk issues update PROJ-123 --type Story
 
   # Move issue under a different parent/epic
   jtk issues update PROJ-123 --parent PROJ-100
@@ -38,7 +46,7 @@ func newUpdateCmd(opts *root.Options) *cobra.Command {
   jtk issues update PROJ-123 --field priority=High --field "Story Points"=5`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runUpdate(opts, args[0], summary, description, parent, assignee, fields)
+			return runUpdate(opts, args[0], summary, description, parent, assignee, issueType, fields)
 		},
 	}
 
@@ -46,16 +54,17 @@ func newUpdateCmd(opts *root.Options) *cobra.Command {
 	cmd.Flags().StringVarP(&description, "description", "d", "", "New description")
 	cmd.Flags().StringVar(&parent, "parent", "", "Parent issue key (epic or parent issue)")
 	cmd.Flags().StringVarP(&assignee, "assignee", "a", "", "Assignee (account ID, email, or \"me\")")
+	cmd.Flags().StringVarP(&issueType, "type", "t", "", "New issue type (uses bulk move API)")
 	cmd.Flags().StringArrayVarP(&fields, "field", "f", nil, "Fields to update (key=value)")
 
 	return cmd
 }
 
-func runUpdate(opts *root.Options, issueKey, summary, description, parent, assignee string, fieldArgs []string) error {
+func runUpdate(opts *root.Options, issueKey, summary, description, parent, assignee, issueType string, fieldArgs []string) error {
 	v := opts.View()
 
 	// Validate that at least one field is being updated before making API calls
-	if summary == "" && description == "" && parent == "" && assignee == "" && len(fieldArgs) == 0 {
+	if summary == "" && description == "" && parent == "" && assignee == "" && issueType == "" && len(fieldArgs) == 0 {
 		return fmt.Errorf("no fields specified to update")
 	}
 
@@ -64,6 +73,14 @@ func runUpdate(opts *root.Options, issueKey, summary, description, parent, assig
 		return err
 	}
 
+	// Handle type change via the move API
+	if issueType != "" {
+		if err := changeIssueType(client, v, issueKey, issueType); err != nil {
+			return err
+		}
+	}
+
+	// Handle other field updates via the standard update API
 	fields := make(map[string]interface{})
 
 	if summary != "" {
@@ -119,6 +136,11 @@ func runUpdate(opts *root.Options, issueKey, summary, description, parent, assig
 		}
 	}
 
+	// If only --type was specified, we're already done
+	if len(fields) == 0 {
+		return nil
+	}
+
 	req := api.BuildUpdateRequest(fields)
 
 	if err := client.UpdateIssue(issueKey, req); err != nil {
@@ -127,4 +149,94 @@ func runUpdate(opts *root.Options, issueKey, summary, description, parent, assig
 
 	v.Success("Updated issue %s", issueKey)
 	return nil
+}
+
+func changeIssueType(client *api.Client, v interface {
+	Info(string, ...interface{})
+	Success(string, ...interface{})
+}, issueKey, targetTypeName string) error {
+	// Get the issue to find its project
+	issue, err := client.GetIssue(issueKey)
+	if err != nil {
+		return fmt.Errorf("failed to get issue: %w", err)
+	}
+
+	if issue.Fields.Project == nil {
+		return fmt.Errorf("issue %s has no project information", issueKey)
+	}
+	projectKey := issue.Fields.Project.Key
+
+	// Check if the type is already correct
+	if issue.Fields.IssueType != nil && strings.EqualFold(issue.Fields.IssueType.Name, targetTypeName) {
+		v.Info("Issue %s is already type %s", issueKey, targetTypeName)
+		return nil
+	}
+
+	// Get available issue types in the project
+	issueTypes, err := client.GetProjectIssueTypes(projectKey)
+	if err != nil {
+		return fmt.Errorf("failed to get project issue types: %w", err)
+	}
+
+	var targetIssueType *api.IssueType
+	for i := range issueTypes {
+		if strings.EqualFold(issueTypes[i].Name, targetTypeName) {
+			targetIssueType = &issueTypes[i]
+			break
+		}
+	}
+
+	if targetIssueType == nil {
+		var available []string
+		for _, t := range issueTypes {
+			if !t.Subtask {
+				available = append(available, t.Name)
+			}
+		}
+		return fmt.Errorf("issue type %q not found in project %s (available: %s)", targetTypeName, projectKey, strings.Join(available, ", "))
+	}
+
+	v.Info("Changing %s type to %s...", issueKey, targetIssueType.Name)
+
+	// Use the move API to change the type within the same project
+	req := api.BuildMoveRequest([]string{issueKey}, projectKey, targetIssueType.ID, false)
+
+	resp, err := client.MoveIssues(req)
+	if err != nil {
+		if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "not found") {
+			return fmt.Errorf("type change failed - this feature requires Jira Cloud")
+		}
+		return fmt.Errorf("failed to change issue type: %w", err)
+	}
+
+	// Wait for completion
+	for {
+		status, err := client.GetMoveTaskStatus(resp.TaskID)
+		if err != nil {
+			return fmt.Errorf("failed to get task status: %w", err)
+		}
+
+		switch status.Status {
+		case "COMPLETE":
+			if status.Result != nil && len(status.Result.Failed) > 0 {
+				for _, failed := range status.Result.Failed {
+					return fmt.Errorf("type change failed for %s: %s", failed.IssueKey, strings.Join(failed.Errors, ", "))
+				}
+			}
+			v.Success("Changed %s type to %s", issueKey, targetIssueType.Name)
+			return nil
+
+		case "FAILED":
+			return fmt.Errorf("type change failed")
+
+		case "CANCELLED":
+			return fmt.Errorf("type change was cancelled")
+
+		case "ENQUEUED", "RUNNING":
+			time.Sleep(1 * time.Second)
+
+		default:
+			return fmt.Errorf("unknown task status: %s", status.Status)
+		}
+	}
 }

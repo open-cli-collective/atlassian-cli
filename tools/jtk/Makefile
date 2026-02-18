@@ -1,4 +1,4 @@
-.PHONY: build test clean install lint
+.PHONY: build test clean install lint tidy check
 
 BINARY_NAME=jtk
 VERSION?=$(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
@@ -31,8 +31,12 @@ lint:
 
 tidy:
 	go mod tidy
+	git diff --exit-code go.mod go.sum
+
+# CI gate: everything that must pass before merge
+check: tidy lint test build
 
 deps:
 	go mod download
 
-all: tidy lint test build
+all: check

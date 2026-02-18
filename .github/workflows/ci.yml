@@ -34,6 +34,8 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: '1.24'
+      - name: Tidy cfl
+        run: cd tools/cfl && go mod tidy && git diff --exit-code go.mod go.sum
       - name: Build cfl
         run: go build -v ./tools/cfl/...
       - name: Test cfl
@@ -48,6 +50,8 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: '1.24'
+      - name: Tidy jtk
+        run: cd tools/jtk && go mod tidy && git diff --exit-code go.mod go.sum
       - name: Build jtk
         run: go build -v ./tools/jtk/...
       - name: Test jtk
@@ -90,6 +94,8 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: '1.24'
+      - name: Tidy shared
+        run: cd shared && go mod tidy && git diff --exit-code go.mod go.sum
       - name: Build shared
         run: go build -v ./shared/...
       - name: Test shared

@@ -1,4 +1,4 @@
-.PHONY: build test test-cover test-short lint clean install deps
+.PHONY: build test test-cover test-short lint tidy check clean install deps
 
 BINARY := cfl
 VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
@@ -38,6 +38,14 @@ clean:
 # Install binary to GOPATH/bin
 install: build
 	cp bin/$(BINARY) $(shell go env GOPATH)/bin/
+
+# Tidy and verify modules are clean
+tidy:
+	go mod tidy
+	git diff --exit-code go.mod go.sum
+
+# CI gate: everything that must pass before merge
+check: tidy lint test build
 
 # Download dependencies
 deps:

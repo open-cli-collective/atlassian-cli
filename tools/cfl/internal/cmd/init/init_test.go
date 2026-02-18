@@ -2,6 +2,7 @@ package init
 
 import (
 	"bytes"
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -39,7 +40,7 @@ func TestVerifyConnection_Success(t *testing.T) {
 		APIToken: "test-token",
 	}
 
-	err := verifyConnection(cfg)
+	err := verifyConnection(context.Background(), cfg)
 	testutil.NoError(t, err)
 }
 
@@ -56,7 +57,7 @@ func TestVerifyConnection_Unauthorized(t *testing.T) {
 		APIToken: "wrong-token",
 	}
 
-	err := verifyConnection(cfg)
+	err := verifyConnection(context.Background(), cfg)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "authentication failed")
 	testutil.Contains(t, err.Error(), "email and API token")
@@ -75,7 +76,7 @@ func TestVerifyConnection_Forbidden(t *testing.T) {
 		APIToken: "token-no-perms",
 	}
 
-	err := verifyConnection(cfg)
+	err := verifyConnection(context.Background(), cfg)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "access denied")
 	testutil.Contains(t, err.Error(), "permissions")
@@ -93,7 +94,7 @@ func TestVerifyConnection_ServerError(t *testing.T) {
 		APIToken: "test-token",
 	}
 
-	err := verifyConnection(cfg)
+	err := verifyConnection(context.Background(), cfg)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "unexpected status code: 500")
 }
@@ -105,7 +106,7 @@ func TestVerifyConnection_NetworkError(t *testing.T) {
 		APIToken: "test-token",
 	}
 
-	err := verifyConnection(cfg)
+	err := verifyConnection(context.Background(), cfg)
 	testutil.RequireError(t, err)
 	// Should fail to connect
 }
@@ -167,7 +168,7 @@ func TestVerifyConnection_StatusCodes(t *testing.T) {
 				APIToken: "test-token",
 			}
 
-			err := verifyConnection(cfg)
+			err := verifyConnection(context.Background(), cfg)
 			if tt.wantErr {
 				testutil.RequireError(t, err)
 				testutil.Contains(t, err.Error(), tt.errContain)

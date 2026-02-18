@@ -2,6 +2,7 @@
 package init
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
@@ -44,8 +45,8 @@ To generate an API token:
 
   # Pre-populate URL
   cfl init --url https://mycompany.atlassian.net`,
-		RunE: func(_ *cobra.Command, _ []string) error {
-			return runInit(url, email, noVerify)
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runInit(cmd.Context(), url, email, noVerify)
 		},
 	}
 
@@ -56,7 +57,7 @@ To generate an API token:
 	return cmd
 }
 
-func runInit(prefillURL, prefillEmail string, noVerify bool) error {
+func runInit(ctx context.Context, prefillURL, prefillEmail string, noVerify bool) error {
 	configPath := config.DefaultConfigPath()
 
 	// Load existing config for pre-population
@@ -168,7 +169,7 @@ func runInit(prefillURL, prefillEmail string, noVerify bool) error {
 	// Verify connection unless skipped
 	if !noVerify {
 		fmt.Print("Verifying connection... ")
-		if err := verifyConnection(cfg); err != nil {
+		if err := verifyConnection(ctx, cfg); err != nil {
 			fmt.Println("failed!")
 			return fmt.Errorf("connection verification failed: %w", err)
 		}
@@ -188,10 +189,10 @@ func runInit(prefillURL, prefillEmail string, noVerify bool) error {
 	return nil
 }
 
-func verifyConnection(cfg *config.Config) error {
+func verifyConnection(ctx context.Context, cfg *config.Config) error {
 	client := &http.Client{Timeout: 10 * time.Second}
 
-	req, err := http.NewRequest("GET", cfg.URL+"/api/v2/spaces?limit=1", nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", cfg.URL+"/api/v2/spaces?limit=1", nil)
 	if err != nil {
 		return err
 	}

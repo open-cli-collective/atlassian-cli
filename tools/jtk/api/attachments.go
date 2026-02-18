@@ -104,7 +104,6 @@ func (c *Client) GetAttachment(ctx context.Context, attachmentID string) (*Attac
 
 // AddAttachment uploads a file as an attachment to an issue
 func (c *Client) AddAttachment(ctx context.Context, issueKey, filePath string) ([]Attachment, error) {
-	_ = ctx // TODO: wire context through when switching to context-aware HTTP calls
 	if issueKey == "" {
 		return nil, fmt.Errorf("issue key is required")
 	}
@@ -143,7 +142,7 @@ func (c *Client) AddAttachment(ctx context.Context, issueKey, filePath string) (
 
 	urlStr := fmt.Sprintf("%s/issue/%s/attachments", c.BaseURL, issueKey)
 
-	req, err := http.NewRequest(http.MethodPost, urlStr, pr)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, urlStr, pr)
 	if err != nil {
 		return nil, fmt.Errorf("creating request: %w", err)
 	}
@@ -203,7 +202,6 @@ func (c *Client) DeleteAttachment(ctx context.Context, attachmentID string) erro
 
 // DownloadAttachment downloads an attachment to the specified output path
 func (c *Client) DownloadAttachment(ctx context.Context, attachment *Attachment, outputPath string) error {
-	_ = ctx // TODO: wire context through when switching to context-aware HTTP calls
 	if attachment == nil {
 		return fmt.Errorf("attachment is required")
 	}
@@ -212,7 +210,7 @@ func (c *Client) DownloadAttachment(ctx context.Context, attachment *Attachment,
 	}
 
 	// Create the request
-	req, err := http.NewRequest(http.MethodGet, attachment.Content, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, attachment.Content, nil)
 	if err != nil {
 		return fmt.Errorf("creating request: %w", err)
 	}

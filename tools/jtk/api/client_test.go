@@ -3,6 +3,7 @@ package api //nolint:revive // package name is intentional
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -15,6 +16,7 @@ func TestNew(t *testing.T) {
 		name        string
 		cfg         ClientConfig
 		wantErr     bool
+		wantErrIs   error
 		wantURL     string
 		wantBaseURL string
 	}{
@@ -68,7 +70,8 @@ func TestNew(t *testing.T) {
 				Email:    "user@example.com",
 				APIToken: "token123",
 			},
-			wantErr: true,
+			wantErr:    true,
+			wantErrIs:  ErrURLRequired,
 		},
 		{
 			name: "missing email",
@@ -76,7 +79,8 @@ func TestNew(t *testing.T) {
 				URL:      "https://example.atlassian.net",
 				APIToken: "token123",
 			},
-			wantErr: true,
+			wantErr:    true,
+			wantErrIs:  ErrEmailRequired,
 		},
 		{
 			name: "missing api token",
@@ -84,7 +88,8 @@ func TestNew(t *testing.T) {
 				URL:   "https://example.atlassian.net",
 				Email: "user@example.com",
 			},
-			wantErr: true,
+			wantErr:    true,
+			wantErrIs:  ErrAPITokenRequired,
 		},
 	}
 
@@ -94,6 +99,11 @@ func TestNew(t *testing.T) {
 			if tt.wantErr {
 				testutil.Error(t, err)
 				testutil.Nil(t, client)
+				if tt.wantErrIs != nil {
+					if !errors.Is(err, tt.wantErrIs) {
+						t.Errorf("got error %v, want %v", err, tt.wantErrIs)
+					}
+				}
 			} else {
 				testutil.RequireNoError(t, err)
 				testutil.NotNil(t, client)

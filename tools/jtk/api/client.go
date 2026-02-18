@@ -10,7 +10,6 @@ import (
 	"sync"
 
 	"github.com/open-cli-collective/atlassian-go/client"
-	"github.com/open-cli-collective/atlassian-go/errors"
 	"github.com/open-cli-collective/atlassian-go/url"
 )
 
@@ -37,7 +36,7 @@ type ClientConfig struct {
 // New creates a new Jira API client from config
 func New(cfg ClientConfig) (*Client, error) {
 	if cfg.URL == "" {
-		return nil, errors.ErrNotFound // Use generic error for now; specific errors defined below
+		return nil, ErrURLRequired
 	}
 	if cfg.Email == "" {
 		return nil, ErrEmailRequired
@@ -108,10 +107,10 @@ type tenantInfo struct {
 }
 
 // GetCloudID returns the Atlassian cloud ID for this site, fetching it on first call.
-func (c *Client) GetCloudID() (string, error) {
+func (c *Client) GetCloudID(ctx context.Context) (string, error) {
 	c.cloudOnce.Do(func() {
 		urlStr := fmt.Sprintf("%s/_edge/tenant_info", c.URL)
-		body, err := c.Get(context.Background(), urlStr)
+		body, err := c.Get(ctx, urlStr)
 		if err != nil {
 			c.cloudErr = fmt.Errorf("fetching cloud ID from %s: %w", urlStr, err)
 			return
@@ -135,8 +134,8 @@ func (c *Client) GetCloudID() (string, error) {
 }
 
 // AutomationBaseURL returns the base URL for the Jira Automation REST API.
-func (c *Client) AutomationBaseURL() (string, error) {
-	cloudID, err := c.GetCloudID()
+func (c *Client) AutomationBaseURL(ctx context.Context) (string, error) {
+	cloudID, err := c.GetCloudID(ctx)
 	if err != nil {
 		return "", err
 	}

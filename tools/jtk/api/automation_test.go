@@ -36,12 +36,12 @@ func TestGetCloudID(t *testing.T) {
 		}))
 		defer server.Close()
 
-		cloudID, err := client.GetCloudID()
+		cloudID, err := client.GetCloudID(context.Background())
 		testutil.RequireNoError(t, err)
 		testutil.Equal(t, cloudID, "abc-123-def")
 
 		// Second call should return cached value without hitting server
-		cloudID2, err := client.GetCloudID()
+		cloudID2, err := client.GetCloudID(context.Background())
 		testutil.RequireNoError(t, err)
 		testutil.Equal(t, cloudID2, "abc-123-def")
 	})
@@ -53,7 +53,7 @@ func TestGetCloudID(t *testing.T) {
 		}))
 		defer server.Close()
 
-		_, err := client.GetCloudID()
+		_, err := client.GetCloudID(context.Background())
 		testutil.Error(t, err)
 		testutil.Contains(t, err.Error(), "empty cloud ID")
 	})
@@ -65,7 +65,7 @@ func TestGetCloudID(t *testing.T) {
 		}))
 		defer server.Close()
 
-		_, err := client.GetCloudID()
+		_, err := client.GetCloudID(context.Background())
 		testutil.Error(t, err)
 		testutil.Contains(t, err.Error(), "fetching cloud ID")
 	})
@@ -82,7 +82,7 @@ func TestAutomationBaseURL(t *testing.T) {
 	}))
 	defer server.Close()
 
-	baseURL, err := client.AutomationBaseURL()
+	baseURL, err := client.AutomationBaseURL(context.Background())
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, baseURL, server.URL+"/gateway/api/automation/public/jira/my-cloud-id/rest/v1")
 }

@@ -9,7 +9,7 @@ import (
 
 // ListAutomationRules returns summaries of all automation rules.
 func (c *Client) ListAutomationRules(ctx context.Context) ([]AutomationRuleSummary, error) {
-	base, err := c.AutomationBaseURL()
+	base, err := c.AutomationBaseURL(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -62,7 +62,7 @@ func (c *Client) ListAutomationRulesFiltered(ctx context.Context, state string) 
 
 // GetAutomationRule returns the full rule definition including components.
 func (c *Client) GetAutomationRule(ctx context.Context, ruleID string) (*AutomationRule, error) {
-	base, err := c.AutomationBaseURL()
+	base, err := c.AutomationBaseURL(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -100,7 +100,7 @@ func (c *Client) GetAutomationRule(ctx context.Context, ruleID string) (*Automat
 // GetAutomationRuleRaw returns the full rule definition as raw JSON bytes.
 // This is used for the export command to preserve exact JSON for round-tripping.
 func (c *Client) GetAutomationRuleRaw(ctx context.Context, ruleID string) ([]byte, error) {
-	base, err := c.AutomationBaseURL()
+	base, err := c.AutomationBaseURL(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +118,7 @@ func (c *Client) GetAutomationRuleRaw(ctx context.Context, ruleID string) ([]byt
 // The caller should have obtained the JSON via GetAutomationRuleRaw or export,
 // modified it, and passed it back here.
 func (c *Client) UpdateAutomationRule(ctx context.Context, ruleID string, ruleJSON json.RawMessage) error {
-	base, err := c.AutomationBaseURL()
+	base, err := c.AutomationBaseURL(ctx)
 	if err != nil {
 		return err
 	}
@@ -136,7 +136,7 @@ func (c *Client) UpdateAutomationRule(ctx context.Context, ruleID string, ruleJS
 // The JSON should be in the same shape as the GET response. The API
 // auto-generates new IDs; any existing 'id' or 'ruleKey' fields are ignored.
 func (c *Client) CreateAutomationRule(ctx context.Context, ruleJSON json.RawMessage) (json.RawMessage, error) {
-	base, err := c.AutomationBaseURL()
+	base, err := c.AutomationBaseURL(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -152,7 +152,7 @@ func (c *Client) CreateAutomationRule(ctx context.Context, ruleJSON json.RawMess
 
 // SetAutomationRuleState enables or disables an automation rule.
 func (c *Client) SetAutomationRuleState(ctx context.Context, ruleID string, enabled bool) error {
-	base, err := c.AutomationBaseURL()
+	base, err := c.AutomationBaseURL(ctx)
 	if err != nil {
 		return err
 	}

@@ -72,11 +72,13 @@ func runList(opts *root.Options, issueKey string) error {
 		var direction, key, summary string
 
 		if link.OutwardIssue != nil {
-			direction = link.Type.Outward
+			// OutwardIssue is set → current issue is the inward side
+			direction = link.Type.Inward
 			key = link.OutwardIssue.Key
 			summary = link.OutwardIssue.Fields.Summary
 		} else if link.InwardIssue != nil {
-			direction = link.Type.Inward
+			// InwardIssue is set → current issue is the outward side
+			direction = link.Type.Outward
 			key = link.InwardIssue.Key
 			summary = link.InwardIssue.Fields.Summary
 		}

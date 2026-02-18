@@ -53,6 +53,8 @@ func TestRunList(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, stdout.String(), "PROJ-456")
 	assert.Contains(t, stdout.String(), "Blocks")
+	// OutwardIssue is set → current issue is the inward side → show inward direction
+	assert.Contains(t, stdout.String(), "is blocked by")
 }
 
 func TestRunList_NoLinks(t *testing.T) {

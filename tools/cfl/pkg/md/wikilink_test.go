@@ -9,6 +9,7 @@ import (
 )
 
 func TestParseWikiLink(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		input    string
@@ -58,6 +59,7 @@ func TestParseWikiLink(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			result := ParseWikiLink(tt.input)
 			testutil.Equal(t, tt.expected, result)
 		})
@@ -65,6 +67,7 @@ func TestParseWikiLink(t *testing.T) {
 }
 
 func TestIsSpaceKey(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		input    string
 		expected bool
@@ -85,12 +88,14 @@ func TestIsSpaceKey(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
+			t.Parallel()
 			testutil.Equal(t, tt.expected, isSpaceKey(tt.input))
 		})
 	}
 }
 
 func TestRenderWikiLinkToStorage(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		wl       WikiLink
@@ -118,6 +123,7 @@ func TestRenderWikiLinkToStorage(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			result := RenderWikiLinkToStorage(tt.wl)
 			testutil.Equal(t, tt.expected, result)
 		})
@@ -125,6 +131,7 @@ func TestRenderWikiLinkToStorage(t *testing.T) {
 }
 
 func TestRenderWikiLinkToBracket(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		wl       WikiLink
@@ -144,6 +151,7 @@ func TestRenderWikiLinkToBracket(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			result := RenderWikiLinkToBracket(tt.wl)
 			testutil.Equal(t, tt.expected, result)
 		})
@@ -151,6 +159,7 @@ func TestRenderWikiLinkToBracket(t *testing.T) {
 }
 
 func TestPreprocessWikiLinks(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name          string
 		input         string
@@ -197,6 +206,7 @@ func TestPreprocessWikiLinks(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			output, links := preprocessWikiLinks([]byte(tt.input))
 			testutil.Equal(t, tt.expectedLinks, len(links))
 			tt.checkOutput(t, string(output), links)
@@ -205,6 +215,7 @@ func TestPreprocessWikiLinks(t *testing.T) {
 }
 
 func TestToConfluenceStorage_WikiLinks(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		markdown string
@@ -248,6 +259,7 @@ func TestToConfluenceStorage_WikiLinks(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			result, err := ToConfluenceStorage([]byte(tt.markdown))
 			testutil.RequireNoError(t, err)
 			for _, s := range tt.contains {
@@ -258,6 +270,7 @@ func TestToConfluenceStorage_WikiLinks(t *testing.T) {
 }
 
 func TestToADF_WikiLinks(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		markdown string
@@ -292,6 +305,7 @@ func TestToADF_WikiLinks(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			result, err := ToADF([]byte(tt.markdown))
 			testutil.RequireNoError(t, err)
 
@@ -305,6 +319,7 @@ func TestToADF_WikiLinks(t *testing.T) {
 }
 
 func TestConvertACLinksToPlaceholders(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name          string
 		html          string
@@ -361,6 +376,7 @@ func TestConvertACLinksToPlaceholders(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			output, links := convertACLinksToPlaceholders(tt.html)
 			testutil.Equal(t, tt.expectedLinks, len(links))
 			tt.checkOutput(t, output, links)
@@ -369,6 +385,7 @@ func TestConvertACLinksToPlaceholders(t *testing.T) {
 }
 
 func TestConvertACLinksToMarkdownLinks(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		html     string
@@ -401,6 +418,7 @@ func TestConvertACLinksToMarkdownLinks(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			result := convertACLinksToMarkdownLinks(tt.html)
 			testutil.Equal(t, tt.expected, result)
 		})
@@ -408,6 +426,7 @@ func TestConvertACLinksToMarkdownLinks(t *testing.T) {
 }
 
 func TestRoundtrip_WikiLinks_Storage(t *testing.T) {
+	t.Parallel()
 	// Test: markdown with wiki links → storage → markdown with wiki links
 	input := "See [[My Page]] and [[DEV:Architecture]] for details."
 
@@ -426,6 +445,7 @@ func TestRoundtrip_WikiLinks_Storage(t *testing.T) {
 }
 
 func TestRoundtrip_WikiLinks_WithMacros(t *testing.T) {
+	t.Parallel()
 	// Wiki links + macros should both survive full roundtrip
 	input := "[TOC]\n\nSee [[My Page]] for details.\n\n[INFO]\nImportant info about [[DEV:Architecture]]\n[/INFO]"
 
@@ -452,6 +472,7 @@ func TestRoundtrip_WikiLinks_WithMacros(t *testing.T) {
 }
 
 func TestFromConfluenceStorage_WikiLinks_Default(t *testing.T) {
+	t.Parallel()
 	// Without --show-macros, ac:link should become plain text link
 	html := `<p>See <ac:link><ri:page ri:content-title="My Page" />` +
 		`<ac:plain-text-link-body><![CDATA[My Page]]></ac:plain-text-link-body></ac:link> for details.</p>`
@@ -465,6 +486,7 @@ func TestFromConfluenceStorage_WikiLinks_Default(t *testing.T) {
 }
 
 func TestFromConfluenceStorage_WikiLinks_ShowMacros(t *testing.T) {
+	t.Parallel()
 	html := `<p>See <ac:link><ri:page ri:content-title="My Page" />` +
 		`<ac:plain-text-link-body><![CDATA[My Page]]></ac:plain-text-link-body></ac:link> for details.</p>`
 
@@ -474,6 +496,7 @@ func TestFromConfluenceStorage_WikiLinks_ShowMacros(t *testing.T) {
 }
 
 func TestPreprocessWikiLinksForADF(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		input    string
@@ -503,6 +526,7 @@ func TestPreprocessWikiLinksForADF(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			result := preprocessWikiLinksForADF([]byte(tt.input))
 			testutil.Equal(t, tt.expected, string(result))
 		})
@@ -510,6 +534,7 @@ func TestPreprocessWikiLinksForADF(t *testing.T) {
 }
 
 func TestPreprocessWikiLinks_CodeBlockProtection(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name          string
 		input         string
@@ -555,6 +580,7 @@ func TestPreprocessWikiLinks_CodeBlockProtection(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			output, links := preprocessWikiLinks([]byte(tt.input))
 			testutil.Equal(t, tt.expectedLinks, len(links))
 			tt.checkOutput(t, string(output), links)
@@ -563,6 +589,7 @@ func TestPreprocessWikiLinks_CodeBlockProtection(t *testing.T) {
 }
 
 func TestToConfluenceStorage_WikiLinksInCodeBlock(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name        string
 		markdown    string
@@ -602,6 +629,7 @@ func TestToConfluenceStorage_WikiLinksInCodeBlock(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			result, err := ToConfluenceStorage([]byte(tt.markdown))
 			testutil.RequireNoError(t, err)
 			for _, s := range tt.contains {
@@ -615,6 +643,7 @@ func TestToConfluenceStorage_WikiLinksInCodeBlock(t *testing.T) {
 }
 
 func TestToADF_WikiLinksInCodeBlock(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		markdown string
@@ -649,6 +678,7 @@ func TestToADF_WikiLinksInCodeBlock(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			result, err := ToADF([]byte(tt.markdown))
 			testutil.RequireNoError(t, err)
 
@@ -661,6 +691,7 @@ func TestToADF_WikiLinksInCodeBlock(t *testing.T) {
 }
 
 func TestPreprocessWikiLinksForADF_CodeBlockProtection(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		input    string
@@ -685,6 +716,7 @@ func TestPreprocessWikiLinksForADF_CodeBlockProtection(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			result := preprocessWikiLinksForADF([]byte(tt.input))
 			testutil.Equal(t, tt.expected, string(result))
 		})
@@ -692,6 +724,7 @@ func TestPreprocessWikiLinksForADF_CodeBlockProtection(t *testing.T) {
 }
 
 func TestWikiLink_EscapedTitleInStorage(t *testing.T) {
+	t.Parallel()
 	// Titles with XML-special characters should be properly escaped in storage format
 	wl := WikiLink{Title: `Page & "Stuff" <here>`}
 	storage := RenderWikiLinkToStorage(wl)
@@ -701,6 +734,7 @@ func TestWikiLink_EscapedTitleInStorage(t *testing.T) {
 }
 
 func TestWikiLink_NotConfusedWithMarkdownLinks(t *testing.T) {
+	t.Parallel()
 	// Standard markdown links should not be affected
 	input := "[regular link](https://example.com)"
 	output, links := preprocessWikiLinks([]byte(input))
@@ -709,6 +743,7 @@ func TestWikiLink_NotConfusedWithMarkdownLinks(t *testing.T) {
 }
 
 func TestWikiLink_NotConfusedWithBracketMacros(t *testing.T) {
+	t.Parallel()
 	// Bracket macros use single brackets and should not be confused with wiki-links
 	input := "[TOC]\n\n[[My Page]]"
 	output, links := preprocessWikiLinks([]byte(input))
@@ -718,6 +753,7 @@ func TestWikiLink_NotConfusedWithBracketMacros(t *testing.T) {
 }
 
 func TestMultipleWikiLinksInLine(t *testing.T) {
+	t.Parallel()
 	input := "Compare [[Page A]], [[Page B]], and [[DEV:Page C]]."
 	storage, err := ToConfluenceStorage([]byte(input))
 	testutil.RequireNoError(t, err)
@@ -731,6 +767,7 @@ func TestMultipleWikiLinksInLine(t *testing.T) {
 }
 
 func TestToADF_WikiLink_SpecialCharsInTitle(t *testing.T) {
+	t.Parallel()
 	// Titles with special characters should be properly URL-encoded in ADF path
 	tests := []struct {
 		name     string
@@ -757,6 +794,7 @@ func TestToADF_WikiLink_SpecialCharsInTitle(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			result, err := ToADF([]byte(tt.markdown))
 			testutil.RequireNoError(t, err)
 

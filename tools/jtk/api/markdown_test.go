@@ -8,11 +8,13 @@ import (
 )
 
 func TestMarkdownToADF_Empty(t *testing.T) {
+	t.Parallel()
 	result := MarkdownToADF("")
 	testutil.Nil(t, result)
 }
 
 func TestMarkdownToADF_PlainText(t *testing.T) {
+	t.Parallel()
 	result := MarkdownToADF("Hello world")
 	testutil.NotNil(t, result)
 	testutil.Equal(t, result.Type, "doc")

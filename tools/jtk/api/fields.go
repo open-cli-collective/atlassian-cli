@@ -28,7 +28,7 @@ func (c *Client) GetFields(ctx context.Context) ([]Field, error) {
 func (c *Client) GetCustomFields(ctx context.Context) ([]Field, error) {
 	fields, err := c.GetFields(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("getting custom fields: %w", err)
 	}
 
 	var customFields []Field
@@ -178,7 +178,7 @@ func (c *Client) GetFieldOptions(ctx context.Context, fieldID string) ([]FieldOp
 func (c *Client) GetFieldOptionsFromEditMeta(ctx context.Context, issueKey, fieldID string) ([]FieldOptionValue, error) {
 	meta, err := c.GetIssueEditMeta(ctx, issueKey)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("getting field options from edit metadata for %s: %w", issueKey, err)
 	}
 
 	fieldsData, ok := meta["fields"].(map[string]any)

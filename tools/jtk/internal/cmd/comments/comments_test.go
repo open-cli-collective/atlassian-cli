@@ -16,6 +16,7 @@ import (
 )
 
 func TestNewListCmd(t *testing.T) {
+	t.Parallel()
 	opts := &root.Options{}
 	cmd := newListCmd(opts)
 
@@ -46,6 +47,7 @@ func newTestCommentsServer(_ *testing.T, comments []api.Comment) *httptest.Serve
 }
 
 func TestRunList_TruncatesCommentBody(t *testing.T) {
+	t.Parallel()
 	longText := strings.Repeat("B", 200)
 	comments := []api.Comment{
 		{
@@ -95,6 +97,7 @@ func TestRunList_TruncatesCommentBody(t *testing.T) {
 }
 
 func TestRunList_FullCommentBody(t *testing.T) {
+	t.Parallel()
 	longText := strings.Repeat("B", 200)
 	comments := []api.Comment{
 		{
@@ -147,6 +150,7 @@ func TestRunList_FullCommentBody(t *testing.T) {
 }
 
 func TestRunList_ShortCommentNotTruncated(t *testing.T) {
+	t.Parallel()
 	comments := []api.Comment{
 		{
 			ID:     "1",
@@ -194,6 +198,7 @@ func TestRunList_ShortCommentNotTruncated(t *testing.T) {
 }
 
 func TestRunList_NoComments(t *testing.T) {
+	t.Parallel()
 	server := newTestCommentsServer(t, []api.Comment{})
 	defer server.Close()
 
@@ -220,6 +225,7 @@ func TestRunList_NoComments(t *testing.T) {
 }
 
 func TestRunList_MultipleCommentsFullMode(t *testing.T) {
+	t.Parallel()
 	comments := []api.Comment{
 		{
 			ID:     "1",

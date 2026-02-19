@@ -12,6 +12,7 @@ import (
 )
 
 func TestClient_ListPages(t *testing.T) {
+	t.Parallel()
 	testData := loadTestData(t, "pages.json")
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -39,6 +40,7 @@ func TestClient_ListPages(t *testing.T) {
 }
 
 func TestClient_ListPages_WithOptions(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testutil.Equal(t, "50", r.URL.Query().Get("limit"))
 		testutil.Equal(t, "current", r.URL.Query().Get("status"))
@@ -60,6 +62,7 @@ func TestClient_ListPages_WithOptions(t *testing.T) {
 }
 
 func TestClient_GetPage(t *testing.T) {
+	t.Parallel()
 	testData := loadTestData(t, "page.json")
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -85,6 +88,7 @@ func TestClient_GetPage(t *testing.T) {
 }
 
 func TestClient_GetPage_WithBodyFormat(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testutil.Equal(t, "storage", r.URL.Query().Get("body-format"))
 
@@ -100,6 +104,7 @@ func TestClient_GetPage_WithBodyFormat(t *testing.T) {
 }
 
 func TestClient_CreatePage(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testutil.Equal(t, "/api/v2/pages", r.URL.Path)
 		testutil.Equal(t, "POST", r.Method)
@@ -146,6 +151,7 @@ func TestClient_CreatePage(t *testing.T) {
 }
 
 func TestClient_UpdatePage(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testutil.Equal(t, "/api/v2/pages/98765", r.URL.Path)
 		testutil.Equal(t, "PUT", r.Method)
@@ -191,6 +197,7 @@ func TestClient_UpdatePage(t *testing.T) {
 }
 
 func TestClient_DeletePage(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testutil.Equal(t, "/api/v2/pages/98765", r.URL.Path)
 		testutil.Equal(t, "DELETE", r.Method)
@@ -206,6 +213,7 @@ func TestClient_DeletePage(t *testing.T) {
 }
 
 func TestClient_MovePage_Success(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testutil.Equal(t, "/rest/api/content/12345/move/append/67890", r.URL.Path)
 		testutil.Equal(t, "PUT", r.Method)
@@ -222,6 +230,7 @@ func TestClient_MovePage_Success(t *testing.T) {
 }
 
 func TestClient_MovePage_NotFound(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 		_, _ = w.Write([]byte(`{"message": "Page not found"}`))
@@ -235,6 +244,7 @@ func TestClient_MovePage_NotFound(t *testing.T) {
 }
 
 func TestClient_MovePage_PermissionDenied(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusForbidden)
 		_, _ = w.Write([]byte(`{"message": "You do not have permission to move this page"}`))
@@ -248,6 +258,7 @@ func TestClient_MovePage_PermissionDenied(t *testing.T) {
 }
 
 func TestClient_CopyPage_Success(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testutil.Equal(t, "/rest/api/content/12345/copy", r.URL.Path)
 		testutil.Equal(t, "POST", r.Method)
@@ -304,6 +315,7 @@ func TestClient_CopyPage_Success(t *testing.T) {
 }
 
 func TestClient_CopyPage_MissingTitle(t *testing.T) {
+	t.Parallel()
 	client := NewClient("http://unused", "user@example.com", "token")
 
 	_, err := client.CopyPage(context.Background(), "12345", &CopyPageOptions{})
@@ -312,6 +324,7 @@ func TestClient_CopyPage_MissingTitle(t *testing.T) {
 }
 
 func TestClient_CopyPage_NilOptions(t *testing.T) {
+	t.Parallel()
 	client := NewClient("http://unused", "user@example.com", "token")
 
 	_, err := client.CopyPage(context.Background(), "12345", nil)
@@ -320,6 +333,7 @@ func TestClient_CopyPage_NilOptions(t *testing.T) {
 }
 
 func TestClient_CopyPage_APIError(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 		_, _ = w.Write([]byte(`{"message": "Page not found"}`))
@@ -337,6 +351,7 @@ func TestClient_CopyPage_APIError(t *testing.T) {
 }
 
 func TestClient_CopyPage_WithoutAttachments(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, err := io.ReadAll(r.Body)
 		testutil.RequireNoError(t, err)
@@ -370,6 +385,7 @@ func TestClient_CopyPage_WithoutAttachments(t *testing.T) {
 }
 
 func TestClient_CopyPage_ToDifferentSpace(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, err := io.ReadAll(r.Body)
 		testutil.RequireNoError(t, err)
@@ -405,6 +421,7 @@ func TestClient_CopyPage_ToDifferentSpace(t *testing.T) {
 }
 
 func TestClient_CopyPage_WithoutLabels(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, err := io.ReadAll(r.Body)
 		testutil.RequireNoError(t, err)
@@ -440,6 +457,7 @@ func TestClient_CopyPage_WithoutLabels(t *testing.T) {
 }
 
 func TestClient_UpdatePage_VersionConflict(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusConflict)
 		_, _ = w.Write([]byte(`{
@@ -463,6 +481,7 @@ func TestClient_UpdatePage_VersionConflict(t *testing.T) {
 }
 
 func TestClient_GetPage_MissingBody(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{
@@ -484,6 +503,7 @@ func TestClient_GetPage_MissingBody(t *testing.T) {
 }
 
 func TestClient_GetPage_EmptyBodyStorage(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{
@@ -507,6 +527,7 @@ func TestClient_GetPage_EmptyBodyStorage(t *testing.T) {
 }
 
 func TestClient_ListPages_WithCursor(t *testing.T) {
+	t.Parallel()
 	callCount := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		callCount++
@@ -548,6 +569,7 @@ func TestClient_ListPages_WithCursor(t *testing.T) {
 }
 
 func TestClient_ListPages_EmptyResults(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"results": []}`))
@@ -563,6 +585,7 @@ func TestClient_ListPages_EmptyResults(t *testing.T) {
 }
 
 func TestClient_ListPages_NullVersion(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{

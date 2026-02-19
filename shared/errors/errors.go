@@ -114,6 +114,7 @@ func ParseAPIError(statusCode int, body []byte) error {
 	apiErr := &APIError{StatusCode: statusCode}
 
 	if len(body) > 0 {
+		// Best-effort parse; unparseable bodies leave apiErr with only StatusCode set.
 		_ = json.Unmarshal(body, apiErr)
 	}
 

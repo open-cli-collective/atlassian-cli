@@ -1,9 +1,6 @@
 package md
 
-import (
-	"fmt"
-	"log"
-)
+import "fmt"
 
 // SegmentType indicates whether a segment is text or a macro.
 type SegmentType int
@@ -56,7 +53,6 @@ func (pr *ParseResult) AddMacroSegment(macro *MacroNode) {
 func (pr *ParseResult) AddWarning(format string, args ...any) {
 	msg := fmt.Sprintf(format, args...)
 	pr.Warnings = append(pr.Warnings, msg)
-	log.Printf("WARN: "+format, args...)
 }
 
 // GetMacros returns all MacroNodes from the parse result.

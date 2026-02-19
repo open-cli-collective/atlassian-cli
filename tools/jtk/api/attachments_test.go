@@ -13,6 +13,7 @@ import (
 )
 
 func TestFlexibleID_UnmarshalJSON(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		input    string
@@ -48,6 +49,7 @@ func TestFlexibleID_UnmarshalJSON(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			var id FlexibleID
 			err := json.Unmarshal([]byte(tt.input), &id)
 			if tt.wantErr {
@@ -62,6 +64,7 @@ func TestFlexibleID_UnmarshalJSON(t *testing.T) {
 }
 
 func TestGetIssueAttachments(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testutil.Equal(t, r.URL.Path, "/rest/api/3/issue/PROJ-123")
 		testutil.Equal(t, r.URL.Query().Get("fields"), "attachment")
@@ -103,6 +106,7 @@ func TestGetIssueAttachments(t *testing.T) {
 }
 
 func TestGetIssueAttachments_EmptyIssueKey(t *testing.T) {
+	t.Parallel()
 	client, _ := New(ClientConfig{
 		URL:      "http://unused",
 		Email:    "test@example.com",
@@ -115,6 +119,7 @@ func TestGetIssueAttachments_EmptyIssueKey(t *testing.T) {
 }
 
 func TestGetAttachment(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testutil.Equal(t, r.URL.Path, "/rest/api/3/attachment/10001")
 		w.WriteHeader(http.StatusOK)
@@ -143,6 +148,7 @@ func TestGetAttachment(t *testing.T) {
 }
 
 func TestGetAttachment_EmptyID(t *testing.T) {
+	t.Parallel()
 	client, _ := New(ClientConfig{
 		URL:      "http://unused",
 		Email:    "test@example.com",
@@ -155,6 +161,7 @@ func TestGetAttachment_EmptyID(t *testing.T) {
 }
 
 func TestDeleteAttachment(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testutil.Equal(t, r.Method, http.MethodDelete)
 		testutil.Equal(t, r.URL.Path, "/rest/api/3/attachment/10001")
@@ -174,6 +181,7 @@ func TestDeleteAttachment(t *testing.T) {
 }
 
 func TestDeleteAttachment_EmptyID(t *testing.T) {
+	t.Parallel()
 	client, _ := New(ClientConfig{
 		URL:      "http://unused",
 		Email:    "test@example.com",
@@ -186,6 +194,7 @@ func TestDeleteAttachment_EmptyID(t *testing.T) {
 }
 
 func TestDownloadAttachment(t *testing.T) {
+	t.Parallel()
 	content := []byte("Test file content")
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -217,6 +226,7 @@ func TestDownloadAttachment(t *testing.T) {
 }
 
 func TestDownloadAttachment_ToDirectory(t *testing.T) {
+	t.Parallel()
 	content := []byte("Test file content")
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -248,6 +258,7 @@ func TestDownloadAttachment_ToDirectory(t *testing.T) {
 }
 
 func TestDownloadAttachment_NilAttachment(t *testing.T) {
+	t.Parallel()
 	client, _ := New(ClientConfig{
 		URL:      "http://unused",
 		Email:    "test@example.com",
@@ -260,6 +271,7 @@ func TestDownloadAttachment_NilAttachment(t *testing.T) {
 }
 
 func TestDownloadAttachment_NoContentURL(t *testing.T) {
+	t.Parallel()
 	client, _ := New(ClientConfig{
 		URL:      "http://unused",
 		Email:    "test@example.com",
@@ -273,6 +285,7 @@ func TestDownloadAttachment_NoContentURL(t *testing.T) {
 }
 
 func TestFormatFileSize(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		bytes    int64
 		expected string
@@ -288,6 +301,7 @@ func TestFormatFileSize(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.expected, func(t *testing.T) {
+			t.Parallel()
 			result := FormatFileSize(tt.bytes)
 			testutil.Equal(t, result, tt.expected)
 		})

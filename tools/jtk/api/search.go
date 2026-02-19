@@ -65,7 +65,7 @@ func (c *Client) Search(ctx context.Context, opts SearchOptions) (*SearchResult,
 	urlStr := fmt.Sprintf("%s/search/jql", c.BaseURL)
 	body, err := c.Post(ctx, urlStr, req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("searching issues: %w", err)
 	}
 
 	var result SearchResult
@@ -93,7 +93,7 @@ func (c *Client) SearchAll(ctx context.Context, jql string, maxResults int) ([]I
 			MaxResults: pageSize,
 		})
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("searching all issues (offset %d): %w", startAt, err)
 		}
 
 		allIssues = append(allIssues, result.Issues...)

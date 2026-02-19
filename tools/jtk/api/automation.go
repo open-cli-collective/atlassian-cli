@@ -11,7 +11,7 @@ import (
 func (c *Client) ListAutomationRules(ctx context.Context) ([]AutomationRuleSummary, error) {
 	base, err := c.AutomationBaseURL(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("listing automation rules: %w", err)
 	}
 
 	var all []AutomationRuleSummary
@@ -44,7 +44,7 @@ func (c *Client) ListAutomationRules(ctx context.Context) ([]AutomationRuleSumma
 func (c *Client) ListAutomationRulesFiltered(ctx context.Context, state string) ([]AutomationRuleSummary, error) {
 	rules, err := c.ListAutomationRules(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("listing automation rules (filtered): %w", err)
 	}
 
 	if state == "" {
@@ -64,7 +64,7 @@ func (c *Client) ListAutomationRulesFiltered(ctx context.Context, state string) 
 func (c *Client) GetAutomationRule(ctx context.Context, ruleID string) (*AutomationRule, error) {
 	base, err := c.AutomationBaseURL(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("getting automation rule %s: %w", ruleID, err)
 	}
 
 	urlStr := fmt.Sprintf("%s/rule/%s", base, url.PathEscape(ruleID))
@@ -102,7 +102,7 @@ func (c *Client) GetAutomationRule(ctx context.Context, ruleID string) (*Automat
 func (c *Client) GetAutomationRuleRaw(ctx context.Context, ruleID string) ([]byte, error) {
 	base, err := c.AutomationBaseURL(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("getting automation rule %s (raw): %w", ruleID, err)
 	}
 
 	urlStr := fmt.Sprintf("%s/rule/%s", base, url.PathEscape(ruleID))
@@ -120,7 +120,7 @@ func (c *Client) GetAutomationRuleRaw(ctx context.Context, ruleID string) ([]byt
 func (c *Client) UpdateAutomationRule(ctx context.Context, ruleID string, ruleJSON json.RawMessage) error {
 	base, err := c.AutomationBaseURL(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("updating automation rule %s: %w", ruleID, err)
 	}
 
 	urlStr := fmt.Sprintf("%s/rule/%s", base, url.PathEscape(ruleID))
@@ -138,7 +138,7 @@ func (c *Client) UpdateAutomationRule(ctx context.Context, ruleID string, ruleJS
 func (c *Client) CreateAutomationRule(ctx context.Context, ruleJSON json.RawMessage) (json.RawMessage, error) {
 	base, err := c.AutomationBaseURL(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("creating automation rule: %w", err)
 	}
 
 	urlStr := fmt.Sprintf("%s/rule", base)
@@ -154,7 +154,7 @@ func (c *Client) CreateAutomationRule(ctx context.Context, ruleJSON json.RawMess
 func (c *Client) SetAutomationRuleState(ctx context.Context, ruleID string, enabled bool) error {
 	base, err := c.AutomationBaseURL(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("setting automation rule %s state: %w", ruleID, err)
 	}
 
 	state := "DISABLED"

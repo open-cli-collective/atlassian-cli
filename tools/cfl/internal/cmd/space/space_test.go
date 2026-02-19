@@ -41,6 +41,7 @@ const v1SpaceUpdateResponse = `{
 // --- View tests ---
 
 func TestRunView_Table(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testutil.Equal(t, "GET", r.Method)
 		testutil.Contains(t, r.URL.Path, "/spaces")
@@ -73,6 +74,7 @@ func TestRunView_Table(t *testing.T) {
 }
 
 func TestRunView_JSON(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(spaceListResponse))
@@ -100,6 +102,7 @@ func TestRunView_JSON(t *testing.T) {
 }
 
 func TestRunView_NotFound(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"results": []}`))
@@ -120,6 +123,7 @@ func TestRunView_NotFound(t *testing.T) {
 // --- Create tests ---
 
 func TestRunCreate(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testutil.Equal(t, "POST", r.Method)
 		testutil.Equal(t, "/api/v2/spaces", r.URL.Path)
@@ -170,6 +174,7 @@ func TestRunCreate(t *testing.T) {
 }
 
 func TestRunCreate_JSON(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{
@@ -209,6 +214,7 @@ func TestRunCreate_JSON(t *testing.T) {
 }
 
 func TestRunCreate_WithDescription(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req api.CreateSpaceRequest
 		err := json.NewDecoder(r.Body).Decode(&req)
@@ -246,6 +252,7 @@ func TestRunCreate_WithDescription(t *testing.T) {
 // --- Update tests ---
 
 func TestRunUpdate(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testutil.Equal(t, "PUT", r.Method)
 		testutil.Equal(t, "/rest/api/space/TEST", r.URL.Path)
@@ -285,6 +292,7 @@ func TestRunUpdate(t *testing.T) {
 }
 
 func TestRunUpdate_JSON(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(v1SpaceUpdateResponse))
@@ -316,6 +324,7 @@ func TestRunUpdate_JSON(t *testing.T) {
 }
 
 func TestRunUpdate_NoFlags(t *testing.T) {
+	t.Parallel()
 	rootOpts := newTestRootOptions()
 
 	opts := &updateOptions{
@@ -329,6 +338,7 @@ func TestRunUpdate_NoFlags(t *testing.T) {
 }
 
 func TestRunUpdate_WithDescription(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req api.UpdateSpaceRequest
 		err := json.NewDecoder(r.Body).Decode(&req)
@@ -358,6 +368,7 @@ func TestRunUpdate_WithDescription(t *testing.T) {
 // --- Delete tests ---
 
 func TestRunDelete_Force(t *testing.T) {
+	t.Parallel()
 	callCount := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		callCount++
@@ -399,6 +410,7 @@ func TestRunDelete_Force(t *testing.T) {
 }
 
 func TestRunDelete_Force_JSON(t *testing.T) {
+	t.Parallel()
 	callCount := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		callCount++
@@ -438,6 +450,7 @@ func TestRunDelete_Force_JSON(t *testing.T) {
 }
 
 func TestRunDelete_NoForce_Declined(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(spaceListResponse))
@@ -460,6 +473,7 @@ func TestRunDelete_NoForce_Declined(t *testing.T) {
 }
 
 func TestRunDelete_NoForce_Accepted(t *testing.T) {
+	t.Parallel()
 	callCount := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		callCount++
@@ -489,6 +503,7 @@ func TestRunDelete_NoForce_Accepted(t *testing.T) {
 }
 
 func TestRunDelete_NotFound(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"results": []}`))

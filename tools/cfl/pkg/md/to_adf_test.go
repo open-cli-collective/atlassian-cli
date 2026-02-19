@@ -9,6 +9,7 @@ import (
 )
 
 func TestToADF_Paragraph(t *testing.T) {
+	t.Parallel()
 	input := "Hello world"
 	result, err := ToADF([]byte(input))
 	testutil.RequireNoError(t, err)
@@ -29,6 +30,7 @@ func TestToADF_Paragraph(t *testing.T) {
 }
 
 func TestToADF_Headings(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		markdown string
@@ -45,6 +47,7 @@ func TestToADF_Headings(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			result, err := ToADF([]byte(tt.markdown))
 			testutil.RequireNoError(t, err)
 
@@ -63,6 +66,7 @@ func TestToADF_Headings(t *testing.T) {
 }
 
 func TestToADF_Formatting(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		markdown string
@@ -76,6 +80,7 @@ func TestToADF_Formatting(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			result, err := ToADF([]byte(tt.markdown))
 			testutil.RequireNoError(t, err)
 
@@ -105,6 +110,7 @@ func TestToADF_Formatting(t *testing.T) {
 }
 
 func TestToADF_Links(t *testing.T) {
+	t.Parallel()
 	input := "[Example](https://example.com)"
 	result, err := ToADF([]byte(input))
 	testutil.RequireNoError(t, err)
@@ -131,6 +137,7 @@ func TestToADF_Links(t *testing.T) {
 }
 
 func TestToADF_BulletList(t *testing.T) {
+	t.Parallel()
 	input := "- Item one\n- Item two\n- Item three"
 	result, err := ToADF([]byte(input))
 	testutil.RequireNoError(t, err)
@@ -156,6 +163,7 @@ func TestToADF_BulletList(t *testing.T) {
 }
 
 func TestToADF_OrderedList(t *testing.T) {
+	t.Parallel()
 	input := "1. First\n2. Second\n3. Third"
 	result, err := ToADF([]byte(input))
 	testutil.RequireNoError(t, err)
@@ -172,6 +180,7 @@ func TestToADF_OrderedList(t *testing.T) {
 }
 
 func TestToADF_CodeBlock(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		markdown string
@@ -200,6 +209,7 @@ func TestToADF_CodeBlock(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			result, err := ToADF([]byte(tt.markdown))
 			testutil.RequireNoError(t, err)
 
@@ -222,6 +232,7 @@ func TestToADF_CodeBlock(t *testing.T) {
 }
 
 func TestToADF_Blockquote(t *testing.T) {
+	t.Parallel()
 	input := "> This is a quote"
 	result, err := ToADF([]byte(input))
 	testutil.RequireNoError(t, err)
@@ -238,6 +249,7 @@ func TestToADF_Blockquote(t *testing.T) {
 }
 
 func TestToADF_HorizontalRule(t *testing.T) {
+	t.Parallel()
 	input := "Above\n\n---\n\nBelow"
 	result, err := ToADF([]byte(input))
 	testutil.RequireNoError(t, err)
@@ -253,6 +265,7 @@ func TestToADF_HorizontalRule(t *testing.T) {
 }
 
 func TestToADF_Table(t *testing.T) {
+	t.Parallel()
 	input := "| Header 1 | Header 2 |\n|----------|----------|\n| Cell 1   | Cell 2   |"
 	result, err := ToADF([]byte(input))
 	testutil.RequireNoError(t, err)
@@ -282,6 +295,7 @@ func TestToADF_Table(t *testing.T) {
 }
 
 func TestToADF_EmptyInput(t *testing.T) {
+	t.Parallel()
 	result, err := ToADF([]byte(""))
 	testutil.RequireNoError(t, err)
 
@@ -295,6 +309,7 @@ func TestToADF_EmptyInput(t *testing.T) {
 }
 
 func TestToADF_NestedList(t *testing.T) {
+	t.Parallel()
 	input := "- Item one\n  - Nested one\n  - Nested two\n- Item two"
 	result, err := ToADF([]byte(input))
 	testutil.RequireNoError(t, err)
@@ -323,6 +338,7 @@ func TestToADF_NestedList(t *testing.T) {
 }
 
 func TestToADF_BoldAndItalicCombined(t *testing.T) {
+	t.Parallel()
 	input := "***bold and italic***"
 	result, err := ToADF([]byte(input))
 	testutil.RequireNoError(t, err)
@@ -351,6 +367,7 @@ func TestToADF_BoldAndItalicCombined(t *testing.T) {
 }
 
 func TestToADF_OutputIsValidJSON(t *testing.T) {
+	t.Parallel()
 	// Test various inputs produce valid JSON
 	inputs := []string{
 		"# Simple heading",
@@ -376,6 +393,7 @@ func TestToADF_OutputIsValidJSON(t *testing.T) {
 }
 
 func TestToADF_Images_AltText(t *testing.T) {
+	t.Parallel()
 	input := "![Alt text](https://example.com/image.png)"
 	result, err := ToADF([]byte(input))
 	testutil.RequireNoError(t, err)
@@ -393,6 +411,7 @@ func TestToADF_Images_AltText(t *testing.T) {
 }
 
 func TestToADF_WhitespaceInCodeBlock(t *testing.T) {
+	t.Parallel()
 	// Code with leading whitespace should be preserved
 	input := "```\n    indented code\n        more indented\n```"
 	result, err := ToADF([]byte(input))
@@ -414,6 +433,7 @@ func TestToADF_WhitespaceInCodeBlock(t *testing.T) {
 }
 
 func TestToADF_NestedBlockquote(t *testing.T) {
+	t.Parallel()
 	input := "> Quote with **bold** text\n>\n> And a list:\n> - Item 1\n> - Item 2"
 	result, err := ToADF([]byte(input))
 	testutil.RequireNoError(t, err)
@@ -431,6 +451,7 @@ func TestToADF_NestedBlockquote(t *testing.T) {
 }
 
 func TestToADF_HardLineBreak(t *testing.T) {
+	t.Parallel()
 	// Two spaces at end of line creates a hard break
 	input := "Line one  \nLine two"
 	result, err := ToADF([]byte(input))
@@ -466,6 +487,7 @@ func TestToADF_HardLineBreak(t *testing.T) {
 }
 
 func TestToADF_InlineCodePreservesContent(t *testing.T) {
+	t.Parallel()
 	input := "Use `fmt.Println()` to print"
 	result, err := ToADF([]byte(input))
 	testutil.RequireNoError(t, err)
@@ -493,6 +515,7 @@ func TestToADF_InlineCodePreservesContent(t *testing.T) {
 // --- Macro conversion tests ---
 
 func TestToADF_TOC_Simple(t *testing.T) {
+	t.Parallel()
 	input := "[TOC]"
 	result, err := ToADF([]byte(input))
 	testutil.RequireNoError(t, err)
@@ -519,6 +542,7 @@ func TestToADF_TOC_Simple(t *testing.T) {
 }
 
 func TestToADF_TOC_WithParams(t *testing.T) {
+	t.Parallel()
 	input := "[TOC maxLevel=3]"
 	result, err := ToADF([]byte(input))
 	testutil.RequireNoError(t, err)
@@ -540,6 +564,7 @@ func TestToADF_TOC_WithParams(t *testing.T) {
 }
 
 func TestToADF_TOC_MultipleParams(t *testing.T) {
+	t.Parallel()
 	input := "[TOC maxLevel=3 minLevel=1]"
 	result, err := ToADF([]byte(input))
 	testutil.RequireNoError(t, err)
@@ -560,6 +585,7 @@ func TestToADF_TOC_MultipleParams(t *testing.T) {
 }
 
 func TestToADF_TOC_CaseInsensitive(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name  string
 		input string
@@ -571,6 +597,7 @@ func TestToADF_TOC_CaseInsensitive(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			result, err := ToADF([]byte(tt.input))
 			testutil.RequireNoError(t, err)
 
@@ -586,6 +613,7 @@ func TestToADF_TOC_CaseInsensitive(t *testing.T) {
 }
 
 func TestToADF_TOC_WithSurroundingContent(t *testing.T) {
+	t.Parallel()
 	input := "Before content.\n\n[TOC]\n\n# Heading\n\nAfter content."
 	result, err := ToADF([]byte(input))
 	testutil.RequireNoError(t, err)
@@ -604,6 +632,7 @@ func TestToADF_TOC_WithSurroundingContent(t *testing.T) {
 }
 
 func TestToADF_TOC_InsideCodeBlock_Preserved(t *testing.T) {
+	t.Parallel()
 	input := "```\n[TOC]\n```"
 	result, err := ToADF([]byte(input))
 	testutil.RequireNoError(t, err)
@@ -619,6 +648,7 @@ func TestToADF_TOC_InsideCodeBlock_Preserved(t *testing.T) {
 }
 
 func TestToADF_TOC_InsideInlineCode_Preserved(t *testing.T) {
+	t.Parallel()
 	input := "Use `[TOC]` to add a table of contents."
 	result, err := ToADF([]byte(input))
 	testutil.RequireNoError(t, err)
@@ -644,6 +674,7 @@ func TestToADF_TOC_InsideInlineCode_Preserved(t *testing.T) {
 }
 
 func TestToADF_InfoPanel(t *testing.T) {
+	t.Parallel()
 	input := "[INFO]\nThis is important content.\n[/INFO]"
 	result, err := ToADF([]byte(input))
 	testutil.RequireNoError(t, err)
@@ -673,6 +704,7 @@ func TestToADF_InfoPanel(t *testing.T) {
 }
 
 func TestToADF_WarningPanel(t *testing.T) {
+	t.Parallel()
 	input := "[WARNING]\nBe careful!\n[/WARNING]"
 	result, err := ToADF([]byte(input))
 	testutil.RequireNoError(t, err)
@@ -688,6 +720,7 @@ func TestToADF_WarningPanel(t *testing.T) {
 }
 
 func TestToADF_NotePanel(t *testing.T) {
+	t.Parallel()
 	input := "[NOTE]\nTake note of this.\n[/NOTE]"
 	result, err := ToADF([]byte(input))
 	testutil.RequireNoError(t, err)
@@ -703,6 +736,7 @@ func TestToADF_NotePanel(t *testing.T) {
 }
 
 func TestToADF_TipPanel(t *testing.T) {
+	t.Parallel()
 	input := "[TIP]\nHere is a tip.\n[/TIP]"
 	result, err := ToADF([]byte(input))
 	testutil.RequireNoError(t, err)
@@ -718,6 +752,7 @@ func TestToADF_TipPanel(t *testing.T) {
 }
 
 func TestToADF_NestedMacro_TOCInsideInfo(t *testing.T) {
+	t.Parallel()
 	input := "[INFO]\nContent with [TOC] inside.\n[/INFO]"
 	result, err := ToADF([]byte(input))
 	testutil.RequireNoError(t, err)
@@ -737,6 +772,7 @@ func TestToADF_NestedMacro_TOCInsideInfo(t *testing.T) {
 }
 
 func TestToADF_ExpandMacro(t *testing.T) {
+	t.Parallel()
 	input := "[EXPAND]\nExpanded content here.\n[/EXPAND]"
 	result, err := ToADF([]byte(input))
 	testutil.RequireNoError(t, err)
@@ -754,6 +790,7 @@ func TestToADF_ExpandMacro(t *testing.T) {
 }
 
 func TestToADF_MultipleMacroTypes(t *testing.T) {
+	t.Parallel()
 	input := "[TOC]\n\n# Introduction\n\n[INFO]\nImportant note here.\n[/INFO]\n\n## Details\n\nSome details."
 	result, err := ToADF([]byte(input))
 	testutil.RequireNoError(t, err)
@@ -774,6 +811,7 @@ func TestToADF_MultipleMacroTypes(t *testing.T) {
 }
 
 func TestToADF_MacroOutputIsValidJSON(t *testing.T) {
+	t.Parallel()
 	inputs := []string{
 		"[TOC]",
 		"[TOC maxLevel=3]",

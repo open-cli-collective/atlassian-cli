@@ -15,6 +15,7 @@ import (
 )
 
 func TestRegister(t *testing.T) {
+	t.Parallel()
 	rootCmd, opts := root.NewCmd()
 	Register(rootCmd, opts)
 
@@ -25,6 +26,7 @@ func TestRegister(t *testing.T) {
 }
 
 func TestNewListCmd(t *testing.T) {
+	t.Parallel()
 	opts := &root.Options{}
 	cmd := newListCmd(opts)
 
@@ -37,6 +39,7 @@ func TestNewListCmd(t *testing.T) {
 }
 
 func TestRunList_Table(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode([]api.Field{
 			{ID: "summary", Name: "Summary", Schema: api.FieldSchema{Type: "string"}},
@@ -60,6 +63,7 @@ func TestRunList_Table(t *testing.T) {
 }
 
 func TestRunList_JSON(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode([]api.Field{
 			{ID: "customfield_10100", Name: "Environment", Custom: true},
@@ -81,6 +85,7 @@ func TestRunList_JSON(t *testing.T) {
 }
 
 func TestRunList_Empty(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode([]api.Field{})
 	}))
@@ -99,6 +104,7 @@ func TestRunList_Empty(t *testing.T) {
 }
 
 func TestNewCreateCmd(t *testing.T) {
+	t.Parallel()
 	opts := &root.Options{}
 	cmd := newCreateCmd(opts)
 
@@ -115,6 +121,7 @@ func TestNewCreateCmd(t *testing.T) {
 }
 
 func TestRunCreate(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testutil.Equal(t, r.Method, http.MethodPost)
 		w.WriteHeader(http.StatusCreated)
@@ -140,6 +147,7 @@ func TestRunCreate(t *testing.T) {
 }
 
 func TestRunCreate_JSON(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusCreated)
 		_ = json.NewEncoder(w).Encode(api.Field{
@@ -163,6 +171,7 @@ func TestRunCreate_JSON(t *testing.T) {
 }
 
 func TestNewDeleteCmd(t *testing.T) {
+	t.Parallel()
 	opts := &root.Options{}
 	cmd := newDeleteCmd(opts)
 
@@ -174,6 +183,7 @@ func TestNewDeleteCmd(t *testing.T) {
 }
 
 func TestRunDelete_Force(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testutil.Equal(t, r.Method, http.MethodPost)
 		testutil.Contains(t, r.URL.Path, "/trash")
@@ -194,6 +204,7 @@ func TestRunDelete_Force(t *testing.T) {
 }
 
 func TestRunDelete_NoForce_Declined(t *testing.T) {
+	t.Parallel()
 	client, err := api.New(api.ClientConfig{URL: "https://test.atlassian.net", Email: "test@test.com", APIToken: "token"})
 	testutil.RequireNoError(t, err)
 
@@ -212,6 +223,7 @@ func TestRunDelete_NoForce_Declined(t *testing.T) {
 }
 
 func TestRunDelete_NoForce_Accepted(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testutil.Equal(t, r.Method, http.MethodPost)
 		w.WriteHeader(http.StatusOK)
@@ -236,6 +248,7 @@ func TestRunDelete_NoForce_Accepted(t *testing.T) {
 }
 
 func TestRunRestore(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testutil.Equal(t, r.Method, http.MethodPost)
 		testutil.Contains(t, r.URL.Path, "/restore")
@@ -258,6 +271,7 @@ func TestRunRestore(t *testing.T) {
 // --- Contexts tests ---
 
 func TestNewContextsCmd(t *testing.T) {
+	t.Parallel()
 	rootCmd, opts := root.NewCmd()
 	Register(rootCmd, opts)
 
@@ -268,6 +282,7 @@ func TestNewContextsCmd(t *testing.T) {
 }
 
 func TestRunContextsList_Table(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(api.FieldContextsResponse{
 			Values: []api.FieldContext{
@@ -292,6 +307,7 @@ func TestRunContextsList_Table(t *testing.T) {
 }
 
 func TestRunContextsList_Empty(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(api.FieldContextsResponse{Values: []api.FieldContext{}})
 	}))
@@ -310,6 +326,7 @@ func TestRunContextsList_Empty(t *testing.T) {
 }
 
 func TestRunContextsCreate(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testutil.Equal(t, r.Method, http.MethodPost)
 		w.WriteHeader(http.StatusCreated)
@@ -334,6 +351,7 @@ func TestRunContextsCreate(t *testing.T) {
 }
 
 func TestRunContextsDelete_Force(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testutil.Equal(t, r.Method, http.MethodDelete)
 		w.WriteHeader(http.StatusNoContent)
@@ -353,6 +371,7 @@ func TestRunContextsDelete_Force(t *testing.T) {
 }
 
 func TestRunContextsDelete_NoForce_Declined(t *testing.T) {
+	t.Parallel()
 	client, err := api.New(api.ClientConfig{URL: "https://test.atlassian.net", Email: "test@test.com", APIToken: "token"})
 	testutil.RequireNoError(t, err)
 
@@ -373,6 +392,7 @@ func TestRunContextsDelete_NoForce_Declined(t *testing.T) {
 // --- Options tests ---
 
 func TestNewOptionsCmd(t *testing.T) {
+	t.Parallel()
 	rootCmd, opts := root.NewCmd()
 	Register(rootCmd, opts)
 
@@ -383,6 +403,7 @@ func TestNewOptionsCmd(t *testing.T) {
 }
 
 func TestResolveContextID_Explicit(t *testing.T) {
+	t.Parallel()
 	// When context flag is provided, it should be used directly
 	id, err := resolveContextID(context.Background(), nil, "customfield_10100", "10001")
 	testutil.RequireNoError(t, err)
@@ -390,6 +411,7 @@ func TestResolveContextID_Explicit(t *testing.T) {
 }
 
 func TestResolveContextID_AutoDetect(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(api.FieldContextsResponse{
 			Values: []api.FieldContext{
@@ -408,6 +430,7 @@ func TestResolveContextID_AutoDetect(t *testing.T) {
 }
 
 func TestRunOptionsList_Table(t *testing.T) {
+	t.Parallel()
 	callCount := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		callCount++
@@ -442,6 +465,7 @@ func TestRunOptionsList_Table(t *testing.T) {
 }
 
 func TestRunOptionsList_Empty(t *testing.T) {
+	t.Parallel()
 	callCount := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		callCount++
@@ -468,6 +492,7 @@ func TestRunOptionsList_Empty(t *testing.T) {
 }
 
 func TestRunOptionsAdd(t *testing.T) {
+	t.Parallel()
 	callCount := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		callCount++
@@ -500,6 +525,7 @@ func TestRunOptionsAdd(t *testing.T) {
 }
 
 func TestRunOptionsUpdate(t *testing.T) {
+	t.Parallel()
 	callCount := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		callCount++
@@ -531,6 +557,7 @@ func TestRunOptionsUpdate(t *testing.T) {
 }
 
 func TestRunOptionsDelete_Force(t *testing.T) {
+	t.Parallel()
 	callCount := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		callCount++
@@ -558,6 +585,7 @@ func TestRunOptionsDelete_Force(t *testing.T) {
 }
 
 func TestRunOptionsDelete_NoForce_Declined(t *testing.T) {
+	t.Parallel()
 	client, err := api.New(api.ClientConfig{URL: "https://test.atlassian.net", Email: "test@test.com", APIToken: "token"})
 	testutil.RequireNoError(t, err)
 

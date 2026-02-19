@@ -29,6 +29,7 @@ func newAutomationTestServer(t *testing.T, rule api.AutomationRule) *httptest.Se
 }
 
 func TestRunSetState_AlreadyEnabled(t *testing.T) {
+	t.Parallel()
 	rule := api.AutomationRule{
 		ID:    json.Number("42"),
 		Name:  "Test Rule",
@@ -59,6 +60,7 @@ func TestRunSetState_AlreadyEnabled(t *testing.T) {
 }
 
 func TestRunSetState_AlreadyDisabled(t *testing.T) {
+	t.Parallel()
 	rule := api.AutomationRule{
 		ID:    json.Number("42"),
 		Name:  "Test Rule",
@@ -89,6 +91,7 @@ func TestRunSetState_AlreadyDisabled(t *testing.T) {
 }
 
 func TestRunSetState_EnableDisabledRule(t *testing.T) {
+	t.Parallel()
 	requestCount := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/_edge/tenant_info" {

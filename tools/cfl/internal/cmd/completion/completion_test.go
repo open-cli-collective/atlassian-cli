@@ -29,6 +29,7 @@ func createTestRootCmd() *cobra.Command {
 }
 
 func TestCompletionCommand(t *testing.T) {
+	t.Parallel()
 	rootCmd := createTestRootCmd()
 
 	// Find the completion command
@@ -42,6 +43,7 @@ func TestCompletionCommand(t *testing.T) {
 }
 
 func TestBashCompletion(t *testing.T) {
+	t.Parallel()
 	root := createTestRootCmd()
 
 	buf := new(bytes.Buffer)
@@ -58,6 +60,7 @@ func TestBashCompletion(t *testing.T) {
 }
 
 func TestZshCompletion(t *testing.T) {
+	t.Parallel()
 	root := createTestRootCmd()
 
 	buf := new(bytes.Buffer)
@@ -74,6 +77,7 @@ func TestZshCompletion(t *testing.T) {
 }
 
 func TestFishCompletion(t *testing.T) {
+	t.Parallel()
 	root := createTestRootCmd()
 
 	buf := new(bytes.Buffer)
@@ -90,6 +94,7 @@ func TestFishCompletion(t *testing.T) {
 }
 
 func TestPowerShellCompletion(t *testing.T) {
+	t.Parallel()
 	root := createTestRootCmd()
 
 	buf := new(bytes.Buffer)
@@ -106,6 +111,7 @@ func TestPowerShellCompletion(t *testing.T) {
 }
 
 func TestCompletionRequiresShellArg(t *testing.T) {
+	t.Parallel()
 	root := createTestRootCmd()
 
 	root.SetArgs([]string{"completion"})
@@ -117,6 +123,7 @@ func TestCompletionRequiresShellArg(t *testing.T) {
 }
 
 func TestCompletionRejectsInvalidShell(t *testing.T) {
+	t.Parallel()
 	root := createTestRootCmd()
 
 	root.SetArgs([]string{"completion", "invalid-shell"})
@@ -128,6 +135,7 @@ func TestCompletionRejectsInvalidShell(t *testing.T) {
 }
 
 func TestCompletionRejectsExtraArgs(t *testing.T) {
+	t.Parallel()
 	root := createTestRootCmd()
 
 	root.SetArgs([]string{"completion", "bash", "extra-arg"})

@@ -16,6 +16,7 @@ import (
 
 // mockSearchServer creates a test server for search operations
 func mockSearchServer(t *testing.T, response string) *httptest.Server {
+	t.Helper()
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "GET" && strings.Contains(r.URL.Path, "/rest/api/search") {
 			w.WriteHeader(http.StatusOK)
@@ -37,6 +38,7 @@ func newTestRootOptions() *root.Options {
 }
 
 func TestRunSearch_Success(t *testing.T) {
+	t.Parallel()
 	server := mockSearchServer(t, `{
 		"results": [
 			{
@@ -69,6 +71,7 @@ func TestRunSearch_Success(t *testing.T) {
 }
 
 func TestRunSearch_EmptyResults(t *testing.T) {
+	t.Parallel()
 	server := mockSearchServer(t, `{
 		"results": [],
 		"start": 0,
@@ -92,6 +95,7 @@ func TestRunSearch_EmptyResults(t *testing.T) {
 }
 
 func TestRunSearch_JSONOutput(t *testing.T) {
+	t.Parallel()
 	server := mockSearchServer(t, `{
 		"results": [
 			{
@@ -121,6 +125,7 @@ func TestRunSearch_JSONOutput(t *testing.T) {
 }
 
 func TestRunSearch_PlainOutput(t *testing.T) {
+	t.Parallel()
 	server := mockSearchServer(t, `{
 		"results": [
 			{
@@ -150,6 +155,7 @@ func TestRunSearch_PlainOutput(t *testing.T) {
 }
 
 func TestRunSearch_InvalidOutputFormat(t *testing.T) {
+	t.Parallel()
 	rootOpts := newTestRootOptions()
 	rootOpts.Output = "invalid"
 
@@ -165,6 +171,7 @@ func TestRunSearch_InvalidOutputFormat(t *testing.T) {
 }
 
 func TestRunSearch_InvalidType(t *testing.T) {
+	t.Parallel()
 	rootOpts := newTestRootOptions()
 
 	opts := &searchOptions{
@@ -181,10 +188,12 @@ func TestRunSearch_InvalidType(t *testing.T) {
 }
 
 func TestRunSearch_ValidTypes(t *testing.T) {
+	t.Parallel()
 	validTypes := []string{"page", "blogpost", "attachment", "comment"}
 
 	for _, contentType := range validTypes {
 		t.Run(contentType, func(t *testing.T) {
+			t.Parallel()
 			server := mockSearchServer(t, `{"results": [], "totalSize": 0}`)
 			defer server.Close()
 
@@ -206,6 +215,7 @@ func TestRunSearch_ValidTypes(t *testing.T) {
 }
 
 func TestRunSearch_NoQuery(t *testing.T) {
+	t.Parallel()
 	rootOpts := newTestRootOptions()
 
 	opts := &searchOptions{
@@ -219,6 +229,7 @@ func TestRunSearch_NoQuery(t *testing.T) {
 }
 
 func TestRunSearch_NegativeLimit(t *testing.T) {
+	t.Parallel()
 	rootOpts := newTestRootOptions()
 
 	opts := &searchOptions{
@@ -233,6 +244,7 @@ func TestRunSearch_NegativeLimit(t *testing.T) {
 }
 
 func TestRunSearch_ZeroLimit(t *testing.T) {
+	t.Parallel()
 	rootOpts := newTestRootOptions()
 
 	opts := &searchOptions{
@@ -247,6 +259,7 @@ func TestRunSearch_ZeroLimit(t *testing.T) {
 }
 
 func TestRunSearch_WithSpaceFilter(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		cql := r.URL.Query().Get("cql")
 		testutil.Contains(t, cql, `space = "DEV"`)
@@ -272,6 +285,7 @@ func TestRunSearch_WithSpaceFilter(t *testing.T) {
 }
 
 func TestRunSearch_WithTypeFilter(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		cql := r.URL.Query().Get("cql")
 		testutil.Contains(t, cql, `type = "page"`)
@@ -297,6 +311,7 @@ func TestRunSearch_WithTypeFilter(t *testing.T) {
 }
 
 func TestRunSearch_WithTitleFilter(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		cql := r.URL.Query().Get("cql")
 		testutil.Contains(t, cql, `title ~ "Getting Started"`)
@@ -321,6 +336,7 @@ func TestRunSearch_WithTitleFilter(t *testing.T) {
 }
 
 func TestRunSearch_WithLabelFilter(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		cql := r.URL.Query().Get("cql")
 		testutil.Contains(t, cql, `label = "documentation"`)
@@ -345,6 +361,7 @@ func TestRunSearch_WithLabelFilter(t *testing.T) {
 }
 
 func TestRunSearch_WithRawCQL(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		cql := r.URL.Query().Get("cql")
 		// Raw CQL should be used as-is
@@ -370,6 +387,7 @@ func TestRunSearch_WithRawCQL(t *testing.T) {
 }
 
 func TestRunSearch_CombinedFilters(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		cql := r.URL.Query().Get("cql")
 		testutil.Contains(t, cql, `text ~ "kubernetes"`)
@@ -400,6 +418,7 @@ func TestRunSearch_CombinedFilters(t *testing.T) {
 }
 
 func TestRunSearch_APIError(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		_, _ = w.Write([]byte(`{"message": "Invalid CQL query"}`))
@@ -422,6 +441,7 @@ func TestRunSearch_APIError(t *testing.T) {
 }
 
 func TestRunSearch_HasMore(t *testing.T) {
+	t.Parallel()
 	server := mockSearchServer(t, `{
 		"results": [
 			{
@@ -450,6 +470,7 @@ func TestRunSearch_HasMore(t *testing.T) {
 }
 
 func TestRunSearch_LongTitle(t *testing.T) {
+	t.Parallel()
 	longTitle := strings.Repeat("A", 100)
 	server := mockSearchServer(t, `{
 		"results": [
@@ -479,6 +500,7 @@ func TestRunSearch_LongTitle(t *testing.T) {
 }
 
 func TestRunSearch_SpaceOnlyFilter(t *testing.T) {
+	t.Parallel()
 	// Space-only filter should work (no query required)
 	server := mockSearchServer(t, `{"results": [], "totalSize": 0}`)
 	defer server.Close()
@@ -498,6 +520,7 @@ func TestRunSearch_SpaceOnlyFilter(t *testing.T) {
 }
 
 func TestRunSearch_LimitParameter(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		limit := r.URL.Query().Get("limit")
 		testutil.Equal(t, "50", limit)
@@ -522,6 +545,7 @@ func TestRunSearch_LimitParameter(t *testing.T) {
 }
 
 func TestExtractSpaceKey(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name       string
 		displayURL string
@@ -566,6 +590,7 @@ func TestExtractSpaceKey(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			got := extractSpaceKey(tt.displayURL)
 			testutil.Equal(t, tt.want, got)
 		})
@@ -573,6 +598,7 @@ func TestExtractSpaceKey(t *testing.T) {
 }
 
 func TestRunSearch_DisplaysSpaceKey(t *testing.T) {
+	t.Parallel()
 	server := mockSearchServer(t, `{
 		"results": [
 			{

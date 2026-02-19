@@ -25,6 +25,7 @@ func newViewTestRootOptions() *root.Options {
 }
 
 func TestRunView_Success(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testutil.Contains(t, r.URL.Path, "/pages/12345")
 		testutil.Equal(t, "GET", r.Method)
@@ -58,6 +59,7 @@ func TestRunView_Success(t *testing.T) {
 }
 
 func TestRunView_RawFormat(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{
@@ -87,6 +89,7 @@ func TestRunView_RawFormat(t *testing.T) {
 }
 
 func TestRunView_JSONOutput(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{
@@ -113,6 +116,7 @@ func TestRunView_JSONOutput(t *testing.T) {
 }
 
 func TestRunView_PageNotFound(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 		_, _ = w.Write([]byte(`{"message": "Page not found"}`))
@@ -133,6 +137,7 @@ func TestRunView_PageNotFound(t *testing.T) {
 }
 
 func TestRunView_EmptyContent(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{
@@ -157,6 +162,7 @@ func TestRunView_EmptyContent(t *testing.T) {
 }
 
 func TestRunView_InvalidOutputFormat(t *testing.T) {
+	t.Parallel()
 	rootOpts := newViewTestRootOptions()
 	rootOpts.Output = "invalid"
 
@@ -170,6 +176,7 @@ func TestRunView_InvalidOutputFormat(t *testing.T) {
 }
 
 func TestRunView_ShowMacros(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{
@@ -196,6 +203,7 @@ func TestRunView_ShowMacros(t *testing.T) {
 }
 
 func TestRunView_ContentOnly(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{
@@ -223,6 +231,7 @@ func TestRunView_ContentOnly(t *testing.T) {
 }
 
 func TestRunView_ContentOnly_Raw(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{
@@ -251,6 +260,7 @@ func TestRunView_ContentOnly_Raw(t *testing.T) {
 }
 
 func TestRunView_ContentOnly_ShowMacros(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{
@@ -279,6 +289,7 @@ func TestRunView_ContentOnly_ShowMacros(t *testing.T) {
 }
 
 func TestRunView_ContentOnly_JSON_Error(t *testing.T) {
+	t.Parallel()
 	rootOpts := newViewTestRootOptions()
 	rootOpts.Output = "json"
 
@@ -293,6 +304,7 @@ func TestRunView_ContentOnly_JSON_Error(t *testing.T) {
 }
 
 func TestRunView_ContentOnly_Web_Error(t *testing.T) {
+	t.Parallel()
 	rootOpts := newViewTestRootOptions()
 
 	opts := &viewOptions{
@@ -307,6 +319,7 @@ func TestRunView_ContentOnly_Web_Error(t *testing.T) {
 }
 
 func TestRunView_ContentOnly_EmptyBody(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{
@@ -333,6 +346,7 @@ func TestRunView_ContentOnly_EmptyBody(t *testing.T) {
 }
 
 func TestRunView_WithSpaceKey(t *testing.T) {
+	t.Parallel()
 	callCount := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		callCount++
@@ -376,6 +390,7 @@ func TestRunView_WithSpaceKey(t *testing.T) {
 }
 
 func TestRunView_SpaceLookupFails_Graceful(t *testing.T) {
+	t.Parallel()
 	callCount := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		callCount++
@@ -412,6 +427,7 @@ func TestRunView_SpaceLookupFails_Graceful(t *testing.T) {
 }
 
 func TestEnrichPageWithSpaceKey(t *testing.T) {
+	t.Parallel()
 	page := &api.Page{
 		ID:      "12345",
 		Title:   "Test Page",
@@ -426,13 +442,16 @@ func TestEnrichPageWithSpaceKey(t *testing.T) {
 }
 
 func TestTruncateContent(t *testing.T) {
+	t.Parallel()
 	t.Run("short content is not truncated", func(t *testing.T) {
+		t.Parallel()
 		opts := &viewOptions{}
 		result := truncateContent("short", opts)
 		testutil.Equal(t, "short", result)
 	})
 
 	t.Run("long content is truncated by default", func(t *testing.T) {
+		t.Parallel()
 		opts := &viewOptions{}
 		long := strings.Repeat("x", maxViewChars+100)
 		result := truncateContent(long, opts)
@@ -441,6 +460,7 @@ func TestTruncateContent(t *testing.T) {
 	})
 
 	t.Run("--full bypasses truncation", func(t *testing.T) {
+		t.Parallel()
 		opts := &viewOptions{full: true}
 		long := strings.Repeat("x", maxViewChars+100)
 		result := truncateContent(long, opts)
@@ -448,6 +468,7 @@ func TestTruncateContent(t *testing.T) {
 	})
 
 	t.Run("--content-only implies full", func(t *testing.T) {
+		t.Parallel()
 		opts := &viewOptions{contentOnly: true}
 		long := strings.Repeat("x", maxViewChars+100)
 		result := truncateContent(long, opts)
@@ -455,6 +476,7 @@ func TestTruncateContent(t *testing.T) {
 	})
 
 	t.Run("content at exact limit is not truncated", func(t *testing.T) {
+		t.Parallel()
 		opts := &viewOptions{}
 		exact := strings.Repeat("x", maxViewChars)
 		result := truncateContent(exact, opts)
@@ -463,6 +485,7 @@ func TestTruncateContent(t *testing.T) {
 }
 
 func TestRunView_ADFPage_FallbackToAtlasDocFormat(t *testing.T) {
+	t.Parallel()
 	callCount := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		callCount++
@@ -518,6 +541,7 @@ func TestRunView_ADFPage_FallbackToAtlasDocFormat(t *testing.T) {
 }
 
 func TestRunView_ADFPage_RawFormat(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(r.URL.Path, "/pages/12345") {
 			switch r.URL.Query().Get("body-format") {
@@ -567,6 +591,7 @@ func TestRunView_ADFPage_RawFormat(t *testing.T) {
 }
 
 func TestRunView_StoragePage_NoFallback(t *testing.T) {
+	t.Parallel()
 	callCount := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		callCount++
@@ -607,6 +632,7 @@ func TestRunView_StoragePage_NoFallback(t *testing.T) {
 }
 
 func TestRunView_ADFPage_NullBody(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(r.URL.Path, "/pages/12345") {
 			switch r.URL.Query().Get("body-format") {

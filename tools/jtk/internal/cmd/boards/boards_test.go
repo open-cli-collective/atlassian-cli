@@ -15,6 +15,7 @@ import (
 )
 
 func TestNewListCmd(t *testing.T) {
+	t.Parallel()
 	opts := &root.Options{}
 	cmd := newListCmd(opts)
 
@@ -31,6 +32,7 @@ func TestNewListCmd(t *testing.T) {
 }
 
 func TestRunList_Table(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(api.BoardsResponse{
 			Values: []api.Board{
@@ -79,6 +81,7 @@ func TestRunList_Table(t *testing.T) {
 }
 
 func TestRunList_JSON(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(api.BoardsResponse{
 			Values: []api.Board{
@@ -113,6 +116,7 @@ func TestRunList_JSON(t *testing.T) {
 }
 
 func TestRunList_Empty(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(api.BoardsResponse{
 			Values: []api.Board{},
@@ -137,6 +141,7 @@ func TestRunList_Empty(t *testing.T) {
 }
 
 func TestRunGet_Table(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(api.Board{
 			ID:   42,
@@ -167,6 +172,7 @@ func TestRunGet_Table(t *testing.T) {
 }
 
 func TestRunGet_JSON(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(api.Board{
 			ID:   42,
@@ -195,6 +201,7 @@ func TestRunGet_JSON(t *testing.T) {
 }
 
 func TestRunGet_InvalidID(t *testing.T) {
+	t.Parallel()
 	rootCmd, opts := root.NewCmd()
 	Register(rootCmd, opts)
 

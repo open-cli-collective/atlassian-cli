@@ -98,7 +98,7 @@ func (c *Client) DownloadAttachment(ctx context.Context, attachmentID string) (i
 
 	if resp.StatusCode != http.StatusOK {
 		_ = resp.Body.Close()
-		return nil, fmt.Errorf("download failed with status %d", resp.StatusCode)
+		return nil, fmt.Errorf("downloading attachment: status %d", resp.StatusCode)
 	}
 
 	return resp.Body, nil
@@ -156,7 +156,7 @@ func (c *Client) UploadAttachment(ctx context.Context, pageID, filename string, 
 	if resp.StatusCode >= 400 {
 		var errResp ErrorResponse
 		if err := json.Unmarshal(respBody, &errResp); err != nil {
-			return nil, fmt.Errorf("upload failed (status %d): %s", resp.StatusCode, string(respBody))
+			return nil, fmt.Errorf("uploading attachment (status %d): %s", resp.StatusCode, string(respBody))
 		}
 		return nil, &errResp
 	}

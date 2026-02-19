@@ -18,6 +18,7 @@ import (
 // TestSanitizeAttachmentFilename validates that filepath.Base correctly
 // sanitizes malicious filenames that could be used for path traversal attacks.
 func TestSanitizeAttachmentFilename(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		input    string
@@ -82,6 +83,7 @@ func TestSanitizeAttachmentFilename(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			result := filepath.Base(tt.input)
 			if result != tt.expected {
 				t.Errorf("filepath.Base(%q) = %q, want %q", tt.input, result, tt.expected)
@@ -97,6 +99,7 @@ func TestSanitizeAttachmentFilename(t *testing.T) {
 }
 
 func mockDownloadServer(t *testing.T) *httptest.Server {
+	t.Helper()
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/api/v2/attachments/att123":
@@ -158,6 +161,7 @@ func TestRunDownload_Success(t *testing.T) {
 }
 
 func TestRunDownload_CustomOutputFile(t *testing.T) {
+	t.Parallel()
 	server := mockDownloadServer(t)
 	defer server.Close()
 
@@ -247,6 +251,7 @@ func TestRunDownload_FileExists_WithForce(t *testing.T) {
 }
 
 func TestRunDownload_AttachmentNotFound(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 		_, _ = w.Write([]byte(`{"message": "Attachment not found"}`))
@@ -301,6 +306,7 @@ func TestRunDownload_DownloadFailed(t *testing.T) {
 }
 
 func TestRunDownload_InvalidFilename(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		filename string
@@ -312,6 +318,7 @@ func TestRunDownload_InvalidFilename(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				w.WriteHeader(http.StatusOK)
 				_, _ = w.Write([]byte(`{

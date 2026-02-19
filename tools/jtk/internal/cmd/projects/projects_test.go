@@ -15,6 +15,7 @@ import (
 )
 
 func TestRegister(t *testing.T) {
+	t.Parallel()
 	rootCmd, opts := root.NewCmd()
 	Register(rootCmd, opts)
 
@@ -25,6 +26,7 @@ func TestRegister(t *testing.T) {
 }
 
 func TestNewListCmd(t *testing.T) {
+	t.Parallel()
 	opts := &root.Options{}
 	cmd := newListCmd(opts)
 
@@ -41,6 +43,7 @@ func TestNewListCmd(t *testing.T) {
 }
 
 func TestRunList_Table(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(api.ProjectSearchResponse{
 			Values: []api.ProjectDetail{
@@ -66,6 +69,7 @@ func TestRunList_Table(t *testing.T) {
 }
 
 func TestRunList_JSON(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(api.ProjectSearchResponse{
 			Values: []api.ProjectDetail{
@@ -91,6 +95,7 @@ func TestRunList_JSON(t *testing.T) {
 }
 
 func TestRunList_Empty(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(api.ProjectSearchResponse{Values: []api.ProjectDetail{}, Total: 0, IsLast: true})
 	}))
@@ -109,6 +114,7 @@ func TestRunList_Empty(t *testing.T) {
 }
 
 func TestNewGetCmd(t *testing.T) {
+	t.Parallel()
 	opts := &root.Options{}
 	cmd := newGetCmd(opts)
 
@@ -116,6 +122,7 @@ func TestNewGetCmd(t *testing.T) {
 }
 
 func TestRunGet_Table(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(api.ProjectDetail{
 			ID:             json.Number("10001"),
@@ -141,6 +148,7 @@ func TestRunGet_Table(t *testing.T) {
 }
 
 func TestNewCreateCmd(t *testing.T) {
+	t.Parallel()
 	opts := &root.Options{}
 	cmd := newCreateCmd(opts)
 
@@ -157,6 +165,7 @@ func TestNewCreateCmd(t *testing.T) {
 }
 
 func TestRunCreate(t *testing.T) {
+	t.Parallel()
 	// Jira's create endpoint returns an empty name, so the success message
 	// should use the input name, not the response name.
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -183,6 +192,7 @@ func TestRunCreate(t *testing.T) {
 }
 
 func TestNewDeleteCmd(t *testing.T) {
+	t.Parallel()
 	opts := &root.Options{}
 	cmd := newDeleteCmd(opts)
 
@@ -212,6 +222,7 @@ func TestRunDelete_Force(t *testing.T) {
 }
 
 func TestRunDelete_NoForce_Declined(t *testing.T) {
+	t.Parallel()
 	client, err := api.New(api.ClientConfig{URL: "https://test.atlassian.net", Email: "test@test.com", APIToken: "token"})
 	testutil.RequireNoError(t, err)
 
@@ -230,6 +241,7 @@ func TestRunDelete_NoForce_Declined(t *testing.T) {
 }
 
 func TestRunDelete_NoForce_Accepted(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testutil.Equal(t, r.Method, http.MethodDelete)
 		w.WriteHeader(http.StatusNoContent)
@@ -254,6 +266,7 @@ func TestRunDelete_NoForce_Accepted(t *testing.T) {
 }
 
 func TestRunUpdate(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testutil.Equal(t, r.Method, http.MethodPut)
 		_ = json.NewEncoder(w).Encode(api.ProjectDetail{
@@ -277,6 +290,7 @@ func TestRunUpdate(t *testing.T) {
 }
 
 func TestRunRestore(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(api.ProjectDetail{
 			ID:   json.Number("10001"),
@@ -299,6 +313,7 @@ func TestRunRestore(t *testing.T) {
 }
 
 func TestRunTypes(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode([]api.ProjectType{
 			{Key: "software", FormattedKey: "Software"},

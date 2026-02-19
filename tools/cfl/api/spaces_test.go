@@ -20,6 +20,7 @@ func loadTestData(t *testing.T, filename string) []byte {
 }
 
 func TestClient_ListSpaces(t *testing.T) {
+	t.Parallel()
 	testData := loadTestData(t, "spaces.json")
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -50,6 +51,7 @@ func TestClient_ListSpaces(t *testing.T) {
 }
 
 func TestClient_ListSpaces_WithOptions(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testutil.Equal(t, "50", r.URL.Query().Get("limit"))
 		testutil.Equal(t, "global", r.URL.Query().Get("type"))
@@ -71,6 +73,7 @@ func TestClient_ListSpaces_WithOptions(t *testing.T) {
 }
 
 func TestClient_GetSpace(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testutil.Equal(t, "/api/v2/spaces/123456", r.URL.Path)
 		testutil.Equal(t, "GET", r.Method)
@@ -95,6 +98,7 @@ func TestClient_GetSpace(t *testing.T) {
 }
 
 func TestClient_GetSpace_NotFound(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 		_, _ = w.Write([]byte(`{"message": "Space not found"}`))
@@ -109,6 +113,7 @@ func TestClient_GetSpace_NotFound(t *testing.T) {
 }
 
 func TestClient_GetSpaceByKey_Success(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testutil.Equal(t, "/api/v2/spaces", r.URL.Path)
 		testutil.Equal(t, "DEV", r.URL.Query().Get("keys"))
@@ -136,6 +141,7 @@ func TestClient_GetSpaceByKey_Success(t *testing.T) {
 }
 
 func TestClient_GetSpaceByKey_NotFound(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testutil.Equal(t, "NONEXISTENT", r.URL.Query().Get("keys"))
 
@@ -152,6 +158,7 @@ func TestClient_GetSpaceByKey_NotFound(t *testing.T) {
 }
 
 func TestClient_ListSpaces_WithMultipleKeys(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Check that multiple keys are passed correctly
 		keys := r.URL.Query()["keys"]
@@ -182,6 +189,7 @@ func TestClient_ListSpaces_WithMultipleKeys(t *testing.T) {
 }
 
 func TestClient_ListSpaces_EmptyResults(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"results": []}`))
@@ -197,6 +205,7 @@ func TestClient_ListSpaces_EmptyResults(t *testing.T) {
 }
 
 func TestClient_ListSpaces_NullDescription(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{
@@ -219,6 +228,7 @@ func TestClient_ListSpaces_NullDescription(t *testing.T) {
 }
 
 func TestClient_ListSpaces_APIError(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 		_, _ = w.Write([]byte(`{"message": "Authentication required"}`))

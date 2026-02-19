@@ -20,6 +20,7 @@ import (
 
 // mockCreateServer creates a test server that handles GetSpaceByKey and CreatePage requests
 func mockCreateServer(t *testing.T, spaceKey, spaceID string, createStatus int) *httptest.Server {
+	t.Helper()
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.Method == "GET" && strings.Contains(r.URL.Path, "/spaces") && r.URL.Query().Get("keys") != "":
@@ -58,6 +59,7 @@ func newCreateTestRootOptions() *root.Options {
 }
 
 func TestRunCreate_Success(t *testing.T) {
+	t.Parallel()
 	// Create temp markdown file
 	tmpDir := t.TempDir()
 	mdFile := filepath.Join(tmpDir, "content.md")
@@ -83,6 +85,7 @@ func TestRunCreate_Success(t *testing.T) {
 }
 
 func TestRunCreate_HTMLFile_Legacy(t *testing.T) {
+	t.Parallel()
 	// Create temp HTML file - should be treated as storage format in legacy mode
 	tmpDir := t.TempDir()
 	htmlFile := filepath.Join(tmpDir, "content.html")
@@ -129,6 +132,7 @@ func TestRunCreate_HTMLFile_Legacy(t *testing.T) {
 }
 
 func TestRunCreate_NoMarkdownFlag_Legacy(t *testing.T) {
+	t.Parallel()
 	// Create temp file with markdown extension
 	tmpDir := t.TempDir()
 	mdFile := filepath.Join(tmpDir, "content.md")
@@ -177,6 +181,7 @@ func TestRunCreate_NoMarkdownFlag_Legacy(t *testing.T) {
 }
 
 func TestRunCreate_MissingSpace(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 	mdFile := filepath.Join(tmpDir, "content.md")
 	err := os.WriteFile(mdFile, []byte("# Hello"), 0600)
@@ -200,6 +205,7 @@ func TestRunCreate_MissingSpace(t *testing.T) {
 }
 
 func TestRunCreate_SpaceNotFound(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 	mdFile := filepath.Join(tmpDir, "content.md")
 	err := os.WriteFile(mdFile, []byte("# Hello"), 0600)
@@ -229,6 +235,7 @@ func TestRunCreate_SpaceNotFound(t *testing.T) {
 }
 
 func TestRunCreate_CreateFailed(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 	mdFile := filepath.Join(tmpDir, "content.md")
 	err := os.WriteFile(mdFile, []byte("# Hello"), 0600)
@@ -254,6 +261,7 @@ func TestRunCreate_CreateFailed(t *testing.T) {
 }
 
 func TestRunCreate_WithParent(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 	mdFile := filepath.Join(tmpDir, "content.md")
 	err := os.WriteFile(mdFile, []byte("# Child Page"), 0600)
@@ -296,6 +304,7 @@ func TestRunCreate_WithParent(t *testing.T) {
 }
 
 func TestRunCreate_JSONOutput(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 	mdFile := filepath.Join(tmpDir, "content.md")
 	err := os.WriteFile(mdFile, []byte("# Hello"), 0600)
@@ -321,6 +330,7 @@ func TestRunCreate_JSONOutput(t *testing.T) {
 }
 
 func TestRunCreate_MarkdownConversion_Legacy(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 	mdFile := filepath.Join(tmpDir, "content.md")
 	err := os.WriteFile(mdFile, []byte("# Hello World\n\nThis is **bold** text."), 0600)
@@ -369,6 +379,7 @@ func TestRunCreate_MarkdownConversion_Legacy(t *testing.T) {
 }
 
 func TestRunCreate_MarkdownToADF(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 	mdFile := filepath.Join(tmpDir, "content.md")
 	err := os.WriteFile(mdFile, []byte("# Hello World\n\nThis is **bold** text."), 0600)
@@ -418,6 +429,7 @@ func TestRunCreate_MarkdownToADF(t *testing.T) {
 }
 
 func TestRunCreate_FileReadError(t *testing.T) {
+	t.Parallel()
 	server := mockCreateServer(t, "DEV", "123456", http.StatusOK)
 	defer server.Close()
 
@@ -438,6 +450,7 @@ func TestRunCreate_FileReadError(t *testing.T) {
 }
 
 func TestRunCreate_Stdin_ADF(t *testing.T) {
+	t.Parallel()
 	var receivedBody map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
@@ -480,6 +493,7 @@ func TestRunCreate_Stdin_ADF(t *testing.T) {
 }
 
 func TestRunCreate_Stdin_Legacy(t *testing.T) {
+	t.Parallel()
 	var receivedBody map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
@@ -522,6 +536,7 @@ func TestRunCreate_Stdin_Legacy(t *testing.T) {
 }
 
 func TestRunCreate_Stdin_NoMarkdown_Legacy(t *testing.T) {
+	t.Parallel()
 	var receivedBody map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
@@ -565,6 +580,7 @@ func TestRunCreate_Stdin_NoMarkdown_Legacy(t *testing.T) {
 }
 
 func TestRunCreate_StorageFlag_Stdin(t *testing.T) {
+	t.Parallel()
 	var receivedBody map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
@@ -610,6 +626,7 @@ func TestRunCreate_StorageFlag_Stdin(t *testing.T) {
 }
 
 func TestRunCreate_StorageFlag_File(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 	htmlFile := filepath.Join(tmpDir, "content.html")
 	err := os.WriteFile(htmlFile, []byte("<p>Direct storage XHTML</p>"), 0600)
@@ -658,6 +675,7 @@ func TestRunCreate_StorageFlag_File(t *testing.T) {
 }
 
 func TestRunCreate_ComplexMarkdown_ADF(t *testing.T) {
+	t.Parallel()
 	var receivedBody map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
@@ -713,6 +731,7 @@ func TestRunCreate_ComplexMarkdown_ADF(t *testing.T) {
 }
 
 func TestRunCreate_EmptyContentFromStdin(t *testing.T) {
+	t.Parallel()
 	server := mockCreateServer(t, "DEV", "123456", http.StatusOK)
 	defer server.Close()
 
@@ -733,6 +752,7 @@ func TestRunCreate_EmptyContentFromStdin(t *testing.T) {
 }
 
 func TestRunCreate_WhitespaceOnlyFromStdin(t *testing.T) {
+	t.Parallel()
 	server := mockCreateServer(t, "DEV", "123456", http.StatusOK)
 	defer server.Close()
 
@@ -753,6 +773,7 @@ func TestRunCreate_WhitespaceOnlyFromStdin(t *testing.T) {
 }
 
 func TestRunCreate_EmptyFile(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 	emptyFile := filepath.Join(tmpDir, "empty.md")
 	err := os.WriteFile(emptyFile, []byte(""), 0600)
@@ -778,6 +799,7 @@ func TestRunCreate_EmptyFile(t *testing.T) {
 }
 
 func TestRunCreate_WhitespaceOnlyFile(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 	whitespaceFile := filepath.Join(tmpDir, "whitespace.md")
 	err := os.WriteFile(whitespaceFile, []byte("   \n\t\n   "), 0600)

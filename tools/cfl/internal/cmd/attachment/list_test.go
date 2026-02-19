@@ -23,6 +23,7 @@ func newListTestRootOptions() *root.Options {
 }
 
 func TestRunList_Success(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{
@@ -49,6 +50,7 @@ func TestRunList_Success(t *testing.T) {
 }
 
 func TestRunList_Empty(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"results": []}`))
@@ -70,6 +72,7 @@ func TestRunList_Empty(t *testing.T) {
 }
 
 func TestRunList_APIError(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 		_, _ = w.Write([]byte(`{"message": "Page not found"}`))
@@ -92,6 +95,7 @@ func TestRunList_APIError(t *testing.T) {
 }
 
 func TestRunList_JSONOutput(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{
@@ -118,6 +122,7 @@ func TestRunList_JSONOutput(t *testing.T) {
 }
 
 func TestRunList_InvalidOutputFormat(t *testing.T) {
+	t.Parallel()
 	// Don't need a server - should fail before API call
 	rootOpts := newListTestRootOptions()
 	rootOpts.Output = "invalid"
@@ -133,6 +138,7 @@ func TestRunList_InvalidOutputFormat(t *testing.T) {
 }
 
 func TestFormatFileSize(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		bytes    int64
 		expected string
@@ -149,6 +155,7 @@ func TestFormatFileSize(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.expected, func(t *testing.T) {
+			t.Parallel()
 			result := formatFileSize(tt.bytes)
 			testutil.Equal(t, tt.expected, result)
 		})
@@ -156,6 +163,7 @@ func TestFormatFileSize(t *testing.T) {
 }
 
 func TestIsAttachmentReferenced(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		filename string
@@ -202,6 +210,7 @@ func TestIsAttachmentReferenced(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			result := isAttachmentReferenced(tt.filename, tt.content)
 			testutil.Equal(t, tt.expected, result)
 		})
@@ -209,6 +218,7 @@ func TestIsAttachmentReferenced(t *testing.T) {
 }
 
 func TestFilterUnusedAttachments(t *testing.T) {
+	t.Parallel()
 	attachments := []api.Attachment{
 		{ID: "att1", Title: "used-image.png"},
 		{ID: "att2", Title: "unused-doc.pdf"},
@@ -228,6 +238,7 @@ func TestFilterUnusedAttachments(t *testing.T) {
 }
 
 func TestFilterUnusedAttachments_AllUnused(t *testing.T) {
+	t.Parallel()
 	attachments := []api.Attachment{
 		{ID: "att1", Title: "orphan1.png"},
 		{ID: "att2", Title: "orphan2.pdf"},
@@ -241,6 +252,7 @@ func TestFilterUnusedAttachments_AllUnused(t *testing.T) {
 }
 
 func TestFilterUnusedAttachments_NoneUnused(t *testing.T) {
+	t.Parallel()
 	attachments := []api.Attachment{
 		{ID: "att1", Title: "used.png"},
 	}
@@ -253,6 +265,7 @@ func TestFilterUnusedAttachments_NoneUnused(t *testing.T) {
 }
 
 func TestRunList_UnusedFlag(t *testing.T) {
+	t.Parallel()
 	requestCount := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requestCount++
@@ -300,6 +313,7 @@ func TestRunList_UnusedFlag(t *testing.T) {
 }
 
 func TestRunList_UnusedFlag_NoUnused(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/api/v2/pages/12345/attachments":

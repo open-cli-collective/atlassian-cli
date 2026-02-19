@@ -8,6 +8,7 @@ import (
 )
 
 func TestToConfluenceStorage(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		input    string
@@ -112,6 +113,7 @@ func TestToConfluenceStorage(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			result, err := ToConfluenceStorage([]byte(tt.input))
 			testutil.RequireNoError(t, err)
 			testutil.Equal(t, tt.expected, result)
@@ -120,6 +122,7 @@ func TestToConfluenceStorage(t *testing.T) {
 }
 
 func TestToConfluenceStorage_ComplexDocument(t *testing.T) {
+	t.Parallel()
 	input := `# Project README
 
 This is the **introduction** to the project.
@@ -156,6 +159,7 @@ For more info, see [the docs](https://example.com).
 }
 
 func TestToConfluenceStorage_TOCMacro(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		input    string
@@ -218,6 +222,7 @@ func TestToConfluenceStorage_TOCMacro(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			result, err := ToConfluenceStorage([]byte(tt.input))
 			testutil.RequireNoError(t, err)
 			for _, expected := range tt.contains {
@@ -228,6 +233,7 @@ func TestToConfluenceStorage_TOCMacro(t *testing.T) {
 }
 
 func TestToConfluenceStorage_TOCMixedWithContent(t *testing.T) {
+	t.Parallel()
 	input := `[TOC maxLevel=3]
 
 # Heading 1
@@ -253,6 +259,7 @@ More content.
 }
 
 func TestToConfluenceStorage_TOCRoundtrip(t *testing.T) {
+	t.Parallel()
 	// Test that TOC can survive a roundtrip conversion
 	// Start with Confluence storage format with TOC
 	originalXHTML := `<p>Before</p>
@@ -284,6 +291,7 @@ func TestToConfluenceStorage_TOCRoundtrip(t *testing.T) {
 }
 
 func TestParseKeyValueParams(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		input    string
@@ -323,6 +331,7 @@ func TestParseKeyValueParams(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			result := parseKeyValueParams(tt.input)
 			testutil.Equal(t, tt.expected, result)
 		})
@@ -330,6 +339,7 @@ func TestParseKeyValueParams(t *testing.T) {
 }
 
 func TestToConfluenceStorage_PanelMacros(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		input    string
@@ -428,6 +438,7 @@ func TestToConfluenceStorage_PanelMacros(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			result, err := ToConfluenceStorage([]byte(tt.input))
 			testutil.RequireNoError(t, err)
 			for _, expected := range tt.contains {
@@ -438,6 +449,7 @@ func TestToConfluenceStorage_PanelMacros(t *testing.T) {
 }
 
 func TestToConfluenceStorage_PanelMixedWithContent(t *testing.T) {
+	t.Parallel()
 	input := `# Heading
 
 Some intro text.
@@ -462,6 +474,7 @@ More text after.
 }
 
 func TestToConfluenceStorage_PanelRoundtrip(t *testing.T) {
+	t.Parallel()
 	// Test that panel can survive a roundtrip conversion
 	// Use a simple title without spaces to avoid quoting complexity
 	originalXHTML := `<p>Before</p>
@@ -494,6 +507,7 @@ func TestToConfluenceStorage_PanelRoundtrip(t *testing.T) {
 }
 
 func TestToConfluenceStorage_NestedMacros(t *testing.T) {
+	t.Parallel()
 	// Test nested TOC inside INFO panel
 	input := `[INFO]
 Check out the table of contents: [TOC]
@@ -514,6 +528,7 @@ Check out the table of contents: [TOC]
 // TestPanelMacro_CloseTagConsumed verifies that panel macro close tags like [/INFO]
 // are properly consumed during MD→XHTML conversion and don't appear as literal text.
 func TestPanelMacro_CloseTagConsumed(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name  string
 		input string
@@ -546,6 +561,7 @@ func TestPanelMacro_CloseTagConsumed(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			result, err := ToConfluenceStorage([]byte(tt.input))
 			testutil.RequireNoError(t, err)
 
@@ -565,6 +581,7 @@ func TestPanelMacro_CloseTagConsumed(t *testing.T) {
 // [INFO]...[/INFO] are converted to XML at the correct nesting level (inside the parent's
 // rich-text-body), not as siblings at the top level.
 func TestNestedMacros_ProcessedAtCorrectLevel(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name              string
 		input             string
@@ -622,6 +639,7 @@ func TestNestedMacros_ProcessedAtCorrectLevel(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			result, err := ToConfluenceStorage([]byte(tt.input))
 			testutil.RequireNoError(t, err)
 
@@ -642,6 +660,7 @@ func TestNestedMacros_ProcessedAtCorrectLevel(t *testing.T) {
 // TestNestedMacros_XMLStructureCorrect verifies that the generated XML has correct
 // structure: nested macros appear inside the parent's rich-text-body element.
 func TestNestedMacros_XMLStructureCorrect(t *testing.T) {
+	t.Parallel()
 	input := "[INFO]Before [TOC] After[/INFO]"
 	result, err := ToConfluenceStorage([]byte(input))
 	testutil.RequireNoError(t, err)
@@ -663,6 +682,7 @@ func TestNestedMacros_XMLStructureCorrect(t *testing.T) {
 // TestToConfluenceStorage_MacrosInCodeBlock verifies that bracket macros inside fenced
 // code blocks are preserved as literal text and not expanded to Confluence XML.
 func TestToConfluenceStorage_MacrosInCodeBlock(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name        string
 		input       string
@@ -698,6 +718,7 @@ func TestToConfluenceStorage_MacrosInCodeBlock(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			result, err := ToConfluenceStorage([]byte(tt.input))
 			testutil.RequireNoError(t, err)
 			for _, s := range tt.contains {
@@ -714,6 +735,7 @@ func TestToConfluenceStorage_MacrosInCodeBlock(t *testing.T) {
 // conversion is deterministic. This catches issues with non-deterministic map iteration
 // order in Go which previously caused flaky test failures. See issue #68.
 func TestToConfluenceStorage_DeterministicNestedMacros(t *testing.T) {
+	t.Parallel()
 	input := `[INFO]Outer
 [WARNING]Inner
 [TOC]

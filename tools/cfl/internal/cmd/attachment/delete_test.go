@@ -51,6 +51,7 @@ func newTestRootOptions() *root.Options {
 }
 
 func TestRunDeleteAttachment_ForceDelete(t *testing.T) {
+	t.Parallel()
 	server := mockAttachmentServer(t, nil, func(w http.ResponseWriter, r *http.Request) {
 		testutil.Equal(t, "DELETE", r.Method)
 		testutil.Equal(t, "/api/v2/attachments/att123", r.URL.Path)
@@ -72,6 +73,7 @@ func TestRunDeleteAttachment_ForceDelete(t *testing.T) {
 }
 
 func TestRunDeleteAttachment_ConfirmWithY(t *testing.T) {
+	t.Parallel()
 	deleted := false
 	server := mockAttachmentServer(t, nil, func(w http.ResponseWriter, _ *http.Request) {
 		deleted = true
@@ -95,6 +97,7 @@ func TestRunDeleteAttachment_ConfirmWithY(t *testing.T) {
 }
 
 func TestRunDeleteAttachment_ConfirmWithUpperY(t *testing.T) {
+	t.Parallel()
 	deleted := false
 	server := mockAttachmentServer(t, nil, func(w http.ResponseWriter, _ *http.Request) {
 		deleted = true
@@ -118,6 +121,7 @@ func TestRunDeleteAttachment_ConfirmWithUpperY(t *testing.T) {
 }
 
 func TestRunDeleteAttachment_CancelWithN(t *testing.T) {
+	t.Parallel()
 	deleted := false
 	server := mockAttachmentServer(t, nil, func(w http.ResponseWriter, _ *http.Request) {
 		deleted = true
@@ -141,6 +145,7 @@ func TestRunDeleteAttachment_CancelWithN(t *testing.T) {
 }
 
 func TestRunDeleteAttachment_CancelWithEmpty(t *testing.T) {
+	t.Parallel()
 	deleted := false
 	server := mockAttachmentServer(t, nil, func(w http.ResponseWriter, _ *http.Request) {
 		deleted = true
@@ -164,6 +169,7 @@ func TestRunDeleteAttachment_CancelWithEmpty(t *testing.T) {
 }
 
 func TestRunDeleteAttachment_CancelWithOther(t *testing.T) {
+	t.Parallel()
 	deleted := false
 	server := mockAttachmentServer(t, nil, func(w http.ResponseWriter, _ *http.Request) {
 		deleted = true
@@ -187,6 +193,7 @@ func TestRunDeleteAttachment_CancelWithOther(t *testing.T) {
 }
 
 func TestRunDeleteAttachment_GetAttachmentFails(t *testing.T) {
+	t.Parallel()
 	server := mockAttachmentServer(t,
 		func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusNotFound)
@@ -211,6 +218,7 @@ func TestRunDeleteAttachment_GetAttachmentFails(t *testing.T) {
 }
 
 func TestRunDeleteAttachment_DeleteFails(t *testing.T) {
+	t.Parallel()
 	server := mockAttachmentServer(t, nil,
 		func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusForbidden)

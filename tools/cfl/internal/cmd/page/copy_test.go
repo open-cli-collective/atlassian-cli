@@ -57,6 +57,7 @@ func newTestRootOptions() *root.Options {
 }
 
 func TestRunCopy_Success(t *testing.T) {
+	t.Parallel()
 	server := mockCopyServer(t, nil, func(w http.ResponseWriter, r *http.Request) {
 		testutil.Equal(t, "POST", r.Method)
 		testutil.Equal(t, "/rest/api/content/12345/copy", r.URL.Path)
@@ -86,6 +87,7 @@ func TestRunCopy_Success(t *testing.T) {
 }
 
 func TestRunCopy_InfersSourceSpace(t *testing.T) {
+	t.Parallel()
 	callCount := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		callCount++
@@ -141,6 +143,7 @@ func TestRunCopy_InfersSourceSpace(t *testing.T) {
 }
 
 func TestRunCopy_PageNotFound(t *testing.T) {
+	t.Parallel()
 	server := mockCopyServer(t, nil, func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 		_, _ = w.Write([]byte(`{"message": "Page not found"}`))
@@ -163,6 +166,7 @@ func TestRunCopy_PageNotFound(t *testing.T) {
 }
 
 func TestRunCopy_JSONOutput(t *testing.T) {
+	t.Parallel()
 	server := mockCopyServer(t, nil, func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{
@@ -191,6 +195,7 @@ func TestRunCopy_JSONOutput(t *testing.T) {
 }
 
 func TestRunCopy_InvalidOutputFormat(t *testing.T) {
+	t.Parallel()
 	rootOpts := newTestRootOptions()
 	rootOpts.Output = "invalid"
 	client := api.NewClient("http://unused", "user@example.com", "token")
@@ -208,6 +213,7 @@ func TestRunCopy_InvalidOutputFormat(t *testing.T) {
 }
 
 func TestRunCopy_GetSourcePageFails(t *testing.T) {
+	t.Parallel()
 	server := mockCopyServer(t,
 		func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusNotFound)
@@ -233,6 +239,7 @@ func TestRunCopy_GetSourcePageFails(t *testing.T) {
 }
 
 func TestRunCopy_WithNoAttachments(t *testing.T) {
+	t.Parallel()
 	server := mockCopyServer(t, nil, func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{
@@ -261,6 +268,7 @@ func TestRunCopy_WithNoAttachments(t *testing.T) {
 }
 
 func TestRunCopy_WithNoLabels(t *testing.T) {
+	t.Parallel()
 	server := mockCopyServer(t, nil, func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{
@@ -289,6 +297,7 @@ func TestRunCopy_WithNoLabels(t *testing.T) {
 }
 
 func TestRunCopy_PermissionDenied(t *testing.T) {
+	t.Parallel()
 	server := mockCopyServer(t, nil, func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusForbidden)
 		_, _ = w.Write([]byte(`{"message": "You do not have permission to copy this page"}`))
@@ -311,6 +320,7 @@ func TestRunCopy_PermissionDenied(t *testing.T) {
 }
 
 func TestRunCopy_GetSpaceFails(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.Method == "GET" && strings.HasPrefix(r.URL.Path, "/api/v2/pages/"):

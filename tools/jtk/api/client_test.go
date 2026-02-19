@@ -12,6 +12,7 @@ import (
 )
 
 func TestNew(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name        string
 		cfg         ClientConfig

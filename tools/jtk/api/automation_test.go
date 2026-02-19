@@ -25,7 +25,9 @@ func newTestClientWithServer(t *testing.T, handler http.HandlerFunc) (*Client, *
 }
 
 func TestGetCloudID(t *testing.T) {
+	t.Parallel()
 	t.Run("successful fetch", func(t *testing.T) {
+		t.Parallel()
 		client, server := newTestClientWithServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.URL.Path == "/_edge/tenant_info" {
 				w.WriteHeader(http.StatusOK)
@@ -47,6 +49,7 @@ func TestGetCloudID(t *testing.T) {
 	})
 
 	t.Run("empty cloud ID", func(t *testing.T) {
+		t.Parallel()
 		client, server := newTestClientWithServer(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write([]byte(`{"cloudId":""}`))

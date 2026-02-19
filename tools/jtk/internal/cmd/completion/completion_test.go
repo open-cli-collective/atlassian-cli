@@ -37,6 +37,7 @@ func captureStdout(t *testing.T, fn func()) string {
 }
 
 func TestNewCompletionCmd(t *testing.T) {
+	t.Parallel()
 	rootCmd := newTestRootCmd()
 
 	cmd, _, err := rootCmd.Find([]string{"completion"})

@@ -9,6 +9,7 @@ import (
 
 // TestRoundtrip verifies that macros survive MD→XHTML→MD conversion.
 func TestRoundtrip_TOC(t *testing.T) {
+	t.Parallel()
 	input := "[TOC maxLevel=3]"
 
 	// MD → XHTML
@@ -25,6 +26,7 @@ func TestRoundtrip_TOC(t *testing.T) {
 }
 
 func TestRoundtrip_InfoPanel(t *testing.T) {
+	t.Parallel()
 	input := `[INFO title="Important"]
 This is important content.
 [/INFO]`
@@ -44,6 +46,7 @@ This is important content.
 }
 
 func TestRoundtrip_NestedMacros(t *testing.T) {
+	t.Parallel()
 	input := `[INFO]
 Content with [TOC] inside.
 [/INFO]`
@@ -62,10 +65,12 @@ Content with [TOC] inside.
 }
 
 func TestRoundtrip_AllPanelTypes(t *testing.T) {
+	t.Parallel()
 	panelTypes := []string{"INFO", "WARNING", "NOTE", "TIP", "EXPAND"}
 
 	for _, pt := range panelTypes {
 		t.Run(pt, func(t *testing.T) {
+			t.Parallel()
 			input := "[" + pt + "]Content[/" + pt + "]"
 
 			xhtml, err := ToConfluenceStorage([]byte(input))
@@ -83,6 +88,7 @@ func TestRoundtrip_AllPanelTypes(t *testing.T) {
 // TestRoundtrip_NestedPosition verifies that nested macro position is preserved
 // through the complete MD→XHTML→MD cycle.
 func TestRoundtrip_NestedPosition(t *testing.T) {
+	t.Parallel()
 	input := `[INFO]
 Before
 [TOC]
@@ -111,6 +117,7 @@ After
 }
 
 func TestRoundtrip_MultipleNestedMacros(t *testing.T) {
+	t.Parallel()
 	input := `[INFO]
 Start
 [TOC]
@@ -143,6 +150,7 @@ End
 }
 
 func TestRoundtrip_DeeplyNested(t *testing.T) {
+	t.Parallel()
 	input := `[INFO]
 Outer
 [WARNING]
@@ -177,6 +185,7 @@ More outer
 // TestRoundtrip_CloseTagNotDuplicated verifies that panel content appears exactly once
 // through the MD→XHTML→MD cycle (close tag is properly consumed, not left as literal text).
 func TestRoundtrip_CloseTagNotDuplicated(t *testing.T) {
+	t.Parallel()
 	input := "[INFO]unique content[/INFO]"
 
 	// MD → XHTML
@@ -198,6 +207,7 @@ func TestRoundtrip_CloseTagNotDuplicated(t *testing.T) {
 // Tests that nested self-closing macros survive the MD→XHTML→MD cycle
 // even when the XHTML wraps them in <p> tags.
 func TestRoundtrip_NestedMacroInParagraph(t *testing.T) {
+	t.Parallel()
 	// Start with markdown containing nested macro
 	input := "[INFO]\n\n[TOC]\n\n[/INFO]\n\n# Header 1"
 

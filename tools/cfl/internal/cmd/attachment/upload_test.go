@@ -25,6 +25,7 @@ func newUploadTestRootOptions() *root.Options {
 }
 
 func TestRunUpload_Success(t *testing.T) {
+	t.Parallel()
 	// Create temp file to upload
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "upload.txt")
@@ -62,6 +63,7 @@ func TestRunUpload_Success(t *testing.T) {
 }
 
 func TestRunUpload_WithComment(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "upload.txt")
 	err := os.WriteFile(testFile, []byte("test content"), 0600)
@@ -102,6 +104,7 @@ func TestRunUpload_WithComment(t *testing.T) {
 }
 
 func TestRunUpload_FileNotFound(t *testing.T) {
+	t.Parallel()
 	rootOpts := newUploadTestRootOptions()
 	client := api.NewClient("http://unused", "test@example.com", "token")
 	rootOpts.SetAPIClient(client)
@@ -118,6 +121,7 @@ func TestRunUpload_FileNotFound(t *testing.T) {
 }
 
 func TestRunUpload_APIError(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "upload.txt")
 	err := os.WriteFile(testFile, []byte("test content"), 0600)
@@ -145,6 +149,7 @@ func TestRunUpload_APIError(t *testing.T) {
 }
 
 func TestRunUpload_JSONOutput(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "upload.txt")
 	err := os.WriteFile(testFile, []byte("test content"), 0600)

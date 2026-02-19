@@ -23,6 +23,7 @@ func newTestRootOptions() *root.Options {
 }
 
 func TestRunList_Success(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testutil.Equal(t, "GET", r.Method)
 		testutil.Contains(t, r.URL.Path, "/spaces")
@@ -63,6 +64,7 @@ func TestRunList_Success(t *testing.T) {
 }
 
 func TestRunList_EmptyResults(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"results": []}`))
@@ -83,6 +85,7 @@ func TestRunList_EmptyResults(t *testing.T) {
 }
 
 func TestRunList_JSONOutput(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{
@@ -108,6 +111,7 @@ func TestRunList_JSONOutput(t *testing.T) {
 }
 
 func TestRunList_InvalidOutputFormat(t *testing.T) {
+	t.Parallel()
 	rootOpts := newTestRootOptions()
 	rootOpts.Output = "invalid"
 
@@ -122,6 +126,7 @@ func TestRunList_InvalidOutputFormat(t *testing.T) {
 }
 
 func TestRunList_NegativeLimit(t *testing.T) {
+	t.Parallel()
 	rootOpts := newTestRootOptions()
 
 	opts := &listOptions{
@@ -135,6 +140,7 @@ func TestRunList_NegativeLimit(t *testing.T) {
 }
 
 func TestRunList_ZeroLimit(t *testing.T) {
+	t.Parallel()
 	rootOpts := newTestRootOptions()
 
 	opts := &listOptions{
@@ -148,6 +154,7 @@ func TestRunList_ZeroLimit(t *testing.T) {
 }
 
 func TestRunList_ZeroLimitJSON(t *testing.T) {
+	t.Parallel()
 	rootOpts := newTestRootOptions()
 	rootOpts.Output = "json"
 
@@ -162,6 +169,7 @@ func TestRunList_ZeroLimitJSON(t *testing.T) {
 }
 
 func TestRunList_WithTypeFilter(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testutil.Equal(t, "global", r.URL.Query().Get("type"))
 
@@ -189,6 +197,7 @@ func TestRunList_WithTypeFilter(t *testing.T) {
 }
 
 func TestRunList_WithLimitParameter(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testutil.Equal(t, "50", r.URL.Query().Get("limit"))
 
@@ -211,6 +220,7 @@ func TestRunList_WithLimitParameter(t *testing.T) {
 }
 
 func TestRunList_APIError(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 		_, _ = w.Write([]byte(`{"message": "Authentication required"}`))
@@ -232,6 +242,7 @@ func TestRunList_APIError(t *testing.T) {
 }
 
 func TestRunList_HasMore(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{
@@ -257,6 +268,7 @@ func TestRunList_HasMore(t *testing.T) {
 }
 
 func TestRunList_NullDescription(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{
@@ -281,6 +293,7 @@ func TestRunList_NullDescription(t *testing.T) {
 }
 
 func TestRunList_WithCursor(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testutil.Equal(t, "abc123", r.URL.Query().Get("cursor"))
 
@@ -308,6 +321,7 @@ func TestRunList_WithCursor(t *testing.T) {
 }
 
 func TestRunList_DisplaysNextCursor(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{
@@ -337,6 +351,7 @@ func TestRunList_DisplaysNextCursor(t *testing.T) {
 }
 
 func TestExtractCursor(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		nextLink string
@@ -366,6 +381,7 @@ func TestExtractCursor(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			got := extractCursor(tt.nextLink)
 			testutil.Equal(t, tt.want, got)
 		})

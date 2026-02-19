@@ -7,6 +7,7 @@ import (
 )
 
 func TestBasicAuthHeader(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		email    string
@@ -41,6 +42,7 @@ func TestBasicAuthHeader(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			got := BasicAuthHeader(tt.email, tt.apiToken)
 			if got != tt.want {
 				t.Errorf("BasicAuthHeader() = %v, want %v", got, tt.want)

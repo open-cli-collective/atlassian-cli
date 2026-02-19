@@ -10,6 +10,7 @@ import (
 )
 
 func TestAPIError_UnmarshalJSON(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name           string
 		json           string
@@ -54,6 +55,7 @@ func TestAPIError_UnmarshalJSON(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			var apiErr APIError
 			err := json.Unmarshal([]byte(tt.json), &apiErr)
 			if err != nil {
@@ -80,6 +82,7 @@ func TestAPIError_UnmarshalJSON(t *testing.T) {
 }
 
 func TestAPIError_Error(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		apiErr   APIError
@@ -128,6 +131,7 @@ func TestAPIError_Error(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			got := tt.apiErr.Error()
 			for _, want := range tt.contains {
 				if !strings.Contains(got, want) {
@@ -139,6 +143,7 @@ func TestAPIError_Error(t *testing.T) {
 }
 
 func TestParseAPIError(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name        string
 		statusCode  int
@@ -199,6 +204,7 @@ func TestParseAPIError(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			err := ParseAPIError(tt.statusCode, tt.body)
 			if !errors.Is(err, tt.wantErr) {
 				t.Errorf("ParseAPIError() = %v, want %v", err, tt.wantErr)
@@ -216,6 +222,7 @@ func TestParseAPIError(t *testing.T) {
 }
 
 func TestParseAPIError_ReturnsAPIError(t *testing.T) {
+	t.Parallel()
 	// For 4xx errors without sentinel, should return APIError
 	body := []byte(`{"message": "Custom error", "errorMessages": ["Detail 1"]}`)
 	err := ParseAPIError(422, body)
@@ -231,6 +238,7 @@ func TestParseAPIError_ReturnsAPIError(t *testing.T) {
 }
 
 func TestIsHelpers(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name      string
 		err       error
@@ -256,6 +264,7 @@ func TestIsHelpers(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			if got := tt.isFunc(tt.err); got != tt.wantMatch {
 				t.Errorf("%s = %v, want %v", tt.name, got, tt.wantMatch)
 			}
@@ -264,6 +273,7 @@ func TestIsHelpers(t *testing.T) {
 }
 
 func TestParseAPIError_WithComplexJiraResponse(t *testing.T) {
+	t.Parallel()
 	body := []byte(`{
 		"errorMessages": ["Issue Does Not Exist"],
 		"errors": {
@@ -285,6 +295,7 @@ func TestParseAPIError_WithComplexJiraResponse(t *testing.T) {
 }
 
 func TestParseAPIError_WithAutomationResponse(t *testing.T) {
+	t.Parallel()
 	body := []byte(`{
 		"errors": [
 			{
@@ -309,6 +320,7 @@ func TestParseAPIError_WithAutomationResponse(t *testing.T) {
 }
 
 func TestParseAPIError_WithComplexConfluenceResponse(t *testing.T) {
+	t.Parallel()
 	body := []byte(`{
 		"statusCode": 404,
 		"message": "No content found with id: 12345",

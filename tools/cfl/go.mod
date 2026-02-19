@@ -8,6 +8,7 @@ require (
 	github.com/open-cli-collective/atlassian-go v0.0.0-00010101000000-000000000000
 	github.com/spf13/cobra v1.8.1
 	github.com/yuin/goldmark v1.7.16
+	golang.org/x/text v0.31.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -48,5 +49,4 @@ require (
 	golang.org/x/net v0.47.0 // indirect
 	golang.org/x/sync v0.18.0 // indirect
 	golang.org/x/sys v0.38.0 // indirect
-	golang.org/x/text v0.31.0 // indirect
 )

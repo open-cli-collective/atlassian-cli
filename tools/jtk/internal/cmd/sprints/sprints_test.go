@@ -19,6 +19,7 @@ import (
 // --- list subcommand ---
 
 func TestNewListCmd(t *testing.T) {
+	t.Parallel()
 	opts := &root.Options{}
 	cmd := newListCmd(opts)
 
@@ -52,6 +53,7 @@ func newTestSprintsServer(_ *testing.T, sprints []api.Sprint) *httptest.Server {
 }
 
 func TestRunList_Table(t *testing.T) {
+	t.Parallel()
 	start := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	end := time.Date(2025, 1, 14, 0, 0, 0, 0, time.UTC)
 	sprints := []api.Sprint{

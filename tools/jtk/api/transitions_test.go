@@ -12,6 +12,7 @@ import (
 )
 
 func TestFindTransitionByName(t *testing.T) {
+	t.Parallel()
 	transitions := []Transition{
 		{ID: "11", Name: "To Do", To: Status{Name: "To Do"}},
 		{ID: "21", Name: "In Progress", To: Status{Name: "In Progress"}},

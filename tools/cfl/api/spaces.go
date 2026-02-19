@@ -78,7 +78,7 @@ func (c *Client) GetSpaceByKey(ctx context.Context, key string) (*Space, error) 
 	}
 	result, err := c.ListSpaces(ctx, opts)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("getting space by key %s: %w", key, err)
 	}
 
 	if len(result.Results) == 0 {

@@ -11,6 +11,7 @@ import (
 )
 
 func TestConfig_Validate(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name    string
 		config  Config
@@ -67,6 +68,7 @@ func TestConfig_Validate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			err := tt.config.Validate()
 			if tt.wantErr {
 				testutil.RequireError(t, err)
@@ -79,6 +81,7 @@ func TestConfig_Validate(t *testing.T) {
 }
 
 func TestConfig_NormalizeURL(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		inputURL string
@@ -108,6 +111,7 @@ func TestConfig_NormalizeURL(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			cfg := Config{URL: tt.inputURL}
 			cfg.NormalizeURL()
 			testutil.Equal(t, tt.expected, cfg.URL)
@@ -116,6 +120,7 @@ func TestConfig_NormalizeURL(t *testing.T) {
 }
 
 func TestConfig_LoadFromEnv(t *testing.T) {
+	t.Parallel()
 	// Save original env vars
 	origURL := os.Getenv("CFL_URL")
 	origEmail := os.Getenv("CFL_EMAIL")
@@ -131,6 +136,7 @@ func TestConfig_LoadFromEnv(t *testing.T) {
 	}()
 
 	t.Run("loads all env vars", func(t *testing.T) {
+		t.Parallel()
 		_ = os.Setenv("CFL_URL", "https://env.atlassian.net")
 		_ = os.Setenv("CFL_EMAIL", "env@example.com")
 		_ = os.Setenv("CFL_API_TOKEN", "env-token")
@@ -146,6 +152,7 @@ func TestConfig_LoadFromEnv(t *testing.T) {
 	})
 
 	t.Run("env vars override existing values", func(t *testing.T) {
+		t.Parallel()
 		_ = os.Setenv("CFL_URL", "https://override.atlassian.net")
 		_ = os.Setenv("CFL_EMAIL", "")
 		_ = os.Setenv("CFL_API_TOKEN", "")
@@ -165,6 +172,7 @@ func TestConfig_LoadFromEnv(t *testing.T) {
 }
 
 func TestDefaultConfigPath(t *testing.T) {
+	t.Parallel()
 	path := DefaultConfigPath()
 
 	// Should be under home directory
@@ -177,6 +185,7 @@ func TestDefaultConfigPath(t *testing.T) {
 }
 
 func TestConfig_Save_and_Load(t *testing.T) {
+	t.Parallel()
 	// Create a temp directory for the test
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, "config.yml")
@@ -205,6 +214,7 @@ func TestConfig_Save_and_Load(t *testing.T) {
 }
 
 func TestLoad_FileNotFound(t *testing.T) {
+	t.Parallel()
 	_, err := Load("/nonexistent/path/config.yml")
 	testutil.RequireError(t, err)
 }

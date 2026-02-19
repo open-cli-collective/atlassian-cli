@@ -13,6 +13,7 @@ import (
 )
 
 func TestGetPageWithBodyFallback_StorageHasContent(t *testing.T) {
+	t.Parallel()
 	callCount := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		callCount++
@@ -36,6 +37,7 @@ func TestGetPageWithBodyFallback_StorageHasContent(t *testing.T) {
 }
 
 func TestGetPageWithBodyFallback_StorageEmpty_FallsBackToADF(t *testing.T) {
+	t.Parallel()
 	callCount := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		callCount++
@@ -70,6 +72,7 @@ func TestGetPageWithBodyFallback_StorageEmpty_FallsBackToADF(t *testing.T) {
 }
 
 func TestGetPageWithBodyFallback_NullBody_FallsBackToADF(t *testing.T) {
+	t.Parallel()
 	callCount := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		callCount++
@@ -104,6 +107,7 @@ func TestGetPageWithBodyFallback_NullBody_FallsBackToADF(t *testing.T) {
 }
 
 func TestGetPageWithBodyFallback_BothEmpty(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{
@@ -124,6 +128,7 @@ func TestGetPageWithBodyFallback_BothEmpty(t *testing.T) {
 }
 
 func TestGetPageWithBodyFallback_GetPageError(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 		_, _ = w.Write([]byte(`{"message": "Page not found"}`))
@@ -136,6 +141,7 @@ func TestGetPageWithBodyFallback_GetPageError(t *testing.T) {
 }
 
 func TestGetPageWithBodyFallback_ADFFallbackFails_GracefulDegradation(t *testing.T) {
+	t.Parallel()
 	callCount := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		callCount++
@@ -165,6 +171,7 @@ func TestGetPageWithBodyFallback_ADFFallbackFails_GracefulDegradation(t *testing
 }
 
 func TestHasStorageContent(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		page     *api.Page
@@ -178,12 +185,14 @@ func TestHasStorageContent(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			testutil.Equal(t, tt.expected, hasStorageContent(tt.page))
 		})
 	}
 }
 
 func TestHasADFContent(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		page     *api.Page
@@ -197,6 +206,7 @@ func TestHasADFContent(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			testutil.Equal(t, tt.expected, hasADFContent(tt.page))
 		})
 	}

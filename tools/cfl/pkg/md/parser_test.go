@@ -9,12 +9,14 @@ import (
 // ==================== Bracket Parser Tests ====================
 
 func TestParseBracketMacros_EmptyInput(t *testing.T) {
+	t.Parallel()
 	result, err := ParseBracketMacros("")
 	testutil.RequireNoError(t, err)
 	testutil.Empty(t, result.Segments)
 }
 
 func TestParseBracketMacros_PlainText(t *testing.T) {
+	t.Parallel()
 	result, err := ParseBracketMacros("Hello world")
 	testutil.RequireNoError(t, err)
 	testutil.Len(t, result.Segments, 1)
@@ -23,6 +25,7 @@ func TestParseBracketMacros_PlainText(t *testing.T) {
 }
 
 func TestParseBracketMacros_SimpleTOC(t *testing.T) {
+	t.Parallel()
 	result, err := ParseBracketMacros("[TOC]")
 	testutil.RequireNoError(t, err)
 	testutil.Len(t, result.Segments, 1)
@@ -31,6 +34,7 @@ func TestParseBracketMacros_SimpleTOC(t *testing.T) {
 }
 
 func TestParseBracketMacros_TOCWithParams(t *testing.T) {
+	t.Parallel()
 	result, err := ParseBracketMacros("[TOC maxLevel=3 minLevel=1]")
 	testutil.RequireNoError(t, err)
 	testutil.Len(t, result.Segments, 1)
@@ -41,6 +45,7 @@ func TestParseBracketMacros_TOCWithParams(t *testing.T) {
 }
 
 func TestParseBracketMacros_PanelWithBody(t *testing.T) {
+	t.Parallel()
 	result, err := ParseBracketMacros("[INFO]Content here[/INFO]")
 	testutil.RequireNoError(t, err)
 	testutil.Len(t, result.Segments, 1)
@@ -50,6 +55,7 @@ func TestParseBracketMacros_PanelWithBody(t *testing.T) {
 }
 
 func TestParseBracketMacros_PanelWithTitleAndBody(t *testing.T) {
+	t.Parallel()
 	result, err := ParseBracketMacros(`[WARNING title="Watch Out"]Be careful![/WARNING]`)
 	testutil.RequireNoError(t, err)
 	testutil.Len(t, result.Segments, 1)
@@ -60,6 +66,7 @@ func TestParseBracketMacros_PanelWithTitleAndBody(t *testing.T) {
 }
 
 func TestParseBracketMacros_NestedMacros(t *testing.T) {
+	t.Parallel()
 	result, err := ParseBracketMacros("[INFO]Before [TOC] after[/INFO]")
 	testutil.RequireNoError(t, err)
 	testutil.Len(t, result.Segments, 1)
@@ -71,6 +78,7 @@ func TestParseBracketMacros_NestedMacros(t *testing.T) {
 }
 
 func TestParseBracketMacros_MultipleMacros(t *testing.T) {
+	t.Parallel()
 	result, err := ParseBracketMacros("Before [TOC] middle [INFO]content[/INFO] after")
 	testutil.RequireNoError(t, err)
 
@@ -89,6 +97,7 @@ func TestParseBracketMacros_MultipleMacros(t *testing.T) {
 }
 
 func TestParseBracketMacros_UnknownMacro(t *testing.T) {
+	t.Parallel()
 	result, err := ParseBracketMacros("[UNKNOWN]content[/UNKNOWN]")
 	testutil.RequireNoError(t, err)
 	// Unknown macro should be treated as text
@@ -104,12 +113,14 @@ func TestParseBracketMacros_UnknownMacro(t *testing.T) {
 }
 
 func TestParseBracketMacros_MismatchedClose(t *testing.T) {
+	t.Parallel()
 	result, err := ParseBracketMacros("[INFO]content[/WARNING]more[/INFO]")
 	testutil.RequireNoError(t, err)
 	testutil.GreaterOrEqual(t, len(result.Warnings), 1)
 }
 
 func TestParseBracketMacros_UnclosedMacro(t *testing.T) {
+	t.Parallel()
 	result, err := ParseBracketMacros("[INFO]content without close")
 	testutil.RequireNoError(t, err)
 	testutil.GreaterOrEqual(t, len(result.Warnings), 1)
@@ -126,12 +137,14 @@ func TestParseBracketMacros_UnclosedMacro(t *testing.T) {
 // ==================== XML Parser Tests ====================
 
 func TestParseConfluenceXML_EmptyInput(t *testing.T) {
+	t.Parallel()
 	result, err := ParseConfluenceXML("")
 	testutil.RequireNoError(t, err)
 	testutil.Empty(t, result.Segments)
 }
 
 func TestParseConfluenceXML_PlainHTML(t *testing.T) {
+	t.Parallel()
 	result, err := ParseConfluenceXML("<p>Hello world</p>")
 	testutil.RequireNoError(t, err)
 	testutil.Len(t, result.Segments, 1)
@@ -140,6 +153,7 @@ func TestParseConfluenceXML_PlainHTML(t *testing.T) {
 }
 
 func TestParseConfluenceXML_SimpleTOC(t *testing.T) {
+	t.Parallel()
 	input := `<ac:structured-macro ac:name="toc" ac:schema-version="1"></ac:structured-macro>`
 	result, err := ParseConfluenceXML(input)
 	testutil.RequireNoError(t, err)
@@ -149,6 +163,7 @@ func TestParseConfluenceXML_SimpleTOC(t *testing.T) {
 }
 
 func TestParseConfluenceXML_TOCWithParams(t *testing.T) {
+	t.Parallel()
 	input := `<ac:structured-macro ac:name="toc" ac:schema-version="1"><ac:parameter ac:name="maxLevel">3</ac:parameter><ac:parameter ac:name="minLevel">1</ac:parameter></ac:structured-macro>`
 	result, err := ParseConfluenceXML(input)
 	testutil.RequireNoError(t, err)
@@ -160,6 +175,7 @@ func TestParseConfluenceXML_TOCWithParams(t *testing.T) {
 }
 
 func TestParseConfluenceXML_PanelWithBody(t *testing.T) {
+	t.Parallel()
 	input := `<ac:structured-macro ac:name="info" ac:schema-version="1"><ac:rich-text-body><p>Content</p></ac:rich-text-body></ac:structured-macro>`
 	result, err := ParseConfluenceXML(input)
 	testutil.RequireNoError(t, err)
@@ -170,6 +186,7 @@ func TestParseConfluenceXML_PanelWithBody(t *testing.T) {
 }
 
 func TestParseConfluenceXML_CodeWithCDATA(t *testing.T) {
+	t.Parallel()
 	input := `<ac:structured-macro ac:name="code" ac:schema-version="1"><ac:parameter ac:name="language">python</ac:parameter><ac:plain-text-body><![CDATA[print("Hello")]]></ac:plain-text-body></ac:structured-macro>`
 	result, err := ParseConfluenceXML(input)
 	testutil.RequireNoError(t, err)
@@ -181,6 +198,7 @@ func TestParseConfluenceXML_CodeWithCDATA(t *testing.T) {
 }
 
 func TestParseConfluenceXML_NestedMacros(t *testing.T) {
+	t.Parallel()
 	input := `<ac:structured-macro ac:name="info" ac:schema-version="1"><ac:rich-text-body><ac:structured-macro ac:name="toc" ac:schema-version="1"></ac:structured-macro></ac:rich-text-body></ac:structured-macro>`
 	result, err := ParseConfluenceXML(input)
 	testutil.RequireNoError(t, err)
@@ -192,6 +210,7 @@ func TestParseConfluenceXML_NestedMacros(t *testing.T) {
 }
 
 func TestParseConfluenceXML_WithSurroundingHTML(t *testing.T) {
+	t.Parallel()
 	input := `<h1>Title</h1><ac:structured-macro ac:name="toc" ac:schema-version="1"></ac:structured-macro><p>Content</p>`
 	result, err := ParseConfluenceXML(input)
 	testutil.RequireNoError(t, err)
@@ -213,6 +232,7 @@ func TestParseConfluenceXML_WithSurroundingHTML(t *testing.T) {
 // ==================== Segment Tests ====================
 
 func TestParseResult_GetMacros(t *testing.T) {
+	t.Parallel()
 	result := &ParseResult{}
 	result.AddTextSegment("text1")
 	result.AddMacroSegment(&MacroNode{Name: "toc"})
@@ -226,6 +246,7 @@ func TestParseResult_GetMacros(t *testing.T) {
 }
 
 func TestParseResult_MergeAdjacentText(t *testing.T) {
+	t.Parallel()
 	result := &ParseResult{}
 	result.AddTextSegment("hello ")
 	result.AddTextSegment("world")

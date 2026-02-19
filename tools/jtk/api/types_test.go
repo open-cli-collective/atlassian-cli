@@ -24,6 +24,7 @@ func jsonEq(t *testing.T, got, want string) {
 }
 
 func TestDescription_UnmarshalJSON(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		input    string

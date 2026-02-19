@@ -10,6 +10,7 @@ import (
 )
 
 func TestClient_Search_Success(t *testing.T) {
+	t.Parallel()
 	testData := loadTestData(t, "search.json")
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -42,6 +43,7 @@ func TestClient_Search_Success(t *testing.T) {
 }
 
 func TestClient_Search_EmptyResults(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{
@@ -66,6 +68,7 @@ func TestClient_Search_EmptyResults(t *testing.T) {
 }
 
 func TestClient_Search_WithAllOptions(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		cql := r.URL.Query().Get("cql")
 		testutil.Contains(t, cql, `text ~ "search term"`)
@@ -93,6 +96,7 @@ func TestClient_Search_WithAllOptions(t *testing.T) {
 }
 
 func TestClient_Search_RawCQL(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Raw CQL should be used as-is
 		cql := r.URL.Query().Get("cql")
@@ -112,6 +116,7 @@ func TestClient_Search_RawCQL(t *testing.T) {
 }
 
 func TestClient_Search_NoQuery(t *testing.T) {
+	t.Parallel()
 	client := NewClient("http://unused", "user@example.com", "token")
 
 	_, err := client.Search(context.Background(), &SearchOptions{})
@@ -120,6 +125,7 @@ func TestClient_Search_NoQuery(t *testing.T) {
 }
 
 func TestClient_Search_NilOptions(t *testing.T) {
+	t.Parallel()
 	client := NewClient("http://unused", "user@example.com", "token")
 
 	_, err := client.Search(context.Background(), nil)
@@ -128,6 +134,7 @@ func TestClient_Search_NilOptions(t *testing.T) {
 }
 
 func TestClient_Search_APIError(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name       string
 		statusCode int
@@ -156,6 +163,7 @@ func TestClient_Search_APIError(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				w.WriteHeader(tt.statusCode)
 				_, _ = w.Write([]byte(tt.response))
@@ -172,6 +180,7 @@ func TestClient_Search_APIError(t *testing.T) {
 }
 
 func TestClient_Search_MalformedResponse(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{invalid json`))
@@ -186,6 +195,7 @@ func TestClient_Search_MalformedResponse(t *testing.T) {
 }
 
 func TestClient_Search_Pagination(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		start    int
@@ -201,6 +211,7 @@ func TestClient_Search_Pagination(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			resp := &SearchResponse{
 				Start:     tt.start,
 				Size:      tt.size,
@@ -212,36 +223,42 @@ func TestClient_Search_Pagination(t *testing.T) {
 }
 
 func TestBuildCQL_TextOnly(t *testing.T) {
+	t.Parallel()
 	opts := &SearchOptions{Text: "hello world"}
 	cql := buildCQL(opts)
 	testutil.Equal(t, `text ~ "hello world"`, cql)
 }
 
 func TestBuildCQL_SpaceFilter(t *testing.T) {
+	t.Parallel()
 	opts := &SearchOptions{Space: "DEV"}
 	cql := buildCQL(opts)
 	testutil.Equal(t, `space = "DEV"`, cql)
 }
 
 func TestBuildCQL_TypeFilter(t *testing.T) {
+	t.Parallel()
 	opts := &SearchOptions{Type: "page"}
 	cql := buildCQL(opts)
 	testutil.Equal(t, `type = "page"`, cql)
 }
 
 func TestBuildCQL_TitleFilter(t *testing.T) {
+	t.Parallel()
 	opts := &SearchOptions{Title: "Getting Started"}
 	cql := buildCQL(opts)
 	testutil.Equal(t, `title ~ "Getting Started"`, cql)
 }
 
 func TestBuildCQL_LabelFilter(t *testing.T) {
+	t.Parallel()
 	opts := &SearchOptions{Label: "documentation"}
 	cql := buildCQL(opts)
 	testutil.Equal(t, `label = "documentation"`, cql)
 }
 
 func TestBuildCQL_Combined(t *testing.T) {
+	t.Parallel()
 	opts := &SearchOptions{
 		Text:  "api",
 		Space: "DEV",
@@ -255,12 +272,14 @@ func TestBuildCQL_Combined(t *testing.T) {
 }
 
 func TestBuildCQL_Empty(t *testing.T) {
+	t.Parallel()
 	opts := &SearchOptions{}
 	cql := buildCQL(opts)
 	testutil.Empty(t, cql)
 }
 
 func TestBuildCQL_QuotesInValue(t *testing.T) {
+	t.Parallel()
 	opts := &SearchOptions{Text: `search "quoted" term`}
 	cql := buildCQL(opts)
 	// Go's %q escapes quotes properly

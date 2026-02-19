@@ -13,6 +13,7 @@ import (
 )
 
 func TestResolveAssignee_RawAccountID(t *testing.T) {
+	t.Parallel()
 	client, err := api.New(api.ClientConfig{
 		URL:      "http://unused",
 		Email:    "test@example.com",
@@ -26,6 +27,7 @@ func TestResolveAssignee_RawAccountID(t *testing.T) {
 }
 
 func TestResolveAssignee_Me(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/rest/api/3/myself" {
 			_ = json.NewEncoder(w).Encode(api.User{
@@ -51,6 +53,7 @@ func TestResolveAssignee_Me(t *testing.T) {
 }
 
 func TestResolveAssignee_MeCaseInsensitive(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/rest/api/3/myself" {
 			_ = json.NewEncoder(w).Encode(api.User{
@@ -76,6 +79,7 @@ func TestResolveAssignee_MeCaseInsensitive(t *testing.T) {
 }
 
 func TestResolveAssignee_Email(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/rest/api/3/user/search" {
 			_ = json.NewEncoder(w).Encode([]api.User{
@@ -100,6 +104,7 @@ func TestResolveAssignee_Email(t *testing.T) {
 }
 
 func TestResolveAssignee_EmailNotFound(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/rest/api/3/user/search" {
 			_ = json.NewEncoder(w).Encode([]api.User{})

@@ -15,6 +15,7 @@ import (
 )
 
 func TestNewMeCmd(t *testing.T) {
+	t.Parallel()
 	rootCmd, opts := root.NewCmd()
 	Register(rootCmd, opts)
 
@@ -34,6 +35,7 @@ func newTestUserServer(_ *testing.T, statusCode int, user *api.User) *httptest.S
 }
 
 func TestRun_Table(t *testing.T) {
+	t.Parallel()
 	user := &api.User{
 		AccountID:    "abc123",
 		DisplayName:  "John Doe",
@@ -62,6 +64,7 @@ func TestRun_Table(t *testing.T) {
 }
 
 func TestRun_JSON(t *testing.T) {
+	t.Parallel()
 	user := &api.User{
 		AccountID:    "abc123",
 		DisplayName:  "John Doe",
@@ -90,6 +93,7 @@ func TestRun_JSON(t *testing.T) {
 }
 
 func TestRun_WithEmail(t *testing.T) {
+	t.Parallel()
 	user := &api.User{
 		AccountID:    "abc123",
 		DisplayName:  "John Doe",
@@ -114,6 +118,7 @@ func TestRun_WithEmail(t *testing.T) {
 }
 
 func TestRun_WithoutEmail(t *testing.T) {
+	t.Parallel()
 	user := &api.User{
 		AccountID:   "abc123",
 		DisplayName: "John Doe",
@@ -138,6 +143,7 @@ func TestRun_WithoutEmail(t *testing.T) {
 }
 
 func TestRun_Plain(t *testing.T) {
+	t.Parallel()
 	user := &api.User{
 		AccountID:   "abc123",
 		DisplayName: "John Doe",
@@ -163,6 +169,7 @@ func TestRun_Plain(t *testing.T) {
 }
 
 func TestRun_AuthFailure(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 		_, _ = w.Write([]byte(`{"message":"Unauthorized"}`))

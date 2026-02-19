@@ -28,6 +28,7 @@ func newEditTestRootOptions() *root.Options {
 }
 
 func TestRunEdit_Success(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 	mdFile := filepath.Join(tmpDir, "content.md")
 	err := os.WriteFile(mdFile, []byte("# Updated Content\n\nNew text here."), 0600)
@@ -73,6 +74,7 @@ func TestRunEdit_Success(t *testing.T) {
 }
 
 func TestRunEdit_TitleOnly(t *testing.T) {
+	t.Parallel()
 	var receivedBody map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
@@ -131,6 +133,7 @@ func TestRunEdit_TitleOnly(t *testing.T) {
 }
 
 func TestRunEdit_PageNotFound(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 		_, _ = w.Write([]byte(`{"message": "Page not found"}`))
@@ -153,6 +156,7 @@ func TestRunEdit_PageNotFound(t *testing.T) {
 }
 
 func TestRunEdit_UpdateFailed(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 	mdFile := filepath.Join(tmpDir, "content.md")
 	err := os.WriteFile(mdFile, []byte("# New Content"), 0600)
@@ -194,6 +198,7 @@ func TestRunEdit_UpdateFailed(t *testing.T) {
 }
 
 func TestRunEdit_VersionIncrement(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 	mdFile := filepath.Join(tmpDir, "content.md")
 	err := os.WriteFile(mdFile, []byte("# Updated"), 0600)
@@ -249,6 +254,7 @@ func TestRunEdit_VersionIncrement(t *testing.T) {
 }
 
 func TestRunEdit_HTMLFile(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 	htmlFile := filepath.Join(tmpDir, "content.html")
 	err := os.WriteFile(htmlFile, []byte("<p>Direct HTML</p>"), 0600)
@@ -305,6 +311,7 @@ func TestRunEdit_HTMLFile(t *testing.T) {
 }
 
 func TestRunEdit_NoMarkdownFlag(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 	mdFile := filepath.Join(tmpDir, "content.md")
 	err := os.WriteFile(mdFile, []byte("<p>Raw XHTML in .md file</p>"), 0600)
@@ -362,6 +369,7 @@ func TestRunEdit_NoMarkdownFlag(t *testing.T) {
 }
 
 func TestRunEdit_MarkdownToADF(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 	mdFile := filepath.Join(tmpDir, "content.md")
 	err := os.WriteFile(mdFile, []byte("# Updated\n\nNew **bold** text."), 0600)
@@ -422,6 +430,7 @@ func TestRunEdit_MarkdownToADF(t *testing.T) {
 }
 
 func TestRunEdit_JSONOutput(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 	mdFile := filepath.Join(tmpDir, "content.md")
 	err := os.WriteFile(mdFile, []byte("# Updated"), 0600)
@@ -467,6 +476,7 @@ func TestRunEdit_JSONOutput(t *testing.T) {
 }
 
 func TestRunEdit_FileReadError(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{
@@ -495,6 +505,7 @@ func TestRunEdit_FileReadError(t *testing.T) {
 }
 
 func TestRunEdit_Stdin_ADF(t *testing.T) {
+	t.Parallel()
 	var receivedBody map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
@@ -546,6 +557,7 @@ func TestRunEdit_Stdin_ADF(t *testing.T) {
 }
 
 func TestRunEdit_Stdin_Legacy(t *testing.T) {
+	t.Parallel()
 	var receivedBody map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
@@ -597,6 +609,7 @@ func TestRunEdit_Stdin_Legacy(t *testing.T) {
 }
 
 func TestRunEdit_TitleAndContent(t *testing.T) {
+	t.Parallel()
 	var receivedBody map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
@@ -651,6 +664,7 @@ func TestRunEdit_TitleAndContent(t *testing.T) {
 }
 
 func TestRunEdit_ComplexMarkdown_ADF(t *testing.T) {
+	t.Parallel()
 	var receivedBody map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
@@ -720,6 +734,7 @@ func TestRunEdit_ComplexMarkdown_ADF(t *testing.T) {
 }
 
 func TestRunEdit_MoveToParent(t *testing.T) {
+	t.Parallel()
 	moveCalled := false
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
@@ -767,6 +782,7 @@ func TestRunEdit_MoveToParent(t *testing.T) {
 }
 
 func TestRunEdit_MoveAndRename(t *testing.T) {
+	t.Parallel()
 	var receivedTitle string
 	moveCalled := false
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -820,6 +836,7 @@ func TestRunEdit_MoveAndRename(t *testing.T) {
 }
 
 func TestRunEdit_MoveFailed(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.Method == "GET" && strings.Contains(r.URL.Path, "/api/v2/pages/12345"):
@@ -866,6 +883,7 @@ func TestRunEdit_MoveFailed(t *testing.T) {
 }
 
 func TestRunEdit_MoveWithContent(t *testing.T) {
+	t.Parallel()
 	moveCalled := false
 	var receivedBody map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -920,6 +938,7 @@ func TestRunEdit_MoveWithContent(t *testing.T) {
 }
 
 func TestRunEdit_EmptyContentFromStdin(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "GET" {
 			w.WriteHeader(http.StatusOK)
@@ -951,6 +970,7 @@ func TestRunEdit_EmptyContentFromStdin(t *testing.T) {
 }
 
 func TestRunEdit_WhitespaceOnlyFromStdin(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "GET" {
 			w.WriteHeader(http.StatusOK)
@@ -982,6 +1002,7 @@ func TestRunEdit_WhitespaceOnlyFromStdin(t *testing.T) {
 }
 
 func TestRunEdit_EmptyFile(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 	emptyFile := filepath.Join(tmpDir, "empty.md")
 	err := os.WriteFile(emptyFile, []byte(""), 0600)
@@ -1019,6 +1040,7 @@ func TestRunEdit_EmptyFile(t *testing.T) {
 }
 
 func TestRunEdit_WhitespaceOnlyFile(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 	whitespaceFile := filepath.Join(tmpDir, "whitespace.md")
 	err := os.WriteFile(whitespaceFile, []byte("   \n\t\n   "), 0600)
@@ -1056,6 +1078,7 @@ func TestRunEdit_WhitespaceOnlyFile(t *testing.T) {
 }
 
 func TestRunEdit_TitleOnlyUpdate_NoContentValidation(t *testing.T) {
+	t.Parallel()
 	// When updating title only (with file providing content), validation should pass
 	updateCalled := false
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -1108,6 +1131,7 @@ func TestRunEdit_TitleOnlyUpdate_NoContentValidation(t *testing.T) {
 }
 
 func TestRunEdit_MoveOnly_NoEditorOpened(t *testing.T) {
+	t.Parallel()
 	// Test: cfl page edit 12345 --parent 67890
 	// Verifies: page is moved without content change, no editor opened
 	moveCalled := false
@@ -1159,6 +1183,7 @@ func TestRunEdit_MoveOnly_NoEditorOpened(t *testing.T) {
 }
 
 func TestRunEdit_MoveWithTitleOnly_NoEditorOpened(t *testing.T) {
+	t.Parallel()
 	// Test: cfl page edit 12345 --parent 67890 --title "New Title"
 	// Verifies: page is moved and title updated, body preserved, no editor opened
 	moveCalled := false
@@ -1212,6 +1237,7 @@ func TestRunEdit_MoveWithTitleOnly_NoEditorOpened(t *testing.T) {
 }
 
 func TestRunEdit_StorageFlag_Stdin(t *testing.T) {
+	t.Parallel()
 	var receivedBody map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
@@ -1269,6 +1295,7 @@ func TestRunEdit_StorageFlag_Stdin(t *testing.T) {
 }
 
 func TestRunEdit_StorageFlag_File(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 	htmlFile := filepath.Join(tmpDir, "content.html")
 	err := os.WriteFile(htmlFile, []byte("<p>Direct storage XHTML</p>"), 0600)
@@ -1329,6 +1356,7 @@ func TestRunEdit_StorageFlag_File(t *testing.T) {
 }
 
 func TestRunEdit_MoveOnly_BodyPreserved(t *testing.T) {
+	t.Parallel()
 	// Test: move-only operation preserves original body exactly
 	// Verifies: received body in PUT request matches original page body
 	var receivedBody map[string]any
@@ -1382,6 +1410,7 @@ func TestRunEdit_MoveOnly_BodyPreserved(t *testing.T) {
 }
 
 func TestRunEdit_ADFPage_TitleOnly_PreservesBody(t *testing.T) {
+	t.Parallel()
 	var receivedBody map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
@@ -1445,6 +1474,7 @@ func TestRunEdit_ADFPage_TitleOnly_PreservesBody(t *testing.T) {
 }
 
 func TestRunEdit_ADFPage_NewContent(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 	mdFile := filepath.Join(tmpDir, "content.md")
 	err := os.WriteFile(mdFile, []byte("# Updated Content"), 0600)

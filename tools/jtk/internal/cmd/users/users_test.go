@@ -15,6 +15,7 @@ import (
 )
 
 func TestNewSearchCmd(t *testing.T) {
+	t.Parallel()
 	opts := &root.Options{}
 	cmd := newSearchCmd(opts)
 
@@ -34,6 +35,7 @@ func newTestUsersServer(_ *testing.T, users []api.User) *httptest.Server {
 }
 
 func TestRunSearch_Table(t *testing.T) {
+	t.Parallel()
 	users := []api.User{
 		{AccountID: "abc123", DisplayName: "John Doe", EmailAddress: "john@example.com", Active: true},
 		{AccountID: "def456", DisplayName: "Jane Smith", EmailAddress: "jane@example.com", Active: false},
@@ -61,6 +63,7 @@ func TestRunSearch_Table(t *testing.T) {
 }
 
 func TestRunSearch_JSON(t *testing.T) {
+	t.Parallel()
 	users := []api.User{
 		{AccountID: "abc123", DisplayName: "John Doe", EmailAddress: "john@example.com", Active: true},
 	}
@@ -85,6 +88,7 @@ func TestRunSearch_JSON(t *testing.T) {
 }
 
 func TestRunSearch_Empty(t *testing.T) {
+	t.Parallel()
 	server := newTestUsersServer(t, []api.User{})
 	defer server.Close()
 
@@ -102,6 +106,7 @@ func TestRunSearch_Empty(t *testing.T) {
 }
 
 func TestRunSearch_ActiveUser(t *testing.T) {
+	t.Parallel()
 	users := []api.User{
 		{AccountID: "abc123", DisplayName: "John Doe", Active: true},
 	}
@@ -123,6 +128,7 @@ func TestRunSearch_ActiveUser(t *testing.T) {
 }
 
 func TestRunSearch_InactiveUser(t *testing.T) {
+	t.Parallel()
 	users := []api.User{
 		{AccountID: "abc123", DisplayName: "John Doe", Active: false},
 	}

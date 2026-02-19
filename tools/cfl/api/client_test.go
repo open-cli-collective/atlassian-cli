@@ -12,6 +12,7 @@ import (
 )
 
 func TestNewClient(t *testing.T) {
+	t.Parallel()
 	client := NewClient("https://example.atlassian.net/wiki", "user@example.com", "token123")
 
 	testutil.NotNil(t, client)
@@ -20,6 +21,7 @@ func TestNewClient(t *testing.T) {
 }
 
 func TestClient_AuthHeader(t *testing.T) {
+	t.Parallel()
 	var capturedAuth string
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -42,6 +44,7 @@ func TestClient_AuthHeader(t *testing.T) {
 }
 
 func TestClient_Headers(t *testing.T) {
+	t.Parallel()
 	var capturedHeaders http.Header
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -60,6 +63,7 @@ func TestClient_Headers(t *testing.T) {
 }
 
 func TestClient_ErrorResponse(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name           string
 		statusCode     int
@@ -100,6 +104,7 @@ func TestClient_ErrorResponse(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				w.WriteHeader(tt.statusCode)
 				_, _ = w.Write([]byte(tt.responseBody))
@@ -116,6 +121,7 @@ func TestClient_ErrorResponse(t *testing.T) {
 }
 
 func TestClient_ContextCancellation(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
 		// Slow response
 		<-r.Context().Done()
@@ -132,6 +138,7 @@ func TestClient_ContextCancellation(t *testing.T) {
 }
 
 func TestClient_URLConstruction(t *testing.T) {
+	t.Parallel()
 	var capturedPath string
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

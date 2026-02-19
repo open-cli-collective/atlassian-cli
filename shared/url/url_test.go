@@ -3,6 +3,7 @@ package url //nolint:revive // test file for url package
 import "testing"
 
 func TestNormalizeURL(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name  string
 		input string
@@ -57,6 +58,7 @@ func TestNormalizeURL(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			got := NormalizeURL(tt.input)
 			if got != tt.want {
 				t.Errorf("NormalizeURL(%q) = %q, want %q", tt.input, got, tt.want)
@@ -66,6 +68,7 @@ func TestNormalizeURL(t *testing.T) {
 }
 
 func TestHasScheme(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		input string
 		want  bool
@@ -80,6 +83,7 @@ func TestHasScheme(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
+			t.Parallel()
 			got := HasScheme(tt.input)
 			if got != tt.want {
 				t.Errorf("HasScheme(%q) = %v, want %v", tt.input, got, tt.want)
@@ -89,6 +93,7 @@ func TestHasScheme(t *testing.T) {
 }
 
 func TestTrimTrailingSlashes(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		input string
 		want  string
@@ -102,6 +107,7 @@ func TestTrimTrailingSlashes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
+			t.Parallel()
 			got := TrimTrailingSlashes(tt.input)
 			if got != tt.want {
 				t.Errorf("TrimTrailingSlashes(%q) = %q, want %q", tt.input, got, tt.want)

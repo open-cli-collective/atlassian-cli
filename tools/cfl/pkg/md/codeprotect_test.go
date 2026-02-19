@@ -7,6 +7,7 @@ import (
 )
 
 func TestProtectCodeRegions_FencedBlock(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name           string
 		input          string
@@ -66,6 +67,7 @@ func TestProtectCodeRegions_FencedBlock(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			output, regions := protectCodeRegions([]byte(tt.input))
 			testutil.Equal(t, tt.expectedRegion, len(regions))
 			tt.checkOutput(t, string(output), regions)
@@ -74,6 +76,7 @@ func TestProtectCodeRegions_FencedBlock(t *testing.T) {
 }
 
 func TestProtectCodeRegions_InlineCode(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name           string
 		input          string
@@ -122,6 +125,7 @@ func TestProtectCodeRegions_InlineCode(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			output, regions := protectCodeRegions([]byte(tt.input))
 			testutil.Equal(t, tt.expectedRegion, len(regions))
 			tt.checkOutput(t, string(output), regions)
@@ -130,6 +134,7 @@ func TestProtectCodeRegions_InlineCode(t *testing.T) {
 }
 
 func TestProtectCodeRegions_Mixed(t *testing.T) {
+	t.Parallel()
 	input := "See [[Page A]] here.\n\n```\n[[Page B]] in code\n```\n\nAlso `[[Page C]]` inline.\n\nAnd [[Page D]] at end."
 
 	output, regions := protectCodeRegions([]byte(input))
@@ -146,6 +151,7 @@ func TestProtectCodeRegions_Mixed(t *testing.T) {
 }
 
 func TestRestoreCodeRegions(t *testing.T) {
+	t.Parallel()
 	// Simulate a protect → transform → restore cycle
 	input := "before\n```\n[[My Page]]\n```\nafter [[Link]]"
 
@@ -161,6 +167,7 @@ func TestRestoreCodeRegions(t *testing.T) {
 }
 
 func TestProtectCodeRegions_UnclosedFence(t *testing.T) {
+	t.Parallel()
 	// Unclosed fence should protect to end of input
 	input := "before\n```\n[[My Page]]\nno closing fence"
 	output, regions := protectCodeRegions([]byte(input))
@@ -170,6 +177,7 @@ func TestProtectCodeRegions_UnclosedFence(t *testing.T) {
 }
 
 func TestProtectCodeRegions_UnmatchedBacktick(t *testing.T) {
+	t.Parallel()
 	// Unmatched backtick should not swallow content
 	input := "text `unclosed [[My Page]]"
 	output, regions := protectCodeRegions([]byte(input))

@@ -26,6 +26,7 @@ func newTestClient(t *testing.T, server *httptest.Server) *Client {
 }
 
 func TestCreateField(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testutil.Equal(t, r.Method, http.MethodPost)
 		testutil.Equal(t, r.URL.Path, "/rest/api/3/field")
@@ -57,6 +58,7 @@ func TestCreateField(t *testing.T) {
 }
 
 func TestCreateField_ServerError(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		_, _ = w.Write([]byte(`{"errorMessages":["Field name already exists"]}`))
@@ -69,6 +71,7 @@ func TestCreateField_ServerError(t *testing.T) {
 }
 
 func TestTrashField(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testutil.Equal(t, r.Method, http.MethodPost)
 		testutil.Equal(t, r.URL.Path, "/rest/api/3/field/customfield_10100/trash")
@@ -82,12 +85,14 @@ func TestTrashField(t *testing.T) {
 }
 
 func TestTrashField_EmptyID(t *testing.T) {
+	t.Parallel()
 	client := newTestClient(t, nil)
 	err := client.TrashField(context.Background(), "")
 	testutil.True(t, errors.Is(err, ErrFieldIDRequired))
 }
 
 func TestRestoreField(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testutil.Equal(t, r.Method, http.MethodPost)
 		testutil.Equal(t, r.URL.Path, "/rest/api/3/field/customfield_10100/restore")
@@ -101,12 +106,14 @@ func TestRestoreField(t *testing.T) {
 }
 
 func TestRestoreField_EmptyID(t *testing.T) {
+	t.Parallel()
 	client := newTestClient(t, nil)
 	err := client.RestoreField(context.Background(), "")
 	testutil.True(t, errors.Is(err, ErrFieldIDRequired))
 }
 
 func TestGetFieldContexts(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testutil.Equal(t, r.Method, http.MethodGet)
 		testutil.Equal(t, r.URL.Path, "/rest/api/3/field/customfield_10100/context")
@@ -131,12 +138,14 @@ func TestGetFieldContexts(t *testing.T) {
 }
 
 func TestGetFieldContexts_EmptyID(t *testing.T) {
+	t.Parallel()
 	client := newTestClient(t, nil)
 	_, err := client.GetFieldContexts(context.Background(), "")
 	testutil.True(t, errors.Is(err, ErrFieldIDRequired))
 }
 
 func TestGetDefaultFieldContext(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(FieldContextsResponse{
 			Values: []FieldContext{
@@ -154,6 +163,7 @@ func TestGetDefaultFieldContext(t *testing.T) {
 }
 
 func TestGetDefaultFieldContext_NoContexts(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(FieldContextsResponse{Values: []FieldContext{}})
 	}))
@@ -166,6 +176,7 @@ func TestGetDefaultFieldContext_NoContexts(t *testing.T) {
 }
 
 func TestCreateFieldContext(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testutil.Equal(t, r.Method, http.MethodPost)
 		testutil.Equal(t, r.URL.Path, "/rest/api/3/field/customfield_10100/context")
@@ -193,12 +204,14 @@ func TestCreateFieldContext(t *testing.T) {
 }
 
 func TestCreateFieldContext_EmptyID(t *testing.T) {
+	t.Parallel()
 	client := newTestClient(t, nil)
 	_, err := client.CreateFieldContext(context.Background(), "", &CreateFieldContextRequest{Name: "test"})
 	testutil.True(t, errors.Is(err, ErrFieldIDRequired))
 }
 
 func TestDeleteFieldContext(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testutil.Equal(t, r.Method, http.MethodDelete)
 		testutil.Equal(t, r.URL.Path, "/rest/api/3/field/customfield_10100/context/10003")
@@ -212,12 +225,14 @@ func TestDeleteFieldContext(t *testing.T) {
 }
 
 func TestDeleteFieldContext_EmptyID(t *testing.T) {
+	t.Parallel()
 	client := newTestClient(t, nil)
 	err := client.DeleteFieldContext(context.Background(), "", "10003")
 	testutil.True(t, errors.Is(err, ErrFieldIDRequired))
 }
 
 func TestGetFieldContextOptions(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testutil.Equal(t, r.Method, http.MethodGet)
 		testutil.Equal(t, r.URL.Path, "/rest/api/3/field/customfield_10100/context/10001/option")
@@ -241,12 +256,14 @@ func TestGetFieldContextOptions(t *testing.T) {
 }
 
 func TestGetFieldContextOptions_EmptyID(t *testing.T) {
+	t.Parallel()
 	client := newTestClient(t, nil)
 	_, err := client.GetFieldContextOptions(context.Background(), "", "10001")
 	testutil.True(t, errors.Is(err, ErrFieldIDRequired))
 }
 
 func TestCreateFieldContextOptions(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testutil.Equal(t, r.Method, http.MethodPost)
 		testutil.Equal(t, r.URL.Path, "/rest/api/3/field/customfield_10100/context/10001/option")
@@ -277,12 +294,14 @@ func TestCreateFieldContextOptions(t *testing.T) {
 }
 
 func TestCreateFieldContextOptions_EmptyID(t *testing.T) {
+	t.Parallel()
 	client := newTestClient(t, nil)
 	_, err := client.CreateFieldContextOptions(context.Background(), "", "10001", &CreateFieldContextOptionsRequest{})
 	testutil.True(t, errors.Is(err, ErrFieldIDRequired))
 }
 
 func TestUpdateFieldContextOptions(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testutil.Equal(t, r.Method, http.MethodPut)
 		testutil.Equal(t, r.URL.Path, "/rest/api/3/field/customfield_10100/context/10001/option")
@@ -314,12 +333,14 @@ func TestUpdateFieldContextOptions(t *testing.T) {
 }
 
 func TestUpdateFieldContextOptions_EmptyID(t *testing.T) {
+	t.Parallel()
 	client := newTestClient(t, nil)
 	_, err := client.UpdateFieldContextOptions(context.Background(), "", "10001", &UpdateFieldContextOptionsRequest{})
 	testutil.True(t, errors.Is(err, ErrFieldIDRequired))
 }
 
 func TestDeleteFieldContextOption(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testutil.Equal(t, r.Method, http.MethodDelete)
 		testutil.Equal(t, r.URL.Path, "/rest/api/3/field/customfield_10100/context/10001/option/3")
@@ -333,6 +354,7 @@ func TestDeleteFieldContextOption(t *testing.T) {
 }
 
 func TestDeleteFieldContextOption_EmptyID(t *testing.T) {
+	t.Parallel()
 	client := newTestClient(t, nil)
 	err := client.DeleteFieldContextOption(context.Background(), "", "10001", "3")
 	testutil.True(t, errors.Is(err, ErrFieldIDRequired))

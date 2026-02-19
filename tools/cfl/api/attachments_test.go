@@ -10,6 +10,7 @@ import (
 )
 
 func TestClient_ListAttachments(t *testing.T) {
+	t.Parallel()
 	testData := loadTestData(t, "attachments.json")
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -36,6 +37,7 @@ func TestClient_ListAttachments(t *testing.T) {
 }
 
 func TestClient_ListAttachments_WithOptions(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testutil.Equal(t, "50", r.URL.Query().Get("limit"))
 		testutil.Equal(t, "image/png", r.URL.Query().Get("mediaType"))
@@ -55,6 +57,7 @@ func TestClient_ListAttachments_WithOptions(t *testing.T) {
 }
 
 func TestClient_GetAttachment(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testutil.Equal(t, "/api/v2/attachments/att111", r.URL.Path)
 		testutil.Equal(t, "GET", r.Method)
@@ -80,6 +83,7 @@ func TestClient_GetAttachment(t *testing.T) {
 }
 
 func TestClient_DownloadAttachment(t *testing.T) {
+	t.Parallel()
 	fileContent := []byte("fake image content")
 	downloadCalled := false
 
@@ -122,6 +126,7 @@ func TestClient_DownloadAttachment(t *testing.T) {
 }
 
 func TestClient_DownloadAttachment_NoDownloadLink(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"id": "att123", "title": "test.txt"}`))
@@ -135,6 +140,7 @@ func TestClient_DownloadAttachment_NoDownloadLink(t *testing.T) {
 }
 
 func TestClient_DeleteAttachment(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testutil.Equal(t, "/api/v2/attachments/att111", r.URL.Path)
 		testutil.Equal(t, "DELETE", r.Method)
@@ -148,6 +154,7 @@ func TestClient_DeleteAttachment(t *testing.T) {
 }
 
 func TestClient_DeleteAttachment_NotFound(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 		_, _ = w.Write([]byte(`{"message": "Attachment not found"}`))

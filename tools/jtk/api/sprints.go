@@ -80,7 +80,7 @@ func (c *Client) GetSprintIssues(ctx context.Context, sprintID int, startAt, max
 func (c *Client) GetCurrentSprint(ctx context.Context, boardID int) (*Sprint, error) {
 	result, err := c.ListSprints(ctx, boardID, "active", 0, 1)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("getting current sprint for board %d: %w", boardID, err)
 	}
 
 	if len(result.Values) == 0 {

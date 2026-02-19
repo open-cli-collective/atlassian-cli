@@ -49,10 +49,6 @@ type View struct {
 // New creates a new View with the given format.
 // If noColor is true, colorized output is disabled.
 func New(format Format, noColor bool) *View {
-	if noColor {
-		color.NoColor = true
-	}
-
 	return &View{
 		Format:  format,
 		NoColor: noColor,

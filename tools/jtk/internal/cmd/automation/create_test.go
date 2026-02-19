@@ -17,7 +17,9 @@ import (
 )
 
 func TestRunCreate(t *testing.T) {
+	t.Parallel()
 	t.Run("strips server-assigned fields", func(t *testing.T) {
+		t.Parallel()
 		var receivedBody map[string]any
 
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

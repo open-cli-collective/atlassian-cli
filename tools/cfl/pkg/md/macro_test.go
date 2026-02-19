@@ -8,10 +8,12 @@ import (
 )
 
 func TestMacroRegistry_ContainsExpectedMacros(t *testing.T) {
+	t.Parallel()
 	expectedMacros := []string{"toc", "info", "warning", "note", "tip", "expand", "code"}
 
 	for _, name := range expectedMacros {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			mt, ok := MacroRegistry[name]
 			testutil.True(t, ok, fmt.Sprintf("MacroRegistry should contain %q", name))
 			testutil.Equal(t, name, mt.Name)
@@ -20,6 +22,7 @@ func TestMacroRegistry_ContainsExpectedMacros(t *testing.T) {
 }
 
 func TestLookupMacro_CaseInsensitive(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		input    string
 		expected string
@@ -36,6 +39,7 @@ func TestLookupMacro_CaseInsensitive(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
+			t.Parallel()
 			mt, ok := LookupMacro(tt.input)
 			testutil.Equal(t, tt.found, ok)
 			if tt.found {
@@ -46,6 +50,7 @@ func TestLookupMacro_CaseInsensitive(t *testing.T) {
 }
 
 func TestMacroType_BodyConfiguration(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		hasBody  bool
@@ -62,6 +67,7 @@ func TestMacroType_BodyConfiguration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			mt, ok := MacroRegistry[tt.name]
 			testutil.True(t, ok)
 			testutil.Equal(t, tt.hasBody, mt.HasBody)
@@ -71,6 +77,7 @@ func TestMacroType_BodyConfiguration(t *testing.T) {
 }
 
 func TestMacroNode_Construction(t *testing.T) {
+	t.Parallel()
 	// Test basic construction
 	node := &MacroNode{
 		Name:       "info",
@@ -86,6 +93,7 @@ func TestMacroNode_Construction(t *testing.T) {
 }
 
 func TestMacroNode_WithChildren(t *testing.T) {
+	t.Parallel()
 	// Test nested structure
 	child := &MacroNode{
 		Name:       "code",

@@ -2,6 +2,7 @@ package api //nolint:revive // package name is intentional
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/open-cli-collective/atlassian-go/adf"
@@ -55,13 +56,13 @@ func (f *IssueFields) UnmarshalJSON(data []byte) error {
 		Alias: (*Alias)(f),
 	}
 	if err := json.Unmarshal(data, aux); err != nil {
-		return err
+		return fmt.Errorf("unmarshaling issue fields: %w", err)
 	}
 
 	// Then unmarshal into a map to capture all fields
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
-		return err
+		return fmt.Errorf("unmarshaling issue fields (raw): %w", err)
 	}
 
 	// Extract custom fields (those not in knownFieldKeys)

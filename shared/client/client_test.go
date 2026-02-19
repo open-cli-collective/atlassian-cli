@@ -15,7 +15,9 @@ import (
 )
 
 func TestNew(t *testing.T) {
+	t.Parallel()
 	t.Run("basic creation", func(t *testing.T) {
+		t.Parallel()
 		c := New("https://example.atlassian.net", "user@example.com", "token", nil)
 
 		if c.BaseURL != "https://example.atlassian.net" {
@@ -32,6 +34,7 @@ func TestNew(t *testing.T) {
 	})
 
 	t.Run("trims trailing slash", func(t *testing.T) {
+		t.Parallel()
 		c := New("https://example.atlassian.net/", "user@example.com", "token", nil)
 
 		if c.BaseURL != "https://example.atlassian.net" {
@@ -40,6 +43,7 @@ func TestNew(t *testing.T) {
 	})
 
 	t.Run("with options", func(t *testing.T) {
+		t.Parallel()
 		verboseOut := &bytes.Buffer{}
 		opts := &Options{
 			Timeout:    90 * time.Second,
@@ -64,7 +68,9 @@ func TestNew(t *testing.T) {
 }
 
 func TestClient_Do(t *testing.T) {
+	t.Parallel()
 	t.Run("GET request", func(t *testing.T) {
+		t.Parallel()
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Verify headers
 			if r.Method != http.MethodGet {
@@ -101,6 +107,7 @@ func TestClient_Do(t *testing.T) {
 	})
 
 	t.Run("POST request with body", func(t *testing.T) {
+		t.Parallel()
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.Method != http.MethodPost {
 				t.Errorf("Method = %v, want POST", r.Method)
@@ -137,6 +144,7 @@ func TestClient_Do(t *testing.T) {
 	})
 
 	t.Run("PUT request", func(t *testing.T) {
+		t.Parallel()
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.Method != http.MethodPut {
 				t.Errorf("Method = %v, want PUT", r.Method)
@@ -154,6 +162,7 @@ func TestClient_Do(t *testing.T) {
 	})
 
 	t.Run("DELETE request", func(t *testing.T) {
+		t.Parallel()
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.Method != http.MethodDelete {
 				t.Errorf("Method = %v, want DELETE", r.Method)
@@ -171,6 +180,7 @@ func TestClient_Do(t *testing.T) {
 	})
 
 	t.Run("path without leading slash", func(t *testing.T) {
+		t.Parallel()
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.URL.Path != "/api/test" {
 				t.Errorf("Path = %v, want /api/test", r.URL.Path)
@@ -188,6 +198,7 @@ func TestClient_Do(t *testing.T) {
 	})
 
 	t.Run("absolute URL bypasses BaseURL", func(t *testing.T) {
+		t.Parallel()
 		// Create a server that the client will actually hit
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.URL.Path != "/custom/endpoint" {
@@ -218,6 +229,7 @@ func TestClient_Do(t *testing.T) {
 }
 
 func TestClient_ErrorHandling(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name       string
 		statusCode int
@@ -264,6 +276,7 @@ func TestClient_ErrorHandling(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				w.WriteHeader(tt.statusCode)
 				_, _ = w.Write([]byte(tt.body))
@@ -291,6 +304,7 @@ func TestClient_ErrorHandling(t *testing.T) {
 }
 
 func TestClient_VerboseOutput(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{}`))
@@ -322,6 +336,7 @@ func TestClient_VerboseOutput(t *testing.T) {
 }
 
 func TestClient_ContextCancellation(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		time.Sleep(100 * time.Millisecond)
 		w.WriteHeader(http.StatusOK)
@@ -341,7 +356,9 @@ func TestClient_ContextCancellation(t *testing.T) {
 }
 
 func TestOptions_timeoutOrDefault(t *testing.T) {
+	t.Parallel()
 	t.Run("nil options", func(t *testing.T) {
+		t.Parallel()
 		var opts *Options
 		if got := opts.timeoutOrDefault(); got != DefaultTimeout {
 			t.Errorf("timeoutOrDefault() = %v, want %v", got, DefaultTimeout)
@@ -349,6 +366,7 @@ func TestOptions_timeoutOrDefault(t *testing.T) {
 	})
 
 	t.Run("zero timeout", func(t *testing.T) {
+		t.Parallel()
 		opts := &Options{}
 		if got := opts.timeoutOrDefault(); got != DefaultTimeout {
 			t.Errorf("timeoutOrDefault() = %v, want %v", got, DefaultTimeout)
@@ -356,6 +374,7 @@ func TestOptions_timeoutOrDefault(t *testing.T) {
 	})
 
 	t.Run("custom timeout", func(t *testing.T) {
+		t.Parallel()
 		opts := &Options{Timeout: 90 * time.Second}
 		if got := opts.timeoutOrDefault(); got != 90*time.Second {
 			t.Errorf("timeoutOrDefault() = %v, want 90s", got)

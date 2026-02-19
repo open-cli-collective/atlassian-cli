@@ -21,6 +21,7 @@ func getTestFields() []Field {
 }
 
 func TestFindFieldByName(t *testing.T) {
+	t.Parallel()
 	fields := getTestFields()
 
 	tests := []struct {

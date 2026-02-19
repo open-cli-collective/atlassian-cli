@@ -8,12 +8,14 @@ import (
 )
 
 func TestTokenizeConfluenceXML_EmptyInput(t *testing.T) {
+	t.Parallel()
 	tokens, err := TokenizeConfluenceXML("")
 	testutil.RequireNoError(t, err)
 	testutil.Empty(t, tokens)
 }
 
 func TestTokenizeConfluenceXML_PlainHTML(t *testing.T) {
+	t.Parallel()
 	input := "<p>Hello world</p>"
 	tokens, err := TokenizeConfluenceXML(input)
 	testutil.RequireNoError(t, err)
@@ -23,6 +25,7 @@ func TestTokenizeConfluenceXML_PlainHTML(t *testing.T) {
 }
 
 func TestTokenizeConfluenceXML_SimpleMacro(t *testing.T) {
+	t.Parallel()
 	input := `<ac:structured-macro ac:name="toc" ac:schema-version="1"></ac:structured-macro>`
 	tokens, err := TokenizeConfluenceXML(input)
 	testutil.RequireNoError(t, err)
@@ -35,6 +38,7 @@ func TestTokenizeConfluenceXML_SimpleMacro(t *testing.T) {
 }
 
 func TestTokenizeConfluenceXML_MacroWithParameter(t *testing.T) {
+	t.Parallel()
 	input := `<ac:structured-macro ac:name="toc" ac:schema-version="1"><ac:parameter ac:name="maxLevel">3</ac:parameter></ac:structured-macro>`
 	tokens, err := TokenizeConfluenceXML(input)
 	testutil.RequireNoError(t, err)
@@ -51,6 +55,7 @@ func TestTokenizeConfluenceXML_MacroWithParameter(t *testing.T) {
 }
 
 func TestTokenizeConfluenceXML_MacroWithMultipleParameters(t *testing.T) {
+	t.Parallel()
 	input := `<ac:structured-macro ac:name="toc" ac:schema-version="1"><ac:parameter ac:name="maxLevel">3</ac:parameter><ac:parameter ac:name="minLevel">1</ac:parameter><ac:parameter ac:name="type">flat</ac:parameter></ac:structured-macro>`
 	tokens, err := TokenizeConfluenceXML(input)
 	testutil.RequireNoError(t, err)
@@ -72,6 +77,7 @@ func TestTokenizeConfluenceXML_MacroWithMultipleParameters(t *testing.T) {
 }
 
 func TestTokenizeConfluenceXML_PanelWithRichTextBody(t *testing.T) {
+	t.Parallel()
 	input := `<ac:structured-macro ac:name="info" ac:schema-version="1"><ac:rich-text-body><p>Content</p></ac:rich-text-body></ac:structured-macro>`
 	tokens, err := TokenizeConfluenceXML(input)
 	testutil.RequireNoError(t, err)
@@ -95,6 +101,7 @@ func TestTokenizeConfluenceXML_PanelWithRichTextBody(t *testing.T) {
 }
 
 func TestTokenizeConfluenceXML_PanelWithTitleAndBody(t *testing.T) {
+	t.Parallel()
 	input := `<ac:structured-macro ac:name="warning" ac:schema-version="1"><ac:parameter ac:name="title">Watch Out</ac:parameter><ac:rich-text-body><p>Warning content</p></ac:rich-text-body></ac:structured-macro>`
 	tokens, err := TokenizeConfluenceXML(input)
 	testutil.RequireNoError(t, err)
@@ -110,6 +117,7 @@ func TestTokenizeConfluenceXML_PanelWithTitleAndBody(t *testing.T) {
 }
 
 func TestTokenizeConfluenceXML_CodeMacroWithCDATA(t *testing.T) {
+	t.Parallel()
 	input := `<ac:structured-macro ac:name="code" ac:schema-version="1"><ac:parameter ac:name="language">python</ac:parameter><ac:plain-text-body><![CDATA[print("Hello")]]></ac:plain-text-body></ac:structured-macro>`
 	tokens, err := TokenizeConfluenceXML(input)
 	testutil.RequireNoError(t, err)
@@ -132,6 +140,7 @@ func TestTokenizeConfluenceXML_CodeMacroWithCDATA(t *testing.T) {
 }
 
 func TestTokenizeConfluenceXML_NestedMacros(t *testing.T) {
+	t.Parallel()
 	input := `<ac:structured-macro ac:name="info" ac:schema-version="1"><ac:rich-text-body><p>Before</p><ac:structured-macro ac:name="toc" ac:schema-version="1"></ac:structured-macro><p>After</p></ac:rich-text-body></ac:structured-macro>`
 	tokens, err := TokenizeConfluenceXML(input)
 	testutil.RequireNoError(t, err)
@@ -153,6 +162,7 @@ func TestTokenizeConfluenceXML_NestedMacros(t *testing.T) {
 }
 
 func TestTokenizeConfluenceXML_WithSurroundingHTML(t *testing.T) {
+	t.Parallel()
 	input := `<h1>Title</h1><ac:structured-macro ac:name="toc" ac:schema-version="1"></ac:structured-macro><p>Content</p>`
 	tokens, err := TokenizeConfluenceXML(input)
 	testutil.RequireNoError(t, err)
@@ -173,10 +183,12 @@ func TestTokenizeConfluenceXML_WithSurroundingHTML(t *testing.T) {
 }
 
 func TestTokenizeConfluenceXML_AllPanelTypes(t *testing.T) {
+	t.Parallel()
 	panelTypes := []string{"info", "warning", "note", "tip", "expand"}
 
 	for _, pt := range panelTypes {
 		t.Run(pt, func(t *testing.T) {
+			t.Parallel()
 			input := `<ac:structured-macro ac:name="` + pt + `" ac:schema-version="1"><ac:rich-text-body><p>Content</p></ac:rich-text-body></ac:structured-macro>`
 			tokens, err := TokenizeConfluenceXML(input)
 			testutil.RequireNoError(t, err)
@@ -187,6 +199,7 @@ func TestTokenizeConfluenceXML_AllPanelTypes(t *testing.T) {
 }
 
 func TestTokenizeConfluenceXML_Positions(t *testing.T) {
+	t.Parallel()
 	input := `abc<ac:structured-macro ac:name="toc" ac:schema-version="1"></ac:structured-macro>def`
 	tokens, err := TokenizeConfluenceXML(input)
 	testutil.RequireNoError(t, err)
@@ -198,6 +211,7 @@ func TestTokenizeConfluenceXML_Positions(t *testing.T) {
 }
 
 func TestTokenizeConfluenceXML_CDATAWithSpecialChars(t *testing.T) {
+	t.Parallel()
 	input := `<ac:structured-macro ac:name="code" ac:schema-version="1"><ac:plain-text-body><![CDATA[if x < 10 && y > 5 {
     fmt.Println("test")
 }]]></ac:plain-text-body></ac:structured-macro>`
@@ -220,6 +234,7 @@ func TestTokenizeConfluenceXML_CDATAWithSpecialChars(t *testing.T) {
 }
 
 func TestTokenizeConfluenceXML_MultilineCDATA(t *testing.T) {
+	t.Parallel()
 	input := `<ac:structured-macro ac:name="code" ac:schema-version="1"><ac:plain-text-body><![CDATA[
 line1
 line2
@@ -242,6 +257,7 @@ line3
 }
 
 func TestTokenizeConfluenceXML_DeeplyNestedMacros(t *testing.T) {
+	t.Parallel()
 	input := `<ac:structured-macro ac:name="info" ac:schema-version="1"><ac:rich-text-body><ac:structured-macro ac:name="warning" ac:schema-version="1"><ac:rich-text-body><ac:structured-macro ac:name="note" ac:schema-version="1"><ac:rich-text-body><p>Deep</p></ac:rich-text-body></ac:structured-macro></ac:rich-text-body></ac:structured-macro></ac:rich-text-body></ac:structured-macro>`
 	tokens, err := TokenizeConfluenceXML(input)
 	testutil.RequireNoError(t, err)
@@ -268,6 +284,7 @@ func TestTokenizeConfluenceXML_DeeplyNestedMacros(t *testing.T) {
 }
 
 func TestTokenizeConfluenceXML_WhitespaceInMacro(t *testing.T) {
+	t.Parallel()
 	input := `<ac:structured-macro ac:name="toc" ac:schema-version="1">
     <ac:parameter ac:name="maxLevel">3</ac:parameter>
 </ac:structured-macro>`
@@ -286,6 +303,7 @@ func TestTokenizeConfluenceXML_WhitespaceInMacro(t *testing.T) {
 }
 
 func TestTokenizeConfluenceXML_EmptyParameter(t *testing.T) {
+	t.Parallel()
 	input := `<ac:structured-macro ac:name="toc" ac:schema-version="1"><ac:parameter ac:name="title"></ac:parameter></ac:structured-macro>`
 	tokens, err := TokenizeConfluenceXML(input)
 	testutil.RequireNoError(t, err)
@@ -301,6 +319,7 @@ func TestTokenizeConfluenceXML_EmptyParameter(t *testing.T) {
 }
 
 func TestTokenizeConfluenceXML_EmptyRichTextBody(t *testing.T) {
+	t.Parallel()
 	input := `<ac:structured-macro ac:name="info" ac:schema-version="1"><ac:rich-text-body></ac:rich-text-body></ac:structured-macro>`
 	tokens, err := TokenizeConfluenceXML(input)
 	testutil.RequireNoError(t, err)
@@ -321,6 +340,7 @@ func TestTokenizeConfluenceXML_EmptyRichTextBody(t *testing.T) {
 }
 
 func TestTokenizeConfluenceXML_MacroNameCaseInsensitive(t *testing.T) {
+	t.Parallel()
 	inputs := []string{
 		`<ac:structured-macro ac:name="TOC" ac:schema-version="1"></ac:structured-macro>`,
 		`<ac:structured-macro ac:name="Toc" ac:schema-version="1"></ac:structured-macro>`,
@@ -329,6 +349,7 @@ func TestTokenizeConfluenceXML_MacroNameCaseInsensitive(t *testing.T) {
 
 	for _, input := range inputs {
 		t.Run(input, func(t *testing.T) {
+			t.Parallel()
 			tokens, err := TokenizeConfluenceXML(input)
 			testutil.RequireNoError(t, err)
 			testutil.GreaterOrEqual(t, len(tokens), 1)
@@ -339,6 +360,7 @@ func TestTokenizeConfluenceXML_MacroNameCaseInsensitive(t *testing.T) {
 }
 
 func TestExtractCDATAContent(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		input    string
 		expected string
@@ -352,6 +374,7 @@ func TestExtractCDATAContent(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
+			t.Parallel()
 			result := ExtractCDATAContent(tt.input)
 			testutil.Equal(t, tt.expected, result)
 		})
@@ -360,6 +383,7 @@ func TestExtractCDATAContent(t *testing.T) {
 
 // Tests for self-closing macros (issue #56)
 func TestTokenizeConfluenceXML_SelfClosingMacro(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name           string
 		input          string
@@ -399,6 +423,7 @@ func TestTokenizeConfluenceXML_SelfClosingMacro(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			tokens, err := TokenizeConfluenceXML(tt.input)
 			testutil.RequireNoError(t, err)
 
@@ -425,6 +450,7 @@ func TestTokenizeConfluenceXML_SelfClosingMacro(t *testing.T) {
 }
 
 func TestTokenizeConfluenceXML_SelfClosingNestedInBodyMacro(t *testing.T) {
+	t.Parallel()
 	// This is the exact scenario from issue #56
 	input := `<ac:structured-macro ac:name="info" ac:schema-version="1"><ac:rich-text-body><p><ac:structured-macro ac:name="toc" ac:schema-version="1" /></p></ac:rich-text-body></ac:structured-macro>`
 
@@ -473,6 +499,7 @@ func TestTokenizeConfluenceXML_SelfClosingNestedInBodyMacro(t *testing.T) {
 }
 
 func TestTokenizeConfluenceXML_SelfClosingVsRegularMacro(t *testing.T) {
+	t.Parallel()
 	// Make sure regular macros still work and are distinguished from self-closing
 	regular := `<ac:structured-macro ac:name="toc" ac:schema-version="1"></ac:structured-macro>`
 	selfClosing := `<ac:structured-macro ac:name="toc" ac:schema-version="1" />`

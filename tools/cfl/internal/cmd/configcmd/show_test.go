@@ -7,6 +7,7 @@ import (
 )
 
 func TestMaskToken(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name  string
 		token string
@@ -41,6 +42,7 @@ func TestMaskToken(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			got := maskToken(tt.token)
 			testutil.Equal(t, tt.want, got)
 		})
@@ -48,6 +50,7 @@ func TestMaskToken(t *testing.T) {
 }
 
 func TestGetValueAndSource(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name       string
 		envValue   string
@@ -84,6 +87,7 @@ func TestGetValueAndSource(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			gotValue, gotSource := getValueAndSource(tt.envValue, tt.fileValue, tt.envVarName)
 			testutil.Equal(t, tt.wantValue, gotValue)
 			testutil.Equal(t, tt.wantSource, gotSource)
@@ -92,6 +96,7 @@ func TestGetValueAndSource(t *testing.T) {
 }
 
 func TestFormatValueWithSource(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name   string
 		value  string
@@ -114,6 +119,7 @@ func TestFormatValueWithSource(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			got := formatValueWithSource(tt.value, tt.source)
 			testutil.Equal(t, tt.want, got)
 		})

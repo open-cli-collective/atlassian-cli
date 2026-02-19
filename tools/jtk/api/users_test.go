@@ -11,6 +11,7 @@ import (
 )
 
 func TestGetUser(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name        string
 		accountID   string
@@ -43,6 +44,7 @@ func TestGetUser(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				testutil.Equal(t, r.URL.Path, "/rest/api/3/user")
 				testutil.Equal(t, r.URL.Query().Get("accountId"), tt.accountID)
@@ -72,6 +74,7 @@ func TestGetUser(t *testing.T) {
 }
 
 func TestGetCurrentUser(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testutil.Equal(t, r.URL.Path, "/rest/api/3/myself")
 		user := User{
@@ -99,6 +102,7 @@ func TestGetCurrentUser(t *testing.T) {
 }
 
 func TestSearchUsers(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testutil.Equal(t, r.URL.Path, "/rest/api/3/user/search")
 		testutil.Equal(t, r.URL.Query().Get("query"), "john")

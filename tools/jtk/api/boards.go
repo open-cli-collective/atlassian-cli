@@ -24,7 +24,7 @@ func (c *Client) ListBoards(ctx context.Context, projectKeyOrID string, startAt,
 	urlStr := buildURL(fmt.Sprintf("%s/board", c.AgileURL), params)
 	body, err := c.Get(ctx, urlStr)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("listing boards: %w", err)
 	}
 
 	var result BoardsResponse
@@ -40,7 +40,7 @@ func (c *Client) GetBoard(ctx context.Context, boardID int) (*Board, error) {
 	urlStr := fmt.Sprintf("%s/board/%d", c.AgileURL, boardID)
 	body, err := c.Get(ctx, urlStr)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("getting board %d: %w", boardID, err)
 	}
 
 	var board Board

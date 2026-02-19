@@ -9,6 +9,7 @@ import (
 )
 
 func TestToJSON_Paragraph(t *testing.T) {
+	t.Parallel()
 	input := "Hello world"
 	result, err := ToJSON([]byte(input))
 	testutil.RequireNoError(t, err)
@@ -29,6 +30,7 @@ func TestToJSON_Paragraph(t *testing.T) {
 }
 
 func TestToJSON_Headings(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		markdown string
@@ -63,6 +65,7 @@ func TestToJSON_Headings(t *testing.T) {
 }
 
 func TestToJSON_Formatting(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		markdown string
@@ -76,7 +79,9 @@ func TestToJSON_Formatting(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			result, err := ToJSON([]byte(tt.markdown))
+			testutil.RequireNoError(t, err)
 			testutil.RequireNoError(t, err)
 
 			var doc Document
@@ -104,6 +109,7 @@ func TestToJSON_Formatting(t *testing.T) {
 }
 
 func TestToJSON_Links(t *testing.T) {
+	t.Parallel()
 	input := "[Example](https://example.com)"
 	result, err := ToJSON([]byte(input))
 	testutil.RequireNoError(t, err)
@@ -129,6 +135,7 @@ func TestToJSON_Links(t *testing.T) {
 }
 
 func TestToJSON_BulletList(t *testing.T) {
+	t.Parallel()
 	input := "- Item one\n- Item two\n- Item three"
 	result, err := ToJSON([]byte(input))
 	testutil.RequireNoError(t, err)
@@ -154,6 +161,7 @@ func TestToJSON_BulletList(t *testing.T) {
 }
 
 func TestToJSON_OrderedList(t *testing.T) {
+	t.Parallel()
 	input := "1. First\n2. Second\n3. Third"
 	result, err := ToJSON([]byte(input))
 	testutil.RequireNoError(t, err)
@@ -170,6 +178,7 @@ func TestToJSON_OrderedList(t *testing.T) {
 }
 
 func TestToJSON_CodeBlock(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		markdown string
@@ -198,6 +207,7 @@ func TestToJSON_CodeBlock(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			result, err := ToJSON([]byte(tt.markdown))
 			testutil.RequireNoError(t, err)
 
@@ -220,6 +230,7 @@ func TestToJSON_CodeBlock(t *testing.T) {
 }
 
 func TestToJSON_Blockquote(t *testing.T) {
+	t.Parallel()
 	input := "> This is a quote"
 	result, err := ToJSON([]byte(input))
 	testutil.RequireNoError(t, err)
@@ -236,6 +247,7 @@ func TestToJSON_Blockquote(t *testing.T) {
 }
 
 func TestToJSON_HorizontalRule(t *testing.T) {
+	t.Parallel()
 	input := "Above\n\n---\n\nBelow"
 	result, err := ToJSON([]byte(input))
 	testutil.RequireNoError(t, err)
@@ -251,6 +263,7 @@ func TestToJSON_HorizontalRule(t *testing.T) {
 }
 
 func TestToJSON_Table(t *testing.T) {
+	t.Parallel()
 	input := "| Header 1 | Header 2 |\n|----------|----------|\n| Cell 1   | Cell 2   |"
 	result, err := ToJSON([]byte(input))
 	testutil.RequireNoError(t, err)
@@ -276,6 +289,7 @@ func TestToJSON_Table(t *testing.T) {
 }
 
 func TestToJSON_EmptyInput(t *testing.T) {
+	t.Parallel()
 	result, err := ToJSON([]byte(""))
 	testutil.RequireNoError(t, err)
 
@@ -289,6 +303,7 @@ func TestToJSON_EmptyInput(t *testing.T) {
 }
 
 func TestToJSON_NestedList(t *testing.T) {
+	t.Parallel()
 	input := "- Item one\n  - Nested one\n  - Nested two\n- Item two"
 	result, err := ToJSON([]byte(input))
 	testutil.RequireNoError(t, err)
@@ -315,6 +330,7 @@ func TestToJSON_NestedList(t *testing.T) {
 }
 
 func TestToJSON_BoldAndItalicCombined(t *testing.T) {
+	t.Parallel()
 	input := "***bold and italic***"
 	result, err := ToJSON([]byte(input))
 	testutil.RequireNoError(t, err)
@@ -342,6 +358,7 @@ func TestToJSON_BoldAndItalicCombined(t *testing.T) {
 }
 
 func TestToJSON_OutputIsValidJSON(t *testing.T) {
+	t.Parallel()
 	inputs := []string{
 		"# Simple heading",
 		"Paragraph with **bold** and *italic*",
@@ -364,6 +381,7 @@ func TestToJSON_OutputIsValidJSON(t *testing.T) {
 }
 
 func TestToJSON_Images_AltText(t *testing.T) {
+	t.Parallel()
 	input := "![Alt text](https://example.com/image.png)"
 	result, err := ToJSON([]byte(input))
 	testutil.RequireNoError(t, err)
@@ -380,6 +398,7 @@ func TestToJSON_Images_AltText(t *testing.T) {
 }
 
 func TestToJSON_WhitespaceInCodeBlock(t *testing.T) {
+	t.Parallel()
 	input := "```\n    indented code\n        more indented\n```"
 	result, err := ToJSON([]byte(input))
 	testutil.RequireNoError(t, err)
@@ -399,6 +418,7 @@ func TestToJSON_WhitespaceInCodeBlock(t *testing.T) {
 }
 
 func TestToJSON_NestedBlockquote(t *testing.T) {
+	t.Parallel()
 	input := "> Quote with **bold** text\n>\n> And a list:\n> - Item 1\n> - Item 2"
 	result, err := ToJSON([]byte(input))
 	testutil.RequireNoError(t, err)
@@ -414,6 +434,7 @@ func TestToJSON_NestedBlockquote(t *testing.T) {
 }
 
 func TestToJSON_HardLineBreak(t *testing.T) {
+	t.Parallel()
 	input := "Line one  \nLine two"
 	result, err := ToJSON([]byte(input))
 	testutil.RequireNoError(t, err)
@@ -437,6 +458,7 @@ func TestToJSON_HardLineBreak(t *testing.T) {
 }
 
 func TestToJSON_InlineCodePreservesContent(t *testing.T) {
+	t.Parallel()
 	input := "Use `fmt.Println()` to print"
 	result, err := ToJSON([]byte(input))
 	testutil.RequireNoError(t, err)
@@ -461,11 +483,13 @@ func TestToJSON_InlineCodePreservesContent(t *testing.T) {
 }
 
 func TestToDocument_Empty(t *testing.T) {
+	t.Parallel()
 	doc := ToDocument("")
 	testutil.Nil(t, doc)
 }
 
 func TestToDocument_PlainText(t *testing.T) {
+	t.Parallel()
 	doc := ToDocument("Hello world")
 	testutil.NotNil(t, doc)
 	testutil.Equal(t, doc.Type, "doc")
@@ -477,6 +501,7 @@ func TestToDocument_PlainText(t *testing.T) {
 }
 
 func TestToDocument_ToPlainText(t *testing.T) {
+	t.Parallel()
 	doc := ToDocument("# Title\n\nSome text\n\n- Item 1\n- Item 2")
 	testutil.NotNil(t, doc)
 
@@ -488,11 +513,13 @@ func TestToDocument_ToPlainText(t *testing.T) {
 }
 
 func TestToPlainText_Nil(t *testing.T) {
+	t.Parallel()
 	var doc *Document
 	testutil.Equal(t, doc.ToPlainText(), "")
 }
 
 func TestToJSON_IndentedCodeBlock(t *testing.T) {
+	t.Parallel()
 	input := "    code line one\n    code line two"
 	result, err := ToJSON([]byte(input))
 	testutil.RequireNoError(t, err)
@@ -511,6 +538,7 @@ func TestToJSON_IndentedCodeBlock(t *testing.T) {
 }
 
 func TestToJSON_AutoLink(t *testing.T) {
+	t.Parallel()
 	input := "Visit <https://example.com> for info"
 	result, err := ToJSON([]byte(input))
 	testutil.RequireNoError(t, err)
@@ -536,6 +564,7 @@ func TestToJSON_AutoLink(t *testing.T) {
 }
 
 func TestToJSON_RawHTMLDropped(t *testing.T) {
+	t.Parallel()
 	input := "Before <span>raw</span> after"
 	result, err := ToJSON([]byte(input))
 	testutil.RequireNoError(t, err)
@@ -558,6 +587,7 @@ func TestToJSON_RawHTMLDropped(t *testing.T) {
 }
 
 func TestSplitLines(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name  string
 		input string
@@ -572,6 +602,7 @@ func TestSplitLines(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			got := splitLines(tt.input)
 			testutil.Equal(t, got, tt.want)
 		})
@@ -579,6 +610,7 @@ func TestSplitLines(t *testing.T) {
 }
 
 func TestToPlainText_CodeBlock(t *testing.T) {
+	t.Parallel()
 	doc := &Document{
 		Type:    "doc",
 		Version: 1,
@@ -597,6 +629,7 @@ func TestToPlainText_CodeBlock(t *testing.T) {
 }
 
 func TestToPlainText_Blockquote(t *testing.T) {
+	t.Parallel()
 	doc := &Document{
 		Type:    "doc",
 		Version: 1,
@@ -620,6 +653,7 @@ func TestToPlainText_Blockquote(t *testing.T) {
 }
 
 func TestToPlainText_Rule(t *testing.T) {
+	t.Parallel()
 	doc := &Document{
 		Type:    "doc",
 		Version: 1,
@@ -633,6 +667,7 @@ func TestToPlainText_Rule(t *testing.T) {
 }
 
 func TestToPlainText_UnknownNodeType(t *testing.T) {
+	t.Parallel()
 	doc := &Document{
 		Type:    "doc",
 		Version: 1,
@@ -646,6 +681,7 @@ func TestToPlainText_UnknownNodeType(t *testing.T) {
 }
 
 func TestToPlainText_UnknownNodeWithChildren(t *testing.T) {
+	t.Parallel()
 	doc := &Document{
 		Type:    "doc",
 		Version: 1,

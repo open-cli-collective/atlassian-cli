@@ -8,6 +8,7 @@ import (
 )
 
 func TestFromConfluenceStorage(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		input    string
@@ -92,6 +93,7 @@ func TestFromConfluenceStorage(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			result, err := FromConfluenceStorage(tt.input)
 			testutil.RequireNoError(t, err)
 			testutil.Equal(t, tt.expected, result)
@@ -100,6 +102,7 @@ func TestFromConfluenceStorage(t *testing.T) {
 }
 
 func TestFromConfluenceStorage_ConfluenceCodeMacro(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		input    string
@@ -158,6 +161,7 @@ func TestFromConfluenceStorage_ConfluenceCodeMacro(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			result, err := FromConfluenceStorage(tt.input)
 			testutil.RequireNoError(t, err)
 			for _, expected := range tt.contains {
@@ -168,6 +172,7 @@ func TestFromConfluenceStorage_ConfluenceCodeMacro(t *testing.T) {
 }
 
 func TestFromConfluenceStorage_Tables(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		input    string
@@ -214,6 +219,7 @@ func TestFromConfluenceStorage_Tables(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			result, err := FromConfluenceStorage(tt.input)
 			testutil.RequireNoError(t, err)
 			for _, expected := range tt.contains {
@@ -224,6 +230,7 @@ func TestFromConfluenceStorage_Tables(t *testing.T) {
 }
 
 func TestFromConfluenceStorage_NonCodeMacrosStripped(t *testing.T) {
+	t.Parallel()
 	// Non-code macros should still be stripped
 	input := `<p>Before</p>
 	<ac:structured-macro ac:name="toc" ac:schema-version="1">
@@ -240,6 +247,7 @@ func TestFromConfluenceStorage_NonCodeMacrosStripped(t *testing.T) {
 }
 
 func TestFromConfluenceStorage_TOCWithShowMacros(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		input    string
@@ -285,6 +293,7 @@ func TestFromConfluenceStorage_TOCWithShowMacros(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			opts := ConvertOptions{ShowMacros: true}
 			result, err := FromConfluenceStorageWithOptions(tt.input, opts)
 			testutil.RequireNoError(t, err)
@@ -294,6 +303,7 @@ func TestFromConfluenceStorage_TOCWithShowMacros(t *testing.T) {
 }
 
 func TestFromConfluenceStorage_PanelMacrosWithShowMacros(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		input    string
@@ -364,6 +374,7 @@ func TestFromConfluenceStorage_PanelMacrosWithShowMacros(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			opts := ConvertOptions{ShowMacros: true}
 			result, err := FromConfluenceStorageWithOptions(tt.input, opts)
 			testutil.RequireNoError(t, err)
@@ -375,6 +386,7 @@ func TestFromConfluenceStorage_PanelMacrosWithShowMacros(t *testing.T) {
 }
 
 func TestFromConfluenceStorage_ComplexDocument(t *testing.T) {
+	t.Parallel()
 	input := `<h1>Project README</h1>
 <p>This is the <strong>introduction</strong> to the project.</p>
 <h2>Features</h2>
@@ -404,6 +416,7 @@ func TestFromConfluenceStorage_ComplexDocument(t *testing.T) {
 }
 
 func TestFromConfluenceStorage_NestedMacros(t *testing.T) {
+	t.Parallel()
 	// Test nested TOC inside INFO panel
 	input := `<ac:structured-macro ac:name="info" ac:schema-version="1">
 <ac:rich-text-body>
@@ -433,6 +446,7 @@ func TestFromConfluenceStorage_NestedMacros(t *testing.T) {
 // Markdown, nested macros appear at their original position in the body content (not
 // appended to the end).
 func TestXHTMLToMD_NestedMacroPositionPreserved(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name        string
 		input       string
@@ -489,6 +503,7 @@ func TestXHTMLToMD_NestedMacroPositionPreserved(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			opts := ConvertOptions{ShowMacros: true}
 			result, err := FromConfluenceStorageWithOptions(tt.input, opts)
 			testutil.RequireNoError(t, err)
@@ -528,6 +543,7 @@ func findStringIndex(s, substr string) int {
 // TestXHTMLToMD_NestedMacroOrderPreserved verifies exact ordering of content and nested
 // macros using index comparisons.
 func TestXHTMLToMD_NestedMacroOrderPreserved(t *testing.T) {
+	t.Parallel()
 	input := `<ac:structured-macro ac:name="info" ac:schema-version="1">
 <ac:rich-text-body>
 <p>Before</p>
@@ -556,6 +572,7 @@ func TestXHTMLToMD_NestedMacroOrderPreserved(t *testing.T) {
 // When a self-closing nested macro is wrapped in a <p> tag, the parser should correctly
 // identify both macros and their nesting relationship.
 func TestFromConfluenceStorage_NestedMacroInParagraph(t *testing.T) {
+	t.Parallel()
 	// This is the exact XHTML structure from issue #56
 	input := `<ac:structured-macro ac:name="info" ac:schema-version="1">
 <ac:rich-text-body>
@@ -590,6 +607,7 @@ func TestFromConfluenceStorage_NestedMacroInParagraph(t *testing.T) {
 // TestFromConfluenceStorage_MultipleSelfClosingNestedMacros tests multiple self-closing
 // macros nested inside a body macro.
 func TestFromConfluenceStorage_MultipleSelfClosingNestedMacros(t *testing.T) {
+	t.Parallel()
 	input := `<ac:structured-macro ac:name="info" ac:schema-version="1">
 <ac:rich-text-body>
 <p>First paragraph</p>

@@ -11,7 +11,7 @@ func (c *Client) GetCurrentUser(ctx context.Context) (*User, error) {
 	urlStr := fmt.Sprintf("%s/myself", c.BaseURL)
 	body, err := c.Get(ctx, urlStr)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("getting current user: %w", err)
 	}
 
 	var user User
@@ -30,7 +30,7 @@ func (c *Client) GetUser(ctx context.Context, accountID string) (*User, error) {
 	urlStr := buildURL(fmt.Sprintf("%s/user", c.BaseURL), params)
 	body, err := c.Get(ctx, urlStr)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("getting user %s: %w", accountID, err)
 	}
 
 	var user User
@@ -53,7 +53,7 @@ func (c *Client) SearchUsers(ctx context.Context, query string, maxResults int) 
 	urlStr := buildURL(fmt.Sprintf("%s/user/search", c.BaseURL), params)
 	body, err := c.Get(ctx, urlStr)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("searching users: %w", err)
 	}
 
 	var users []User

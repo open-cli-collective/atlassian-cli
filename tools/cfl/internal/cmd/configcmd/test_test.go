@@ -24,6 +24,7 @@ func newTestRootOptions() *root.Options {
 }
 
 func TestRunTest_Success(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(r.URL.Path, "/user/current") {
 			w.WriteHeader(http.StatusOK)
@@ -47,6 +48,7 @@ func TestRunTest_Success(t *testing.T) {
 }
 
 func TestRunTest_AuthFailure(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 		_, _ = w.Write([]byte(`{"message": "Unauthorized"}`))
@@ -63,6 +65,7 @@ func TestRunTest_AuthFailure(t *testing.T) {
 }
 
 func TestRunTest_ServerError(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		_, _ = w.Write([]byte(`{"message": "Server error"}`))

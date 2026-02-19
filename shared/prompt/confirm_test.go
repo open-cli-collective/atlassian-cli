@@ -8,6 +8,7 @@ import (
 )
 
 func TestConfirm(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name    string
 		input   string
@@ -53,6 +54,7 @@ func TestConfirm(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			got, err := Confirm(strings.NewReader(tt.input))
 			if tt.wantErr {
 				testutil.RequireError(t, err)
@@ -65,6 +67,7 @@ func TestConfirm(t *testing.T) {
 }
 
 func TestConfirmOrForce(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name    string
 		force   bool
@@ -100,6 +103,7 @@ func TestConfirmOrForce(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			got, err := ConfirmOrForce(tt.force, strings.NewReader(tt.input))
 			if tt.wantErr {
 				testutil.RequireError(t, err)

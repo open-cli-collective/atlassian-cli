@@ -11,6 +11,7 @@ import (
 )
 
 func TestBuildMoveRequest(t *testing.T) {
+	t.Parallel()
 	req := BuildMoveRequest([]string{"PROJ-1", "PROJ-2"}, "TARGET", "10001", true)
 
 	testutil.True(t, req.SendBulkNotification)
@@ -25,12 +26,14 @@ func TestBuildMoveRequest(t *testing.T) {
 }
 
 func TestBuildMoveRequest_NoNotify(t *testing.T) {
+	t.Parallel()
 	req := BuildMoveRequest([]string{"PROJ-1"}, "TARGET", "10001", false)
 
 	testutil.False(t, req.SendBulkNotification)
 }
 
 func TestGetMoveTaskStatus(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testutil.Equal(t, r.URL.Path, "/rest/api/3/bulk/queue/task-123")
 		w.WriteHeader(http.StatusOK)
@@ -67,6 +70,7 @@ func TestGetMoveTaskStatus(t *testing.T) {
 }
 
 func TestGetMoveTaskStatus_EmptyID(t *testing.T) {
+	t.Parallel()
 	client, _ := New(ClientConfig{
 		URL:      "http://unused",
 		Email:    "test@example.com",
@@ -79,6 +83,7 @@ func TestGetMoveTaskStatus_EmptyID(t *testing.T) {
 }
 
 func TestGetMoveTaskStatus_WithFailures(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{
@@ -113,6 +118,7 @@ func TestGetMoveTaskStatus_WithFailures(t *testing.T) {
 }
 
 func TestMoveIssues(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testutil.Equal(t, r.Method, http.MethodPost)
 		testutil.Equal(t, r.URL.Path, "/rest/api/3/bulk/issues/move")
@@ -144,6 +150,7 @@ func TestMoveIssues(t *testing.T) {
 }
 
 func TestGetProjectIssueTypes(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testutil.Equal(t, r.URL.Path, "/rest/api/3/project/PROJ")
 		w.WriteHeader(http.StatusOK)
@@ -173,6 +180,7 @@ func TestGetProjectIssueTypes(t *testing.T) {
 }
 
 func TestGetProjectIssueTypes_EmptyProject(t *testing.T) {
+	t.Parallel()
 	client, _ := New(ClientConfig{
 		URL:      "http://unused",
 		Email:    "test@example.com",
@@ -185,6 +193,7 @@ func TestGetProjectIssueTypes_EmptyProject(t *testing.T) {
 }
 
 func TestGetProjectStatuses(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testutil.Equal(t, r.URL.Path, "/rest/api/3/project/PROJ/statuses")
 		w.WriteHeader(http.StatusOK)
@@ -219,6 +228,7 @@ func TestGetProjectStatuses(t *testing.T) {
 }
 
 func TestGetProjectStatuses_EmptyProject(t *testing.T) {
+	t.Parallel()
 	client, _ := New(ClientConfig{
 		URL:      "http://unused",
 		Email:    "test@example.com",

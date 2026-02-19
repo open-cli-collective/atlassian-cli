@@ -17,6 +17,7 @@ import (
 )
 
 func TestVerifyConnection_Success(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Verify the request
 		testutil.Equal(t, "/api/v2/spaces", r.URL.Path)
@@ -45,6 +46,7 @@ func TestVerifyConnection_Success(t *testing.T) {
 }
 
 func TestVerifyConnection_Unauthorized(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 		_, _ = w.Write([]byte(`{"message": "Unauthorized"}`))
@@ -64,6 +66,7 @@ func TestVerifyConnection_Unauthorized(t *testing.T) {
 }
 
 func TestVerifyConnection_Forbidden(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusForbidden)
 		_, _ = w.Write([]byte(`{"message": "Forbidden"}`))
@@ -83,6 +86,7 @@ func TestVerifyConnection_Forbidden(t *testing.T) {
 }
 
 func TestVerifyConnection_ServerError(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
@@ -100,6 +104,7 @@ func TestVerifyConnection_ServerError(t *testing.T) {
 }
 
 func TestVerifyConnection_NetworkError(t *testing.T) {
+	t.Parallel()
 	cfg := &config.Config{
 		URL:      "http://localhost:99999", // Non-existent server
 		Email:    "test@example.com",
@@ -112,6 +117,7 @@ func TestVerifyConnection_NetworkError(t *testing.T) {
 }
 
 func TestVerifyConnection_StatusCodes(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name       string
 		statusCode int
@@ -157,6 +163,7 @@ func TestVerifyConnection_StatusCodes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				w.WriteHeader(tt.statusCode)
 			}))
@@ -180,6 +187,7 @@ func TestVerifyConnection_StatusCodes(t *testing.T) {
 }
 
 func TestConfigFilePermissions(t *testing.T) {
+	t.Parallel()
 	// Create a temp directory
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, "config.yml")
@@ -205,6 +213,7 @@ func TestConfigFilePermissions(t *testing.T) {
 }
 
 func TestConfigFilePermissions_DirectoryCreation(t *testing.T) {
+	t.Parallel()
 	// Create a temp directory with nested path
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, "nested", "deeply", "config.yml")
@@ -230,6 +239,7 @@ func TestConfigFilePermissions_DirectoryCreation(t *testing.T) {
 }
 
 func TestInitCommand_Flags(t *testing.T) {
+	t.Parallel()
 	// Create root command with init registered
 	rootCmd := &cobra.Command{
 		Use:   "cfl",

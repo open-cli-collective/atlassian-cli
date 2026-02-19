@@ -13,7 +13,9 @@ import (
 )
 
 func TestRunUpdate(t *testing.T) {
+	t.Parallel()
 	t.Run("invalid JSON file", func(t *testing.T) {
+		t.Parallel()
 		dir := t.TempDir()
 		filePath := filepath.Join(dir, "bad.json")
 		err := os.WriteFile(filePath, []byte(`not valid json`), 0600)
@@ -32,6 +34,7 @@ func TestRunUpdate(t *testing.T) {
 	})
 
 	t.Run("file not found", func(t *testing.T) {
+		t.Parallel()
 		var stdout, stderr bytes.Buffer
 		opts := &root.Options{
 			Output: "table",

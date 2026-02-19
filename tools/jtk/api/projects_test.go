@@ -11,6 +11,7 @@ import (
 )
 
 func TestSearchProjects(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name       string
 		query      string
@@ -53,6 +54,7 @@ func TestSearchProjects(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				testutil.Equal(t, r.URL.Path, "/rest/api/3/project/search")
 				if tt.query != "" {

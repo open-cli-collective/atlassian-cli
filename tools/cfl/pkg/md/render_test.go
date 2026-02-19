@@ -8,6 +8,7 @@ import (
 )
 
 func TestRenderMacroToXML_SimpleTOC(t *testing.T) {
+	t.Parallel()
 	node := &MacroNode{Name: "toc"}
 	xml := RenderMacroToXML(node)
 
@@ -17,6 +18,7 @@ func TestRenderMacroToXML_SimpleTOC(t *testing.T) {
 }
 
 func TestRenderMacroToXML_TOCWithParams(t *testing.T) {
+	t.Parallel()
 	node := &MacroNode{
 		Name:       "toc",
 		Parameters: map[string]string{"maxLevel": "3", "minLevel": "1"},
@@ -28,6 +30,7 @@ func TestRenderMacroToXML_TOCWithParams(t *testing.T) {
 }
 
 func TestRenderMacroToXML_PanelWithBody(t *testing.T) {
+	t.Parallel()
 	node := &MacroNode{
 		Name: "info",
 		Body: "<p>Content</p>",
@@ -41,6 +44,7 @@ func TestRenderMacroToXML_PanelWithBody(t *testing.T) {
 }
 
 func TestRenderMacroToXML_CodeWithCDATA(t *testing.T) {
+	t.Parallel()
 	node := &MacroNode{
 		Name:       "code",
 		Parameters: map[string]string{"language": "go"},
@@ -55,6 +59,7 @@ func TestRenderMacroToXML_CodeWithCDATA(t *testing.T) {
 }
 
 func TestRenderMacroToXML_EscapesXML(t *testing.T) {
+	t.Parallel()
 	node := &MacroNode{
 		Name:       "toc",
 		Parameters: map[string]string{"title": "A & B <test>"},
@@ -65,6 +70,7 @@ func TestRenderMacroToXML_EscapesXML(t *testing.T) {
 }
 
 func TestRenderMacroToBracket_SimpleTOC(t *testing.T) {
+	t.Parallel()
 	node := &MacroNode{Name: "toc"}
 	bracket := RenderMacroToBracket(node)
 
@@ -72,6 +78,7 @@ func TestRenderMacroToBracket_SimpleTOC(t *testing.T) {
 }
 
 func TestRenderMacroToBracket_TOCWithParams(t *testing.T) {
+	t.Parallel()
 	node := &MacroNode{
 		Name:       "toc",
 		Parameters: map[string]string{"maxLevel": "3"},
@@ -84,6 +91,7 @@ func TestRenderMacroToBracket_TOCWithParams(t *testing.T) {
 }
 
 func TestRenderMacroToBracket_PanelWithBody(t *testing.T) {
+	t.Parallel()
 	node := &MacroNode{
 		Name:       "info",
 		Parameters: map[string]string{"title": "Important"},
@@ -98,6 +106,7 @@ func TestRenderMacroToBracket_PanelWithBody(t *testing.T) {
 }
 
 func TestRenderMacroToBracket_QuotedValues(t *testing.T) {
+	t.Parallel()
 	node := &MacroNode{
 		Name:       "info",
 		Parameters: map[string]string{"title": "Hello World"},
@@ -108,12 +117,14 @@ func TestRenderMacroToBracket_QuotedValues(t *testing.T) {
 }
 
 func TestRenderMacroToBracketOpen_SimpleTOC(t *testing.T) {
+	t.Parallel()
 	node := &MacroNode{Name: "toc"}
 	bracket := RenderMacroToBracketOpen(node)
 	testutil.Equal(t, "[TOC]", bracket)
 }
 
 func TestRenderMacroToBracketOpen_WithParams(t *testing.T) {
+	t.Parallel()
 	node := &MacroNode{
 		Name:       "info",
 		Parameters: map[string]string{"title": "Hello World"},
@@ -125,6 +136,7 @@ func TestRenderMacroToBracketOpen_WithParams(t *testing.T) {
 }
 
 func TestFormatPlaceholder(t *testing.T) {
+	t.Parallel()
 	testutil.Equal(t, "CFMACRO0END", FormatPlaceholder(0))
 	testutil.Equal(t, "CFMACRO42END", FormatPlaceholder(42))
 }

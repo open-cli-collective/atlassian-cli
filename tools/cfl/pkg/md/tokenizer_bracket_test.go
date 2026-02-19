@@ -7,12 +7,14 @@ import (
 )
 
 func TestTokenizeBrackets_EmptyInput(t *testing.T) {
+	t.Parallel()
 	tokens, err := TokenizeBrackets("")
 	testutil.RequireNoError(t, err)
 	testutil.Empty(t, tokens)
 }
 
 func TestTokenizeBrackets_PlainText(t *testing.T) {
+	t.Parallel()
 	tokens, err := TokenizeBrackets("Hello world")
 	testutil.RequireNoError(t, err)
 	testutil.Len(t, tokens, 1)
@@ -21,6 +23,7 @@ func TestTokenizeBrackets_PlainText(t *testing.T) {
 }
 
 func TestTokenizeBrackets_SimpleMacro(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name      string
 		input     string
@@ -42,6 +45,7 @@ func TestTokenizeBrackets_SimpleMacro(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			tokens, err := TokenizeBrackets(tt.input)
 			testutil.RequireNoError(t, err)
 			testutil.Len(t, tokens, tt.wantCount)
@@ -52,6 +56,7 @@ func TestTokenizeBrackets_SimpleMacro(t *testing.T) {
 }
 
 func TestTokenizeBrackets_WithParameters(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name       string
 		input      string
@@ -91,6 +96,7 @@ func TestTokenizeBrackets_WithParameters(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			tokens, err := TokenizeBrackets(tt.input)
 			testutil.RequireNoError(t, err)
 			testutil.Len(t, tokens, 1)
@@ -101,6 +107,7 @@ func TestTokenizeBrackets_WithParameters(t *testing.T) {
 }
 
 func TestTokenizeBrackets_OpenAndClose(t *testing.T) {
+	t.Parallel()
 	input := "[INFO]content[/INFO]"
 	tokens, err := TokenizeBrackets(input)
 	testutil.RequireNoError(t, err)
@@ -117,6 +124,7 @@ func TestTokenizeBrackets_OpenAndClose(t *testing.T) {
 }
 
 func TestTokenizeBrackets_WithSurroundingText(t *testing.T) {
+	t.Parallel()
 	input := "Before [TOC] after"
 	tokens, err := TokenizeBrackets(input)
 	testutil.RequireNoError(t, err)
@@ -133,6 +141,7 @@ func TestTokenizeBrackets_WithSurroundingText(t *testing.T) {
 }
 
 func TestTokenizeBrackets_NestedMacros(t *testing.T) {
+	t.Parallel()
 	input := "[INFO]outer [TOC] content[/INFO]"
 	tokens, err := TokenizeBrackets(input)
 	testutil.RequireNoError(t, err)
@@ -155,6 +164,7 @@ func TestTokenizeBrackets_NestedMacros(t *testing.T) {
 }
 
 func TestTokenizeBrackets_MultipleMacros(t *testing.T) {
+	t.Parallel()
 	input := "[INFO]first[/INFO]\n[WARNING]second[/WARNING]"
 	tokens, err := TokenizeBrackets(input)
 	testutil.RequireNoError(t, err)
@@ -182,6 +192,7 @@ func TestTokenizeBrackets_MultipleMacros(t *testing.T) {
 }
 
 func TestTokenizeBrackets_Positions(t *testing.T) {
+	t.Parallel()
 	input := "abc[TOC]def"
 	tokens, err := TokenizeBrackets(input)
 	testutil.RequireNoError(t, err)
@@ -193,6 +204,7 @@ func TestTokenizeBrackets_Positions(t *testing.T) {
 }
 
 func TestTokenizeBrackets_MalformedSyntax(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name        string
 		input       string
@@ -222,6 +234,7 @@ func TestTokenizeBrackets_MalformedSyntax(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			tokens, err := TokenizeBrackets(tt.input)
 			testutil.RequireNoError(t, err)
 			// Malformed macro syntax should be treated as text
@@ -238,6 +251,7 @@ func TestTokenizeBrackets_MalformedSyntax(t *testing.T) {
 }
 
 func TestTokenizeBrackets_BracketsInQuotedValues(t *testing.T) {
+	t.Parallel()
 	input := `[INFO title="[Important]"]content[/INFO]`
 	tokens, err := TokenizeBrackets(input)
 	testutil.RequireNoError(t, err)
@@ -249,6 +263,7 @@ func TestTokenizeBrackets_BracketsInQuotedValues(t *testing.T) {
 }
 
 func TestTokenizeBrackets_EscapedQuotes(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		input    string
@@ -273,6 +288,7 @@ func TestTokenizeBrackets_EscapedQuotes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			tokens, err := TokenizeBrackets(tt.input)
 			testutil.RequireNoError(t, err)
 			testutil.Len(t, tokens, 1)
@@ -289,6 +305,7 @@ func TestTokenizeBrackets_EscapedQuotes(t *testing.T) {
 }
 
 func TestTokenizeBrackets_MultilineBody(t *testing.T) {
+	t.Parallel()
 	input := `[INFO]
 This is
 multiline
@@ -305,6 +322,7 @@ content
 }
 
 func TestTokenizeBrackets_SelfClosing(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name       string
 		input      string
@@ -344,6 +362,7 @@ func TestTokenizeBrackets_SelfClosing(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			tokens, err := TokenizeBrackets(tt.input)
 			testutil.RequireNoError(t, err)
 			testutil.Len(t, tokens, tt.wantCount)
@@ -355,6 +374,7 @@ func TestTokenizeBrackets_SelfClosing(t *testing.T) {
 }
 
 func TestTokenizeBrackets_DeeplyNested(t *testing.T) {
+	t.Parallel()
 	input := "[INFO][WARNING][NOTE]deep[/NOTE][/WARNING][/INFO]"
 	tokens, err := TokenizeBrackets(input)
 	testutil.RequireNoError(t, err)
@@ -382,6 +402,7 @@ func TestTokenizeBrackets_DeeplyNested(t *testing.T) {
 }
 
 func TestTokenizeBrackets_SpecialCharactersInBody(t *testing.T) {
+	t.Parallel()
 	input := "[INFO]<script>alert('xss')</script> & < > \"[/INFO]"
 	tokens, err := TokenizeBrackets(input)
 	testutil.RequireNoError(t, err)
@@ -393,6 +414,7 @@ func TestTokenizeBrackets_SpecialCharactersInBody(t *testing.T) {
 }
 
 func TestTokenizeBrackets_WhitespaceHandling(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name      string
 		input     string
@@ -427,6 +449,7 @@ func TestTokenizeBrackets_WhitespaceHandling(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			tokens, err := TokenizeBrackets(tt.input)
 			testutil.RequireNoError(t, err)
 			testutil.GreaterOrEqual(t, len(tokens), 1)

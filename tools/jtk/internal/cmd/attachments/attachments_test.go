@@ -20,6 +20,7 @@ import (
 // --- list tests ---
 
 func TestNewListCmd(t *testing.T) {
+	t.Parallel()
 	opts := &root.Options{}
 	cmd := newListCmd(opts)
 
@@ -29,6 +30,7 @@ func TestNewListCmd(t *testing.T) {
 }
 
 func TestRunList_Table(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		response := struct {
 			Fields struct {

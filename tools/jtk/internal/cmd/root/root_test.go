@@ -11,6 +11,7 @@ import (
 )
 
 func TestNewCmd(t *testing.T) {
+	t.Parallel()
 	cmd, opts := NewCmd()
 
 	testutil.Equal(t, cmd.Use, "jtk")
@@ -30,6 +31,7 @@ func TestNewCmd(t *testing.T) {
 }
 
 func TestNewCmd_Flags(t *testing.T) {
+	t.Parallel()
 	cmd, _ := NewCmd()
 
 	tests := []struct {
@@ -43,6 +45,7 @@ func TestNewCmd_Flags(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			f := cmd.PersistentFlags().Lookup(tt.flag)
 			testutil.NotNil(t, f)
 		})
@@ -50,6 +53,7 @@ func TestNewCmd_Flags(t *testing.T) {
 }
 
 func TestNewCmd_FlagDefaults(t *testing.T) {
+	t.Parallel()
 	cmd, _ := NewCmd()
 
 	outputFlag := cmd.PersistentFlags().Lookup("output")
@@ -63,6 +67,7 @@ func TestNewCmd_FlagDefaults(t *testing.T) {
 }
 
 func TestOptions_View(t *testing.T) {
+	t.Parallel()
 	var stdout, stderr bytes.Buffer
 	opts := &Options{
 		Output:  "json",

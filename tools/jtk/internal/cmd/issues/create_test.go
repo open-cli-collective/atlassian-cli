@@ -16,6 +16,7 @@ import (
 )
 
 func TestRunCreate_RequestBodyNoDoubleQuoting(t *testing.T) {
+	t.Parallel()
 	var capturedBody []byte
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

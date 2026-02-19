@@ -149,7 +149,7 @@ func (c *Client) GetFieldContexts(ctx context.Context, fieldID string) (*FieldCo
 func (c *Client) GetDefaultFieldContext(ctx context.Context, fieldID string) (*FieldContext, error) {
 	result, err := c.GetFieldContexts(ctx, fieldID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("getting default field context for %s: %w", fieldID, err)
 	}
 
 	if len(result.Values) == 0 {

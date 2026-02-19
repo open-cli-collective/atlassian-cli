@@ -8,12 +8,14 @@ import (
 )
 
 func TestFromADF_EmptyInput(t *testing.T) {
+	t.Parallel()
 	result, err := FromADF("")
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, "", result)
 }
 
 func TestFromADF_EmptyDocument(t *testing.T) {
+	t.Parallel()
 	input := `{"type":"doc","version":1,"content":[]}`
 	result, err := FromADF(input)
 	testutil.RequireNoError(t, err)
@@ -21,12 +23,14 @@ func TestFromADF_EmptyDocument(t *testing.T) {
 }
 
 func TestFromADF_InvalidJSON(t *testing.T) {
+	t.Parallel()
 	_, err := FromADF("{invalid")
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "parsing ADF JSON")
 }
 
 func TestFromADF_Paragraph(t *testing.T) {
+	t.Parallel()
 	input := `{"type":"doc","version":1,"content":[{"type":"paragraph","content":[{"type":"text","text":"Hello world"}]}]}`
 	result, err := FromADF(input)
 	testutil.RequireNoError(t, err)
@@ -34,6 +38,7 @@ func TestFromADF_Paragraph(t *testing.T) {
 }
 
 func TestFromADF_Headings(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		level    int
@@ -50,6 +55,7 @@ func TestFromADF_Headings(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			input := adfDoc(adfHeading(tt.level, tt.text))
 			result, err := FromADF(input)
 			testutil.RequireNoError(t, err)
@@ -59,6 +65,7 @@ func TestFromADF_Headings(t *testing.T) {
 }
 
 func TestFromADF_Bold(t *testing.T) {
+	t.Parallel()
 	input := adfDoc(adfPara(adfMarkedText("bold text", "strong")))
 	result, err := FromADF(input)
 	testutil.RequireNoError(t, err)
@@ -66,6 +73,7 @@ func TestFromADF_Bold(t *testing.T) {
 }
 
 func TestFromADF_Italic(t *testing.T) {
+	t.Parallel()
 	input := adfDoc(adfPara(adfMarkedText("italic text", "em")))
 	result, err := FromADF(input)
 	testutil.RequireNoError(t, err)
@@ -73,6 +81,7 @@ func TestFromADF_Italic(t *testing.T) {
 }
 
 func TestFromADF_InlineCode(t *testing.T) {
+	t.Parallel()
 	input := adfDoc(adfPara(adfMarkedText("fmt.Println()", "code")))
 	result, err := FromADF(input)
 	testutil.RequireNoError(t, err)
@@ -80,6 +89,7 @@ func TestFromADF_InlineCode(t *testing.T) {
 }
 
 func TestFromADF_Strikethrough(t *testing.T) {
+	t.Parallel()
 	input := adfDoc(adfPara(adfMarkedText("deleted", "strike")))
 	result, err := FromADF(input)
 	testutil.RequireNoError(t, err)
@@ -87,6 +97,7 @@ func TestFromADF_Strikethrough(t *testing.T) {
 }
 
 func TestFromADF_Link(t *testing.T) {
+	t.Parallel()
 	input := adfDoc(adfPara(`{"type":"text","text":"click here","marks":[{"type":"link","attrs":{"href":"https://example.com"}}]}`))
 	result, err := FromADF(input)
 	testutil.RequireNoError(t, err)
@@ -94,6 +105,7 @@ func TestFromADF_Link(t *testing.T) {
 }
 
 func TestFromADF_MixedInline(t *testing.T) {
+	t.Parallel()
 	input := adfDoc(adfPara(
 		`{"type":"text","text":"Hello "}`,
 		adfMarkedText("world", "strong"),
@@ -106,6 +118,7 @@ func TestFromADF_MixedInline(t *testing.T) {
 }
 
 func TestFromADF_BulletList(t *testing.T) {
+	t.Parallel()
 	input := `{"type":"doc","version":1,"content":[{"type":"bulletList","content":[{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"Item one"}]}]},{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"Item two"}]}]},{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"Item three"}]}]}]}]}`
 	result, err := FromADF(input)
 	testutil.RequireNoError(t, err)
@@ -113,6 +126,7 @@ func TestFromADF_BulletList(t *testing.T) {
 }
 
 func TestFromADF_OrderedList(t *testing.T) {
+	t.Parallel()
 	input := `{"type":"doc","version":1,"content":[{"type":"orderedList","attrs":{"order":1},"content":[{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"First"}]}]},{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"Second"}]}]},{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"Third"}]}]}]}]}`
 	result, err := FromADF(input)
 	testutil.RequireNoError(t, err)
@@ -120,6 +134,7 @@ func TestFromADF_OrderedList(t *testing.T) {
 }
 
 func TestFromADF_NestedList(t *testing.T) {
+	t.Parallel()
 	input := `{"type":"doc","version":1,"content":[{"type":"bulletList","content":[{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"Outer"}]},{"type":"bulletList","content":[{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"Inner"}]}]}]}]}]}]}`
 	result, err := FromADF(input)
 	testutil.RequireNoError(t, err)
@@ -128,6 +143,7 @@ func TestFromADF_NestedList(t *testing.T) {
 }
 
 func TestFromADF_CodeBlock_NoLanguage(t *testing.T) {
+	t.Parallel()
 	input := `{"type":"doc","version":1,"content":[{"type":"codeBlock","content":[{"type":"text","text":"hello world"}]}]}`
 	result, err := FromADF(input)
 	testutil.RequireNoError(t, err)
@@ -135,6 +151,7 @@ func TestFromADF_CodeBlock_NoLanguage(t *testing.T) {
 }
 
 func TestFromADF_CodeBlock_WithLanguage(t *testing.T) {
+	t.Parallel()
 	input := `{"type":"doc","version":1,"content":[{"type":"codeBlock","attrs":{"language":"go"},"content":[{"type":"text","text":"fmt.Println(\"hello\")"}]}]}`
 	result, err := FromADF(input)
 	testutil.RequireNoError(t, err)
@@ -142,6 +159,7 @@ func TestFromADF_CodeBlock_WithLanguage(t *testing.T) {
 }
 
 func TestFromADF_Blockquote(t *testing.T) {
+	t.Parallel()
 	input := `{"type":"doc","version":1,"content":[{"type":"blockquote","content":[{"type":"paragraph","content":[{"type":"text","text":"Quoted text"}]}]}]}`
 	result, err := FromADF(input)
 	testutil.RequireNoError(t, err)
@@ -149,6 +167,7 @@ func TestFromADF_Blockquote(t *testing.T) {
 }
 
 func TestFromADF_HorizontalRule(t *testing.T) {
+	t.Parallel()
 	input := `{"type":"doc","version":1,"content":[{"type":"paragraph","content":[{"type":"text","text":"Above"}]},{"type":"rule"},{"type":"paragraph","content":[{"type":"text","text":"Below"}]}]}`
 	result, err := FromADF(input)
 	testutil.RequireNoError(t, err)
@@ -158,6 +177,7 @@ func TestFromADF_HorizontalRule(t *testing.T) {
 }
 
 func TestFromADF_Table(t *testing.T) {
+	t.Parallel()
 	input := `{"type":"doc","version":1,"content":[{"type":"table","attrs":{"layout":"default"},"content":[{"type":"tableRow","content":[{"type":"tableHeader","content":[{"type":"paragraph","content":[{"type":"text","text":"Name"}]}]},{"type":"tableHeader","content":[{"type":"paragraph","content":[{"type":"text","text":"Value"}]}]}]},{"type":"tableRow","content":[{"type":"tableCell","content":[{"type":"paragraph","content":[{"type":"text","text":"A"}]}]},{"type":"tableCell","content":[{"type":"paragraph","content":[{"type":"text","text":"1"}]}]}]}]}]}`
 	result, err := FromADF(input)
 	testutil.RequireNoError(t, err)
@@ -167,6 +187,7 @@ func TestFromADF_Table(t *testing.T) {
 }
 
 func TestFromADF_HardBreak(t *testing.T) {
+	t.Parallel()
 	input := adfDoc(adfPara(`{"type":"text","text":"Line one"}`, `{"type":"hardBreak"}`, `{"type":"text","text":"Line two"}`))
 	result, err := FromADF(input)
 	testutil.RequireNoError(t, err)
@@ -174,6 +195,7 @@ func TestFromADF_HardBreak(t *testing.T) {
 }
 
 func TestFromADF_Extension_TOC(t *testing.T) {
+	t.Parallel()
 	input := `{"type":"doc","version":1,"content":[{"type":"extension","attrs":{"extensionType":"com.atlassian.confluence.macro.core","extensionKey":"toc","layout":"default"}}]}`
 	result, err := FromADF(input)
 	testutil.RequireNoError(t, err)
@@ -181,6 +203,7 @@ func TestFromADF_Extension_TOC(t *testing.T) {
 }
 
 func TestFromADF_Extension_TOC_WithParams(t *testing.T) {
+	t.Parallel()
 	input := `{"type":"doc","version":1,"content":[{"type":"extension","attrs":{"extensionType":"com.atlassian.confluence.macro.core","extensionKey":"toc","parameters":{"maxLevel":{"value":"3"}},"layout":"default"}}]}`
 	result, err := FromADF(input)
 	testutil.RequireNoError(t, err)
@@ -188,6 +211,7 @@ func TestFromADF_Extension_TOC_WithParams(t *testing.T) {
 }
 
 func TestFromADF_Panel_Info(t *testing.T) {
+	t.Parallel()
 	input := `{"type":"doc","version":1,"content":[{"type":"panel","attrs":{"panelType":"info"},"content":[{"type":"paragraph","content":[{"type":"text","text":"Important info"}]}]}]}`
 	result, err := FromADF(input)
 	testutil.RequireNoError(t, err)
@@ -197,6 +221,7 @@ func TestFromADF_Panel_Info(t *testing.T) {
 }
 
 func TestFromADF_Panel_Warning(t *testing.T) {
+	t.Parallel()
 	input := `{"type":"doc","version":1,"content":[{"type":"panel","attrs":{"panelType":"warning"},"content":[{"type":"paragraph","content":[{"type":"text","text":"Be careful"}]}]}]}`
 	result, err := FromADF(input)
 	testutil.RequireNoError(t, err)
@@ -206,6 +231,7 @@ func TestFromADF_Panel_Warning(t *testing.T) {
 }
 
 func TestFromADF_BodiedExtension_Expand(t *testing.T) {
+	t.Parallel()
 	input := `{"type":"doc","version":1,"content":[{"type":"bodiedExtension","attrs":{"extensionType":"com.atlassian.confluence.macro.core","extensionKey":"expand","parameters":{"title":{"value":"Click me"}},"layout":"default"},"content":[{"type":"paragraph","content":[{"type":"text","text":"Hidden content"}]}]}]}`
 	result, err := FromADF(input)
 	testutil.RequireNoError(t, err)
@@ -215,6 +241,7 @@ func TestFromADF_BodiedExtension_Expand(t *testing.T) {
 }
 
 func TestFromADF_EmptyParagraph(t *testing.T) {
+	t.Parallel()
 	input := `{"type":"doc","version":1,"content":[{"type":"paragraph"}]}`
 	result, err := FromADF(input)
 	testutil.RequireNoError(t, err)
@@ -223,6 +250,7 @@ func TestFromADF_EmptyParagraph(t *testing.T) {
 }
 
 func TestFromADF_MultipleBlocks(t *testing.T) {
+	t.Parallel()
 	input := `{"type":"doc","version":1,"content":[{"type":"heading","attrs":{"level":1},"content":[{"type":"text","text":"Title"}]},{"type":"paragraph","content":[{"type":"text","text":"Some text"}]},{"type":"bulletList","content":[{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"Item"}]}]}]}]}`
 	result, err := FromADF(input)
 	testutil.RequireNoError(t, err)
@@ -232,6 +260,7 @@ func TestFromADF_MultipleBlocks(t *testing.T) {
 }
 
 func TestFromADF_UnknownNodeFallback(t *testing.T) {
+	t.Parallel()
 	input := `{"type":"doc","version":1,"content":[{"type":"customWidget","text":"fallback text"}]}`
 	result, err := FromADF(input)
 	testutil.RequireNoError(t, err)
@@ -239,6 +268,7 @@ func TestFromADF_UnknownNodeFallback(t *testing.T) {
 }
 
 func TestFromADF_InlineCard(t *testing.T) {
+	t.Parallel()
 	input := adfDoc(adfPara(`{"type":"inlineCard","attrs":{"url":"https://example.com/page"}}`))
 	result, err := FromADF(input)
 	testutil.RequireNoError(t, err)
@@ -246,6 +276,7 @@ func TestFromADF_InlineCard(t *testing.T) {
 }
 
 func TestFromADF_ListItem_ContinuationParagraph(t *testing.T) {
+	t.Parallel()
 	// List item with two paragraphs: first gets bullet prefix, second gets indent only.
 	input := `{"type":"doc","version":1,"content":[{"type":"bulletList","content":[{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"First para"}]},{"type":"paragraph","content":[{"type":"text","text":"Second para"}]}]}]}]}`
 	result, err := FromADF(input)
@@ -257,6 +288,7 @@ func TestFromADF_ListItem_ContinuationParagraph(t *testing.T) {
 }
 
 func TestFromADF_ListItem_NestedOrderedList(t *testing.T) {
+	t.Parallel()
 	// Bullet list item containing a nested ordered list.
 	input := `{"type":"doc","version":1,"content":[{"type":"bulletList","content":[{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"Outer"}]},{"type":"orderedList","attrs":{"order":1},"content":[{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"Inner"}]}]}]}]}]}]}`
 	result, err := FromADF(input)
@@ -266,6 +298,7 @@ func TestFromADF_ListItem_NestedOrderedList(t *testing.T) {
 }
 
 func TestFromADF_ListItem_WithCodeBlock(t *testing.T) {
+	t.Parallel()
 	// List item containing a paragraph followed by a code block.
 	input := `{"type":"doc","version":1,"content":[{"type":"bulletList","content":[{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"Item with code"}]},{"type":"codeBlock","attrs":{"language":"go"},"content":[{"type":"text","text":"fmt.Println()"}]}]}]}]}`
 	result, err := FromADF(input)
@@ -276,6 +309,7 @@ func TestFromADF_ListItem_WithCodeBlock(t *testing.T) {
 }
 
 func TestFromADF_ListItem_DefaultChild(t *testing.T) {
+	t.Parallel()
 	// List item containing a blockquote (falls through to the default case).
 	input := `{"type":"doc","version":1,"content":[{"type":"bulletList","content":[{"type":"listItem","content":[{"type":"blockquote","content":[{"type":"paragraph","content":[{"type":"text","text":"Quoted"}]}]}]}]}]}`
 	result, err := FromADF(input)

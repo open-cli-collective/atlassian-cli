@@ -16,6 +16,7 @@ import (
 )
 
 func TestNewTypesCmd(t *testing.T) {
+	t.Parallel()
 	opts := &root.Options{}
 	cmd := newTypesCmd(opts)
 
@@ -29,6 +30,7 @@ func TestNewTypesCmd(t *testing.T) {
 }
 
 func TestRunTypes_Success(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testutil.Equal(t, r.URL.Path, "/rest/api/3/project/TEST")
 
@@ -73,6 +75,7 @@ func TestRunTypes_Success(t *testing.T) {
 }
 
 func TestRunTypes_ProjectNotFound(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 		_, _ = w.Write([]byte(`{"errorMessages":["No project could be found with key 'INVALID'."]}`))
@@ -99,6 +102,7 @@ func TestRunTypes_ProjectNotFound(t *testing.T) {
 }
 
 func TestRunTypes_EmptyIssueTypes(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		response := api.ProjectDetail{
 			ID:         json.Number("10000"),
@@ -132,6 +136,7 @@ func TestRunTypes_EmptyIssueTypes(t *testing.T) {
 }
 
 func TestRunTypes_JSONOutput(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		response := api.ProjectDetail{
 			ID:   json.Number("10000"),
@@ -178,6 +183,7 @@ func TestRunTypes_JSONOutput(t *testing.T) {
 }
 
 func TestRunTypes_DescriptionTruncation(t *testing.T) {
+	t.Parallel()
 	longDesc := strings.Repeat("A", 100) // 100 character description
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

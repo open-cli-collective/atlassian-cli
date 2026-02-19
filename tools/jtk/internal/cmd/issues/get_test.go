@@ -16,6 +16,7 @@ import (
 )
 
 func TestNewGetCmd(t *testing.T) {
+	t.Parallel()
 	opts := &root.Options{}
 	cmd := newGetCmd(opts)
 
@@ -36,6 +37,7 @@ func newTestIssueServer(_ *testing.T, issue api.Issue) *httptest.Server {
 }
 
 func TestRunGet_TruncatesDescription(t *testing.T) {
+	t.Parallel()
 	longText := strings.Repeat("A", 300)
 	issue := api.Issue{
 		Key: "TEST-1",
@@ -75,6 +77,7 @@ func TestRunGet_TruncatesDescription(t *testing.T) {
 }
 
 func TestRunGet_FullDescription(t *testing.T) {
+	t.Parallel()
 	longText := strings.Repeat("A", 300)
 	issue := api.Issue{
 		Key: "TEST-1",
@@ -113,6 +116,7 @@ func TestRunGet_FullDescription(t *testing.T) {
 }
 
 func TestRunGet_ShortDescriptionNotTruncated(t *testing.T) {
+	t.Parallel()
 	issue := api.Issue{
 		Key: "TEST-1",
 		Fields: api.IssueFields{
@@ -150,6 +154,7 @@ func TestRunGet_ShortDescriptionNotTruncated(t *testing.T) {
 }
 
 func TestRunGet_JSONOutputIgnoresFullFlag(t *testing.T) {
+	t.Parallel()
 	issue := api.Issue{
 		Key: "TEST-1",
 		Fields: api.IssueFields{

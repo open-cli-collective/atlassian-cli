@@ -11,6 +11,7 @@ import (
 )
 
 func TestAPIError_Error(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name   string
 		apiErr *APIError
@@ -56,6 +57,7 @@ func TestAPIError_Error(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			got := tt.apiErr.Error()
 			testutil.Equal(t, got, tt.want)
 		})
@@ -63,6 +65,7 @@ func TestAPIError_Error(t *testing.T) {
 }
 
 func TestParseAPIError(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name       string
 		statusCode int
@@ -130,6 +133,7 @@ func TestParseAPIError(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			// Use shared ParseAPIError which takes (statusCode, body)
 			err := sharederrors.ParseAPIError(tt.statusCode, []byte(tt.body))
 			testutil.True(t, errors.Is(err, tt.wantErr), fmt.Sprintf("expected %v, got %v", tt.wantErr, err))
@@ -142,6 +146,7 @@ func TestParseAPIError(t *testing.T) {
 }
 
 func TestParseAPIError_418_NonStandard(t *testing.T) {
+	t.Parallel()
 	// Test a non-standard status code that isn't explicitly handled
 	body := `{"errorMessages": ["I'm a teapot"]}`
 
@@ -155,6 +160,7 @@ func TestParseAPIError_418_NonStandard(t *testing.T) {
 }
 
 func TestIsNotFound(t *testing.T) {
+	t.Parallel()
 	testutil.True(t, sharederrors.IsNotFound(sharederrors.ErrNotFound))
 	testutil.True(t, sharederrors.IsNotFound(fmt.Errorf("wrapped: %w", sharederrors.ErrNotFound)))
 	testutil.False(t, sharederrors.IsNotFound(sharederrors.ErrUnauthorized))
@@ -162,12 +168,14 @@ func TestIsNotFound(t *testing.T) {
 }
 
 func TestIsUnauthorized(t *testing.T) {
+	t.Parallel()
 	testutil.True(t, sharederrors.IsUnauthorized(sharederrors.ErrUnauthorized))
 	testutil.False(t, sharederrors.IsUnauthorized(sharederrors.ErrNotFound))
 	testutil.False(t, sharederrors.IsUnauthorized(nil))
 }
 
 func TestIsForbidden(t *testing.T) {
+	t.Parallel()
 	testutil.True(t, sharederrors.IsForbidden(sharederrors.ErrForbidden))
 	testutil.False(t, sharederrors.IsForbidden(sharederrors.ErrNotFound))
 	testutil.False(t, sharederrors.IsForbidden(nil))

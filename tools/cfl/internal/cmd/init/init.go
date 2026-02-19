@@ -171,7 +171,7 @@ func runInit(ctx context.Context, prefillURL, prefillEmail string, noVerify bool
 		_, _ = fmt.Fprint(os.Stderr, "Verifying connection... ")
 		if err := verifyConnection(ctx, cfg); err != nil {
 			_, _ = fmt.Fprintln(os.Stderr, "failed!")
-			return fmt.Errorf("connection verification failed: %w", err)
+			return fmt.Errorf("verifying connection: %w", err)
 		}
 		_, _ = fmt.Fprintln(os.Stderr, "success!")
 	}

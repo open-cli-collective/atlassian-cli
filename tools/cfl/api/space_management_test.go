@@ -11,6 +11,7 @@ import (
 )
 
 func TestClient_CreateSpace(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testutil.Equal(t, "POST", r.Method)
 		testutil.Equal(t, "/api/v2/spaces", r.URL.Path)
@@ -50,6 +51,7 @@ func TestClient_CreateSpace(t *testing.T) {
 }
 
 func TestClient_CreateSpace_WithDescription(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req CreateSpaceRequest
 		err := json.NewDecoder(r.Body).Decode(&req)
@@ -85,6 +87,7 @@ func TestClient_CreateSpace_WithDescription(t *testing.T) {
 }
 
 func TestClient_CreateSpace_Error(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		_, _ = w.Write([]byte(`{"message": "Space key already exists"}`))
@@ -101,6 +104,7 @@ func TestClient_CreateSpace_Error(t *testing.T) {
 }
 
 func TestClient_UpdateSpace(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testutil.Equal(t, "PUT", r.Method)
 		testutil.Equal(t, "/rest/api/space/TEST", r.URL.Path)
@@ -139,6 +143,7 @@ func TestClient_UpdateSpace(t *testing.T) {
 }
 
 func TestClient_UpdateSpace_WithDescription(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req UpdateSpaceRequest
 		err := json.NewDecoder(r.Body).Decode(&req)
@@ -176,6 +181,7 @@ func TestClient_UpdateSpace_WithDescription(t *testing.T) {
 }
 
 func TestClient_UpdateSpace_NotFound(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 		_, _ = w.Write([]byte(`{"message": "Space not found"}`))
@@ -192,6 +198,7 @@ func TestClient_UpdateSpace_NotFound(t *testing.T) {
 }
 
 func TestClient_UpdateSpace_NoDescription(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{
@@ -216,6 +223,7 @@ func TestClient_UpdateSpace_NoDescription(t *testing.T) {
 }
 
 func TestClient_DeleteSpace(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testutil.Equal(t, "DELETE", r.Method)
 		testutil.Equal(t, "/rest/api/space/TEST", r.URL.Path)
@@ -231,6 +239,7 @@ func TestClient_DeleteSpace(t *testing.T) {
 }
 
 func TestClient_DeleteSpace_NotFound(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 		_, _ = w.Write([]byte(`{"message": "Space not found"}`))
@@ -244,6 +253,7 @@ func TestClient_DeleteSpace_NotFound(t *testing.T) {
 }
 
 func TestV1SpaceResponse_ToSpace(t *testing.T) {
+	t.Parallel()
 	response := &v1SpaceResponse{
 		ID:   123456,
 		Key:  "TEST",
@@ -266,6 +276,7 @@ func TestV1SpaceResponse_ToSpace(t *testing.T) {
 }
 
 func TestV1SpaceResponse_ToSpace_EmptyDescription(t *testing.T) {
+	t.Parallel()
 	response := &v1SpaceResponse{
 		ID:   123456,
 		Key:  "TEST",

@@ -1,3 +1,4 @@
+// Package dashboards provides CLI commands for managing Jira dashboards.
 package dashboards
 
 import (
@@ -39,7 +40,7 @@ func newListCmd(opts *root.Options) *cobra.Command {
 		Example: `  jtk dashboards list
   jtk dashboards list --search "Sprint"
   jtk dashboards list --max 10`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, _ []string) error {
 			return runList(opts, search, maxResults)
 		},
 	}
@@ -101,7 +102,7 @@ func newGetCmd(opts *root.Options) *cobra.Command {
 		Example: `  jtk dashboards get 10001
   jtk dashboards get 10001 -o json`,
 		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, args []string) error {
 			return runGet(opts, args[0])
 		},
 	}
@@ -180,7 +181,7 @@ func newCreateCmd(opts *root.Options) *cobra.Command {
 		Long:  "Create a new Jira dashboard.",
 		Example: `  jtk dashboards create --name "My Dashboard"
   jtk dashboards create --name "Sprint Board" --description "Sprint tracking"`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, _ []string) error {
 			return runCreate(opts, name, description)
 		},
 	}
@@ -231,7 +232,7 @@ func newDeleteCmd(opts *root.Options) *cobra.Command {
 		Long:    "Delete a Jira dashboard by its ID.",
 		Example: `  jtk dashboards delete 10001`,
 		Args:    cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, args []string) error {
 			return runDelete(opts, args[0])
 		},
 	}
@@ -280,7 +281,7 @@ func newGadgetsListCmd(opts *root.Options) *cobra.Command {
 		Example: `  jtk dashboards gadgets list 10001
   jtk dashboards gadgets list 10001 -o json`,
 		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, args []string) error {
 			return runGadgetsList(opts, args[0])
 		},
 	}
@@ -333,7 +334,7 @@ func newGadgetsRemoveCmd(opts *root.Options) *cobra.Command {
 		Long:    "Remove a gadget from a dashboard by its ID.",
 		Example: `  jtk dashboards gadgets remove 10001 42`,
 		Args:    cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, args []string) error {
 			gadgetID, err := strconv.Atoi(args[1])
 			if err != nil {
 				return fmt.Errorf("invalid gadget ID: %s", args[1])

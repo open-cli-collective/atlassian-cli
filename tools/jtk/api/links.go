@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/url"
@@ -62,7 +63,7 @@ func (c *Client) GetIssueLinks(issueKey string) ([]IssueLink, error) {
 		map[string]string{"fields": "issuelinks"},
 	)
 
-	body, err := c.get(urlStr)
+	body, err := c.Get(context.Background(), urlStr)
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +74,7 @@ func (c *Client) GetIssueLinks(issueKey string) ([]IssueLink, error) {
 		} `json:"fields"`
 	}
 	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, fmt.Errorf("failed to parse issue links: %w", err)
+		return nil, fmt.Errorf("parsing issue links: %w", err)
 	}
 
 	return result.Fields.IssueLinks, nil
@@ -95,7 +96,7 @@ func (c *Client) CreateIssueLink(outwardKey, inwardKey, linkTypeName string) err
 		InwardIssue:  IssueRef{Key: inwardKey},
 	}
 
-	_, err := c.post(urlStr, req)
+	_, err := c.Post(context.Background(), urlStr, req)
 	return err
 }
 
@@ -106,7 +107,7 @@ func (c *Client) DeleteIssueLink(linkID string) error {
 	}
 
 	urlStr := fmt.Sprintf("%s/issueLink/%s", c.BaseURL, url.PathEscape(linkID))
-	_, err := c.delete(urlStr)
+	_, err := c.Delete(context.Background(), urlStr)
 	return err
 }
 
@@ -114,7 +115,7 @@ func (c *Client) DeleteIssueLink(linkID string) error {
 func (c *Client) GetIssueLinkTypes() ([]IssueLinkType, error) {
 	urlStr := fmt.Sprintf("%s/issueLinkType", c.BaseURL)
 
-	body, err := c.get(urlStr)
+	body, err := c.Get(context.Background(), urlStr)
 	if err != nil {
 		return nil, err
 	}
@@ -123,7 +124,7 @@ func (c *Client) GetIssueLinkTypes() ([]IssueLinkType, error) {
 		IssueLinkTypes []IssueLinkType `json:"issueLinkTypes"`
 	}
 	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, fmt.Errorf("failed to parse link types: %w", err)
+		return nil, fmt.Errorf("parsing link types: %w", err)
 	}
 
 	return result.IssueLinkTypes, nil

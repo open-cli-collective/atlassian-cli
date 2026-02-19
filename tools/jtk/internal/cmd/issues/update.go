@@ -76,7 +76,7 @@ func runUpdate(ctx context.Context, opts *root.Options, issueKey, summary, descr
 
 	// Handle type change via the move API
 	if issueType != "" {
-		if err := changeIssueType(client, v, issueKey, issueType); err != nil {
+		if err := changeIssueType(ctx, client, v, issueKey, issueType); err != nil {
 			return err
 		}
 	}
@@ -152,12 +152,12 @@ func runUpdate(ctx context.Context, opts *root.Options, issueKey, summary, descr
 	return nil
 }
 
-func changeIssueType(client *api.Client, v interface {
+func changeIssueType(ctx context.Context, client *api.Client, v interface {
 	Info(string, ...any)
 	Success(string, ...any)
 }, issueKey, targetTypeName string) error {
 	// Get the issue to find its project
-	issue, err := client.GetIssue(issueKey)
+	issue, err := client.GetIssue(ctx, issueKey)
 	if err != nil {
 		return fmt.Errorf("failed to get issue: %w", err)
 	}
@@ -174,7 +174,7 @@ func changeIssueType(client *api.Client, v interface {
 	}
 
 	// Get available issue types in the project
-	issueTypes, err := client.GetProjectIssueTypes(projectKey)
+	issueTypes, err := client.GetProjectIssueTypes(ctx, projectKey)
 	if err != nil {
 		return fmt.Errorf("failed to get project issue types: %w", err)
 	}
@@ -202,7 +202,7 @@ func changeIssueType(client *api.Client, v interface {
 	// Use the move API to change the type within the same project
 	req := api.BuildMoveRequest([]string{issueKey}, projectKey, targetIssueType.ID, false)
 
-	resp, err := client.MoveIssues(req)
+	resp, err := client.MoveIssues(ctx, req)
 	if err != nil {
 		if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "not found") {
 			return fmt.Errorf("type change failed - this feature requires Jira Cloud")
@@ -212,7 +212,7 @@ func changeIssueType(client *api.Client, v interface {
 
 	// Wait for completion
 	for {
-		status, err := client.GetMoveTaskStatus(resp.TaskID)
+		status, err := client.GetMoveTaskStatus(ctx, resp.TaskID)
 		if err != nil {
 			return fmt.Errorf("failed to get task status: %w", err)
 		}

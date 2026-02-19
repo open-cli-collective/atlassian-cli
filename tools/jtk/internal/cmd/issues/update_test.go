@@ -108,7 +108,7 @@ func TestRunUpdate_TypeChange(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.URL.Path == "/rest/api/3/issue/PROJ-123" && r.Method == "GET":
-			json.NewEncoder(w).Encode(api.Issue{
+			_ = json.NewEncoder(w).Encode(api.Issue{
 				Key: "PROJ-123",
 				ID:  "10001",
 				Fields: api.IssueFields{
@@ -117,7 +117,7 @@ func TestRunUpdate_TypeChange(t *testing.T) {
 				},
 			})
 		case r.URL.Path == "/rest/api/3/project/PROJ" && r.Method == "GET":
-			json.NewEncoder(w).Encode(struct {
+			_ = json.NewEncoder(w).Encode(struct {
 				IssueTypes []api.IssueType `json:"issueTypes"`
 			}{
 				IssueTypes: []api.IssueType{
@@ -129,9 +129,9 @@ func TestRunUpdate_TypeChange(t *testing.T) {
 		case r.URL.Path == "/rest/api/3/bulk/issues/move" && r.Method == "POST":
 			moveBody, _ = io.ReadAll(r.Body)
 			moveCompleted = true
-			json.NewEncoder(w).Encode(api.MoveIssuesResponse{TaskID: "task-123"})
+			_ = json.NewEncoder(w).Encode(api.MoveIssuesResponse{TaskID: "task-123"})
 		case r.URL.Path == "/rest/api/3/bulk/queue/task-123" && r.Method == "GET":
-			json.NewEncoder(w).Encode(api.MoveTaskStatus{
+			_ = json.NewEncoder(w).Encode(api.MoveTaskStatus{
 				TaskID:   "task-123",
 				Status:   "COMPLETE",
 				Progress: 100,
@@ -176,7 +176,7 @@ func TestRunUpdate_TypeChange(t *testing.T) {
 func TestRunUpdate_TypeAlreadyCorrect(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/rest/api/3/issue/PROJ-123" && r.Method == "GET" {
-			json.NewEncoder(w).Encode(api.Issue{
+			_ = json.NewEncoder(w).Encode(api.Issue{
 				Key: "PROJ-123",
 				ID:  "10001",
 				Fields: api.IssueFields{

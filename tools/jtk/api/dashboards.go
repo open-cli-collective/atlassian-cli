@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/url"
@@ -27,13 +28,13 @@ type SharePerm struct {
 
 // DashboardGadget represents a gadget on a dashboard
 type DashboardGadget struct {
-	ID       int                    `json:"id"`
-	Title    string                 `json:"title"`
-	ModuleID string                 `json:"moduleKey,omitempty"`
-	URI      string                 `json:"uri,omitempty"`
-	Color    string                 `json:"color,omitempty"`
-	Position DashboardGadgetPos     `json:"position,omitempty"`
-	Props    map[string]interface{} `json:"properties,omitempty"`
+	ID       int                `json:"id"`
+	Title    string             `json:"title"`
+	ModuleID string             `json:"moduleKey,omitempty"`
+	URI      string             `json:"uri,omitempty"`
+	Color    string             `json:"color,omitempty"`
+	Position DashboardGadgetPos `json:"position,omitempty"`
+	Props    map[string]any     `json:"properties,omitempty"`
 }
 
 // DashboardGadgetPos represents the position of a gadget on a dashboard
@@ -63,6 +64,14 @@ type CreateDashboardRequest struct {
 	SharePermissions []SharePerm `json:"sharePermissions"`
 }
 
+// DashboardSearchResponse represents the response from dashboard search
+type DashboardSearchResponse struct {
+	StartAt    int         `json:"startAt"`
+	MaxResults int         `json:"maxResults"`
+	Total      int         `json:"total"`
+	Values     []Dashboard `json:"values"`
+}
+
 // GetDashboards returns a paginated list of dashboards
 func (c *Client) GetDashboards(startAt, maxResults int) (*DashboardsResponse, error) {
 	params := map[string]string{}
@@ -75,14 +84,14 @@ func (c *Client) GetDashboards(startAt, maxResults int) (*DashboardsResponse, er
 
 	urlStr := buildURL(fmt.Sprintf("%s/dashboard", c.BaseURL), params)
 
-	body, err := c.get(urlStr)
+	body, err := c.Get(context.Background(), urlStr)
 	if err != nil {
 		return nil, err
 	}
 
 	var result DashboardsResponse
 	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, fmt.Errorf("failed to parse dashboards: %w", err)
+		return nil, fmt.Errorf("parsing dashboards: %w", err)
 	}
 
 	return &result, nil
@@ -100,25 +109,17 @@ func (c *Client) SearchDashboards(name string, maxResults int) (*DashboardSearch
 
 	urlStr := buildURL(fmt.Sprintf("%s/dashboard/search", c.BaseURL), params)
 
-	body, err := c.get(urlStr)
+	body, err := c.Get(context.Background(), urlStr)
 	if err != nil {
 		return nil, err
 	}
 
 	var result DashboardSearchResponse
 	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, fmt.Errorf("failed to parse dashboard search: %w", err)
+		return nil, fmt.Errorf("parsing dashboard search: %w", err)
 	}
 
 	return &result, nil
-}
-
-// DashboardSearchResponse represents the response from dashboard search
-type DashboardSearchResponse struct {
-	StartAt    int         `json:"startAt"`
-	MaxResults int         `json:"maxResults"`
-	Total      int         `json:"total"`
-	Values     []Dashboard `json:"values"`
 }
 
 // GetDashboard returns a dashboard by ID
@@ -129,14 +130,14 @@ func (c *Client) GetDashboard(dashboardID string) (*Dashboard, error) {
 
 	urlStr := fmt.Sprintf("%s/dashboard/%s", c.BaseURL, url.PathEscape(dashboardID))
 
-	body, err := c.get(urlStr)
+	body, err := c.Get(context.Background(), urlStr)
 	if err != nil {
 		return nil, err
 	}
 
 	var dash Dashboard
 	if err := json.Unmarshal(body, &dash); err != nil {
-		return nil, fmt.Errorf("failed to parse dashboard: %w", err)
+		return nil, fmt.Errorf("parsing dashboard: %w", err)
 	}
 
 	return &dash, nil
@@ -146,14 +147,14 @@ func (c *Client) GetDashboard(dashboardID string) (*Dashboard, error) {
 func (c *Client) CreateDashboard(req CreateDashboardRequest) (*Dashboard, error) {
 	urlStr := fmt.Sprintf("%s/dashboard", c.BaseURL)
 
-	body, err := c.post(urlStr, req)
+	body, err := c.Post(context.Background(), urlStr, req)
 	if err != nil {
 		return nil, err
 	}
 
 	var dash Dashboard
 	if err := json.Unmarshal(body, &dash); err != nil {
-		return nil, fmt.Errorf("failed to parse dashboard: %w", err)
+		return nil, fmt.Errorf("parsing dashboard: %w", err)
 	}
 
 	return &dash, nil
@@ -166,7 +167,7 @@ func (c *Client) DeleteDashboard(dashboardID string) error {
 	}
 
 	urlStr := fmt.Sprintf("%s/dashboard/%s", c.BaseURL, url.PathEscape(dashboardID))
-	_, err := c.delete(urlStr)
+	_, err := c.Delete(context.Background(), urlStr)
 	return err
 }
 
@@ -178,14 +179,14 @@ func (c *Client) GetDashboardGadgets(dashboardID string) (*DashboardGadgetsRespo
 
 	urlStr := fmt.Sprintf("%s/dashboard/%s/gadget", c.BaseURL, url.PathEscape(dashboardID))
 
-	body, err := c.get(urlStr)
+	body, err := c.Get(context.Background(), urlStr)
 	if err != nil {
 		return nil, err
 	}
 
 	var result DashboardGadgetsResponse
 	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, fmt.Errorf("failed to parse gadgets: %w", err)
+		return nil, fmt.Errorf("parsing gadgets: %w", err)
 	}
 
 	return &result, nil
@@ -198,6 +199,6 @@ func (c *Client) RemoveDashboardGadget(dashboardID string, gadgetID int) error {
 	}
 
 	urlStr := fmt.Sprintf("%s/dashboard/%s/gadget/%d", c.BaseURL, url.PathEscape(dashboardID), gadgetID)
-	_, err := c.delete(urlStr)
+	_, err := c.Delete(context.Background(), urlStr)
 	return err
 }

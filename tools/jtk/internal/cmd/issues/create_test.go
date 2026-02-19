@@ -484,7 +484,7 @@ func TestRunCreate_DescriptionEscapeSequences(t *testing.T) {
 		if r.URL.Path == "/rest/api/3/issue" && r.Method == "POST" {
 			capturedBody, _ = io.ReadAll(r.Body)
 			w.WriteHeader(http.StatusCreated)
-			json.NewEncoder(w).Encode(api.Issue{Key: "TEST-10", ID: "10010"})
+			_ = json.NewEncoder(w).Encode(api.Issue{Key: "TEST-10", ID: "10010"})
 			return
 		}
 		w.WriteHeader(http.StatusNotFound)
@@ -496,7 +496,7 @@ func TestRunCreate_DescriptionEscapeSequences(t *testing.T) {
 		Email:    "test@example.com",
 		APIToken: "token",
 	})
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
 	opts := &root.Options{
@@ -508,22 +508,22 @@ func TestRunCreate_DescriptionEscapeSequences(t *testing.T) {
 
 	// Simulate what the shell passes when user types: --description "First paragraph.\n\nSecond paragraph."
 	// The shell delivers literal backslash-n, not actual newlines.
-	err = runCreate(opts, "PROJ", "Task", "Test", `First paragraph.\n\nSecond paragraph.`, "", "", nil)
-	require.NoError(t, err)
+	err = runCreate(context.Background(), opts, "PROJ", "Task", "Test", `First paragraph.\n\nSecond paragraph.`, "", "", nil)
+	testutil.RequireNoError(t, err)
 
-	require.NotEmpty(t, capturedBody)
-	var reqBody map[string]interface{}
+	testutil.NotEmpty(t, capturedBody)
+	var reqBody map[string]any
 	err = json.Unmarshal(capturedBody, &reqBody)
-	require.NoError(t, err)
+	testutil.RequireNoError(t, err)
 
-	fields := reqBody["fields"].(map[string]interface{})
-	desc := fields["description"].(map[string]interface{})
-	assert.Equal(t, "doc", desc["type"])
+	fields := reqBody["fields"].(map[string]any)
+	desc := fields["description"].(map[string]any)
+	testutil.Equal(t, desc["type"], "doc")
 
 	// With escape interpretation, the description should produce multiple paragraphs
 	// (not a single paragraph with literal \n text)
-	content := desc["content"].([]interface{})
-	assert.GreaterOrEqual(t, len(content), 2, "escaped newlines should produce multiple ADF nodes, not one paragraph with literal \\n")
+	content := desc["content"].([]any)
+	testutil.GreaterOrEqual(t, len(content), 2)
 }
 
 func TestRunCreate_WithoutAssignee(t *testing.T) {

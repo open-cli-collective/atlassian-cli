@@ -1,3 +1,4 @@
+// Package text provides text manipulation utilities.
 package text
 
 import "strings"

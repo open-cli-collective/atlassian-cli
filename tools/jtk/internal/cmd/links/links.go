@@ -1,3 +1,4 @@
+// Package links provides CLI commands for managing Jira issue links.
 package links
 
 import (
@@ -35,7 +36,7 @@ func newListCmd(opts *root.Options) *cobra.Command {
 		Example: `  jtk links list PROJ-123
   jtk links list PROJ-123 -o json`,
 		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, args []string) error {
 			return runList(opts, args[0])
 		},
 	}
@@ -114,7 +115,7 @@ For example, "jtk links create A B --type Blocks" means "A blocks B".`,
   # A is cloned by B
   jtk links create PROJ-123 PROJ-456 --type Cloners`,
 		Args: cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, args []string) error {
 			return runCreate(opts, args[0], args[1], linkType)
 		},
 	}
@@ -181,7 +182,7 @@ func newDeleteCmd(opts *root.Options) *cobra.Command {
 		Example: `  jtk links delete 10001
   jtk links list PROJ-123   # find link IDs first`,
 		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, args []string) error {
 			return runDelete(opts, args[0])
 		},
 	}
@@ -216,7 +217,7 @@ func newTypesCmd(opts *root.Options) *cobra.Command {
 		Long:  "List all available issue link types in the Jira instance.",
 		Example: `  jtk links types
   jtk links types -o json`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, _ []string) error {
 			return runTypes(opts)
 		},
 	}

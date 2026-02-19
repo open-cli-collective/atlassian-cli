@@ -75,7 +75,7 @@ func runSearch(ctx context.Context, opts *root.Options, query string, maxResults
 	}
 
 	headers := []string{"ACCOUNT_ID", "NAME", "EMAIL", "ACTIVE"}
-	var rows [][]string
+	rows := make([][]string, 0, len(users))
 
 	for _, u := range users {
 		active := "yes"

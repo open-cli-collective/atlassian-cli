@@ -10,7 +10,7 @@ import (
 // jsonEq compares two JSON strings for structural equality.
 func jsonEq(t *testing.T, got, want string) {
 	t.Helper()
-	var gotVal, wantVal interface{}
+	var gotVal, wantVal any
 	if err := json.Unmarshal([]byte(got), &gotVal); err != nil {
 		t.Fatalf("got is not valid JSON: %v", err)
 	}
@@ -391,7 +391,7 @@ func TestComment_UnmarshalJSON(t *testing.T) {
 
 func TestCreateIssueRequest_MarshalJSON(t *testing.T) {
 	req := CreateIssueRequest{
-		Fields: map[string]interface{}{
+		Fields: map[string]any{
 			"project":   map[string]string{"key": "PROJ"},
 			"issuetype": map[string]string{"name": "Task"},
 			"summary":   "New task",
@@ -401,20 +401,20 @@ func TestCreateIssueRequest_MarshalJSON(t *testing.T) {
 	data, err := json.Marshal(req)
 	testutil.RequireNoError(t, err)
 
-	var result map[string]interface{}
+	var result map[string]any
 	err = json.Unmarshal(data, &result)
 	testutil.RequireNoError(t, err)
 
-	fields := result["fields"].(map[string]interface{})
+	fields := result["fields"].(map[string]any)
 	testutil.Equal(t, fields["summary"], "New task")
-	project := fields["project"].(map[string]interface{})
+	project := fields["project"].(map[string]any)
 	testutil.Equal(t, project["key"], "PROJ")
 }
 
 func TestTransitionRequest_MarshalJSON(t *testing.T) {
 	req := TransitionRequest{
 		Transition: TransitionID{ID: "21"},
-		Fields: map[string]interface{}{
+		Fields: map[string]any{
 			"resolution": map[string]string{"name": "Done"},
 		},
 	}
@@ -422,15 +422,15 @@ func TestTransitionRequest_MarshalJSON(t *testing.T) {
 	data, err := json.Marshal(req)
 	testutil.RequireNoError(t, err)
 
-	var result map[string]interface{}
+	var result map[string]any
 	err = json.Unmarshal(data, &result)
 	testutil.RequireNoError(t, err)
 
-	transition := result["transition"].(map[string]interface{})
+	transition := result["transition"].(map[string]any)
 	testutil.Equal(t, transition["id"], "21")
 
-	fields := result["fields"].(map[string]interface{})
-	resolution := fields["resolution"].(map[string]interface{})
+	fields := result["fields"].(map[string]any)
+	resolution := fields["resolution"].(map[string]any)
 	testutil.Equal(t, resolution["name"], "Done")
 }
 
@@ -457,10 +457,10 @@ func TestIssueFields_CustomFields(t *testing.T) {
 	testutil.NotNil(t, fields.CustomFields)
 	testutil.Equal(t, fields.CustomFields["customfield_10001"], float64(5))
 
-	customField10002 := fields.CustomFields["customfield_10002"].(map[string]interface{})
+	customField10002 := fields.CustomFields["customfield_10002"].(map[string]any)
 	testutil.Equal(t, customField10002["value"], "Feature")
 
-	customField10003 := fields.CustomFields["customfield_10003"].([]interface{})
+	customField10003 := fields.CustomFields["customfield_10003"].([]any)
 	testutil.Len(t, customField10003, 2)
 }
 
@@ -468,7 +468,7 @@ func TestIssueFields_MarshalJSON_IncludesCustomFields(t *testing.T) {
 	fields := IssueFields{
 		Summary: "Test Issue",
 		Status:  &Status{ID: "1", Name: "Open"},
-		CustomFields: map[string]interface{}{
+		CustomFields: map[string]any{
 			"customfield_10001": 5,
 			"customfield_10002": map[string]string{"value": "Feature"},
 		},
@@ -477,7 +477,7 @@ func TestIssueFields_MarshalJSON_IncludesCustomFields(t *testing.T) {
 	data, err := json.Marshal(fields)
 	testutil.RequireNoError(t, err)
 
-	var result map[string]interface{}
+	var result map[string]any
 	err = json.Unmarshal(data, &result)
 	testutil.RequireNoError(t, err)
 
@@ -486,7 +486,7 @@ func TestIssueFields_MarshalJSON_IncludesCustomFields(t *testing.T) {
 
 	// Custom fields should be included
 	testutil.Equal(t, result["customfield_10001"], float64(5))
-	customField10002 := result["customfield_10002"].(map[string]interface{})
+	customField10002 := result["customfield_10002"].(map[string]any)
 	testutil.Equal(t, customField10002["value"], "Feature")
 }
 
@@ -497,7 +497,7 @@ func TestExtractText_Headings(t *testing.T) {
 		Content: []*ADFNode{
 			{
 				Type:  "heading",
-				Attrs: map[string]interface{}{"level": float64(1)},
+				Attrs: map[string]any{"level": float64(1)},
 				Content: []*ADFNode{
 					{Type: "text", Text: "Title"},
 				},
@@ -561,7 +561,7 @@ func TestExtractText_CodeBlock(t *testing.T) {
 			},
 			{
 				Type:  "codeBlock",
-				Attrs: map[string]interface{}{"language": "go"},
+				Attrs: map[string]any{"language": "go"},
 				Content: []*ADFNode{
 					{Type: "text", Text: "fmt.Println(\"hello\")"},
 				},
@@ -692,11 +692,11 @@ func TestIssue_RoundTrip_WithCustomFields(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	// Verify custom fields are in the output
-	var result map[string]interface{}
+	var result map[string]any
 	err = json.Unmarshal(data, &result)
 	testutil.RequireNoError(t, err)
 
-	fields := result["fields"].(map[string]interface{})
+	fields := result["fields"].(map[string]any)
 	testutil.Equal(t, fields["customfield_10001"], float64(8))
-	testutil.Equal(t, fields["customfield_10002"].(map[string]interface{})["value"], "Bug Fix")
+	testutil.Equal(t, fields["customfield_10002"].(map[string]any)["value"], "Bug Fix")
 }

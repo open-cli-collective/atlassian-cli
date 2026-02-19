@@ -89,7 +89,7 @@ func TestRunCreate_HTMLFile_Legacy(t *testing.T) {
 	err := os.WriteFile(htmlFile, []byte("<p>Hello World</p>"), 0600)
 	testutil.RequireNoError(t, err)
 
-	var receivedBody map[string]interface{}
+	var receivedBody map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.Method == "GET" && strings.Contains(r.URL.Path, "/spaces"):
@@ -122,8 +122,8 @@ func TestRunCreate_HTMLFile_Legacy(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	// Verify HTML was not converted (should be passed as-is in storage format)
-	bodyMap := receivedBody["body"].(map[string]interface{})
-	storageMap := bodyMap["storage"].(map[string]interface{})
+	bodyMap := receivedBody["body"].(map[string]any)
+	storageMap := bodyMap["storage"].(map[string]any)
 	content := storageMap["value"].(string)
 	testutil.Equal(t, "<p>Hello World</p>", content)
 }
@@ -135,7 +135,7 @@ func TestRunCreate_NoMarkdownFlag_Legacy(t *testing.T) {
 	err := os.WriteFile(mdFile, []byte("<p>Raw XHTML</p>"), 0600)
 	testutil.RequireNoError(t, err)
 
-	var receivedBody map[string]interface{}
+	var receivedBody map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.Method == "GET" && strings.Contains(r.URL.Path, "/spaces"):
@@ -170,8 +170,8 @@ func TestRunCreate_NoMarkdownFlag_Legacy(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	// Verify content was not converted even though file has .md extension
-	bodyMap := receivedBody["body"].(map[string]interface{})
-	storageMap := bodyMap["storage"].(map[string]interface{})
+	bodyMap := receivedBody["body"].(map[string]any)
+	storageMap := bodyMap["storage"].(map[string]any)
 	content := storageMap["value"].(string)
 	testutil.Equal(t, "<p>Raw XHTML</p>", content)
 }
@@ -259,7 +259,7 @@ func TestRunCreate_WithParent(t *testing.T) {
 	err := os.WriteFile(mdFile, []byte("# Child Page"), 0600)
 	testutil.RequireNoError(t, err)
 
-	var receivedBody map[string]interface{}
+	var receivedBody map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.Method == "GET" && strings.Contains(r.URL.Path, "/spaces"):
@@ -326,7 +326,7 @@ func TestRunCreate_MarkdownConversion_Legacy(t *testing.T) {
 	err := os.WriteFile(mdFile, []byte("# Hello World\n\nThis is **bold** text."), 0600)
 	testutil.RequireNoError(t, err)
 
-	var receivedBody map[string]interface{}
+	var receivedBody map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.Method == "GET" && strings.Contains(r.URL.Path, "/spaces"):
@@ -359,8 +359,8 @@ func TestRunCreate_MarkdownConversion_Legacy(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	// Verify markdown was converted to HTML storage format
-	bodyMap := receivedBody["body"].(map[string]interface{})
-	storageMap := bodyMap["storage"].(map[string]interface{})
+	bodyMap := receivedBody["body"].(map[string]any)
+	storageMap := bodyMap["storage"].(map[string]any)
 	content := storageMap["value"].(string)
 
 	// Should have HTML heading and strong tag from markdown conversion
@@ -374,7 +374,7 @@ func TestRunCreate_MarkdownToADF(t *testing.T) {
 	err := os.WriteFile(mdFile, []byte("# Hello World\n\nThis is **bold** text."), 0600)
 	testutil.RequireNoError(t, err)
 
-	var receivedBody map[string]interface{}
+	var receivedBody map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.Method == "GET" && strings.Contains(r.URL.Path, "/spaces"):
@@ -407,8 +407,8 @@ func TestRunCreate_MarkdownToADF(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	// Verify ADF format was used (default)
-	bodyMap := receivedBody["body"].(map[string]interface{})
-	adfMap := bodyMap["atlas_doc_format"].(map[string]interface{})
+	bodyMap := receivedBody["body"].(map[string]any)
+	adfMap := bodyMap["atlas_doc_format"].(map[string]any)
 	content := adfMap["value"].(string)
 
 	// Should be valid ADF JSON with heading and strong mark
@@ -438,7 +438,7 @@ func TestRunCreate_FileReadError(t *testing.T) {
 }
 
 func TestRunCreate_Stdin_ADF(t *testing.T) {
-	var receivedBody map[string]interface{}
+	var receivedBody map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.Method == "GET" && strings.Contains(r.URL.Path, "/spaces"):
@@ -470,8 +470,8 @@ func TestRunCreate_Stdin_ADF(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	// Verify ADF format was used
-	bodyMap := receivedBody["body"].(map[string]interface{})
-	adfMap := bodyMap["atlas_doc_format"].(map[string]interface{})
+	bodyMap := receivedBody["body"].(map[string]any)
+	adfMap := bodyMap["atlas_doc_format"].(map[string]any)
 	content := adfMap["value"].(string)
 
 	testutil.Contains(t, content, `"type":"doc"`)
@@ -480,7 +480,7 @@ func TestRunCreate_Stdin_ADF(t *testing.T) {
 }
 
 func TestRunCreate_Stdin_Legacy(t *testing.T) {
-	var receivedBody map[string]interface{}
+	var receivedBody map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.Method == "GET" && strings.Contains(r.URL.Path, "/spaces"):
@@ -513,8 +513,8 @@ func TestRunCreate_Stdin_Legacy(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	// Verify storage format was used
-	bodyMap := receivedBody["body"].(map[string]interface{})
-	storageMap := bodyMap["storage"].(map[string]interface{})
+	bodyMap := receivedBody["body"].(map[string]any)
+	storageMap := bodyMap["storage"].(map[string]any)
 	content := storageMap["value"].(string)
 
 	testutil.Contains(t, content, "<h1")
@@ -522,7 +522,7 @@ func TestRunCreate_Stdin_Legacy(t *testing.T) {
 }
 
 func TestRunCreate_Stdin_NoMarkdown_Legacy(t *testing.T) {
-	var receivedBody map[string]interface{}
+	var receivedBody map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.Method == "GET" && strings.Contains(r.URL.Path, "/spaces"):
@@ -557,15 +557,15 @@ func TestRunCreate_Stdin_NoMarkdown_Legacy(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	// Verify raw content passed through without conversion
-	bodyMap := receivedBody["body"].(map[string]interface{})
-	storageMap := bodyMap["storage"].(map[string]interface{})
+	bodyMap := receivedBody["body"].(map[string]any)
+	storageMap := bodyMap["storage"].(map[string]any)
 	content := storageMap["value"].(string)
 
 	testutil.Equal(t, "<p>Raw XHTML content</p>", content)
 }
 
 func TestRunCreate_StorageFlag_Stdin(t *testing.T) {
-	var receivedBody map[string]interface{}
+	var receivedBody map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.Method == "GET" && strings.Contains(r.URL.Path, "/spaces"):
@@ -600,8 +600,8 @@ func TestRunCreate_StorageFlag_Stdin(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	// Verify storage format was used (not atlas_doc_format)
-	bodyMap := receivedBody["body"].(map[string]interface{})
-	storageMap := bodyMap["storage"].(map[string]interface{})
+	bodyMap := receivedBody["body"].(map[string]any)
+	storageMap := bodyMap["storage"].(map[string]any)
 	content := storageMap["value"].(string)
 
 	// Content should be passed through as-is
@@ -615,7 +615,7 @@ func TestRunCreate_StorageFlag_File(t *testing.T) {
 	err := os.WriteFile(htmlFile, []byte("<p>Direct storage XHTML</p>"), 0600)
 	testutil.RequireNoError(t, err)
 
-	var receivedBody map[string]interface{}
+	var receivedBody map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.Method == "GET" && strings.Contains(r.URL.Path, "/spaces"):
@@ -650,15 +650,15 @@ func TestRunCreate_StorageFlag_File(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	// Verify storage format was used without --legacy
-	bodyMap := receivedBody["body"].(map[string]interface{})
-	storageMap := bodyMap["storage"].(map[string]interface{})
+	bodyMap := receivedBody["body"].(map[string]any)
+	storageMap := bodyMap["storage"].(map[string]any)
 	content := storageMap["value"].(string)
 	testutil.Equal(t, "<p>Direct storage XHTML</p>", content)
 	testutil.Nil(t, bodyMap["atlas_doc_format"])
 }
 
 func TestRunCreate_ComplexMarkdown_ADF(t *testing.T) {
-	var receivedBody map[string]interface{}
+	var receivedBody map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.Method == "GET" && strings.Contains(r.URL.Path, "/spaces"):
@@ -702,8 +702,8 @@ func TestRunCreate_ComplexMarkdown_ADF(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	// Verify ADF contains complex elements
-	bodyMap := receivedBody["body"].(map[string]interface{})
-	adfMap := bodyMap["atlas_doc_format"].(map[string]interface{})
+	bodyMap := receivedBody["body"].(map[string]any)
+	adfMap := bodyMap["atlas_doc_format"].(map[string]any)
 	content := adfMap["value"].(string)
 
 	testutil.Contains(t, content, `"type":"table"`)

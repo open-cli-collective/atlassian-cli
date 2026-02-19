@@ -91,7 +91,7 @@ func runList(ctx context.Context, opts *listOptions) error {
 	v := opts.View()
 
 	headers := []string{"ID", "Title", "Media Type", "File Size"}
-	var rows [][]string
+	rows := make([][]string, 0, len(attachments))
 	for _, att := range attachments {
 		size := formatFileSize(att.FileSize)
 		rows = append(rows, []string{att.ID, att.Title, att.MediaType, size})

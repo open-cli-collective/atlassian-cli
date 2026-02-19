@@ -53,11 +53,11 @@ func TestRunCreate_RequestBodyNoDoubleQuoting(t *testing.T) {
 	// Parse the captured request body
 	testutil.NotEmpty(t, capturedBody)
 
-	var reqBody map[string]interface{}
+	var reqBody map[string]any
 	err = json.Unmarshal(capturedBody, &reqBody)
 	testutil.RequireNoError(t, err)
 
-	fields := reqBody["fields"].(map[string]interface{})
+	fields := reqBody["fields"].(map[string]any)
 
 	// Summary must be the exact string without extra quotes
 	summary := fields["summary"].(string)
@@ -65,15 +65,15 @@ func TestRunCreate_RequestBodyNoDoubleQuoting(t *testing.T) {
 	testutil.NotContains(t, summary, `"`)
 
 	// Description should be ADF format, extract text from first paragraph
-	desc := fields["description"].(map[string]interface{})
+	desc := fields["description"].(map[string]any)
 	testutil.Equal(t, desc["type"], "doc")
-	content := desc["content"].([]interface{})
+	content := desc["content"].([]any)
 	testutil.NotEmpty(t, content)
 
 	// Walk ADF to extract text
-	firstPara := content[0].(map[string]interface{})
-	paraContent := firstPara["content"].([]interface{})
-	firstTextNode := paraContent[0].(map[string]interface{})
+	firstPara := content[0].(map[string]any)
+	paraContent := firstPara["content"].([]any)
+	firstTextNode := paraContent[0].(map[string]any)
 	descText := firstTextNode["text"].(string)
 	testutil.Equal(t, descText, "Users cannot log in with SSO credentials")
 	testutil.NotContains(t, descText, `"`)
@@ -111,11 +111,11 @@ func TestRunCreate_SummaryWithSpecialCharacters(t *testing.T) {
 	err = runCreate(context.Background(), opts, "PROJ", "Bug", `Error: "unexpected token" in parser`, "", "", "", nil)
 	testutil.RequireNoError(t, err)
 
-	var reqBody map[string]interface{}
+	var reqBody map[string]any
 	err = json.Unmarshal(capturedBody, &reqBody)
 	testutil.RequireNoError(t, err)
 
-	fields := reqBody["fields"].(map[string]interface{})
+	fields := reqBody["fields"].(map[string]any)
 	summary := fields["summary"].(string)
 	testutil.Equal(t, summary, `Error: "unexpected token" in parser`)
 }
@@ -190,11 +190,11 @@ func TestCreateCmd_CobraExecution_NoDoubleQuoting(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	testutil.NotEmpty(t, capturedBody)
-	var reqBody map[string]interface{}
+	var reqBody map[string]any
 	err = json.Unmarshal(capturedBody, &reqBody)
 	testutil.RequireNoError(t, err)
 
-	fields := reqBody["fields"].(map[string]interface{})
+	fields := reqBody["fields"].(map[string]any)
 
 	// Verify no double-quoting via Cobra flag parsing
 	summary := fields["summary"].(string)
@@ -235,14 +235,14 @@ func TestRunCreate_WithParent(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	testutil.NotEmpty(t, capturedBody)
-	var reqBody map[string]interface{}
+	var reqBody map[string]any
 	err = json.Unmarshal(capturedBody, &reqBody)
 	testutil.RequireNoError(t, err)
 
-	fields := reqBody["fields"].(map[string]interface{})
+	fields := reqBody["fields"].(map[string]any)
 
 	// Parent should be an object with "key" field
-	parentField := fields["parent"].(map[string]interface{})
+	parentField := fields["parent"].(map[string]any)
 	testutil.Equal(t, parentField["key"], "PROJ-100")
 }
 
@@ -279,11 +279,11 @@ func TestRunCreate_WithoutParent(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	testutil.NotEmpty(t, capturedBody)
-	var reqBody map[string]interface{}
+	var reqBody map[string]any
 	err = json.Unmarshal(capturedBody, &reqBody)
 	testutil.RequireNoError(t, err)
 
-	fields := reqBody["fields"].(map[string]interface{})
+	fields := reqBody["fields"].(map[string]any)
 	testutil.Nil(t, fields["parent"])
 }
 
@@ -328,12 +328,12 @@ func TestCreateCmd_CobraExecution_WithParent(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	testutil.NotEmpty(t, capturedBody)
-	var reqBody map[string]interface{}
+	var reqBody map[string]any
 	err = json.Unmarshal(capturedBody, &reqBody)
 	testutil.RequireNoError(t, err)
 
-	fields := reqBody["fields"].(map[string]interface{})
-	parentField := fields["parent"].(map[string]interface{})
+	fields := reqBody["fields"].(map[string]any)
+	parentField := fields["parent"].(map[string]any)
 	testutil.Equal(t, parentField["key"], "PROJ-100")
 }
 
@@ -370,12 +370,12 @@ func TestRunCreate_WithAssigneeAccountID(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	testutil.NotEmpty(t, capturedBody)
-	var reqBody map[string]interface{}
+	var reqBody map[string]any
 	err = json.Unmarshal(capturedBody, &reqBody)
 	testutil.RequireNoError(t, err)
 
-	fields := reqBody["fields"].(map[string]interface{})
-	assigneeField := fields["assignee"].(map[string]interface{})
+	fields := reqBody["fields"].(map[string]any)
+	assigneeField := fields["assignee"].(map[string]any)
 	testutil.Equal(t, assigneeField["accountId"], "61292e4c4f29230069621c5f")
 }
 
@@ -419,12 +419,12 @@ func TestRunCreate_WithAssigneeMe(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	testutil.NotEmpty(t, capturedBody)
-	var reqBody map[string]interface{}
+	var reqBody map[string]any
 	err = json.Unmarshal(capturedBody, &reqBody)
 	testutil.RequireNoError(t, err)
 
-	fields := reqBody["fields"].(map[string]interface{})
-	assigneeField := fields["assignee"].(map[string]interface{})
+	fields := reqBody["fields"].(map[string]any)
+	assigneeField := fields["assignee"].(map[string]any)
 	testutil.Equal(t, assigneeField["accountId"], "myself-account-id")
 }
 
@@ -467,12 +467,12 @@ func TestRunCreate_WithAssigneeEmail(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	testutil.NotEmpty(t, capturedBody)
-	var reqBody map[string]interface{}
+	var reqBody map[string]any
 	err = json.Unmarshal(capturedBody, &reqBody)
 	testutil.RequireNoError(t, err)
 
-	fields := reqBody["fields"].(map[string]interface{})
-	assigneeField := fields["assignee"].(map[string]interface{})
+	fields := reqBody["fields"].(map[string]any)
+	assigneeField := fields["assignee"].(map[string]any)
 	testutil.Equal(t, assigneeField["accountId"], "found-account-id")
 }
 
@@ -558,10 +558,10 @@ func TestRunCreate_WithoutAssignee(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	testutil.NotEmpty(t, capturedBody)
-	var reqBody map[string]interface{}
+	var reqBody map[string]any
 	err = json.Unmarshal(capturedBody, &reqBody)
 	testutil.RequireNoError(t, err)
 
-	fields := reqBody["fields"].(map[string]interface{})
+	fields := reqBody["fields"].(map[string]any)
 	testutil.Nil(t, fields["assignee"])
 }

@@ -89,7 +89,7 @@ func runList(ctx context.Context, opts *root.Options, project, sprint string, ma
 	}
 
 	headers := []string{"KEY", "SUMMARY", "STATUS", "ASSIGNEE", "TYPE"}
-	var rows [][]string
+	rows := make([][]string, 0, len(issues))
 
 	for _, issue := range issues {
 		status := ""

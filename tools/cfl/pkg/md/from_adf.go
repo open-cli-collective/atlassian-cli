@@ -405,7 +405,7 @@ func extractExtensionParams(node *adf.Node) string {
 		return ""
 	}
 
-	paramMap, ok := params.(map[string]interface{})
+	paramMap, ok := params.(map[string]any)
 	if !ok {
 		return ""
 	}
@@ -416,7 +416,7 @@ func extractExtensionParams(node *adf.Node) string {
 		if name == "macroMetadata" {
 			continue
 		}
-		if m, ok := entry.(map[string]interface{}); ok {
+		if m, ok := entry.(map[string]any); ok {
 			if v, ok := m["value"]; ok {
 				parts = append(parts, fmt.Sprintf("%s=%v", name, v))
 			}

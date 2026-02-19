@@ -39,7 +39,7 @@ func (c *Client) GetTransitionsWithFields(ctx context.Context, issueKey string, 
 }
 
 // DoTransition performs a transition on an issue with optional fields
-func (c *Client) DoTransition(ctx context.Context, issueKey, transitionID string, fields map[string]interface{}) error {
+func (c *Client) DoTransition(ctx context.Context, issueKey, transitionID string, fields map[string]any) error {
 	if issueKey == "" {
 		return ErrIssueKeyRequired
 	}

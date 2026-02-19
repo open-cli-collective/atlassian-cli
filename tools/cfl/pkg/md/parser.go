@@ -53,7 +53,7 @@ func (pr *ParseResult) AddMacroSegment(macro *MacroNode) {
 }
 
 // AddWarning logs a warning and stores it in the result.
-func (pr *ParseResult) AddWarning(format string, args ...interface{}) {
+func (pr *ParseResult) AddWarning(format string, args ...any) {
 	msg := fmt.Sprintf(format, args...)
 	pr.Warnings = append(pr.Warnings, msg)
 	log.Printf("WARN: "+format, args...)

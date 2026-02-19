@@ -64,7 +64,7 @@ func runList(ctx context.Context, opts *listOptions) error {
 
 	if opts.limit == 0 {
 		if opts.Output == "json" {
-			return v.JSON([]interface{}{})
+			return v.JSON([]any{})
 		}
 		v.RenderText("No spaces found.")
 		return nil
@@ -92,7 +92,7 @@ func runList(ctx context.Context, opts *listOptions) error {
 	}
 
 	headers := []string{"KEY", "NAME", "TYPE", "DESCRIPTION"}
-	var rows [][]string
+	rows := make([][]string, 0, len(result.Results))
 
 	for _, space := range result.Results {
 		desc := ""

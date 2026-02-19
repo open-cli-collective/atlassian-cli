@@ -70,7 +70,7 @@ func runCreate(ctx context.Context, opts *root.Options, project, issueType, summ
 	}
 
 	// Parse additional fields
-	extraFields := make(map[string]interface{})
+	extraFields := make(map[string]any)
 	if len(fieldArgs) > 0 {
 		// Get field metadata to resolve names to IDs
 		allFields, err := client.GetFields(ctx)

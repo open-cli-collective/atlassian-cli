@@ -77,7 +77,7 @@ func runList(ctx context.Context, opts *listOptions) error {
 
 	if opts.limit == 0 {
 		if opts.Output == "json" {
-			return v.JSON([]interface{}{})
+			return v.JSON([]any{})
 		}
 		v.RenderText("No pages found.")
 		return nil
@@ -123,7 +123,7 @@ func runList(ctx context.Context, opts *listOptions) error {
 	}
 
 	headers := []string{"ID", "TITLE", "STATUS", "VERSION"}
-	var rows [][]string
+	rows := make([][]string, 0, len(result.Results))
 
 	for _, page := range result.Results {
 		version := ""

@@ -255,7 +255,7 @@ func TestClient_CopyPage_Success(t *testing.T) {
 		body, err := io.ReadAll(r.Body)
 		testutil.RequireNoError(t, err)
 
-		var req map[string]interface{}
+		var req map[string]any
 		err = json.Unmarshal(body, &req)
 		testutil.RequireNoError(t, err)
 
@@ -266,7 +266,7 @@ func TestClient_CopyPage_Success(t *testing.T) {
 		testutil.Equal(t, true, req["copyLabels"])
 		testutil.Equal(t, true, req["copyCustomContents"])
 
-		dest := req["destination"].(map[string]interface{})
+		dest := req["destination"].(map[string]any)
 		testutil.Equal(t, "space", dest["type"])
 		testutil.Equal(t, "TEST", dest["value"])
 
@@ -341,7 +341,7 @@ func TestClient_CopyPage_WithoutAttachments(t *testing.T) {
 		body, err := io.ReadAll(r.Body)
 		testutil.RequireNoError(t, err)
 
-		var req map[string]interface{}
+		var req map[string]any
 		err = json.Unmarshal(body, &req)
 		testutil.RequireNoError(t, err)
 
@@ -374,11 +374,11 @@ func TestClient_CopyPage_ToDifferentSpace(t *testing.T) {
 		body, err := io.ReadAll(r.Body)
 		testutil.RequireNoError(t, err)
 
-		var req map[string]interface{}
+		var req map[string]any
 		err = json.Unmarshal(body, &req)
 		testutil.RequireNoError(t, err)
 
-		dest := req["destination"].(map[string]interface{})
+		dest := req["destination"].(map[string]any)
 		testutil.Equal(t, "space", dest["type"])
 		testutil.Equal(t, "OTHERSPACE", dest["value"])
 
@@ -409,7 +409,7 @@ func TestClient_CopyPage_WithoutLabels(t *testing.T) {
 		body, err := io.ReadAll(r.Body)
 		testutil.RequireNoError(t, err)
 
-		var req map[string]interface{}
+		var req map[string]any
 		err = json.Unmarshal(body, &req)
 		testutil.RequireNoError(t, err)
 

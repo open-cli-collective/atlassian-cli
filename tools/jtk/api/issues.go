@@ -79,7 +79,7 @@ func (c *Client) AssignIssue(ctx context.Context, issueKey, accountID string) er
 
 	urlStr := fmt.Sprintf("%s/issue/%s/assignee", c.BaseURL, url.PathEscape(issueKey))
 
-	body := map[string]interface{}{}
+	body := map[string]any{}
 	if accountID != "" {
 		body["accountId"] = accountID
 	} else {
@@ -95,7 +95,7 @@ func (c *Client) AssignIssue(ctx context.Context, issueKey, accountID string) er
 }
 
 // GetIssueEditMeta returns the edit metadata for an issue
-func (c *Client) GetIssueEditMeta(ctx context.Context, issueKey string) (map[string]interface{}, error) {
+func (c *Client) GetIssueEditMeta(ctx context.Context, issueKey string) (map[string]any, error) {
 	if issueKey == "" {
 		return nil, ErrIssueKeyRequired
 	}
@@ -106,7 +106,7 @@ func (c *Client) GetIssueEditMeta(ctx context.Context, issueKey string) (map[str
 		return nil, fmt.Errorf("fetching edit metadata: %w", err)
 	}
 
-	var result map[string]interface{}
+	var result map[string]any
 	if err := json.Unmarshal(body, &result); err != nil {
 		return nil, fmt.Errorf("parsing edit metadata: %w", err)
 	}
@@ -115,8 +115,8 @@ func (c *Client) GetIssueEditMeta(ctx context.Context, issueKey string) (map[str
 }
 
 // BuildCreateRequest builds a create issue request
-func BuildCreateRequest(projectKey, issueType, summary, description string, extraFields map[string]interface{}) *CreateIssueRequest {
-	fields := map[string]interface{}{
+func BuildCreateRequest(projectKey, issueType, summary, description string, extraFields map[string]any) *CreateIssueRequest {
+	fields := map[string]any{
 		"project":   map[string]string{"key": projectKey},
 		"issuetype": map[string]string{"name": issueType},
 		"summary":   summary,
@@ -134,6 +134,6 @@ func BuildCreateRequest(projectKey, issueType, summary, description string, extr
 }
 
 // BuildUpdateRequest builds an update issue request
-func BuildUpdateRequest(fields map[string]interface{}) *UpdateIssueRequest {
+func BuildUpdateRequest(fields map[string]any) *UpdateIssueRequest {
 	return &UpdateIssueRequest{Fields: fields}
 }

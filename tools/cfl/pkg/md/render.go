@@ -6,6 +6,8 @@ import (
 	"strings"
 
 	"github.com/open-cli-collective/atlassian-go/adf"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 // RenderMacroToXML converts a MacroNode to Confluence XML storage format.
@@ -164,7 +166,7 @@ func RenderMacroToADFNode(node *MacroNode) *adf.Node {
 		if panelType, ok := panelMacros[node.Name]; ok {
 			return &adf.Node{
 				Type:    "panel",
-				Attrs:   map[string]interface{}{"panelType": panelType},
+				Attrs:   map[string]any{"panelType": panelType},
 				Content: content,
 			}
 		}
@@ -172,7 +174,7 @@ func RenderMacroToADFNode(node *MacroNode) *adf.Node {
 		// Other body macros get bodiedExtension nodes
 		return &adf.Node{
 			Type: "bodiedExtension",
-			Attrs: map[string]interface{}{
+			Attrs: map[string]any{
 				"extensionType": "com.atlassian.confluence.macro.core",
 				"extensionKey":  node.Name,
 				"parameters":    params,
@@ -185,7 +187,7 @@ func RenderMacroToADFNode(node *MacroNode) *adf.Node {
 	// Bodyless macros get extension nodes
 	return &adf.Node{
 		Type: "extension",
-		Attrs: map[string]interface{}{
+		Attrs: map[string]any{
 			"extensionType": "com.atlassian.confluence.macro.core",
 			"extensionKey":  node.Name,
 			"parameters":    params,
@@ -195,17 +197,17 @@ func RenderMacroToADFNode(node *MacroNode) *adf.Node {
 }
 
 // buildADFMacroParams builds the ADF parameters structure for a macro.
-func buildADFMacroParams(node *MacroNode) map[string]interface{} {
-	macroParams := make(map[string]interface{})
+func buildADFMacroParams(node *MacroNode) map[string]any {
+	macroParams := make(map[string]any)
 	for k, v := range node.Parameters {
-		macroParams[k] = map[string]interface{}{"value": v}
+		macroParams[k] = map[string]any{"value": v}
 	}
 
 	macroTitle := macroDisplayName(node.Name)
-	return map[string]interface{}{
+	return map[string]any{
 		"macroParams": macroParams,
-		"macroMetadata": map[string]interface{}{
-			"schemaVersion": map[string]interface{}{"value": "1"},
+		"macroMetadata": map[string]any{
+			"schemaVersion": map[string]any{"value": "1"},
 			"title":         macroTitle,
 		},
 	}
@@ -225,5 +227,5 @@ func macroDisplayName(name string) string {
 	if dn, ok := displayNames[name]; ok {
 		return dn
 	}
-	return strings.Title(name) //nolint:staticcheck
+	return cases.Title(language.English).String(name)
 }

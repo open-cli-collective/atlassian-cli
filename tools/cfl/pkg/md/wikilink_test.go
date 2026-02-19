@@ -296,7 +296,7 @@ func TestToADF_WikiLinks(t *testing.T) {
 			testutil.RequireNoError(t, err)
 
 			// Verify it's valid JSON
-			var doc map[string]interface{}
+			var doc map[string]any
 			testutil.RequireNoError(t, json.Unmarshal([]byte(result), &doc))
 
 			tt.check(t, result)
@@ -652,7 +652,7 @@ func TestToADF_WikiLinksInCodeBlock(t *testing.T) {
 			result, err := ToADF([]byte(tt.markdown))
 			testutil.RequireNoError(t, err)
 
-			var doc map[string]interface{}
+			var doc map[string]any
 			testutil.RequireNoError(t, json.Unmarshal([]byte(result), &doc))
 
 			tt.check(t, result)
@@ -760,7 +760,7 @@ func TestToADF_WikiLink_SpecialCharsInTitle(t *testing.T) {
 			result, err := ToADF([]byte(tt.markdown))
 			testutil.RequireNoError(t, err)
 
-			var doc map[string]interface{}
+			var doc map[string]any
 			testutil.RequireNoError(t, json.Unmarshal([]byte(result), &doc))
 
 			tt.check(t, result)

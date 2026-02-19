@@ -14,11 +14,11 @@ type MoveIssuesRequest struct {
 
 // MoveIssuesSourceSpec specifies which issues to move and how to map fields
 type MoveIssuesSourceSpec struct {
-	IssueIdsOrKeys        []string               `json:"issueIdsOrKeys"` //nolint:revive // JSON field name matches Jira API
-	InferFieldDefaults    bool                   `json:"inferFieldDefaults"`
-	InferStatusDefaults   bool                   `json:"inferStatusDefaults"`
-	TargetStatus          []StatusMapping        `json:"targetStatus,omitempty"`
-	TargetMandatoryFields map[string]interface{} `json:"targetMandatoryFields,omitempty"`
+	IssueIdsOrKeys        []string        `json:"issueIdsOrKeys"` //nolint:revive // JSON field name matches Jira API
+	InferFieldDefaults    bool            `json:"inferFieldDefaults"`
+	InferStatusDefaults   bool            `json:"inferStatusDefaults"`
+	TargetStatus          []StatusMapping `json:"targetStatus,omitempty"`
+	TargetMandatoryFields map[string]any  `json:"targetMandatoryFields,omitempty"`
 }
 
 // StatusMapping maps source status to target status

@@ -72,7 +72,7 @@ func runList(ctx context.Context, opts *root.Options, project string, maxResults
 	}
 
 	headers := []string{"ID", "NAME", "TYPE", "PROJECT"}
-	var rows [][]string
+	rows := make([][]string, 0, len(result.Values))
 
 	for _, b := range result.Values {
 		rows = append(rows, []string{

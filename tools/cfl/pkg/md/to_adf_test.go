@@ -365,7 +365,7 @@ func TestToADF_OutputIsValidJSON(t *testing.T) {
 		testutil.RequireNoError(t, err)
 
 		// Verify it's valid JSON
-		var parsed map[string]interface{}
+		var parsed map[string]any
 		err = json.Unmarshal([]byte(result), &parsed)
 		testutil.RequireNoError(t, err)
 
@@ -509,11 +509,11 @@ func TestToADF_TOC_Simple(t *testing.T) {
 	testutil.Equal(t, "default", ext.Attrs["layout"])
 
 	// Verify parameters structure
-	params, ok := ext.Attrs["parameters"].(map[string]interface{})
+	params, ok := ext.Attrs["parameters"].(map[string]any)
 	testutil.True(t, ok, "parameters should be a map")
-	metadata, ok := params["macroMetadata"].(map[string]interface{})
+	metadata, ok := params["macroMetadata"].(map[string]any)
 	testutil.True(t, ok, "macroMetadata should be a map")
-	schemaVersion, ok := metadata["schemaVersion"].(map[string]interface{})
+	schemaVersion, ok := metadata["schemaVersion"].(map[string]any)
 	testutil.True(t, ok, "schemaVersion should be a map")
 	testutil.Equal(t, "1", schemaVersion["value"])
 }
@@ -533,9 +533,9 @@ func TestToADF_TOC_WithParams(t *testing.T) {
 	testutil.Equal(t, "toc", ext.Attrs["extensionKey"])
 
 	// Verify macro param
-	params := ext.Attrs["parameters"].(map[string]interface{})
-	macroParams := params["macroParams"].(map[string]interface{})
-	maxLevel := macroParams["maxLevel"].(map[string]interface{})
+	params := ext.Attrs["parameters"].(map[string]any)
+	macroParams := params["macroParams"].(map[string]any)
+	maxLevel := macroParams["maxLevel"].(map[string]any)
 	testutil.Equal(t, "3", maxLevel["value"])
 }
 
@@ -550,12 +550,12 @@ func TestToADF_TOC_MultipleParams(t *testing.T) {
 
 	testutil.Len(t, doc.Content, 1)
 	ext := doc.Content[0]
-	params := ext.Attrs["parameters"].(map[string]interface{})
-	macroParams := params["macroParams"].(map[string]interface{})
+	params := ext.Attrs["parameters"].(map[string]any)
+	macroParams := params["macroParams"].(map[string]any)
 
-	maxLevel := macroParams["maxLevel"].(map[string]interface{})
+	maxLevel := macroParams["maxLevel"].(map[string]any)
 	testutil.Equal(t, "3", maxLevel["value"])
-	minLevel := macroParams["minLevel"].(map[string]interface{})
+	minLevel := macroParams["minLevel"].(map[string]any)
 	testutil.Equal(t, "1", minLevel["value"])
 }
 
@@ -785,7 +785,7 @@ func TestToADF_MacroOutputIsValidJSON(t *testing.T) {
 		result, err := ToADF([]byte(input))
 		testutil.RequireNoError(t, err)
 
-		var parsed map[string]interface{}
+		var parsed map[string]any
 		err = json.Unmarshal([]byte(result), &parsed)
 		testutil.RequireNoError(t, err)
 		testutil.Equal(t, "doc", parsed["type"])

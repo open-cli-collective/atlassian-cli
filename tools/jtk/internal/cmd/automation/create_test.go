@@ -18,7 +18,7 @@ import (
 
 func TestRunCreate(t *testing.T) {
 	t.Run("strips server-assigned fields", func(t *testing.T) {
-		var receivedBody map[string]interface{}
+		var receivedBody map[string]any
 
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.URL.Path == "/_edge/tenant_info" {

@@ -79,7 +79,7 @@ func runList(ctx context.Context, opts *root.Options, boardID int, state string,
 	}
 
 	headers := []string{"ID", "NAME", "STATE", "START", "END"}
-	var rows [][]string
+	rows := make([][]string, 0, len(result.Values))
 
 	for _, s := range result.Values {
 		startDate := ""
@@ -203,7 +203,7 @@ func runIssues(ctx context.Context, opts *root.Options, sprintID int, maxResults
 	}
 
 	headers := []string{"KEY", "SUMMARY", "STATUS", "ASSIGNEE", "TYPE"}
-	var rows [][]string
+	rows := make([][]string, 0, len(result.Issues))
 
 	for _, issue := range result.Issues {
 		status := ""

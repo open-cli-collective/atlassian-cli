@@ -59,17 +59,17 @@ func runFields(ctx context.Context, opts *root.Options, issueKey string, customO
 		}
 
 		// Extract field information from metadata
-		fieldsData, ok := meta["fields"].(map[string]interface{})
+		fieldsData, ok := meta["fields"].(map[string]any)
 		if !ok {
 			v.Info("No editable fields found for %s", issueKey)
 			return nil
 		}
 
 		headers := []string{"ID", "NAME", "TYPE", "REQUIRED"}
-		var rows [][]string
+		rows := make([][]string, 0, len(fieldsData))
 
 		for id, data := range fieldsData {
-			fieldData, ok := data.(map[string]interface{})
+			fieldData, ok := data.(map[string]any)
 			if !ok {
 				continue
 			}
@@ -82,7 +82,7 @@ func runFields(ctx context.Context, opts *root.Options, issueKey string, customO
 
 			// Get schema type
 			fieldType := ""
-			if schema, ok := fieldData["schema"].(map[string]interface{}); ok {
+			if schema, ok := fieldData["schema"].(map[string]any); ok {
 				fieldType = safeString(schema["type"])
 			}
 
@@ -109,7 +109,7 @@ func runFields(ctx context.Context, opts *root.Options, issueKey string, customO
 	}
 
 	headers := []string{"ID", "NAME", "TYPE", "CUSTOM"}
-	var rows [][]string
+	rows := make([][]string, 0, len(fields))
 
 	for _, f := range fields {
 		custom := "no"

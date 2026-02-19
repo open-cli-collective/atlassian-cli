@@ -74,7 +74,7 @@ func runList(ctx context.Context, opts *root.Options, issueKey string, showField
 
 	if showFields {
 		headers := []string{"ID", "NAME", "TO STATUS", "REQUIRED FIELDS"}
-		var rows [][]string
+		rows := make([][]string, 0, len(transitions))
 
 		for _, t := range transitions {
 			required := getRequiredFields(t)
@@ -85,7 +85,7 @@ func runList(ctx context.Context, opts *root.Options, issueKey string, showField
 	}
 
 	headers := []string{"ID", "NAME", "TO STATUS"}
-	var rows [][]string
+	rows := make([][]string, 0, len(transitions))
 
 	for _, t := range transitions {
 		rows = append(rows, []string{t.ID, t.Name, t.To.Name})
@@ -179,9 +179,9 @@ func runDo(ctx context.Context, opts *root.Options, issueKey, transitionNameOrID
 	}
 
 	// Parse fields if provided
-	var fields map[string]interface{}
+	var fields map[string]any
 	if len(fieldArgs) > 0 {
-		fields = make(map[string]interface{})
+		fields = make(map[string]any)
 
 		// Get field metadata for name resolution and type detection
 		allFields, err := client.GetFields(ctx)

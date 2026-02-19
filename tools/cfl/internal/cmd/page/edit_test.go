@@ -73,7 +73,7 @@ func TestRunEdit_Success(t *testing.T) {
 }
 
 func TestRunEdit_TitleOnly(t *testing.T) {
-	var receivedBody map[string]interface{}
+	var receivedBody map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.Method == "GET" && strings.Contains(r.URL.Path, "/pages/12345"):
@@ -213,9 +213,9 @@ func TestRunEdit_VersionIncrement(t *testing.T) {
 			}`))
 		case "PUT":
 			body, _ := io.ReadAll(r.Body)
-			var req map[string]interface{}
+			var req map[string]any
 			_ = json.Unmarshal(body, &req)
-			if v, ok := req["version"].(map[string]interface{}); ok {
+			if v, ok := req["version"].(map[string]any); ok {
 				receivedVersion = int(v["number"].(float64))
 			}
 			w.WriteHeader(http.StatusOK)
@@ -254,7 +254,7 @@ func TestRunEdit_HTMLFile(t *testing.T) {
 	err := os.WriteFile(htmlFile, []byte("<p>Direct HTML</p>"), 0600)
 	testutil.RequireNoError(t, err)
 
-	var receivedBody map[string]interface{}
+	var receivedBody map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case "GET":
@@ -298,8 +298,8 @@ func TestRunEdit_HTMLFile(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	// Verify HTML was not converted (storage format in legacy mode)
-	bodyMap := receivedBody["body"].(map[string]interface{})
-	storageMap := bodyMap["storage"].(map[string]interface{})
+	bodyMap := receivedBody["body"].(map[string]any)
+	storageMap := bodyMap["storage"].(map[string]any)
 	content := storageMap["value"].(string)
 	testutil.Equal(t, "<p>Direct HTML</p>", content)
 }
@@ -310,7 +310,7 @@ func TestRunEdit_NoMarkdownFlag(t *testing.T) {
 	err := os.WriteFile(mdFile, []byte("<p>Raw XHTML in .md file</p>"), 0600)
 	testutil.RequireNoError(t, err)
 
-	var receivedBody map[string]interface{}
+	var receivedBody map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case "GET":
@@ -355,8 +355,8 @@ func TestRunEdit_NoMarkdownFlag(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	// Verify content was not converted (storage format in legacy mode)
-	bodyMap := receivedBody["body"].(map[string]interface{})
-	storageMap := bodyMap["storage"].(map[string]interface{})
+	bodyMap := receivedBody["body"].(map[string]any)
+	storageMap := bodyMap["storage"].(map[string]any)
 	content := storageMap["value"].(string)
 	testutil.Equal(t, "<p>Raw XHTML in .md file</p>", content)
 }
@@ -367,7 +367,7 @@ func TestRunEdit_MarkdownToADF(t *testing.T) {
 	err := os.WriteFile(mdFile, []byte("# Updated\n\nNew **bold** text."), 0600)
 	testutil.RequireNoError(t, err)
 
-	var receivedBody map[string]interface{}
+	var receivedBody map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case "GET":
@@ -411,8 +411,8 @@ func TestRunEdit_MarkdownToADF(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	// Verify ADF format was used (default)
-	bodyMap := receivedBody["body"].(map[string]interface{})
-	adfMap := bodyMap["atlas_doc_format"].(map[string]interface{})
+	bodyMap := receivedBody["body"].(map[string]any)
+	adfMap := bodyMap["atlas_doc_format"].(map[string]any)
 	content := adfMap["value"].(string)
 
 	// Should be valid ADF JSON
@@ -495,7 +495,7 @@ func TestRunEdit_FileReadError(t *testing.T) {
 }
 
 func TestRunEdit_Stdin_ADF(t *testing.T) {
-	var receivedBody map[string]interface{}
+	var receivedBody map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case "GET":
@@ -536,8 +536,8 @@ func TestRunEdit_Stdin_ADF(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	// Verify ADF format was used
-	bodyMap := receivedBody["body"].(map[string]interface{})
-	adfMap := bodyMap["atlas_doc_format"].(map[string]interface{})
+	bodyMap := receivedBody["body"].(map[string]any)
+	adfMap := bodyMap["atlas_doc_format"].(map[string]any)
 	content := adfMap["value"].(string)
 
 	testutil.Contains(t, content, `"type":"doc"`)
@@ -546,7 +546,7 @@ func TestRunEdit_Stdin_ADF(t *testing.T) {
 }
 
 func TestRunEdit_Stdin_Legacy(t *testing.T) {
-	var receivedBody map[string]interface{}
+	var receivedBody map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case "GET":
@@ -588,8 +588,8 @@ func TestRunEdit_Stdin_Legacy(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	// Verify storage format was used
-	bodyMap := receivedBody["body"].(map[string]interface{})
-	storageMap := bodyMap["storage"].(map[string]interface{})
+	bodyMap := receivedBody["body"].(map[string]any)
+	storageMap := bodyMap["storage"].(map[string]any)
 	content := storageMap["value"].(string)
 
 	testutil.Contains(t, content, "<h1")
@@ -597,7 +597,7 @@ func TestRunEdit_Stdin_Legacy(t *testing.T) {
 }
 
 func TestRunEdit_TitleAndContent(t *testing.T) {
-	var receivedBody map[string]interface{}
+	var receivedBody map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case "GET":
@@ -645,13 +645,13 @@ func TestRunEdit_TitleAndContent(t *testing.T) {
 
 	// Verify both title and content were updated
 	testutil.Equal(t, "New Title", receivedBody["title"])
-	bodyMap := receivedBody["body"].(map[string]interface{})
-	adfMap := bodyMap["atlas_doc_format"].(map[string]interface{})
+	bodyMap := receivedBody["body"].(map[string]any)
+	adfMap := bodyMap["atlas_doc_format"].(map[string]any)
 	testutil.NotNil(t, adfMap["value"])
 }
 
 func TestRunEdit_ComplexMarkdown_ADF(t *testing.T) {
-	var receivedBody map[string]interface{}
+	var receivedBody map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case "GET":
@@ -709,8 +709,8 @@ func TestRunEdit_ComplexMarkdown_ADF(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	// Verify ADF contains complex elements
-	bodyMap := receivedBody["body"].(map[string]interface{})
-	adfMap := bodyMap["atlas_doc_format"].(map[string]interface{})
+	bodyMap := receivedBody["body"].(map[string]any)
+	adfMap := bodyMap["atlas_doc_format"].(map[string]any)
 	content := adfMap["value"].(string)
 
 	testutil.Contains(t, content, `"type":"table"`)
@@ -782,7 +782,7 @@ func TestRunEdit_MoveAndRename(t *testing.T) {
 			}`))
 		case r.Method == "PUT" && strings.Contains(r.URL.Path, "/api/v2/pages/12345"):
 			body, _ := io.ReadAll(r.Body)
-			var req map[string]interface{}
+			var req map[string]any
 			_ = json.Unmarshal(body, &req)
 			receivedTitle = req["title"].(string)
 			w.WriteHeader(http.StatusOK)
@@ -867,7 +867,7 @@ func TestRunEdit_MoveFailed(t *testing.T) {
 
 func TestRunEdit_MoveWithContent(t *testing.T) {
 	moveCalled := false
-	var receivedBody map[string]interface{}
+	var receivedBody map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.Method == "GET" && strings.Contains(r.URL.Path, "/api/v2/pages/12345"):
@@ -914,8 +914,8 @@ func TestRunEdit_MoveWithContent(t *testing.T) {
 	testutil.True(t, moveCalled, "MovePage should have been called")
 
 	// Verify content was also updated
-	bodyMap := receivedBody["body"].(map[string]interface{})
-	adfMap := bodyMap["atlas_doc_format"].(map[string]interface{})
+	bodyMap := receivedBody["body"].(map[string]any)
+	adfMap := bodyMap["atlas_doc_format"].(map[string]any)
 	testutil.NotNil(t, adfMap["value"])
 }
 
@@ -1162,7 +1162,7 @@ func TestRunEdit_MoveWithTitleOnly_NoEditorOpened(t *testing.T) {
 	// Test: cfl page edit 12345 --parent 67890 --title "New Title"
 	// Verifies: page is moved and title updated, body preserved, no editor opened
 	moveCalled := false
-	var receivedBody map[string]interface{}
+	var receivedBody map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.Method == "GET" && strings.Contains(r.URL.Path, "/api/v2/pages/12345"):
@@ -1212,7 +1212,7 @@ func TestRunEdit_MoveWithTitleOnly_NoEditorOpened(t *testing.T) {
 }
 
 func TestRunEdit_StorageFlag_Stdin(t *testing.T) {
-	var receivedBody map[string]interface{}
+	var receivedBody map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case "GET":
@@ -1256,8 +1256,8 @@ func TestRunEdit_StorageFlag_Stdin(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	// Verify storage format was used (not atlas_doc_format)
-	bodyMap := receivedBody["body"].(map[string]interface{})
-	storageMap := bodyMap["storage"].(map[string]interface{})
+	bodyMap := receivedBody["body"].(map[string]any)
+	storageMap := bodyMap["storage"].(map[string]any)
 	content := storageMap["value"].(string)
 
 	// Content should be passed through as-is, preserving Confluence-specific markup
@@ -1274,7 +1274,7 @@ func TestRunEdit_StorageFlag_File(t *testing.T) {
 	err := os.WriteFile(htmlFile, []byte("<p>Direct storage XHTML</p>"), 0600)
 	testutil.RequireNoError(t, err)
 
-	var receivedBody map[string]interface{}
+	var receivedBody map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case "GET":
@@ -1319,8 +1319,8 @@ func TestRunEdit_StorageFlag_File(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	// Verify storage format was used without --legacy
-	bodyMap := receivedBody["body"].(map[string]interface{})
-	storageMap := bodyMap["storage"].(map[string]interface{})
+	bodyMap := receivedBody["body"].(map[string]any)
+	storageMap := bodyMap["storage"].(map[string]any)
 	content := storageMap["value"].(string)
 	testutil.Equal(t, "<p>Direct storage XHTML</p>", content)
 
@@ -1331,7 +1331,7 @@ func TestRunEdit_StorageFlag_File(t *testing.T) {
 func TestRunEdit_MoveOnly_BodyPreserved(t *testing.T) {
 	// Test: move-only operation preserves original body exactly
 	// Verifies: received body in PUT request matches original page body
-	var receivedBody map[string]interface{}
+	var receivedBody map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.Method == "GET" && strings.Contains(r.URL.Path, "/api/v2/pages/12345"):
@@ -1376,13 +1376,13 @@ func TestRunEdit_MoveOnly_BodyPreserved(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	// Verify body was preserved from original page
-	bodyMap := receivedBody["body"].(map[string]interface{})
-	storageMap := bodyMap["storage"].(map[string]interface{})
+	bodyMap := receivedBody["body"].(map[string]any)
+	storageMap := bodyMap["storage"].(map[string]any)
 	testutil.Equal(t, "<p>Original content that must be preserved</p>", storageMap["value"])
 }
 
 func TestRunEdit_ADFPage_TitleOnly_PreservesBody(t *testing.T) {
-	var receivedBody map[string]interface{}
+	var receivedBody map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.Method == "GET" && strings.Contains(r.URL.Path, "/pages/12345"):
@@ -1439,8 +1439,8 @@ func TestRunEdit_ADFPage_TitleOnly_PreservesBody(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	// Verify body was preserved as ADF (not storage)
-	bodyMap := receivedBody["body"].(map[string]interface{})
-	adfMap := bodyMap["atlas_doc_format"].(map[string]interface{})
+	bodyMap := receivedBody["body"].(map[string]any)
+	adfMap := bodyMap["atlas_doc_format"].(map[string]any)
 	testutil.Contains(t, adfMap["value"].(string), "ADF body")
 }
 
@@ -1450,7 +1450,7 @@ func TestRunEdit_ADFPage_NewContent(t *testing.T) {
 	err := os.WriteFile(mdFile, []byte("# Updated Content"), 0600)
 	testutil.RequireNoError(t, err)
 
-	var receivedBody map[string]interface{}
+	var receivedBody map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.Method == "GET" && strings.Contains(r.URL.Path, "/pages/12345"):
@@ -1505,7 +1505,7 @@ func TestRunEdit_ADFPage_NewContent(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	// New content should be submitted as ADF (default path)
-	bodyMap := receivedBody["body"].(map[string]interface{})
-	adfMap := bodyMap["atlas_doc_format"].(map[string]interface{})
+	bodyMap := receivedBody["body"].(map[string]any)
+	adfMap := bodyMap["atlas_doc_format"].(map[string]any)
 	testutil.Contains(t, adfMap["value"].(string), "Updated Content")
 }

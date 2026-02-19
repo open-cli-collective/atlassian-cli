@@ -13,7 +13,7 @@ func TestFormatFieldValue(t *testing.T) {
 		name  string
 		field *api.Field
 		value string
-		want  interface{}
+		want  any
 	}{
 		{
 			name:  "nil field - returns string as-is",

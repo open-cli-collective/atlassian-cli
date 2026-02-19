@@ -195,7 +195,7 @@ func TestClient_DoTransition(t *testing.T) {
 		name         string
 		issueKey     string
 		transitionID string
-		fields       map[string]interface{}
+		fields       map[string]any
 		wantErr      error
 	}{
 		{
@@ -208,7 +208,7 @@ func TestClient_DoTransition(t *testing.T) {
 			name:         "transition with fields",
 			issueKey:     "PROJ-123",
 			transitionID: "31",
-			fields: map[string]interface{}{
+			fields: map[string]any{
 				"resolution": map[string]string{"name": "Done"},
 			},
 		},

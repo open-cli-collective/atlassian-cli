@@ -386,11 +386,11 @@ func TestRunAdd_Success(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testutil.Equal(t, r.Method, http.MethodPost)
 
-		var body map[string]interface{}
+		var body map[string]any
 		err := json.NewDecoder(r.Body).Decode(&body)
 		testutil.RequireNoError(t, err)
 
-		issues, ok := body["issues"].([]interface{})
+		issues, ok := body["issues"].([]any)
 		testutil.True(t, ok)
 		testutil.Len(t, issues, 2)
 

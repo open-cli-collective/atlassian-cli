@@ -93,7 +93,7 @@ func (c *Client) GetCurrentSprint(ctx context.Context, boardID int) (*Sprint, er
 // MoveIssuesToSprint moves issues to a sprint
 func (c *Client) MoveIssuesToSprint(ctx context.Context, sprintID int, issueKeys []string) error {
 	urlStr := fmt.Sprintf("%s/sprint/%d/issue", c.AgileURL, sprintID)
-	req := map[string]interface{}{
+	req := map[string]any{
 		"issues": issueKeys,
 	}
 

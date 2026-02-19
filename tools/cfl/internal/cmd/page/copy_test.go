@@ -81,7 +81,7 @@ func TestRunCopy_Success(t *testing.T) {
 		space:   "TEST",
 	}
 
-	err := runCopy(context.Background(),"12345", opts)
+	err := runCopy(context.Background(), "12345", opts)
 	testutil.RequireNoError(t, err)
 }
 
@@ -135,7 +135,7 @@ func TestRunCopy_InfersSourceSpace(t *testing.T) {
 		space:   "", // Not specified - should infer from source
 	}
 
-	err := runCopy(context.Background(),"12345", opts)
+	err := runCopy(context.Background(), "12345", opts)
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, 3, callCount) // GetPage + GetSpace + CopyPage
 }
@@ -157,7 +157,7 @@ func TestRunCopy_PageNotFound(t *testing.T) {
 		space:   "TEST",
 	}
 
-	err := runCopy(context.Background(),"99999", opts)
+	err := runCopy(context.Background(), "99999", opts)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "copying page")
 }
@@ -186,7 +186,7 @@ func TestRunCopy_JSONOutput(t *testing.T) {
 		space:   "TEST",
 	}
 
-	err := runCopy(context.Background(),"12345", opts)
+	err := runCopy(context.Background(), "12345", opts)
 	testutil.RequireNoError(t, err)
 }
 
@@ -202,7 +202,7 @@ func TestRunCopy_InvalidOutputFormat(t *testing.T) {
 		space:   "TEST",
 	}
 
-	err := runCopy(context.Background(),"12345", opts)
+	err := runCopy(context.Background(), "12345", opts)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "invalid output format")
 }
@@ -227,7 +227,7 @@ func TestRunCopy_GetSourcePageFails(t *testing.T) {
 		space:   "", // Empty - will try to get source page
 	}
 
-	err := runCopy(context.Background(),"invalid", opts)
+	err := runCopy(context.Background(), "invalid", opts)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "getting source page")
 }
@@ -256,7 +256,7 @@ func TestRunCopy_WithNoAttachments(t *testing.T) {
 		noAttachments: true,
 	}
 
-	err := runCopy(context.Background(),"12345", opts)
+	err := runCopy(context.Background(), "12345", opts)
 	testutil.RequireNoError(t, err)
 }
 
@@ -284,7 +284,7 @@ func TestRunCopy_WithNoLabels(t *testing.T) {
 		noLabels: true,
 	}
 
-	err := runCopy(context.Background(),"12345", opts)
+	err := runCopy(context.Background(), "12345", opts)
 	testutil.RequireNoError(t, err)
 }
 
@@ -305,7 +305,7 @@ func TestRunCopy_PermissionDenied(t *testing.T) {
 		space:   "TEST",
 	}
 
-	err := runCopy(context.Background(),"12345", opts)
+	err := runCopy(context.Background(), "12345", opts)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "copying page")
 }
@@ -342,7 +342,7 @@ func TestRunCopy_GetSpaceFails(t *testing.T) {
 		space:   "", // Empty - will try to get space
 	}
 
-	err := runCopy(context.Background(),"12345", opts)
+	err := runCopy(context.Background(), "12345", opts)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "getting space")
 }

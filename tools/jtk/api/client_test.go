@@ -70,8 +70,8 @@ func TestNew(t *testing.T) {
 				Email:    "user@example.com",
 				APIToken: "token123",
 			},
-			wantErr:    true,
-			wantErrIs:  ErrURLRequired,
+			wantErr:   true,
+			wantErrIs: ErrURLRequired,
 		},
 		{
 			name: "missing email",
@@ -79,8 +79,8 @@ func TestNew(t *testing.T) {
 				URL:      "https://example.atlassian.net",
 				APIToken: "token123",
 			},
-			wantErr:    true,
-			wantErrIs:  ErrEmailRequired,
+			wantErr:   true,
+			wantErrIs: ErrEmailRequired,
 		},
 		{
 			name: "missing api token",
@@ -88,8 +88,8 @@ func TestNew(t *testing.T) {
 				URL:   "https://example.atlassian.net",
 				Email: "user@example.com",
 			},
-			wantErr:    true,
-			wantErrIs:  ErrAPITokenRequired,
+			wantErr:   true,
+			wantErrIs: ErrAPITokenRequired,
 		},
 	}
 
@@ -183,7 +183,7 @@ func TestClient_get(t *testing.T) {
 }
 
 func TestClient_post_withBody(t *testing.T) {
-	var receivedBody map[string]interface{}
+	var receivedBody map[string]any
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		err := json.NewDecoder(r.Body).Decode(&receivedBody)
@@ -200,7 +200,7 @@ func TestClient_post_withBody(t *testing.T) {
 	})
 	testutil.RequireNoError(t, err)
 
-	requestBody := map[string]interface{}{
+	requestBody := map[string]any{
 		"summary": "Test issue",
 		"priority": map[string]string{
 			"name": "High",
@@ -211,7 +211,7 @@ func TestClient_post_withBody(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	testutil.Equal(t, receivedBody["summary"], "Test issue")
-	priority := receivedBody["priority"].(map[string]interface{})
+	priority := receivedBody["priority"].(map[string]any)
 	testutil.Equal(t, priority["name"], "High")
 }
 

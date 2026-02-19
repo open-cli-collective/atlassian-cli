@@ -48,11 +48,11 @@ func TestRunUpdate_RequestBodyNoDoubleQuoting(t *testing.T) {
 
 	testutil.NotEmpty(t, capturedBody)
 
-	var reqBody map[string]interface{}
+	var reqBody map[string]any
 	err = json.Unmarshal(capturedBody, &reqBody)
 	testutil.RequireNoError(t, err)
 
-	fields := reqBody["fields"].(map[string]interface{})
+	fields := reqBody["fields"].(map[string]any)
 
 	// Summary must be the exact string without extra quotes
 	summary := fields["summary"].(string)
@@ -60,14 +60,14 @@ func TestRunUpdate_RequestBodyNoDoubleQuoting(t *testing.T) {
 	testutil.NotContains(t, summary, `"`)
 
 	// Description should be ADF format
-	desc := fields["description"].(map[string]interface{})
+	desc := fields["description"].(map[string]any)
 	testutil.Equal(t, desc["type"], "doc")
-	content := desc["content"].([]interface{})
+	content := desc["content"].([]any)
 	testutil.NotEmpty(t, content)
 
-	firstPara := content[0].(map[string]interface{})
-	paraContent := firstPara["content"].([]interface{})
-	firstTextNode := paraContent[0].(map[string]interface{})
+	firstPara := content[0].(map[string]any)
+	paraContent := firstPara["content"].([]any)
+	firstTextNode := paraContent[0].(map[string]any)
 	descText := firstTextNode["text"].(string)
 	testutil.Equal(t, descText, "Updated description")
 }
@@ -241,11 +241,11 @@ func TestRunUpdate_SummaryOnly(t *testing.T) {
 	err = runUpdate(context.Background(), opts, "PROJ-123", "New summary", "", "", "", "", nil)
 	testutil.RequireNoError(t, err)
 
-	var reqBody map[string]interface{}
+	var reqBody map[string]any
 	err = json.Unmarshal(capturedBody, &reqBody)
 	testutil.RequireNoError(t, err)
 
-	fields := reqBody["fields"].(map[string]interface{})
+	fields := reqBody["fields"].(map[string]any)
 	testutil.Equal(t, fields["summary"], "New summary")
 	testutil.Nil(t, fields["description"])
 	testutil.Nil(t, fields["parent"])
@@ -295,12 +295,12 @@ func TestRunUpdate_ParentOnly(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	testutil.NotEmpty(t, capturedBody)
-	var reqBody map[string]interface{}
+	var reqBody map[string]any
 	err = json.Unmarshal(capturedBody, &reqBody)
 	testutil.RequireNoError(t, err)
 
-	fields := reqBody["fields"].(map[string]interface{})
-	parentField := fields["parent"].(map[string]interface{})
+	fields := reqBody["fields"].(map[string]any)
+	parentField := fields["parent"].(map[string]any)
 	testutil.Equal(t, parentField["key"], "PROJ-100")
 	testutil.Nil(t, fields["summary"])
 	testutil.Nil(t, fields["description"])
@@ -338,13 +338,13 @@ func TestRunUpdate_ParentWithSummary(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	testutil.NotEmpty(t, capturedBody)
-	var reqBody map[string]interface{}
+	var reqBody map[string]any
 	err = json.Unmarshal(capturedBody, &reqBody)
 	testutil.RequireNoError(t, err)
 
-	fields := reqBody["fields"].(map[string]interface{})
+	fields := reqBody["fields"].(map[string]any)
 	testutil.Equal(t, fields["summary"], "Updated title")
-	parentField := fields["parent"].(map[string]interface{})
+	parentField := fields["parent"].(map[string]any)
 	testutil.Equal(t, parentField["key"], "PROJ-200")
 }
 
@@ -386,12 +386,12 @@ func TestUpdateCmd_CobraExecution_WithParent(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	testutil.NotEmpty(t, capturedBody)
-	var reqBody map[string]interface{}
+	var reqBody map[string]any
 	err = json.Unmarshal(capturedBody, &reqBody)
 	testutil.RequireNoError(t, err)
 
-	fields := reqBody["fields"].(map[string]interface{})
-	parentField := fields["parent"].(map[string]interface{})
+	fields := reqBody["fields"].(map[string]any)
+	parentField := fields["parent"].(map[string]any)
 	testutil.Equal(t, parentField["key"], "PROJ-100")
 }
 
@@ -427,12 +427,12 @@ func TestRunUpdate_AssigneeOnly(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	testutil.NotEmpty(t, capturedBody)
-	var reqBody map[string]interface{}
+	var reqBody map[string]any
 	err = json.Unmarshal(capturedBody, &reqBody)
 	testutil.RequireNoError(t, err)
 
-	fields := reqBody["fields"].(map[string]interface{})
-	assigneeField := fields["assignee"].(map[string]interface{})
+	fields := reqBody["fields"].(map[string]any)
+	assigneeField := fields["assignee"].(map[string]any)
 	testutil.Equal(t, assigneeField["accountId"], "61292e4c4f29230069621c5f")
 	testutil.Nil(t, fields["summary"])
 }
@@ -476,12 +476,12 @@ func TestRunUpdate_AssigneeMe(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	testutil.NotEmpty(t, capturedBody)
-	var reqBody map[string]interface{}
+	var reqBody map[string]any
 	err = json.Unmarshal(capturedBody, &reqBody)
 	testutil.RequireNoError(t, err)
 
-	fields := reqBody["fields"].(map[string]interface{})
-	assigneeField := fields["assignee"].(map[string]interface{})
+	fields := reqBody["fields"].(map[string]any)
+	assigneeField := fields["assignee"].(map[string]any)
 	testutil.Equal(t, assigneeField["accountId"], "myself-account-id")
 }
 
@@ -523,11 +523,11 @@ func TestUpdateCmd_CobraExecution_WithAssignee(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	testutil.NotEmpty(t, capturedBody)
-	var reqBody map[string]interface{}
+	var reqBody map[string]any
 	err = json.Unmarshal(capturedBody, &reqBody)
 	testutil.RequireNoError(t, err)
 
-	fields := reqBody["fields"].(map[string]interface{})
-	assigneeField := fields["assignee"].(map[string]interface{})
+	fields := reqBody["fields"].(map[string]any)
+	assigneeField := fields["assignee"].(map[string]any)
 	testutil.Equal(t, assigneeField["accountId"], "61292e4c4f29230069621c5f")
 }

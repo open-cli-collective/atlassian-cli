@@ -51,7 +51,7 @@ func TestShowCmd_JSONOutput(t *testing.T) {
 	stdout := opts.Stdout.(*bytes.Buffer).String()
 
 	// The entire stdout must be valid JSON — no trailing plain text
-	var parsed map[string]interface{}
+	var parsed map[string]any
 	err = json.Unmarshal([]byte(stdout), &parsed)
 	testutil.RequireNoError(t, err)
 

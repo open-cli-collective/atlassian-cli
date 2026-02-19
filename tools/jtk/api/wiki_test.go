@@ -236,7 +236,7 @@ func TestMarkdownToADFWithWikiMarkup(t *testing.T) {
 		name      string
 		input     string
 		checkType string
-		checkAttr interface{}
+		checkAttr any
 	}{
 		{
 			name:      "wiki h1 becomes ADF heading",

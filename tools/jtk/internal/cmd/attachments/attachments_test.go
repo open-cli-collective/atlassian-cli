@@ -222,7 +222,7 @@ func TestRunGet_Success(t *testing.T) {
 		switch r.URL.Path {
 		case "/rest/api/3/attachment/10001":
 			// GetAttachment metadata request - Content URL must point back to this server
-			resp := map[string]interface{}{
+			resp := map[string]any{
 				"id":       "10001",
 				"filename": "downloaded.txt",
 				"size":     int64(len(fileContent)),

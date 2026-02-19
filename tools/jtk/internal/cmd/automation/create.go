@@ -59,7 +59,7 @@ func runCreate(ctx context.Context, opts *root.Options, filePath string) error {
 
 	// Strip server-assigned fields that would cause conflicts on create.
 	// The API rejects requests containing a UUID that already exists.
-	var ruleMap map[string]interface{}
+	var ruleMap map[string]any
 	if err := json.Unmarshal(data, &ruleMap); err != nil {
 		return fmt.Errorf("parsing rule JSON: %w", err)
 	}

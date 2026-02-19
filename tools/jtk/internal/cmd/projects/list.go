@@ -58,7 +58,7 @@ func runList(ctx context.Context, opts *root.Options, query string, maxResults i
 	}
 
 	headers := []string{"KEY", "NAME", "TYPE", "LEAD"}
-	var rows [][]string
+	rows := make([][]string, 0, len(result.Values))
 
 	for _, p := range result.Values {
 		lead := ""

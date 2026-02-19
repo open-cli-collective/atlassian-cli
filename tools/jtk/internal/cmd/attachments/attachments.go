@@ -81,9 +81,9 @@ func runList(ctx context.Context, opts *root.Options, issueKey string) error {
 		})
 	}
 
-	data := make([]map[string]interface{}, 0, len(attachments))
+	data := make([]map[string]any, 0, len(attachments))
 	for _, att := range attachments {
-		data = append(data, map[string]interface{}{
+		data = append(data, map[string]any{
 			"id":       att.ID.String(),
 			"filename": att.Filename,
 			"size":     att.Size,

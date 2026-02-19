@@ -124,7 +124,7 @@ func formatIssueRow(key, summary, status, assignee, issueType string) []string {
 }
 
 // safeString extracts string from an interface value
-func safeString(v interface{}) string {
+func safeString(v any) string {
 	if v == nil {
 		return ""
 	}

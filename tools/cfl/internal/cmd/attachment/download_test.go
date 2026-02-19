@@ -148,7 +148,7 @@ func TestRunDownload_Success(t *testing.T) {
 		Options: rootOpts,
 	}
 
-	err := runDownload(context.Background(),"att123", opts)
+	err := runDownload(context.Background(), "att123", opts)
 	testutil.RequireNoError(t, err)
 
 	// Verify file was created
@@ -173,7 +173,7 @@ func TestRunDownload_CustomOutputFile(t *testing.T) {
 		outputFile: outputPath,
 	}
 
-	err := runDownload(context.Background(),"att123", opts)
+	err := runDownload(context.Background(), "att123", opts)
 	testutil.RequireNoError(t, err)
 
 	// Verify file was created with custom name
@@ -205,7 +205,7 @@ func TestRunDownload_FileExists_NoForce(t *testing.T) {
 		force:   false,
 	}
 
-	err = runDownload(context.Background(),"att123", opts)
+	err = runDownload(context.Background(), "att123", opts)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "file already exists")
 	testutil.Contains(t, err.Error(), "--force")
@@ -238,7 +238,7 @@ func TestRunDownload_FileExists_WithForce(t *testing.T) {
 		force:   true,
 	}
 
-	err = runDownload(context.Background(),"att123", opts)
+	err = runDownload(context.Background(), "att123", opts)
 	testutil.RequireNoError(t, err)
 
 	// Verify file was overwritten
@@ -261,7 +261,7 @@ func TestRunDownload_AttachmentNotFound(t *testing.T) {
 		Options: rootOpts,
 	}
 
-	err := runDownload(context.Background(),"nonexistent", opts)
+	err := runDownload(context.Background(), "nonexistent", opts)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "getting attachment info")
 }
@@ -295,7 +295,7 @@ func TestRunDownload_DownloadFailed(t *testing.T) {
 		Options: rootOpts,
 	}
 
-	err := runDownload(context.Background(),"att123", opts)
+	err := runDownload(context.Background(), "att123", opts)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "downloading attachment")
 }
@@ -330,7 +330,7 @@ func TestRunDownload_InvalidFilename(t *testing.T) {
 				Options: rootOpts,
 			}
 
-			err := runDownload(context.Background(),"att123", opts)
+			err := runDownload(context.Background(), "att123", opts)
 			testutil.RequireError(t, err)
 			testutil.Contains(t, err.Error(), "invalid attachment filename")
 		})
@@ -369,7 +369,7 @@ func TestRunDownload_PathTraversalPrevented(t *testing.T) {
 		Options: rootOpts,
 	}
 
-	err := runDownload(context.Background(),"att123", opts)
+	err := runDownload(context.Background(), "att123", opts)
 	testutil.RequireNoError(t, err)
 
 	// File should be saved as just "passwd" (the base name), not a path traversal

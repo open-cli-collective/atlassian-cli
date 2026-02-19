@@ -82,7 +82,7 @@ func runUpdate(ctx context.Context, opts *root.Options, issueKey, summary, descr
 	}
 
 	// Handle other field updates via the standard update API
-	fields := make(map[string]interface{})
+	fields := make(map[string]any)
 
 	if summary != "" {
 		fields["summary"] = summary
@@ -153,8 +153,8 @@ func runUpdate(ctx context.Context, opts *root.Options, issueKey, summary, descr
 }
 
 func changeIssueType(client *api.Client, v interface {
-	Info(string, ...interface{})
-	Success(string, ...interface{})
+	Info(string, ...any)
+	Success(string, ...any)
 }, issueKey, targetTypeName string) error {
 	// Get the issue to find its project
 	issue, err := client.GetIssue(issueKey)

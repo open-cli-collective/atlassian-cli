@@ -509,7 +509,7 @@ func TestMarkdownToADF_OutputIsValidJSON(t *testing.T) {
 		testutil.RequireNoError(t, err)
 
 		// Verify it's valid JSON
-		var parsed map[string]interface{}
+		var parsed map[string]any
 		err = json.Unmarshal(jsonBytes, &parsed)
 		if err != nil {
 			t.Fatalf("Output should be valid JSON for input: %s: %v", input, err)

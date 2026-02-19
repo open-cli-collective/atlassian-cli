@@ -83,7 +83,7 @@ func ResolveFieldID(fields []Field, nameOrID string) (string, error) {
 //   - number fields: converts string to float64
 //   - issuelink fields (e.g., parent): wraps value as {"key": "..."} or {"id": "..."}
 //   - textarea custom fields: converts to ADF document
-func FormatFieldValue(field *Field, value string) interface{} {
+func FormatFieldValue(field *Field, value string) any {
 	if field == nil {
 		return value
 	}
@@ -181,24 +181,24 @@ func (c *Client) GetFieldOptionsFromEditMeta(ctx context.Context, issueKey, fiel
 		return nil, err
 	}
 
-	fieldsData, ok := meta["fields"].(map[string]interface{})
+	fieldsData, ok := meta["fields"].(map[string]any)
 	if !ok {
 		return nil, fmt.Errorf("no fields found in edit metadata")
 	}
 
-	fieldData, ok := fieldsData[fieldID].(map[string]interface{})
+	fieldData, ok := fieldsData[fieldID].(map[string]any)
 	if !ok {
 		return nil, fmt.Errorf("field %s not found in edit metadata", fieldID)
 	}
 
-	allowedValues, ok := fieldData["allowedValues"].([]interface{})
+	allowedValues, ok := fieldData["allowedValues"].([]any)
 	if !ok {
 		return nil, fmt.Errorf("no allowed values found for field %s", fieldID)
 	}
 
 	var options []FieldOptionValue
 	for _, av := range allowedValues {
-		if opt, ok := av.(map[string]interface{}); ok {
+		if opt, ok := av.(map[string]any); ok {
 			option := FieldOptionValue{}
 			if id, ok := opt["id"].(string); ok {
 				option.ID = id

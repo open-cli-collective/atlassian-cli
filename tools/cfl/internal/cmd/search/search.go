@@ -126,7 +126,7 @@ func runSearch(ctx context.Context, opts *searchOptions) error {
 	// Handle limit 0 - return empty
 	if opts.limit == 0 {
 		if opts.Output == "json" {
-			return v.JSON([]interface{}{})
+			return v.JSON([]any{})
 		}
 		v.RenderText("No results.")
 		return nil
@@ -172,7 +172,7 @@ func runSearch(ctx context.Context, opts *searchOptions) error {
 
 	// Render results
 	headers := []string{"ID", "TYPE", "SPACE KEY", "TITLE"}
-	var rows [][]string
+	rows := make([][]string, 0, len(result.Results))
 
 	for _, r := range result.Results {
 		spaceKey := extractSpaceKey(r.ResultGlobalContainer.DisplayURL)

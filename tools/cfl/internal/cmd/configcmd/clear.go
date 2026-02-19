@@ -82,7 +82,7 @@ func runClear(opts *clearOptions) error {
 	fmt.Printf("Configuration file removed: %s\n", configPath)
 
 	// Check for active environment variables
-	envVars := []string{}
+	var envVars []string
 	if sharedconfig.GetEnvWithFallback("CFL_URL", "ATLASSIAN_URL") != "" {
 		envVars = append(envVars, "URL")
 	}

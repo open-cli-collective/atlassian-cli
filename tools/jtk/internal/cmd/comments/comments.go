@@ -88,7 +88,7 @@ func runList(ctx context.Context, opts *root.Options, issueKey string, maxResult
 	}
 
 	headers := []string{"ID", "AUTHOR", "CREATED", "BODY"}
-	var rows [][]string
+	rows := make([][]string, 0, len(result.Comments))
 
 	for _, c := range result.Comments {
 		body := ""

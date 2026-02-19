@@ -18,6 +18,10 @@ func (c *Client) ListAutomationRules(ctx context.Context) ([]AutomationRuleSumma
 	urlStr := fmt.Sprintf("%s/rule/summary", base)
 
 	for urlStr != "" {
+		if err := ctx.Err(); err != nil {
+			return nil, fmt.Errorf("listing automation rules: %w", err)
+		}
+
 		body, err := c.Get(ctx, urlStr)
 		if err != nil {
 			return nil, fmt.Errorf("listing automation rules: %w", err)

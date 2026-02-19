@@ -8,6 +8,7 @@ import (
 )
 
 func TestValidFormats(t *testing.T) {
+	t.Parallel()
 	formats := ValidFormats()
 
 	expected := []string{"table", "json", "plain"}
@@ -30,6 +31,7 @@ func TestValidFormats(t *testing.T) {
 }
 
 func TestValidateFormat(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		format  string
 		wantErr bool
@@ -45,6 +47,7 @@ func TestValidateFormat(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.format, func(t *testing.T) {
+			t.Parallel()
 			err := ValidateFormat(tt.format)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ValidateFormat(%q) error = %v, wantErr = %v", tt.format, err, tt.wantErr)
@@ -54,7 +57,9 @@ func TestValidateFormat(t *testing.T) {
 }
 
 func TestNew(t *testing.T) {
+	t.Parallel()
 	t.Run("default options", func(t *testing.T) {
+		t.Parallel()
 		v := New(FormatTable, false)
 
 		if v.Format != FormatTable {
@@ -75,6 +80,7 @@ func TestNew(t *testing.T) {
 	})
 
 	t.Run("with noColor", func(t *testing.T) {
+		t.Parallel()
 		v := New(FormatJSON, true)
 
 		if !v.NoColor {
@@ -84,6 +90,7 @@ func TestNew(t *testing.T) {
 }
 
 func TestNewWithFormat(t *testing.T) {
+	t.Parallel()
 	v := NewWithFormat("json", false)
 
 	if v.Format != FormatJSON {
@@ -92,6 +99,7 @@ func TestNewWithFormat(t *testing.T) {
 }
 
 func TestView_Table(t *testing.T) {
+	t.Parallel()
 	headers := []string{"ID", "NAME", "STATUS"}
 	rows := [][]string{
 		{"1", "Item One", "Active"},
@@ -99,6 +107,7 @@ func TestView_Table(t *testing.T) {
 	}
 
 	t.Run("table format", func(t *testing.T) {
+		t.Parallel()
 		buf := &bytes.Buffer{}
 		v := New(FormatTable, true) // noColor for predictable output
 		v.SetOutput(buf)
@@ -128,6 +137,7 @@ func TestView_Table(t *testing.T) {
 	})
 
 	t.Run("json format via Table", func(t *testing.T) {
+		t.Parallel()
 		buf := &bytes.Buffer{}
 		v := New(FormatJSON, false)
 		v.SetOutput(buf)
@@ -153,6 +163,7 @@ func TestView_Table(t *testing.T) {
 	})
 
 	t.Run("plain format via Table", func(t *testing.T) {
+		t.Parallel()
 		buf := &bytes.Buffer{}
 		v := New(FormatPlain, false)
 		v.SetOutput(buf)
@@ -178,6 +189,7 @@ func TestView_Table(t *testing.T) {
 }
 
 func TestView_JSON(t *testing.T) {
+	t.Parallel()
 	buf := &bytes.Buffer{}
 	v := New(FormatJSON, false)
 	v.SetOutput(buf)
@@ -204,6 +216,7 @@ func TestView_JSON(t *testing.T) {
 }
 
 func TestView_Plain(t *testing.T) {
+	t.Parallel()
 	buf := &bytes.Buffer{}
 	v := New(FormatPlain, false)
 	v.SetOutput(buf)
@@ -231,11 +244,13 @@ func TestView_Plain(t *testing.T) {
 }
 
 func TestView_Render(t *testing.T) {
+	t.Parallel()
 	headers := []string{"KEY", "VALUE"}
 	rows := [][]string{{"k1", "v1"}}
 	jsonData := map[string]string{"key": "value"}
 
 	t.Run("table format", func(t *testing.T) {
+		t.Parallel()
 		buf := &bytes.Buffer{}
 		v := New(FormatTable, true)
 		v.SetOutput(buf)
@@ -251,6 +266,7 @@ func TestView_Render(t *testing.T) {
 	})
 
 	t.Run("json format", func(t *testing.T) {
+		t.Parallel()
 		buf := &bytes.Buffer{}
 		v := New(FormatJSON, false)
 		v.SetOutput(buf)
@@ -266,6 +282,7 @@ func TestView_Render(t *testing.T) {
 	})
 
 	t.Run("plain format", func(t *testing.T) {
+		t.Parallel()
 		buf := &bytes.Buffer{}
 		v := New(FormatPlain, false)
 		v.SetOutput(buf)
@@ -286,7 +303,9 @@ func TestView_Render(t *testing.T) {
 }
 
 func TestView_Messages(t *testing.T) {
+	t.Parallel()
 	t.Run("Success", func(t *testing.T) {
+		t.Parallel()
 		buf := &bytes.Buffer{}
 		v := New(FormatTable, true)
 		v.SetOutput(buf)
@@ -302,6 +321,7 @@ func TestView_Messages(t *testing.T) {
 	})
 
 	t.Run("Error", func(t *testing.T) {
+		t.Parallel()
 		buf := &bytes.Buffer{}
 		v := New(FormatTable, true)
 		v.SetError(buf)
@@ -317,6 +337,7 @@ func TestView_Messages(t *testing.T) {
 	})
 
 	t.Run("Warning", func(t *testing.T) {
+		t.Parallel()
 		buf := &bytes.Buffer{}
 		v := New(FormatTable, true)
 		v.SetError(buf)
@@ -332,6 +353,7 @@ func TestView_Messages(t *testing.T) {
 	})
 
 	t.Run("Info", func(t *testing.T) {
+		t.Parallel()
 		buf := &bytes.Buffer{}
 		v := New(FormatTable, false)
 		v.SetOutput(buf)
@@ -344,6 +366,7 @@ func TestView_Messages(t *testing.T) {
 	})
 
 	t.Run("Print", func(t *testing.T) {
+		t.Parallel()
 		buf := &bytes.Buffer{}
 		v := New(FormatTable, false)
 		v.SetOutput(buf)
@@ -357,6 +380,7 @@ func TestView_Messages(t *testing.T) {
 	})
 
 	t.Run("Println", func(t *testing.T) {
+		t.Parallel()
 		buf := &bytes.Buffer{}
 		v := New(FormatTable, false)
 		v.SetOutput(buf)
@@ -371,6 +395,7 @@ func TestView_Messages(t *testing.T) {
 }
 
 func TestTruncate(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		input  string
 		maxLen int
@@ -388,6 +413,7 @@ func TestTruncate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
+			t.Parallel()
 			got := Truncate(tt.input, tt.maxLen)
 			if got != tt.want {
 				t.Errorf("Truncate(%q, %d) = %q, want %q", tt.input, tt.maxLen, got, tt.want)
@@ -397,6 +423,7 @@ func TestTruncate(t *testing.T) {
 }
 
 func TestView_SetOutput(t *testing.T) {
+	t.Parallel()
 	v := New(FormatTable, false)
 
 	buf := &bytes.Buffer{}
@@ -410,6 +437,7 @@ func TestView_SetOutput(t *testing.T) {
 }
 
 func TestView_SetError(t *testing.T) {
+	t.Parallel()
 	v := New(FormatTable, true)
 
 	buf := &bytes.Buffer{}
@@ -423,6 +451,7 @@ func TestView_SetError(t *testing.T) {
 }
 
 func TestView_RenderList(t *testing.T) {
+	t.Parallel()
 	headers := []string{"ID", "NAME"}
 	rows := [][]string{
 		{"1", "First"},
@@ -430,6 +459,7 @@ func TestView_RenderList(t *testing.T) {
 	}
 
 	t.Run("table format", func(t *testing.T) {
+		t.Parallel()
 		buf := &bytes.Buffer{}
 		v := New(FormatTable, true)
 		v.SetOutput(buf)
@@ -449,6 +479,7 @@ func TestView_RenderList(t *testing.T) {
 	})
 
 	t.Run("json format with hasMore=false", func(t *testing.T) {
+		t.Parallel()
 		buf := &bytes.Buffer{}
 		v := New(FormatJSON, false)
 		v.SetOutput(buf)
@@ -478,6 +509,7 @@ func TestView_RenderList(t *testing.T) {
 	})
 
 	t.Run("json format with hasMore=true", func(t *testing.T) {
+		t.Parallel()
 		buf := &bytes.Buffer{}
 		v := New(FormatJSON, false)
 		v.SetOutput(buf)
@@ -499,7 +531,9 @@ func TestView_RenderList(t *testing.T) {
 }
 
 func TestView_RenderKeyValue(t *testing.T) {
+	t.Parallel()
 	t.Run("table format", func(t *testing.T) {
+		t.Parallel()
 		buf := &bytes.Buffer{}
 		v := New(FormatTable, true)
 		v.SetOutput(buf)
@@ -516,6 +550,7 @@ func TestView_RenderKeyValue(t *testing.T) {
 	})
 
 	t.Run("json format", func(t *testing.T) {
+		t.Parallel()
 		buf := &bytes.Buffer{}
 		v := New(FormatJSON, false)
 		v.SetOutput(buf)
@@ -533,6 +568,7 @@ func TestView_RenderKeyValue(t *testing.T) {
 }
 
 func TestView_RenderText(t *testing.T) {
+	t.Parallel()
 	buf := &bytes.Buffer{}
 	v := New(FormatTable, false)
 	v.SetOutput(buf)

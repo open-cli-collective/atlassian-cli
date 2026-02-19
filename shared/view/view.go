@@ -118,7 +118,7 @@ func (v *View) tableAsJSON(headers []string, rows [][]string) error {
 }
 
 // JSON renders data as formatted JSON.
-func (v *View) JSON(data interface{}) error {
+func (v *View) JSON(data any) error {
 	enc := json.NewEncoder(v.Out)
 	enc.SetIndent("", "  ")
 	return enc.Encode(data)
@@ -136,7 +136,7 @@ func (v *View) Plain(rows [][]string) error {
 // For table format, uses headers and rows.
 // For JSON format, uses jsonData.
 // For plain format, uses rows without headers.
-func (v *View) Render(headers []string, rows [][]string, jsonData interface{}) error {
+func (v *View) Render(headers []string, rows [][]string, jsonData any) error {
 	switch v.Format {
 	case FormatJSON:
 		return v.JSON(jsonData)
@@ -150,7 +150,7 @@ func (v *View) Render(headers []string, rows [][]string, jsonData interface{}) e
 }
 
 // Success prints a success message with a green checkmark.
-func (v *View) Success(format string, args ...interface{}) {
+func (v *View) Success(format string, args ...any) {
 	msg := fmt.Sprintf(format, args...)
 	if v.NoColor {
 		_, _ = fmt.Fprintln(v.Out, "✓ "+msg)
@@ -160,7 +160,7 @@ func (v *View) Success(format string, args ...interface{}) {
 }
 
 // Error prints an error message with a red X.
-func (v *View) Error(format string, args ...interface{}) {
+func (v *View) Error(format string, args ...any) {
 	msg := fmt.Sprintf(format, args...)
 	if v.NoColor {
 		_, _ = fmt.Fprintln(v.Err, "✗ "+msg)
@@ -170,7 +170,7 @@ func (v *View) Error(format string, args ...interface{}) {
 }
 
 // Warning prints a warning message with a yellow warning sign.
-func (v *View) Warning(format string, args ...interface{}) {
+func (v *View) Warning(format string, args ...any) {
 	msg := fmt.Sprintf(format, args...)
 	if v.NoColor {
 		_, _ = fmt.Fprintln(v.Err, "⚠ "+msg)
@@ -180,18 +180,18 @@ func (v *View) Warning(format string, args ...interface{}) {
 }
 
 // Info prints an informational message.
-func (v *View) Info(format string, args ...interface{}) {
+func (v *View) Info(format string, args ...any) {
 	msg := fmt.Sprintf(format, args...)
 	_, _ = fmt.Fprintln(v.Out, msg)
 }
 
 // Print prints a message without newline.
-func (v *View) Print(format string, args ...interface{}) {
+func (v *View) Print(format string, args ...any) {
 	_, _ = fmt.Fprintf(v.Out, format, args...)
 }
 
 // Println prints a message with newline.
-func (v *View) Println(format string, args ...interface{}) {
+func (v *View) Println(format string, args ...any) {
 	_, _ = fmt.Fprintln(v.Out, fmt.Sprintf(format, args...))
 }
 

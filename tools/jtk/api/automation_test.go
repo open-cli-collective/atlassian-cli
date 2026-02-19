@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 
 	"github.com/open-cli-collective/atlassian-go/testutil"
@@ -90,8 +91,28 @@ func TestAutomationBaseURL(t *testing.T) {
 	testutil.Equal(t, baseURL, server.URL+"/gateway/api/automation/public/jira/my-cloud-id/rest/v1")
 }
 
+func TestListAutomationRules_CancelledContext(t *testing.T) {
+	t.Parallel()
+	client, server := newTestClientWithServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/_edge/tenant_info" {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"cloudId":"cloud-1"}`))
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer server.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, err := client.ListAutomationRules(ctx)
+	testutil.Error(t, err)
+	testutil.Contains(t, err.Error(), "listing automation rules")
+}
+
 func TestListAutomationRules(t *testing.T) {
-	callCount := 0
 	client, server := newTestClientWithServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/_edge/tenant_info" {
 			w.WriteHeader(http.StatusOK)
@@ -99,7 +120,6 @@ func TestListAutomationRules(t *testing.T) {
 			return
 		}
 
-		callCount++
 		w.WriteHeader(http.StatusOK)
 		resp := AutomationRuleSummaryResponse{
 			Links: automationLinks{},
@@ -550,7 +570,7 @@ func TestListAutomationRulesLegacyShape(t *testing.T) {
 }
 
 func TestListAutomationRulesPagination(t *testing.T) {
-	page := 0
+	var page int32
 	client, server := newTestClientWithServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/_edge/tenant_info" {
 			w.WriteHeader(http.StatusOK)
@@ -558,9 +578,9 @@ func TestListAutomationRulesPagination(t *testing.T) {
 			return
 		}
 
-		page++
+		p := atomic.AddInt32(&page, 1)
 		w.WriteHeader(http.StatusOK)
-		if page == 1 {
+		if p == 1 {
 			next := "http://" + r.Host + r.URL.Path + "?cursor=abc"
 			resp := AutomationRuleSummaryResponse{
 				Links: automationLinks{Next: &next},
@@ -586,5 +606,5 @@ func TestListAutomationRulesPagination(t *testing.T) {
 	testutil.Equal(t, rules[0].Name, "Rule 1")
 	testutil.Equal(t, rules[1].Name, "Rule 2")
 	testutil.Equal(t, rules[2].Name, "Rule 3")
-	testutil.Equal(t, page, 2) // Verify two pages were fetched
+	testutil.Equal(t, atomic.LoadInt32(&page), int32(2)) // Verify two pages were fetched
 }

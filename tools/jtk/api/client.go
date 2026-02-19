@@ -1,3 +1,4 @@
+// Package api provides a client for the Jira REST API.
 package api //nolint:revive // package name is intentional
 
 import (

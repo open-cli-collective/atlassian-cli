@@ -87,6 +87,10 @@ func (c *Client) SearchAll(ctx context.Context, jql string, maxResults int) ([]I
 	pageSize := 100
 
 	for {
+		if err := ctx.Err(); err != nil {
+			return nil, fmt.Errorf("searching all issues: %w", err)
+		}
+
 		result, err := c.Search(ctx, SearchOptions{
 			JQL:        jql,
 			StartAt:    startAt,

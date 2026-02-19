@@ -13,7 +13,7 @@ import (
 )
 
 // Equal checks that got and want are deeply equal.
-func Equal(t *testing.T, got, want interface{}) {
+func Equal(t *testing.T, got, want any) {
 	t.Helper()
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("got %v, want %v", got, want)
@@ -21,7 +21,7 @@ func Equal(t *testing.T, got, want interface{}) {
 }
 
 // RequireEqual checks that got and want are deeply equal, stopping the test on failure.
-func RequireEqual(t *testing.T, got, want interface{}) {
+func RequireEqual(t *testing.T, got, want any) {
 	t.Helper()
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %v, want %v", got, want)
@@ -69,7 +69,7 @@ func Contains(t *testing.T, s, substr string) {
 }
 
 // True checks that the condition is true.
-func True(t *testing.T, condition bool, msgAndArgs ...interface{}) {
+func True(t *testing.T, condition bool, msgAndArgs ...any) {
 	t.Helper()
 	if !condition {
 		if len(msgAndArgs) > 0 {
@@ -81,7 +81,7 @@ func True(t *testing.T, condition bool, msgAndArgs ...interface{}) {
 }
 
 // False checks that the condition is false.
-func False(t *testing.T, condition bool, msgAndArgs ...interface{}) {
+func False(t *testing.T, condition bool, msgAndArgs ...any) {
 	t.Helper()
 	if condition {
 		if len(msgAndArgs) > 0 {
@@ -93,7 +93,7 @@ func False(t *testing.T, condition bool, msgAndArgs ...interface{}) {
 }
 
 // Nil checks that v is nil.
-func Nil(t *testing.T, v interface{}) {
+func Nil(t *testing.T, v any) {
 	t.Helper()
 	if v == nil {
 		return
@@ -110,7 +110,7 @@ func Nil(t *testing.T, v interface{}) {
 }
 
 // NotNil checks that v is not nil.
-func NotNil(t *testing.T, v interface{}) {
+func NotNil(t *testing.T, v any) {
 	t.Helper()
 	if v == nil {
 		t.Errorf("expected not nil, got nil")
@@ -128,7 +128,7 @@ func NotNil(t *testing.T, v interface{}) {
 
 // Len checks that the length of v equals expected.
 // v must be a string, slice, array, map, or channel.
-func Len(t *testing.T, v interface{}, expected int) {
+func Len(t *testing.T, v any, expected int) {
 	t.Helper()
 	rv := reflect.ValueOf(v)
 	switch rv.Kind() { //nolint:exhaustive // covered by default case
@@ -142,7 +142,7 @@ func Len(t *testing.T, v interface{}, expected int) {
 }
 
 // Empty checks that v has length 0.
-func Empty(t *testing.T, v interface{}) {
+func Empty(t *testing.T, v any) {
 	t.Helper()
 	rv := reflect.ValueOf(v)
 	switch rv.Kind() { //nolint:exhaustive // covered by default case
@@ -156,7 +156,7 @@ func Empty(t *testing.T, v interface{}) {
 }
 
 // NotEmpty checks that v has length > 0.
-func NotEmpty(t *testing.T, v interface{}) {
+func NotEmpty(t *testing.T, v any) {
 	t.Helper()
 	rv := reflect.ValueOf(v)
 	switch rv.Kind() { //nolint:exhaustive // covered by default case
@@ -210,7 +210,7 @@ func HasSuffix(t *testing.T, s, suffix string) {
 }
 
 // NotEqual checks that got and want are not deeply equal.
-func NotEqual(t *testing.T, got, want interface{}) {
+func NotEqual(t *testing.T, got, want any) {
 	t.Helper()
 	if reflect.DeepEqual(got, want) {
 		t.Errorf("expected values to differ, both are %v", got)

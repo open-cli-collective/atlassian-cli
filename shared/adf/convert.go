@@ -143,17 +143,17 @@ func (c *converter) convertParagraph(n *ast.Paragraph) *Node {
 func (c *converter) convertHeading(n *ast.Heading) *Node {
 	return &Node{
 		Type:    "heading",
-		Attrs:   map[string]interface{}{"level": n.Level},
+		Attrs:   map[string]any{"level": n.Level},
 		Content: c.convertInlineChildren(n),
 	}
 }
 
 func (c *converter) convertList(n *ast.List) *Node {
 	listType := "bulletList"
-	var attrs map[string]interface{}
+	var attrs map[string]any
 	if n.IsOrdered() {
 		listType = "orderedList"
-		attrs = map[string]interface{}{"order": n.Start}
+		attrs = map[string]any{"order": n.Start}
 	}
 
 	return &Node{
@@ -224,7 +224,7 @@ func (c *converter) convertFencedCodeBlock(n *ast.FencedCodeBlock) *Node {
 	}
 
 	if lang := string(n.Language(c.source)); lang != "" {
-		node.Attrs = map[string]interface{}{"language": lang}
+		node.Attrs = map[string]any{"language": lang}
 	}
 
 	return node
@@ -271,7 +271,7 @@ func (c *converter) convertTable(n *extast.Table) *Node {
 
 	return &Node{
 		Type:    "table",
-		Attrs:   map[string]interface{}{"layout": "default"},
+		Attrs:   map[string]any{"layout": "default"},
 		Content: rows,
 	}
 }
@@ -318,7 +318,7 @@ func (c *converter) convertTableCell(n *extast.TableCell, isHeader bool) *Node {
 
 	return &Node{
 		Type:    cellType,
-		Attrs:   map[string]interface{}{"colspan": 1, "rowspan": 1},
+		Attrs:   map[string]any{"colspan": 1, "rowspan": 1},
 		Content: []*Node{para},
 	}
 }
@@ -397,7 +397,7 @@ func (c *converter) convertInlineNode(n ast.Node, marks []*Mark) []*Node {
 	case *ast.Link:
 		linkMark := &Mark{
 			Type:  "link",
-			Attrs: map[string]interface{}{"href": string(node.Destination)},
+			Attrs: map[string]any{"href": string(node.Destination)},
 		}
 		newMarks := append(copyMarks(marks), linkMark)
 		var nodes []*Node
@@ -410,7 +410,7 @@ func (c *converter) convertInlineNode(n ast.Node, marks []*Mark) []*Node {
 		url := string(node.URL(c.source))
 		linkMark := &Mark{
 			Type:  "link",
-			Attrs: map[string]interface{}{"href": url},
+			Attrs: map[string]any{"href": url},
 		}
 		newMarks := append(copyMarks(marks), linkMark)
 		return []*Node{{Type: "text", Text: url, Marks: newMarks}}

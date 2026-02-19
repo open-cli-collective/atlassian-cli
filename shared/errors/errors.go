@@ -43,7 +43,7 @@ func (e *APIError) UnmarshalJSON(data []byte) error {
 	}
 
 	if err := json.Unmarshal(data, aux); err != nil {
-		return err
+		return fmt.Errorf("unmarshaling API error: %w", err)
 	}
 
 	// Handle "errors" field which can be object or array

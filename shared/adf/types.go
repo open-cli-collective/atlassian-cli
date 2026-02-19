@@ -11,17 +11,17 @@ type Document struct {
 
 // Node represents a node in an ADF document.
 type Node struct {
-	Type    string                 `json:"type"`
-	Attrs   map[string]interface{} `json:"attrs,omitempty"`
-	Content []*Node                `json:"content,omitempty"`
-	Text    string                 `json:"text,omitempty"`
-	Marks   []*Mark                `json:"marks,omitempty"`
+	Type    string         `json:"type"`
+	Attrs   map[string]any `json:"attrs,omitempty"`
+	Content []*Node        `json:"content,omitempty"`
+	Text    string         `json:"text,omitempty"`
+	Marks   []*Mark        `json:"marks,omitempty"`
 }
 
 // Mark represents text formatting (bold, italic, link, etc.) in ADF.
 type Mark struct {
-	Type  string                 `json:"type"`
-	Attrs map[string]interface{} `json:"attrs,omitempty"`
+	Type  string         `json:"type"`
+	Attrs map[string]any `json:"attrs,omitempty"`
 }
 
 // ToPlainText extracts plain text from a Document.

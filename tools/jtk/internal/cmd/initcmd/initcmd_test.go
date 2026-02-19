@@ -28,6 +28,7 @@ func TestConfig_GetDefaultProject_NoConfig(t *testing.T) {
 }
 
 func TestConfig_DefaultProject_Struct(t *testing.T) {
+	t.Parallel()
 	// Test that the Config struct has the DefaultProject field
 	cfg := &config.Config{
 		URL:            "https://test.atlassian.net",

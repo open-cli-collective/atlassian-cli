@@ -176,6 +176,7 @@ func TestNewTestCmd_NoURL(t *testing.T) {
 }
 
 func TestMaskToken(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name  string
 		token string
@@ -189,6 +190,7 @@ func TestMaskToken(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			got := maskToken(tt.token)
 			testutil.Equal(t, got, tt.want)
 		})

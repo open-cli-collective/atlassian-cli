@@ -180,6 +180,7 @@ func TestGetURL_URLTakesPrecedence(t *testing.T) {
 }
 
 func TestNormalizeURL(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		input string
 		want  string
@@ -194,6 +195,7 @@ func TestNormalizeURL(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
+			t.Parallel()
 			testutil.Equal(t, url.NormalizeURL(tt.input), tt.want)
 		})
 	}
@@ -316,6 +318,7 @@ func TestIsConfigured_LegacyEnvOnly(t *testing.T) {
 }
 
 func TestPath(t *testing.T) {
+	t.Parallel()
 	path := Path()
 	testutil.Contains(t, path, configDirName)
 	testutil.Contains(t, path, configFileName)

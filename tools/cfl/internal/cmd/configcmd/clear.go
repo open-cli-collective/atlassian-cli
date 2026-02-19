@@ -29,9 +29,10 @@ func newClearCmd(opts *root.Options) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "clear",
 		Short: "Clear stored configuration",
-		Long: `Remove the cfl configuration file.
+		Long: `Remove the stored cfl configuration file.
 
-Note: Environment variables (CFL_*, ATLASSIAN_*) will still be used if set.`,
+This will delete ~/.config/cfl/config.yml. Environment variables (CFL_*, ATLASSIAN_*)
+will continue to work even after clearing the config file.`,
 		Example: `  # Clear configuration (with confirmation)
   cfl config clear
 
@@ -52,14 +53,14 @@ func runClear(opts *clearOptions) error {
 
 	// Check if config file exists
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		fmt.Printf("No configuration file found at %s\n", configPath)
+		_, _ = fmt.Fprintf(opts.Stderr, "No configuration file found at %s\n", configPath)
 		return nil
 	}
 
 	// Confirm unless --force
 	if !opts.force {
-		fmt.Printf("This will remove: %s\n", configPath)
-		fmt.Print("Are you sure? [y/N]: ")
+		_, _ = fmt.Fprintf(opts.Stderr, "This will remove: %s\n", configPath)
+		_, _ = fmt.Fprint(opts.Stderr, "Are you sure? [y/N]: ")
 
 		var response string
 		_, err := fmt.Fscanln(opts.stdin, &response)
@@ -69,7 +70,7 @@ func runClear(opts *clearOptions) error {
 
 		response = strings.TrimSpace(strings.ToLower(response))
 		if response != "y" && response != "yes" {
-			fmt.Println("Cancelled.")
+			_, _ = fmt.Fprintln(opts.Stderr, "Cancelled.")
 			return nil
 		}
 	}
@@ -79,7 +80,7 @@ func runClear(opts *clearOptions) error {
 		return fmt.Errorf("removing config file: %w", err)
 	}
 
-	fmt.Printf("Configuration file removed: %s\n", configPath)
+	_, _ = fmt.Fprintf(opts.Stderr, "Configuration file removed: %s\n", configPath)
 
 	// Check for active environment variables
 	var envVars []string
@@ -94,10 +95,10 @@ func runClear(opts *clearOptions) error {
 	}
 
 	if len(envVars) > 0 {
-		fmt.Println()
-		fmt.Printf("Note: The following are still configured via environment variables: %s\n",
+		_, _ = fmt.Fprintln(opts.Stderr)
+		_, _ = fmt.Fprintf(opts.Stderr, "Note: The following are still configured via environment variables: %s\n",
 			strings.Join(envVars, ", "))
-		fmt.Println("These will continue to be used. Unset them if you want to fully clear configuration.")
+		_, _ = fmt.Fprintln(opts.Stderr, "These will continue to be used. Unset them if you want to fully clear configuration.")
 	}
 
 	return nil

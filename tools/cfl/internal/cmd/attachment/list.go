@@ -99,9 +99,9 @@ func runList(ctx context.Context, opts *listOptions) error {
 
 	if len(attachments) == 0 && opts.Output != "json" {
 		if opts.unused {
-			fmt.Println("No unused attachments found.")
+			_, _ = fmt.Fprintln(opts.Stderr, "No unused attachments found.")
 		} else {
-			fmt.Println("No attachments found.")
+			_, _ = fmt.Fprintln(opts.Stderr, "No attachments found.")
 		}
 		return nil
 	}

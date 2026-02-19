@@ -34,38 +34,38 @@ func runTest(ctx context.Context, opts *root.Options) error {
 		return fmt.Errorf("configuration error: %w", err)
 	}
 
-	fmt.Print("Testing connection... ")
+	_, _ = fmt.Fprint(opts.Stderr, "Testing connection... ")
 
 	// Try to list spaces (limit 1) to verify connectivity
 	_, err = client.ListSpaces(ctx, nil)
 	if err != nil {
-		fmt.Println("failed!")
-		fmt.Println()
-		fmt.Println("Troubleshooting:")
-		fmt.Println("  - Verify your URL is correct (should include https://)")
-		fmt.Println("  - Check your email and API token")
-		fmt.Println("  - Ensure your API token hasn't expired")
-		fmt.Println("  - Verify you have permission to access Confluence")
-		fmt.Println()
-		fmt.Println("To regenerate an API token:")
-		fmt.Println("  https://id.atlassian.com/manage-profile/security/api-tokens")
+		_, _ = fmt.Fprintln(opts.Stderr, "failed!")
+		_, _ = fmt.Fprintln(opts.Stderr)
+		_, _ = fmt.Fprintln(opts.Stderr, "Troubleshooting:")
+		_, _ = fmt.Fprintln(opts.Stderr, "  - Verify your URL is correct (should include https://)")
+		_, _ = fmt.Fprintln(opts.Stderr, "  - Check your email and API token")
+		_, _ = fmt.Fprintln(opts.Stderr, "  - Ensure your API token hasn't expired")
+		_, _ = fmt.Fprintln(opts.Stderr, "  - Verify you have permission to access Confluence")
+		_, _ = fmt.Fprintln(opts.Stderr)
+		_, _ = fmt.Fprintln(opts.Stderr, "To regenerate an API token:")
+		_, _ = fmt.Fprintln(opts.Stderr, "  https://id.atlassian.com/manage-profile/security/api-tokens")
 		return fmt.Errorf("connection test failed: %w", err)
 	}
 
-	fmt.Println("success!")
-	fmt.Println()
+	_, _ = fmt.Fprintln(opts.Stderr, "success!")
+	_, _ = fmt.Fprintln(opts.Stderr)
 
 	// Get current user details
 	user, err := client.GetCurrentUser(ctx)
 	if err != nil {
 		// User details failed but connection worked - show basic success
-		fmt.Println("Your cfl configuration is working correctly.")
+		_, _ = fmt.Fprintln(opts.Stderr, "Your cfl configuration is working correctly.")
 		return nil
 	}
 
-	fmt.Println("Authentication successful")
-	fmt.Println("API access verified")
-	fmt.Println()
+	_, _ = fmt.Fprintln(opts.Stderr, "Authentication successful")
+	_, _ = fmt.Fprintln(opts.Stderr, "API access verified")
+	_, _ = fmt.Fprintln(opts.Stderr)
 
 	// Display user info - try DisplayName first, fall back to PublicName
 	displayName := user.DisplayName
@@ -75,13 +75,13 @@ func runTest(ctx context.Context, opts *root.Options) error {
 
 	if displayName != "" {
 		if user.Email != "" {
-			fmt.Printf("Authenticated as: %s (%s)\n", displayName, user.Email)
+			_, _ = fmt.Fprintf(opts.Stderr, "Authenticated as: %s (%s)\n", displayName, user.Email)
 		} else {
-			fmt.Printf("Authenticated as: %s\n", displayName)
+			_, _ = fmt.Fprintf(opts.Stderr, "Authenticated as: %s\n", displayName)
 		}
 	}
 	if user.AccountID != "" {
-		fmt.Printf("Account ID: %s\n", user.AccountID)
+		_, _ = fmt.Fprintf(opts.Stderr, "Account ID: %s\n", user.AccountID)
 	}
 
 	return nil

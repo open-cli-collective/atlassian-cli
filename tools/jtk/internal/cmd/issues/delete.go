@@ -38,8 +38,8 @@ func runDelete(ctx context.Context, opts *root.Options, issueKey string, force b
 	v := opts.View()
 
 	if !force {
-		fmt.Printf("This will permanently delete issue %s. This action cannot be undone.\n", issueKey)
-		fmt.Print("Are you sure? [y/N]: ")
+		fmt.Fprintf(opts.Stderr, "This will permanently delete issue %s. This action cannot be undone.\n", issueKey)
+		fmt.Fprint(opts.Stderr, "Are you sure? [y/N]: ")
 
 		confirmed, err := prompt.Confirm(opts.Stdin)
 		if err != nil {

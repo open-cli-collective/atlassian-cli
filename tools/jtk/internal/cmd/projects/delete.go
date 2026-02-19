@@ -40,8 +40,8 @@ func runDelete(ctx context.Context, opts *root.Options, keyOrID string, force bo
 	v := opts.View()
 
 	if !force {
-		fmt.Printf("This will delete project %s (moves to trash). It can be restored later.\n", keyOrID)
-		fmt.Print("Are you sure? [y/N]: ")
+		fmt.Fprintf(opts.Stderr, "This will delete project %s (moves to trash). It can be restored later.\n", keyOrID)
+		fmt.Fprint(opts.Stderr, "Are you sure? [y/N]: ")
 
 		confirmed, err := prompt.Confirm(opts.Stdin)
 		if err != nil {

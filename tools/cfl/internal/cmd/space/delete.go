@@ -58,15 +58,15 @@ func runDelete(ctx context.Context, spaceKey string, opts *deleteOptions) error 
 	v := opts.View()
 
 	if !opts.force {
-		fmt.Printf("About to delete space: %s (%s)\n", space.Name, space.Key)
-		fmt.Print("Are you sure? [y/N]: ")
+		_, _ = fmt.Fprintf(opts.Stderr, "About to delete space: %s (%s)\n", space.Name, space.Key)
+		_, _ = fmt.Fprint(opts.Stderr, "Are you sure? [y/N]: ")
 
 		confirmed, err := prompt.Confirm(opts.Stdin)
 		if err != nil {
 			return fmt.Errorf("reading confirmation: %w", err)
 		}
 		if !confirmed {
-			fmt.Println("Deletion cancelled.")
+			_, _ = fmt.Fprintln(opts.Stderr, "Deletion cancelled.")
 			return nil
 		}
 	}

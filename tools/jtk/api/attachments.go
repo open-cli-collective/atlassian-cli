@@ -154,7 +154,7 @@ func (c *Client) AddAttachment(ctx context.Context, issueKey, filePath string) (
 	req.Header.Set("X-Atlassian-Token", "no-check")
 
 	if c.Verbose {
-		fmt.Printf("→ POST %s\n", urlStr)
+		fmt.Fprintf(os.Stderr, "→ POST %s\n", urlStr)
 	}
 
 	resp, err := c.HTTPClient.Do(req)
@@ -174,7 +174,7 @@ func (c *Client) AddAttachment(ctx context.Context, issueKey, filePath string) (
 	}
 
 	if c.Verbose {
-		fmt.Printf("← %d %s\n", resp.StatusCode, http.StatusText(resp.StatusCode))
+		fmt.Fprintf(os.Stderr, "← %d %s\n", resp.StatusCode, http.StatusText(resp.StatusCode))
 	}
 
 	if resp.StatusCode >= 400 {
@@ -221,7 +221,7 @@ func (c *Client) DownloadAttachment(ctx context.Context, attachment *Attachment,
 	req.Header.Set("Authorization", c.GetAuthHeader())
 
 	if c.Verbose {
-		fmt.Printf("→ GET %s\n", attachment.Content)
+		fmt.Fprintf(os.Stderr, "→ GET %s\n", attachment.Content)
 	}
 
 	resp, err := c.HTTPClient.Do(req)
@@ -231,7 +231,7 @@ func (c *Client) DownloadAttachment(ctx context.Context, attachment *Attachment,
 	defer resp.Body.Close()
 
 	if c.Verbose {
-		fmt.Printf("← %d %s\n", resp.StatusCode, http.StatusText(resp.StatusCode))
+		fmt.Fprintf(os.Stderr, "← %d %s\n", resp.StatusCode, http.StatusText(resp.StatusCode))
 	}
 
 	if resp.StatusCode >= 400 {

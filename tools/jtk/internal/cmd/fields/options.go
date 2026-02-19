@@ -253,8 +253,8 @@ func runOptionsDelete(ctx context.Context, opts *root.Options, fieldID, optionID
 	v := opts.View()
 
 	if !force {
-		fmt.Printf("This will delete option %s from field %s.\n", optionID, fieldID)
-		fmt.Print("Are you sure? [y/N]: ")
+		fmt.Fprintf(opts.Stderr, "This will delete option %s from field %s.\n", optionID, fieldID)
+		fmt.Fprint(opts.Stderr, "Are you sure? [y/N]: ")
 
 		confirmed, err := prompt.Confirm(opts.Stdin)
 		if err != nil {

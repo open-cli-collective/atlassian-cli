@@ -128,8 +128,8 @@ func runClear(ctx context.Context, opts *clearOptions) error {
 
 	// Confirm unless --force
 	if !opts.force {
-		fmt.Printf("This will remove: %s\n", configPath)
-		fmt.Print("Are you sure? [y/N]: ")
+		fmt.Fprintf(opts.Stderr, "This will remove: %s\n", configPath)
+		fmt.Fprint(opts.Stderr, "Are you sure? [y/N]: ")
 
 		var response string
 		_, err := fmt.Fscanln(opts.stdin, &response)
@@ -163,10 +163,10 @@ func runClear(ctx context.Context, opts *clearOptions) error {
 	}
 
 	if len(envVars) > 0 {
-		fmt.Println()
-		fmt.Printf("Note: The following are still configured via environment variables: %s\n",
+		fmt.Fprintln(opts.Stderr)
+		fmt.Fprintf(opts.Stderr, "Note: The following are still configured via environment variables: %s\n",
 			strings.Join(envVars, ", "))
-		fmt.Println("These will continue to be used. Unset them if you want to fully clear configuration.")
+		fmt.Fprintln(opts.Stderr, "These will continue to be used. Unset them if you want to fully clear configuration.")
 	}
 
 	return nil

@@ -52,8 +52,8 @@ func runDeleteAttachment(ctx context.Context, attachmentID string, opts *deleteO
 	v := opts.View()
 
 	if !opts.force {
-		fmt.Printf("About to delete attachment: %s (ID: %s)\n", attachment.Title, attachment.ID)
-		fmt.Print("Are you sure? [y/N]: ")
+		_, _ = fmt.Fprintf(opts.Stderr, "About to delete attachment: %s (ID: %s)\n", attachment.Title, attachment.ID)
+		_, _ = fmt.Fprint(opts.Stderr, "Are you sure? [y/N]: ")
 
 		scanner := bufio.NewScanner(opts.Stdin)
 		var confirm string
@@ -62,7 +62,7 @@ func runDeleteAttachment(ctx context.Context, attachmentID string, opts *deleteO
 		}
 
 		if confirm != "y" && confirm != "Y" {
-			fmt.Println("Deletion cancelled.")
+			_, _ = fmt.Fprintln(opts.Stderr, "Deletion cancelled.")
 			return nil
 		}
 	}

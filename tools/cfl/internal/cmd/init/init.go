@@ -78,7 +78,7 @@ func runInit(ctx context.Context, prefillURL, prefillEmail string, noVerify bool
 			return err
 		}
 		if !overwrite {
-			fmt.Println("Initialization cancelled.")
+			_, _ = fmt.Fprintln(os.Stderr, "Initialization cancelled.")
 			return nil
 		}
 	}
@@ -168,12 +168,12 @@ func runInit(ctx context.Context, prefillURL, prefillEmail string, noVerify bool
 
 	// Verify connection unless skipped
 	if !noVerify {
-		fmt.Print("Verifying connection... ")
+		_, _ = fmt.Fprint(os.Stderr, "Verifying connection... ")
 		if err := verifyConnection(ctx, cfg); err != nil {
-			fmt.Println("failed!")
+			_, _ = fmt.Fprintln(os.Stderr, "failed!")
 			return fmt.Errorf("connection verification failed: %w", err)
 		}
-		fmt.Println("success!")
+		_, _ = fmt.Fprintln(os.Stderr, "success!")
 	}
 
 	// Save configuration
@@ -181,10 +181,10 @@ func runInit(ctx context.Context, prefillURL, prefillEmail string, noVerify bool
 		return err
 	}
 
-	fmt.Printf("\nConfiguration saved to %s\n", configPath)
-	fmt.Println("\nYou're all set! Try running:")
-	fmt.Println("  cfl space list")
-	fmt.Println("  cfl page list --space <SPACE_KEY>")
+	_, _ = fmt.Fprintf(os.Stderr, "\nConfiguration saved to %s\n", configPath)
+	_, _ = fmt.Fprintln(os.Stderr, "\nYou're all set! Try running:")
+	_, _ = fmt.Fprintln(os.Stderr, "  cfl space list")
+	_, _ = fmt.Fprintln(os.Stderr, "  cfl page list --space <SPACE_KEY>")
 
 	return nil
 }

@@ -55,10 +55,10 @@ func runShow(opts *root.Options) error {
 	v.RenderKeyValue("API Token", formatValueWithSource(maskToken(token), tokenSource))
 	v.RenderKeyValue("Default Space", formatValueWithSource(space, spaceSource))
 
-	fmt.Println()
-	fmt.Printf("Config file: %s\n", configPath)
+	_, _ = fmt.Fprintln(opts.Stderr)
+	_, _ = fmt.Fprintf(opts.Stderr, "Config file: %s\n", configPath)
 	if fileErr != nil {
-		fmt.Printf("  (file not found or unreadable)\n")
+		_, _ = fmt.Fprintf(opts.Stderr, "  (file not found or unreadable)\n")
 	}
 
 	return nil

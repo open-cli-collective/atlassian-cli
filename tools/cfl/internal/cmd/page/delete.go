@@ -54,15 +54,15 @@ func runDelete(ctx context.Context, pageID string, opts *deleteOptions) error {
 	v := opts.View()
 
 	if !opts.force {
-		fmt.Printf("About to delete page: %s (ID: %s)\n", page.Title, page.ID)
-		fmt.Print("Are you sure? [y/N]: ")
+		_, _ = fmt.Fprintf(opts.Stderr, "About to delete page: %s (ID: %s)\n", page.Title, page.ID)
+		_, _ = fmt.Fprint(opts.Stderr, "Are you sure? [y/N]: ")
 
 		confirmed, err := prompt.Confirm(opts.Stdin)
 		if err != nil {
 			return fmt.Errorf("reading confirmation: %w", err)
 		}
 		if !confirmed {
-			fmt.Println("Deletion cancelled.")
+			_, _ = fmt.Fprintln(opts.Stderr, "Deletion cancelled.")
 			return nil
 		}
 	}

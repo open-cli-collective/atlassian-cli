@@ -186,8 +186,8 @@ func runDelete(ctx context.Context, opts *root.Options, fieldID string, force bo
 	v := opts.View()
 
 	if !force {
-		fmt.Printf("This will trash field %s. It can be restored later.\n", fieldID)
-		fmt.Print("Are you sure? [y/N]: ")
+		fmt.Fprintf(opts.Stderr, "This will trash field %s. It can be restored later.\n", fieldID)
+		fmt.Fprint(opts.Stderr, "Are you sure? [y/N]: ")
 
 		confirmed, err := prompt.Confirm(opts.Stdin)
 		if err != nil {

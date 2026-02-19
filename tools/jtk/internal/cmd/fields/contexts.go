@@ -160,8 +160,8 @@ func runContextsDelete(ctx context.Context, opts *root.Options, fieldID, context
 	v := opts.View()
 
 	if !force {
-		fmt.Printf("This will delete context %s from field %s.\n", contextID, fieldID)
-		fmt.Print("Are you sure? [y/N]: ")
+		fmt.Fprintf(opts.Stderr, "This will delete context %s from field %s.\n", contextID, fieldID)
+		fmt.Fprint(opts.Stderr, "Are you sure? [y/N]: ")
 
 		confirmed, err := prompt.Confirm(opts.Stdin)
 		if err != nil {

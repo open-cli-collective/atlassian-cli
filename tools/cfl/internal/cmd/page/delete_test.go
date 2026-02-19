@@ -2,6 +2,7 @@ package page
 
 import (
 	"bytes"
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -58,7 +59,7 @@ func TestRunDelete_ConfirmYes(t *testing.T) {
 		force:   false,
 	}
 
-	err := runDelete("12345", opts)
+	err := runDelete(context.Background(), "12345", opts)
 	testutil.RequireNoError(t, err)
 }
 
@@ -76,7 +77,7 @@ func TestRunDelete_ConfirmYesUppercase(t *testing.T) {
 		force:   false,
 	}
 
-	err := runDelete("12345", opts)
+	err := runDelete(context.Background(), "12345", opts)
 	testutil.RequireNoError(t, err)
 }
 
@@ -94,7 +95,7 @@ func TestRunDelete_ConfirmNo(t *testing.T) {
 		force:   false,
 	}
 
-	err := runDelete("12345", opts)
+	err := runDelete(context.Background(), "12345", opts)
 	testutil.RequireNoError(t, err) // Cancellation is not an error
 }
 
@@ -112,7 +113,7 @@ func TestRunDelete_ConfirmEmpty(t *testing.T) {
 		force:   false,
 	}
 
-	err := runDelete("12345", opts)
+	err := runDelete(context.Background(), "12345", opts)
 	testutil.RequireNoError(t, err) // Empty input should cancel
 }
 
@@ -130,7 +131,7 @@ func TestRunDelete_ConfirmOther(t *testing.T) {
 		force:   false,
 	}
 
-	err := runDelete("12345", opts)
+	err := runDelete(context.Background(), "12345", opts)
 	testutil.RequireNoError(t, err) // Any non-y/Y input should cancel
 }
 
@@ -147,7 +148,7 @@ func TestRunDelete_Force(t *testing.T) {
 		force:   true,
 	}
 
-	err := runDelete("12345", opts)
+	err := runDelete(context.Background(), "12345", opts)
 	testutil.RequireNoError(t, err)
 }
 
@@ -167,7 +168,7 @@ func TestRunDelete_PageNotFound(t *testing.T) {
 		force:   true,
 	}
 
-	err := runDelete("99999", opts)
+	err := runDelete(context.Background(), "99999", opts)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "getting page")
 }
@@ -185,7 +186,7 @@ func TestRunDelete_DeleteFailed(t *testing.T) {
 		force:   true,
 	}
 
-	err := runDelete("12345", opts)
+	err := runDelete(context.Background(), "12345", opts)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "deleting page")
 }
@@ -204,7 +205,7 @@ func TestRunDelete_JSONOutput(t *testing.T) {
 		force:   true,
 	}
 
-	err := runDelete("12345", opts)
+	err := runDelete(context.Background(), "12345", opts)
 	testutil.RequireNoError(t, err)
 }
 
@@ -249,7 +250,7 @@ func TestRunDelete_ConfirmationInputs(t *testing.T) {
 				force:   false,
 			}
 
-			err := runDelete("12345", opts)
+			err := runDelete(context.Background(), "12345", opts)
 			testutil.RequireNoError(t, err)
 			testutil.Equal(t, deleteCalled, tt.shouldProceed)
 		})

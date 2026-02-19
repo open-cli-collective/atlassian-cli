@@ -2,6 +2,7 @@ package space
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -61,7 +62,7 @@ func TestRunView_Table(t *testing.T) {
 	rootOpts.SetAPIClient(client)
 
 	opts := &viewOptions{Options: rootOpts}
-	err := runView("TEST", opts)
+	err := runView(context.Background(),"TEST", opts)
 
 	testutil.RequireNoError(t, err)
 	output := stdout.String()
@@ -89,7 +90,7 @@ func TestRunView_JSON(t *testing.T) {
 	rootOpts.SetAPIClient(client)
 
 	opts := &viewOptions{Options: rootOpts}
-	err := runView("TEST", opts)
+	err := runView(context.Background(),"TEST", opts)
 
 	testutil.RequireNoError(t, err)
 	var result map[string]interface{}
@@ -110,7 +111,7 @@ func TestRunView_NotFound(t *testing.T) {
 	rootOpts.SetAPIClient(client)
 
 	opts := &viewOptions{Options: rootOpts}
-	err := runView("NONEXISTENT", opts)
+	err := runView(context.Background(),"NONEXISTENT", opts)
 
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "not found")
@@ -159,7 +160,7 @@ func TestRunCreate(t *testing.T) {
 		spaceType: "global",
 	}
 
-	err := runCreate(opts)
+	err := runCreate(context.Background(), opts)
 
 	testutil.RequireNoError(t, err)
 	output := stdout.String()
@@ -198,7 +199,7 @@ func TestRunCreate_JSON(t *testing.T) {
 		spaceType: "global",
 	}
 
-	err := runCreate(opts)
+	err := runCreate(context.Background(), opts)
 
 	testutil.RequireNoError(t, err)
 	var result map[string]interface{}
@@ -238,7 +239,7 @@ func TestRunCreate_WithDescription(t *testing.T) {
 		spaceType:   "global",
 	}
 
-	err := runCreate(opts)
+	err := runCreate(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 }
 
@@ -275,7 +276,7 @@ func TestRunUpdate(t *testing.T) {
 		name:    "Updated Name",
 	}
 
-	err := runUpdate("TEST", opts)
+	err := runUpdate(context.Background(),"TEST", opts)
 
 	testutil.RequireNoError(t, err)
 	output := stdout.String()
@@ -305,7 +306,7 @@ func TestRunUpdate_JSON(t *testing.T) {
 		name:    "Updated Name",
 	}
 
-	err := runUpdate("TEST", opts)
+	err := runUpdate(context.Background(),"TEST", opts)
 
 	testutil.RequireNoError(t, err)
 	var result map[string]interface{}
@@ -321,7 +322,7 @@ func TestRunUpdate_NoFlags(t *testing.T) {
 		Options: rootOpts,
 	}
 
-	err := runUpdate("TEST", opts)
+	err := runUpdate(context.Background(),"TEST", opts)
 
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "at least one of --name or --description is required")
@@ -350,7 +351,7 @@ func TestRunUpdate_WithDescription(t *testing.T) {
 		description: "New description",
 	}
 
-	err := runUpdate("TEST", opts)
+	err := runUpdate(context.Background(),"TEST", opts)
 	testutil.RequireNoError(t, err)
 }
 
@@ -389,7 +390,7 @@ func TestRunDelete_Force(t *testing.T) {
 		force:   true,
 	}
 
-	err := runDelete("TEST", opts)
+	err := runDelete(context.Background(),"TEST", opts)
 
 	testutil.RequireNoError(t, err)
 	output := stdout.String()
@@ -425,7 +426,7 @@ func TestRunDelete_Force_JSON(t *testing.T) {
 		force:   true,
 	}
 
-	err := runDelete("TEST", opts)
+	err := runDelete(context.Background(),"TEST", opts)
 
 	testutil.RequireNoError(t, err)
 	var result map[string]string
@@ -453,7 +454,7 @@ func TestRunDelete_NoForce_Declined(t *testing.T) {
 		force:   false,
 	}
 
-	err := runDelete("TEST", opts)
+	err := runDelete(context.Background(),"TEST", opts)
 
 	testutil.RequireNoError(t, err)
 }
@@ -481,7 +482,7 @@ func TestRunDelete_NoForce_Accepted(t *testing.T) {
 		force:   false,
 	}
 
-	err := runDelete("TEST", opts)
+	err := runDelete(context.Background(),"TEST", opts)
 
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, 2, callCount)
@@ -503,7 +504,7 @@ func TestRunDelete_NotFound(t *testing.T) {
 		force:   true,
 	}
 
-	err := runDelete("NONEXISTENT", opts)
+	err := runDelete(context.Background(),"NONEXISTENT", opts)
 
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "not found")

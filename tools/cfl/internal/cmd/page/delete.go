@@ -29,8 +29,8 @@ func newDeleteCmd(rootOpts *root.Options) *cobra.Command {
   # Delete without confirmation
   cfl page delete 12345 --force`,
 		Args: cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			return runDelete(args[0], opts)
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runDelete(cmd.Context(), args[0], opts)
 		},
 	}
 
@@ -39,14 +39,14 @@ func newDeleteCmd(rootOpts *root.Options) *cobra.Command {
 	return cmd
 }
 
-func runDelete(pageID string, opts *deleteOptions) error {
+func runDelete(ctx context.Context, pageID string, opts *deleteOptions) error {
 	client, err := opts.APIClient()
 	if err != nil {
 		return err
 	}
 
 	// nil opts: body content is not needed, only title for the confirmation prompt
-	page, err := client.GetPage(context.Background(), pageID, nil)
+	page, err := client.GetPage(ctx, pageID, nil)
 	if err != nil {
 		return fmt.Errorf("getting page: %w", err)
 	}
@@ -67,7 +67,7 @@ func runDelete(pageID string, opts *deleteOptions) error {
 		}
 	}
 
-	if err := client.DeletePage(context.Background(), pageID); err != nil {
+	if err := client.DeletePage(ctx, pageID); err != nil {
 		return fmt.Errorf("deleting page: %w", err)
 	}
 

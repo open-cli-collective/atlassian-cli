@@ -2,6 +2,7 @@ package space
 
 import (
 	"bytes"
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -57,7 +58,7 @@ func TestRunList_Success(t *testing.T) {
 		limit:   25,
 	}
 
-	err := runList(opts)
+	err := runList(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 }
 
@@ -77,7 +78,7 @@ func TestRunList_EmptyResults(t *testing.T) {
 		limit:   25,
 	}
 
-	err := runList(opts)
+	err := runList(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 }
 
@@ -102,7 +103,7 @@ func TestRunList_JSONOutput(t *testing.T) {
 		limit:   25,
 	}
 
-	err := runList(opts)
+	err := runList(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 }
 
@@ -115,7 +116,7 @@ func TestRunList_InvalidOutputFormat(t *testing.T) {
 		limit:   25,
 	}
 
-	err := runList(opts)
+	err := runList(context.Background(), opts)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "invalid output format")
 }
@@ -128,7 +129,7 @@ func TestRunList_NegativeLimit(t *testing.T) {
 		limit:   -1,
 	}
 
-	err := runList(opts)
+	err := runList(context.Background(), opts)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "invalid limit")
 }
@@ -142,7 +143,7 @@ func TestRunList_ZeroLimit(t *testing.T) {
 	}
 
 	// Zero limit should return empty without making API call
-	err := runList(opts)
+	err := runList(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 }
 
@@ -156,7 +157,7 @@ func TestRunList_ZeroLimitJSON(t *testing.T) {
 	}
 
 	// Zero limit should return empty JSON array without making API call
-	err := runList(opts)
+	err := runList(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 }
 
@@ -183,7 +184,7 @@ func TestRunList_WithTypeFilter(t *testing.T) {
 		spaceType: "global",
 	}
 
-	err := runList(opts)
+	err := runList(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 }
 
@@ -205,7 +206,7 @@ func TestRunList_WithLimitParameter(t *testing.T) {
 		limit:   50,
 	}
 
-	err := runList(opts)
+	err := runList(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 }
 
@@ -225,7 +226,7 @@ func TestRunList_APIError(t *testing.T) {
 		limit:   25,
 	}
 
-	err := runList(opts)
+	err := runList(context.Background(), opts)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "listing spaces")
 }
@@ -251,7 +252,7 @@ func TestRunList_HasMore(t *testing.T) {
 		limit:   25,
 	}
 
-	err := runList(opts)
+	err := runList(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 }
 
@@ -275,7 +276,7 @@ func TestRunList_NullDescription(t *testing.T) {
 		limit:   25,
 	}
 
-	err := runList(opts)
+	err := runList(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 }
 
@@ -302,7 +303,7 @@ func TestRunList_WithCursor(t *testing.T) {
 		cursor:  "abc123",
 	}
 
-	err := runList(opts)
+	err := runList(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 }
 
@@ -329,7 +330,7 @@ func TestRunList_DisplaysNextCursor(t *testing.T) {
 		limit:   25,
 	}
 
-	err := runList(opts)
+	err := runList(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 	testutil.Contains(t, stderr.String(), "nextPageCursor123")
 	testutil.Contains(t, stderr.String(), "--cursor")

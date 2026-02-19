@@ -30,8 +30,8 @@ func newDeleteCmd(rootOpts *root.Options) *cobra.Command {
   # Delete without confirmation
   cfl space delete TEST --force`,
 		Args: cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			return runDelete(args[0], opts)
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runDelete(cmd.Context(), args[0], opts)
 		},
 	}
 
@@ -40,7 +40,7 @@ func newDeleteCmd(rootOpts *root.Options) *cobra.Command {
 	return cmd
 }
 
-func runDelete(spaceKey string, opts *deleteOptions) error {
+func runDelete(ctx context.Context, spaceKey string, opts *deleteOptions) error {
 	if err := view.ValidateFormat(opts.Output); err != nil {
 		return err
 	}
@@ -50,7 +50,7 @@ func runDelete(spaceKey string, opts *deleteOptions) error {
 		return err
 	}
 
-	space, err := client.GetSpaceByKey(context.Background(), spaceKey)
+	space, err := client.GetSpaceByKey(ctx, spaceKey)
 	if err != nil {
 		return fmt.Errorf("getting space: %w", err)
 	}
@@ -71,7 +71,7 @@ func runDelete(spaceKey string, opts *deleteOptions) error {
 		}
 	}
 
-	if err := client.DeleteSpace(context.Background(), spaceKey); err != nil {
+	if err := client.DeleteSpace(ctx, spaceKey); err != nil {
 		return fmt.Errorf("deleting space: %w", err)
 	}
 

@@ -2,6 +2,7 @@ package attachment
 
 import (
 	"bytes"
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -66,7 +67,7 @@ func TestRunDeleteAttachment_ForceDelete(t *testing.T) {
 		force:   true,
 	}
 
-	err := runDeleteAttachment("att123", opts)
+	err := runDeleteAttachment(context.Background(),"att123", opts)
 	testutil.RequireNoError(t, err)
 }
 
@@ -88,7 +89,7 @@ func TestRunDeleteAttachment_ConfirmWithY(t *testing.T) {
 		force:   false,
 	}
 
-	err := runDeleteAttachment("att123", opts)
+	err := runDeleteAttachment(context.Background(),"att123", opts)
 	testutil.RequireNoError(t, err)
 	testutil.True(t, deleted, "attachment should have been deleted")
 }
@@ -111,7 +112,7 @@ func TestRunDeleteAttachment_ConfirmWithUpperY(t *testing.T) {
 		force:   false,
 	}
 
-	err := runDeleteAttachment("att123", opts)
+	err := runDeleteAttachment(context.Background(),"att123", opts)
 	testutil.RequireNoError(t, err)
 	testutil.True(t, deleted, "attachment should have been deleted")
 }
@@ -134,7 +135,7 @@ func TestRunDeleteAttachment_CancelWithN(t *testing.T) {
 		force:   false,
 	}
 
-	err := runDeleteAttachment("att123", opts)
+	err := runDeleteAttachment(context.Background(),"att123", opts)
 	testutil.RequireNoError(t, err)
 	testutil.False(t, deleted, "attachment should NOT have been deleted")
 }
@@ -157,7 +158,7 @@ func TestRunDeleteAttachment_CancelWithEmpty(t *testing.T) {
 		force:   false,
 	}
 
-	err := runDeleteAttachment("att123", opts)
+	err := runDeleteAttachment(context.Background(),"att123", opts)
 	testutil.RequireNoError(t, err)
 	testutil.False(t, deleted, "attachment should NOT have been deleted")
 }
@@ -180,7 +181,7 @@ func TestRunDeleteAttachment_CancelWithOther(t *testing.T) {
 		force:   false,
 	}
 
-	err := runDeleteAttachment("att123", opts)
+	err := runDeleteAttachment(context.Background(),"att123", opts)
 	testutil.RequireNoError(t, err)
 	testutil.False(t, deleted, "attachment should NOT have been deleted")
 }
@@ -204,7 +205,7 @@ func TestRunDeleteAttachment_GetAttachmentFails(t *testing.T) {
 		force:   true,
 	}
 
-	err := runDeleteAttachment("invalid", opts)
+	err := runDeleteAttachment(context.Background(),"invalid", opts)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "getting attachment")
 }
@@ -227,7 +228,7 @@ func TestRunDeleteAttachment_DeleteFails(t *testing.T) {
 		force:   true,
 	}
 
-	err := runDeleteAttachment("att123", opts)
+	err := runDeleteAttachment(context.Background(),"att123", opts)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "deleting attachment")
 }

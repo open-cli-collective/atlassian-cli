@@ -29,15 +29,15 @@ func newViewCmd(rootOpts *root.Options) *cobra.Command {
   # View as JSON
   cfl space view DEV -o json`,
 		Args: cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			return runView(args[0], opts)
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runView(cmd.Context(), args[0], opts)
 		},
 	}
 
 	return cmd
 }
 
-func runView(spaceKey string, opts *viewOptions) error {
+func runView(ctx context.Context, spaceKey string, opts *viewOptions) error {
 	if err := view.ValidateFormat(opts.Output); err != nil {
 		return err
 	}
@@ -47,7 +47,7 @@ func runView(spaceKey string, opts *viewOptions) error {
 		return err
 	}
 
-	space, err := client.GetSpaceByKey(context.Background(), spaceKey)
+	space, err := client.GetSpaceByKey(ctx, spaceKey)
 	if err != nil {
 		return fmt.Errorf("getting space: %w", err)
 	}

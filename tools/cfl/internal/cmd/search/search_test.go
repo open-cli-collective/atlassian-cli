@@ -2,6 +2,7 @@ package search
 
 import (
 	"bytes"
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -63,7 +64,7 @@ func TestRunSearch_Success(t *testing.T) {
 		limit:   25,
 	}
 
-	err := runSearch(opts)
+	err := runSearch(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 }
 
@@ -86,7 +87,7 @@ func TestRunSearch_EmptyResults(t *testing.T) {
 		limit:   25,
 	}
 
-	err := runSearch(opts)
+	err := runSearch(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 }
 
@@ -115,7 +116,7 @@ func TestRunSearch_JSONOutput(t *testing.T) {
 		limit:   25,
 	}
 
-	err := runSearch(opts)
+	err := runSearch(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 }
 
@@ -144,7 +145,7 @@ func TestRunSearch_PlainOutput(t *testing.T) {
 		limit:   25,
 	}
 
-	err := runSearch(opts)
+	err := runSearch(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 }
 
@@ -158,7 +159,7 @@ func TestRunSearch_InvalidOutputFormat(t *testing.T) {
 		limit:   25,
 	}
 
-	err := runSearch(opts)
+	err := runSearch(context.Background(), opts)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "invalid output format")
 }
@@ -173,7 +174,7 @@ func TestRunSearch_InvalidType(t *testing.T) {
 		contentType: "invalid",
 	}
 
-	err := runSearch(opts)
+	err := runSearch(context.Background(), opts)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "invalid type")
 	testutil.Contains(t, err.Error(), "invalid")
@@ -198,7 +199,7 @@ func TestRunSearch_ValidTypes(t *testing.T) {
 				limit:       25,
 			}
 
-			err := runSearch(opts)
+			err := runSearch(context.Background(), opts)
 			testutil.RequireNoError(t, err)
 		})
 	}
@@ -212,7 +213,7 @@ func TestRunSearch_NoQuery(t *testing.T) {
 		limit:   25,
 	}
 
-	err := runSearch(opts)
+	err := runSearch(context.Background(), opts)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "search requires a query")
 }
@@ -226,7 +227,7 @@ func TestRunSearch_NegativeLimit(t *testing.T) {
 		limit:   -1,
 	}
 
-	err := runSearch(opts)
+	err := runSearch(context.Background(), opts)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "invalid limit")
 }
@@ -241,7 +242,7 @@ func TestRunSearch_ZeroLimit(t *testing.T) {
 	}
 
 	// Zero limit should return empty without making API call
-	err := runSearch(opts)
+	err := runSearch(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 }
 
@@ -266,7 +267,7 @@ func TestRunSearch_WithSpaceFilter(t *testing.T) {
 		limit:   25,
 	}
 
-	err := runSearch(opts)
+	err := runSearch(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 }
 
@@ -291,7 +292,7 @@ func TestRunSearch_WithTypeFilter(t *testing.T) {
 		limit:       25,
 	}
 
-	err := runSearch(opts)
+	err := runSearch(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 }
 
@@ -315,7 +316,7 @@ func TestRunSearch_WithTitleFilter(t *testing.T) {
 		limit:   25,
 	}
 
-	err := runSearch(opts)
+	err := runSearch(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 }
 
@@ -339,7 +340,7 @@ func TestRunSearch_WithLabelFilter(t *testing.T) {
 		limit:   25,
 	}
 
-	err := runSearch(opts)
+	err := runSearch(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 }
 
@@ -364,7 +365,7 @@ func TestRunSearch_WithRawCQL(t *testing.T) {
 		limit:   25,
 	}
 
-	err := runSearch(opts)
+	err := runSearch(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 }
 
@@ -394,7 +395,7 @@ func TestRunSearch_CombinedFilters(t *testing.T) {
 		limit:       25,
 	}
 
-	err := runSearch(opts)
+	err := runSearch(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 }
 
@@ -415,7 +416,7 @@ func TestRunSearch_APIError(t *testing.T) {
 		limit:   25,
 	}
 
-	err := runSearch(opts)
+	err := runSearch(context.Background(), opts)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "search failed")
 }
@@ -444,7 +445,7 @@ func TestRunSearch_HasMore(t *testing.T) {
 		limit:   25,
 	}
 
-	err := runSearch(opts)
+	err := runSearch(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 }
 
@@ -473,7 +474,7 @@ func TestRunSearch_LongTitle(t *testing.T) {
 		limit:   25,
 	}
 
-	err := runSearch(opts)
+	err := runSearch(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 }
 
@@ -492,7 +493,7 @@ func TestRunSearch_SpaceOnlyFilter(t *testing.T) {
 		limit:   25,
 	}
 
-	err := runSearch(opts)
+	err := runSearch(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 }
 
@@ -516,7 +517,7 @@ func TestRunSearch_LimitParameter(t *testing.T) {
 		limit:   50,
 	}
 
-	err := runSearch(opts)
+	err := runSearch(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 }
 
@@ -597,7 +598,7 @@ func TestRunSearch_DisplaysSpaceKey(t *testing.T) {
 		limit:   25,
 	}
 
-	err := runSearch(opts)
+	err := runSearch(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 	// The output should contain the space key "DEV" extracted from displayUrl
 }

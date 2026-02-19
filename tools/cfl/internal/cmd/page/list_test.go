@@ -2,6 +2,7 @@ package page
 
 import (
 	"bytes"
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -64,7 +65,7 @@ func TestRunList_PageList_Success(t *testing.T) {
 		status:  "current",
 	}
 
-	err := runList(opts)
+	err := runList(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 }
 
@@ -83,7 +84,7 @@ func TestRunList_PageList_EmptyResults(t *testing.T) {
 		status:  "current",
 	}
 
-	err := runList(opts)
+	err := runList(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 }
 
@@ -107,7 +108,7 @@ func TestRunList_PageList_JSONOutput(t *testing.T) {
 		status:  "current",
 	}
 
-	err := runList(opts)
+	err := runList(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 }
 
@@ -121,7 +122,7 @@ func TestRunList_PageList_InvalidOutputFormat(t *testing.T) {
 		limit:   25,
 	}
 
-	err := runList(opts)
+	err := runList(context.Background(), opts)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "invalid output format")
 }
@@ -136,7 +137,7 @@ func TestRunList_PageList_NegativeLimit(t *testing.T) {
 		status:  "current",
 	}
 
-	err := runList(opts)
+	err := runList(context.Background(), opts)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "invalid limit")
 }
@@ -152,7 +153,7 @@ func TestRunList_PageList_ZeroLimit(t *testing.T) {
 	}
 
 	// Zero limit should return empty without making API call
-	err := runList(opts)
+	err := runList(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 }
 
@@ -174,7 +175,7 @@ func TestRunList_PageList_MissingSpace(t *testing.T) {
 		status:  "current",
 	}
 
-	err := runList(opts)
+	err := runList(context.Background(), opts)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "space is required")
 }
@@ -198,7 +199,7 @@ func TestRunList_PageList_SpaceNotFound(t *testing.T) {
 		status:  "current",
 	}
 
-	err := runList(opts)
+	err := runList(context.Background(), opts)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "finding space")
 }
@@ -222,7 +223,7 @@ func TestRunList_PageList_NullVersion(t *testing.T) {
 		status:  "current",
 	}
 
-	err := runList(opts)
+	err := runList(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 }
 
@@ -246,7 +247,7 @@ func TestRunList_PageList_HasMore(t *testing.T) {
 		status:  "current",
 	}
 
-	err := runList(opts)
+	err := runList(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 }
 
@@ -270,7 +271,7 @@ func TestRunList_PageList_LongTitle(t *testing.T) {
 		status:  "current",
 	}
 
-	err := runList(opts)
+	err := runList(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 }
 
@@ -300,7 +301,7 @@ func TestRunList_PageList_StatusFilter(t *testing.T) {
 		status:  "archived",
 	}
 
-	err := runList(opts)
+	err := runList(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 }
 
@@ -314,7 +315,7 @@ func TestRunList_PageList_InvalidStatus(t *testing.T) {
 		status:  "draft",
 	}
 
-	err := runList(opts)
+	err := runList(context.Background(), opts)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "invalid status")
 	testutil.Contains(t, err.Error(), "draft")
@@ -346,6 +347,6 @@ func TestRunList_PageList_TrashedStatus(t *testing.T) {
 		status:  "trashed",
 	}
 
-	err := runList(opts)
+	err := runList(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 }

@@ -32,8 +32,8 @@ func newCreateCmd(rootOpts *root.Options) *cobra.Command {
 
   # Create with description
   cfl space create --key DEV --name "Development" --description "Development team space"`,
-		RunE: func(_ *cobra.Command, _ []string) error {
-			return runCreate(opts)
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runCreate(cmd.Context(), opts)
 		},
 	}
 
@@ -48,7 +48,7 @@ func newCreateCmd(rootOpts *root.Options) *cobra.Command {
 	return cmd
 }
 
-func runCreate(opts *createOptions) error {
+func runCreate(ctx context.Context, opts *createOptions) error {
 	if err := view.ValidateFormat(opts.Output); err != nil {
 		return err
 	}
@@ -75,7 +75,7 @@ func runCreate(opts *createOptions) error {
 		}
 	}
 
-	space, err := client.CreateSpace(context.Background(), req)
+	space, err := client.CreateSpace(ctx, req)
 	if err != nil {
 		return fmt.Errorf("creating space: %w", err)
 	}

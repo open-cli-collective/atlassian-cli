@@ -2,6 +2,7 @@ package attachment
 
 import (
 	"bytes"
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -56,7 +57,7 @@ func TestRunUpload_Success(t *testing.T) {
 		file:    testFile,
 	}
 
-	err = runUpload(opts)
+	err = runUpload(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 }
 
@@ -95,7 +96,7 @@ func TestRunUpload_WithComment(t *testing.T) {
 		comment: "My upload comment",
 	}
 
-	err = runUpload(opts)
+	err = runUpload(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, "My upload comment", receivedComment)
 }
@@ -111,7 +112,7 @@ func TestRunUpload_FileNotFound(t *testing.T) {
 		file:    "/nonexistent/file.txt",
 	}
 
-	err := runUpload(opts)
+	err := runUpload(context.Background(), opts)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "opening file")
 }
@@ -138,7 +139,7 @@ func TestRunUpload_APIError(t *testing.T) {
 		file:    testFile,
 	}
 
-	err = runUpload(opts)
+	err = runUpload(context.Background(), opts)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "uploading attachment")
 }
@@ -173,6 +174,6 @@ func TestRunUpload_JSONOutput(t *testing.T) {
 		file:    testFile,
 	}
 
-	err = runUpload(opts)
+	err = runUpload(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 }

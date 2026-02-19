@@ -34,8 +34,8 @@ func newUpdateCmd(rootOpts *root.Options) *cobra.Command {
   # Update both
   cfl space update DEV --name "Development Team" --description "Updated description"`,
 		Args: cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			return runUpdate(args[0], opts)
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runUpdate(cmd.Context(), args[0], opts)
 		},
 	}
 
@@ -45,7 +45,7 @@ func newUpdateCmd(rootOpts *root.Options) *cobra.Command {
 	return cmd
 }
 
-func runUpdate(spaceKey string, opts *updateOptions) error {
+func runUpdate(ctx context.Context, spaceKey string, opts *updateOptions) error {
 	if opts.name == "" && opts.description == "" {
 		return fmt.Errorf("at least one of --name or --description is required")
 	}
@@ -76,7 +76,7 @@ func runUpdate(spaceKey string, opts *updateOptions) error {
 		}
 	}
 
-	space, err := client.UpdateSpace(context.Background(), spaceKey, req)
+	space, err := client.UpdateSpace(ctx, spaceKey, req)
 	if err != nil {
 		return fmt.Errorf("updating space: %w", err)
 	}

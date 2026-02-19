@@ -2,6 +2,7 @@ package page
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -67,7 +68,7 @@ func TestRunEdit_Success(t *testing.T) {
 		file:    mdFile,
 	}
 
-	err = runEdit(opts)
+	err = runEdit(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 }
 
@@ -122,7 +123,7 @@ func TestRunEdit_TitleOnly(t *testing.T) {
 	opts.file = mdFile
 	opts.markdown = &useMd
 
-	err = runEdit(opts)
+	err = runEdit(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 
 	// Verify title was changed
@@ -146,7 +147,7 @@ func TestRunEdit_PageNotFound(t *testing.T) {
 		title:   "New Title",
 	}
 
-	err := runEdit(opts)
+	err := runEdit(context.Background(), opts)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "getting page")
 }
@@ -187,7 +188,7 @@ func TestRunEdit_UpdateFailed(t *testing.T) {
 		file:    mdFile,
 	}
 
-	err = runEdit(opts)
+	err = runEdit(context.Background(), opts)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "updating page")
 }
@@ -240,7 +241,7 @@ func TestRunEdit_VersionIncrement(t *testing.T) {
 		file:    mdFile,
 	}
 
-	err = runEdit(opts)
+	err = runEdit(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 
 	// Verify version was incremented from 7 to 8
@@ -293,7 +294,7 @@ func TestRunEdit_HTMLFile(t *testing.T) {
 
 	}
 
-	err = runEdit(opts)
+	err = runEdit(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 
 	// Verify HTML was not converted (storage format in legacy mode)
@@ -350,7 +351,7 @@ func TestRunEdit_NoMarkdownFlag(t *testing.T) {
 		legacy:   true, // Use legacy mode for storage format
 	}
 
-	err = runEdit(opts)
+	err = runEdit(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 
 	// Verify content was not converted (storage format in legacy mode)
@@ -406,7 +407,7 @@ func TestRunEdit_MarkdownToADF(t *testing.T) {
 		// Default: not legacy, uses ADF
 	}
 
-	err = runEdit(opts)
+	err = runEdit(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 
 	// Verify ADF format was used (default)
@@ -461,7 +462,7 @@ func TestRunEdit_JSONOutput(t *testing.T) {
 		file:    mdFile,
 	}
 
-	err = runEdit(opts)
+	err = runEdit(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 }
 
@@ -488,7 +489,7 @@ func TestRunEdit_FileReadError(t *testing.T) {
 		file:    "/nonexistent/file.md",
 	}
 
-	err := runEdit(opts)
+	err := runEdit(context.Background(), opts)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "reading file")
 }
@@ -531,7 +532,7 @@ func TestRunEdit_Stdin_ADF(t *testing.T) {
 		pageID:  "12345",
 	}
 
-	err := runEdit(opts)
+	err := runEdit(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 
 	// Verify ADF format was used
@@ -583,7 +584,7 @@ func TestRunEdit_Stdin_Legacy(t *testing.T) {
 		legacy:  true,
 	}
 
-	err := runEdit(opts)
+	err := runEdit(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 
 	// Verify storage format was used
@@ -639,7 +640,7 @@ func TestRunEdit_TitleAndContent(t *testing.T) {
 		file:    mdFile,
 	}
 
-	err = runEdit(opts)
+	err = runEdit(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 
 	// Verify both title and content were updated
@@ -704,7 +705,7 @@ func TestRunEdit_ComplexMarkdown_ADF(t *testing.T) {
 		file:    mdFile,
 	}
 
-	err = runEdit(opts)
+	err = runEdit(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 
 	// Verify ADF contains complex elements
@@ -760,7 +761,7 @@ func TestRunEdit_MoveToParent(t *testing.T) {
 		parent:  "67890",
 	}
 
-	err := runEdit(opts)
+	err := runEdit(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 	testutil.True(t, moveCalled, "MovePage should have been called")
 }
@@ -812,7 +813,7 @@ func TestRunEdit_MoveAndRename(t *testing.T) {
 		parent:  "67890",
 	}
 
-	err := runEdit(opts)
+	err := runEdit(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 	testutil.True(t, moveCalled, "MovePage should have been called")
 	testutil.Equal(t, "New Title", receivedTitle)
@@ -859,7 +860,7 @@ func TestRunEdit_MoveFailed(t *testing.T) {
 
 	}
 
-	err := runEdit(opts)
+	err := runEdit(context.Background(), opts)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "moving page to new parent")
 }
@@ -908,7 +909,7 @@ func TestRunEdit_MoveWithContent(t *testing.T) {
 		parent:  "67890",
 	}
 
-	err := runEdit(opts)
+	err := runEdit(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 	testutil.True(t, moveCalled, "MovePage should have been called")
 
@@ -944,7 +945,7 @@ func TestRunEdit_EmptyContentFromStdin(t *testing.T) {
 		pageID:  "12345",
 	}
 
-	err := runEdit(opts)
+	err := runEdit(context.Background(), opts)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "page content cannot be empty")
 }
@@ -975,7 +976,7 @@ func TestRunEdit_WhitespaceOnlyFromStdin(t *testing.T) {
 		pageID:  "12345",
 	}
 
-	err := runEdit(opts)
+	err := runEdit(context.Background(), opts)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "page content cannot be empty")
 }
@@ -1012,7 +1013,7 @@ func TestRunEdit_EmptyFile(t *testing.T) {
 		file:    emptyFile,
 	}
 
-	err = runEdit(opts)
+	err = runEdit(context.Background(), opts)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "page content cannot be empty")
 }
@@ -1049,7 +1050,7 @@ func TestRunEdit_WhitespaceOnlyFile(t *testing.T) {
 		file:    whitespaceFile,
 	}
 
-	err = runEdit(opts)
+	err = runEdit(context.Background(), opts)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "page content cannot be empty")
 }
@@ -1101,7 +1102,7 @@ func TestRunEdit_TitleOnlyUpdate_NoContentValidation(t *testing.T) {
 		file:    mdFile,
 	}
 
-	err = runEdit(opts)
+	err = runEdit(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 	testutil.True(t, updateCalled, "Update should have been called")
 }
@@ -1151,7 +1152,7 @@ func TestRunEdit_MoveOnly_NoEditorOpened(t *testing.T) {
 		parent:  "67890",
 	}
 
-	err := runEdit(opts)
+	err := runEdit(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 	testutil.True(t, updateCalled, "UpdatePage should have been called")
 	testutil.True(t, moveCalled, "MovePage should have been called")
@@ -1204,7 +1205,7 @@ func TestRunEdit_MoveWithTitleOnly_NoEditorOpened(t *testing.T) {
 		parent:  "67890",
 	}
 
-	err := runEdit(opts)
+	err := runEdit(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 	testutil.True(t, moveCalled, "MovePage should have been called")
 	testutil.Equal(t, "New Title", receivedBody["title"])
@@ -1251,7 +1252,7 @@ func TestRunEdit_StorageFlag_Stdin(t *testing.T) {
 		markdown: &useMd,
 	}
 
-	err := runEdit(opts)
+	err := runEdit(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 
 	// Verify storage format was used (not atlas_doc_format)
@@ -1314,7 +1315,7 @@ func TestRunEdit_StorageFlag_File(t *testing.T) {
 		markdown: &useMd,
 	}
 
-	err = runEdit(opts)
+	err = runEdit(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 
 	// Verify storage format was used without --legacy
@@ -1371,7 +1372,7 @@ func TestRunEdit_MoveOnly_BodyPreserved(t *testing.T) {
 		parent:  "67890",
 	}
 
-	err := runEdit(opts)
+	err := runEdit(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 
 	// Verify body was preserved from original page
@@ -1434,7 +1435,7 @@ func TestRunEdit_ADFPage_TitleOnly_PreservesBody(t *testing.T) {
 		title:   "New Title",
 	}
 
-	err := runEdit(opts)
+	err := runEdit(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 
 	// Verify body was preserved as ADF (not storage)
@@ -1500,7 +1501,7 @@ func TestRunEdit_ADFPage_NewContent(t *testing.T) {
 		file:    mdFile,
 	}
 
-	err = runEdit(opts)
+	err = runEdit(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 
 	// New content should be submitted as ADF (default path)

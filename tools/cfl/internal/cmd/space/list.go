@@ -39,8 +39,8 @@ func newListCmd(rootOpts *root.Options) *cobra.Command {
 
   # Paginate through results
   cfl space list --cursor "eyJpZCI6MTIzfQ=="`,
-		RunE: func(_ *cobra.Command, _ []string) error {
-			return runList(opts)
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runList(cmd.Context(), opts)
 		},
 	}
 
@@ -51,7 +51,7 @@ func newListCmd(rootOpts *root.Options) *cobra.Command {
 	return cmd
 }
 
-func runList(opts *listOptions) error {
+func runList(ctx context.Context, opts *listOptions) error {
 	if err := view.ValidateFormat(opts.Output); err != nil {
 		return err
 	}
@@ -81,7 +81,7 @@ func runList(opts *listOptions) error {
 		Cursor: opts.cursor,
 	}
 
-	result, err := client.ListSpaces(context.Background(), apiOpts)
+	result, err := client.ListSpaces(ctx, apiOpts)
 	if err != nil {
 		return fmt.Errorf("listing spaces: %w", err)
 	}

@@ -86,7 +86,7 @@ Content format:
 				opts.markdown = &useMd
 			}
 			opts.legacy, _ = cmd.Flags().GetBool("legacy")
-			return runCreate(opts)
+			return runCreate(cmd.Context(), opts)
 		},
 	}
 
@@ -104,7 +104,7 @@ Content format:
 	return cmd
 }
 
-func runCreate(opts *createOptions) error {
+func runCreate(ctx context.Context, opts *createOptions) error {
 	// Validate file exists before making any network calls so we fail
 	// fast on bad input without needing config or API access.
 	if opts.file != "" {
@@ -132,7 +132,7 @@ func runCreate(opts *createOptions) error {
 		return err
 	}
 
-	space, err := client.GetSpaceByKey(context.Background(), spaceKey)
+	space, err := client.GetSpaceByKey(ctx, spaceKey)
 	if err != nil {
 		return fmt.Errorf("finding space '%s': %w", spaceKey, err)
 	}
@@ -189,7 +189,7 @@ func runCreate(opts *createOptions) error {
 		req.ParentID = opts.parent
 	}
 
-	page, err := client.CreatePage(context.Background(), req)
+	page, err := client.CreatePage(ctx, req)
 	if err != nil {
 		return fmt.Errorf("creating page: %w", err)
 	}

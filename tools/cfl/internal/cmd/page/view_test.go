@@ -2,6 +2,7 @@ package page
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -48,7 +49,7 @@ func TestRunView_Success(t *testing.T) {
 		Options: rootOpts,
 	}
 
-	err := runView("12345", opts)
+	err := runView(context.Background(), "12345", opts)
 	testutil.RequireNoError(t, err)
 
 	stdout := rootOpts.Stdout.(*bytes.Buffer)
@@ -78,7 +79,7 @@ func TestRunView_RawFormat(t *testing.T) {
 		raw:     true,
 	}
 
-	err := runView("12345", opts)
+	err := runView(context.Background(), "12345", opts)
 	testutil.RequireNoError(t, err)
 
 	stdout := rootOpts.Stdout.(*bytes.Buffer)
@@ -107,7 +108,7 @@ func TestRunView_JSONOutput(t *testing.T) {
 		Options: rootOpts,
 	}
 
-	err := runView("12345", opts)
+	err := runView(context.Background(), "12345", opts)
 	testutil.RequireNoError(t, err)
 }
 
@@ -126,7 +127,7 @@ func TestRunView_PageNotFound(t *testing.T) {
 		Options: rootOpts,
 	}
 
-	err := runView("99999", opts)
+	err := runView(context.Background(), "99999", opts)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "getting page")
 }
@@ -151,7 +152,7 @@ func TestRunView_EmptyContent(t *testing.T) {
 		Options: rootOpts,
 	}
 
-	err := runView("12345", opts)
+	err := runView(context.Background(), "12345", opts)
 	testutil.RequireNoError(t, err)
 }
 
@@ -163,7 +164,7 @@ func TestRunView_InvalidOutputFormat(t *testing.T) {
 		Options: rootOpts,
 	}
 
-	err := runView("12345", opts)
+	err := runView(context.Background(), "12345", opts)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "invalid output format")
 }
@@ -190,7 +191,7 @@ func TestRunView_ShowMacros(t *testing.T) {
 		showMacros: true,
 	}
 
-	err := runView("12345", opts)
+	err := runView(context.Background(), "12345", opts)
 	testutil.RequireNoError(t, err)
 }
 
@@ -216,7 +217,7 @@ func TestRunView_ContentOnly(t *testing.T) {
 		contentOnly: true,
 	}
 
-	err := runView("12345", opts)
+	err := runView(context.Background(), "12345", opts)
 	testutil.RequireNoError(t, err)
 	// Output should only contain markdown content, no Title:/ID:/Version: headers
 }
@@ -244,7 +245,7 @@ func TestRunView_ContentOnly_Raw(t *testing.T) {
 		raw:         true,
 	}
 
-	err := runView("12345", opts)
+	err := runView(context.Background(), "12345", opts)
 	testutil.RequireNoError(t, err)
 	// Output should only contain raw XHTML, no Title:/ID:/Version: headers
 }
@@ -272,7 +273,7 @@ func TestRunView_ContentOnly_ShowMacros(t *testing.T) {
 		showMacros:  true,
 	}
 
-	err := runView("12345", opts)
+	err := runView(context.Background(), "12345", opts)
 	testutil.RequireNoError(t, err)
 	// Output should contain markdown with [TOC] macro placeholder
 }
@@ -286,7 +287,7 @@ func TestRunView_ContentOnly_JSON_Error(t *testing.T) {
 		contentOnly: true,
 	}
 
-	err := runView("12345", opts)
+	err := runView(context.Background(), "12345", opts)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "--content-only is incompatible with --output json")
 }
@@ -300,7 +301,7 @@ func TestRunView_ContentOnly_Web_Error(t *testing.T) {
 		web:         true,
 	}
 
-	err := runView("12345", opts)
+	err := runView(context.Background(), "12345", opts)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "--content-only is incompatible with --web")
 }
@@ -326,7 +327,7 @@ func TestRunView_ContentOnly_EmptyBody(t *testing.T) {
 		contentOnly: true,
 	}
 
-	err := runView("12345", opts)
+	err := runView(context.Background(), "12345", opts)
 	testutil.RequireNoError(t, err)
 	// Output should be "(No content)" without metadata headers
 }
@@ -369,7 +370,7 @@ func TestRunView_WithSpaceKey(t *testing.T) {
 		Options: rootOpts,
 	}
 
-	err := runView("12345", opts)
+	err := runView(context.Background(), "12345", opts)
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, 2, callCount)
 }
@@ -406,7 +407,7 @@ func TestRunView_SpaceLookupFails_Graceful(t *testing.T) {
 	}
 
 	// Should succeed even if space lookup fails
-	err := runView("12345", opts)
+	err := runView(context.Background(), "12345", opts)
 	testutil.RequireNoError(t, err)
 }
 
@@ -506,7 +507,7 @@ func TestRunView_ADFPage_FallbackToAtlasDocFormat(t *testing.T) {
 	rootOpts.SetAPIClient(client)
 	opts := &viewOptions{Options: rootOpts}
 
-	err := runView("12345", opts)
+	err := runView(context.Background(), "12345", opts)
 	testutil.RequireNoError(t, err)
 
 	// Should make 3 calls: storage (empty), atlas_doc_format (has content), GetSpace
@@ -557,7 +558,7 @@ func TestRunView_ADFPage_RawFormat(t *testing.T) {
 	rootOpts.SetAPIClient(client)
 	opts := &viewOptions{Options: rootOpts, raw: true}
 
-	err := runView("12345", opts)
+	err := runView(context.Background(), "12345", opts)
 	testutil.RequireNoError(t, err)
 
 	stdout := rootOpts.Stdout.(*bytes.Buffer)
@@ -595,7 +596,7 @@ func TestRunView_StoragePage_NoFallback(t *testing.T) {
 	rootOpts.SetAPIClient(client)
 	opts := &viewOptions{Options: rootOpts}
 
-	err := runView("12345", opts)
+	err := runView(context.Background(), "12345", opts)
 	testutil.RequireNoError(t, err)
 
 	// Should only make 2 calls: GetPage (storage has content) + GetSpace, no fallback
@@ -641,7 +642,7 @@ func TestRunView_ADFPage_NullBody(t *testing.T) {
 	rootOpts.SetAPIClient(client)
 	opts := &viewOptions{Options: rootOpts}
 
-	err := runView("12345", opts)
+	err := runView(context.Background(), "12345", opts)
 	testutil.RequireNoError(t, err)
 
 	stdout := rootOpts.Stdout.(*bytes.Buffer)

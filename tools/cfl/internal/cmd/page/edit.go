@@ -93,7 +93,7 @@ Content format:
 				opts.markdown = &useMd
 			}
 			opts.legacy, _ = cmd.Flags().GetBool("legacy")
-			return runEdit(opts)
+			return runEdit(cmd.Context(), opts)
 		},
 	}
 
@@ -108,7 +108,7 @@ Content format:
 	return cmd
 }
 
-func runEdit(opts *editOptions) error {
+func runEdit(ctx context.Context, opts *editOptions) error {
 	// Validate file exists before making any network calls so we fail
 	// fast on bad input without needing config or API access.
 	if opts.file != "" {
@@ -127,7 +127,7 @@ func runEdit(opts *editOptions) error {
 		return err
 	}
 
-	existingPage, err := getPageWithBodyFallback(context.Background(), client, opts.pageID)
+	existingPage, err := getPageWithBodyFallback(ctx, client, opts.pageID)
 	if err != nil {
 		return fmt.Errorf("getting page: %w", err)
 	}
@@ -215,13 +215,13 @@ func runEdit(opts *editOptions) error {
 		req.Body = existingPage.Body
 	}
 
-	page, err := client.UpdatePage(context.Background(), opts.pageID, req)
+	page, err := client.UpdatePage(ctx, opts.pageID, req)
 	if err != nil {
 		return fmt.Errorf("updating page: %w", err)
 	}
 
 	if opts.parent != "" {
-		if err := client.MovePage(context.Background(), opts.pageID, opts.parent); err != nil {
+		if err := client.MovePage(ctx, opts.pageID, opts.parent); err != nil {
 			return fmt.Errorf("moving page to new parent: %w", err)
 		}
 	}

@@ -21,13 +21,13 @@ This verifies that:
 - You have permission to access the API`,
 		Example: `  # Test current configuration
   cfl config test`,
-		RunE: func(_ *cobra.Command, _ []string) error {
-			return runTest(opts)
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runTest(cmd.Context(), opts)
 		},
 	}
 }
 
-func runTest(opts *root.Options) error {
+func runTest(ctx context.Context, opts *root.Options) error {
 	// Try to get the API client - this validates config
 	client, err := opts.APIClient()
 	if err != nil {
@@ -37,7 +37,7 @@ func runTest(opts *root.Options) error {
 	fmt.Print("Testing connection... ")
 
 	// Try to list spaces (limit 1) to verify connectivity
-	_, err = client.ListSpaces(context.Background(), nil)
+	_, err = client.ListSpaces(ctx, nil)
 	if err != nil {
 		fmt.Println("failed!")
 		fmt.Println()
@@ -56,7 +56,7 @@ func runTest(opts *root.Options) error {
 	fmt.Println()
 
 	// Get current user details
-	user, err := client.GetCurrentUser(context.Background())
+	user, err := client.GetCurrentUser(ctx)
 	if err != nil {
 		// User details failed but connection worked - show basic success
 		fmt.Println("Your cfl configuration is working correctly.")

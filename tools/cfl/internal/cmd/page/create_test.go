@@ -2,6 +2,7 @@ package page
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -77,7 +78,7 @@ func TestRunCreate_Success(t *testing.T) {
 		file:    mdFile,
 	}
 
-	err = runCreate(opts)
+	err = runCreate(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 }
 
@@ -117,7 +118,7 @@ func TestRunCreate_HTMLFile_Legacy(t *testing.T) {
 		legacy:  true, // Use legacy mode for HTML files
 	}
 
-	err = runCreate(opts)
+	err = runCreate(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 
 	// Verify HTML was not converted (should be passed as-is in storage format)
@@ -165,7 +166,7 @@ func TestRunCreate_NoMarkdownFlag_Legacy(t *testing.T) {
 		legacy:   true,   // Use legacy mode for storage format
 	}
 
-	err = runCreate(opts)
+	err = runCreate(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 
 	// Verify content was not converted even though file has .md extension
@@ -193,7 +194,7 @@ func TestRunCreate_MissingSpace(t *testing.T) {
 		file:    mdFile,
 	}
 
-	err = runCreate(opts)
+	err = runCreate(context.Background(), opts)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "space is required")
 }
@@ -222,7 +223,7 @@ func TestRunCreate_SpaceNotFound(t *testing.T) {
 		file:    mdFile,
 	}
 
-	err = runCreate(opts)
+	err = runCreate(context.Background(), opts)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "finding space")
 }
@@ -247,7 +248,7 @@ func TestRunCreate_CreateFailed(t *testing.T) {
 		file:    mdFile,
 	}
 
-	err = runCreate(opts)
+	err = runCreate(context.Background(), opts)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "creating page")
 }
@@ -287,7 +288,7 @@ func TestRunCreate_WithParent(t *testing.T) {
 		file:    mdFile,
 	}
 
-	err = runCreate(opts)
+	err = runCreate(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 
 	// Verify parent ID was included in request
@@ -315,7 +316,7 @@ func TestRunCreate_JSONOutput(t *testing.T) {
 		file:    mdFile,
 	}
 
-	err = runCreate(opts)
+	err = runCreate(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 }
 
@@ -354,7 +355,7 @@ func TestRunCreate_MarkdownConversion_Legacy(t *testing.T) {
 		legacy:  true, // Use legacy mode to test storage format
 	}
 
-	err = runCreate(opts)
+	err = runCreate(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 
 	// Verify markdown was converted to HTML storage format
@@ -402,7 +403,7 @@ func TestRunCreate_MarkdownToADF(t *testing.T) {
 		// Default: not legacy, uses ADF
 	}
 
-	err = runCreate(opts)
+	err = runCreate(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 
 	// Verify ADF format was used (default)
@@ -431,7 +432,7 @@ func TestRunCreate_FileReadError(t *testing.T) {
 		file:    "/nonexistent/file.md",
 	}
 
-	err := runCreate(opts)
+	err := runCreate(context.Background(), opts)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "reading file")
 }
@@ -465,7 +466,7 @@ func TestRunCreate_Stdin_ADF(t *testing.T) {
 		title:   "Test Page",
 	}
 
-	err := runCreate(opts)
+	err := runCreate(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 
 	// Verify ADF format was used
@@ -508,7 +509,7 @@ func TestRunCreate_Stdin_Legacy(t *testing.T) {
 		legacy:  true,
 	}
 
-	err := runCreate(opts)
+	err := runCreate(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 
 	// Verify storage format was used
@@ -552,7 +553,7 @@ func TestRunCreate_Stdin_NoMarkdown_Legacy(t *testing.T) {
 		legacy:   true,
 	}
 
-	err := runCreate(opts)
+	err := runCreate(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 
 	// Verify raw content passed through without conversion
@@ -595,7 +596,7 @@ func TestRunCreate_StorageFlag_Stdin(t *testing.T) {
 		markdown: &useMd,
 	}
 
-	err := runCreate(opts)
+	err := runCreate(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 
 	// Verify storage format was used (not atlas_doc_format)
@@ -645,7 +646,7 @@ func TestRunCreate_StorageFlag_File(t *testing.T) {
 		markdown: &useMd,
 	}
 
-	err = runCreate(opts)
+	err = runCreate(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 
 	// Verify storage format was used without --legacy
@@ -697,7 +698,7 @@ func TestRunCreate_ComplexMarkdown_ADF(t *testing.T) {
 		title:   "Test Page",
 	}
 
-	err := runCreate(opts)
+	err := runCreate(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 
 	// Verify ADF contains complex elements
@@ -726,7 +727,7 @@ func TestRunCreate_EmptyContentFromStdin(t *testing.T) {
 		title:   "Test Page",
 	}
 
-	err := runCreate(opts)
+	err := runCreate(context.Background(), opts)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "page content cannot be empty")
 }
@@ -746,7 +747,7 @@ func TestRunCreate_WhitespaceOnlyFromStdin(t *testing.T) {
 		title:   "Test Page",
 	}
 
-	err := runCreate(opts)
+	err := runCreate(context.Background(), opts)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "page content cannot be empty")
 }
@@ -771,7 +772,7 @@ func TestRunCreate_EmptyFile(t *testing.T) {
 		file:    emptyFile,
 	}
 
-	err = runCreate(opts)
+	err = runCreate(context.Background(), opts)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "page content cannot be empty")
 }
@@ -796,7 +797,7 @@ func TestRunCreate_WhitespaceOnlyFile(t *testing.T) {
 		file:    whitespaceFile,
 	}
 
-	err = runCreate(opts)
+	err = runCreate(context.Background(), opts)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "page content cannot be empty")
 }

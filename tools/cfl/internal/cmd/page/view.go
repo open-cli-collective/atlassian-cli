@@ -62,8 +62,8 @@ JSON output (--output json) always includes the full body.`,
   # Pipe markdown content to edit
   cfl page view 12345 --content-only | cfl page edit 12345 --legacy`,
 		Args: cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			return runView(args[0], opts)
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runView(cmd.Context(), args[0], opts)
 		},
 	}
 
@@ -76,7 +76,7 @@ JSON output (--output json) always includes the full body.`,
 	return cmd
 }
 
-func runView(pageID string, opts *viewOptions) error {
+func runView(ctx context.Context, pageID string, opts *viewOptions) error {
 	if err := view.ValidateFormat(opts.Output); err != nil {
 		return err
 	}
@@ -102,7 +102,7 @@ func runView(pageID string, opts *viewOptions) error {
 
 	// --web only needs page links, not body content
 	if opts.web {
-		page, err := client.GetPage(context.Background(), pageID, nil)
+		page, err := client.GetPage(ctx, pageID, nil)
 		if err != nil {
 			return fmt.Errorf("getting page: %w", err)
 		}
@@ -110,7 +110,7 @@ func runView(pageID string, opts *viewOptions) error {
 		return openBrowser(url)
 	}
 
-	page, err := getPageWithBodyFallback(context.Background(), client, pageID)
+	page, err := getPageWithBodyFallback(ctx, client, pageID)
 	if err != nil {
 		return fmt.Errorf("getting page: %w", err)
 	}
@@ -120,7 +120,7 @@ func runView(pageID string, opts *viewOptions) error {
 	// Look up space key for display
 	spaceKey := ""
 	if page.SpaceID != "" {
-		space, err := client.GetSpace(context.Background(), page.SpaceID)
+		space, err := client.GetSpace(ctx, page.SpaceID)
 		if err == nil && space != nil {
 			spaceKey = space.Key
 		}

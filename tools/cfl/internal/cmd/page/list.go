@@ -40,8 +40,8 @@ page content.`,
 
   # Output as JSON
   cfl page list -s DEV -o json`,
-		RunE: func(_ *cobra.Command, _ []string) error {
-			return runList(opts)
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runList(cmd.Context(), opts)
 		},
 	}
 
@@ -60,7 +60,7 @@ var validStatuses = map[string]bool{
 	"deleted":  true,
 }
 
-func runList(opts *listOptions) error {
+func runList(ctx context.Context, opts *listOptions) error {
 	if err := view.ValidateFormat(opts.Output); err != nil {
 		return err
 	}
@@ -102,7 +102,7 @@ func runList(opts *listOptions) error {
 		return err
 	}
 
-	space, err := client.GetSpaceByKey(context.Background(), spaceKey)
+	space, err := client.GetSpaceByKey(ctx, spaceKey)
 	if err != nil {
 		return fmt.Errorf("finding space '%s': %w", spaceKey, err)
 	}
@@ -112,7 +112,7 @@ func runList(opts *listOptions) error {
 		Status: opts.status,
 	}
 
-	result, err := client.ListPages(context.Background(), space.ID, apiOpts)
+	result, err := client.ListPages(ctx, space.ID, apiOpts)
 	if err != nil {
 		return fmt.Errorf("listing pages: %w", err)
 	}

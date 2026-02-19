@@ -39,8 +39,8 @@ func newCopyCmd(rootOpts *root.Options) *cobra.Command {
   # Copy without labels
   cfl page copy 12345 --title "Fresh Copy" --no-labels`,
 		Args: cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			return runCopy(args[0], opts)
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCopy(cmd.Context(), args[0], opts)
 		},
 	}
 
@@ -54,7 +54,7 @@ func newCopyCmd(rootOpts *root.Options) *cobra.Command {
 	return cmd
 }
 
-func runCopy(pageID string, opts *copyOptions) error {
+func runCopy(ctx context.Context, pageID string, opts *copyOptions) error {
 	if err := view.ValidateFormat(opts.Output); err != nil {
 		return err
 	}
@@ -67,11 +67,11 @@ func runCopy(pageID string, opts *copyOptions) error {
 	destSpace := opts.space
 	if destSpace == "" {
 		// nil opts: body content is not needed, only SpaceID for determining destination
-		sourcePage, err := client.GetPage(context.Background(), pageID, nil)
+		sourcePage, err := client.GetPage(ctx, pageID, nil)
 		if err != nil {
 			return fmt.Errorf("getting source page: %w", err)
 		}
-		space, err := client.GetSpace(context.Background(), sourcePage.SpaceID)
+		space, err := client.GetSpace(ctx, sourcePage.SpaceID)
 		if err != nil {
 			return fmt.Errorf("getting space: %w", err)
 		}
@@ -88,7 +88,7 @@ func runCopy(pageID string, opts *copyOptions) error {
 		CopyCustomContents: true,
 	}
 
-	newPage, err := client.CopyPage(context.Background(), pageID, copyOpts)
+	newPage, err := client.CopyPage(ctx, pageID, copyOpts)
 	if err != nil {
 		return fmt.Errorf("copying page: %w", err)
 	}

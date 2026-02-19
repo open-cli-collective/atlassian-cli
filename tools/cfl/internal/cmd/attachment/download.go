@@ -31,8 +31,8 @@ func newDownloadCmd(rootOpts *root.Options) *cobra.Command {
   # Download to a specific file
   cfl attachment download abc123 -O document.pdf`,
 		Args: cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			return runDownload(args[0], opts)
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runDownload(cmd.Context(), args[0], opts)
 		},
 	}
 
@@ -42,13 +42,13 @@ func newDownloadCmd(rootOpts *root.Options) *cobra.Command {
 	return cmd
 }
 
-func runDownload(attachmentID string, opts *downloadOptions) error {
+func runDownload(ctx context.Context, attachmentID string, opts *downloadOptions) error {
 	client, err := opts.APIClient()
 	if err != nil {
 		return err
 	}
 
-	attachment, err := client.GetAttachment(context.Background(), attachmentID)
+	attachment, err := client.GetAttachment(ctx, attachmentID)
 	if err != nil {
 		return fmt.Errorf("getting attachment info: %w", err)
 	}
@@ -67,7 +67,7 @@ func runDownload(attachmentID string, opts *downloadOptions) error {
 		}
 	}
 
-	reader, err := client.DownloadAttachment(context.Background(), attachmentID)
+	reader, err := client.DownloadAttachment(ctx, attachmentID)
 	if err != nil {
 		return fmt.Errorf("downloading attachment: %w", err)
 	}

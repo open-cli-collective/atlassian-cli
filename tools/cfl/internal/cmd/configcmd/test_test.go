@@ -2,6 +2,7 @@ package configcmd
 
 import (
 	"bytes"
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -39,7 +40,7 @@ func TestRunTest_Success(t *testing.T) {
 	client := api.NewClient(server.URL, "test@example.com", "token")
 	rootOpts.SetAPIClient(client)
 
-	err := runTest(rootOpts)
+	err := runTest(context.Background(), rootOpts)
 	testutil.RequireNoError(t, err)
 	// Note: Output goes to real stdout via fmt.Print, not opts.Stdout
 	// Just verifying no error is sufficient for this test
@@ -56,7 +57,7 @@ func TestRunTest_AuthFailure(t *testing.T) {
 	client := api.NewClient(server.URL, "test@example.com", "bad-token")
 	rootOpts.SetAPIClient(client)
 
-	err := runTest(rootOpts)
+	err := runTest(context.Background(), rootOpts)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "connection test failed")
 }
@@ -72,7 +73,7 @@ func TestRunTest_ServerError(t *testing.T) {
 	client := api.NewClient(server.URL, "test@example.com", "token")
 	rootOpts.SetAPIClient(client)
 
-	err := runTest(rootOpts)
+	err := runTest(context.Background(), rootOpts)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "connection test failed")
 }

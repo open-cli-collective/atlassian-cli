@@ -2,6 +2,7 @@ package attachment
 
 import (
 	"bytes"
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -43,7 +44,7 @@ func TestRunList_Success(t *testing.T) {
 		limit:   25,
 	}
 
-	err := runList(opts)
+	err := runList(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 }
 
@@ -64,7 +65,7 @@ func TestRunList_Empty(t *testing.T) {
 		limit:   25,
 	}
 
-	err := runList(opts)
+	err := runList(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 }
 
@@ -85,7 +86,7 @@ func TestRunList_APIError(t *testing.T) {
 		limit:   25,
 	}
 
-	err := runList(opts)
+	err := runList(context.Background(), opts)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "listing attachments")
 }
@@ -112,7 +113,7 @@ func TestRunList_JSONOutput(t *testing.T) {
 		limit:   25,
 	}
 
-	err := runList(opts)
+	err := runList(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 }
 
@@ -126,7 +127,7 @@ func TestRunList_InvalidOutputFormat(t *testing.T) {
 		pageID:  "12345",
 	}
 
-	err := runList(opts)
+	err := runList(context.Background(), opts)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "invalid output format")
 }
@@ -293,7 +294,7 @@ func TestRunList_UnusedFlag(t *testing.T) {
 		unused:  true,
 	}
 
-	err := runList(opts)
+	err := runList(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, 2, requestCount) // Both attachments and page content fetched
 }
@@ -335,6 +336,6 @@ func TestRunList_UnusedFlag_NoUnused(t *testing.T) {
 		unused:  true,
 	}
 
-	err := runList(opts)
+	err := runList(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 }

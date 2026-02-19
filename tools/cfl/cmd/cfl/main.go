@@ -2,8 +2,11 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/open-cli-collective/atlassian-go/exitcode"
 
@@ -18,6 +21,9 @@ import (
 )
 
 func main() {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
 	cmd, opts := root.NewCmd()
 
 	root.RegisterCommands(cmd, opts,
@@ -30,7 +36,7 @@ func main() {
 		completion.Register,
 	)
 
-	if err := cmd.Execute(); err != nil {
+	if err := cmd.ExecuteContext(ctx); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
 		os.Exit(exitcode.GeneralError)
 	}

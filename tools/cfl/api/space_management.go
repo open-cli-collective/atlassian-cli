@@ -75,7 +75,7 @@ func (r *v1SpaceResponse) toSpace() *Space {
 func (c *Client) CreateSpace(ctx context.Context, req *CreateSpaceRequest) (*Space, error) {
 	body, err := c.Post(ctx, "/api/v2/spaces", req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("creating space: %w", err)
 	}
 
 	var space Space
@@ -92,7 +92,7 @@ func (c *Client) UpdateSpace(ctx context.Context, spaceKey string, req *UpdateSp
 	path := fmt.Sprintf("/rest/api/space/%s", spaceKey)
 	body, err := c.Put(ctx, path, req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("updating space: %w", err)
 	}
 
 	var response v1SpaceResponse
@@ -109,5 +109,8 @@ func (c *Client) UpdateSpace(ctx context.Context, spaceKey string, req *UpdateSp
 func (c *Client) DeleteSpace(ctx context.Context, spaceKey string) error {
 	path := fmt.Sprintf("/rest/api/space/%s", spaceKey)
 	_, err := c.Delete(ctx, path)
-	return err
+	if err != nil {
+		return fmt.Errorf("deleting space %s: %w", spaceKey, err)
+	}
+	return nil
 }

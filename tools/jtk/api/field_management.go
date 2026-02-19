@@ -85,7 +85,7 @@ func (c *Client) CreateField(ctx context.Context, req *CreateFieldRequest) (*Fie
 	urlStr := fmt.Sprintf("%s/field", c.BaseURL)
 	body, err := c.Post(ctx, urlStr, req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("creating field: %w", err)
 	}
 
 	var field Field
@@ -104,7 +104,10 @@ func (c *Client) TrashField(ctx context.Context, fieldID string) error {
 
 	urlStr := fmt.Sprintf("%s/field/%s/trash", c.BaseURL, url.PathEscape(fieldID))
 	_, err := c.Post(ctx, urlStr, nil)
-	return err
+	if err != nil {
+		return fmt.Errorf("trashing field %s: %w", fieldID, err)
+	}
+	return nil
 }
 
 // RestoreField restores a custom field from the trash
@@ -115,7 +118,10 @@ func (c *Client) RestoreField(ctx context.Context, fieldID string) error {
 
 	urlStr := fmt.Sprintf("%s/field/%s/restore", c.BaseURL, url.PathEscape(fieldID))
 	_, err := c.Post(ctx, urlStr, nil)
-	return err
+	if err != nil {
+		return fmt.Errorf("restoring field %s: %w", fieldID, err)
+	}
+	return nil
 }
 
 // GetFieldContexts returns the contexts for a custom field
@@ -127,7 +133,7 @@ func (c *Client) GetFieldContexts(ctx context.Context, fieldID string) (*FieldCo
 	urlStr := fmt.Sprintf("%s/field/%s/context", c.BaseURL, url.PathEscape(fieldID))
 	body, err := c.Get(ctx, urlStr)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("fetching field contexts: %w", err)
 	}
 
 	var result FieldContextsResponse
@@ -162,7 +168,7 @@ func (c *Client) CreateFieldContext(ctx context.Context, fieldID string, req *Cr
 	urlStr := fmt.Sprintf("%s/field/%s/context", c.BaseURL, url.PathEscape(fieldID))
 	body, err := c.Post(ctx, urlStr, req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("creating field context: %w", err)
 	}
 
 	var result FieldContext
@@ -181,7 +187,10 @@ func (c *Client) DeleteFieldContext(ctx context.Context, fieldID, contextID stri
 
 	urlStr := fmt.Sprintf("%s/field/%s/context/%s", c.BaseURL, url.PathEscape(fieldID), url.PathEscape(contextID))
 	_, err := c.Delete(ctx, urlStr)
-	return err
+	if err != nil {
+		return fmt.Errorf("deleting field context: %w", err)
+	}
+	return nil
 }
 
 // GetFieldContextOptions returns the options for a field context
@@ -193,7 +202,7 @@ func (c *Client) GetFieldContextOptions(ctx context.Context, fieldID, contextID 
 	urlStr := fmt.Sprintf("%s/field/%s/context/%s/option", c.BaseURL, url.PathEscape(fieldID), url.PathEscape(contextID))
 	body, err := c.Get(ctx, urlStr)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("fetching field context options: %w", err)
 	}
 
 	var result FieldContextOptionsResponse
@@ -213,7 +222,7 @@ func (c *Client) CreateFieldContextOptions(ctx context.Context, fieldID, context
 	urlStr := fmt.Sprintf("%s/field/%s/context/%s/option", c.BaseURL, url.PathEscape(fieldID), url.PathEscape(contextID))
 	body, err := c.Post(ctx, urlStr, req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("creating field context options: %w", err)
 	}
 
 	var result FieldContextOptionsResponse
@@ -233,7 +242,7 @@ func (c *Client) UpdateFieldContextOptions(ctx context.Context, fieldID, context
 	urlStr := fmt.Sprintf("%s/field/%s/context/%s/option", c.BaseURL, url.PathEscape(fieldID), url.PathEscape(contextID))
 	body, err := c.Put(ctx, urlStr, req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("updating field context options: %w", err)
 	}
 
 	var result FieldContextOptionsResponse
@@ -252,5 +261,8 @@ func (c *Client) DeleteFieldContextOption(ctx context.Context, fieldID, contextI
 
 	urlStr := fmt.Sprintf("%s/field/%s/context/%s/option/%s", c.BaseURL, url.PathEscape(fieldID), url.PathEscape(contextID), url.PathEscape(optionID))
 	_, err := c.Delete(ctx, urlStr)
-	return err
+	if err != nil {
+		return fmt.Errorf("deleting field context option: %w", err)
+	}
+	return nil
 }

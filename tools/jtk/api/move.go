@@ -62,7 +62,7 @@ func (c *Client) MoveIssues(ctx context.Context, req MoveIssuesRequest) (*MoveIs
 
 	body, err := c.Post(ctx, urlStr, req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("moving issues: %w", err)
 	}
 
 	var resp MoveIssuesResponse
@@ -76,7 +76,7 @@ func (c *Client) MoveIssues(ctx context.Context, req MoveIssuesRequest) (*MoveIs
 // GetMoveTaskStatus gets the status of a move task
 func (c *Client) GetMoveTaskStatus(ctx context.Context, taskID string) (*MoveTaskStatus, error) {
 	if taskID == "" {
-		return nil, fmt.Errorf("task ID is required")
+		return nil, ErrTaskIDRequired
 	}
 
 	// Status endpoint is /bulk/queue/{taskId}
@@ -84,7 +84,7 @@ func (c *Client) GetMoveTaskStatus(ctx context.Context, taskID string) (*MoveTas
 
 	body, err := c.Get(ctx, urlStr)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("fetching move task status: %w", err)
 	}
 
 	var status MoveTaskStatus
@@ -98,14 +98,14 @@ func (c *Client) GetMoveTaskStatus(ctx context.Context, taskID string) (*MoveTas
 // GetProjectIssueTypes returns the issue types available in a project
 func (c *Client) GetProjectIssueTypes(ctx context.Context, projectKey string) ([]IssueType, error) {
 	if projectKey == "" {
-		return nil, fmt.Errorf("project key is required")
+		return nil, ErrProjectKeyRequired
 	}
 
 	urlStr := fmt.Sprintf("%s/project/%s", c.BaseURL, projectKey)
 
 	body, err := c.Get(ctx, urlStr)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("fetching project issue types: %w", err)
 	}
 
 	var project struct {
@@ -121,14 +121,14 @@ func (c *Client) GetProjectIssueTypes(ctx context.Context, projectKey string) ([
 // GetProjectStatuses returns the statuses available in a project
 func (c *Client) GetProjectStatuses(ctx context.Context, projectKey string) ([]ProjectStatus, error) {
 	if projectKey == "" {
-		return nil, fmt.Errorf("project key is required")
+		return nil, ErrProjectKeyRequired
 	}
 
 	urlStr := fmt.Sprintf("%s/project/%s/statuses", c.BaseURL, projectKey)
 
 	body, err := c.Get(ctx, urlStr)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("fetching project statuses: %w", err)
 	}
 
 	var statuses []ProjectStatus

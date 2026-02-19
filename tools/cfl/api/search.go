@@ -94,7 +94,7 @@ func (c *Client) Search(ctx context.Context, opts *SearchOptions) (*SearchRespon
 	path := "/rest/api/search?" + params.Encode()
 	body, err := c.Get(ctx, path)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("searching: %w", err)
 	}
 
 	var result SearchResponse

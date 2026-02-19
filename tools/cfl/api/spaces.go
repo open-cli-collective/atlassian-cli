@@ -43,7 +43,7 @@ func (c *Client) ListSpaces(ctx context.Context, opts *ListSpacesOptions) (*Pagi
 	path := "/api/v2/spaces?" + params.Encode()
 	body, err := c.Get(ctx, path)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("listing spaces: %w", err)
 	}
 
 	var result PaginatedResponse[Space]
@@ -59,7 +59,7 @@ func (c *Client) GetSpace(ctx context.Context, spaceID string) (*Space, error) {
 	path := fmt.Sprintf("/api/v2/spaces/%s", spaceID)
 	body, err := c.Get(ctx, path)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("getting space: %w", err)
 	}
 
 	var space Space

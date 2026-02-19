@@ -13,7 +13,7 @@ func (c *Client) GetFields(ctx context.Context) ([]Field, error) {
 	urlStr := fmt.Sprintf("%s/field", c.BaseURL)
 	body, err := c.Get(ctx, urlStr)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("fetching fields: %w", err)
 	}
 
 	var fields []Field
@@ -149,7 +149,7 @@ type FieldOptionValue struct {
 // GetFieldOptions returns allowed values for a custom field
 func (c *Client) GetFieldOptions(ctx context.Context, fieldID string) ([]FieldOptionValue, error) {
 	if fieldID == "" {
-		return nil, fmt.Errorf("field ID is required")
+		return nil, ErrFieldIDRequired
 	}
 
 	urlStr := fmt.Sprintf("%s/field/%s/context/defaultValue", c.BaseURL, fieldID)
@@ -158,7 +158,7 @@ func (c *Client) GetFieldOptions(ctx context.Context, fieldID string) ([]FieldOp
 		urlStr = fmt.Sprintf("%s/field/%s/option", c.BaseURL, fieldID)
 		body, err = c.Get(ctx, urlStr)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("fetching field options: %w", err)
 		}
 	}
 

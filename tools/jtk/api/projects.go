@@ -60,7 +60,7 @@ func (c *Client) ListProjects(ctx context.Context) ([]Project, error) {
 	urlStr := fmt.Sprintf("%s/project", c.BaseURL)
 	body, err := c.Get(ctx, urlStr)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("listing projects: %w", err)
 	}
 
 	var projects []Project
@@ -88,7 +88,7 @@ func (c *Client) SearchProjects(ctx context.Context, query string, startAt, maxR
 	urlStr := buildURL(fmt.Sprintf("%s/project/search", c.BaseURL), params)
 	body, err := c.Get(ctx, urlStr)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("searching projects: %w", err)
 	}
 
 	var result ProjectSearchResponse
@@ -108,7 +108,7 @@ func (c *Client) GetProject(ctx context.Context, projectKeyOrID string) (*Projec
 	urlStr := fmt.Sprintf("%s/project/%s", c.BaseURL, url.PathEscape(projectKeyOrID))
 	body, err := c.Get(ctx, urlStr)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("fetching project: %w", err)
 	}
 
 	var project ProjectDetail
@@ -124,7 +124,7 @@ func (c *Client) CreateProject(ctx context.Context, req *CreateProjectRequest) (
 	urlStr := fmt.Sprintf("%s/project", c.BaseURL)
 	body, err := c.Post(ctx, urlStr, req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("creating project: %w", err)
 	}
 
 	var project ProjectDetail
@@ -144,7 +144,7 @@ func (c *Client) UpdateProject(ctx context.Context, projectKeyOrID string, req *
 	urlStr := fmt.Sprintf("%s/project/%s", c.BaseURL, url.PathEscape(projectKeyOrID))
 	body, err := c.Put(ctx, urlStr, req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("updating project: %w", err)
 	}
 
 	var project ProjectDetail
@@ -163,7 +163,10 @@ func (c *Client) DeleteProject(ctx context.Context, projectKeyOrID string) error
 
 	urlStr := fmt.Sprintf("%s/project/%s", c.BaseURL, url.PathEscape(projectKeyOrID))
 	_, err := c.Delete(ctx, urlStr)
-	return err
+	if err != nil {
+		return fmt.Errorf("deleting project %s: %w", projectKeyOrID, err)
+	}
+	return nil
 }
 
 // RestoreProject restores a project from the trash
@@ -175,7 +178,7 @@ func (c *Client) RestoreProject(ctx context.Context, projectKeyOrID string) (*Pr
 	urlStr := fmt.Sprintf("%s/project/%s/restore", c.BaseURL, url.PathEscape(projectKeyOrID))
 	body, err := c.Post(ctx, urlStr, nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("restoring project: %w", err)
 	}
 
 	var project ProjectDetail
@@ -191,7 +194,7 @@ func (c *Client) ListProjectTypes(ctx context.Context) ([]ProjectType, error) {
 	urlStr := fmt.Sprintf("%s/project/type", c.BaseURL)
 	body, err := c.Get(ctx, urlStr)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("fetching project types: %w", err)
 	}
 
 	var types []ProjectType

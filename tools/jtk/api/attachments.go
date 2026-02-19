@@ -61,13 +61,13 @@ func (f FlexibleID) String() string {
 // GetIssueAttachments returns all attachments for an issue
 func (c *Client) GetIssueAttachments(ctx context.Context, issueKey string) ([]Attachment, error) {
 	if issueKey == "" {
-		return nil, fmt.Errorf("issue key is required")
+		return nil, ErrIssueKeyRequired
 	}
 
 	urlStr := fmt.Sprintf("%s/issue/%s?fields=attachment", c.BaseURL, issueKey)
 	body, err := c.Get(ctx, urlStr)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("fetching issue attachments: %w", err)
 	}
 
 	var result struct {
@@ -85,13 +85,13 @@ func (c *Client) GetIssueAttachments(ctx context.Context, issueKey string) ([]At
 // GetAttachment returns metadata for a specific attachment
 func (c *Client) GetAttachment(ctx context.Context, attachmentID string) (*Attachment, error) {
 	if attachmentID == "" {
-		return nil, fmt.Errorf("attachment ID is required")
+		return nil, ErrAttachmentIDRequired
 	}
 
 	urlStr := fmt.Sprintf("%s/attachment/%s", c.BaseURL, attachmentID)
 	body, err := c.Get(ctx, urlStr)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("fetching attachment: %w", err)
 	}
 
 	var attachment Attachment
@@ -105,10 +105,10 @@ func (c *Client) GetAttachment(ctx context.Context, attachmentID string) (*Attac
 // AddAttachment uploads a file as an attachment to an issue
 func (c *Client) AddAttachment(ctx context.Context, issueKey, filePath string) ([]Attachment, error) {
 	if issueKey == "" {
-		return nil, fmt.Errorf("issue key is required")
+		return nil, ErrIssueKeyRequired
 	}
 	if filePath == "" {
-		return nil, fmt.Errorf("file path is required")
+		return nil, ErrFilePathRequired
 	}
 
 	file, err := os.Open(filePath) //nolint:gosec // CLI tool opens user-provided file paths
@@ -159,7 +159,7 @@ func (c *Client) AddAttachment(ctx context.Context, issueKey, filePath string) (
 
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("request failed: %w", err)
+		return nil, fmt.Errorf("uploading attachment: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -192,21 +192,24 @@ func (c *Client) AddAttachment(ctx context.Context, issueKey, filePath string) (
 // DeleteAttachment deletes an attachment by ID
 func (c *Client) DeleteAttachment(ctx context.Context, attachmentID string) error {
 	if attachmentID == "" {
-		return fmt.Errorf("attachment ID is required")
+		return ErrAttachmentIDRequired
 	}
 
 	urlStr := fmt.Sprintf("%s/attachment/%s", c.BaseURL, attachmentID)
 	_, err := c.Delete(ctx, urlStr)
-	return err
+	if err != nil {
+		return fmt.Errorf("deleting attachment %s: %w", attachmentID, err)
+	}
+	return nil
 }
 
 // DownloadAttachment downloads an attachment to the specified output path
 func (c *Client) DownloadAttachment(ctx context.Context, attachment *Attachment, outputPath string) error {
 	if attachment == nil {
-		return fmt.Errorf("attachment is required")
+		return ErrAttachmentRequired
 	}
 	if attachment.Content == "" {
-		return fmt.Errorf("attachment has no content URL")
+		return ErrAttachmentContentMissing
 	}
 
 	// Create the request
@@ -223,7 +226,7 @@ func (c *Client) DownloadAttachment(ctx context.Context, attachment *Attachment,
 
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("request failed: %w", err)
+		return fmt.Errorf("downloading attachment: %w", err)
 	}
 	defer resp.Body.Close()
 

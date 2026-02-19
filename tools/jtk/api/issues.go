@@ -16,7 +16,7 @@ func (c *Client) GetIssue(ctx context.Context, issueKey string) (*Issue, error) 
 	urlStr := fmt.Sprintf("%s/issue/%s", c.BaseURL, url.PathEscape(issueKey))
 	body, err := c.Get(ctx, urlStr)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("fetching issue: %w", err)
 	}
 
 	var issue Issue
@@ -32,7 +32,7 @@ func (c *Client) CreateIssue(ctx context.Context, req *CreateIssueRequest) (*Iss
 	urlStr := fmt.Sprintf("%s/issue", c.BaseURL)
 	body, err := c.Post(ctx, urlStr, req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("creating issue: %w", err)
 	}
 
 	var issue Issue
@@ -51,7 +51,10 @@ func (c *Client) UpdateIssue(ctx context.Context, issueKey string, req *UpdateIs
 
 	urlStr := fmt.Sprintf("%s/issue/%s", c.BaseURL, url.PathEscape(issueKey))
 	_, err := c.Put(ctx, urlStr, req)
-	return err
+	if err != nil {
+		return fmt.Errorf("updating issue %s: %w", issueKey, err)
+	}
+	return nil
 }
 
 // DeleteIssue deletes an issue
@@ -62,7 +65,10 @@ func (c *Client) DeleteIssue(ctx context.Context, issueKey string) error {
 
 	urlStr := fmt.Sprintf("%s/issue/%s", c.BaseURL, url.PathEscape(issueKey))
 	_, err := c.Delete(ctx, urlStr)
-	return err
+	if err != nil {
+		return fmt.Errorf("deleting issue %s: %w", issueKey, err)
+	}
+	return nil
 }
 
 // AssignIssue assigns an issue to a user
@@ -82,7 +88,10 @@ func (c *Client) AssignIssue(ctx context.Context, issueKey, accountID string) er
 	}
 
 	_, err := c.Put(ctx, urlStr, body)
-	return err
+	if err != nil {
+		return fmt.Errorf("assigning issue %s: %w", issueKey, err)
+	}
+	return nil
 }
 
 // GetIssueEditMeta returns the edit metadata for an issue
@@ -94,7 +103,7 @@ func (c *Client) GetIssueEditMeta(ctx context.Context, issueKey string) (map[str
 	urlStr := fmt.Sprintf("%s/issue/%s/editmeta", c.BaseURL, url.PathEscape(issueKey))
 	body, err := c.Get(ctx, urlStr)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("fetching edit metadata: %w", err)
 	}
 
 	var result map[string]interface{}

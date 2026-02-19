@@ -52,7 +52,7 @@ func (c *Client) ListPages(ctx context.Context, spaceID string, opts *ListPagesO
 	path := fmt.Sprintf("/api/v2/spaces/%s/pages?%s", spaceID, params.Encode())
 	body, err := c.Get(ctx, path)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("listing pages: %w", err)
 	}
 
 	var result PaginatedResponse[Page]
@@ -77,7 +77,7 @@ func (c *Client) GetPage(ctx context.Context, pageID string, opts *GetPageOption
 
 	body, err := c.Get(ctx, path)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("getting page: %w", err)
 	}
 
 	var page Page
@@ -92,7 +92,7 @@ func (c *Client) GetPage(ctx context.Context, pageID string, opts *GetPageOption
 func (c *Client) CreatePage(ctx context.Context, req *CreatePageRequest) (*Page, error) {
 	body, err := c.Post(ctx, "/api/v2/pages", req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("creating page: %w", err)
 	}
 
 	var page Page
@@ -108,7 +108,7 @@ func (c *Client) UpdatePage(ctx context.Context, pageID string, req *UpdatePageR
 	path := fmt.Sprintf("/api/v2/pages/%s", pageID)
 	body, err := c.Put(ctx, path, req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("updating page: %w", err)
 	}
 
 	var page Page
@@ -123,7 +123,10 @@ func (c *Client) UpdatePage(ctx context.Context, pageID string, req *UpdatePageR
 func (c *Client) DeletePage(ctx context.Context, pageID string) error {
 	path := fmt.Sprintf("/api/v2/pages/%s", pageID)
 	_, err := c.Delete(ctx, path)
-	return err
+	if err != nil {
+		return fmt.Errorf("deleting page %s: %w", pageID, err)
+	}
+	return nil
 }
 
 // MovePage moves a page to be a child of the target parent page.
@@ -131,7 +134,10 @@ func (c *Client) DeletePage(ctx context.Context, pageID string) error {
 func (c *Client) MovePage(ctx context.Context, pageID, targetParentID string) error {
 	path := fmt.Sprintf("/rest/api/content/%s/move/append/%s", pageID, targetParentID)
 	_, err := c.Put(ctx, path, nil)
-	return err
+	if err != nil {
+		return fmt.Errorf("moving page %s to parent %s: %w", pageID, targetParentID, err)
+	}
+	return nil
 }
 
 // CopyPageOptions configures page copy behavior.
@@ -220,7 +226,7 @@ func (c *Client) CopyPage(ctx context.Context, pageID string, opts *CopyPageOpti
 	path := fmt.Sprintf("/rest/api/content/%s/copy", pageID)
 	body, err := c.Post(ctx, path, req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("copying page: %w", err)
 	}
 
 	var response v1PageResponse

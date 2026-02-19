@@ -27,7 +27,7 @@ func (c *Client) GetTransitionsWithFields(ctx context.Context, issueKey string, 
 
 	body, err := c.Get(ctx, urlStr)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("fetching transitions: %w", err)
 	}
 
 	var result TransitionsResponse
@@ -51,7 +51,10 @@ func (c *Client) DoTransition(ctx context.Context, issueKey, transitionID string
 	}
 
 	_, err := c.Post(ctx, urlStr, req)
-	return err
+	if err != nil {
+		return fmt.Errorf("performing transition: %w", err)
+	}
+	return nil
 }
 
 // FindTransitionByName finds a transition by name (case-insensitive)

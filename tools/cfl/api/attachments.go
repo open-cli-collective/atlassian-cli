@@ -43,7 +43,7 @@ func (c *Client) ListAttachments(ctx context.Context, pageID string, opts *ListA
 	path := fmt.Sprintf("/api/v2/pages/%s/attachments?%s", pageID, params.Encode())
 	body, err := c.Get(ctx, path)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("listing attachments: %w", err)
 	}
 
 	var result PaginatedResponse[Attachment]
@@ -59,7 +59,7 @@ func (c *Client) GetAttachment(ctx context.Context, attachmentID string) (*Attac
 	path := fmt.Sprintf("/api/v2/attachments/%s", attachmentID)
 	body, err := c.Get(ctx, path)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("getting attachment: %w", err)
 	}
 
 	var att Attachment
@@ -87,13 +87,13 @@ func (c *Client) DownloadAttachment(ctx context.Context, attachmentID string) (i
 
 	req, err := http.NewRequestWithContext(ctx, "GET", downloadURL, nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("creating download request: %w", err)
 	}
 	req.Header.Set("Authorization", c.GetAuthHeader())
 
 	resp, err := c.GetHTTPClient().Do(req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("downloading attachment: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
@@ -135,7 +135,7 @@ func (c *Client) UploadAttachment(ctx context.Context, pageID, filename string, 
 	path := fmt.Sprintf("/rest/api/content/%s/child/attachment", pageID)
 	req, err := http.NewRequestWithContext(ctx, "POST", c.GetBaseURL()+path, &buf)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("creating upload request: %w", err)
 	}
 
 	req.Header.Set("Authorization", c.GetAuthHeader())
@@ -144,13 +144,13 @@ func (c *Client) UploadAttachment(ctx context.Context, pageID, filename string, 
 
 	resp, err := c.GetHTTPClient().Do(req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("uploading attachment: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("reading upload response: %w", err)
 	}
 
 	if resp.StatusCode >= 400 {
@@ -180,5 +180,8 @@ func (c *Client) UploadAttachment(ctx context.Context, pageID, filename string, 
 func (c *Client) DeleteAttachment(ctx context.Context, attachmentID string) error {
 	path := fmt.Sprintf("/api/v2/attachments/%s", attachmentID)
 	_, err := c.Delete(ctx, path)
-	return err
+	if err != nil {
+		return fmt.Errorf("deleting attachment %s: %w", attachmentID, err)
+	}
+	return nil
 }

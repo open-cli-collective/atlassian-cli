@@ -24,7 +24,7 @@ func (c *Client) ListSprints(ctx context.Context, boardID int, state string, sta
 	urlStr := buildURL(fmt.Sprintf("%s/board/%d/sprint", c.AgileURL, boardID), params)
 	body, err := c.Get(ctx, urlStr)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("listing sprints: %w", err)
 	}
 
 	var result SprintsResponse
@@ -40,7 +40,7 @@ func (c *Client) GetSprint(ctx context.Context, sprintID int) (*Sprint, error) {
 	urlStr := fmt.Sprintf("%s/sprint/%d", c.AgileURL, sprintID)
 	body, err := c.Get(ctx, urlStr)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("fetching sprint: %w", err)
 	}
 
 	var sprint Sprint
@@ -65,7 +65,7 @@ func (c *Client) GetSprintIssues(ctx context.Context, sprintID int, startAt, max
 	urlStr := buildURL(fmt.Sprintf("%s/sprint/%d/issue", c.AgileURL, sprintID), params)
 	body, err := c.Get(ctx, urlStr)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("fetching sprint issues: %w", err)
 	}
 
 	var result SearchResult
@@ -98,5 +98,8 @@ func (c *Client) MoveIssuesToSprint(ctx context.Context, sprintID int, issueKeys
 	}
 
 	_, err := c.Post(ctx, urlStr, req)
-	return err
+	if err != nil {
+		return fmt.Errorf("moving issues to sprint %d: %w", sprintID, err)
+	}
+	return nil
 }

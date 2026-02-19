@@ -25,7 +25,7 @@ func (c *Client) GetComments(ctx context.Context, issueKey string, startAt, maxR
 	urlStr := buildURL(fmt.Sprintf("%s/issue/%s/comment", c.BaseURL, url.PathEscape(issueKey)), params)
 	body, err := c.Get(ctx, urlStr)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("fetching comments: %w", err)
 	}
 
 	var result CommentsResponse
@@ -49,7 +49,7 @@ func (c *Client) AddComment(ctx context.Context, issueKey, commentBody string) (
 
 	body, err := c.Post(ctx, urlStr, req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("adding comment: %w", err)
 	}
 
 	var comment Comment
@@ -66,10 +66,13 @@ func (c *Client) DeleteComment(ctx context.Context, issueKey, commentID string) 
 		return ErrIssueKeyRequired
 	}
 	if commentID == "" {
-		return fmt.Errorf("comment ID is required")
+		return ErrCommentIDRequired
 	}
 
 	urlStr := fmt.Sprintf("%s/issue/%s/comment/%s", c.BaseURL, url.PathEscape(issueKey), url.PathEscape(commentID))
 	_, err := c.Delete(ctx, urlStr)
-	return err
+	if err != nil {
+		return fmt.Errorf("deleting comment %s: %w", commentID, err)
+	}
+	return nil
 }

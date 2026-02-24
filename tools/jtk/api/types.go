@@ -327,12 +327,42 @@ type FieldSchema struct {
 	CustomID int    `json:"customId,omitempty"`
 }
 
-// SearchResult represents search results from JQL
+// SearchResult represents search results from Jira APIs
+// that use offset-based pagination (e.g., Agile API sprint issues).
 type SearchResult struct {
 	StartAt    int     `json:"startAt"`
 	MaxResults int     `json:"maxResults"`
 	Total      int     `json:"total"`
 	Issues     []Issue `json:"issues"`
+}
+
+// JQLSearchResult represents results from the /search/jql endpoint,
+// which uses cursor-based pagination.
+type JQLSearchResult struct {
+	Issues        []Issue `json:"issues"`
+	NextPageToken string  `json:"nextPageToken,omitempty"`
+	IsLast        bool    `json:"isLast"`
+}
+
+// SearchPageOptions contains options for a single-page search.
+type SearchPageOptions struct {
+	JQL           string
+	PageSize      int
+	Fields        []string
+	NextPageToken string
+}
+
+// PaginatedIssues wraps issues with cursor-based pagination metadata.
+type PaginatedIssues struct {
+	Issues     []Issue        `json:"issues"`
+	Pagination PaginationInfo `json:"pagination"`
+}
+
+// PaginationInfo contains cursor-based pagination metadata.
+type PaginationInfo struct {
+	PageSize      int    `json:"pageSize"`
+	IsLast        bool   `json:"isLast"`
+	NextPageToken string `json:"nextPageToken,omitempty"`
 }
 
 // BoardsResponse represents the response from listing boards

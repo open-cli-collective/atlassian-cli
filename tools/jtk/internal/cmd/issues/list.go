@@ -6,6 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 )
 
@@ -13,6 +14,8 @@ func newListCmd(opts *root.Options) *cobra.Command {
 	var project string
 	var sprint string
 	var maxResults int
+	var nextPageToken string
+	var full bool
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -24,21 +27,26 @@ func newListCmd(opts *root.Options) *cobra.Command {
   # List issues in the current sprint
   jtk issues list --project MYPROJECT --sprint current
 
-  # List issues with custom limit
-  jtk issues list --project MYPROJECT --max 100`,
+  # List next page using token from previous result
+  jtk issues list --project MYPROJECT --next-page-token <token>
+
+  # List with full details (includes description)
+  jtk issues list --project MYPROJECT --full`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runList(cmd.Context(), opts, project, sprint, maxResults)
+			return runList(cmd.Context(), opts, project, sprint, maxResults, nextPageToken, full)
 		},
 	}
 
 	cmd.Flags().StringVarP(&project, "project", "p", "", "Filter by project key")
 	cmd.Flags().StringVarP(&sprint, "sprint", "s", "", "Filter by sprint (use 'current' for active sprint)")
-	cmd.Flags().IntVarP(&maxResults, "max", "m", 50, "Maximum number of results")
+	cmd.Flags().IntVarP(&maxResults, "max", "m", 25, "Page size (number of results per page)")
+	cmd.Flags().StringVar(&nextPageToken, "next-page-token", "", "Token for next page of results")
+	cmd.Flags().BoolVar(&full, "full", false, "Include all fields (e.g. description)")
 
 	return cmd
 }
 
-func runList(ctx context.Context, opts *root.Options, project, sprint string, maxResults int) error {
+func runList(ctx context.Context, opts *root.Options, project, sprint string, maxResults int, nextPageToken string, full bool) error {
 	v := opts.View()
 
 	client, err := opts.APIClient()
@@ -73,25 +81,36 @@ func runList(ctx context.Context, opts *root.Options, project, sprint string, ma
 		jql += " ORDER BY updated DESC"
 	}
 
-	issues, err := client.SearchAll(ctx, jql, maxResults)
+	// Select fields based on --full flag
+	fields := api.ListSearchFields
+	if full {
+		fields = api.DefaultSearchFields
+	}
+
+	result, err := client.SearchPage(ctx, api.SearchPageOptions{
+		JQL:           jql,
+		PageSize:      maxResults,
+		Fields:        fields,
+		NextPageToken: nextPageToken,
+	})
 	if err != nil {
 		return err
 	}
 
-	if len(issues) == 0 {
+	if len(result.Issues) == 0 {
 		v.Info("No issues found")
 		return nil
 	}
 
-	// For JSON output
+	// For JSON output, return the paginated wrapper
 	if opts.Output == "json" {
-		return v.JSON(issues)
+		return v.JSON(result)
 	}
 
 	headers := []string{"KEY", "SUMMARY", "STATUS", "ASSIGNEE", "TYPE"}
-	rows := make([][]string, 0, len(issues))
+	rows := make([][]string, 0, len(result.Issues))
 
-	for _, issue := range issues {
+	for _, issue := range result.Issues {
 		status := ""
 		if issue.Fields.Status != nil {
 			status = issue.Fields.Status.Name
@@ -110,5 +129,14 @@ func runList(ctx context.Context, opts *root.Options, project, sprint string, ma
 		rows = append(rows, formatIssueRow(issue.Key, issue.Fields.Summary, status, assignee, issueType))
 	}
 
-	return v.Table(headers, rows)
+	if err := v.Table(headers, rows); err != nil {
+		return err
+	}
+
+	// Print pagination footer on stderr when there are more results
+	if !result.Pagination.IsLast {
+		v.Info("More results available (use --next-page-token to fetch next page)")
+	}
+
+	return nil
 }

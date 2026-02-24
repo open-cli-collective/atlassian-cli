@@ -311,6 +311,27 @@ func TestIssue_UnmarshalJSON(t *testing.T) {
 	testutil.Equal(t, issue.Fields.Labels, []string{"bug", "urgent"})
 }
 
+func TestJQLSearchResult_UnmarshalJSON(t *testing.T) {
+	input := `{
+		"issues": [
+			{"id": "1", "key": "PROJ-1", "fields": {"summary": "Issue 1"}},
+			{"id": "2", "key": "PROJ-2", "fields": {"summary": "Issue 2"}}
+		],
+		"nextPageToken": "abc123",
+		"isLast": false
+	}`
+
+	var result JQLSearchResult
+	err := json.Unmarshal([]byte(input), &result)
+	testutil.RequireNoError(t, err)
+
+	testutil.Len(t, result.Issues, 2)
+	testutil.Equal(t, result.Issues[0].Key, "PROJ-1")
+	testutil.Equal(t, result.Issues[1].Key, "PROJ-2")
+	testutil.Equal(t, result.NextPageToken, "abc123")
+	testutil.Equal(t, result.IsLast, false)
+}
+
 func TestSearchResult_UnmarshalJSON(t *testing.T) {
 	input := `{
 		"startAt": 0,

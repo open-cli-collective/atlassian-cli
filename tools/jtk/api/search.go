@@ -6,23 +6,23 @@ import (
 	"fmt"
 )
 
-// SearchOptions contains options for JQL search
+// SearchOptions contains options for JQL search.
 type SearchOptions struct {
-	JQL        string
-	StartAt    int
-	MaxResults int
-	Fields     []string
+	JQL           string
+	MaxResults    int
+	Fields        []string
+	NextPageToken string
 }
 
-// SearchRequest is the request body for the new JQL search API
+// SearchRequest is the request body for the /search/jql endpoint.
 type SearchRequest struct {
-	JQL        string   `json:"jql"`
-	StartAt    int      `json:"startAt,omitempty"`
-	MaxResults int      `json:"maxResults,omitempty"`
-	Fields     []string `json:"fields,omitempty"`
+	JQL           string   `json:"jql"`
+	MaxResults    int      `json:"maxResults,omitempty"`
+	Fields        []string `json:"fields,omitempty"`
+	NextPageToken string   `json:"nextPageToken,omitempty"`
 }
 
-// DefaultSearchFields are the fields returned by default in search results
+// DefaultSearchFields are the fields returned by default in search results.
 var DefaultSearchFields = []string{
 	"summary",
 	"status",
@@ -39,20 +39,33 @@ var DefaultSearchFields = []string{
 	"parent",
 }
 
-// Search searches for issues using JQL (uses new /search/jql endpoint)
-func (c *Client) Search(ctx context.Context, opts SearchOptions) (*SearchResult, error) {
+// ListSearchFields are lightweight fields for list/search commands (no description).
+var ListSearchFields = []string{
+	"summary",
+	"status",
+	"assignee",
+	"issuetype",
+	"priority",
+	"project",
+	"labels",
+	"created",
+	"updated",
+}
+
+// Search searches for issues using JQL (uses /search/jql endpoint).
+func (c *Client) Search(ctx context.Context, opts SearchOptions) (*JQLSearchResult, error) {
 	req := SearchRequest{
 		JQL: opts.JQL,
-	}
-
-	if opts.StartAt > 0 {
-		req.StartAt = opts.StartAt
 	}
 
 	if opts.MaxResults > 0 {
 		req.MaxResults = opts.MaxResults
 	} else {
 		req.MaxResults = 50
+	}
+
+	if opts.NextPageToken != "" {
+		req.NextPageToken = opts.NextPageToken
 	}
 
 	// Use default fields if none specified - new API requires explicit field selection
@@ -68,7 +81,7 @@ func (c *Client) Search(ctx context.Context, opts SearchOptions) (*SearchResult,
 		return nil, fmt.Errorf("searching issues: %w", err)
 	}
 
-	var result SearchResult
+	var result JQLSearchResult
 	if err := json.Unmarshal(body, &result); err != nil {
 		return nil, fmt.Errorf("parsing search results: %w", err)
 	}
@@ -76,15 +89,15 @@ func (c *Client) Search(ctx context.Context, opts SearchOptions) (*SearchResult,
 	return &result, nil
 }
 
-// SearchAll searches for all issues matching JQL (handles pagination)
+// SearchAll searches for all issues matching JQL (handles cursor-based pagination).
 func (c *Client) SearchAll(ctx context.Context, jql string, maxResults int) ([]Issue, error) {
 	if maxResults <= 0 {
 		maxResults = 1000
 	}
 
 	var allIssues []Issue
-	startAt := 0
 	pageSize := 100
+	nextPageToken := ""
 
 	for {
 		if err := ctx.Err(); err != nil {
@@ -92,22 +105,22 @@ func (c *Client) SearchAll(ctx context.Context, jql string, maxResults int) ([]I
 		}
 
 		result, err := c.Search(ctx, SearchOptions{
-			JQL:        jql,
-			StartAt:    startAt,
-			MaxResults: pageSize,
+			JQL:           jql,
+			MaxResults:    pageSize,
+			NextPageToken: nextPageToken,
 		})
 		if err != nil {
-			return nil, fmt.Errorf("searching all issues (offset %d): %w", startAt, err)
+			return nil, fmt.Errorf("searching all issues: %w", err)
 		}
 
 		allIssues = append(allIssues, result.Issues...)
 
-		if len(allIssues) >= result.Total || len(allIssues) >= maxResults {
+		if result.IsLast || len(allIssues) >= maxResults {
 			break
 		}
 
-		startAt += len(result.Issues)
-		if len(result.Issues) == 0 {
+		nextPageToken = result.NextPageToken
+		if nextPageToken == "" || len(result.Issues) == 0 {
 			break
 		}
 	}
@@ -117,4 +130,31 @@ func (c *Client) SearchAll(ctx context.Context, jql string, maxResults int) ([]I
 	}
 
 	return allIssues, nil
+}
+
+// SearchPage searches for a single page of issues and returns results with pagination metadata.
+func (c *Client) SearchPage(ctx context.Context, opts SearchPageOptions) (*PaginatedIssues, error) {
+	pageSize := opts.PageSize
+	if pageSize <= 0 {
+		pageSize = 25
+	}
+
+	result, err := c.Search(ctx, SearchOptions{
+		JQL:           opts.JQL,
+		MaxResults:    pageSize,
+		Fields:        opts.Fields,
+		NextPageToken: opts.NextPageToken,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &PaginatedIssues{
+		Issues: result.Issues,
+		Pagination: PaginationInfo{
+			PageSize:      pageSize,
+			IsLast:        result.IsLast,
+			NextPageToken: result.NextPageToken,
+		},
+	}, nil
 }

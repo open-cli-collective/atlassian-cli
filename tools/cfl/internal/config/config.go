@@ -19,18 +19,29 @@ type Config struct {
 	APIToken     string `yaml:"api_token"`
 	DefaultSpace string `yaml:"default_space,omitempty"`
 	OutputFormat string `yaml:"output_format,omitempty"`
+	AuthMethod   string `yaml:"auth_method,omitempty"` // "basic" (default) or "bearer"
+	CloudID      string `yaml:"cloud_id,omitempty"`    // Required for bearer auth (gateway URL)
 }
 
 // Validate checks that all required fields are present and valid.
+// For bearer auth: URL + API token + Cloud ID are required (no email).
+// For basic auth: URL + email + API token are required.
 func (c *Config) Validate() error {
 	if c.URL == "" {
 		return errors.New("url is required")
 	}
-	if c.Email == "" {
-		return errors.New("email is required")
-	}
 	if c.APIToken == "" {
 		return errors.New("api_token is required")
+	}
+
+	if c.AuthMethod == "bearer" {
+		if c.CloudID == "" {
+			return errors.New("cloud_id is required for bearer auth")
+		}
+	} else {
+		if c.Email == "" {
+			return errors.New("email is required")
+		}
 	}
 
 	// Validate URL scheme
@@ -64,6 +75,12 @@ func (c *Config) LoadFromEnv() {
 	}
 	if space := os.Getenv("CFL_DEFAULT_SPACE"); space != "" {
 		c.DefaultSpace = space
+	}
+	if method := sharedconfig.GetEnvWithFallback("CFL_AUTH_METHOD", "ATLASSIAN_AUTH_METHOD"); method != "" {
+		c.AuthMethod = method
+	}
+	if cloudID := sharedconfig.GetEnvWithFallback("CFL_CLOUD_ID", "ATLASSIAN_CLOUD_ID"); cloudID != "" {
+		c.CloudID = cloudID
 	}
 }
 

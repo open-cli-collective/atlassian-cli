@@ -25,6 +25,8 @@ type Config struct {
 	Email          string `json:"email"`
 	APIToken       string `json:"api_token"`
 	DefaultProject string `json:"default_project,omitempty"`
+	AuthMethod     string `json:"auth_method,omitempty"` // "basic" (default) or "bearer"
+	CloudID        string `json:"cloud_id,omitempty"`    // Required for bearer auth (gateway URL)
 }
 
 // configPath returns the path to the config file
@@ -168,9 +170,49 @@ func GetAPIToken() string {
 	return cfg.APIToken
 }
 
-// IsConfigured returns true if all required config values are set
+// IsConfigured returns true if all required config values are set.
+// For bearer auth: URL + API token + Cloud ID are required (no email).
+// For basic auth: URL + email + API token are required.
 func IsConfigured() bool {
+	if GetAuthMethod() == "bearer" {
+		return GetURL() != "" && GetAPIToken() != "" && GetCloudID() != ""
+	}
 	return GetURL() != "" && GetEmail() != "" && GetAPIToken() != ""
+}
+
+// GetAuthMethod returns the auth method from config or environment.
+// Precedence: JIRA_AUTH_METHOD → ATLASSIAN_AUTH_METHOD → config auth_method → "basic"
+func GetAuthMethod() string {
+	if v := os.Getenv("JIRA_AUTH_METHOD"); v != "" {
+		return v
+	}
+	if v := os.Getenv("ATLASSIAN_AUTH_METHOD"); v != "" {
+		return v
+	}
+	cfg, err := Load()
+	if err != nil {
+		return "basic"
+	}
+	if cfg.AuthMethod != "" {
+		return cfg.AuthMethod
+	}
+	return "basic"
+}
+
+// GetCloudID returns the Atlassian Cloud ID from config or environment.
+// Precedence: JIRA_CLOUD_ID → ATLASSIAN_CLOUD_ID → config cloud_id
+func GetCloudID() string {
+	if v := os.Getenv("JIRA_CLOUD_ID"); v != "" {
+		return v
+	}
+	if v := os.Getenv("ATLASSIAN_CLOUD_ID"); v != "" {
+		return v
+	}
+	cfg, err := Load()
+	if err != nil {
+		return ""
+	}
+	return cfg.CloudID
 }
 
 // GetDefaultProject returns the default project from config or environment.

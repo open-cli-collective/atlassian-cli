@@ -64,6 +64,36 @@ func TestConfig_Validate(t *testing.T) {
 			wantErr: true,
 			errMsg:  "url must use https",
 		},
+		{
+			name: "valid bearer config",
+			config: Config{
+				URL:        "https://example.atlassian.net",
+				APIToken:   "scoped-token",
+				AuthMethod: "bearer",
+				CloudID:    "abc-123",
+			},
+			wantErr: false,
+		},
+		{
+			name: "bearer missing cloud ID",
+			config: Config{
+				URL:        "https://example.atlassian.net",
+				APIToken:   "scoped-token",
+				AuthMethod: "bearer",
+			},
+			wantErr: true,
+			errMsg:  "cloud_id is required for bearer auth",
+		},
+		{
+			name: "bearer without email is valid",
+			config: Config{
+				URL:        "https://example.atlassian.net",
+				APIToken:   "scoped-token",
+				AuthMethod: "bearer",
+				CloudID:    "abc-123",
+			},
+			wantErr: false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -280,6 +310,83 @@ func TestConfig_LoadFromEnv_AtlassianFallback(t *testing.T) {
 		testutil.Equal(t, "https://cfl.atlassian.net", cfg.URL)
 		testutil.Equal(t, "shared@example.com", cfg.Email)
 		testutil.Equal(t, "shared-token", cfg.APIToken)
+	})
+}
+
+func TestConfig_Save_and_Load_WithAuthFields(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yml")
+
+	original := Config{
+		URL:        "https://test.atlassian.net",
+		APIToken:   "scoped-token",
+		AuthMethod: "bearer",
+		CloudID:    "abc-123-def",
+	}
+
+	err := original.Save(configPath)
+	testutil.RequireNoError(t, err)
+
+	loaded, err := Load(configPath)
+	testutil.RequireNoError(t, err)
+
+	testutil.Equal(t, original.AuthMethod, loaded.AuthMethod)
+	testutil.Equal(t, original.CloudID, loaded.CloudID)
+	testutil.Equal(t, original.URL, loaded.URL)
+	testutil.Equal(t, original.APIToken, loaded.APIToken)
+}
+
+func TestConfig_LoadFromEnv_AuthFields(t *testing.T) {
+	clearEnvVars := func() {
+		os.Unsetenv("CFL_AUTH_METHOD")
+		os.Unsetenv("CFL_CLOUD_ID")
+		os.Unsetenv("ATLASSIAN_AUTH_METHOD")
+		os.Unsetenv("ATLASSIAN_CLOUD_ID")
+	}
+
+	t.Run("CFL_* auth env vars", func(t *testing.T) {
+		clearEnvVars()
+		defer clearEnvVars()
+
+		t.Setenv("CFL_AUTH_METHOD", "bearer")
+		t.Setenv("CFL_CLOUD_ID", "cloud-123")
+
+		cfg := &Config{}
+		cfg.LoadFromEnv()
+
+		testutil.Equal(t, "bearer", cfg.AuthMethod)
+		testutil.Equal(t, "cloud-123", cfg.CloudID)
+	})
+
+	t.Run("ATLASSIAN_* fallback for auth fields", func(t *testing.T) {
+		clearEnvVars()
+		defer clearEnvVars()
+
+		t.Setenv("ATLASSIAN_AUTH_METHOD", "bearer")
+		t.Setenv("ATLASSIAN_CLOUD_ID", "shared-cloud")
+
+		cfg := &Config{}
+		cfg.LoadFromEnv()
+
+		testutil.Equal(t, "bearer", cfg.AuthMethod)
+		testutil.Equal(t, "shared-cloud", cfg.CloudID)
+	})
+
+	t.Run("CFL_* takes precedence over ATLASSIAN_* for auth fields", func(t *testing.T) {
+		clearEnvVars()
+		defer clearEnvVars()
+
+		t.Setenv("CFL_AUTH_METHOD", "bearer")
+		t.Setenv("CFL_CLOUD_ID", "cfl-cloud")
+		t.Setenv("ATLASSIAN_AUTH_METHOD", "basic")
+		t.Setenv("ATLASSIAN_CLOUD_ID", "shared-cloud")
+
+		cfg := &Config{}
+		cfg.LoadFromEnv()
+
+		testutil.Equal(t, "bearer", cfg.AuthMethod)
+		testutil.Equal(t, "cfl-cloud", cfg.CloudID)
 	})
 }
 

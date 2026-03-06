@@ -27,9 +27,13 @@ func setupTestConfig(t *testing.T) (string, func()) {
 	t.Setenv("JIRA_DOMAIN", "")
 	t.Setenv("JIRA_EMAIL", "")
 	t.Setenv("JIRA_API_TOKEN", "")
+	t.Setenv("JIRA_AUTH_METHOD", "")
+	t.Setenv("JIRA_CLOUD_ID", "")
 	t.Setenv("ATLASSIAN_URL", "")
 	t.Setenv("ATLASSIAN_EMAIL", "")
 	t.Setenv("ATLASSIAN_API_TOKEN", "")
+	t.Setenv("ATLASSIAN_AUTH_METHOD", "")
+	t.Setenv("ATLASSIAN_CLOUD_ID", "")
 
 	// Create macOS-style dir as well for fallback
 	libDir := filepath.Join(tempDir, "Library", "Application Support")
@@ -376,6 +380,123 @@ func TestIsConfigured_AtlassianEnvOnly(t *testing.T) {
 
 	// Should be configured via shared env vars
 	testutil.True(t, IsConfigured())
+}
+
+func TestGetAuthMethod_Default(t *testing.T) {
+	_, cleanup := setupTestConfig(t)
+	defer cleanup()
+
+	// Default should be "basic"
+	testutil.Equal(t, GetAuthMethod(), "basic")
+}
+
+func TestGetAuthMethod_FromConfig(t *testing.T) {
+	_, cleanup := setupTestConfig(t)
+	defer cleanup()
+
+	cfg := &Config{
+		URL:        "https://test.atlassian.net",
+		APIToken:   "token",
+		AuthMethod: "bearer",
+	}
+	err := Save(cfg)
+	testutil.RequireNoError(t, err)
+
+	testutil.Equal(t, GetAuthMethod(), "bearer")
+}
+
+func TestGetAuthMethod_EnvPrecedence(t *testing.T) {
+	_, cleanup := setupTestConfig(t)
+	defer cleanup()
+
+	cfg := &Config{AuthMethod: "basic"}
+	err := Save(cfg)
+	testutil.RequireNoError(t, err)
+
+	// JIRA_AUTH_METHOD takes precedence
+	t.Setenv("JIRA_AUTH_METHOD", "bearer")
+	testutil.Equal(t, GetAuthMethod(), "bearer")
+}
+
+func TestGetAuthMethod_AtlassianFallback(t *testing.T) {
+	_, cleanup := setupTestConfig(t)
+	defer cleanup()
+
+	t.Setenv("ATLASSIAN_AUTH_METHOD", "bearer")
+	testutil.Equal(t, GetAuthMethod(), "bearer")
+
+	// JIRA_AUTH_METHOD takes precedence over ATLASSIAN_AUTH_METHOD
+	t.Setenv("JIRA_AUTH_METHOD", "basic")
+	testutil.Equal(t, GetAuthMethod(), "basic")
+}
+
+func TestGetCloudID_FromConfig(t *testing.T) {
+	_, cleanup := setupTestConfig(t)
+	defer cleanup()
+
+	cfg := &Config{CloudID: "abc-123"}
+	err := Save(cfg)
+	testutil.RequireNoError(t, err)
+
+	testutil.Equal(t, GetCloudID(), "abc-123")
+}
+
+func TestGetCloudID_EnvPrecedence(t *testing.T) {
+	_, cleanup := setupTestConfig(t)
+	defer cleanup()
+
+	cfg := &Config{CloudID: "config-cloud"}
+	err := Save(cfg)
+	testutil.RequireNoError(t, err)
+
+	t.Setenv("JIRA_CLOUD_ID", "env-cloud")
+	testutil.Equal(t, GetCloudID(), "env-cloud")
+}
+
+func TestGetCloudID_AtlassianFallback(t *testing.T) {
+	_, cleanup := setupTestConfig(t)
+	defer cleanup()
+
+	t.Setenv("ATLASSIAN_CLOUD_ID", "shared-cloud")
+	testutil.Equal(t, GetCloudID(), "shared-cloud")
+
+	t.Setenv("JIRA_CLOUD_ID", "jira-cloud")
+	testutil.Equal(t, GetCloudID(), "jira-cloud")
+}
+
+func TestIsConfigured_Bearer(t *testing.T) {
+	_, cleanup := setupTestConfig(t)
+	defer cleanup()
+
+	// Bearer needs URL + token + cloud ID (no email)
+	t.Setenv("JIRA_AUTH_METHOD", "bearer")
+	t.Setenv("JIRA_URL", "https://test.atlassian.net")
+	t.Setenv("JIRA_API_TOKEN", "token")
+	testutil.False(t, IsConfigured()) // missing cloud ID
+
+	t.Setenv("JIRA_CLOUD_ID", "abc-123")
+	testutil.True(t, IsConfigured())
+}
+
+func TestConfig_SaveAndLoad_WithAuthFields(t *testing.T) {
+	_, cleanup := setupTestConfig(t)
+	defer cleanup()
+
+	cfg := &Config{
+		URL:        "https://test.atlassian.net",
+		APIToken:   "scoped-token",
+		AuthMethod: "bearer",
+		CloudID:    "abc-123-def",
+	}
+
+	err := Save(cfg)
+	testutil.RequireNoError(t, err)
+
+	loaded, err := Load()
+	testutil.RequireNoError(t, err)
+
+	testutil.Equal(t, loaded.AuthMethod, "bearer")
+	testutil.Equal(t, loaded.CloudID, "abc-123-def")
 }
 
 func TestGetURL_FullPrecedenceChain(t *testing.T) {

@@ -28,6 +28,14 @@ func newTestRootOptions() *root.Options {
 	}
 }
 
+func clearAuthEnvVars(t *testing.T) {
+	t.Helper()
+	t.Setenv("JIRA_AUTH_METHOD", "")
+	t.Setenv("JIRA_CLOUD_ID", "")
+	t.Setenv("ATLASSIAN_AUTH_METHOD", "")
+	t.Setenv("ATLASSIAN_CLOUD_ID", "")
+}
+
 func TestShowCmd_JSONOutput(t *testing.T) {
 	t.Setenv("JIRA_URL", "https://test.atlassian.net")
 	t.Setenv("JIRA_EMAIL", "test@example.com")
@@ -35,6 +43,7 @@ func TestShowCmd_JSONOutput(t *testing.T) {
 	t.Setenv("ATLASSIAN_URL", "")
 	t.Setenv("ATLASSIAN_EMAIL", "")
 	t.Setenv("ATLASSIAN_API_TOKEN", "")
+	clearAuthEnvVars(t)
 
 	opts := &root.Options{
 		Output:  "json",
@@ -57,6 +66,8 @@ func TestShowCmd_JSONOutput(t *testing.T) {
 
 	testutil.Equal(t, parsed["url"], "https://test.atlassian.net")
 	testutil.Equal(t, parsed["email"], "test@example.com")
+	testutil.Equal(t, parsed["auth_method"], "basic")
+	testutil.Equal(t, parsed["cloud_id"], "")
 	testutil.NotContains(t, stdout, "Config file:")
 }
 
@@ -292,4 +303,125 @@ func TestGetDefaultProjectSource(t *testing.T) {
 	// With env var
 	t.Setenv("JIRA_DEFAULT_PROJECT", "PROJ")
 	testutil.Equal(t, getDefaultProjectSource(), "env (JIRA_DEFAULT_PROJECT)")
+}
+
+func TestShowCmd_BearerAuth_JSONOutput(t *testing.T) {
+	t.Setenv("JIRA_URL", "https://test.atlassian.net")
+	t.Setenv("JIRA_API_TOKEN", "scoped-token-123")
+	t.Setenv("JIRA_AUTH_METHOD", "bearer")
+	t.Setenv("JIRA_CLOUD_ID", "cloud-abc-123")
+	t.Setenv("JIRA_EMAIL", "")
+	t.Setenv("ATLASSIAN_URL", "")
+	t.Setenv("ATLASSIAN_EMAIL", "")
+	t.Setenv("ATLASSIAN_API_TOKEN", "")
+	t.Setenv("ATLASSIAN_AUTH_METHOD", "")
+	t.Setenv("ATLASSIAN_CLOUD_ID", "")
+
+	opts := &root.Options{
+		Output:  "json",
+		NoColor: true,
+		Stdout:  &bytes.Buffer{},
+		Stderr:  &bytes.Buffer{},
+		Stdin:   strings.NewReader(""),
+	}
+
+	cmd := newShowCmd(opts)
+	err := cmd.Execute()
+	testutil.RequireNoError(t, err)
+
+	stdout := opts.Stdout.(*bytes.Buffer).String()
+	var parsed map[string]any
+	err = json.Unmarshal([]byte(stdout), &parsed)
+	testutil.RequireNoError(t, err)
+
+	testutil.Equal(t, parsed["auth_method"], "bearer")
+	testutil.Equal(t, parsed["cloud_id"], "cloud-abc-123")
+}
+
+func TestGetAuthMethodSource(t *testing.T) {
+	t.Setenv("JIRA_AUTH_METHOD", "")
+	t.Setenv("ATLASSIAN_AUTH_METHOD", "")
+
+	tempDir := t.TempDir()
+	t.Setenv("HOME", tempDir)
+	t.Setenv("XDG_CONFIG_HOME", tempDir)
+
+	// No config, no env → default
+	testutil.Equal(t, getAuthMethodSource(), "default")
+
+	// With JIRA_AUTH_METHOD env var
+	t.Setenv("JIRA_AUTH_METHOD", "bearer")
+	testutil.Equal(t, getAuthMethodSource(), "env (JIRA_AUTH_METHOD)")
+
+	// With ATLASSIAN_AUTH_METHOD fallback
+	t.Setenv("JIRA_AUTH_METHOD", "")
+	t.Setenv("ATLASSIAN_AUTH_METHOD", "bearer")
+	testutil.Equal(t, getAuthMethodSource(), "env (ATLASSIAN_AUTH_METHOD)")
+}
+
+func TestGetCloudIDSource(t *testing.T) {
+	t.Setenv("JIRA_CLOUD_ID", "")
+	t.Setenv("ATLASSIAN_CLOUD_ID", "")
+
+	tempDir := t.TempDir()
+	t.Setenv("HOME", tempDir)
+	t.Setenv("XDG_CONFIG_HOME", tempDir)
+
+	// No config, no env
+	testutil.Equal(t, getCloudIDSource(), "-")
+
+	// With JIRA_CLOUD_ID env var
+	t.Setenv("JIRA_CLOUD_ID", "cloud-123")
+	testutil.Equal(t, getCloudIDSource(), "env (JIRA_CLOUD_ID)")
+
+	// With ATLASSIAN_CLOUD_ID fallback
+	t.Setenv("JIRA_CLOUD_ID", "")
+	t.Setenv("ATLASSIAN_CLOUD_ID", "shared-cloud")
+	testutil.Equal(t, getCloudIDSource(), "env (ATLASSIAN_CLOUD_ID)")
+}
+
+func TestNewTestCmd_BearerAuth_Success(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Verify bearer auth header
+		authHeader := r.Header.Get("Authorization")
+		testutil.Equal(t, "Bearer scoped-token", authHeader)
+
+		testutil.Contains(t, r.URL.Path, "/myself")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"accountId": "123", "displayName": "Service Account", "emailAddress": ""}`))
+	}))
+	defer server.Close()
+
+	t.Setenv("JIRA_URL", server.URL)
+	t.Setenv("JIRA_AUTH_METHOD", "bearer")
+	t.Setenv("JIRA_CLOUD_ID", "test-cloud")
+	t.Setenv("JIRA_API_TOKEN", "scoped-token")
+	t.Setenv("JIRA_EMAIL", "")
+	t.Setenv("ATLASSIAN_URL", "")
+	t.Setenv("ATLASSIAN_EMAIL", "")
+	t.Setenv("ATLASSIAN_API_TOKEN", "")
+	t.Setenv("ATLASSIAN_AUTH_METHOD", "")
+	t.Setenv("ATLASSIAN_CLOUD_ID", "")
+
+	opts := newTestRootOptions()
+
+	// Create a basic auth client pointing at test server, but override the auth
+	// header to use bearer. This simulates a bearer client hitting the test server.
+	client, err := api.New(api.ClientConfig{
+		URL:      server.URL,
+		Email:    "unused@test.com",
+		APIToken: "unused",
+	})
+	testutil.RequireNoError(t, err)
+	// Override the auth header to simulate bearer auth
+	client.Client.AuthHeader = "Bearer scoped-token"
+	opts.SetAPIClient(client)
+
+	cmd := newTestCmd(opts)
+	err = cmd.Execute()
+	testutil.RequireNoError(t, err)
+
+	stdout := opts.Stdout.(*bytes.Buffer).String()
+	testutil.Contains(t, stdout, "Authentication successful")
+	testutil.Contains(t, stdout, "Service Account")
 }

@@ -42,18 +42,30 @@ func runShow(opts *root.Options) error {
 	envEmail := sharedconfig.GetEnvWithFallback("CFL_EMAIL", "ATLASSIAN_EMAIL")
 	envToken := sharedconfig.GetEnvWithFallback("CFL_API_TOKEN", "ATLASSIAN_API_TOKEN")
 	envSpace := os.Getenv("CFL_DEFAULT_SPACE")
+	envAuthMethod := sharedconfig.GetEnvWithFallback("CFL_AUTH_METHOD", "ATLASSIAN_AUTH_METHOD")
+	envCloudID := sharedconfig.GetEnvWithFallback("CFL_CLOUD_ID", "ATLASSIAN_CLOUD_ID")
 
 	// Determine effective values and sources
 	url, urlSource := getValueAndSource(envURL, fileCfg.URL, getEnvVarName("CFL_URL", "ATLASSIAN_URL"))
 	email, emailSource := getValueAndSource(envEmail, fileCfg.Email, getEnvVarName("CFL_EMAIL", "ATLASSIAN_EMAIL"))
 	token, tokenSource := getValueAndSource(envToken, fileCfg.APIToken, getEnvVarName("CFL_API_TOKEN", "ATLASSIAN_API_TOKEN"))
 	space, spaceSource := getValueAndSource(envSpace, fileCfg.DefaultSpace, "CFL_DEFAULT_SPACE")
+	authMethod, authMethodSource := getValueAndSource(envAuthMethod, fileCfg.AuthMethod, getEnvVarName("CFL_AUTH_METHOD", "ATLASSIAN_AUTH_METHOD"))
+	cloudID, cloudIDSource := getValueAndSource(envCloudID, fileCfg.CloudID, getEnvVarName("CFL_CLOUD_ID", "ATLASSIAN_CLOUD_ID"))
+
+	// Default auth method display
+	if authMethod == "" {
+		authMethod = "basic"
+		authMethodSource = "default"
+	}
 
 	// Display
 	v.RenderKeyValue("URL", formatValueWithSource(url, urlSource))
 	v.RenderKeyValue("Email", formatValueWithSource(email, emailSource))
 	v.RenderKeyValue("API Token", formatValueWithSource(maskToken(token), tokenSource))
 	v.RenderKeyValue("Default Space", formatValueWithSource(space, spaceSource))
+	v.RenderKeyValue("Auth Method", formatValueWithSource(authMethod, authMethodSource))
+	v.RenderKeyValue("Cloud ID", formatValueWithSource(cloudID, cloudIDSource))
 
 	_, _ = fmt.Fprintln(opts.Stderr)
 	_, _ = fmt.Fprintf(opts.Stderr, "Config file: %s\n", configPath)

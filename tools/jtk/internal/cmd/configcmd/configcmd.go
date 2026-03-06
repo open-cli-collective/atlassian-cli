@@ -51,6 +51,8 @@ func newShowCmd(opts *root.Options) *cobra.Command {
 			email := config.GetEmail()
 			token := config.GetAPIToken()
 			defaultProject := config.GetDefaultProject()
+			authMethod := config.GetAuthMethod()
+			cloudID := config.GetCloudID()
 
 			maskedToken := maskToken(token)
 
@@ -60,6 +62,8 @@ func newShowCmd(opts *root.Options) *cobra.Command {
 				{"email", email, getEmailSource()},
 				{"api_token", maskedToken, getAPITokenSource()},
 				{"default_project", defaultProject, getDefaultProjectSource()},
+				{"auth_method", authMethod, getAuthMethodSource()},
+				{"cloud_id", cloudID, getCloudIDSource()},
 			}
 
 			data := map[string]string{
@@ -67,6 +71,8 @@ func newShowCmd(opts *root.Options) *cobra.Command {
 				"email":           email,
 				"api_token":       maskedToken,
 				"default_project": defaultProject,
+				"auth_method":     authMethod,
+				"cloud_id":        cloudID,
 				"path":            config.Path(),
 			}
 
@@ -239,6 +245,40 @@ func getDefaultProjectSource() string {
 		return "-"
 	}
 	if cfg.DefaultProject != "" {
+		return "config"
+	}
+	return "-"
+}
+
+func getAuthMethodSource() string {
+	if os.Getenv("JIRA_AUTH_METHOD") != "" {
+		return "env (JIRA_AUTH_METHOD)"
+	}
+	if os.Getenv("ATLASSIAN_AUTH_METHOD") != "" {
+		return "env (ATLASSIAN_AUTH_METHOD)"
+	}
+	cfg, err := config.Load()
+	if err != nil {
+		return "-"
+	}
+	if cfg.AuthMethod != "" {
+		return "config"
+	}
+	return "default"
+}
+
+func getCloudIDSource() string {
+	if os.Getenv("JIRA_CLOUD_ID") != "" {
+		return "env (JIRA_CLOUD_ID)"
+	}
+	if os.Getenv("ATLASSIAN_CLOUD_ID") != "" {
+		return "env (ATLASSIAN_CLOUD_ID)"
+	}
+	cfg, err := config.Load()
+	if err != nil {
+		return "-"
+	}
+	if cfg.CloudID != "" {
 		return "config"
 	}
 	return "-"

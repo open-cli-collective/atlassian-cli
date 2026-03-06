@@ -3,6 +3,7 @@ package api //nolint:revive // package name is intentional
 import (
 	"context"
 	"encoding/base64"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -163,4 +164,57 @@ func TestClient_URLConstruction(t *testing.T) {
 		testutil.RequireNoError(t, err)
 		testutil.Equal(t, tt.expectedPath, capturedPath)
 	}
+}
+
+func TestNewBearerClient(t *testing.T) {
+	t.Parallel()
+
+	t.Run("constructs gateway URL with /wiki suffix", func(t *testing.T) {
+		t.Parallel()
+		client := NewBearerClient("scoped-token", "abc-123")
+
+		testutil.NotNil(t, client)
+		expectedBase := fmt.Sprintf("%s/ex/confluence/abc-123/wiki", GatewayBaseURL)
+		testutil.Equal(t, expectedBase, client.GetBaseURL())
+	})
+
+	t.Run("uses bearer auth header", func(t *testing.T) {
+		t.Parallel()
+		client := NewBearerClient("my-token", "cloud-id")
+
+		testutil.Equal(t, "Bearer my-token", client.GetAuthHeader())
+	})
+
+	t.Run("sends bearer header in requests", func(t *testing.T) {
+		t.Parallel()
+		var capturedAuth string
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			capturedAuth = r.Header.Get("Authorization")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{}`))
+		}))
+		defer server.Close()
+
+		client := NewBearerClient("my-scoped-token", "cloud-123")
+		_, err := client.Get(context.Background(), server.URL+"/test")
+		testutil.RequireNoError(t, err)
+
+		testutil.Equal(t, "Bearer my-scoped-token", capturedAuth)
+	})
+
+	t.Run("basic auth client unchanged", func(t *testing.T) {
+		t.Parallel()
+		client := NewClient("https://example.atlassian.net/wiki", "user@example.com", "token123")
+
+		// Should still use Basic auth
+		testutil.True(t, strings.HasPrefix(client.GetAuthHeader(), "Basic "))
+		encoded := strings.TrimPrefix(client.GetAuthHeader(), "Basic ")
+		decoded, err := base64.StdEncoding.DecodeString(encoded)
+		testutil.RequireNoError(t, err)
+		testutil.Equal(t, "user@example.com:token123", string(decoded))
+
+		// Base URL should be the instance URL, not gateway
+		testutil.Equal(t, "https://example.atlassian.net/wiki", client.GetBaseURL())
+	})
 }

@@ -75,6 +75,9 @@ func (o *Options) APIClient() (*api.Client, error) {
 	if err != nil {
 		return nil, err
 	}
+	if cfg.AuthMethod == "bearer" {
+		return api.NewBearerClient(cfg.APIToken, cfg.CloudID), nil
+	}
 	return api.NewClient(cfg.URL, cfg.Email, cfg.APIToken), nil
 }
 

@@ -41,10 +41,12 @@ func (o *Options) APIClient() (*api.Client, error) {
 		return o.testClient, nil
 	}
 	return api.New(api.ClientConfig{
-		URL:      config.GetURL(),
-		Email:    config.GetEmail(),
-		APIToken: config.GetAPIToken(),
-		Verbose:  o.Verbose,
+		URL:        config.GetURL(),
+		Email:      config.GetEmail(),
+		APIToken:   config.GetAPIToken(),
+		Verbose:    o.Verbose,
+		AuthMethod: config.GetAuthMethod(),
+		CloudID:    config.GetCloudID(),
 	})
 }
 

@@ -8,8 +8,12 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/open-cli-collective/atlassian-go/auth"
 	"github.com/open-cli-collective/atlassian-go/client"
 )
+
+// GatewayBaseURL is the Atlassian API gateway base URL used for bearer auth.
+const GatewayBaseURL = "https://api.atlassian.com"
 
 // Client is the Confluence Cloud API client.
 // HTTP methods (Get, Post, Put, Delete) are promoted from the embedded *client.Client.
@@ -17,10 +21,22 @@ type Client struct {
 	*client.Client
 }
 
-// NewClient creates a new Confluence API client.
+// NewClient creates a new Confluence API client using basic auth.
 func NewClient(baseURL, email, apiToken string) *Client {
 	return &Client{
 		Client: client.New(baseURL, email, apiToken, nil),
+	}
+}
+
+// NewBearerClient creates a new Confluence API client using bearer auth via the API gateway.
+// The cloudID is used to construct the gateway URL: https://api.atlassian.com/ex/confluence/{cloudId}/wiki
+func NewBearerClient(apiToken, cloudID string) *Client {
+	gatewayBase := fmt.Sprintf("%s/ex/confluence/%s/wiki", GatewayBaseURL, cloudID)
+	opts := &client.Options{
+		AuthHeader: auth.BearerAuthHeader(apiToken),
+	}
+	return &Client{
+		Client: client.New(gatewayBase, "", "", opts),
 	}
 }
 

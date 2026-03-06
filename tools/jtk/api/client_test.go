@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/open-cli-collective/atlassian-go/testutil"
@@ -318,4 +320,130 @@ func TestClient_VerboseMode(t *testing.T) {
 	// Just verify it doesn't panic with verbose mode
 	_, err = client.Get(context.Background(), "/test")
 	testutil.RequireNoError(t, err)
+}
+
+func TestNew_BearerAuth(t *testing.T) {
+	t.Parallel()
+
+	t.Run("valid bearer config constructs gateway URLs", func(t *testing.T) {
+		t.Parallel()
+		client, err := New(ClientConfig{
+			URL:        "https://example.atlassian.net",
+			APIToken:   "scoped-token",
+			AuthMethod: "bearer",
+			CloudID:    "abc-123",
+		})
+		testutil.RequireNoError(t, err)
+		testutil.NotNil(t, client)
+
+		// BaseURL should use the API gateway
+		expectedBase := fmt.Sprintf("%s/ex/jira/abc-123/rest/api/3", GatewayBaseURL)
+		testutil.Equal(t, client.BaseURL, expectedBase)
+
+		// AgileURL should use the API gateway
+		expectedAgile := fmt.Sprintf("%s/ex/jira/abc-123/rest/agile/1.0", GatewayBaseURL)
+		testutil.Equal(t, client.AgileURL, expectedAgile)
+
+		// URL (for browse links) should still be the instance URL
+		testutil.Equal(t, client.URL, "https://example.atlassian.net")
+
+		// Auth header should be Bearer
+		testutil.Equal(t, client.GetAuthHeader(), "Bearer scoped-token")
+	})
+
+	t.Run("bearer without email succeeds", func(t *testing.T) {
+		t.Parallel()
+		client, err := New(ClientConfig{
+			URL:        "https://example.atlassian.net",
+			APIToken:   "scoped-token",
+			AuthMethod: "bearer",
+			CloudID:    "abc-123",
+		})
+		testutil.RequireNoError(t, err)
+		testutil.NotNil(t, client)
+	})
+
+	t.Run("bearer without cloud ID fails", func(t *testing.T) {
+		t.Parallel()
+		client, err := New(ClientConfig{
+			URL:        "https://example.atlassian.net",
+			APIToken:   "scoped-token",
+			AuthMethod: "bearer",
+		})
+		testutil.Error(t, err)
+		testutil.Nil(t, client)
+		if !errors.Is(err, ErrCloudIDRequired) {
+			t.Errorf("got error %v, want %v", err, ErrCloudIDRequired)
+		}
+	})
+
+	t.Run("bearer without API token fails", func(t *testing.T) {
+		t.Parallel()
+		client, err := New(ClientConfig{
+			URL:        "https://example.atlassian.net",
+			AuthMethod: "bearer",
+			CloudID:    "abc-123",
+		})
+		testutil.Error(t, err)
+		testutil.Nil(t, client)
+		if !errors.Is(err, ErrAPITokenRequired) {
+			t.Errorf("got error %v, want %v", err, ErrAPITokenRequired)
+		}
+	})
+
+	t.Run("bearer sends correct auth header in requests", func(t *testing.T) {
+		t.Parallel()
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			auth := r.Header.Get("Authorization")
+			if auth != "Bearer my-scoped-token" {
+				t.Errorf("Authorization = %v, want Bearer my-scoped-token", auth)
+			}
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{}`))
+		}))
+		defer server.Close()
+
+		// Create bearer client pointing at test server
+		client, err := New(ClientConfig{
+			URL:        "https://example.atlassian.net",
+			APIToken:   "my-scoped-token",
+			AuthMethod: "bearer",
+			CloudID:    "test-cloud",
+		})
+		testutil.RequireNoError(t, err)
+
+		// Use absolute URL to hit the test server directly
+		_, err = client.Get(context.Background(), server.URL+"/test")
+		testutil.RequireNoError(t, err)
+	})
+
+	t.Run("basic auth unchanged when AuthMethod empty", func(t *testing.T) {
+		t.Parallel()
+		client, err := New(ClientConfig{
+			URL:      "https://example.atlassian.net",
+			Email:    "user@example.com",
+			APIToken: "token123",
+		})
+		testutil.RequireNoError(t, err)
+		testutil.Contains(t, client.GetAuthHeader(), "Basic ")
+		testutil.Equal(t, client.BaseURL, "https://example.atlassian.net/rest/api/3")
+	})
+
+	t.Run("IssueURL uses instance URL not gateway", func(t *testing.T) {
+		t.Parallel()
+		client, err := New(ClientConfig{
+			URL:        "https://example.atlassian.net",
+			APIToken:   "scoped-token",
+			AuthMethod: "bearer",
+			CloudID:    "abc-123",
+		})
+		testutil.RequireNoError(t, err)
+
+		issueURL := client.IssueURL("PROJ-123")
+		testutil.Equal(t, issueURL, "https://example.atlassian.net/browse/PROJ-123")
+		// Make sure browse URL doesn't use gateway
+		if strings.Contains(issueURL, "api.atlassian.com") {
+			t.Error("IssueURL should use instance URL, not gateway URL")
+		}
+	})
 }

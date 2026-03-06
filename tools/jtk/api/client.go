@@ -10,6 +10,7 @@ import (
 	neturl "net/url"
 	"sync"
 
+	"github.com/open-cli-collective/atlassian-go/auth"
 	"github.com/open-cli-collective/atlassian-go/client"
 	"github.com/open-cli-collective/atlassian-go/url"
 )
@@ -28,22 +29,35 @@ type Client struct {
 
 // ClientConfig contains configuration for creating a new client
 type ClientConfig struct {
-	URL      string // Full Jira URL (e.g., https://mycompany.atlassian.net or https://jira.internal.corp.com)
-	Email    string
-	APIToken string
-	Verbose  bool
+	URL        string // Full Jira URL (e.g., https://mycompany.atlassian.net or https://jira.internal.corp.com)
+	Email      string
+	APIToken   string
+	Verbose    bool
+	AuthMethod string // "basic" (default) or "bearer"
+	CloudID    string // Required for bearer auth (used to construct gateway URL)
 }
 
-// New creates a new Jira API client from config
+// GatewayBaseURL is the Atlassian API gateway base URL used for bearer auth.
+const GatewayBaseURL = "https://api.atlassian.com"
+
+// New creates a new Jira API client from config.
+// For bearer auth: URL + API token + Cloud ID are required (no email).
+// For basic auth: URL + email + API token are required.
 func New(cfg ClientConfig) (*Client, error) {
 	if cfg.URL == "" {
 		return nil, ErrURLRequired
 	}
-	if cfg.Email == "" {
-		return nil, ErrEmailRequired
-	}
 	if cfg.APIToken == "" {
 		return nil, ErrAPITokenRequired
+	}
+
+	if cfg.AuthMethod == "bearer" {
+		return newBearerClient(cfg)
+	}
+
+	// Basic auth (default)
+	if cfg.Email == "" {
+		return nil, ErrEmailRequired
 	}
 
 	// Normalize URL: ensure https and no trailing slash
@@ -63,11 +77,39 @@ func New(cfg ClientConfig) (*Client, error) {
 	}, nil
 }
 
+// newBearerClient creates a client configured for bearer auth via the API gateway.
+func newBearerClient(cfg ClientConfig) (*Client, error) {
+	if cfg.CloudID == "" {
+		return nil, ErrCloudIDRequired
+	}
+
+	// The instance URL is kept for IssueURL() (browse links)
+	instanceURL := url.NormalizeURL(cfg.URL)
+
+	// Gateway URLs for bearer auth
+	gatewayBase := fmt.Sprintf("%s/ex/jira/%s", GatewayBaseURL, cfg.CloudID)
+
+	opts := &client.Options{
+		AuthHeader: auth.BearerAuthHeader(cfg.APIToken),
+	}
+	if cfg.Verbose {
+		opts.Verbose = true
+	}
+
+	return &Client{
+		Client:   client.New(gatewayBase, "", "", opts),
+		URL:      instanceURL,
+		BaseURL:  gatewayBase + "/rest/api/3",
+		AgileURL: gatewayBase + "/rest/agile/1.0",
+	}, nil
+}
+
 // Validation errors
 var (
 	ErrURLRequired      = stderrors.New("URL is required")
 	ErrEmailRequired    = stderrors.New("email is required")
 	ErrAPITokenRequired = stderrors.New("API token is required")
+	ErrCloudIDRequired  = stderrors.New("cloud ID is required for bearer auth")
 )
 
 // buildURL builds a URL with query parameters

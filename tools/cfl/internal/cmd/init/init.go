@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/open-cli-collective/atlassian-go/auth"
+	"github.com/open-cli-collective/atlassian-go/client"
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
 	"github.com/open-cli-collective/confluence-cli/internal/config"
 )
@@ -273,7 +274,7 @@ func verifyConnection(ctx context.Context, cfg *config.Config) error {
 
 	if cfg.AuthMethod == "bearer" {
 		// Bearer auth: use API gateway
-		verifyURL = fmt.Sprintf("https://api.atlassian.com/ex/confluence/%s/wiki/api/v2/spaces?limit=1", cfg.CloudID)
+		verifyURL = fmt.Sprintf("%s/ex/confluence/%s/wiki/api/v2/spaces?limit=1", client.GatewayBaseURL, cfg.CloudID)
 		authHeaderValue = auth.BearerAuthHeader(cfg.APIToken)
 	} else {
 		// Basic auth: use instance URL

@@ -37,9 +37,6 @@ type ClientConfig struct {
 	CloudID    string // Required for bearer auth (used to construct gateway URL)
 }
 
-// GatewayBaseURL is the Atlassian API gateway base URL used for bearer auth.
-const GatewayBaseURL = "https://api.atlassian.com"
-
 // New creates a new Jira API client from config.
 // For bearer auth: URL + API token + Cloud ID are required (no email).
 // For basic auth: URL + email + API token are required.
@@ -51,7 +48,7 @@ func New(cfg ClientConfig) (*Client, error) {
 		return nil, ErrAPITokenRequired
 	}
 
-	if cfg.AuthMethod == "bearer" {
+	if cfg.AuthMethod == auth.AuthMethodBearer {
 		return newBearerClient(cfg)
 	}
 
@@ -87,7 +84,7 @@ func newBearerClient(cfg ClientConfig) (*Client, error) {
 	instanceURL := url.NormalizeURL(cfg.URL)
 
 	// Gateway URLs for bearer auth
-	gatewayBase := fmt.Sprintf("%s/ex/jira/%s", GatewayBaseURL, cfg.CloudID)
+	gatewayBase := fmt.Sprintf("%s/ex/jira/%s", client.GatewayBaseURL, cfg.CloudID)
 
 	opts := &client.Options{
 		AuthHeader: auth.BearerAuthHeader(cfg.APIToken),
@@ -96,12 +93,20 @@ func newBearerClient(cfg ClientConfig) (*Client, error) {
 		opts.Verbose = true
 	}
 
+	// AgileURL is empty for bearer auth — scoped tokens lack Agile API scopes.
+	// Use SupportsAgile() to check before making Agile calls.
 	return &Client{
-		Client:   client.New(gatewayBase, "", "", opts),
-		URL:      instanceURL,
-		BaseURL:  gatewayBase + "/rest/api/3",
-		AgileURL: gatewayBase + "/rest/agile/1.0",
+		Client:  client.New(gatewayBase, "", "", opts),
+		URL:     instanceURL,
+		BaseURL: gatewayBase + "/rest/api/3",
 	}, nil
+}
+
+// SupportsAgile returns true if the client can access the Agile REST API.
+// Bearer auth clients (service accounts with scoped tokens) cannot access
+// the Agile API because Atlassian does not provide an Agile scope.
+func (c *Client) SupportsAgile() bool {
+	return c.AgileURL != ""
 }
 
 // Validation errors
@@ -111,6 +116,18 @@ var (
 	ErrAPITokenRequired = stderrors.New("API token is required")
 	ErrCloudIDRequired  = stderrors.New("cloud ID is required for bearer auth")
 )
+
+// ErrAgileUnavailable is returned when a command requires the Agile API
+// but the client does not support it (e.g., bearer auth with scoped tokens).
+var ErrAgileUnavailable = stderrors.New("this command requires the Agile API, which is not available with bearer auth (scoped tokens lack the Agile scope)")
+
+// ErrAutomationUnavailable is returned when a command requires the Automation API
+// but the client does not support it (e.g., bearer auth with scoped tokens).
+var ErrAutomationUnavailable = stderrors.New("this command requires the Automation API, which is not available with bearer auth (scoped tokens lack the Automation scope)")
+
+// ErrDashboardUnavailable is returned when a command requires the Dashboard API
+// but the client does not support it (e.g., bearer auth with scoped tokens).
+var ErrDashboardUnavailable = stderrors.New("this command requires the Dashboard API, which is not available with bearer auth (scoped tokens lack the Dashboard scope)")
 
 // buildURL builds a URL with query parameters
 func buildURL(base string, params map[string]string) string {

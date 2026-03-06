@@ -8,6 +8,10 @@ import (
 // DefaultTimeout is the default HTTP request timeout.
 const DefaultTimeout = 60 * time.Second
 
+// GatewayBaseURL is the Atlassian API gateway base URL used for bearer auth
+// with scoped API tokens (service accounts).
+const GatewayBaseURL = "https://api.atlassian.com"
+
 // Options configures client behavior.
 type Options struct {
 	// Timeout for HTTP requests. Defaults to 60 seconds if not set.

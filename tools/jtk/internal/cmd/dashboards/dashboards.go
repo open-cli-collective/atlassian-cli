@@ -18,6 +18,16 @@ func Register(parent *cobra.Command, opts *root.Options) {
 		Aliases: []string{"dashboard", "dash"},
 		Short:   "Manage dashboards",
 		Long:    "Commands for listing, creating, and managing Jira dashboards and their gadgets.",
+		PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
+			client, err := opts.APIClient()
+			if err != nil {
+				return err
+			}
+			if !client.SupportsAgile() {
+				return api.ErrDashboardUnavailable
+			}
+			return nil
+		},
 	}
 
 	cmd.AddCommand(newListCmd(opts))

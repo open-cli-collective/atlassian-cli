@@ -395,7 +395,7 @@ func TestGetCloudIDWithSource(t *testing.T) {
 
 func TestNewTestCmd_BearerAuth_Success(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Verify bearer auth header
+		// Verify bearer auth header is sent (constructed by api.New with bearer config)
 		authHeader := r.Header.Get("Authorization")
 		testutil.Equal(t, "Bearer scoped-token", authHeader)
 
@@ -418,16 +418,17 @@ func TestNewTestCmd_BearerAuth_Success(t *testing.T) {
 
 	opts := newTestRootOptions()
 
-	// Create a basic auth client pointing at test server, but override the auth
-	// header to use bearer. This simulates a bearer client hitting the test server.
+	// Create a real bearer auth client via api.New to exercise the full bearer
+	// construction path, then redirect BaseURL to the test server.
 	client, err := api.New(api.ClientConfig{
-		URL:      server.URL,
-		Email:    "unused@test.com",
-		APIToken: "unused",
+		URL:        server.URL,
+		APIToken:   "scoped-token",
+		AuthMethod: "bearer",
+		CloudID:    "test-cloud",
 	})
 	testutil.RequireNoError(t, err)
-	// Override the auth header to simulate bearer auth
-	client.Client.AuthHeader = "Bearer scoped-token"
+	// Point BaseURL at the test server (Do() uses absolute URLs)
+	client.BaseURL = server.URL + "/rest/api/3"
 	opts.SetAPIClient(client)
 
 	cmd := newTestCmd(opts)

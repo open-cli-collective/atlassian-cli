@@ -3,8 +3,30 @@ package auth
 
 import (
 	"encoding/base64"
+	"errors"
 	"fmt"
 )
+
+const (
+	// AuthMethodBasic is the default authentication method using email:token.
+	AuthMethodBasic = "basic"
+
+	// AuthMethodBearer is the authentication method for service accounts with scoped API tokens.
+	AuthMethodBearer = "bearer"
+)
+
+// ErrInvalidAuthMethod is returned when an unrecognized auth method is provided.
+var ErrInvalidAuthMethod = errors.New("invalid auth method: must be \"basic\" or \"bearer\"")
+
+// ValidateAuthMethod returns nil if method is a recognized auth method, or ErrInvalidAuthMethod otherwise.
+func ValidateAuthMethod(method string) error {
+	switch method {
+	case AuthMethodBasic, AuthMethodBearer:
+		return nil
+	default:
+		return fmt.Errorf("%w: got %q", ErrInvalidAuthMethod, method)
+	}
+}
 
 // BasicAuthHeader returns the HTTP Basic Authentication header value
 // for use with Atlassian Cloud APIs.

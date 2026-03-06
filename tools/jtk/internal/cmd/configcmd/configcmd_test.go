@@ -338,7 +338,7 @@ func TestShowCmd_BearerAuth_JSONOutput(t *testing.T) {
 	testutil.Equal(t, parsed["cloud_id"], "cloud-abc-123")
 }
 
-func TestGetAuthMethodSource(t *testing.T) {
+func TestGetAuthMethodWithSource(t *testing.T) {
 	t.Setenv("JIRA_AUTH_METHOD", "")
 	t.Setenv("ATLASSIAN_AUTH_METHOD", "")
 
@@ -347,19 +347,29 @@ func TestGetAuthMethodSource(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", tempDir)
 
 	// No config, no env → default
-	testutil.Equal(t, getAuthMethodSource(), "default")
+	_, source := config.GetAuthMethodWithSource()
+	testutil.Equal(t, source, "default")
 
 	// With JIRA_AUTH_METHOD env var
 	t.Setenv("JIRA_AUTH_METHOD", "bearer")
-	testutil.Equal(t, getAuthMethodSource(), "env (JIRA_AUTH_METHOD)")
+	_, source = config.GetAuthMethodWithSource()
+	testutil.Equal(t, source, "env (JIRA_AUTH_METHOD)")
 
 	// With ATLASSIAN_AUTH_METHOD fallback
 	t.Setenv("JIRA_AUTH_METHOD", "")
 	t.Setenv("ATLASSIAN_AUTH_METHOD", "bearer")
-	testutil.Equal(t, getAuthMethodSource(), "env (ATLASSIAN_AUTH_METHOD)")
+	_, source = config.GetAuthMethodWithSource()
+	testutil.Equal(t, source, "env (ATLASSIAN_AUTH_METHOD)")
+
+	// Invalid value is ignored, falls through to default
+	t.Setenv("JIRA_AUTH_METHOD", "Bearer")
+	t.Setenv("ATLASSIAN_AUTH_METHOD", "")
+	val, source := config.GetAuthMethodWithSource()
+	testutil.Equal(t, val, "basic")
+	testutil.Equal(t, source, "default")
 }
 
-func TestGetCloudIDSource(t *testing.T) {
+func TestGetCloudIDWithSource(t *testing.T) {
 	t.Setenv("JIRA_CLOUD_ID", "")
 	t.Setenv("ATLASSIAN_CLOUD_ID", "")
 
@@ -368,16 +378,19 @@ func TestGetCloudIDSource(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", tempDir)
 
 	// No config, no env
-	testutil.Equal(t, getCloudIDSource(), "-")
+	_, source := config.GetCloudIDWithSource()
+	testutil.Equal(t, source, "-")
 
 	// With JIRA_CLOUD_ID env var
 	t.Setenv("JIRA_CLOUD_ID", "cloud-123")
-	testutil.Equal(t, getCloudIDSource(), "env (JIRA_CLOUD_ID)")
+	_, source = config.GetCloudIDWithSource()
+	testutil.Equal(t, source, "env (JIRA_CLOUD_ID)")
 
 	// With ATLASSIAN_CLOUD_ID fallback
 	t.Setenv("JIRA_CLOUD_ID", "")
 	t.Setenv("ATLASSIAN_CLOUD_ID", "shared-cloud")
-	testutil.Equal(t, getCloudIDSource(), "env (ATLASSIAN_CLOUD_ID)")
+	_, source = config.GetCloudIDWithSource()
+	testutil.Equal(t, source, "env (ATLASSIAN_CLOUD_ID)")
 }
 
 func TestNewTestCmd_BearerAuth_Success(t *testing.T) {

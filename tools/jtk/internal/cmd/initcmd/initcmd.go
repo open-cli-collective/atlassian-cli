@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/huh"
 	"github.com/spf13/cobra"
 
+	"github.com/open-cli-collective/atlassian-go/auth"
 	sharedurl "github.com/open-cli-collective/atlassian-go/url"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
@@ -124,7 +125,7 @@ func runInit(ctx context.Context, opts *root.Options, prefillURL, prefillEmail, 
 	}
 
 	// Determine auth method for form building
-	isBearer := cfg.AuthMethod == "bearer"
+	isBearer := cfg.AuthMethod == auth.AuthMethodBearer
 
 	// Build the form based on auth method
 	var formGroups []*huh.Group
@@ -267,6 +268,11 @@ func runInit(ctx context.Context, opts *root.Options, prefillURL, prefillEmail, 
 	v.Println("Try it out:")
 	v.Println("  jtk me")
 	v.Println("  jtk issues list --project <PROJECT>")
+
+	if isBearer {
+		v.Println("")
+		v.Info("To switch back to basic auth later, run: jtk init --auth-method basic")
+	}
 
 	return nil
 }

@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/open-cli-collective/atlassian-go/auth"
 	sharedconfig "github.com/open-cli-collective/atlassian-go/config"
 	"gopkg.in/yaml.v3"
 )
@@ -34,7 +35,14 @@ func (c *Config) Validate() error {
 		return errors.New("api_token is required")
 	}
 
-	if c.AuthMethod == "bearer" {
+	// Validate auth method if set (empty defaults to basic)
+	if c.AuthMethod != "" {
+		if err := auth.ValidateAuthMethod(c.AuthMethod); err != nil {
+			return fmt.Errorf("invalid auth_method %q: must be %q or %q", c.AuthMethod, auth.AuthMethodBasic, auth.AuthMethodBearer)
+		}
+	}
+
+	if c.AuthMethod == auth.AuthMethodBearer {
 		if c.CloudID == "" {
 			return errors.New("cloud_id is required for bearer auth")
 		}

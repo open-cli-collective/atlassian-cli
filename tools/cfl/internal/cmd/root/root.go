@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/open-cli-collective/atlassian-go/auth"
 	"github.com/open-cli-collective/atlassian-go/version"
 	"github.com/open-cli-collective/atlassian-go/view"
 
@@ -75,7 +76,7 @@ func (o *Options) APIClient() (*api.Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	if cfg.AuthMethod == "bearer" {
+	if cfg.AuthMethod == auth.AuthMethodBearer {
 		return api.NewBearerClient(cfg.APIToken, cfg.CloudID)
 	}
 	return api.NewClient(cfg.URL, cfg.Email, cfg.APIToken), nil

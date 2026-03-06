@@ -133,7 +133,7 @@ func runInit(ctx context.Context, prefillURL, prefillEmail, prefillAuthMethod, p
 	}
 
 	// Determine auth method for form building
-	isBearer := cfg.AuthMethod == "bearer"
+	isBearer := cfg.AuthMethod == auth.AuthMethodBearer
 
 	// Build the form based on auth method
 	var formGroups []*huh.Group
@@ -263,6 +263,11 @@ func runInit(ctx context.Context, prefillURL, prefillEmail, prefillAuthMethod, p
 	_, _ = fmt.Fprintln(os.Stderr, "  cfl space list")
 	_, _ = fmt.Fprintln(os.Stderr, "  cfl page list --space <SPACE_KEY>")
 
+	if isBearer {
+		_, _ = fmt.Fprintln(os.Stderr, "")
+		_, _ = fmt.Fprintln(os.Stderr, "To switch back to basic auth later, run: cfl init --auth-method basic")
+	}
+
 	return nil
 }
 
@@ -272,7 +277,7 @@ func verifyConnection(ctx context.Context, cfg *config.Config) error {
 	var verifyURL string
 	var authHeaderValue string
 
-	if cfg.AuthMethod == "bearer" {
+	if cfg.AuthMethod == auth.AuthMethodBearer {
 		// Bearer auth: use API gateway
 		verifyURL = fmt.Sprintf("%s/ex/confluence/%s/wiki/api/v2/spaces?limit=1", client.GatewayBaseURL, cfg.CloudID)
 		authHeaderValue = auth.BearerAuthHeader(cfg.APIToken)
@@ -286,7 +291,7 @@ func verifyConnection(ctx context.Context, cfg *config.Config) error {
 		return err
 	}
 
-	if cfg.AuthMethod == "bearer" {
+	if cfg.AuthMethod == auth.AuthMethodBearer {
 		req.Header.Set("Authorization", authHeaderValue)
 	} else {
 		req.SetBasicAuth(cfg.Email, cfg.APIToken)
@@ -300,7 +305,7 @@ func verifyConnection(ctx context.Context, cfg *config.Config) error {
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode == 401 {
-		if cfg.AuthMethod == "bearer" {
+		if cfg.AuthMethod == auth.AuthMethodBearer {
 			return fmt.Errorf("authentication failed - check your API token and cloud ID")
 		}
 		return fmt.Errorf("authentication failed - check your email and API token")

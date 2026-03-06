@@ -18,7 +18,7 @@ import (
 
 // Register registers the init command
 func Register(parent *cobra.Command, opts *root.Options) {
-	var url, email, token string
+	var url, email, token, authMethod, cloudID string
 	var noVerify bool
 
 	cmd := &cobra.Command{
@@ -29,29 +29,39 @@ func Register(parent *cobra.Command, opts *root.Options) {
 Prompts for your Jira URL, email, and API token, then verifies
 the connection before saving the configuration.
 
-Get your API token from: https://id.atlassian.com/manage-profile/security/api-tokens`,
-		Example: `  # Interactive setup
+For classic API tokens (basic auth):
+  Get your token from: https://id.atlassian.com/manage-profile/security/api-tokens
+
+For service account scoped tokens (bearer auth):
+  Use --auth-method bearer with your scoped API token and Cloud ID.
+  Find your Cloud ID at: https://your-site.atlassian.net/_edge/tenant_info`,
+		Example: `  # Interactive setup (basic auth)
   jtk init
 
-  # Non-interactive setup
+  # Non-interactive basic auth setup
   jtk init --url https://mycompany.atlassian.net --email user@example.com --token YOUR_TOKEN
+
+  # Service account (bearer auth) setup
+  jtk init --auth-method bearer --url https://mycompany.atlassian.net --token SCOPED_TOKEN --cloud-id YOUR_CLOUD_ID
 
   # Skip connection verification
   jtk init --no-verify`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runInit(cmd.Context(), opts, url, email, token, noVerify)
+			return runInit(cmd.Context(), opts, url, email, token, authMethod, cloudID, noVerify)
 		},
 	}
 
 	cmd.Flags().StringVar(&url, "url", "", "Jira URL (e.g., https://mycompany.atlassian.net)")
 	cmd.Flags().StringVar(&email, "email", "", "Email address for authentication")
 	cmd.Flags().StringVar(&token, "token", "", "API token")
+	cmd.Flags().StringVar(&authMethod, "auth-method", "", "Authentication method: basic (default) or bearer")
+	cmd.Flags().StringVar(&cloudID, "cloud-id", "", "Atlassian Cloud ID (required for bearer auth)")
 	cmd.Flags().BoolVar(&noVerify, "no-verify", false, "Skip connection verification")
 
 	parent.AddCommand(cmd)
 }
 
-func runInit(ctx context.Context, opts *root.Options, prefillURL, prefillEmail, prefillToken string, noVerify bool) error {
+func runInit(ctx context.Context, opts *root.Options, prefillURL, prefillEmail, prefillToken, prefillAuthMethod, prefillCloudID string, noVerify bool) error {
 	v := opts.View()
 	configPath := config.Path()
 
@@ -101,9 +111,71 @@ func runInit(ctx context.Context, opts *root.Options, prefillURL, prefillEmail, 
 		cfg.DefaultProject = existingCfg.DefaultProject
 	}
 
-	// Build the form
-	form := huh.NewForm(
-		huh.NewGroup(
+	if prefillAuthMethod != "" {
+		cfg.AuthMethod = prefillAuthMethod
+	} else if existingCfg.AuthMethod != "" {
+		cfg.AuthMethod = existingCfg.AuthMethod
+	}
+
+	if prefillCloudID != "" {
+		cfg.CloudID = prefillCloudID
+	} else if existingCfg.CloudID != "" {
+		cfg.CloudID = existingCfg.CloudID
+	}
+
+	// Determine auth method for form building
+	isBearer := cfg.AuthMethod == "bearer"
+
+	// Build the form based on auth method
+	var formGroups []*huh.Group
+
+	if isBearer {
+		// Bearer auth: URL + token + cloud ID (no email)
+		formGroups = append(formGroups, huh.NewGroup(
+			huh.NewInput().
+				Title("Jira URL").
+				Description("Your Jira instance URL (used for browse links)").
+				Placeholder("https://mycompany.atlassian.net").
+				Value(&cfg.URL).
+				Validate(func(s string) error {
+					if s == "" {
+						return fmt.Errorf("URL is required")
+					}
+					return nil
+				}),
+
+			huh.NewInput().
+				Title("API Token").
+				Description("Scoped API token for your service account").
+				EchoMode(huh.EchoModePassword).
+				Value(&cfg.APIToken).
+				Validate(func(s string) error {
+					if s == "" {
+						return fmt.Errorf("API token is required")
+					}
+					return nil
+				}),
+
+			huh.NewInput().
+				Title("Cloud ID").
+				Description("Find at: https://your-site.atlassian.net/_edge/tenant_info").
+				Value(&cfg.CloudID).
+				Validate(func(s string) error {
+					if s == "" {
+						return fmt.Errorf("cloud ID is required for bearer auth")
+					}
+					return nil
+				}),
+
+			huh.NewInput().
+				Title("Default Project (optional)").
+				Description("Default project key for commands").
+				Placeholder("MYPROJ").
+				Value(&cfg.DefaultProject),
+		))
+	} else {
+		// Basic auth: URL + email + token
+		formGroups = append(formGroups, huh.NewGroup(
 			huh.NewInput().
 				Title("Jira URL").
 				Description("Your Jira instance URL").
@@ -145,8 +217,10 @@ func runInit(ctx context.Context, opts *root.Options, prefillURL, prefillEmail, 
 				Description("Default project key for commands").
 				Placeholder("MYPROJ").
 				Value(&cfg.DefaultProject),
-		),
-	)
+		))
+	}
+
+	form := huh.NewForm(formGroups...)
 
 	if err := form.Run(); err != nil {
 		return err
@@ -160,9 +234,11 @@ func runInit(ctx context.Context, opts *root.Options, prefillURL, prefillEmail, 
 		v.Println("Testing connection...")
 
 		client, err := api.New(api.ClientConfig{
-			URL:      cfg.URL,
-			Email:    cfg.Email,
-			APIToken: cfg.APIToken,
+			URL:        cfg.URL,
+			Email:      cfg.Email,
+			APIToken:   cfg.APIToken,
+			AuthMethod: cfg.AuthMethod,
+			CloudID:    cfg.CloudID,
 		})
 		if err != nil {
 			return fmt.Errorf("creating client: %w", err)

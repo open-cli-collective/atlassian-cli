@@ -162,8 +162,14 @@ These flags are available on all commands:
 Initialize jtk with guided setup.
 
 ```bash
+# Classic API token (Basic Auth — default)
 jtk init
 jtk init --url https://mycompany.atlassian.net --email user@example.com
+
+# Service account with scoped token (Bearer Auth)
+jtk init --auth-method bearer
+jtk init --auth-method bearer --url https://mycompany.atlassian.net \
+  --token YOUR_SCOPED_TOKEN --cloud-id YOUR_CLOUD_ID --no-verify
 ```
 
 | Flag | Default | Description |
@@ -171,7 +177,13 @@ jtk init --url https://mycompany.atlassian.net --email user@example.com
 | `--url` | | Jira URL (e.g., `https://mycompany.atlassian.net`) |
 | `--email` | | Email address for authentication |
 | `--token` | | API token |
+| `--auth-method` | | Auth method: `basic` (default) or `bearer` |
+| `--cloud-id` | | Cloud ID for bearer auth (find at `https://your-site.atlassian.net/_edge/tenant_info`) |
 | `--no-verify` | `false` | Skip connection verification |
+
+> **Bearer Auth:** For [Atlassian service accounts](https://support.atlassian.com/user-management/docs/manage-api-tokens-for-service-accounts/) with scoped API tokens. Email is not required. Requests route through the `api.atlassian.com` gateway.
+>
+> **Scope limitations:** Scoped tokens don't have scopes for Agile (boards/sprints), Automation, or Dashboards. These commands are unavailable with bearer auth — this is an Atlassian platform limitation.
 
 ---
 
@@ -966,6 +978,8 @@ Environment variables override config file values. Variables are checked in orde
 | Email | `JIRA_EMAIL` → `ATLASSIAN_EMAIL` → config file |
 | API Token | `JIRA_API_TOKEN` → `ATLASSIAN_API_TOKEN` → config file |
 | Default Project | `JIRA_DEFAULT_PROJECT` → config file |
+| Auth Method | `JIRA_AUTH_METHOD` → `ATLASSIAN_AUTH_METHOD` → config file → `basic` |
+| Cloud ID | `JIRA_CLOUD_ID` → `ATLASSIAN_CLOUD_ID` → config file |
 
 **Shared credentials:** If you use both `jtk` and `cfl` (Confluence CLI), set `ATLASSIAN_*` variables once:
 

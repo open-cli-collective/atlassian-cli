@@ -195,16 +195,25 @@ These flags are available on all commands:
 Initialize cfl with your Confluence Cloud credentials.
 
 ```bash
+# Classic API token (Basic Auth — default)
 cfl init
-cfl init --url https://mycompany.atlassian.net
 cfl init --url https://mycompany.atlassian.net --email you@example.com
+
+# Service account with scoped token (Bearer Auth)
+cfl init --auth-method bearer
+cfl init --auth-method bearer --url https://mycompany.atlassian.net \
+  --token YOUR_SCOPED_TOKEN --cloud-id YOUR_CLOUD_ID --no-verify
 ```
 
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
 | `--url` | | | Pre-populate Confluence URL |
 | `--email` | | | Pre-populate email address |
+| `--auth-method` | | | Auth method: `basic` (default) or `bearer` |
+| `--cloud-id` | | | Cloud ID for bearer auth (find at `https://your-site.atlassian.net/_edge/tenant_info`) |
 | `--no-verify` | | `false` | Skip connection verification |
+
+> **Bearer Auth:** For [Atlassian service accounts](https://support.atlassian.com/user-management/docs/manage-api-tokens-for-service-accounts/) with scoped API tokens. Email is not required. Requests route through the `api.atlassian.com` gateway.
 
 ---
 
@@ -757,6 +766,8 @@ Environment variables override config file values. Variables are checked in orde
 | Email | `CFL_EMAIL` → `ATLASSIAN_EMAIL` → config file |
 | API Token | `CFL_API_TOKEN` → `ATLASSIAN_API_TOKEN` → config file |
 | Default Space | `CFL_DEFAULT_SPACE` → config file |
+| Auth Method | `CFL_AUTH_METHOD` → `ATLASSIAN_AUTH_METHOD` → config file → `basic` |
+| Cloud ID | `CFL_CLOUD_ID` → `ATLASSIAN_CLOUD_ID` → config file |
 
 **Shared credentials:** If you use both `cfl` and `jtk` (Jira CLI), set `ATLASSIAN_*` variables once:
 

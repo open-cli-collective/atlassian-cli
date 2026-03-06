@@ -2,12 +2,28 @@
 
 This document catalogs the manual integration test suite for `cfl`. These tests verify real-world behavior against a live Confluence instance and catch edge cases that are difficult to cover with unit tests.
 
+## Auth Methods
+
+cfl supports two authentication methods. The full integration test suite should be run with both:
+
+- **Basic Auth** (default): Classic API tokens using `email:token` against the instance URL.
+- **Bearer Auth**: Scoped API tokens for service accounts using `Authorization: Bearer <token>` against the `api.atlassian.com` gateway.
+
+All cfl commands should work with both auth methods (no scope limitations for Confluence).
+
+---
+
 ## Test Environment Setup
 
 ### Prerequisites
 - A configured `cfl` instance (`cfl init` completed)
 - Access to a test space (e.g., `confluence`)
 - Permission to create, edit, and delete pages/attachments
+
+### Bearer Auth Prerequisites
+- An Atlassian service account with a scoped API token
+- Your Cloud ID (find at `https://your-site.atlassian.net/_edge/tenant_info`)
+- `cfl init --auth-method bearer` completed
 
 ### Test Data Conventions
 - Test pages use `[Test]` prefix: `[Test] My Page`
@@ -25,6 +41,15 @@ This document catalogs the manual integration test suite for `cfl`. These tests 
 | Verify connection | After init, run `cfl space list` | Connection works, spaces listed |
 | Invalid credentials | Init with bad API token | Error during verification step |
 | Invalid URL | Init with malformed URL | Error: invalid URL format |
+
+### Bearer Auth Init
+
+| Test Case | Command | Expected Result |
+|-----------|---------|-----------------|
+| Bearer init (interactive) | `cfl init --auth-method bearer` | Prompts for URL, API token, Cloud ID. Skips email prompt. Tests connection via gateway. |
+| Bearer init (non-interactive) | `cfl init --auth-method bearer --url URL --token TOKEN --cloud-id ID --no-verify` | Non-interactive setup completes without prompts |
+| Config show (after bearer init) | `cfl config show` | Shows Auth Method = bearer, Cloud ID = value, Email = not set |
+| Config test (after bearer init) | `cfl config test` | Connection verified via gateway URL |
 
 ---
 
@@ -560,12 +585,16 @@ Copies in the TEST space (originals from INT, CUS, PROD, PLAYBOOK):
 
 ## Test Execution Checklist
 
-Before GA release, run through this checklist:
+Run the full checklist twice: once with Basic Auth, once with Bearer Auth. All sections apply to both auth methods.
 
 ### Setup
 - [ ] Build latest: `make build`
 - [ ] Verify config: `cfl space list` works
 - [ ] Run `cfl init` (verify config creation works)
+- [ ] Bearer auth init (interactive)
+- [ ] Bearer auth init (non-interactive)
+- [ ] Bearer auth `config show` (auth_method, cloud_id displayed)
+- [ ] Bearer auth `config test`
 
 ### Page CRUD
 - [ ] Create page from stdin (cloud editor)

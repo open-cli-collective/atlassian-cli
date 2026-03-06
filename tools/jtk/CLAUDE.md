@@ -189,10 +189,23 @@ Variables are checked in precedence order (first match wins):
 | URL | `JIRA_URL` → `ATLASSIAN_URL` → config |
 | Email | `JIRA_EMAIL` → `ATLASSIAN_EMAIL` → config |
 | API Token | `JIRA_API_TOKEN` → `ATLASSIAN_API_TOKEN` → config |
+| Auth Method | `JIRA_AUTH_METHOD` → `ATLASSIAN_AUTH_METHOD` → config → `"basic"` |
+| Cloud ID | `JIRA_CLOUD_ID` → `ATLASSIAN_CLOUD_ID` → config |
 
 Use `ATLASSIAN_*` for shared credentials across jtk and cfl. Use `JIRA_*` to override per-tool.
 
 > **Note:** `JIRA_DOMAIN` is deprecated but still supported for backwards compatibility.
+
+## Authentication
+
+Two auth methods are supported:
+
+- **Basic Auth** (default): Uses `email:token` against the instance URL. Works with classic (unscoped) API tokens.
+- **Bearer Auth**: Uses `Authorization: Bearer <token>` against the `api.atlassian.com` gateway. Required for Atlassian service accounts with scoped API tokens.
+
+Bearer auth routes requests through `https://api.atlassian.com/ex/jira/{cloudId}/rest/api/3/...` and requires a Cloud ID. The `api/client.go` file has parallel constructors: `New()` dispatches to `newBearerClient()` when `AuthMethod == "bearer"`.
+
+> **Scope limitations:** Scoped tokens lack Agile (boards/sprints), Automation, and Dashboard scopes. These commands are unavailable with bearer auth — this is an Atlassian platform limitation.
 
 ## Dependencies
 

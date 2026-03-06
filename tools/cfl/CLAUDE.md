@@ -143,8 +143,19 @@ Variables are checked in precedence order (first match wins):
 | Email | `CFL_EMAIL` → `ATLASSIAN_EMAIL` → config |
 | API Token | `CFL_API_TOKEN` → `ATLASSIAN_API_TOKEN` → config |
 | Default Space | `CFL_DEFAULT_SPACE` → config |
+| Auth Method | `CFL_AUTH_METHOD` → `ATLASSIAN_AUTH_METHOD` → config → `"basic"` |
+| Cloud ID | `CFL_CLOUD_ID` → `ATLASSIAN_CLOUD_ID` → config |
 
 Use `ATLASSIAN_*` for shared credentials across cfl and jtk. Use `CFL_*` to override per-tool.
+
+## Authentication
+
+Two auth methods are supported:
+
+- **Basic Auth** (default): Uses `email:token` against the instance URL. Works with classic (unscoped) API tokens.
+- **Bearer Auth**: Uses `Authorization: Bearer <token>` against the `api.atlassian.com` gateway. Required for Atlassian service accounts with scoped API tokens.
+
+Bearer auth routes requests through `https://api.atlassian.com/ex/confluence/{cloudId}/wiki/...` and requires a Cloud ID. The `api/client.go` file has a separate `NewBearerClient()` constructor, selected in `root.go` based on config auth method.
 
 ## Undocumented Constants
 

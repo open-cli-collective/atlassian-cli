@@ -110,8 +110,10 @@ Both tools support shared Atlassian credentials via `ATLASSIAN_*` environment va
 | `ATLASSIAN_URL` | Base URL for Atlassian instance |
 | `ATLASSIAN_EMAIL` | User email for authentication |
 | `ATLASSIAN_API_TOKEN` | API token for authentication |
+| `ATLASSIAN_AUTH_METHOD` | `basic` (default) or `bearer` for service accounts |
+| `ATLASSIAN_CLOUD_ID` | Cloud ID for bearer auth (gateway URL construction) |
 
-Tool-specific variables (`CFL_*`, `JIRA_*`) take precedence over shared variables.
+Tool-specific variables (`CFL_*`, `JIRA_*`) take precedence over shared variables. Both tools support Basic Auth (classic tokens, instance URL) and Bearer Auth (scoped tokens, api.atlassian.com gateway).
 
 ## Git History
 

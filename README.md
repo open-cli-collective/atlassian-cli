@@ -171,12 +171,34 @@ Configuration is stored in:
 
 ### Authentication
 
-Both tools use Atlassian API tokens for authentication. To create a token:
+Both tools support two authentication methods:
+
+**Classic API Tokens (Basic Auth) — default**
+
+For personal Atlassian accounts:
 
 1. Go to [Atlassian Account Settings](https://id.atlassian.com/manage-profile/security/api-tokens)
 2. Click "Create API token"
 3. Give it a descriptive label (e.g., "CLI Tools")
 4. Copy the token and use it during `init` or set it as an environment variable
+
+**Service Account Scoped Tokens (Bearer Auth)**
+
+For [Atlassian service accounts](https://support.atlassian.com/user-management/docs/manage-api-tokens-for-service-accounts/) with scoped API tokens:
+
+```bash
+# Interactive bearer auth setup
+jtk init --auth-method bearer
+cfl init --auth-method bearer
+
+# Non-interactive bearer auth setup
+jtk init --auth-method bearer --url https://mycompany.atlassian.net \
+  --token YOUR_SCOPED_TOKEN --cloud-id YOUR_CLOUD_ID --no-verify
+```
+
+Bearer auth uses the `api.atlassian.com` gateway instead of your instance URL directly. You'll need your Cloud ID, which you can find at `https://your-site.atlassian.net/_edge/tenant_info`.
+
+> **Note:** Scoped tokens don't have scopes for Agile (boards/sprints), Automation, or Dashboards. These commands are unavailable with bearer auth — this is an Atlassian platform limitation.
 
 ### Shared Credentials
 
@@ -187,10 +209,12 @@ Use `ATLASSIAN_*` environment variables for shared authentication across both to
 | `ATLASSIAN_URL` | Base URL (e.g., `https://mycompany.atlassian.net`) |
 | `ATLASSIAN_EMAIL` | Your Atlassian account email |
 | `ATLASSIAN_API_TOKEN` | Your API token |
+| `ATLASSIAN_AUTH_METHOD` | `basic` (default) or `bearer` |
+| `ATLASSIAN_CLOUD_ID` | Cloud ID for bearer auth (gateway URL) |
 
 Tool-specific variables take precedence:
-- jtk: `JIRA_URL`, `JIRA_EMAIL`, `JIRA_API_TOKEN`
-- cfl: `CFL_URL`, `CFL_EMAIL`, `CFL_API_TOKEN`
+- jtk: `JIRA_URL`, `JIRA_EMAIL`, `JIRA_API_TOKEN`, `JIRA_AUTH_METHOD`, `JIRA_CLOUD_ID`
+- cfl: `CFL_URL`, `CFL_EMAIL`, `CFL_API_TOKEN`, `CFL_AUTH_METHOD`, `CFL_CLOUD_ID`
 
 **Example:**
 

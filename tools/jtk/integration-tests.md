@@ -4,14 +4,30 @@ This document is a concrete, sequential runbook for testing `jtk` against a live
 
 If a test reveals a bug, **record the bug and continue testing** rather than stopping to fix it.
 
+## Auth Methods
+
+jtk supports two authentication methods. The full integration test suite should be run with both:
+
+- **Basic Auth** (default): Classic API tokens using `email:token` against the instance URL.
+- **Bearer Auth**: Scoped API tokens for service accounts using `Authorization: Bearer <token>` against the `api.atlassian.com` gateway.
+
+> **Scope limitations:** Scoped tokens don't have scopes for Agile (boards/sprints), Automation, or Dashboards. Sections 4 (Boards & Sprints), 6 (Automation Read-Only), 9 (Automation Mutations), and 10 (Sprint Mutations) must be **skipped** when testing with Bearer Auth.
+
+---
+
 ## Test Environment Setup
 
 ### Prerequisites
 - A configured `jtk` instance (`jtk init` completed)
 - Access to a project with permission to create, edit, and delete issues
-- At least one agile board with an active sprint
-- At least one ENABLED and one DISABLED automation rule
-- At least one automation rule with multiple components (trigger + conditions + actions)
+- At least one agile board with an active sprint (Basic Auth only)
+- At least one ENABLED and one DISABLED automation rule (Basic Auth only)
+- At least one automation rule with multiple components (trigger + conditions + actions) (Basic Auth only)
+
+### Bearer Auth Prerequisites
+- An Atlassian service account with a scoped API token
+- Your Cloud ID (find at `https://your-site.atlassian.net/_edge/tenant_info`)
+- `jtk init --auth-method bearer` completed
 
 ### Build
 
@@ -81,6 +97,16 @@ jtk fields list --custom
 | # | Command | Expected Output |
 |---|---------|-----------------|
 | 1 | `jtk config test` | `✓ Authentication successful` followed by user name and account ID |
+
+### Bearer Auth Init & Config
+
+| # | Command | Expected Output |
+|---|---------|-----------------|
+| 1 | `jtk init --auth-method bearer` (interactive) | Prompts for URL, API token, Cloud ID. Skips email prompt. Tests connection via gateway. |
+| 2 | `jtk init --auth-method bearer --url URL --token TOKEN --cloud-id ID --no-verify` | Non-interactive setup completes without prompts |
+| 3 | `jtk config show` (after bearer init) | Table shows `auth_method = bearer`, `cloud_id = <value>`, email row is empty |
+| 4 | `jtk config show -o json` (after bearer init) | JSON has `"auth_method": "bearer"`, `"cloud_id": "<value>"` |
+| 5 | `jtk config test` (after bearer init) | `✓ Authentication successful` via gateway URL |
 
 ### me
 
@@ -163,6 +189,8 @@ jtk fields list --custom
 
 ## 4. Boards & Sprints (Read-Only)
 
+> **Basic Auth only** — Agile endpoints (boards/sprints) are not available with scoped tokens (no Agile scope). Skip this section when testing with Bearer Auth.
+
 ### boards
 
 | # | Command | Expected Output |
@@ -205,6 +233,8 @@ jtk fields list --custom
 ---
 
 ## 6. Automation (Read-Only)
+
+> **Basic Auth only** — Automation endpoints are not available with scoped tokens (no Automation scope). Skip this section when testing with Bearer Auth.
 
 | # | Command | Expected Output |
 |---|---------|-----------------|
@@ -386,6 +416,8 @@ Run these steps in order.
 
 ## 9. Automation Mutations
 
+> **Basic Auth only** — Automation endpoints are not available with scoped tokens. Skip this section when testing with Bearer Auth.
+
 Run these steps in order. All mutations operate on a **copy** of a real rule — never modify production rules.
 
 ### Create test copy
@@ -475,6 +507,8 @@ Run these steps in order. All mutations operate on a **copy** of a real rule —
 
 ## 10. Sprint Mutations
 
+> **Basic Auth only** — Agile endpoints are not available with scoped tokens. Skip this section when testing with Bearer Auth.
+>
 > Only test if you have a sprint-capable board. Sprint issues endpoint is slow (~30s).
 
 1. **Create a test issue:**
@@ -689,6 +723,8 @@ Run these steps in order. Each step depends on the previous.
 
 ## Test Execution Checklist
 
+Run the full checklist twice: once with Basic Auth, once with Bearer Auth. Sections marked **(Basic Auth only)** should be skipped for the Bearer Auth pass.
+
 ### Setup
 - [ ] `make build-jtk`
 - [ ] `jtk me` works
@@ -699,6 +735,10 @@ Run these steps in order. Each step depends on the previous.
 - [ ] `config show` (table, JSON)
 - [ ] `config test`
 - [ ] `me` (table, JSON, plain)
+- [ ] Bearer auth init (interactive)
+- [ ] Bearer auth init (non-interactive)
+- [ ] Bearer auth `config show` (auth_method, cloud_id displayed)
+- [ ] Bearer auth `config test`
 
 ### Issues Read-Only (Section 2)
 - [ ] `issues list` (table, JSON, plain, error)
@@ -713,7 +753,7 @@ Run these steps in order. Each step depends on the previous.
 - [ ] `projects get` (table, JSON, 404)
 - [ ] `projects types` (table, JSON)
 
-### Boards & Sprints Read-Only (Section 4)
+### Boards & Sprints Read-Only (Section 4) — Basic Auth only
 - [ ] `boards list`, `boards get` (table, JSON, 404)
 - [ ] `sprints list`, `sprints current`
 - [ ] `sprints issues` (table, JSON)
@@ -721,7 +761,7 @@ Run these steps in order. Each step depends on the previous.
 ### Users Read-Only (Section 5)
 - [ ] `users search` (results, JSON, no results)
 
-### Automation Read-Only (Section 6)
+### Automation Read-Only (Section 6) — Basic Auth only
 - [ ] `auto list` (all, filtered, JSON)
 - [ ] `auto get` (summary, --full, JSON)
 - [ ] `auto export` (pretty, compact)
@@ -734,14 +774,14 @@ Run these steps in order. Each step depends on the previous.
 - [ ] Create → get → update → delete → restore → verify → delete (cleanup)
 - [ ] Error cases
 
-### Automation Mutations (Section 9)
+### Automation Mutations (Section 9) — Basic Auth only
 - [ ] Create copy (strip UUID, rename)
 - [ ] Toggle cycle (disable, enable, idempotent)
 - [ ] Round-trip update
 - [ ] Cleanup (disable + rename to DELETEME)
 - [ ] Error cases
 
-### Sprint Mutations (Section 10)
+### Sprint Mutations (Section 10) — Basic Auth only
 - [ ] Create issue → add to sprint → verify → delete issue
 
 ### Global Flags & Aliases (Section 11)

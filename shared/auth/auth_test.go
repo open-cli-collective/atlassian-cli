@@ -68,3 +68,49 @@ func TestBasicAuthHeader(t *testing.T) {
 		})
 	}
 }
+
+func TestBearerAuthHeader(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name     string
+		apiToken string
+		want     string
+	}{
+		{
+			name:     "standard token",
+			apiToken: "secret-token",
+			want:     "Bearer secret-token",
+		},
+		{
+			name:     "empty token",
+			apiToken: "",
+			want:     "Bearer ",
+		},
+		{
+			name:     "special characters in token",
+			apiToken: "token+with/special=chars",
+			want:     "Bearer token+with/special=chars",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := BearerAuthHeader(tt.apiToken)
+			if got != tt.want {
+				t.Errorf("BearerAuthHeader() = %v, want %v", got, tt.want)
+			}
+
+			// Verify it starts with "Bearer "
+			if !strings.HasPrefix(got, "Bearer ") {
+				t.Error("BearerAuthHeader() should start with 'Bearer '")
+			}
+
+			// Verify the token part matches
+			token := strings.TrimPrefix(got, "Bearer ")
+			if token != tt.apiToken {
+				t.Errorf("Token = %v, want %v", token, tt.apiToken)
+			}
+		})
+	}
+}

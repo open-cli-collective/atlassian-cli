@@ -355,6 +355,53 @@ func TestClient_ContextCancellation(t *testing.T) {
 	}
 }
 
+func TestNew_AuthHeaderOverride(t *testing.T) {
+	t.Parallel()
+	t.Run("options AuthHeader overrides Basic auth", func(t *testing.T) {
+		t.Parallel()
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			auth := r.Header.Get("Authorization")
+			if auth != "Bearer my-scoped-token" {
+				t.Errorf("Authorization = %v, want Bearer my-scoped-token", auth)
+			}
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{}`))
+		}))
+		defer server.Close()
+
+		opts := &Options{AuthHeader: "Bearer my-scoped-token"}
+		c := New(server.URL, "", "", opts)
+
+		if c.AuthHeader != "Bearer my-scoped-token" {
+			t.Errorf("AuthHeader = %v, want Bearer my-scoped-token", c.AuthHeader)
+		}
+
+		_, err := c.Get(context.Background(), "/api/test")
+		if err != nil {
+			t.Fatalf("Get() error = %v", err)
+		}
+	})
+
+	t.Run("empty options AuthHeader falls back to Basic auth", func(t *testing.T) {
+		t.Parallel()
+		opts := &Options{}
+		c := New("https://example.atlassian.net", "user@example.com", "token", opts)
+
+		if !strings.HasPrefix(c.AuthHeader, "Basic ") {
+			t.Errorf("AuthHeader = %v, should start with 'Basic ' when Options.AuthHeader is empty", c.AuthHeader)
+		}
+	})
+
+	t.Run("nil options uses Basic auth", func(t *testing.T) {
+		t.Parallel()
+		c := New("https://example.atlassian.net", "user@example.com", "token", nil)
+
+		if !strings.HasPrefix(c.AuthHeader, "Basic ") {
+			t.Errorf("AuthHeader = %v, should start with 'Basic ' when opts is nil", c.AuthHeader)
+		}
+	})
+}
+
 func TestOptions_timeoutOrDefault(t *testing.T) {
 	t.Parallel()
 	t.Run("nil options", func(t *testing.T) {

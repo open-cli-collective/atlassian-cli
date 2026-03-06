@@ -18,6 +18,11 @@ type Options struct {
 
 	// VerboseOut is the writer for verbose output. Defaults to os.Stderr.
 	VerboseOut io.Writer
+
+	// AuthHeader overrides the default Basic auth header when set.
+	// Use auth.BearerAuthHeader() for service accounts with scoped tokens.
+	// When empty, New() computes BasicAuthHeader(email, apiToken) as before.
+	AuthHeader string
 }
 
 // timeoutOrDefault returns the configured timeout or the default.

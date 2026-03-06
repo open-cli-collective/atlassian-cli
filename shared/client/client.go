@@ -43,6 +43,7 @@ func New(baseURL, email, apiToken string, opts *Options) *Client {
 	var timeout = DefaultTimeout
 	var verbose bool
 	var verboseOut io.Writer = os.Stderr
+	var authHeader string
 
 	if opts != nil {
 		timeout = opts.timeoutOrDefault()
@@ -50,11 +51,16 @@ func New(baseURL, email, apiToken string, opts *Options) *Client {
 		if opts.VerboseOut != nil {
 			verboseOut = opts.VerboseOut
 		}
+		authHeader = opts.AuthHeader
+	}
+
+	if authHeader == "" {
+		authHeader = auth.BasicAuthHeader(email, apiToken)
 	}
 
 	return &Client{
 		BaseURL:    baseURL,
-		AuthHeader: auth.BasicAuthHeader(email, apiToken),
+		AuthHeader: authHeader,
 		HTTPClient: &http.Client{
 			Timeout: timeout,
 		},

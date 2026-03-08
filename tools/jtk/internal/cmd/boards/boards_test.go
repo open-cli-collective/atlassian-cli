@@ -202,11 +202,20 @@ func TestRunGet_JSON(t *testing.T) {
 
 func TestRunGet_InvalidID(t *testing.T) {
 	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
 	rootCmd, opts := root.NewCmd()
+	opts.SetAPIClient(client)
 	Register(rootCmd, opts)
 
 	rootCmd.SetArgs([]string{"boards", "get", "abc"})
-	err := rootCmd.Execute()
+	err = rootCmd.Execute()
 	testutil.NotNil(t, err)
 	testutil.Contains(t, err.Error(), "invalid board ID")
 }

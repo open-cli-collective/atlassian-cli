@@ -328,4 +328,3 @@ func TestVerifyConnection_BasicAuth_Unauthorized(t *testing.T) {
 	testutil.Contains(t, err.Error(), "authentication failed")
 	testutil.Contains(t, err.Error(), "email and API token")
 }
-

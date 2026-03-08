@@ -30,10 +30,11 @@ func newTestRootOptions() *root.Options {
 
 func clearAuthEnvVars(t *testing.T) {
 	t.Helper()
-	t.Setenv("JIRA_AUTH_METHOD", "")
-	t.Setenv("JIRA_CLOUD_ID", "")
-	t.Setenv("ATLASSIAN_AUTH_METHOD", "")
-	t.Setenv("ATLASSIAN_CLOUD_ID", "")
+	// Set to empty string rather than unsetting — both os.Getenv and os.LookupEnv
+	// treat empty as "not configured" in our env var precedence logic.
+	for _, key := range []string{"JIRA_AUTH_METHOD", "JIRA_CLOUD_ID", "ATLASSIAN_AUTH_METHOD", "ATLASSIAN_CLOUD_ID"} {
+		t.Setenv(key, "")
+	}
 }
 
 func TestShowCmd_JSONOutput(t *testing.T) {

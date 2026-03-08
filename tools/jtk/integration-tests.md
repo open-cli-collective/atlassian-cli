@@ -906,6 +906,8 @@ Verify each alias produces the same output as the full command:
 ## 19. Bearer Auth Guards
 
 > **Bearer Auth only** — Run this section ONLY during the Bearer Auth pass. These tests verify that scope-restricted commands produce clear, actionable error messages instead of cryptic API failures.
+>
+> Error messages are defined in `api/client.go` as `ErrAgileUnavailable`, `ErrAutomationUnavailable`, and `ErrDashboardUnavailable`. Guards run via `PersistentPreRunE` on the parent command, so they execute before any child command's `RunE`.
 
 ### Agile API (Boards & Sprints)
 
@@ -925,7 +927,7 @@ Verify each alias produces the same output as the full command:
 | 7 | `jtk auto list` | `this command requires the Automation API, which is not available with bearer auth (scoped tokens lack the Automation scope)` |
 | 8 | `jtk auto get some-uuid` | Same Automation error |
 | 9 | `jtk auto export some-uuid` | Same Automation error |
-| 10 | `jtk auto create --file /dev/null` | Same Automation error |
+| 10 | `jtk auto create --file rule.json` | Same Automation error |
 | 11 | `jtk auto enable some-uuid` | Same Automation error |
 | 12 | `jtk auto disable some-uuid` | Same Automation error |
 

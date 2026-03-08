@@ -420,7 +420,7 @@ func TestNewTestCmd_BearerAuth_Success(t *testing.T) {
 	opts := newTestRootOptions()
 
 	// Create a real bearer auth client via api.New to exercise the full bearer
-	// construction path, then redirect BaseURL to the test server.
+	// construction path, then redirect both BaseURLs to the test server.
 	client, err := api.New(api.ClientConfig{
 		URL:        server.URL,
 		APIToken:   "scoped-token",
@@ -428,8 +428,11 @@ func TestNewTestCmd_BearerAuth_Success(t *testing.T) {
 		CloudID:    "test-cloud",
 	})
 	testutil.RequireNoError(t, err)
-	// Point BaseURL at the test server (Do() uses absolute URLs)
-	client.BaseURL = server.URL + "/rest/api/3"
+	// Point both outer and embedded BaseURL at the test server so either
+	// code path (absolute URL construction or embedded client methods) works.
+	testBaseURL := server.URL + "/rest/api/3"
+	client.BaseURL = testBaseURL
+	client.Client.BaseURL = testBaseURL
 	opts.SetAPIClient(client)
 
 	cmd := newTestCmd(opts)

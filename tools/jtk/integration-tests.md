@@ -615,7 +615,7 @@ Run these steps in order.
 | 1 | `jtk dashboards create` | `Error: required flag(s) "name" not set` |
 | 2 | `jtk dashboards get 99999` | Error: 404 |
 | 3 | `jtk dashboards delete 99999` | Error: 404 |
-| 4 | `jtk dashboards gadgets remove 99999 1` | Error |
+| 4 | `jtk dashboards gadgets remove 99999 1` | Error: 404 |
 
 ---
 
@@ -958,10 +958,6 @@ Verify each alias produces the same output as the full command:
 - [ ] `config show` (table, JSON)
 - [ ] `config test`
 - [ ] `me` (table, JSON, plain)
-- [ ] Bearer auth init (interactive)
-- [ ] Bearer auth init (non-interactive)
-- [ ] Bearer auth `config show` (auth_method, cloud_id displayed)
-- [ ] Bearer auth `config test`
 
 #### Issues Read-Only (Section 2)
 - [ ] `issues list` (table, JSON, plain, error)
@@ -1064,6 +1060,8 @@ Verify each alias produces the same output as the full command:
 - [ ] Skip: `$BOARD_ID`, `$SPRINT_ID`, `$AUTO_UUID`, `$DASHBOARD_ID` (unavailable with bearer auth)
 
 #### Config & Init (Section 1)
+- [ ] Bearer auth init (interactive)
+- [ ] Bearer auth init (non-interactive)
 - [ ] Bearer auth `config show` (auth_method = bearer, cloud_id displayed)
 - [ ] Bearer auth `config test`
 - [ ] `me` (table, JSON, plain)
@@ -1119,10 +1117,10 @@ Verify each alias produces the same output as the full command:
 
 #### Global Flags & Aliases (Section 17)
 - [ ] `--no-color`, `--verbose`, `-o json`, `-o plain`
-- [ ] Applicable aliases (skip `jtk b`, `jtk sp`, `jtk auto`, `jtk dash`)
+- [ ] Applicable aliases (skip `jtk b`, `jtk sp`, `jtk auto`, `jtk dash`, `jtk dashboard`)
 
 #### Error Cases (Section 18)
-- [ ] All applicable error cases (skip boards/sprints/dashboards items)
+- [ ] All applicable error cases (skip rows 5 and 8: boards get and dashboards get)
 
 #### Cleanup (Bearer Auth)
 - [ ] Delete test projects: `jtk projects delete ZTEST --force`

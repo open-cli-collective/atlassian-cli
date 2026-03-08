@@ -191,17 +191,19 @@ func GetAuthMethod() string {
 
 // GetAuthMethodWithSource returns the auth method and its source.
 // Precedence: JIRA_AUTH_METHOD → ATLASSIAN_AUTH_METHOD → config auth_method → "basic"
-// Invalid values are ignored and fall through to the next source.
+// Invalid values emit a stderr warning and fall through to the next source.
 func GetAuthMethodWithSource() (value, source string) {
 	if v := os.Getenv("JIRA_AUTH_METHOD"); v != "" {
 		if auth.ValidateAuthMethod(v) == nil {
 			return v, "env (JIRA_AUTH_METHOD)"
 		}
+		fmt.Fprintf(os.Stderr, "Warning: JIRA_AUTH_METHOD=%q is not a valid auth method (expected \"basic\" or \"bearer\"), ignoring\n", v)
 	}
 	if v := os.Getenv("ATLASSIAN_AUTH_METHOD"); v != "" {
 		if auth.ValidateAuthMethod(v) == nil {
 			return v, "env (ATLASSIAN_AUTH_METHOD)"
 		}
+		fmt.Fprintf(os.Stderr, "Warning: ATLASSIAN_AUTH_METHOD=%q is not a valid auth method (expected \"basic\" or \"bearer\"), ignoring\n", v)
 	}
 	cfg, err := Load()
 	if err != nil {
@@ -211,6 +213,7 @@ func GetAuthMethodWithSource() (value, source string) {
 		if auth.ValidateAuthMethod(cfg.AuthMethod) == nil {
 			return cfg.AuthMethod, "config"
 		}
+		fmt.Fprintf(os.Stderr, "Warning: config auth_method=%q is not valid (expected \"basic\" or \"bearer\"), ignoring\n", cfg.AuthMethod)
 	}
 	return auth.AuthMethodBasic, "default"
 }

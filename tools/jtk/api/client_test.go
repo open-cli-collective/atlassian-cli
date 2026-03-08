@@ -434,7 +434,7 @@ func TestNew_BearerAuth(t *testing.T) {
 		testutil.False(t, c.IsBearerAuth())
 	})
 
-	t.Run("invalid auth method returns error", func(t *testing.T) {
+	t.Run("invalid auth method returns error with value", func(t *testing.T) {
 		t.Parallel()
 		c, err := New(ClientConfig{
 			URL:        "https://example.atlassian.net",
@@ -447,6 +447,8 @@ func TestNew_BearerAuth(t *testing.T) {
 		if !errors.Is(err, auth.ErrInvalidAuthMethod) {
 			t.Errorf("got error %v, want ErrInvalidAuthMethod", err)
 		}
+		// ValidateAuthMethod includes the invalid value in the error
+		testutil.Contains(t, err.Error(), "oauth")
 	})
 
 	t.Run("IssueURL uses instance URL not gateway", func(t *testing.T) {

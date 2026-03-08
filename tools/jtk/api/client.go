@@ -50,8 +50,10 @@ func New(cfg ClientConfig) (*Client, error) {
 	}
 
 	// Validate auth method if explicitly set
-	if cfg.AuthMethod != "" && cfg.AuthMethod != auth.AuthMethodBasic && cfg.AuthMethod != auth.AuthMethodBearer {
-		return nil, fmt.Errorf("%w", auth.ErrInvalidAuthMethod)
+	if cfg.AuthMethod != "" {
+		if err := auth.ValidateAuthMethod(cfg.AuthMethod); err != nil {
+			return nil, err
+		}
 	}
 
 	if cfg.AuthMethod == auth.AuthMethodBearer {

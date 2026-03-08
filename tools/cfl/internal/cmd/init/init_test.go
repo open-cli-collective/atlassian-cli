@@ -287,6 +287,14 @@ func TestInitCommand_Flags(t *testing.T) {
 	testutil.Equal(t, "", cloudIDFlag.DefValue)
 }
 
+func TestRunInit_InvalidAuthMethod(t *testing.T) {
+	t.Parallel()
+	// An invalid auth method should be rejected before the interactive form runs
+	err := runInit(context.Background(), "", "", "Bearer", "", true)
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "invalid auth method")
+}
+
 func TestVerifyConnection_Bearer_EmptyCloudID(t *testing.T) {
 	t.Parallel()
 	cfg := &config.Config{

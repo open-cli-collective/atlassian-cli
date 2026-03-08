@@ -309,7 +309,7 @@ func TestVerifyConnection_Bearer_EmptyCloudID(t *testing.T) {
 	testutil.Contains(t, err.Error(), "cloud ID is required")
 }
 
-func TestVerifyConnection_Bearer_Unauthorized(t *testing.T) {
+func TestVerifyConnection_BasicAuth_Unauthorized(t *testing.T) {
 	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
@@ -328,3 +328,4 @@ func TestVerifyConnection_Bearer_Unauthorized(t *testing.T) {
 	testutil.Contains(t, err.Error(), "authentication failed")
 	testutil.Contains(t, err.Error(), "email and API token")
 }
+

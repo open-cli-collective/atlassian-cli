@@ -25,6 +25,9 @@ type Options struct {
 
 	// testClient is used for testing; if set, APIClient() returns this instead
 	testClient *api.Client
+
+	// cachedClient caches the API client after first construction
+	cachedClient *api.Client
 }
 
 // View returns a configured View instance
@@ -35,12 +38,17 @@ func (o *Options) View() *view.View {
 	return v
 }
 
-// APIClient creates a new API client from config
+// APIClient returns the API client, creating it on first call.
+// The client is cached so that PersistentPreRunE guards and
+// subcommand Run functions share the same instance.
 func (o *Options) APIClient() (*api.Client, error) {
 	if o.testClient != nil {
 		return o.testClient, nil
 	}
-	return api.New(api.ClientConfig{
+	if o.cachedClient != nil {
+		return o.cachedClient, nil
+	}
+	c, err := api.New(api.ClientConfig{
 		URL:        config.GetURL(),
 		Email:      config.GetEmail(),
 		APIToken:   config.GetAPIToken(),
@@ -48,6 +56,11 @@ func (o *Options) APIClient() (*api.Client, error) {
 		AuthMethod: config.GetAuthMethod(),
 		CloudID:    config.GetCloudID(),
 	})
+	if err != nil {
+		return nil, err
+	}
+	o.cachedClient = c
+	return c, nil
 }
 
 // SetAPIClient sets a test client (for testing only)

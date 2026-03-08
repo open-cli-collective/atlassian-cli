@@ -2,6 +2,7 @@ package initcmd
 
 import (
 	"bytes"
+	"context"
 	"testing"
 
 	"github.com/open-cli-collective/atlassian-go/testutil"
@@ -40,6 +41,20 @@ func TestConfig_DefaultProject_Struct(t *testing.T) {
 		DefaultProject: "MYPROJ",
 	}
 	testutil.Equal(t, cfg.DefaultProject, "MYPROJ")
+}
+
+func TestRunInit_InvalidAuthMethod(t *testing.T) {
+	t.Parallel()
+	opts := &root.Options{
+		Output:  "table",
+		NoColor: true,
+		Stdout:  &bytes.Buffer{},
+		Stderr:  &bytes.Buffer{},
+	}
+	// An invalid auth method should be rejected before the interactive form runs
+	err := runInit(context.Background(), opts, "", "", "", "Bearer", "", true)
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "invalid auth method")
 }
 
 // Note: Interactive huh form tests are skipped because huh requires a TTY

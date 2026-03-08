@@ -63,6 +63,13 @@ For service account scoped tokens (bearer auth):
 }
 
 func runInit(ctx context.Context, opts *root.Options, prefillURL, prefillEmail, prefillToken, prefillAuthMethod, prefillCloudID string, noVerify bool) error {
+	// Validate --auth-method flag early, before any interactive prompts
+	if prefillAuthMethod != "" {
+		if err := auth.ValidateAuthMethod(prefillAuthMethod); err != nil {
+			return err
+		}
+	}
+
 	v := opts.View()
 	configPath := config.Path()
 

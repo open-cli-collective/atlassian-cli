@@ -278,6 +278,9 @@ func verifyConnection(ctx context.Context, cfg *config.Config) error {
 	var authHeaderValue string
 
 	if cfg.AuthMethod == auth.AuthMethodBearer {
+		if cfg.CloudID == "" {
+			return fmt.Errorf("cloud ID is required for bearer auth connection verification")
+		}
 		// Bearer auth: use API gateway
 		verifyURL = fmt.Sprintf("%s/ex/confluence/%s/wiki/api/v2/spaces?limit=1", client.GatewayBaseURL, cfg.CloudID)
 		authHeaderValue = auth.BearerAuthHeader(cfg.APIToken)

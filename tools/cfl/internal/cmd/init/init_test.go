@@ -287,6 +287,20 @@ func TestInitCommand_Flags(t *testing.T) {
 	testutil.Equal(t, "", cloudIDFlag.DefValue)
 }
 
+func TestVerifyConnection_Bearer_EmptyCloudID(t *testing.T) {
+	t.Parallel()
+	cfg := &config.Config{
+		URL:        "https://example.atlassian.net/wiki",
+		APIToken:   "scoped-token",
+		AuthMethod: "bearer",
+		CloudID:    "",
+	}
+
+	err := verifyConnection(context.Background(), cfg)
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "cloud ID is required")
+}
+
 func TestVerifyConnection_Bearer_Unauthorized(t *testing.T) {
 	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

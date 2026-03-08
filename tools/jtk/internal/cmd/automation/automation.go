@@ -29,6 +29,8 @@ RECOMMENDED WORKFLOW for editing rules:
 The safest edits are to rule metadata (name, labels, description).
 Component-level edits require understanding of the specific Jira instance.
 Use enable/disable to toggle rules without touching the full definition.`,
+		// IsBearerAuth guards non-Agile scope-restricted APIs (Automation, Dashboard).
+		// Agile API commands (boards, sprints) use SupportsAgile() instead.
 		PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
 			client, err := opts.APIClient()
 			if err != nil {

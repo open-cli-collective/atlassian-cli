@@ -18,6 +18,8 @@ func Register(parent *cobra.Command, opts *root.Options) {
 		Aliases: []string{"board", "b"},
 		Short:   "Manage agile boards",
 		Long:    "Commands for viewing agile boards.",
+		// SupportsAgile checks AgileURL — the correct guard for Agile API commands.
+		// Non-Agile scope-restricted commands (automation, dashboards) use IsBearerAuth() instead.
 		PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
 			client, err := opts.APIClient()
 			if err != nil {

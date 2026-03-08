@@ -282,7 +282,6 @@ func verifyConnection(ctx context.Context, cfg *config.Config) error {
 	httpClient := &http.Client{Timeout: 10 * time.Second}
 
 	var verifyURL string
-	var authHeaderValue string
 
 	if cfg.AuthMethod == auth.AuthMethodBearer {
 		if cfg.CloudID == "" {
@@ -290,7 +289,6 @@ func verifyConnection(ctx context.Context, cfg *config.Config) error {
 		}
 		// Bearer auth: use API gateway
 		verifyURL = fmt.Sprintf("%s/ex/confluence/%s/wiki/api/v2/spaces?limit=1", client.GatewayBaseURL, cfg.CloudID)
-		authHeaderValue = auth.BearerAuthHeader(cfg.APIToken)
 	} else {
 		// Basic auth: use instance URL
 		verifyURL = cfg.URL + "/api/v2/spaces?limit=1"
@@ -302,7 +300,7 @@ func verifyConnection(ctx context.Context, cfg *config.Config) error {
 	}
 
 	if cfg.AuthMethod == auth.AuthMethodBearer {
-		req.Header.Set("Authorization", authHeaderValue)
+		req.Header.Set("Authorization", auth.BearerAuthHeader(cfg.APIToken))
 	} else {
 		req.SetBasicAuth(cfg.Email, cfg.APIToken)
 	}

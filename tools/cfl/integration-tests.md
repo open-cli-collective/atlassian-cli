@@ -585,18 +585,16 @@ Copies in the TEST space (originals from INT, CUS, PROD, PLAYBOOK):
 
 ## Test Execution Checklist
 
-Run the full checklist twice: once with Basic Auth, once with Bearer Auth. All sections apply to both auth methods.
+All cfl commands work with both auth methods (no scope restrictions for Confluence). Run the full checklist twice with separate passes to ensure both auth paths work.
 
-### Setup
+### Pass 1: Basic Auth
+
+#### Setup (Basic Auth)
 - [ ] Build latest: `make build`
+- [ ] `cfl init` (Basic Auth)
 - [ ] Verify config: `cfl space list` works
-- [ ] Run `cfl init` (verify config creation works)
-- [ ] Bearer auth init (interactive)
-- [ ] Bearer auth init (non-interactive)
-- [ ] Bearer auth `config show` (auth_method, cloud_id displayed)
-- [ ] Bearer auth `config test`
 
-### Page CRUD
+#### Page CRUD
 - [ ] Create page from stdin (cloud editor)
 - [ ] Create page with code block (verify ADF codeBlock)
 - [ ] Create page from file
@@ -619,7 +617,7 @@ Run the full checklist twice: once with Basic Auth, once with Bearer Auth. All s
 - [ ] Delete page (with confirmation)
 - [ ] Delete page (--force)
 
-### ADF Body Fallback (#150)
+#### ADF Body Fallback (#150)
 - [ ] View ADF page with empty storage → content displayed via ADF fallback
 - [ ] View ADF page (raw) → shows ADF JSON
 - [ ] View ADF page (JSON output) → body.atlas_doc_format populated
@@ -627,7 +625,7 @@ Run the full checklist twice: once with Basic Auth, once with Bearer Auth. All s
 - [ ] Edit ADF page (new content) → submitted as ADF
 - [ ] View/edit legacy page → no regression (storage path used)
 
-### Wiki Links
+#### Wiki Links
 - [ ] Create page with same-space wiki link
 - [ ] Create page with cross-space wiki link
 - [ ] Create with wiki link + legacy flag
@@ -637,21 +635,21 @@ Run the full checklist twice: once with Basic Auth, once with Bearer Auth. All s
 - [ ] Wiki link in inline code preserved as literal (ADF + legacy)
 - [ ] Roundtrip code block wiki link stays literal
 
-### Attachment CRUD
+#### Attachment CRUD
 - [ ] Upload attachment
 - [ ] List attachments
 - [ ] Download attachment
 - [ ] Verify downloaded content matches
 - [ ] Delete attachment
 
-### Search
+#### Search
 - [ ] Full-text search returns results
 - [ ] Space filter works
 - [ ] Type filter works
 - [ ] JSON output is valid
 - [ ] Raw CQL works
 
-### Space CRUD
+#### Space CRUD
 - [ ] View space (table output)
 - [ ] View space (JSON output)
 - [ ] View non-existent space (expect error)
@@ -666,14 +664,107 @@ Run the full checklist twice: once with Basic Auth, once with Bearer Auth. All s
 - [ ] Delete space (--force, no confirmation)
 - [ ] End-to-end lifecycle: create → view → update → delete → verify gone
 
-### Edge Cases
+#### Edge Cases
 - [ ] Unicode in titles/content
 - [ ] Empty content
 - [ ] Very long title (expect rejection)
 - [ ] Duplicate title (expect rejection)
 - [ ] Non-existent resources (expect 404)
 
-### Cleanup
+#### Cleanup (Basic Auth)
+- [ ] Delete all [Test] prefixed pages
+- [ ] `cfl space delete INTTEST --force`
+- [ ] `cfl space delete INTTEST2 --force`
+- [ ] Verify no test data remains
+
+---
+
+### Pass 2: Bearer Auth
+
+#### Setup (Bearer Auth)
+- [ ] `cfl init --auth-method bearer`
+- [ ] `cfl config show` — auth_method = bearer, cloud_id displayed
+- [ ] `cfl config test` — Connection verified via gateway
+- [ ] `cfl space list` works
+
+#### Page CRUD
+- [ ] Create page from stdin (cloud editor)
+- [ ] Create page with code block (verify ADF codeBlock)
+- [ ] Create page from file
+- [ ] Create page with --legacy flag
+- [ ] Create child page
+- [ ] View page (markdown)
+- [ ] View page (raw)
+- [ ] View page (content-only)
+- [ ] View page (content-only with --show-macros for roundtrip)
+- [ ] Roundtrip macro page via pipe (`view --show-macros --content-only | edit --legacy`)
+- [ ] Edit page from file
+- [ ] Edit page with --legacy flag
+- [ ] Move page to new parent (`--parent` flag)
+- [ ] Move page (no content change, no editor opened)
+- [ ] Move and rename page together
+- [ ] Move and rename (no content change, no editor opened)
+- [ ] Verify page history preserved after move
+- [ ] Copy page (same space)
+- [ ] Copy page (different space)
+- [ ] Delete page (with confirmation)
+- [ ] Delete page (--force)
+
+#### ADF Body Fallback (#150)
+- [ ] View ADF page with empty storage → content displayed via ADF fallback
+- [ ] View ADF page (raw) → shows ADF JSON
+- [ ] View ADF page (JSON output) → body.atlas_doc_format populated
+- [ ] Edit ADF page (title only) → ADF body preserved
+- [ ] Edit ADF page (new content) → submitted as ADF
+- [ ] View/edit legacy page → no regression (storage path used)
+
+#### Wiki Links
+- [ ] Create page with same-space wiki link
+- [ ] Create page with cross-space wiki link
+- [ ] Create with wiki link + legacy flag
+- [ ] View wiki link with --show-macros
+- [ ] Roundtrip wiki link (view --show-macros | edit --legacy)
+- [ ] Wiki link in fenced code block preserved as literal (ADF + legacy)
+- [ ] Wiki link in inline code preserved as literal (ADF + legacy)
+- [ ] Roundtrip code block wiki link stays literal
+
+#### Attachment CRUD
+- [ ] Upload attachment
+- [ ] List attachments
+- [ ] Download attachment
+- [ ] Verify downloaded content matches
+- [ ] Delete attachment
+
+#### Search
+- [ ] Full-text search returns results
+- [ ] Space filter works
+- [ ] Type filter works
+- [ ] JSON output is valid
+- [ ] Raw CQL works
+
+#### Space CRUD
+- [ ] View space (table output)
+- [ ] View space (JSON output)
+- [ ] View non-existent space (expect error)
+- [ ] Create space with key, name, description
+- [ ] Create space (JSON output)
+- [ ] Create duplicate key (expect error)
+- [ ] Update space name
+- [ ] Update space description
+- [ ] Update with no flags (expect error)
+- [ ] Delete space (with confirmation, type "y")
+- [ ] Delete space (with confirmation, type "n" — cancelled)
+- [ ] Delete space (--force, no confirmation)
+- [ ] End-to-end lifecycle: create → view → update → delete → verify gone
+
+#### Edge Cases
+- [ ] Unicode in titles/content
+- [ ] Empty content
+- [ ] Very long title (expect rejection)
+- [ ] Duplicate title (expect rejection)
+- [ ] Non-existent resources (expect 404)
+
+#### Cleanup (Bearer Auth)
 - [ ] Delete all [Test] prefixed pages
 - [ ] `cfl space delete INTTEST --force`
 - [ ] `cfl space delete INTTEST2 --force`

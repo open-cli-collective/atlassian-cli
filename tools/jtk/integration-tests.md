@@ -11,7 +11,7 @@ jtk supports two authentication methods. The full integration test suite should 
 - **Basic Auth** (default): Classic API tokens using `email:token` against the instance URL.
 - **Bearer Auth**: Scoped API tokens for service accounts using `Authorization: Bearer <token>` against the `api.atlassian.com` gateway.
 
-> **Scope limitations:** Scoped tokens don't have scopes for Agile (boards/sprints), Automation, or Dashboards. Sections 4 (Boards & Sprints), 6 (Automation Read-Only), 9 (Automation Mutations), and 10 (Sprint Mutations) must be **skipped** when testing with Bearer Auth.
+> **Scope limitations:** Scoped tokens don't have scopes for Agile (boards/sprints), Automation, or Dashboards. Sections 4 (Boards & Sprints), 6 (Dashboards), 8 (Automation), 13 (Dashboard Mutations), 14 (Automation Mutations), and 15 (Sprint Mutations) must be **skipped** when testing with Bearer Auth. Section 19 (Bearer Auth Guards) should be run **only** with Bearer Auth.
 
 ---
 
@@ -23,6 +23,7 @@ jtk supports two authentication methods. The full integration test suite should 
 - At least one agile board with an active sprint (Basic Auth only)
 - At least one ENABLED and one DISABLED automation rule (Basic Auth only)
 - At least one automation rule with multiple components (trigger + conditions + actions) (Basic Auth only)
+- At least one dashboard (Basic Auth only)
 
 ### Bearer Auth Prerequisites
 - An Atlassian service account with a scoped API token
@@ -55,17 +56,25 @@ jtk issues types -p $PROJECT
 jtk issues list -p $PROJECT --max 3
 # Note a KEY, e.g., MON-3714
 
-# $BOARD_ID — find a board for your project
+# $BOARD_ID — find a board for your project (Basic Auth only)
 jtk boards list -p $PROJECT
 # Note the ID column, e.g., 23
 
-# $SPRINT_ID — find the active sprint
+# $SPRINT_ID — find the active sprint (Basic Auth only)
 jtk sprints list -b $BOARD_ID -s active
 # Note the ID column, e.g., 119
 
-# $AUTO_UUID — pick an enabled automation rule
+# $AUTO_UUID — pick an enabled automation rule (Basic Auth only)
 jtk auto list --state ENABLED
 # Note a UUID from the first column
+
+# $DASHBOARD_ID — pick a dashboard (Basic Auth only)
+jtk dashboards list --max 5
+# Note an ID, e.g., 10001
+
+# $LINK_TYPE — check available link types
+jtk links types
+# Note a NAME, e.g., Blocks
 
 # $CUSTOM_FIELD — pick a custom field ID
 jtk fields list --custom
@@ -222,7 +231,56 @@ jtk fields list --custom
 
 ---
 
-## 5. Users (Read-Only)
+## 5. Links (Read-Only)
+
+### links types
+
+| # | Command | Expected Output |
+|---|---------|-----------------|
+| 1 | `jtk links types` | Table with columns: ID, NAME, OUTWARD, INWARD |
+| 2 | `jtk links types -o json` | Valid JSON array of link type objects |
+
+### links list
+
+| # | Command | Expected Output |
+|---|---------|-----------------|
+| 1 | `jtk links list $EXISTING_ISSUE` | Table with columns: ID, TYPE, DIRECTION, ISSUE, SUMMARY (or `No links on $EXISTING_ISSUE`) |
+| 2 | `jtk links list $EXISTING_ISSUE -o json` | Valid JSON array |
+| 3 | `jtk links list ${PROJECT}-99999` | `resource not found: ...` |
+
+---
+
+## 6. Dashboards (Read-Only)
+
+> **Basic Auth only** — Dashboard endpoints are not available with scoped tokens (no Dashboard scope). Skip this section when testing with Bearer Auth.
+
+### dashboards list
+
+| # | Command | Expected Output |
+|---|---------|-----------------|
+| 1 | `jtk dashboards list --max 5` | Table with columns: ID, NAME, OWNER, FAVOURITE |
+| 2 | `jtk dashboards list --search "SEARCH_TERM"` | Filtered results matching search term |
+| 3 | `jtk dashboards list -o json --max 3` | Valid JSON array with at most 3 elements |
+| 4 | `jtk dashboards list --search "xyznonexistent999"` | `No dashboards found matching "xyznonexistent999"` |
+
+### dashboards get
+
+| # | Command | Expected Output |
+|---|---------|-----------------|
+| 1 | `jtk dashboards get $DASHBOARD_ID` | Shows ID, Name, Description, Owner, URL, then Gadgets table (if any) |
+| 2 | `jtk dashboards get $DASHBOARD_ID -o json` | Valid JSON with `dashboard` and `gadgets` keys |
+| 3 | `jtk dashboards get 99999` | Error: 404 |
+
+### dashboards gadgets list
+
+| # | Command | Expected Output |
+|---|---------|-----------------|
+| 1 | `jtk dashboards gadgets list $DASHBOARD_ID` | Table with columns: ID, TITLE, MODULE, POSITION |
+| 2 | `jtk dashboards gadgets list $DASHBOARD_ID -o json` | Valid JSON array |
+
+---
+
+## 7. Users (Read-Only)
 
 | # | Command | Expected Output |
 |---|---------|-----------------|
@@ -232,7 +290,7 @@ jtk fields list --custom
 
 ---
 
-## 6. Automation (Read-Only)
+## 8. Automation (Read-Only)
 
 > **Basic Auth only** — Automation endpoints are not available with scoped tokens (no Automation scope). Skip this section when testing with Bearer Auth.
 
@@ -250,7 +308,36 @@ jtk fields list --custom
 
 ---
 
-## 7. Issue Mutations
+## 9. Fields (Read-Only)
+
+### fields list
+
+| # | Command | Expected Output |
+|---|---------|-----------------|
+| 1 | `jtk fields list` | Table with columns: ID, NAME, TYPE, CUSTOM |
+| 2 | `jtk fields list --custom` | Same table but only rows where CUSTOM = yes |
+| 3 | `jtk fields list -o json` | Valid JSON array |
+
+### fields contexts list
+
+| # | Command | Expected Output |
+|---|---------|-----------------|
+| 1 | `jtk fields contexts list $CUSTOM_FIELD` | Table with columns: ID, NAME, GLOBAL, ANY_ISSUE_TYPE |
+| 2 | `jtk fields contexts list $CUSTOM_FIELD -o json` | Valid JSON array |
+| 3 | `jtk fields contexts list customfield_99999` | Error: 404 |
+
+### fields options list
+
+> Options list auto-detects the default context when `--context` is omitted.
+
+| # | Command | Expected Output |
+|---|---------|-----------------|
+| 1 | `jtk fields options list $SELECT_FIELD` | Table with columns: ID, VALUE, DISABLED |
+| 2 | `jtk fields options list $SELECT_FIELD -o json` | Valid JSON array |
+
+---
+
+## 10. Issue Mutations
 
 Run these steps in order. Each step depends on the previous.
 
@@ -352,7 +439,71 @@ Run these steps in order. Each step depends on the previous.
 
 ---
 
-## 8. Project Mutations
+## 11. Link Mutations
+
+Run these steps in order.
+
+1. **Check link types:**
+   ```bash
+   jtk links types
+   ```
+   Note a valid type name → `$LINK_TYPE` (e.g., `Blocks`)
+
+2. **Create two test issues:**
+   ```bash
+   jtk issues create -p $PROJECT -t $ISSUE_TYPE -s "[Test] Link Source"
+   jtk issues create -p $PROJECT -t $ISSUE_TYPE -s "[Test] Link Target"
+   ```
+   Capture the keys → `$LINK_SOURCE`, `$LINK_TARGET`
+
+3. **Create link:**
+   ```bash
+   jtk links create $LINK_SOURCE $LINK_TARGET --type $LINK_TYPE
+   ```
+   Expected: `Created $LINK_TYPE link: $LINK_SOURCE → $LINK_TARGET`
+
+4. **Verify link:**
+   ```bash
+   jtk links list $LINK_SOURCE
+   ```
+   Expected: Table shows link to `$LINK_TARGET` with type `$LINK_TYPE`
+   Capture the link ID → `$LINK_ID`
+
+5. **Verify JSON output:**
+   ```bash
+   jtk links list $LINK_SOURCE -o json
+   ```
+   Expected: Valid JSON array with link object
+
+6. **Delete link:**
+   ```bash
+   jtk links delete $LINK_ID
+   ```
+   Expected: `Deleted link $LINK_ID`
+
+7. **Verify deletion:**
+   ```bash
+   jtk links list $LINK_SOURCE
+   ```
+   Expected: No link to `$LINK_TARGET` (or `No links on $LINK_SOURCE`)
+
+8. **Cleanup:**
+   ```bash
+   jtk issues delete $LINK_SOURCE --force
+   jtk issues delete $LINK_TARGET --force
+   ```
+
+### Error cases
+
+| # | Command | Expected Output |
+|---|---------|-----------------|
+| 1 | `jtk links create $EXISTING_ISSUE ${PROJECT}-99999 --type $LINK_TYPE` | `resource not found: ...` |
+| 2 | `jtk links create $EXISTING_ISSUE $EXISTING_ISSUE --type "NonexistentType"` | `link type "NonexistentType" not found (available: ...)` |
+| 3 | `jtk links delete 99999` | Error: 404 |
+
+---
+
+## 12. Project Mutations
 
 Run these steps in order.
 
@@ -414,7 +565,61 @@ Run these steps in order.
 
 ---
 
-## 9. Automation Mutations
+## 13. Dashboard Mutations
+
+> **Basic Auth only** — Dashboard endpoints are not available with scoped tokens. Skip this section when testing with Bearer Auth.
+
+Run these steps in order.
+
+1. **Create dashboard:**
+   ```bash
+   jtk dashboards create --name "[Test] Integration Dashboard"
+   ```
+   Expected: `Created dashboard [Test] Integration Dashboard (XXXXX)`
+   Capture the dashboard ID → `$TEST_DASH_ID`
+
+2. **Verify creation:**
+   ```bash
+   jtk dashboards get $TEST_DASH_ID
+   ```
+   Expected: Name = `[Test] Integration Dashboard`
+
+3. **List and search:**
+   ```bash
+   jtk dashboards list --search "[Test] Integration"
+   ```
+   Expected: Dashboard appears in results
+
+4. **List gadgets (empty):**
+   ```bash
+   jtk dashboards gadgets list $TEST_DASH_ID
+   ```
+   Expected: `No gadgets on dashboard $TEST_DASH_ID`
+
+5. **Delete:**
+   ```bash
+   jtk dashboards delete $TEST_DASH_ID
+   ```
+   Expected: `Deleted dashboard $TEST_DASH_ID`
+
+6. **Verify deletion:**
+   ```bash
+   jtk dashboards get $TEST_DASH_ID
+   ```
+   Expected: Error: 404
+
+### Error cases
+
+| # | Command | Expected Output |
+|---|---------|-----------------|
+| 1 | `jtk dashboards create` | `Error: required flag(s) "name" not set` |
+| 2 | `jtk dashboards get 99999` | Error: 404 |
+| 3 | `jtk dashboards delete 99999` | Error: 404 |
+| 4 | `jtk dashboards gadgets remove 99999 1` | Error |
+
+---
+
+## 14. Automation Mutations
 
 > **Basic Auth only** — Automation endpoints are not available with scoped tokens. Skip this section when testing with Bearer Auth.
 
@@ -505,7 +710,7 @@ Run these steps in order. All mutations operate on a **copy** of a real rule —
 
 ---
 
-## 10. Sprint Mutations
+## 15. Sprint Mutations
 
 > **Basic Auth only** — Agile endpoints are not available with scoped tokens. Skip this section when testing with Bearer Auth.
 >
@@ -536,88 +741,7 @@ Run these steps in order. All mutations operate on a **copy** of a real rule —
 
 ---
 
-## 11. Global Flags & Aliases
-
-### Output formats
-
-| # | Command | Expected Output |
-|---|---------|-----------------|
-| 1 | `jtk issues list -p $PROJECT --max 1 --no-color \| cat -v` | No `^[[` ANSI escape sequences |
-| 2 | `jtk issues list -p $PROJECT --max 1 --verbose` | Shows `→ GET ...` and `← 200 OK` debug lines |
-| 3 | `jtk issues list -p $PROJECT --max 1 -o json \| jq .` | Parses without errors |
-| 4 | `jtk issues list -p $PROJECT --max 1 -o plain` | Tab-separated, one row |
-
-### Command aliases
-
-Verify each alias produces the same output as the full command:
-
-| # | Alias | Full Command |
-|---|-------|-------------|
-| 1 | `jtk i list -p $PROJECT --max 1` | `jtk issues list -p $PROJECT --max 1` |
-| 2 | `jtk p list --max 1` | `jtk projects list --max 1` |
-| 3 | `jtk proj list --max 1` | `jtk projects list --max 1` |
-| 4 | `jtk b list --max 1` | `jtk boards list --max 1` |
-| 5 | `jtk sp list -b $BOARD_ID -s active` | `jtk sprints list -b $BOARD_ID -s active` |
-| 6 | `jtk u search "a" --max 1` | `jtk users search "a" --max 1` |
-| 7 | `jtk auto list --state ENABLED` | `jtk automation list --state ENABLED` |
-| 8 | `jtk tr list $EXISTING_ISSUE` | `jtk transitions list $EXISTING_ISSUE` |
-| 9 | `jtk c list $EXISTING_ISSUE --max 1` | `jtk comments list $EXISTING_ISSUE --max 1` |
-| 10 | `jtk att list $EXISTING_ISSUE` | `jtk attachments list $EXISTING_ISSUE` |
-| 11 | `jtk f list --max 1` | `jtk fields list --max 1` |
-| 12 | `jtk field list --max 1` | `jtk fields list --max 1` |
-
-### Shell completion
-
-| # | Command | Expected Output |
-|---|---------|-----------------|
-| 1 | `jtk completion bash \| head -3` | Starts with `# bash completion for jtk` |
-| 2 | `jtk completion zsh \| head -3` | Valid zsh completion script |
-
----
-
-## 12. Error Cases
-
-| # | Command | Expected Output |
-|---|---------|-----------------|
-| 1 | `jtk issues get ${PROJECT}-99999` | `resource not found: Issue does not exist or you do not have permission to see it.` |
-| 2 | `jtk issues search --jql "invalid jql ((("` | `bad request: Error in the JQL Query: ...` |
-| 3 | `jtk issues create -p $PROJECT` | `Error: required flag(s) "summary" not set` |
-| 4 | `jtk projects get NONEXISTENT` | `resource not found: No project could be found with key 'NONEXISTENT'.` |
-| 5 | `jtk boards get 99999` | Error: 404 |
-| 6 | `jtk sprints list` | `Error: required flag(s) "board" not set` |
-
----
-
-## 13. Fields (Read-Only)
-
-### fields list
-
-| # | Command | Expected Output |
-|---|---------|-----------------|
-| 1 | `jtk fields list` | Table with columns: ID, NAME, TYPE, CUSTOM |
-| 2 | `jtk fields list --custom` | Same table but only rows where CUSTOM = yes |
-| 3 | `jtk fields list -o json` | Valid JSON array |
-
-### fields contexts list
-
-| # | Command | Expected Output |
-|---|---------|-----------------|
-| 1 | `jtk fields contexts list $CUSTOM_FIELD` | Table with columns: ID, NAME, GLOBAL, ANY_ISSUE_TYPE |
-| 2 | `jtk fields contexts list $CUSTOM_FIELD -o json` | Valid JSON array |
-| 3 | `jtk fields contexts list customfield_99999` | Error: 404 |
-
-### fields options list
-
-> Options list auto-detects the default context when `--context` is omitted.
-
-| # | Command | Expected Output |
-|---|---------|-----------------|
-| 1 | `jtk fields options list $SELECT_FIELD` | Table with columns: ID, VALUE, DISABLED |
-| 2 | `jtk fields options list $SELECT_FIELD -o json` | Valid JSON array |
-
----
-
-## 14. Field Mutations
+## 16. Field Mutations
 
 Run these steps in order. Each step depends on the previous.
 
@@ -721,17 +845,116 @@ Run these steps in order. Each step depends on the previous.
 
 ---
 
+## 17. Global Flags & Aliases
+
+### Output formats
+
+| # | Command | Expected Output |
+|---|---------|-----------------|
+| 1 | `jtk issues list -p $PROJECT --max 1 --no-color \| cat -v` | No `^[[` ANSI escape sequences |
+| 2 | `jtk issues list -p $PROJECT --max 1 --verbose` | Shows `→ GET ...` and `← 200 OK` debug lines |
+| 3 | `jtk issues list -p $PROJECT --max 1 -o json \| jq .` | Parses without errors |
+| 4 | `jtk issues list -p $PROJECT --max 1 -o plain` | Tab-separated, one row |
+
+### Command aliases
+
+Verify each alias produces the same output as the full command:
+
+| # | Alias | Full Command |
+|---|-------|-------------|
+| 1 | `jtk i list -p $PROJECT --max 1` | `jtk issues list -p $PROJECT --max 1` |
+| 2 | `jtk p list --max 1` | `jtk projects list --max 1` |
+| 3 | `jtk proj list --max 1` | `jtk projects list --max 1` |
+| 4 | `jtk b list --max 1` | `jtk boards list --max 1` |
+| 5 | `jtk sp list -b $BOARD_ID -s active` | `jtk sprints list -b $BOARD_ID -s active` |
+| 6 | `jtk u search "a" --max 1` | `jtk users search "a" --max 1` |
+| 7 | `jtk auto list --state ENABLED` | `jtk automation list --state ENABLED` |
+| 8 | `jtk tr list $EXISTING_ISSUE` | `jtk transitions list $EXISTING_ISSUE` |
+| 9 | `jtk c list $EXISTING_ISSUE --max 1` | `jtk comments list $EXISTING_ISSUE --max 1` |
+| 10 | `jtk att list $EXISTING_ISSUE` | `jtk attachments list $EXISTING_ISSUE` |
+| 11 | `jtk f list --max 1` | `jtk fields list --max 1` |
+| 12 | `jtk field list --max 1` | `jtk fields list --max 1` |
+| 13 | `jtk l list $EXISTING_ISSUE` | `jtk links list $EXISTING_ISSUE` |
+| 14 | `jtk link list $EXISTING_ISSUE` | `jtk links list $EXISTING_ISSUE` |
+| 15 | `jtk dash list --max 1` | `jtk dashboards list --max 1` |
+| 16 | `jtk dashboard list --max 1` | `jtk dashboards list --max 1` |
+
+### Shell completion
+
+| # | Command | Expected Output |
+|---|---------|-----------------|
+| 1 | `jtk completion bash \| head -3` | Starts with `# bash completion for jtk` |
+| 2 | `jtk completion zsh \| head -3` | Valid zsh completion script |
+
+---
+
+## 18. Error Cases
+
+| # | Command | Expected Output |
+|---|---------|-----------------|
+| 1 | `jtk issues get ${PROJECT}-99999` | `resource not found: Issue does not exist or you do not have permission to see it.` |
+| 2 | `jtk issues search --jql "invalid jql ((("` | `bad request: Error in the JQL Query: ...` |
+| 3 | `jtk issues create -p $PROJECT` | `Error: required flag(s) "summary" not set` |
+| 4 | `jtk projects get NONEXISTENT` | `resource not found: No project could be found with key 'NONEXISTENT'.` |
+| 5 | `jtk boards get 99999` | Error: 404 |
+| 6 | `jtk sprints list` | `Error: required flag(s) "board" not set` |
+| 7 | `jtk links list ${PROJECT}-99999` | `resource not found: ...` |
+| 8 | `jtk dashboards get 99999` | Error: 404 |
+
+---
+
+## 19. Bearer Auth Guards
+
+> **Bearer Auth only** — Run this section ONLY during the Bearer Auth pass. These tests verify that scope-restricted commands produce clear, actionable error messages instead of cryptic API failures.
+
+### Agile API (Boards & Sprints)
+
+| # | Command | Expected Error |
+|---|---------|----------------|
+| 1 | `jtk boards list` | `this command requires the Agile API, which is not available with bearer auth (scoped tokens lack the Agile scope)` |
+| 2 | `jtk boards get 1` | Same Agile error |
+| 3 | `jtk sprints list -b 1` | Same Agile error |
+| 4 | `jtk sprints current -b 1` | Same Agile error |
+| 5 | `jtk sprints issues 1` | Same Agile error |
+| 6 | `jtk sprints add 1 PROJ-1` | Same Agile error |
+
+### Automation API
+
+| # | Command | Expected Error |
+|---|---------|----------------|
+| 7 | `jtk auto list` | `this command requires the Automation API, which is not available with bearer auth (scoped tokens lack the Automation scope)` |
+| 8 | `jtk auto get some-uuid` | Same Automation error |
+| 9 | `jtk auto export some-uuid` | Same Automation error |
+| 10 | `jtk auto create --file /dev/null` | Same Automation error |
+| 11 | `jtk auto enable some-uuid` | Same Automation error |
+| 12 | `jtk auto disable some-uuid` | Same Automation error |
+
+### Dashboard API
+
+| # | Command | Expected Error |
+|---|---------|----------------|
+| 13 | `jtk dashboards list` | `this command requires the Dashboard API, which is not available with bearer auth (scoped tokens lack the Dashboard scope)` |
+| 14 | `jtk dashboards get 1` | Same Dashboard error |
+| 15 | `jtk dashboards create --name "x"` | Same Dashboard error |
+| 16 | `jtk dashboards delete 1` | Same Dashboard error |
+| 17 | `jtk dashboards gadgets list 1` | Same Dashboard error |
+| 18 | `jtk dashboards gadgets remove 1 1` | Same Dashboard error |
+
+---
+
 ## Test Execution Checklist
 
-Run the full checklist twice: once with Basic Auth, once with Bearer Auth. Sections marked **(Basic Auth only)** should be skipped for the Bearer Auth pass.
+### Pass 1: Basic Auth
 
-### Setup
+#### Setup (Basic Auth)
 - [ ] `make build-jtk`
+- [ ] `jtk init` (Basic Auth)
+- [ ] `jtk config test` — Authentication successful
 - [ ] `jtk me` works
-- [ ] Discover: `$PROJECT`, `$BOARD_ID`, `$SPRINT_ID`, `$ACCOUNT_ID`, `$AUTO_UUID`, `$EXISTING_ISSUE`, `$CUSTOM_FIELD`, `$SELECT_FIELD`
+- [ ] Discover: `$PROJECT`, `$BOARD_ID`, `$SPRINT_ID`, `$ACCOUNT_ID`, `$AUTO_UUID`, `$DASHBOARD_ID`, `$EXISTING_ISSUE`, `$LINK_TYPE`, `$CUSTOM_FIELD`, `$SELECT_FIELD`
 - [ ] `jtk issues types -p $PROJECT` to learn `$ISSUE_TYPE`
 
-### Config & Init (Section 1)
+#### Config & Init (Section 1)
 - [ ] `config show` (table, JSON)
 - [ ] `config test`
 - [ ] `me` (table, JSON, plain)
@@ -740,7 +963,7 @@ Run the full checklist twice: once with Basic Auth, once with Bearer Auth. Secti
 - [ ] Bearer auth `config show` (auth_method, cloud_id displayed)
 - [ ] Bearer auth `config test`
 
-### Issues Read-Only (Section 2)
+#### Issues Read-Only (Section 2)
 - [ ] `issues list` (table, JSON, plain, error)
 - [ ] `issues get` (table, JSON, 404)
 - [ ] `issues search` (results, JSON, no results, bad JQL)
@@ -748,67 +971,163 @@ Run the full checklist twice: once with Basic Auth, once with Bearer Auth. Secti
 - [ ] `issues fields` (all, custom, JSON)
 - [ ] `issues field-options` (with --issue, JSON)
 
-### Projects Read-Only (Section 3)
+#### Projects Read-Only (Section 3)
 - [ ] `projects list` (table, JSON)
 - [ ] `projects get` (table, JSON, 404)
 - [ ] `projects types` (table, JSON)
 
-### Boards & Sprints Read-Only (Section 4) — Basic Auth only
+#### Boards & Sprints Read-Only (Section 4)
 - [ ] `boards list`, `boards get` (table, JSON, 404)
 - [ ] `sprints list`, `sprints current`
 - [ ] `sprints issues` (table, JSON)
 
-### Users Read-Only (Section 5)
+#### Links Read-Only (Section 5)
+- [ ] `links types` (table, JSON)
+- [ ] `links list` (table, JSON, 404)
+
+#### Dashboards Read-Only (Section 6)
+- [ ] `dashboards list` (table, search, JSON, no results)
+- [ ] `dashboards get` (table, JSON, 404)
+- [ ] `dashboards gadgets list` (table, JSON)
+
+#### Users Read-Only (Section 7)
 - [ ] `users search` (results, JSON, no results)
 
-### Automation Read-Only (Section 6) — Basic Auth only
+#### Automation Read-Only (Section 8)
 - [ ] `auto list` (all, filtered, JSON)
 - [ ] `auto get` (summary, --full, JSON)
 - [ ] `auto export` (pretty, compact)
 
-### Issue Mutations (Section 7)
+#### Fields Read-Only (Section 9)
+- [ ] `fields list` (all, custom, JSON)
+- [ ] `fields contexts list` (table, JSON, 404)
+- [ ] `fields options list` (table, JSON)
+
+#### Issue Mutations (Section 10)
 - [ ] Create → get → update → assign → comment → transition → unassign → delete comment → delete issue
 - [ ] Error cases (missing flags, 404)
 
-### Project Mutations (Section 8)
+#### Link Mutations (Section 11)
+- [ ] Types → create issues → create link → verify → delete link → verify → cleanup
+- [ ] Error cases (nonexistent target, invalid type, delete 404)
+
+#### Project Mutations (Section 12)
 - [ ] Create → get → update → delete → restore → verify → delete (cleanup)
 - [ ] Error cases
 
-### Automation Mutations (Section 9) — Basic Auth only
+#### Dashboard Mutations (Section 13)
+- [ ] Create → verify → list+search → gadgets list → delete → verify 404
+- [ ] Error cases (missing flags, 404)
+
+#### Automation Mutations (Section 14)
 - [ ] Create copy (strip UUID, rename)
 - [ ] Toggle cycle (disable, enable, idempotent)
 - [ ] Round-trip update
 - [ ] Cleanup (disable + rename to DELETEME)
 - [ ] Error cases
 
-### Sprint Mutations (Section 10) — Basic Auth only
+#### Sprint Mutations (Section 15)
 - [ ] Create issue → add to sprint → verify → delete issue
 
-### Global Flags & Aliases (Section 11)
-- [ ] `--no-color`, `--verbose`, `-o json`, `-o plain`
-- [ ] All aliases verified (including `jtk f`, `jtk field`)
-
-### Error Cases (Section 12)
-- [ ] 404, bad JQL, missing flags
-
-### Fields Read-Only (Section 13)
-- [ ] `fields list` (all, custom, JSON)
-- [ ] `fields contexts list` (table, JSON, 404)
-- [ ] `fields options list` (table, JSON)
-
-### Field Mutations (Section 14)
+#### Field Mutations (Section 16)
 - [ ] Create field → list contexts → add options → update option → delete option
 - [ ] Create context → delete context
 - [ ] Trash field → restore → trash again (cleanup)
 - [ ] Error cases (missing flags, 404)
 
-### Cleanup
+#### Global Flags & Aliases (Section 17)
+- [ ] `--no-color`, `--verbose`, `-o json`, `-o plain`
+- [ ] All aliases verified (including `jtk l`, `jtk link`, `jtk dash`, `jtk dashboard`)
+
+#### Error Cases (Section 18)
+- [ ] All error cases (404, bad JQL, missing flags)
+
+#### Cleanup (Basic Auth)
 - [ ] Delete test projects: `jtk projects delete ZTEST --force` (etc.)
 - [ ] Delete test issues: search for `[Test]` prefix, delete with `--force`
+- [ ] Delete test dashboards: `jtk dashboards delete $TEST_DASH_ID`
 - [ ] Trash test fields: `jtk fields delete $TEST_FIELD --force`
 - [ ] Disable + rename automation test copies to `[DELETEME]`
 - [ ] Manually purge `[DELETEME]` rules in Jira UI (Settings → System → Automation rules)
 - [ ] Verify: `jtk auto list -o json | jq '.[] | select(.name | startswith("[Test]") or startswith("[DELETEME]"))'`
+
+---
+
+### Pass 2: Bearer Auth
+
+#### Setup (Bearer Auth)
+- [ ] `jtk init --auth-method bearer`
+- [ ] `jtk config test` — Authentication successful via gateway
+- [ ] `jtk me` works
+- [ ] Discover: `$PROJECT`, `$EXISTING_ISSUE`, `$ACCOUNT_ID`, `$LINK_TYPE`, `$CUSTOM_FIELD`, `$SELECT_FIELD`
+- [ ] `jtk issues types -p $PROJECT` to learn `$ISSUE_TYPE`
+- [ ] Skip: `$BOARD_ID`, `$SPRINT_ID`, `$AUTO_UUID`, `$DASHBOARD_ID` (unavailable with bearer auth)
+
+#### Config & Init (Section 1)
+- [ ] Bearer auth `config show` (auth_method = bearer, cloud_id displayed)
+- [ ] Bearer auth `config test`
+- [ ] `me` (table, JSON, plain)
+
+#### Issues Read-Only (Section 2)
+- [ ] `issues list` (table, JSON, plain, error)
+- [ ] `issues get` (table, JSON, 404)
+- [ ] `issues search` (results, JSON, no results, bad JQL)
+- [ ] `issues types` (table, JSON, 404)
+- [ ] `issues fields` (all, custom, JSON)
+- [ ] `issues field-options` (with --issue, JSON)
+
+#### Projects Read-Only (Section 3)
+- [ ] `projects list` (table, JSON)
+- [ ] `projects get` (table, JSON, 404)
+- [ ] `projects types` (table, JSON)
+
+#### Links Read-Only (Section 5)
+- [ ] `links types` (table, JSON)
+- [ ] `links list` (table, JSON, 404)
+
+#### Users Read-Only (Section 7)
+- [ ] `users search` (results, JSON, no results)
+
+#### Fields Read-Only (Section 9)
+- [ ] `fields list` (all, custom, JSON)
+- [ ] `fields contexts list` (table, JSON, 404)
+- [ ] `fields options list` (table, JSON)
+
+#### Issue Mutations (Section 10)
+- [ ] Create → get → update → assign → comment → transition → unassign → delete comment → delete issue
+- [ ] Error cases (missing flags, 404)
+
+#### Link Mutations (Section 11)
+- [ ] Types → create issues → create link → verify → delete link → verify → cleanup
+- [ ] Error cases
+
+#### Project Mutations (Section 12)
+- [ ] Create → get → update → delete → restore → verify → delete (cleanup)
+- [ ] Error cases
+
+#### Field Mutations (Section 16)
+- [ ] Create field → list contexts → add options → update option → delete option
+- [ ] Create context → delete context
+- [ ] Trash field → restore → trash again (cleanup)
+- [ ] Error cases
+
+#### Bearer Auth Guards (Section 19)
+- [ ] Boards: `list`, `get 1` → Agile scope error
+- [ ] Sprints: `list -b 1`, `current -b 1`, `issues 1`, `add 1 PROJ-1` → Agile scope error
+- [ ] Automation: `list`, `get`, `export`, `create`, `enable`, `disable` → Automation scope error
+- [ ] Dashboards: `list`, `get`, `create`, `delete`, `gadgets list`, `gadgets remove` → Dashboard scope error
+
+#### Global Flags & Aliases (Section 17)
+- [ ] `--no-color`, `--verbose`, `-o json`, `-o plain`
+- [ ] Applicable aliases (skip `jtk b`, `jtk sp`, `jtk auto`, `jtk dash`)
+
+#### Error Cases (Section 18)
+- [ ] All applicable error cases (skip boards/sprints/dashboards items)
+
+#### Cleanup (Bearer Auth)
+- [ ] Delete test projects: `jtk projects delete ZTEST --force`
+- [ ] Delete test issues: search for `[Test]` prefix, delete with `--force`
+- [ ] Trash test fields: `jtk fields delete $TEST_FIELD --force`
 
 ---
 
@@ -819,5 +1138,6 @@ When adding new features or fixing bugs:
 1. Add test steps to the appropriate numbered section above
 2. Include both happy path and error cases with exact expected output
 3. Document gotchas inline, immediately before the step where they matter
-4. Update the Test Execution Checklist
-5. Record bugs discovered during testing and continue — don't stop to fix
+4. Update both Pass 1 and Pass 2 in the Test Execution Checklist
+5. If the feature is scope-restricted, add guard tests to Section 19
+6. Record bugs discovered during testing and continue — don't stop to fix

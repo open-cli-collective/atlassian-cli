@@ -59,6 +59,7 @@ func New(cfg ClientConfig) (*Client, error) {
 
 	// Normalize URL: ensure https and no trailing slash
 	baseURL := url.NormalizeURL(cfg.URL)
+	restURL := baseURL + "/rest/api/3"
 
 	// Create shared client with verbose option
 	var opts *client.Options
@@ -67,9 +68,9 @@ func New(cfg ClientConfig) (*Client, error) {
 	}
 
 	return &Client{
-		Client:   client.New(baseURL, cfg.Email, cfg.APIToken, opts),
+		Client:   client.New(restURL, cfg.Email, cfg.APIToken, opts),
 		URL:      baseURL,
-		BaseURL:  baseURL + "/rest/api/3",
+		BaseURL:  restURL,
 		AgileURL: baseURL + "/rest/agile/1.0",
 	}, nil
 }
@@ -85,6 +86,7 @@ func newBearerClient(cfg ClientConfig) (*Client, error) {
 
 	// Gateway URLs for bearer auth
 	gatewayBase := fmt.Sprintf("%s/ex/jira/%s", client.GatewayBaseURL, cfg.CloudID)
+	restURL := gatewayBase + "/rest/api/3"
 
 	opts := &client.Options{
 		AuthHeader: auth.BearerAuthHeader(cfg.APIToken),
@@ -96,9 +98,9 @@ func newBearerClient(cfg ClientConfig) (*Client, error) {
 	// AgileURL is empty for bearer auth — scoped tokens lack Agile API scopes.
 	// Use SupportsAgile() to check before making Agile calls.
 	return &Client{
-		Client:  client.New(gatewayBase, "", "", opts),
+		Client:  client.New(restURL, "", "", opts),
 		URL:     instanceURL,
-		BaseURL: gatewayBase + "/rest/api/3",
+		BaseURL: restURL,
 	}, nil
 }
 

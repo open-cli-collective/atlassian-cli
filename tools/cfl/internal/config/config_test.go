@@ -94,6 +94,17 @@ func TestConfig_Validate(t *testing.T) {
 			},
 			wantErr: false,
 		},
+		{
+			name: "invalid auth method",
+			config: Config{
+				URL:        "https://example.atlassian.net",
+				Email:      "user@example.com",
+				APIToken:   "token",
+				AuthMethod: "oauth",
+			},
+			wantErr: true,
+			errMsg:  "invalid auth method",
+		},
 	}
 
 	for _, tt := range tests {

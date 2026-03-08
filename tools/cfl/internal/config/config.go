@@ -38,7 +38,7 @@ func (c *Config) Validate() error {
 	// Validate auth method if set (empty defaults to basic)
 	if c.AuthMethod != "" {
 		if err := auth.ValidateAuthMethod(c.AuthMethod); err != nil {
-			return fmt.Errorf("invalid auth_method %q: must be %q or %q", c.AuthMethod, auth.AuthMethodBasic, auth.AuthMethodBearer)
+			return fmt.Errorf("config: %w", err)
 		}
 	}
 

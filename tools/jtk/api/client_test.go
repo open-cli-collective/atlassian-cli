@@ -344,6 +344,7 @@ func TestNew_BearerAuth(t *testing.T) {
 		// AgileURL should be empty (scoped tokens lack Agile scope)
 		testutil.Equal(t, c.AgileURL, "")
 		testutil.False(t, c.SupportsAgile())
+		testutil.True(t, c.IsBearerAuth())
 
 		// URL (for browse links) should still be the instance URL
 		testutil.Equal(t, c.URL, "https://example.atlassian.net")
@@ -429,6 +430,7 @@ func TestNew_BearerAuth(t *testing.T) {
 		testutil.Contains(t, c.GetAuthHeader(), "Basic ")
 		testutil.Equal(t, c.BaseURL, "https://example.atlassian.net/rest/api/3")
 		testutil.True(t, c.SupportsAgile())
+		testutil.False(t, c.IsBearerAuth())
 	})
 
 	t.Run("IssueURL uses instance URL not gateway", func(t *testing.T) {

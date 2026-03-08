@@ -34,7 +34,7 @@ Use enable/disable to toggle rules without touching the full definition.`,
 			if err != nil {
 				return err
 			}
-			if !client.SupportsAgile() {
+			if client.IsBearerAuth() {
 				return api.ErrAutomationUnavailable
 			}
 			return nil

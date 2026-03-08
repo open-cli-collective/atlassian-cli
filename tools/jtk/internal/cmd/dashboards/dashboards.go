@@ -23,7 +23,7 @@ func Register(parent *cobra.Command, opts *root.Options) {
 			if err != nil {
 				return err
 			}
-			if !client.SupportsAgile() {
+			if client.IsBearerAuth() {
 				return api.ErrDashboardUnavailable
 			}
 			return nil

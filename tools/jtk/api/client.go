@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	neturl "net/url"
+	"strings"
 	"sync"
 
 	"github.com/open-cli-collective/atlassian-go/auth"
@@ -109,6 +110,13 @@ func newBearerClient(cfg ClientConfig) (*Client, error) {
 // the Agile API because Atlassian does not provide an Agile scope.
 func (c *Client) SupportsAgile() bool {
 	return c.AgileURL != ""
+}
+
+// IsBearerAuth returns true if the client uses bearer authentication.
+// Bearer auth clients (service accounts) lack scopes for the Agile,
+// Automation, and Dashboard APIs.
+func (c *Client) IsBearerAuth() bool {
+	return strings.HasPrefix(c.GetAuthHeader(), "Bearer ")
 }
 
 // Validation errors

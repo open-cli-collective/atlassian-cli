@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/open-cli-collective/atlassian-go/auth"
 	"github.com/open-cli-collective/atlassian-go/client"
 	"github.com/open-cli-collective/atlassian-go/testutil"
 )
@@ -431,6 +432,21 @@ func TestNew_BearerAuth(t *testing.T) {
 		testutil.Equal(t, c.BaseURL, "https://example.atlassian.net/rest/api/3")
 		testutil.True(t, c.SupportsAgile())
 		testutil.False(t, c.IsBearerAuth())
+	})
+
+	t.Run("invalid auth method returns error", func(t *testing.T) {
+		t.Parallel()
+		c, err := New(ClientConfig{
+			URL:        "https://example.atlassian.net",
+			Email:      "user@example.com",
+			APIToken:   "token",
+			AuthMethod: "oauth",
+		})
+		testutil.Error(t, err)
+		testutil.Nil(t, c)
+		if !errors.Is(err, auth.ErrInvalidAuthMethod) {
+			t.Errorf("got error %v, want ErrInvalidAuthMethod", err)
+		}
 	})
 
 	t.Run("IssueURL uses instance URL not gateway", func(t *testing.T) {

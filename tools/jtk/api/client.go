@@ -49,6 +49,11 @@ func New(cfg ClientConfig) (*Client, error) {
 		return nil, ErrAPITokenRequired
 	}
 
+	// Validate auth method if explicitly set
+	if cfg.AuthMethod != "" && cfg.AuthMethod != auth.AuthMethodBasic && cfg.AuthMethod != auth.AuthMethodBearer {
+		return nil, fmt.Errorf("%w", auth.ErrInvalidAuthMethod)
+	}
+
 	if cfg.AuthMethod == auth.AuthMethodBearer {
 		return newBearerClient(cfg)
 	}

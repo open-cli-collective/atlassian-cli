@@ -150,7 +150,7 @@ func runInit(ctx context.Context, prefillURL, prefillEmail, prefillAuthMethod, p
 		formGroups = append(formGroups, huh.NewGroup(
 			huh.NewInput().
 				Title("Confluence URL").
-				Description("Your Confluence Cloud instance URL (used for reference)").
+				Description("Instance URL for display purposes only (API calls go through the gateway)").
 				Placeholder("https://mycompany.atlassian.net").
 				Value(&cfg.URL).
 				Validate(func(s string) error {

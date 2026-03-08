@@ -16,12 +16,17 @@ import (
 	"github.com/open-cli-collective/atlassian-go/url"
 )
 
-// Client is a Jira API client
+// Client is a Jira API client.
+//
+// The embedded *client.Client receives the same REST API URL as BaseURL,
+// so both c.Client.BaseURL and c.BaseURL resolve to the same value.
+// Callers should use the outer BaseURL field when constructing API paths.
+// URL holds the instance URL for browse links (e.g., IssueURL).
 type Client struct {
-	*client.Client        // Embed shared client for HTTP methods
-	URL            string // Base URL (e.g., https://mycompany.atlassian.net)
-	BaseURL        string // REST API v3 URL
-	AgileURL       string // Agile API URL
+	*client.Client        // Embed shared client for HTTP methods (BaseURL == outer BaseURL)
+	URL            string // Instance URL for browse links (e.g., https://mycompany.atlassian.net)
+	BaseURL        string // REST API v3 URL (matches embedded client.Client.BaseURL)
+	AgileURL       string // Agile API URL (empty for bearer auth)
 
 	cloudID   string
 	cloudOnce sync.Once
@@ -75,6 +80,7 @@ func New(cfg ClientConfig) (*Client, error) {
 		opts = &client.Options{Verbose: true}
 	}
 
+	// Pass restURL to client.New so embedded BaseURL matches outer BaseURL.
 	return &Client{
 		Client:   client.New(restURL, cfg.Email, cfg.APIToken, opts),
 		URL:      baseURL,
@@ -105,6 +111,7 @@ func newBearerClient(cfg ClientConfig) (*Client, error) {
 
 	// AgileURL is empty for bearer auth — scoped tokens lack Agile API scopes.
 	// Use SupportsAgile() to check before making Agile calls.
+	// Pass restURL to client.New so embedded BaseURL matches outer BaseURL.
 	return &Client{
 		Client:  client.New(restURL, "", "", opts),
 		URL:     instanceURL,

@@ -115,6 +115,8 @@ func TestNew(t *testing.T) {
 				testutil.Equal(t, client.URL, tt.wantURL)
 				testutil.Equal(t, client.BaseURL, tt.wantBaseURL)
 				testutil.Equal(t, client.AgileURL, tt.wantURL+"/rest/agile/1.0")
+				// Embedded and outer BaseURL must match
+				testutil.Equal(t, client.Client.BaseURL, client.BaseURL)
 				// Auth header should be set
 				testutil.Contains(t, client.GetAuthHeader(), "Basic ")
 			}
@@ -341,6 +343,8 @@ func TestNew_BearerAuth(t *testing.T) {
 		// BaseURL should use the API gateway
 		expectedBase := fmt.Sprintf("%s/ex/jira/abc-123/rest/api/3", client.GatewayBaseURL)
 		testutil.Equal(t, c.BaseURL, expectedBase)
+		// Embedded and outer BaseURL must match
+		testutil.Equal(t, c.Client.BaseURL, c.BaseURL)
 
 		// AgileURL should be empty (scoped tokens lack Agile scope)
 		testutil.Equal(t, c.AgileURL, "")

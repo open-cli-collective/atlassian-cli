@@ -2,6 +2,7 @@ package automation
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/spf13/cobra"
 
@@ -41,13 +42,17 @@ func runDelete(ctx context.Context, opts *root.Options, ruleID string) error {
 	}
 
 	// API rejects DELETE on ENABLED rules — disable first.
-	if current.State == "ENABLED" {
+	wasEnabled := current.State == "ENABLED"
+	if wasEnabled {
 		if err := client.SetAutomationRuleState(ctx, ruleID, false); err != nil {
 			return err
 		}
 	}
 
 	if err := client.DeleteAutomationRule(ctx, ruleID); err != nil {
+		if wasEnabled {
+			return fmt.Errorf("rule was disabled but delete failed: %w — re-enable with: jtk auto enable %s", err, ruleID)
+		}
 		return err
 	}
 

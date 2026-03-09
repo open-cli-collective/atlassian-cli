@@ -138,7 +138,8 @@ func (b *RuleBuilder) Build() (json.RawMessage, error) {
 	if b.trigger != nil {
 		hasAction := false
 		for _, c := range b.components {
-			if c.Component == "ACTION" {
+			// Top-level actions, or if/else blocks (which contain actions in their branches).
+			if c.Component == "ACTION" || c.Type == "jira.condition.container.block" {
 				hasAction = true
 				break
 			}

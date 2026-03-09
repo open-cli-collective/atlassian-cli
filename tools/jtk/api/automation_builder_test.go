@@ -58,6 +58,21 @@ func TestRuleBuilder_Build(t *testing.T) {
 		testutil.Contains(t, err.Error(), "must have at least one action")
 	})
 
+	t.Run("trigger with actions only in IfElseBlock passes validation", func(t *testing.T) {
+		t.Parallel()
+		b := NewRuleBuilder("IfElse Only").WithAuthor("test-account-id").
+			WithTrigger(IssueCreatedTrigger()).
+			AddComponent(IfElseBlock(
+				IfBlock{
+					MatchType:  "ALL",
+					Conditions: []RuleComponent{ComparatorCondition("{{x}}", "1", "EQUALS")},
+					Actions:    []RuleComponent{CommentOnIssue("matched")},
+				},
+			))
+		_, err := b.Build()
+		testutil.RequireNoError(t, err)
+	})
+
 	t.Run("with description", func(t *testing.T) {
 		t.Parallel()
 		b := NewRuleBuilder("Named Rule").WithAuthor("test-account-id").WithDescription("My description")

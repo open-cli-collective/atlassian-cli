@@ -19,6 +19,9 @@ If a test reveals a discrepancy between the builder's output and what the API ex
 Run these commands and capture the values. They are referenced as `$VARIABLES` throughout.
 
 ```bash
+# $ACCOUNT_ID — your Atlassian account ID (required for authorAccountId and actor)
+jtk me -o json | jq -r .accountId
+
 # $PROJECT — pick a project you have full access to
 jtk projects list --max 10
 
@@ -53,7 +56,7 @@ jtk auto list --state ENABLED --max 5
 
 ## Test 1: JQL Condition Rule
 
-Creates a minimal rule with a JQL condition.
+Creates a minimal rule with a JQL condition and a comment action.
 
 1. **Write the JSON file:**
    ```bash
@@ -63,6 +66,9 @@ Creates a minimal rule with a JQL condition.
        "name": "[Test] JQL Condition Rule",
        "state": "DISABLED",
        "description": "Integration test: JQL condition",
+       "authorAccountId": "$ACCOUNT_ID",
+       "actor": {"type": "ACCOUNT_ID", "actor": "$ACCOUNT_ID"},
+       "writeAccessType": "UNRESTRICTED",
        "canOtherRuleTrigger": false,
        "notifyOnError": "FIRSTERROR",
        "trigger": {
@@ -81,15 +87,23 @@ Creates a minimal rule with a JQL condition.
            "value": "project = '$PROJECT' AND issuetype = Epic",
            "children": [],
            "conditions": []
+         },
+         {
+           "component": "ACTION",
+           "type": "jira.issue.comment",
+           "schemaVersion": 1,
+           "value": {"comment": "JQL condition matched"},
+           "children": [],
+           "conditions": []
          }
        ],
-       "ruleScope": {"resources": ["$PROJECT_ARI"]}
+       "ruleScopeARIs": ["$PROJECT_ARI"]
      },
      "connections": []
    }
    EOF
    ```
-   (Replace `$PROJECT` and `$PROJECT_ARI` with your values)
+   (Replace `$PROJECT`, `$PROJECT_ARI`, and `$ACCOUNT_ID` with your values)
 
 2. **Create the rule:**
    ```bash
@@ -102,7 +116,7 @@ Creates a minimal rule with a JQL condition.
    ```bash
    jtk auto get $JQL_UUID
    ```
-   Expected: Name = `[Test] JQL Condition Rule`, State = DISABLED, 1 component (CONDITION)
+   Expected: Name = `[Test] JQL Condition Rule`, State = DISABLED, 2 components
 
 4. **Export and verify round-trip:**
    ```bash
@@ -125,79 +139,7 @@ Creates a minimal rule with a JQL condition.
 
 ---
 
-## Test 2: Field Condition Rule (jira.issue.condition)
-
-Creates a rule with a structured field condition. This validates the `jira.issue.condition` schema discovered from web research (NOT from backups — this is the first live validation).
-
-1. **Write the JSON file:**
-   ```bash
-   cat > /tmp/auto-field.json << 'EOF'
-   {
-     "rule": {
-       "name": "[Test] Field Condition Rule",
-       "state": "DISABLED",
-       "description": "Integration test: structured field condition",
-       "canOtherRuleTrigger": false,
-       "notifyOnError": "FIRSTERROR",
-       "trigger": {
-         "component": "TRIGGER",
-         "type": "jira.issue.event.trigger:created",
-         "schemaVersion": 1,
-         "value": {"eventKey": "jira:issue_created", "issueEvent": "issue_created"},
-         "children": [],
-         "conditions": []
-       },
-       "components": [
-         {
-           "component": "CONDITION",
-           "type": "jira.issue.condition",
-           "schemaVersion": 3,
-           "value": {
-             "selectedField": {"type": "ID", "value": "$CUSTOM_SELECT_FIELD"},
-             "selectedFieldType": "com.atlassian.jira.plugin.system.customfieldtypes:select",
-             "comparison": "EQUALS",
-             "compareValue": {"type": "ID", "value": "$SELECT_OPTION_ID", "multiValue": false}
-           },
-           "children": [],
-           "conditions": []
-         }
-       ],
-       "ruleScope": {"resources": ["$PROJECT_ARI"]}
-     },
-     "connections": []
-   }
-   EOF
-   ```
-
-2. **Create the rule:**
-   ```bash
-   jtk auto create --file /tmp/auto-field.json
-   ```
-   Capture UUID → `$FIELD_UUID`
-
-3. **Verify and export:**
-   ```bash
-   jtk auto get $FIELD_UUID --full
-   jtk auto export $FIELD_UUID > /tmp/auto-field-export.json
-   cat /tmp/auto-field-export.json | jq '.rule.components[0].value'
-   ```
-
-4. **Record findings:**
-   - Did the API accept `schemaVersion: 3` for `jira.issue.condition`? ____
-   - Did the API accept the `selectedField`/`compareValue` structure? ____
-   - Did the API modify any fields or add new ones? ____
-   - What schemaVersion does the export show? ____
-
-5. **Cleanup:**
-   ```bash
-   jtk auto disable $FIELD_UUID
-   jq '.rule.name = "[DELETEME] Field Condition Rule"' /tmp/auto-field-export.json > /tmp/auto-field-del.json
-   jtk auto update $FIELD_UUID --file /tmp/auto-field-del.json
-   ```
-
----
-
-## Test 3: Comparator + Variable Rule
+## Test 2: Comparator + Variable Rule
 
 Creates a rule using the pattern from real backups: extract a custom field to a variable, then compare.
 
@@ -209,6 +151,9 @@ Creates a rule using the pattern from real backups: extract a custom field to a 
        "name": "[Test] Comparator Variable Rule",
        "state": "DISABLED",
        "description": "Integration test: variable extraction + comparator condition",
+       "authorAccountId": "$ACCOUNT_ID",
+       "actor": {"type": "ACCOUNT_ID", "actor": "$ACCOUNT_ID"},
+       "writeAccessType": "UNRESTRICTED",
        "canOtherRuleTrigger": false,
        "notifyOnError": "FIRSTERROR",
        "trigger": {
@@ -245,9 +190,17 @@ Creates a rule using the pattern from real backups: extract a custom field to a 
            },
            "children": [],
            "conditions": []
+         },
+         {
+           "component": "ACTION",
+           "type": "jira.issue.comment",
+           "schemaVersion": 1,
+           "value": {"comment": "Comparator matched"},
+           "children": [],
+           "conditions": []
          }
        ],
-       "ruleScope": {"resources": ["$PROJECT_ARI"]}
+       "ruleScopeARIs": ["$PROJECT_ARI"]
      },
      "connections": []
    }
@@ -278,7 +231,7 @@ Creates a rule using the pattern from real backups: extract a custom field to a 
 
 ---
 
-## Test 4: If/Else Block Rule
+## Test 3: If/Else Block Rule
 
 Creates a rule with if/else branching — the most complex structure.
 
@@ -290,6 +243,9 @@ Creates a rule with if/else branching — the most complex structure.
        "name": "[Test] If/Else Block Rule",
        "state": "DISABLED",
        "description": "Integration test: if/else branching with comparator conditions",
+       "authorAccountId": "$ACCOUNT_ID",
+       "actor": {"type": "ACCOUNT_ID", "actor": "$ACCOUNT_ID"},
+       "writeAccessType": "UNRESTRICTED",
        "canOtherRuleTrigger": false,
        "notifyOnError": "FIRSTERROR",
        "trigger": {
@@ -368,7 +324,7 @@ Creates a rule with if/else branching — the most complex structure.
            "conditions": []
          }
        ],
-       "ruleScope": {"resources": ["$PROJECT_ARI"]}
+       "ruleScopeARIs": ["$PROJECT_ARI"]
      },
      "connections": []
    }
@@ -418,7 +374,7 @@ Creates a rule with if/else branching — the most complex structure.
 
 ---
 
-## Test 5: Multi-Condition Rule (AND)
+## Test 4: Multi-Condition Rule (AND)
 
 Creates a rule with multiple conditions: platform = Q2 AND product includes CheckSync.
 
@@ -430,6 +386,9 @@ Creates a rule with multiple conditions: platform = Q2 AND product includes Chec
        "name": "[Test] Multi-Condition AND Rule",
        "state": "DISABLED",
        "description": "Integration test: platform = Q2 AND products includes CheckSync",
+       "authorAccountId": "$ACCOUNT_ID",
+       "actor": {"type": "ACCOUNT_ID", "actor": "$ACCOUNT_ID"},
+       "writeAccessType": "UNRESTRICTED",
        "canOtherRuleTrigger": false,
        "notifyOnError": "FIRSTERROR",
        "trigger": {
@@ -448,9 +407,17 @@ Creates a rule with multiple conditions: platform = Q2 AND product includes Chec
            "value": "\"$CUSTOM_SELECT_FIELD_NAME\" = \"Q2\" AND \"$CUSTOM_MULTISELECT_FIELD_NAME\" in (\"CheckSync\")",
            "children": [],
            "conditions": []
+         },
+         {
+           "component": "ACTION",
+           "type": "jira.issue.comment",
+           "schemaVersion": 1,
+           "value": {"comment": "Multi-condition matched"},
+           "children": [],
+           "conditions": []
          }
        ],
-       "ruleScope": {"resources": ["$PROJECT_ARI"]}
+       "ruleScopeARIs": ["$PROJECT_ARI"]
      },
      "connections": []
    }
@@ -480,7 +447,7 @@ Creates a rule with multiple conditions: platform = Q2 AND product includes Chec
 
 ---
 
-## Test 6: Round-Trip Fidelity
+## Test 5: Round-Trip Fidelity
 
 Tests that exporting a rule and re-creating it produces structurally identical output.
 
@@ -530,7 +497,7 @@ Tests that exporting a rule and re-creating it produces structurally identical o
 
 ---
 
-## Test 7: Edit Field Action
+## Test 6: Edit Field Action
 
 Creates a rule with a `jira.issue.edit` action that sets a custom field.
 
@@ -542,6 +509,9 @@ Creates a rule with a `jira.issue.edit` action that sets a custom field.
        "name": "[Test] Edit Field Action Rule",
        "state": "DISABLED",
        "description": "Integration test: edit issue field action",
+       "authorAccountId": "$ACCOUNT_ID",
+       "actor": {"type": "ACCOUNT_ID", "actor": "$ACCOUNT_ID"},
+       "writeAccessType": "UNRESTRICTED",
        "canOtherRuleTrigger": false,
        "notifyOnError": "FIRSTERROR",
        "trigger": {
@@ -573,7 +543,7 @@ Creates a rule with a `jira.issue.edit` action that sets a custom field.
            "conditions": []
          }
        ],
-       "ruleScope": {"resources": ["$PROJECT_ARI"]}
+       "ruleScopeARIs": ["$PROJECT_ARI"]
      },
      "connections": []
    }
@@ -632,37 +602,83 @@ All test rules should be DISABLED with `[DELETEME]` prefix. Delete them manually
 
 Record findings from each test run below. These feed back into unit test assertions.
 
-### Run 1: ____-__-__
+### Run 1: 2026-03-09
+
+**Summary of required fields discovered:**
+- `authorAccountId` (string) — 400 without it
+- `actor` (object `{"type":"ACCOUNT_ID","actor":"<id>"}`) — 400 without it
+- `writeAccessType` (string, e.g. `"UNRESTRICTED"`) — 400 without it
+- `ruleScopeARIs` (flat string array) — replaces nested `ruleScope.resources`
+- Rules with a trigger must have at least one ACTION component
+
+**Schema version upgrades by API:**
+- `jira.issue.comment`: schemaVersion 1 → 2 (silent upgrade)
+- `jira.issue.edit`: schemaVersion 10 → 12 (silent upgrade)
+
+**Test 1 (JQL Condition):**
+- API rejected initially: missing `authorAccountId`, `actor`, `writeAccessType`
+- After adding required fields + comment action: accepted
+- API rejected `ruleScope.resources`, accepted `ruleScopeARIs`
+
+**Test 2 (Field Condition — `jira.issue.condition`):**
+- **REMOVED** — API rejects `jira.issue.condition` regardless of schemaVersion (1 or 3) or value type (ID or VALUE). This component type is not supported via REST API. Use JQL conditions or comparator+variable patterns instead.
+
+**Test 3 (Comparator + Variable):**
+- API accepted: yes (after adding required fields + comment action)
+- Variable ID preserved: yes
+- Comparator survived: yes
+
+**Test 4 (If/Else Block):**
+- Nested structure survived: yes
+- conditionMatchType preserved: yes
+- Else block preserved: yes
+
+**Test 5 (Multi-Condition AND):**
+- JQL with custom field names: yes
+- Multi-select `in (...)`: yes
+
+**Test 6 (Round-Trip):**
+- Component types match: yes (all 25 component types preserved)
+- API-added fields: `id`, `ruleKey`, `uuid`, `created`, `updated`, `billingType`, etc.
+- Schema versions: API silently upgrades some (comment 1→2, edit 10→12)
+
+**Test 7 (Edit Field Action):**
+- Schema version 10 accepted: yes (upgraded to 12 on export)
+- Operations array: preserved
+- Field by NAME: preserved
+
+**Fixes applied (commits 1-4):**
+- Removed `FieldCondition` / `jira.issue.condition` (unsupported)
+- Changed `ruleScope.resources` → `ruleScopeARIs`
+- Added `WithAuthor()`, `WithActor()`, `WithWriteAccessType()` to builder
+- Added validation: trigger requires at least one ACTION
+
+### Run 2: ____-__-__
 
 **Test 1 (JQL Condition):**
 - API accepted: ____
 - Schema version returned: ____
 - Fields added by API: ____
 
-**Test 2 (Field Condition):**
-- API accepted: ____
-- Schema version returned: ____
-- Fields added by API: ____
-
-**Test 3 (Comparator + Variable):**
+**Test 2 (Comparator + Variable):**
 - API accepted: ____
 - Variable ID preserved: ____
 - Comparator survived: ____
 
-**Test 4 (If/Else Block):**
+**Test 3 (If/Else Block):**
 - Nested structure survived: ____
 - conditionMatchType preserved: ____
 - Else block preserved: ____
 
-**Test 5 (Multi-Condition AND):**
+**Test 4 (Multi-Condition AND):**
 - JQL with custom field names: ____
 - Multi-select `in (...)`: ____
 
-**Test 6 (Round-Trip):**
+**Test 5 (Round-Trip):**
 - Component types match: ____
 - API-added fields: ____
 
-**Test 7 (Edit Field Action):**
+**Test 6 (Edit Field Action):**
 - Schema version 10 accepted: ____
 - Operations array: ____
 - Field by NAME: ____

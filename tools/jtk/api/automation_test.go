@@ -223,7 +223,7 @@ func TestGetAutomationRule(t *testing.T) {
 				Type:      "jira.issue.create",
 			},
 			Components: []RuleComponent{
-				{Component: "CONDITION", Type: "jira.issue.condition"},
+				{Component: "CONDITION", Type: "jira.jql.condition"},
 				{Component: "ACTION", Type: "jira.issue.assign"},
 			},
 		}

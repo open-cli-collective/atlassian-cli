@@ -315,92 +315,6 @@ func TestJQLCondition(t *testing.T) {
 	}
 }
 
-func TestFieldCondition(t *testing.T) {
-	t.Parallel()
-
-	t.Run("single-select EQUALS", func(t *testing.T) {
-		t.Parallel()
-		c := FieldCondition(
-			"customfield_10100",
-			"com.atlassian.jira.plugin.system.customfieldtypes:select",
-			"EQUALS",
-			"10086",
-		)
-		testutil.Equal(t, c.Component, "CONDITION")
-		testutil.Equal(t, c.Type, "jira.issue.condition")
-		testutil.Equal(t, c.SchemaVersion, 3)
-
-		var val FieldConditionValue
-		testutil.RequireNoError(t, json.Unmarshal(c.Value, &val))
-		testutil.Equal(t, val.SelectedField.Type, "ID")
-		testutil.Equal(t, val.SelectedField.Value, "customfield_10100")
-		testutil.Equal(t, val.SelectedFieldType, "com.atlassian.jira.plugin.system.customfieldtypes:select")
-		testutil.Equal(t, val.Comparison, "EQUALS")
-		testutil.Equal(t, val.CompareValue.Type, "ID")
-		testutil.Equal(t, val.CompareValue.Value, "10086")
-		testutil.Equal(t, val.CompareValue.MultiValue, false)
-	})
-
-	t.Run("single-select NOT_EQUALS", func(t *testing.T) {
-		t.Parallel()
-		c := FieldCondition(
-			"customfield_10100",
-			"com.atlassian.jira.plugin.system.customfieldtypes:select",
-			"NOT_EQUALS",
-			"10087",
-		)
-
-		var val FieldConditionValue
-		testutil.RequireNoError(t, json.Unmarshal(c.Value, &val))
-		testutil.Equal(t, val.Comparison, "NOT_EQUALS")
-		testutil.Equal(t, val.CompareValue.MultiValue, false)
-	})
-
-	t.Run("multi-select CONTAINS_ANY_OF", func(t *testing.T) {
-		t.Parallel()
-		c := FieldCondition(
-			"customfield_10200",
-			"com.atlassian.jira.plugin.system.customfieldtypes:multiselect",
-			"CONTAINS_ANY_OF",
-			"10090",
-		)
-
-		var val FieldConditionValue
-		testutil.RequireNoError(t, json.Unmarshal(c.Value, &val))
-		testutil.Equal(t, val.Comparison, "CONTAINS_ANY_OF")
-		testutil.Equal(t, val.CompareValue.MultiValue, true)
-	})
-
-	t.Run("multi-select CONTAINS_ALL_OF", func(t *testing.T) {
-		t.Parallel()
-		c := FieldCondition(
-			"customfield_10200",
-			"com.atlassian.jira.plugin.system.customfieldtypes:multicheckboxes",
-			"CONTAINS_ALL_OF",
-			"10091",
-		)
-
-		var val FieldConditionValue
-		testutil.RequireNoError(t, json.Unmarshal(c.Value, &val))
-		testutil.Equal(t, val.CompareValue.MultiValue, true)
-	})
-
-	t.Run("EMPTY comparison", func(t *testing.T) {
-		t.Parallel()
-		c := FieldCondition(
-			"customfield_10100",
-			"com.atlassian.jira.plugin.system.customfieldtypes:select",
-			"EMPTY",
-			"",
-		)
-
-		var val FieldConditionValue
-		testutil.RequireNoError(t, json.Unmarshal(c.Value, &val))
-		testutil.Equal(t, val.Comparison, "EMPTY")
-		testutil.Equal(t, val.CompareValue.Value, "")
-	})
-}
-
 func TestComparatorCondition(t *testing.T) {
 	t.Parallel()
 
@@ -902,32 +816,6 @@ func TestRuleBuilder_LongJQL(t *testing.T) {
 	var val string
 	testutil.RequireNoError(t, json.Unmarshal(c.Value, &val))
 	testutil.Equal(t, val, longJQL)
-}
-
-func TestIsMultiValueComparison(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		comparison string
-		expected   bool
-	}{
-		{"EQUALS", false},
-		{"NOT_EQUALS", false},
-		{"ONE_OF", false},
-		{"NOT_ONE_OF", false},
-		{"EMPTY", false},
-		{"NOT_EMPTY", false},
-		{"CONTAINS_ANY_OF", true},
-		{"NOT_CONTAINS_ANY_OF", true},
-		{"CONTAINS_ALL_OF", true},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.comparison, func(t *testing.T) {
-			t.Parallel()
-			testutil.Equal(t, isMultiValueComparison(tt.comparison), tt.expected)
-		})
-	}
 }
 
 // ---------------------------------------------------------------------------

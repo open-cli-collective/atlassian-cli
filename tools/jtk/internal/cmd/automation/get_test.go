@@ -31,7 +31,7 @@ func TestSummarizeComponents(t *testing.T) {
 			name: "all types",
 			components: []api.RuleComponent{
 				{Component: "TRIGGER", Type: "jira.issue.create"},
-				{Component: "CONDITION", Type: "jira.issue.condition"},
+				{Component: "CONDITION", Type: "jira.jql.condition"},
 				{Component: "ACTION", Type: "jira.issue.assign"},
 			},
 			want: "3 total — 1 trigger(s), 1 condition(s), 1 action(s)",

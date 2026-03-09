@@ -254,60 +254,10 @@ func JQLCondition(jql string) RuleComponent {
 	}
 }
 
-// FieldConditionValue is the value schema for jira.issue.condition.
-type FieldConditionValue struct {
-	SelectedField     FieldRef          `json:"selectedField"`
-	SelectedFieldType string            `json:"selectedFieldType"`
-	Comparison        string            `json:"comparison"`
-	CompareValue      CompareFieldValue `json:"compareValue"`
-}
-
 // FieldRef identifies a field by ID or name.
 type FieldRef struct {
 	Type  string `json:"type"`  // "ID" or "NAME"
 	Value string `json:"value"` // e.g., "customfield_10100" or "Banking Platform"
-}
-
-// CompareFieldValue is the target value for a field condition comparison.
-type CompareFieldValue struct {
-	Type       string `json:"type"`               // "ID" or "NAME"
-	Value      string `json:"value"`              // The option ID or value name
-	MultiValue bool   `json:"multiValue"`         // true for multi-select comparisons
-	Modifier   any    `json:"modifier,omitempty"` // Usually null
-	Source     any    `json:"source,omitempty"`   // Usually null
-}
-
-// FieldCondition returns a condition that checks an issue field value.
-// This is the structured "Issue Fields Condition" with best performance.
-//
-// Parameters:
-//   - fieldID: the field identifier (e.g., "customfield_10100")
-//   - fieldType: the Jira field type plugin key (e.g., "com.atlassian.jira.plugin.system.customfieldtypes:select")
-//   - comparison: the operator (EQUALS, NOT_EQUALS, ONE_OF, NOT_ONE_OF, EMPTY, NOT_EMPTY,
-//     CONTAINS_ANY_OF, NOT_CONTAINS_ANY_OF, CONTAINS_ALL_OF)
-//   - compareValue: the value to compare against (option ID or name)
-func FieldCondition(fieldID, fieldType, comparison, compareValue string) RuleComponent {
-	multiValue := isMultiValueComparison(comparison)
-
-	val := FieldConditionValue{
-		SelectedField:     FieldRef{Type: "ID", Value: fieldID},
-		SelectedFieldType: fieldType,
-		Comparison:        comparison,
-		CompareValue: CompareFieldValue{
-			Type:       "ID",
-			Value:      compareValue,
-			MultiValue: multiValue,
-		},
-	}
-
-	return RuleComponent{
-		Component:     "CONDITION",
-		Type:          "jira.issue.condition",
-		SchemaVersion: 3,
-		Value:         mustMarshal(val),
-		Children:      emptyArray(),
-		Conditions:    emptyArray(),
-	}
 }
 
 // ComparatorConditionValue is the value schema for jira.comparator.condition.
@@ -568,13 +518,4 @@ func marshalComponents(components []RuleComponent) []json.RawMessage {
 		result[i] = mustMarshal(c)
 	}
 	return result
-}
-
-func isMultiValueComparison(comparison string) bool {
-	switch comparison {
-	case "CONTAINS_ANY_OF", "NOT_CONTAINS_ANY_OF", "CONTAINS_ALL_OF":
-		return true
-	default:
-		return false
-	}
 }

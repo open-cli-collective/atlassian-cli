@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Automation rule builder module for constructing rule JSON programmatically with a fluent Go API ([#174](https://github.com/open-cli-collective/atlassian-cli/pull/174))
+- Service account support with bearer auth (`--auth-method bearer`) for scoped API tokens ([#171](https://github.com/open-cli-collective/atlassian-cli/pull/171))
+- Cursor-based pagination with `--next-page-token` and lightweight fields (`--full`) for `issues list` and `issues search` ([#168](https://github.com/open-cli-collective/atlassian-cli/pull/168))
+- `dashboards` command group: `list`, `get`, `create`, `delete`, `gadgets list`, `gadgets remove` ([#165](https://github.com/open-cli-collective/atlassian-cli/pull/165))
+- `links` command group for issue links: `list`, `create`, `delete`, `types` ([#164](https://github.com/open-cli-collective/atlassian-cli/pull/164))
+- `--type` flag on `issues update` to change issue type via the bulk move API ([#163](https://github.com/open-cli-collective/atlassian-cli/pull/163))
+- `\n`, `\t`, `\\` escape sequence handling in `--description` flag ([#162](https://github.com/open-cli-collective/atlassian-cli/pull/162))
+- `--assignee` flag on `issues create` and `issues update` (accepts account ID, email, or `"me"`) ([#142](https://github.com/open-cli-collective/atlassian-cli/pull/142))
+- `--parent` flag on `issues create` and `issues update` ([#139](https://github.com/open-cli-collective/atlassian-cli/pull/139))
 - `fields` command group for custom field management: `create`, `delete` (trash), `restore`, `contexts` (list/create/delete), and `options` (list/add/update/delete) ([#155](https://github.com/open-cli-collective/atlassian-cli/issues/155))
 - `projects create`, `update`, `delete`, `restore`, `types` commands for full project management ([#106](https://github.com/open-cli-collective/atlassian-cli/pull/106))
 - `automation create` command to create rules from JSON files ([#79](https://github.com/open-cli-collective/atlassian-cli/pull/79))

@@ -11,6 +11,8 @@ A command-line interface for managing Jira Cloud tickets.
 - Add comments and perform transitions
 - Manage attachments
 - Manage automation rules (list, export, create, enable/disable)
+- Manage dashboards and gadgets
+- Create and manage issue links
 - Search users
 - Multiple output formats (table, JSON, plain)
 - Shell completion for bash, zsh, fish, and PowerShell
@@ -247,7 +249,9 @@ jtk issues list --project MYPROJECT -o json
 |------|-------|---------|-------------|
 | `--project` | `-p` | | Project key |
 | `--sprint` | `-s` | | Filter by sprint: sprint ID or `current` |
-| `--max` | `-m` | `50` | Maximum number of issues to return |
+| `--max` | `-m` | `25` | Page size (number of results per page) |
+| `--full` | | `false` | Include all fields (e.g. description) |
+| `--next-page-token` | | | Token for next page of results |
 
 ---
 
@@ -285,7 +289,9 @@ jtk issues create -p MYPROJECT -s "Custom field issue" --field priority=High --f
 | `--project` | `-p` | | Project key (**required**) |
 | `--type` | `-t` | `Task` | Issue type: `Task`, `Bug`, `Story`, etc. |
 | `--summary` | `-s` | | Issue summary (**required**) |
-| `--description` | `-d` | | Issue description |
+| `--description` | `-d` | | Issue description (supports `\n`, `\t`, `\\` escape sequences) |
+| `--parent` | | | Parent issue key (epic or parent issue) |
+| `--assignee` | `-a` | | Assignee (account ID, email, or `"me"`) |
 | `--field` | `-f` | | Additional field in `key=value` format (can be repeated) |
 
 ---
@@ -303,7 +309,10 @@ jtk issues update PROJ-123 --description "Updated description" --field labels=ur
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
 | `--summary` | `-s` | | New summary |
-| `--description` | `-d` | | New description |
+| `--description` | `-d` | | New description (supports `\n`, `\t`, `\\` escape sequences) |
+| `--parent` | | | Parent issue key (epic or parent issue) |
+| `--assignee` | `-a` | | Assignee (account ID, email, or `"me"`) |
+| `--type` | `-t` | | New issue type (uses Jira Cloud bulk move API) |
 | `--field` | `-f` | | Field to update in `key=value` format (can be repeated) |
 
 **Arguments:**
@@ -323,7 +332,9 @@ jtk issues search --jql "assignee = currentUser()" -o json
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
 | `--jql` | | | JQL query string (**required**) |
-| `--max` | `-m` | `50` | Maximum number of results |
+| `--max` | `-m` | `25` | Page size (number of results per page) |
+| `--full` | | `false` | Include all fields (e.g. description) |
+| `--next-page-token` | | | Token for next page of results |
 
 ---
 
@@ -446,6 +457,72 @@ jtk issues move-status 12345
 
 **Arguments:**
 - `<task-id>` - The task ID returned by `issues move` (**required**)
+
+---
+
+### `jtk links list <issue-key>`
+
+List all links on an issue.
+
+```bash
+jtk links list PROJ-123
+jtk links list PROJ-123 -o json
+```
+
+**Aliases:** `jtk link list`, `jtk l list`
+
+**Arguments:**
+- `<issue-key>` - The issue key (**required**)
+
+---
+
+### `jtk links create <issue-key> <target-issue-key>`
+
+Create a link between two issues. The first issue is the outward issue and the second is the inward issue.
+
+```bash
+# A blocks B
+jtk links create PROJ-123 PROJ-456 --type Blocks
+
+# A relates to B
+jtk links create PROJ-123 PROJ-456 --type Relates
+```
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--type` | `-t` | | Link type name (**required**) |
+
+**Arguments:**
+- `<issue-key>` - The outward issue key (**required**)
+- `<target-issue-key>` - The inward issue key (**required**)
+
+> Tip: Use `jtk links types` to see available link types.
+
+---
+
+### `jtk links delete <link-id>`
+
+Delete an issue link.
+
+```bash
+jtk links delete 10001
+```
+
+**Arguments:**
+- `<link-id>` - The link ID (**required**)
+
+> Tip: Use `jtk links list PROJ-123` to find link IDs.
+
+---
+
+### `jtk links types`
+
+List available issue link types.
+
+```bash
+jtk links types
+jtk links types -o json
+```
 
 ---
 
@@ -947,6 +1024,98 @@ jtk automation disable 123
 
 **Arguments:**
 - `<rule-id>` - The rule ID (**required**)
+
+---
+
+### `jtk dashboards list`
+
+List accessible dashboards.
+
+**Aliases:** `jtk dashboard list`, `jtk dash list`
+
+```bash
+jtk dashboards list
+jtk dashboards list --search "Sprint"
+jtk dashboards list --max 10
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--search` | | Search dashboards by name |
+| `--max` | `50` | Maximum number of results |
+
+> Note: Dashboard commands are not available with bearer auth (scoped tokens lack the Dashboard scope).
+
+---
+
+### `jtk dashboards get <dashboard-id>`
+
+Get dashboard details including gadgets.
+
+```bash
+jtk dashboards get 10001
+jtk dashboards get 10001 -o json
+```
+
+**Arguments:**
+- `<dashboard-id>` - The dashboard ID (**required**)
+
+---
+
+### `jtk dashboards create`
+
+Create a new dashboard.
+
+```bash
+jtk dashboards create --name "My Dashboard"
+jtk dashboards create --name "Sprint Board" --description "Sprint tracking"
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--name` | | Dashboard name (**required**) |
+| `--description` | | Dashboard description |
+
+---
+
+### `jtk dashboards delete <dashboard-id>`
+
+Delete a dashboard.
+
+```bash
+jtk dashboards delete 10001
+```
+
+**Arguments:**
+- `<dashboard-id>` - The dashboard ID (**required**)
+
+---
+
+### `jtk dashboards gadgets list <dashboard-id>`
+
+List gadgets on a dashboard.
+
+```bash
+jtk dashboards gadgets list 10001
+jtk dashboards gadgets list 10001 -o json
+```
+
+**Arguments:**
+- `<dashboard-id>` - The dashboard ID (**required**)
+
+---
+
+### `jtk dashboards gadgets remove <dashboard-id> <gadget-id>`
+
+Remove a gadget from a dashboard.
+
+```bash
+jtk dashboards gadgets remove 10001 42
+```
+
+**Arguments:**
+- `<dashboard-id>` - The dashboard ID (**required**)
+- `<gadget-id>` - The gadget ID (**required**)
 
 ---
 

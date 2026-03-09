@@ -8,6 +8,9 @@
 
 ### Added
 
+- Service account support with bearer auth (`--auth-method bearer`) for scoped API tokens ([#171](https://github.com/open-cli-collective/atlassian-cli/pull/171))
+- `--storage` flag on `page create` and `page edit` to pipe Confluence storage format (XHTML) directly ([#144](https://github.com/open-cli-collective/atlassian-cli/pull/144))
+- Wiki-link syntax `[[Page Title]]` and `[[SPACE:Page Title]]` for internal Confluence page links ([#129](https://github.com/open-cli-collective/atlassian-cli/pull/129))
 - `space view`, `space create`, `space update`, `space delete` commands for full space management ([#151](https://github.com/open-cli-collective/atlassian-cli/issues/151))
 - ADF-to-Markdown converter (`pkg/md.FromADF`) for rendering Atlassian Document Format pages as markdown ([#150](https://github.com/open-cli-collective/atlassian-cli/issues/150))
 - Bracket macros (`[TOC]`, `[INFO]...[/INFO]`, etc.) are now converted to proper ADF nodes in the default (cloud editor) upload path ([#137](https://github.com/open-cli-collective/atlassian-cli/pull/137), closes [#133](https://github.com/open-cli-collective/atlassian-cli/issues/133))

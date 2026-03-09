@@ -28,7 +28,7 @@ Unified CLI tools for Atlassian Cloud products.
 
 | Tool | Description | Full Documentation |
 |------|-------------|-------------------|
-| `jtk` | Jira Cloud CLI for issues, sprints, and boards | [jtk README](tools/jtk/README.md) |
+| `jtk` | Jira Cloud CLI for issues, sprints, boards, dashboards, and automation | [jtk README](tools/jtk/README.md) |
 | `cfl` | Confluence Cloud CLI for markdown-first page management | [cfl README](tools/cfl/README.md) |
 
 ## Installation
@@ -273,9 +273,23 @@ jtk attachments list PROJ-123
 jtk attachments add PROJ-123 --file screenshot.png
 jtk attachments get 12345 --output ./downloads/
 
+# Issue links
+jtk links list PROJ-123
+jtk links create PROJ-123 PROJ-456 --type Blocks
+jtk links types
+
+# Dashboards
+jtk dashboards list
+jtk dashboards create --name "Sprint Board"
+jtk dashboards gadgets list 10001
+
 # Users
 jtk users search "john"
 jtk me
+
+# Fields
+jtk fields list
+jtk issues field-options priority
 
 # Automation rules
 jtk automation list
@@ -311,8 +325,14 @@ cfl search --cql "space = DEV AND type = page"
 # Copy a page
 cfl page copy 123456 --title "Copy of Page"
 
-# List spaces
+# Spaces
 cfl space list
+cfl space view DEV
+cfl space create --key PROJ --name "Project Space"
+
+# Config
+cfl config show
+cfl config test
 
 # Manage attachments
 cfl attachment list --page 123456

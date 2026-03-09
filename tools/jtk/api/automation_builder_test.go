@@ -16,7 +16,7 @@ func TestRuleBuilder_Build(t *testing.T) {
 
 	t.Run("minimal rule", func(t *testing.T) {
 		t.Parallel()
-		b := NewRuleBuilder("Test Rule")
+		b := NewRuleBuilder("Test Rule").WithAuthor("test-account-id")
 		data, err := b.Build()
 		testutil.RequireNoError(t, err)
 
@@ -50,7 +50,7 @@ func TestRuleBuilder_Build(t *testing.T) {
 
 	t.Run("with description", func(t *testing.T) {
 		t.Parallel()
-		b := NewRuleBuilder("Named Rule").WithDescription("My description")
+		b := NewRuleBuilder("Named Rule").WithAuthor("test-account-id").WithDescription("My description")
 		data, err := b.Build()
 		testutil.RequireNoError(t, err)
 
@@ -60,7 +60,7 @@ func TestRuleBuilder_Build(t *testing.T) {
 
 	t.Run("with state ENABLED", func(t *testing.T) {
 		t.Parallel()
-		b := NewRuleBuilder("Enabled Rule").WithState("ENABLED")
+		b := NewRuleBuilder("Enabled Rule").WithAuthor("test-account-id").WithState("ENABLED")
 		data, err := b.Build()
 		testutil.RequireNoError(t, err)
 
@@ -70,7 +70,7 @@ func TestRuleBuilder_Build(t *testing.T) {
 
 	t.Run("with project scope", func(t *testing.T) {
 		t.Parallel()
-		b := NewRuleBuilder("Scoped Rule").
+		b := NewRuleBuilder("Scoped Rule").WithAuthor("test-account-id").
 			ForProjects("ari:cloud:jira:abc:project/10022", "ari:cloud:jira:abc:project/10023")
 		data, err := b.Build()
 		testutil.RequireNoError(t, err)
@@ -84,7 +84,7 @@ func TestRuleBuilder_Build(t *testing.T) {
 
 	t.Run("no project scope omits ruleScopeARIs", func(t *testing.T) {
 		t.Parallel()
-		b := NewRuleBuilder("Global Rule")
+		b := NewRuleBuilder("Global Rule").WithAuthor("test-account-id")
 		data, err := b.Build()
 		testutil.RequireNoError(t, err)
 
@@ -94,7 +94,7 @@ func TestRuleBuilder_Build(t *testing.T) {
 
 	t.Run("with trigger and components", func(t *testing.T) {
 		t.Parallel()
-		b := NewRuleBuilder("Full Rule").
+		b := NewRuleBuilder("Full Rule").WithAuthor("test-account-id").
 			WithTrigger(IssueCreatedTrigger()).
 			AddComponent(JQLCondition("project = TEST")).
 			AddComponent(CommentOnIssue("Hello"))
@@ -110,7 +110,7 @@ func TestRuleBuilder_Build(t *testing.T) {
 
 	t.Run("allow other rule trigger", func(t *testing.T) {
 		t.Parallel()
-		b := NewRuleBuilder("Chainable Rule").AllowOtherRuleTrigger(true)
+		b := NewRuleBuilder("Chainable Rule").WithAuthor("test-account-id").AllowOtherRuleTrigger(true)
 		data, err := b.Build()
 		testutil.RequireNoError(t, err)
 
@@ -120,7 +120,7 @@ func TestRuleBuilder_Build(t *testing.T) {
 
 	t.Run("notify on error policy", func(t *testing.T) {
 		t.Parallel()
-		b := NewRuleBuilder("Noisy Rule").NotifyOnError("ALWAYS")
+		b := NewRuleBuilder("Noisy Rule").WithAuthor("test-account-id").NotifyOnError("ALWAYS")
 		data, err := b.Build()
 		testutil.RequireNoError(t, err)
 
@@ -130,7 +130,7 @@ func TestRuleBuilder_Build(t *testing.T) {
 
 	t.Run("connections is empty array", func(t *testing.T) {
 		t.Parallel()
-		b := NewRuleBuilder("Test")
+		b := NewRuleBuilder("Test").WithAuthor("test-account-id")
 		data, err := b.Build()
 		testutil.RequireNoError(t, err)
 
@@ -140,6 +140,70 @@ func TestRuleBuilder_Build(t *testing.T) {
 		var connections []any
 		testutil.RequireNoError(t, json.Unmarshal(payload["connections"], &connections))
 		testutil.Len(t, connections, 0)
+	})
+}
+
+func TestRuleBuilder_AuthorActorWriteAccess(t *testing.T) {
+	t.Parallel()
+
+	t.Run("missing author returns error", func(t *testing.T) {
+		t.Parallel()
+		b := NewRuleBuilder("No Author Rule")
+		_, err := b.Build()
+		testutil.RequireError(t, err)
+		testutil.Contains(t, err.Error(), "authorAccountId is required")
+	})
+
+	t.Run("with author sets authorAccountId and default actor", func(t *testing.T) {
+		t.Parallel()
+		b := NewRuleBuilder("Author Rule").WithAuthor("abc-123")
+		data, err := b.Build()
+		testutil.RequireNoError(t, err)
+
+		rule := extractRule(t, data)
+		testutil.Equal(t, rule["authorAccountId"], "abc-123")
+
+		actor := rule["actor"].(map[string]any)
+		testutil.Equal(t, actor["type"], "ACCOUNT_ID")
+		testutil.Equal(t, actor["actor"], "abc-123")
+	})
+
+	t.Run("with explicit actor overrides default", func(t *testing.T) {
+		t.Parallel()
+		b := NewRuleBuilder("Actor Rule").
+			WithAuthor("human-123").
+			WithActor("service-account-456")
+		data, err := b.Build()
+		testutil.RequireNoError(t, err)
+
+		rule := extractRule(t, data)
+		testutil.Equal(t, rule["authorAccountId"], "human-123")
+
+		actor := rule["actor"].(map[string]any)
+		testutil.Equal(t, actor["type"], "ACCOUNT_ID")
+		testutil.Equal(t, actor["actor"], "service-account-456")
+	})
+
+	t.Run("writeAccessType defaults to UNRESTRICTED", func(t *testing.T) {
+		t.Parallel()
+		b := NewRuleBuilder("Default Access").WithAuthor("abc-123")
+		data, err := b.Build()
+		testutil.RequireNoError(t, err)
+
+		rule := extractRule(t, data)
+		testutil.Equal(t, rule["writeAccessType"], "UNRESTRICTED")
+	})
+
+	t.Run("with custom writeAccessType", func(t *testing.T) {
+		t.Parallel()
+		b := NewRuleBuilder("Restricted Rule").
+			WithAuthor("abc-123").
+			WithWriteAccessType("RESTRICTED")
+		data, err := b.Build()
+		testutil.RequireNoError(t, err)
+
+		rule := extractRule(t, data)
+		testutil.Equal(t, rule["writeAccessType"], "RESTRICTED")
 	})
 }
 
@@ -649,7 +713,7 @@ func TestRuleBuilder_RoundTrip(t *testing.T) {
 
 	t.Run("marshal and unmarshal preserves structure", func(t *testing.T) {
 		t.Parallel()
-		b := NewRuleBuilder("Round Trip Rule").
+		b := NewRuleBuilder("Round Trip Rule").WithAuthor("test-account-id").
 			WithDescription("Testing round-trip fidelity").
 			WithTrigger(IssueCreatedTrigger()).
 			AddComponent(JQLCondition("project = TEST")).
@@ -685,7 +749,7 @@ func TestRuleBuilder_MatchesBackupStructure(t *testing.T) {
 
 	// Build a rule that structurally matches ON-MON_Unblock_Onboarding_Tickets
 	// (trigger on transition, JQL condition, lookup + variable + branch)
-	b := NewRuleBuilder("[Test] Unblock Onboarding").
+	b := NewRuleBuilder("[Test] Unblock Onboarding").WithAuthor("test-account-id").
 		WithDescription("Unblock next ticket in a chain").
 		WithState("ENABLED").
 		WithTrigger(IssueTransitionedTrigger("Deployed", "Canceled", "Done")).
@@ -723,7 +787,7 @@ func TestRuleBuilder_MatchesIfElseStructure(t *testing.T) {
 	t.Parallel()
 
 	// Build a rule that structurally matches ON-MON_Create_Onboarding_Tasks if/else pattern
-	b := NewRuleBuilder("[Test] Platform Branching").
+	b := NewRuleBuilder("[Test] Platform Branching").WithAuthor("test-account-id").
 		WithTrigger(IssueCreatedTrigger()).
 		AddComponent(JQLCondition("project = 'ON' AND issuetype = Epic")).
 		AddComponent(CreateVariable("bankPlatform", "{{triggerIssue.customField_10037}}")).
@@ -789,7 +853,7 @@ func TestRuleBuilder_MatchesIfElseStructure(t *testing.T) {
 
 func TestRuleBuilder_UnicodeInValues(t *testing.T) {
 	t.Parallel()
-	b := NewRuleBuilder("Règle avec des accents").
+	b := NewRuleBuilder("Règle avec des accents").WithAuthor("test-account-id").
 		AddComponent(JQLCondition(`summary ~ "prüfung" AND description ~ "日本語"`))
 
 	data, err := b.Build()

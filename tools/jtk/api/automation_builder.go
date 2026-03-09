@@ -15,6 +15,10 @@ type RuleBuilder struct {
 	components  []RuleComponent
 	projectARIs []string
 
+	authorAccountID string
+	actorAccountID  string // defaults to authorAccountID if empty
+	writeAccessType string // defaults to "UNRESTRICTED"
+
 	canOtherRuleTrigger bool
 	notifyOnError       string // FIRSTERROR, ALWAYS, NEVER
 }
@@ -72,6 +76,28 @@ func (b *RuleBuilder) NotifyOnError(policy string) *RuleBuilder {
 	return b
 }
 
+// WithAuthor sets the rule author's Atlassian account ID.
+// This is required — Build() returns an error if not set.
+func (b *RuleBuilder) WithAuthor(accountID string) *RuleBuilder {
+	b.authorAccountID = accountID
+	return b
+}
+
+// WithActor sets the account ID that the rule runs as.
+// If not set, defaults to the author's account ID.
+// The actor is often the "Automation for Jira" service account.
+func (b *RuleBuilder) WithActor(accountID string) *RuleBuilder {
+	b.actorAccountID = accountID
+	return b
+}
+
+// WithWriteAccessType sets the write access type for the rule.
+// Defaults to "UNRESTRICTED" if not set.
+func (b *RuleBuilder) WithWriteAccessType(accessType string) *RuleBuilder {
+	b.writeAccessType = accessType
+	return b
+}
+
 // rulePayload is the JSON shape accepted by the Automation REST API for create/update.
 // The export endpoint returns {"rule": {...}, "connections": [...]}, and the create
 // endpoint accepts the same shape.
@@ -84,11 +110,20 @@ type ruleBody struct {
 	Name                string          `json:"name"`
 	State               string          `json:"state"`
 	Description         string          `json:"description,omitempty"`
+	AuthorAccountID     string          `json:"authorAccountId"`
+	Actor               ruleActor       `json:"actor"`
+	WriteAccessType     string          `json:"writeAccessType"`
 	Trigger             *RuleComponent  `json:"trigger,omitempty"`
 	Components          []RuleComponent `json:"components"`
 	CanOtherRuleTrigger bool            `json:"canOtherRuleTrigger"`
 	NotifyOnError       string          `json:"notifyOnError"`
 	RuleScopeARIs       []string        `json:"ruleScopeARIs,omitempty"`
+}
+
+// ruleActor identifies who the automation rule runs as.
+type ruleActor struct {
+	Type  string `json:"type"`
+	Actor string `json:"actor"`
 }
 
 // Build produces the JSON payload for CreateAutomationRule.
@@ -97,11 +132,27 @@ func (b *RuleBuilder) Build() (json.RawMessage, error) {
 	if b.name == "" {
 		return nil, fmt.Errorf("rule name is required")
 	}
+	if b.authorAccountID == "" {
+		return nil, fmt.Errorf("authorAccountId is required; call WithAuthor()")
+	}
+
+	actorID := b.actorAccountID
+	if actorID == "" {
+		actorID = b.authorAccountID
+	}
+
+	writeAccess := b.writeAccessType
+	if writeAccess == "" {
+		writeAccess = "UNRESTRICTED"
+	}
 
 	body := ruleBody{
 		Name:                b.name,
 		State:               b.state,
 		Description:         b.description,
+		AuthorAccountID:     b.authorAccountID,
+		Actor:               ruleActor{Type: "ACCOUNT_ID", Actor: actorID},
+		WriteAccessType:     writeAccess,
 		Trigger:             b.trigger,
 		Components:          b.components,
 		CanOtherRuleTrigger: b.canOtherRuleTrigger,

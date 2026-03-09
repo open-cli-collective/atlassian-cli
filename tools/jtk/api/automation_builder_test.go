@@ -76,22 +76,20 @@ func TestRuleBuilder_Build(t *testing.T) {
 		testutil.RequireNoError(t, err)
 
 		rule := extractRule(t, data)
-		scope, ok := rule["ruleScope"].(map[string]any)
+		aris, ok := rule["ruleScopeARIs"].([]any)
 		testutil.True(t, ok)
-		resources, ok := scope["resources"].([]any)
-		testutil.True(t, ok)
-		testutil.Len(t, resources, 2)
-		testutil.Equal(t, resources[0], "ari:cloud:jira:abc:project/10022")
+		testutil.Len(t, aris, 2)
+		testutil.Equal(t, aris[0], "ari:cloud:jira:abc:project/10022")
 	})
 
-	t.Run("no project scope omits ruleScope", func(t *testing.T) {
+	t.Run("no project scope omits ruleScopeARIs", func(t *testing.T) {
 		t.Parallel()
 		b := NewRuleBuilder("Global Rule")
 		data, err := b.Build()
 		testutil.RequireNoError(t, err)
 
 		rule := extractRule(t, data)
-		testutil.Nil(t, rule["ruleScope"])
+		testutil.Nil(t, rule["ruleScopeARIs"])
 	})
 
 	t.Run("with trigger and components", func(t *testing.T) {

@@ -88,11 +88,7 @@ type ruleBody struct {
 	Components          []RuleComponent `json:"components"`
 	CanOtherRuleTrigger bool            `json:"canOtherRuleTrigger"`
 	NotifyOnError       string          `json:"notifyOnError"`
-	RuleScope           *ruleScope      `json:"ruleScope,omitempty"`
-}
-
-type ruleScope struct {
-	Resources []string `json:"resources"`
+	RuleScopeARIs       []string        `json:"ruleScopeARIs,omitempty"`
 }
 
 // Build produces the JSON payload for CreateAutomationRule.
@@ -113,7 +109,7 @@ func (b *RuleBuilder) Build() (json.RawMessage, error) {
 	}
 
 	if len(b.projectARIs) > 0 {
-		body.RuleScope = &ruleScope{Resources: b.projectARIs}
+		body.RuleScopeARIs = b.projectARIs
 	}
 
 	if body.Components == nil {

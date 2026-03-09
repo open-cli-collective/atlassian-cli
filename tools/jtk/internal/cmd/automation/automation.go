@@ -50,6 +50,7 @@ Use enable/disable to toggle rules without touching the full definition.`,
 	cmd.AddCommand(newUpdateCmd(opts))
 	cmd.AddCommand(newEnableCmd(opts))
 	cmd.AddCommand(newDisableCmd(opts))
+	cmd.AddCommand(newDeleteCmd(opts))
 
 	parent.AddCommand(cmd)
 }

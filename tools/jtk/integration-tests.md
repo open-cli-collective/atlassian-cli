@@ -691,13 +691,11 @@ Run these steps in order. All mutations operate on a **copy** of a real rule —
 
 ### Cleanup test rule
 
-11. **Disable and rename for manual deletion:**
+11. **Delete the test rule:**
     ```bash
-    jtk auto disable $TEST_AUTO_UUID
-    jq '.rule.name = "[DELETEME] Auto Integration Copy"' /tmp/auto-rt.json > /tmp/auto-deleteme.json
-    jtk auto update $TEST_AUTO_UUID --file /tmp/auto-deleteme.json
+    jtk auto delete $TEST_AUTO_UUID
     ```
-    Expected: Rule disabled and renamed
+    Expected: Rule deleted (auto-disables if ENABLED)
 
 ### Error cases
 
@@ -1021,7 +1019,7 @@ Verify each alias produces the same output as the full command:
 - [ ] Create copy (strip UUID, rename)
 - [ ] Toggle cycle (disable, enable, idempotent)
 - [ ] Round-trip update
-- [ ] Cleanup (disable + rename to DELETEME)
+- [ ] Cleanup (`jtk auto delete`)
 - [ ] Error cases
 
 #### Sprint Mutations (Section 15)
@@ -1045,9 +1043,8 @@ Verify each alias produces the same output as the full command:
 - [ ] Delete test issues: search for `[Test]` prefix, delete with `--force`
 - [ ] Delete test dashboards: `jtk dashboards delete $TEST_DASH_ID`
 - [ ] Trash test fields: `jtk fields delete $TEST_FIELD --force`
-- [ ] Disable + rename automation test copies to `[DELETEME]`
-- [ ] Manually purge `[DELETEME]` rules in Jira UI (Settings → System → Automation rules)
-- [ ] Verify: `jtk auto list -o json | jq '.[] | select(.name | startswith("[Test]") or startswith("[DELETEME]"))'`
+- [ ] Delete automation test rules: `jtk auto list | grep '\[Test\]' | awk '{print $1}' | xargs -I{} jtk auto delete {}`
+- [ ] Verify: `jtk auto list | grep -E '\[Test\]|\[DELETEME\]'` — should be empty
 
 ---
 

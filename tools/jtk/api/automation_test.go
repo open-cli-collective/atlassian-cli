@@ -608,3 +608,28 @@ func TestListAutomationRulesPagination(t *testing.T) {
 	testutil.Equal(t, rules[2].Name, "Rule 3")
 	testutil.Equal(t, atomic.LoadInt32(&page), int32(2)) // Verify two pages were fetched
 }
+
+func TestDeleteAutomationRule(t *testing.T) {
+	t.Parallel()
+
+	var receivedMethod string
+	var receivedPath string
+
+	client, server := newTestClientWithServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/_edge/tenant_info" {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"cloudId":"cloud-1"}`))
+			return
+		}
+
+		receivedMethod = r.Method
+		receivedPath = r.URL.Path
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	err := client.DeleteAutomationRule(context.Background(), "rule-uuid-123")
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, receivedMethod, http.MethodDelete)
+	testutil.Contains(t, receivedPath, "/rule/rule-uuid-123")
+}

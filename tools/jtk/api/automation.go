@@ -154,6 +154,23 @@ func (c *Client) CreateAutomationRule(ctx context.Context, ruleJSON json.RawMess
 	return body, nil
 }
 
+// DeleteAutomationRule deletes an automation rule by ID.
+// The rule must be DISABLED before deletion — the API rejects DELETE on ENABLED rules.
+func (c *Client) DeleteAutomationRule(ctx context.Context, ruleID string) error {
+	base, err := c.AutomationBaseURL(ctx)
+	if err != nil {
+		return fmt.Errorf("deleting automation rule %s: %w", ruleID, err)
+	}
+
+	urlStr := fmt.Sprintf("%s/rule/%s", base, url.PathEscape(ruleID))
+	_, err = c.Delete(ctx, urlStr)
+	if err != nil {
+		return fmt.Errorf("deleting automation rule %s: %w", ruleID, err)
+	}
+
+	return nil
+}
+
 // SetAutomationRuleState enables or disables an automation rule.
 func (c *Client) SetAutomationRuleState(ctx context.Context, ruleID string, enabled bool) error {
 	base, err := c.AutomationBaseURL(ctx)

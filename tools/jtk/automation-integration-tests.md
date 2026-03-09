@@ -132,9 +132,7 @@ Creates a minimal rule with a JQL condition and a comment action.
 
 6. **Cleanup:**
    ```bash
-   jtk auto disable $JQL_UUID
-   jq '.rule.name = "[DELETEME] JQL Condition Rule"' /tmp/auto-jql-export.json > /tmp/auto-jql-del.json
-   jtk auto update $JQL_UUID --file /tmp/auto-jql-del.json
+   jtk auto delete $JQL_UUID
    ```
 
 ---
@@ -224,9 +222,7 @@ Creates a rule using the pattern from real backups: extract a custom field to a 
 
 4. **Cleanup:**
    ```bash
-   jtk auto disable $COMP_UUID
-   jq '.rule.name = "[DELETEME] Comparator Variable Rule"' /tmp/auto-comparator-export.json > /tmp/auto-comp-del.json
-   jtk auto update $COMP_UUID --file /tmp/auto-comp-del.json
+   jtk auto delete $COMP_UUID
    ```
 
 ---
@@ -367,9 +363,7 @@ Creates a rule with if/else branching — the most complex structure.
 
 5. **Cleanup:**
    ```bash
-   jtk auto disable $IFELSE_UUID
-   jq '.rule.name = "[DELETEME] If/Else Block Rule"' /tmp/auto-ifelse-export.json > /tmp/auto-ifelse-del.json
-   jtk auto update $IFELSE_UUID --file /tmp/auto-ifelse-del.json
+   jtk auto delete $IFELSE_UUID
    ```
 
 ---
@@ -440,9 +434,7 @@ Creates a rule with multiple conditions: platform = Q2 AND product includes Chec
 
 4. **Cleanup:**
    ```bash
-   jtk auto disable $MULTI_UUID
-   jq '.rule.name = "[DELETEME] Multi-Condition AND Rule"' /tmp/auto-multi-export.json > /tmp/auto-multi-del.json
-   jtk auto update $MULTI_UUID --file /tmp/auto-multi-del.json
+   jtk auto delete $MULTI_UUID
    ```
 
 ---
@@ -490,9 +482,7 @@ Tests that exporting a rule and re-creating it produces structurally identical o
 
 6. **Cleanup:**
    ```bash
-   jtk auto disable $RT_UUID
-   jq '.rule.name = "[DELETEME] Round-Trip Copy"' /tmp/auto-rt-copy.json > /tmp/auto-rt-del.json
-   jtk auto update $RT_UUID --file /tmp/auto-rt-del.json
+   jtk auto delete $RT_UUID
    ```
 
 ---
@@ -568,9 +558,7 @@ Creates a rule with a `jira.issue.edit` action that sets a custom field.
 
 4. **Cleanup:**
    ```bash
-   jtk auto disable $EDIT_UUID
-   jq '.rule.name = "[DELETEME] Edit Field Action Rule"' /tmp/auto-edit-export.json > /tmp/auto-edit-del.json
-   jtk auto update $EDIT_UUID --file /tmp/auto-edit-del.json
+   jtk auto delete $EDIT_UUID
    ```
 
 ---
@@ -588,13 +576,17 @@ Creates a rule with a `jira.issue.edit` action that sets a custom field.
 
 ## Final Cleanup
 
-List all test rules and ensure they're disabled and renamed:
+List any leftover test rules and delete them:
 
 ```bash
+# Find any remaining test rules
 jtk auto list | grep -E "\[Test\]|\[DELETEME\]"
+
+# Delete each one (auto-disables ENABLED rules before deleting)
+jtk auto delete $UUID
 ```
 
-All test rules should be DISABLED with `[DELETEME]` prefix. Delete them manually in the Jira UI (the Automation REST API does not support deleting rules).
+Automation rules can also be managed in the Jira UI at `$JIRA_URL/jira/settings/automation` (system-level settings).
 
 ---
 

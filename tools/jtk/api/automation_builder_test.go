@@ -99,6 +99,38 @@ func TestRuleBuilder_Build(t *testing.T) {
 		testutil.Contains(t, err.Error(), "must have at least one action")
 	})
 
+	t.Run("trigger with IfElseBlock with empty MatchType returns error", func(t *testing.T) {
+		t.Parallel()
+		b := NewRuleBuilder("Bad MatchType").WithAuthor("test-account-id").
+			WithTrigger(IssueCreatedTrigger()).
+			AddComponent(IfElseBlock(
+				IfBlock{
+					MatchType:  "",
+					Conditions: []RuleComponent{ComparatorCondition("{{x}}", "1", "EQUALS")},
+					Actions:    []RuleComponent{CommentOnIssue("matched")},
+				},
+			))
+		_, err := b.Build()
+		testutil.RequireError(t, err)
+		testutil.Contains(t, err.Error(), "MatchType must be")
+	})
+
+	t.Run("trigger with IfElseBlock with invalid MatchType returns error", func(t *testing.T) {
+		t.Parallel()
+		b := NewRuleBuilder("Bad MatchType").WithAuthor("test-account-id").
+			WithTrigger(IssueCreatedTrigger()).
+			AddComponent(IfElseBlock(
+				IfBlock{
+					MatchType:  "NONE",
+					Conditions: []RuleComponent{ComparatorCondition("{{x}}", "1", "EQUALS")},
+					Actions:    []RuleComponent{CommentOnIssue("matched")},
+				},
+			))
+		_, err := b.Build()
+		testutil.RequireError(t, err)
+		testutil.Contains(t, err.Error(), `got "NONE"`)
+	})
+
 	t.Run("with description", func(t *testing.T) {
 		t.Parallel()
 		b := NewRuleBuilder("Named Rule").WithAuthor("test-account-id").WithDescription("My description")

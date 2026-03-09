@@ -153,6 +153,10 @@ func (b *RuleBuilder) Build() (json.RawMessage, error) {
 		}
 	}
 
+	if err := validateIfElseBlocks(b.components); err != nil {
+		return nil, err
+	}
+
 	actorID := b.actorAccountID
 	if actorID == "" {
 		actorID = b.authorAccountID
@@ -580,6 +584,29 @@ func ifElseBlockHasActions(c RuleComponent) bool {
 		}
 	}
 	return false
+}
+
+// validateIfElseBlocks checks that all IfElseBlock components have valid MatchType values.
+func validateIfElseBlocks(components []RuleComponent) error {
+	for _, c := range components {
+		if c.Type != "jira.condition.container.block" {
+			continue
+		}
+		var blocks []struct {
+			Value struct {
+				MatchType string `json:"conditionMatchType"`
+			} `json:"value"`
+		}
+		if err := json.Unmarshal(c.Children, &blocks); err != nil {
+			continue
+		}
+		for _, block := range blocks {
+			if block.Value.MatchType != "ALL" && block.Value.MatchType != "ANY" {
+				return fmt.Errorf("IfBlock.MatchType must be \"ALL\" or \"ANY\", got %q", block.Value.MatchType)
+			}
+		}
+	}
+	return nil
 }
 
 func mustMarshal(v any) json.RawMessage {

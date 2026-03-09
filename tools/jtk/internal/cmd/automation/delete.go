@@ -6,10 +6,14 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/open-cli-collective/atlassian-go/prompt"
+
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 )
 
 func newDeleteCmd(opts *root.Options) *cobra.Command {
+	var force bool
+
 	cmd := &cobra.Command{
 		Use:   "delete <rule-id>",
 		Short: "Delete an automation rule",
@@ -17,18 +21,23 @@ func newDeleteCmd(opts *root.Options) *cobra.Command {
 it will be automatically disabled before deletion.
 
 This action cannot be undone.`,
-		Example: `  jtk automation delete 019cd438-229b-75f4-a443-9a96e687b867
-  jtk auto delete 019cd438-229b-75f4-a443-9a96e687b867`,
+		Example: `  # Delete a rule (will prompt for confirmation)
+  jtk auto delete 019cd438-229b-75f4-a443-9a96e687b867
+
+  # Delete without confirmation
+  jtk auto delete 019cd438-229b-75f4-a443-9a96e687b867 --force`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runDelete(cmd.Context(), opts, args[0])
+			return runDelete(cmd.Context(), opts, args[0], force)
 		},
 	}
+
+	cmd.Flags().BoolVar(&force, "force", false, "Skip confirmation prompt")
 
 	return cmd
 }
 
-func runDelete(ctx context.Context, opts *root.Options, ruleID string) error {
+func runDelete(ctx context.Context, opts *root.Options, ruleID string, force bool) error {
 	v := opts.View()
 
 	client, err := opts.APIClient()
@@ -39,6 +48,20 @@ func runDelete(ctx context.Context, opts *root.Options, ruleID string) error {
 	current, err := client.GetAutomationRule(ctx, ruleID)
 	if err != nil {
 		return err
+	}
+
+	if !force {
+		fmt.Fprintf(opts.Stderr, "This will permanently delete rule %q (%s). This action cannot be undone.\n", current.Name, ruleID)
+		fmt.Fprint(opts.Stderr, "Are you sure? [y/N]: ")
+
+		confirmed, err := prompt.Confirm(opts.Stdin)
+		if err != nil {
+			return fmt.Errorf("reading confirmation: %w", err)
+		}
+		if !confirmed {
+			v.Info("Deletion cancelled.")
+			return nil
+		}
 	}
 
 	// API rejects DELETE on ENABLED rules — disable first.

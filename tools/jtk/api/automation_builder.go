@@ -138,8 +138,12 @@ func (b *RuleBuilder) Build() (json.RawMessage, error) {
 	if b.trigger != nil {
 		hasAction := false
 		for _, c := range b.components {
-			// Top-level actions, or if/else blocks (which contain actions in their branches).
-			if c.Component == "ACTION" || c.Type == "jira.condition.container.block" {
+			if c.Component == "ACTION" {
+				hasAction = true
+				break
+			}
+			// If/else blocks contain actions in their branches — verify at least one branch has actions.
+			if c.Type == "jira.condition.container.block" && ifElseBlockHasActions(c) {
 				hasAction = true
 				break
 			}
@@ -558,6 +562,24 @@ var smartValueIDCounter atomic.Int64
 func nextSmartValueID() string {
 	n := smartValueIDCounter.Add(1)
 	return fmt.Sprintf("_customsmartvalue_id_%d", n)
+}
+
+// ifElseBlockHasActions checks whether an IfElseBlock component contains at least
+// one branch with actions. The Children field holds serialized CONDITION_BLOCK entries
+// whose "children" arrays contain the branch's actions.
+func ifElseBlockHasActions(c RuleComponent) bool {
+	var blocks []struct {
+		Children []json.RawMessage `json:"children"`
+	}
+	if err := json.Unmarshal(c.Children, &blocks); err != nil {
+		return false
+	}
+	for _, block := range blocks {
+		if len(block.Children) > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 func mustMarshal(v any) json.RawMessage {

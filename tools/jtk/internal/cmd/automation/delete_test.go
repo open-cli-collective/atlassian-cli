@@ -54,7 +54,7 @@ func TestRunDelete_DisabledRule(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runDelete(context.Background(), opts, "42")
+	err = runDelete(context.Background(), opts, "42", true)
 	testutil.RequireNoError(t, err)
 	testutil.Contains(t, stdout.String(), "Deleted")
 	testutil.Contains(t, stdout.String(), "Test Rule")
@@ -104,7 +104,7 @@ func TestRunDelete_EnabledRule_DisablesFirst(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runDelete(context.Background(), opts, "42")
+	err = runDelete(context.Background(), opts, "42", true)
 	testutil.RequireNoError(t, err)
 	testutil.Contains(t, stdout.String(), "Deleted")
 	// Should be GET + PUT (disable) + DELETE
@@ -112,6 +112,50 @@ func TestRunDelete_EnabledRule_DisablesFirst(t *testing.T) {
 	testutil.Equal(t, methods[0], http.MethodGet)
 	testutil.Equal(t, methods[1], http.MethodPut)
 	testutil.Equal(t, methods[2], http.MethodDelete)
+}
+
+func TestRunDelete_PromptDeclined(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/_edge/tenant_info" {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"cloudId":"test-cloud"}`))
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		if r.Method == http.MethodGet {
+			rule := api.AutomationRule{
+				ID:    json.Number("42"),
+				Name:  "Do Not Delete",
+				State: "DISABLED",
+			}
+			_ = json.NewEncoder(w).Encode(rule)
+		}
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{
+		URL:      server.URL,
+		Email:    "test@example.com",
+		APIToken: "token",
+	})
+	testutil.RequireNoError(t, err)
+
+	var stdout, stderr bytes.Buffer
+	opts := &root.Options{
+		Output: "table",
+		Stdout: &stdout,
+		Stderr: &stderr,
+		Stdin:  bytes.NewBufferString("n\n"),
+	}
+	opts.SetAPIClient(client)
+
+	err = runDelete(context.Background(), opts, "42", false)
+	testutil.RequireNoError(t, err)
+	testutil.Contains(t, stderr.String(), "permanently delete")
+	testutil.Contains(t, stdout.String(), "cancelled")
 }
 
 func TestRunDelete_JSONOutput(t *testing.T) {
@@ -151,7 +195,7 @@ func TestRunDelete_JSONOutput(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runDelete(context.Background(), opts, "42")
+	err = runDelete(context.Background(), opts, "42", true)
 	testutil.RequireNoError(t, err)
 
 	var result map[string]string

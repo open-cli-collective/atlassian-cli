@@ -73,6 +73,32 @@ func TestRuleBuilder_Build(t *testing.T) {
 		testutil.RequireNoError(t, err)
 	})
 
+	t.Run("trigger with empty IfElseBlock returns error", func(t *testing.T) {
+		t.Parallel()
+		b := NewRuleBuilder("Empty Branch").WithAuthor("test-account-id").
+			WithTrigger(IssueCreatedTrigger()).
+			AddComponent(IfElseBlock())
+		_, err := b.Build()
+		testutil.RequireError(t, err)
+		testutil.Contains(t, err.Error(), "must have at least one action")
+	})
+
+	t.Run("trigger with IfElseBlock with no actions returns error", func(t *testing.T) {
+		t.Parallel()
+		b := NewRuleBuilder("No Actions Branch").WithAuthor("test-account-id").
+			WithTrigger(IssueCreatedTrigger()).
+			AddComponent(IfElseBlock(
+				IfBlock{
+					MatchType:  "ALL",
+					Conditions: []RuleComponent{ComparatorCondition("{{x}}", "1", "EQUALS")},
+					Actions:    []RuleComponent{},
+				},
+			))
+		_, err := b.Build()
+		testutil.RequireError(t, err)
+		testutil.Contains(t, err.Error(), "must have at least one action")
+	})
+
 	t.Run("with description", func(t *testing.T) {
 		t.Parallel()
 		b := NewRuleBuilder("Named Rule").WithAuthor("test-account-id").WithDescription("My description")

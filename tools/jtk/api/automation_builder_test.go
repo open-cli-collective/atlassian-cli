@@ -48,6 +48,16 @@ func TestRuleBuilder_Build(t *testing.T) {
 		testutil.Contains(t, err.Error(), "rule name is required")
 	})
 
+	t.Run("trigger with no action returns error", func(t *testing.T) {
+		t.Parallel()
+		b := NewRuleBuilder("No Action Rule").WithAuthor("test-account-id").
+			WithTrigger(IssueCreatedTrigger()).
+			AddComponent(JQLCondition("project = TEST"))
+		_, err := b.Build()
+		testutil.RequireError(t, err)
+		testutil.Contains(t, err.Error(), "must have at least one action")
+	})
+
 	t.Run("with description", func(t *testing.T) {
 		t.Parallel()
 		b := NewRuleBuilder("Named Rule").WithAuthor("test-account-id").WithDescription("My description")

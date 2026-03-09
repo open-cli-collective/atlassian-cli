@@ -135,6 +135,18 @@ func (b *RuleBuilder) Build() (json.RawMessage, error) {
 	if b.authorAccountID == "" {
 		return nil, fmt.Errorf("authorAccountId is required; call WithAuthor()")
 	}
+	if b.trigger != nil {
+		hasAction := false
+		for _, c := range b.components {
+			if c.Component == "ACTION" {
+				hasAction = true
+				break
+			}
+		}
+		if !hasAction {
+			return nil, fmt.Errorf("rules with a trigger must have at least one action component")
+		}
+	}
 
 	actorID := b.actorAccountID
 	if actorID == "" {

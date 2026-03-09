@@ -1,0 +1,580 @@
+package api //nolint:revive // package name is intentional
+
+import (
+	"encoding/json"
+	"fmt"
+	"sync/atomic"
+)
+
+// RuleBuilder constructs automation rule JSON for use with CreateAutomationRule.
+type RuleBuilder struct {
+	name        string
+	description string
+	state       string
+	trigger     *RuleComponent
+	components  []RuleComponent
+	projectARIs []string
+
+	canOtherRuleTrigger bool
+	notifyOnError       string // FIRSTERROR, ALWAYS, NEVER
+}
+
+// NewRuleBuilder creates a new automation rule builder with the given name.
+// Rules are created in DISABLED state by default.
+func NewRuleBuilder(name string) *RuleBuilder {
+	return &RuleBuilder{
+		name:          name,
+		state:         "DISABLED",
+		notifyOnError: "FIRSTERROR",
+	}
+}
+
+// WithDescription sets the rule description.
+func (b *RuleBuilder) WithDescription(desc string) *RuleBuilder {
+	b.description = desc
+	return b
+}
+
+// WithState sets the rule state (ENABLED or DISABLED).
+func (b *RuleBuilder) WithState(state string) *RuleBuilder {
+	b.state = state
+	return b
+}
+
+// WithTrigger sets the rule's trigger component.
+func (b *RuleBuilder) WithTrigger(t RuleComponent) *RuleBuilder {
+	b.trigger = &t
+	return b
+}
+
+// AddComponent appends a condition, action, or branch component.
+func (b *RuleBuilder) AddComponent(c RuleComponent) *RuleBuilder {
+	b.components = append(b.components, c)
+	return b
+}
+
+// ForProjects scopes the rule to specific projects by ARI.
+// Example ARI: "ari:cloud:jira:CLOUD_ID:project/PROJECT_ID"
+func (b *RuleBuilder) ForProjects(aris ...string) *RuleBuilder {
+	b.projectARIs = append(b.projectARIs, aris...)
+	return b
+}
+
+// AllowOtherRuleTrigger sets whether other automation rules can trigger this rule.
+func (b *RuleBuilder) AllowOtherRuleTrigger(allow bool) *RuleBuilder {
+	b.canOtherRuleTrigger = allow
+	return b
+}
+
+// NotifyOnError sets the error notification policy: FIRSTERROR, ALWAYS, or NEVER.
+func (b *RuleBuilder) NotifyOnError(policy string) *RuleBuilder {
+	b.notifyOnError = policy
+	return b
+}
+
+// rulePayload is the JSON shape accepted by the Automation REST API for create/update.
+// The export endpoint returns {"rule": {...}, "connections": [...]}, and the create
+// endpoint accepts the same shape.
+type rulePayload struct {
+	Rule        ruleBody          `json:"rule"`
+	Connections []json.RawMessage `json:"connections"`
+}
+
+type ruleBody struct {
+	Name                string          `json:"name"`
+	State               string          `json:"state"`
+	Description         string          `json:"description,omitempty"`
+	Trigger             *RuleComponent  `json:"trigger,omitempty"`
+	Components          []RuleComponent `json:"components"`
+	CanOtherRuleTrigger bool            `json:"canOtherRuleTrigger"`
+	NotifyOnError       string          `json:"notifyOnError"`
+	RuleScope           *ruleScope      `json:"ruleScope,omitempty"`
+}
+
+type ruleScope struct {
+	Resources []string `json:"resources"`
+}
+
+// Build produces the JSON payload for CreateAutomationRule.
+// Returns the envelope format: {"rule": {...}, "connections": []}.
+func (b *RuleBuilder) Build() (json.RawMessage, error) {
+	if b.name == "" {
+		return nil, fmt.Errorf("rule name is required")
+	}
+
+	body := ruleBody{
+		Name:                b.name,
+		State:               b.state,
+		Description:         b.description,
+		Trigger:             b.trigger,
+		Components:          b.components,
+		CanOtherRuleTrigger: b.canOtherRuleTrigger,
+		NotifyOnError:       b.notifyOnError,
+	}
+
+	if len(b.projectARIs) > 0 {
+		body.RuleScope = &ruleScope{Resources: b.projectARIs}
+	}
+
+	if body.Components == nil {
+		body.Components = []RuleComponent{}
+	}
+
+	payload := rulePayload{
+		Rule:        body,
+		Connections: []json.RawMessage{},
+	}
+
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("marshalling rule: %w", err)
+	}
+
+	return data, nil
+}
+
+// ---------------------------------------------------------------------------
+// Trigger builders
+// ---------------------------------------------------------------------------
+
+// IssueCreatedTrigger returns a trigger that fires when an issue is created.
+// Optional projectARIs filter which projects trigger the rule.
+func IssueCreatedTrigger(projectARIs ...string) RuleComponent {
+	value := map[string]any{
+		"eventKey":   "jira:issue_created",
+		"issueEvent": "issue_created",
+	}
+	if len(projectARIs) > 0 {
+		value["eventFilters"] = projectARIs
+	}
+
+	return RuleComponent{
+		Component:     "TRIGGER",
+		Type:          "jira.issue.event.trigger:created",
+		SchemaVersion: 1,
+		Value:         mustMarshal(value),
+		Children:      emptyArray(),
+		Conditions:    emptyArray(),
+	}
+}
+
+// IssueTransitionedTrigger returns a trigger that fires when an issue transitions
+// to one of the given status names.
+func IssueTransitionedTrigger(toStatuses ...string) RuleComponent {
+	statuses := make([]map[string]string, len(toStatuses))
+	for i, s := range toStatuses {
+		statuses[i] = map[string]string{"type": "NAME", "value": s}
+	}
+
+	value := map[string]any{
+		"eventKey":   "jira:issue_updated",
+		"issueEvent": "issue_generic",
+		"fromStatus": []any{},
+		"toStatus":   statuses,
+	}
+
+	return RuleComponent{
+		Component:     "TRIGGER",
+		Type:          "jira.issue.event.trigger:transitioned",
+		SchemaVersion: 1,
+		Value:         mustMarshal(value),
+		Children:      emptyArray(),
+		Conditions:    emptyArray(),
+	}
+}
+
+// ManualTrigger returns a trigger that adds a manual run button.
+// Optional groups restrict who can trigger it.
+func ManualTrigger(groups ...string) RuleComponent {
+	value := map[string]any{}
+	if len(groups) > 0 {
+		value["groups"] = groups
+	}
+
+	return RuleComponent{
+		Component:     "TRIGGER",
+		Type:          "jira.manual.trigger.issue",
+		SchemaVersion: 1,
+		Value:         mustMarshal(value),
+		Children:      emptyArray(),
+		Conditions:    emptyArray(),
+	}
+}
+
+// ScheduledTrigger returns a trigger that runs on a cron schedule against a JQL query.
+func ScheduledTrigger(jql string, cronExpression string) RuleComponent {
+	value := map[string]any{
+		"jql":  jql,
+		"cron": cronExpression,
+	}
+
+	return RuleComponent{
+		Component:     "TRIGGER",
+		Type:          "jira.jql.scheduled",
+		SchemaVersion: 1,
+		Value:         mustMarshal(value),
+		Children:      emptyArray(),
+		Conditions:    emptyArray(),
+	}
+}
+
+// FieldChangedTrigger returns a trigger that fires when a specific field value changes.
+func FieldChangedTrigger(fieldID string) RuleComponent {
+	value := map[string]any{
+		"changeType": "ANY_CHANGE",
+		"fields": []map[string]string{
+			{"value": fieldID},
+		},
+	}
+
+	return RuleComponent{
+		Component:     "TRIGGER",
+		Type:          "jira.issue.field.changed",
+		SchemaVersion: 1,
+		Value:         mustMarshal(value),
+		Children:      emptyArray(),
+		Conditions:    emptyArray(),
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Condition builders
+// ---------------------------------------------------------------------------
+
+// JQLCondition returns a condition that evaluates a JQL query.
+// The issue must match the JQL for the rule to continue.
+func JQLCondition(jql string) RuleComponent {
+	return RuleComponent{
+		Component:     "CONDITION",
+		Type:          "jira.jql.condition",
+		SchemaVersion: 1,
+		Value:         mustMarshal(jql),
+		Children:      emptyArray(),
+		Conditions:    emptyArray(),
+	}
+}
+
+// FieldConditionValue is the value schema for jira.issue.condition.
+type FieldConditionValue struct {
+	SelectedField     FieldRef          `json:"selectedField"`
+	SelectedFieldType string            `json:"selectedFieldType"`
+	Comparison        string            `json:"comparison"`
+	CompareValue      CompareFieldValue `json:"compareValue"`
+}
+
+// FieldRef identifies a field by ID or name.
+type FieldRef struct {
+	Type  string `json:"type"`  // "ID" or "NAME"
+	Value string `json:"value"` // e.g., "customfield_10100" or "Banking Platform"
+}
+
+// CompareFieldValue is the target value for a field condition comparison.
+type CompareFieldValue struct {
+	Type       string `json:"type"`               // "ID" or "NAME"
+	Value      string `json:"value"`              // The option ID or value name
+	MultiValue bool   `json:"multiValue"`         // true for multi-select comparisons
+	Modifier   any    `json:"modifier,omitempty"` // Usually null
+	Source     any    `json:"source,omitempty"`   // Usually null
+}
+
+// FieldCondition returns a condition that checks an issue field value.
+// This is the structured "Issue Fields Condition" with best performance.
+//
+// Parameters:
+//   - fieldID: the field identifier (e.g., "customfield_10100")
+//   - fieldType: the Jira field type plugin key (e.g., "com.atlassian.jira.plugin.system.customfieldtypes:select")
+//   - comparison: the operator (EQUALS, NOT_EQUALS, ONE_OF, NOT_ONE_OF, EMPTY, NOT_EMPTY,
+//     CONTAINS_ANY_OF, NOT_CONTAINS_ANY_OF, CONTAINS_ALL_OF)
+//   - compareValue: the value to compare against (option ID or name)
+func FieldCondition(fieldID, fieldType, comparison, compareValue string) RuleComponent {
+	multiValue := isMultiValueComparison(comparison)
+
+	val := FieldConditionValue{
+		SelectedField:     FieldRef{Type: "ID", Value: fieldID},
+		SelectedFieldType: fieldType,
+		Comparison:        comparison,
+		CompareValue: CompareFieldValue{
+			Type:       "ID",
+			Value:      compareValue,
+			MultiValue: multiValue,
+		},
+	}
+
+	return RuleComponent{
+		Component:     "CONDITION",
+		Type:          "jira.issue.condition",
+		SchemaVersion: 3,
+		Value:         mustMarshal(val),
+		Children:      emptyArray(),
+		Conditions:    emptyArray(),
+	}
+}
+
+// ComparatorConditionValue is the value schema for jira.comparator.condition.
+type ComparatorConditionValue struct {
+	First    string `json:"first"`
+	Second   string `json:"second"`
+	Operator string `json:"operator"`
+}
+
+// ComparatorCondition returns a condition that compares two values.
+// Typically used with smart values (e.g., "{{bankPlatform}}" EQUALS "Q2").
+//
+// Operators: EQUALS, NOT_EQUALS, GREATER_THAN, LESS_THAN, CONTAINS, NOT_CONTAINS
+func ComparatorCondition(first, second, operator string) RuleComponent {
+	val := ComparatorConditionValue{
+		First:    first,
+		Second:   second,
+		Operator: operator,
+	}
+
+	return RuleComponent{
+		Component:     "CONDITION",
+		Type:          "jira.comparator.condition",
+		SchemaVersion: 1,
+		Value:         mustMarshal(val),
+		Children:      emptyArray(),
+		Conditions:    emptyArray(),
+	}
+}
+
+// IfBlock represents one branch in an if/else block.
+type IfBlock struct {
+	// MatchType controls how conditions combine: "ALL" (AND) or "ANY" (OR).
+	MatchType  string
+	Conditions []RuleComponent
+	Actions    []RuleComponent
+}
+
+// IfElseBlock returns a condition container with if/else-if/else branches.
+// Each IfBlock has a match type, conditions, and actions.
+// The last block with no conditions acts as the "else" branch.
+func IfElseBlock(blocks ...IfBlock) RuleComponent {
+	children := make([]json.RawMessage, len(blocks))
+	for i, block := range blocks {
+		child := map[string]any{
+			"component":     "CONDITION_BLOCK",
+			"type":          "jira.condition.if.block",
+			"schemaVersion": 1,
+			"value": map[string]string{
+				"conditionMatchType": block.MatchType,
+			},
+			"conditions":   marshalComponents(block.Conditions),
+			"children":     marshalComponents(block.Actions),
+			"connectionId": nil,
+		}
+		children[i] = mustMarshal(child)
+	}
+
+	return RuleComponent{
+		Component:     "CONDITION",
+		Type:          "jira.condition.container.block",
+		SchemaVersion: 1,
+		Value:         mustMarshal(map[string]any{}),
+		Children:      mustMarshal(children),
+		Conditions:    emptyArray(),
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Action builders
+// ---------------------------------------------------------------------------
+
+// CreateVariable returns an action that extracts a value into a named variable.
+// Use smart values to reference issue fields: "{{triggerIssue.customField_10037}}"
+func CreateVariable(name, smartValue string) RuleComponent {
+	val := map[string]any{
+		"id": nextSmartValueID(),
+		"name": map[string]string{
+			"type":  "FREE",
+			"value": name,
+		},
+		"type": "SMART",
+		"query": map[string]string{
+			"type":  "SMART",
+			"value": smartValue,
+		},
+		"lazy": false,
+	}
+
+	return RuleComponent{
+		Component:     "ACTION",
+		Type:          "jira.create.variable",
+		SchemaVersion: 1,
+		Value:         mustMarshal(val),
+		Children:      emptyArray(),
+		Conditions:    emptyArray(),
+	}
+}
+
+// FieldOperation describes a single field edit within an EditIssueFields or CreateIssue action.
+type FieldOperation struct {
+	// FieldRef identifies the field by ID or NAME.
+	Field FieldRef `json:"field"`
+	// FieldType is the Jira field type plugin key.
+	FieldType string `json:"fieldType"`
+	// OperationType is SET, ADD, or REMOVE.
+	OperationType string `json:"type"`
+	// Value is the field value to set. The type depends on the field.
+	Value any `json:"value"`
+}
+
+// SetField creates a FieldOperation that sets a field by ID.
+func SetField(fieldID, fieldType string, value any) FieldOperation {
+	return FieldOperation{
+		Field:         FieldRef{Type: "ID", Value: fieldID},
+		FieldType:     fieldType,
+		OperationType: "SET",
+		Value:         value,
+	}
+}
+
+// SetFieldByName creates a FieldOperation that sets a field by name.
+func SetFieldByName(fieldName, fieldType string, value any) FieldOperation {
+	return FieldOperation{
+		Field:         FieldRef{Type: "NAME", Value: fieldName},
+		FieldType:     fieldType,
+		OperationType: "SET",
+		Value:         value,
+	}
+}
+
+// EditIssueFields returns an action that edits fields on the current issue.
+func EditIssueFields(sendNotifications bool, operations ...FieldOperation) RuleComponent {
+	val := map[string]any{
+		"operations":        operations,
+		"advancedFields":    nil,
+		"sendNotifications": sendNotifications,
+	}
+
+	return RuleComponent{
+		Component:     "ACTION",
+		Type:          "jira.issue.edit",
+		SchemaVersion: 10,
+		Value:         mustMarshal(val),
+		Children:      emptyArray(),
+		Conditions:    emptyArray(),
+	}
+}
+
+// TransitionIssue returns an action that transitions the issue to a named status.
+func TransitionIssue(statusName string) RuleComponent {
+	val := map[string]any{
+		"destinationStatus": map[string]string{
+			"type":  "NAME",
+			"value": statusName,
+		},
+	}
+
+	return RuleComponent{
+		Component:     "ACTION",
+		Type:          "jira.issue.transition",
+		SchemaVersion: 1,
+		Value:         mustMarshal(val),
+		Children:      emptyArray(),
+		Conditions:    emptyArray(),
+	}
+}
+
+// CommentOnIssue returns an action that adds a comment to the current issue.
+func CommentOnIssue(body string) RuleComponent {
+	val := map[string]any{
+		"comment": body,
+	}
+
+	return RuleComponent{
+		Component:     "ACTION",
+		Type:          "jira.issue.comment",
+		SchemaVersion: 1,
+		Value:         mustMarshal(val),
+		Children:      emptyArray(),
+		Conditions:    emptyArray(),
+	}
+}
+
+// AssignIssue returns an action that assigns the issue.
+// Use smart values for dynamic assignment: "{{reporter.accountId}}"
+func AssignIssue(accountID string) RuleComponent {
+	val := map[string]any{
+		"assignee": map[string]string{
+			"type":  "SMART",
+			"value": accountID,
+		},
+	}
+
+	return RuleComponent{
+		Component:     "ACTION",
+		Type:          "jira.issue.assign",
+		SchemaVersion: 1,
+		Value:         mustMarshal(val),
+		Children:      emptyArray(),
+		Conditions:    emptyArray(),
+	}
+}
+
+// LookupIssues returns an action that runs a JQL query and stores results in a named variable.
+func LookupIssues(name, jql string) RuleComponent {
+	val := map[string]any{
+		"id": nextSmartValueID(),
+		"name": map[string]string{
+			"type":  "FREE",
+			"value": name,
+		},
+		"type": "JQL",
+		"query": map[string]string{
+			"type":  "SMART",
+			"value": jql,
+		},
+		"lazy": false,
+	}
+
+	return RuleComponent{
+		Component:     "ACTION",
+		Type:          "jira.lookup.issues",
+		SchemaVersion: 1,
+		Value:         mustMarshal(val),
+		Children:      emptyArray(),
+		Conditions:    emptyArray(),
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+// smartValueIDCounter generates unique IDs for smart value variables.
+var smartValueIDCounter atomic.Int64
+
+func nextSmartValueID() string {
+	n := smartValueIDCounter.Add(1)
+	return fmt.Sprintf("_customsmartvalue_id_%d", n)
+}
+
+func mustMarshal(v any) json.RawMessage {
+	data, err := json.Marshal(v)
+	if err != nil {
+		panic(fmt.Sprintf("automation builder: failed to marshal %T: %v", v, err))
+	}
+	return data
+}
+
+func emptyArray() json.RawMessage {
+	return json.RawMessage("[]")
+}
+
+func marshalComponents(components []RuleComponent) []json.RawMessage {
+	result := make([]json.RawMessage, len(components))
+	for i, c := range components {
+		result[i] = mustMarshal(c)
+	}
+	return result
+}
+
+func isMultiValueComparison(comparison string) bool {
+	switch comparison {
+	case "CONTAINS_ANY_OF", "NOT_CONTAINS_ANY_OF", "CONTAINS_ALL_OF":
+		return true
+	default:
+		return false
+	}
+}

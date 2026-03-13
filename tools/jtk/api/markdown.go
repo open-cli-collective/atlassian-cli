@@ -15,9 +15,14 @@ func MarkdownToADF(markdown string) *ADFDocument {
 		return nil
 	}
 
-	// Auto-detect and convert wiki markup to markdown
+	// Auto-detect and convert wiki markup to markdown.
+	// Wiki-converted text uses the extended parser (subscript, superscript,
+	// insert) since ~text~ and ^text^ are intentional wiki formatting.
+	// Plain markdown uses the standard parser to avoid mangling tildes
+	// and carets in compound words (e.g., "signal~webapp~frontend").
 	if IsWikiMarkup(markdown) {
 		markdown = WikiToMarkdown(markdown)
+		return adf.ToDocumentWiki(markdown)
 	}
 
 	return adf.ToDocument(markdown)

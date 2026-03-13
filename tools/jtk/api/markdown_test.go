@@ -658,8 +658,8 @@ func TestMarkdownToADF_CompoundWordsEndToEnd(t *testing.T) {
 	collectText(result.Content)
 
 	joined := ""
-	for _, t := range allText {
-		joined += t
+	for _, s := range allText {
+		joined += s
 	}
 
 	// Verify compound words are intact (not mangled by wiki conversion)
@@ -667,4 +667,47 @@ func TestMarkdownToADF_CompoundWordsEndToEnd(t *testing.T) {
 	testutil.True(t, strings.Contains(joined, "ui-components"), "ui-components should be preserved")
 	testutil.True(t, strings.Contains(joined, "2026-03-12-v3-theming-design.md"), "file path should be preserved")
 	testutil.True(t, strings.Contains(joined, "three-tier"), "three-tier should be preserved")
+}
+
+// TestMarkdownToADF_EvenTildeCompoundWord verifies that compound words with an
+// even number of tildes (e.g., "signal~webapp~frontend") are NOT mangled by
+// goldmark subscript processing. This is ensured by using the standard parser
+// (no subscript) for non-wiki input.
+func TestMarkdownToADF_EvenTildeCompoundWord(t *testing.T) {
+	input := "Deploy signal~webapp~frontend to production"
+	result := MarkdownToADF(input)
+	testutil.NotNil(t, result)
+	testutil.NotEmpty(t, result.Content)
+
+	// Should be a single paragraph with no subsup marks
+	para := result.Content[0]
+	testutil.Equal(t, para.Type, "paragraph")
+	for _, node := range para.Content {
+		if node.Marks != nil {
+			for _, mark := range node.Marks {
+				if mark.Type == "subsup" {
+					t.Errorf("found unexpected subsup mark on text %q — even-tilde compound word was mangled", node.Text)
+				}
+			}
+		}
+	}
+}
+
+// TestMarkdownToADF_EvenCaretCompoundWord verifies that "x^2^y" in plain
+// markdown is NOT converted to superscript.
+func TestMarkdownToADF_EvenCaretCompoundWord(t *testing.T) {
+	input := "Calculate x^2^y in the formula"
+	result := MarkdownToADF(input)
+	testutil.NotNil(t, result)
+
+	para := result.Content[0]
+	for _, node := range para.Content {
+		if node.Marks != nil {
+			for _, mark := range node.Marks {
+				if mark.Type == "subsup" {
+					t.Errorf("found unexpected subsup mark on text %q — caret compound was mangled", node.Text)
+				}
+			}
+		}
+	}
 }

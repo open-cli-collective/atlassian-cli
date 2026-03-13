@@ -13,11 +13,28 @@ import (
 	"github.com/yuin/goldmark/text"
 )
 
-// mdParser is a goldmark parser configured for ADF conversion.
-// Uses hugo-goldmark-extensions/extras for subscript (~text~), superscript
-// (^text^), delete (~~text~~), and insert (++text++) which produce proper
-// ADF marks (subsup, strike, underline).
+// mdParser is a goldmark parser for standard markdown input.
+// Uses extras.Delete for ~~text~~ strikethrough (double-tilde only) and tables.
+// Does NOT enable subscript/superscript/insert to avoid mangling tildes and
+// carets in compound words (e.g., "signal~webapp~frontend").
+// Note: extension.Strikethrough is NOT used because it matches both single
+// (~text~) and double (~~text~~) tildes, which would mangle compound words.
 var mdParser = goldmark.New(
+	goldmark.WithExtensions(
+		extension.Table,
+		extras.New(extras.Config{
+			Delete: extras.DeleteConfig{Enable: true},
+		}),
+	),
+)
+
+// wikiParser is a goldmark parser for wiki-converted markdown.
+// Enables hugo-goldmark-extensions/extras for subscript (~text~),
+// superscript (^text^), delete (~~text~~), and insert (++text++)
+// which produce proper ADF marks (subsup, strike, underline).
+// Only used when input has been detected as wiki markup and converted
+// by WikiToMarkdown, so the tilde/caret patterns are intentional.
+var wikiParser = goldmark.New(
 	goldmark.WithExtensions(
 		extension.Table,
 		extras.New(extras.Config{
@@ -30,16 +47,21 @@ var mdParser = goldmark.New(
 )
 
 // ToDocument converts markdown text to an ADF Document struct.
+// Uses the standard parser (no subscript/superscript/insert).
 // Returns nil for empty input. If parsing yields no content,
 // falls back to a single paragraph with the raw text.
 func ToDocument(markdown string) *Document {
+	return toDocument(markdown, mdParser)
+}
+
+func toDocument(markdown string, parser goldmark.Markdown) *Document {
 	if markdown == "" {
 		return nil
 	}
 
 	source := []byte(markdown)
 	reader := text.NewReader(source)
-	astDoc := mdParser.Parser().Parse(reader)
+	astDoc := parser.Parser().Parse(reader)
 
 	converter := &converter{source: source}
 	content := converter.convertChildren(astDoc)
@@ -62,6 +84,14 @@ func ToDocument(markdown string) *Document {
 		Version: 1,
 		Content: content,
 	}
+}
+
+// ToDocumentWiki converts wiki-converted markdown to an ADF Document struct.
+// Uses the extended parser with subscript, superscript, delete, and insert
+// support. Only call this when the input has been converted from wiki markup
+// via WikiToMarkdown, where ~text~ and ^text^ patterns are intentional.
+func ToDocumentWiki(markdown string) *Document {
+	return toDocument(markdown, wikiParser)
 }
 
 // ToJSON converts markdown to an ADF JSON string.

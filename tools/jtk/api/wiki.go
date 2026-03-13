@@ -16,6 +16,11 @@ import (
 // The before/after sets are intentionally asymmetric: before allows opening
 // punctuation (parens, brackets, quotes) while after allows closing punctuation
 // (parens, period, comma, quotes, etc.). This mirrors natural prose patterns.
+//
+// Note: ^ and $ here are inside (?:...) alternations, so they anchor to
+// start/end of the entire input string, not line boundaries. This is
+// intentional — line-level matching is handled by the multiline (?m) flag
+// in wikiPatterns, not here.
 const (
 	wikiBoundaryBefore = `(?:^|[\s(["'])`
 	wikiBoundaryAfter  = `(?:[\s).,"'!?;:]|$)`
@@ -44,7 +49,7 @@ func replaceWikiFormatting(text string, outer, inner *regexp.Regexp, openTag, cl
 		}
 		prefix := ""
 		suffix := ""
-		delim := sub[0][0] // first char of the inner match is the delimiter
+		delim := sub[0][0] // first byte of inner match; assumes single-byte ASCII delimiter
 		if len(match) > 0 && match[0] != delim {
 			prefix = string(match[0])
 		}

@@ -84,27 +84,39 @@ func IsWikiMarkup(text string) bool {
 }
 
 // looksLikeWikiNumberedList checks if # usage looks like wiki numbered lists.
-// Wiki numbered lists use single # (e.g., "# item"), while markdown headings
-// use ## or more (e.g., "## Section"). A line with "## " is always a markdown
-// heading, never a wiki list.
+// Wiki numbered lists use single # (e.g., "# item") and are consecutive lines
+// without blank lines between them. Markdown headings use # too, but have
+// content paragraphs or blank lines between them.
 func looksLikeWikiNumberedList(text string) bool {
 	lines := strings.Split(text, "\n")
-	singleHashListCount := 0
+
+	// Any multi-hash heading (##, ###, etc.) means this is markdown, not wiki
 	for _, line := range lines {
 		trimmed := strings.TrimSpace(line)
-		// Markdown headings use ## or more — these are never wiki lists
-		if strings.HasPrefix(trimmed, "## ") {
+		if len(trimmed) >= 3 && trimmed[0] == '#' && trimmed[1] == '#' {
 			return false
 		}
-		// Count lines that are exactly "# text" (single hash + space)
-		if strings.HasPrefix(trimmed, "# ") {
-			rest := trimmed[2:]
-			if len(rest) < 80 {
-				singleHashListCount++
+	}
+
+	// Count consecutive "# text" lines. Wiki numbered lists are consecutive;
+	// markdown h1 headings have blank lines and content between them.
+	consecutive := 0
+	maxConsecutive := 0
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "# ") && len(trimmed[2:]) < 80 {
+			consecutive++
+			if consecutive > maxConsecutive {
+				maxConsecutive = consecutive
 			}
+		} else if trimmed == "" {
+			// Blank lines break consecutive runs — markdown headings have these
+			consecutive = 0
+		} else {
+			consecutive = 0
 		}
 	}
-	return singleHashListCount >= 2
+	return maxConsecutive >= 2
 }
 
 // WikiToMarkdown converts Jira wiki markup to markdown format.

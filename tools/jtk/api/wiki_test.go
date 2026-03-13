@@ -294,6 +294,26 @@ func TestConvertWikiTextFormatting_EdgeCases(t *testing.T) {
 			input:    "log ~n~",
 			expected: "log <sub>n</sub>",
 		},
+		{
+			name:     "tilde with number not subscript without closing tilde",
+			input:    "migrate ~22 new components",
+			expected: "migrate ~22 new components",
+		},
+		{
+			name:     "punctuation adjacent formatting not converted",
+			input:    "see (-deleted-) here",
+			expected: "see (-deleted-) here",
+		},
+		{
+			name:     "tab adjacent strikethrough converts",
+			input:    "text\t-removed-\tend",
+			expected: "text\t~~removed~~\tend",
+		},
+		{
+			name:     "newline adjacent strikethrough converts",
+			input:    "text\n-removed-\nend",
+			expected: "text\n~~removed~~\nend",
+		},
 	}
 
 	for _, tt := range tests {
@@ -325,6 +345,16 @@ func TestIsWikiMarkup_MarkdownHeadings(t *testing.T) {
 			name:     "actual wiki numbered list",
 			input:    "# First item\n# Second item\n# Third item",
 			expected: true,
+		},
+		{
+			name:     "multiple markdown h1 headings should not be detected as wiki",
+			input:    "# Title\n\nContent\n\n# Another Section",
+			expected: false,
+		},
+		{
+			name:     "h3 headings should not be detected as wiki",
+			input:    "### Section A\n\n### Section B\n\n### Section C",
+			expected: false,
 		},
 	}
 

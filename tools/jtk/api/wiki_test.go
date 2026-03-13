@@ -265,14 +265,19 @@ func TestConvertWikiTextFormatting_EdgeCases(t *testing.T) {
 			expected: "signal-webapp-frontend",
 		},
 		{
-			name:     "subscript after space",
+			name:     "subscript passes through for goldmark",
 			input:    "H ~2~ O",
-			expected: "H <sub>2</sub> O",
+			expected: "H ~2~ O",
 		},
 		{
 			name:     "tilde in compound word not converted",
 			input:    "three~tier",
 			expected: "three~tier",
+		},
+		{
+			name:     "underline converts to double plus for goldmark",
+			input:    "this is +important+ text",
+			expected: "this is ++important++ text",
 		},
 		{
 			name:     "file path hyphens preserved",
@@ -290,9 +295,9 @@ func TestConvertWikiTextFormatting_EdgeCases(t *testing.T) {
 			expected: "remove ~~this~~",
 		},
 		{
-			name:     "subscript at end of string",
+			name:     "subscript at end passes through for goldmark",
 			input:    "log ~n~",
-			expected: "log <sub>n</sub>",
+			expected: "log ~n~",
 		},
 		{
 			name:     "tilde with number not subscript without closing tilde",

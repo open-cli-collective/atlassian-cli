@@ -13,10 +13,6 @@ var (
 	wikiStrikeInner    = regexp.MustCompile(`-([^-]+)-`)
 	wikiUnderlineOuter = regexp.MustCompile(`(?:^|\s)\+([^\s+][^+]*[^\s+]|[^\s+])\+(?:\s|$)`)
 	wikiUnderlineInner = regexp.MustCompile(`\+([^+]+)\+`)
-	wikiSubOuter       = regexp.MustCompile(`(?:^|\s)~([^\s~][^~]*[^\s~]|[^\s~])~(?:\s|$)`)
-	wikiSubInner       = regexp.MustCompile(`~([^~]+)~`)
-	wikiSupOuter       = regexp.MustCompile(`(?:^|\s)\^([^\s^][^^]*[^\s^]|[^\s^])\^(?:\s|$)`)
-	wikiSupInner       = regexp.MustCompile(`\^([^^]+)\^`)
 )
 
 // replaceWikiFormatting replaces wiki-style inline formatting with the given
@@ -282,18 +278,9 @@ func convertWikiTextFormatting(text string) string {
 	// matching hyphens in compound words like "signal-webapp-frontend".
 	text = replaceWikiFormatting(text, wikiStrikeOuter, wikiStrikeInner, "~~", "~~")
 
-	// Underline: +text+ -> <u>text</u> (no markdown equivalent, use HTML)
+	// Underline: +text+ -> ++text++ (goldmark extras Insert extension)
 	// Require whitespace or start/end of string around delimiters.
-	text = replaceWikiFormatting(text, wikiUnderlineOuter, wikiUnderlineInner, "<u>", "</u>")
-
-	// Subscript: ~text~ -> <sub>text</sub>
-	// Require whitespace or start/end of string around delimiters to avoid
-	// matching tildes in compound words like "three~tier" or "ui~components".
-	text = replaceWikiFormatting(text, wikiSubOuter, wikiSubInner, "<sub>", "</sub>")
-
-	// Superscript: ^text^ -> <sup>text</sup>
-	// Require whitespace or start/end of string around delimiters.
-	text = replaceWikiFormatting(text, wikiSupOuter, wikiSupInner, "<sup>", "</sup>")
+	text = replaceWikiFormatting(text, wikiUnderlineOuter, wikiUnderlineInner, "++", "++")
 
 	// Citation: ??text?? -> <cite>text</cite>
 	citePattern := regexp.MustCompile(`\?\?([^?]+)\?\?`)

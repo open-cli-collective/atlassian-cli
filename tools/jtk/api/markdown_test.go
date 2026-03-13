@@ -559,3 +559,76 @@ func TestMarkdownToADF_Formatting(t *testing.T) {
 		})
 	}
 }
+
+// TestMarkdownToADF_WikiSubscript verifies that wiki subscript (~text~) produces
+// a proper ADF "subsup" mark with attrs.type "sub", not raw HTML or dropped text.
+func TestMarkdownToADF_WikiSubscript(t *testing.T) {
+	// Wiki markup: ~subscript~ should become ADF subsup mark
+	input := "h1. Formula\n\nH~2~O is water"
+	result := MarkdownToADF(input)
+	testutil.NotNil(t, result)
+
+	// Find the paragraph with inline content
+	var found bool
+	for _, node := range result.Content {
+		if node.Type != "paragraph" {
+			continue
+		}
+		for _, inline := range node.Content {
+			if inline.Text == "2" {
+				found = true
+				testutil.True(t, len(inline.Marks) > 0, "subscript text should have marks")
+				testutil.Equal(t, inline.Marks[0].Type, "subsup")
+				testutil.Equal(t, inline.Marks[0].Attrs["type"], "sub")
+			}
+		}
+	}
+	testutil.True(t, found, "should find subscript text '2'")
+}
+
+// TestMarkdownToADF_WikiSuperscript verifies that wiki superscript (^text^) produces
+// a proper ADF "subsup" mark with attrs.type "sup".
+func TestMarkdownToADF_WikiSuperscript(t *testing.T) {
+	input := "h1. Math\n\nx^2^ is x squared"
+	result := MarkdownToADF(input)
+	testutil.NotNil(t, result)
+
+	var found bool
+	for _, node := range result.Content {
+		if node.Type != "paragraph" {
+			continue
+		}
+		for _, inline := range node.Content {
+			if inline.Text == "2" {
+				found = true
+				testutil.True(t, len(inline.Marks) > 0, "superscript text should have marks")
+				testutil.Equal(t, inline.Marks[0].Type, "subsup")
+				testutil.Equal(t, inline.Marks[0].Attrs["type"], "sup")
+			}
+		}
+	}
+	testutil.True(t, found, "should find superscript text '2'")
+}
+
+// TestMarkdownToADF_WikiUnderline verifies that wiki underline (+text+) produces
+// a proper ADF "underline" mark.
+func TestMarkdownToADF_WikiUnderline(t *testing.T) {
+	input := "h1. Note\n\nThis is +important+ text"
+	result := MarkdownToADF(input)
+	testutil.NotNil(t, result)
+
+	var found bool
+	for _, node := range result.Content {
+		if node.Type != "paragraph" {
+			continue
+		}
+		for _, inline := range node.Content {
+			if inline.Text == "important" {
+				found = true
+				testutil.True(t, len(inline.Marks) > 0, "underlined text should have marks")
+				testutil.Equal(t, inline.Marks[0].Type, "underline")
+			}
+		}
+	}
+	testutil.True(t, found, "should find underlined text 'important'")
+}

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"strings"
 
+	"github.com/gohugoio/hugo-goldmark-extensions/extras"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/extension"
@@ -13,10 +14,18 @@ import (
 )
 
 // mdParser is a goldmark parser configured for ADF conversion.
+// Uses hugo-goldmark-extensions/extras for subscript (~text~), superscript
+// (^text^), delete (~~text~~), and insert (++text++) which produce proper
+// ADF marks (subsup, strike, underline).
 var mdParser = goldmark.New(
 	goldmark.WithExtensions(
 		extension.Table,
-		extension.Strikethrough,
+		extras.New(extras.Config{
+			Subscript:   extras.SubscriptConfig{Enable: true},
+			Superscript: extras.SuperscriptConfig{Enable: true},
+			Delete:      extras.DeleteConfig{Enable: true},
+			Insert:      extras.InsertConfig{Enable: true},
+		}),
 	),
 )
 
@@ -375,14 +384,6 @@ func (c *converter) convertInlineNode(n ast.Node, marks []*Mark) []*Node {
 		}
 		return nodes
 
-	case *extast.Strikethrough:
-		newMarks := append(copyMarks(marks), &Mark{Type: "strike"})
-		var nodes []*Node
-		for child := node.FirstChild(); child != nil; child = child.NextSibling() {
-			nodes = append(nodes, c.convertInlineNode(child, newMarks)...)
-		}
-		return nodes
-
 	case *ast.CodeSpan:
 		var textBuilder strings.Builder
 		for child := node.FirstChild(); child != nil; child = child.NextSibling() {
@@ -436,11 +437,40 @@ func (c *converter) convertInlineNode(n ast.Node, marks []*Mark) []*Node {
 		return []*Node{adfNode}
 
 	default:
+		// Handle hugo-goldmark-extensions/extras inline tags by Kind.
+		// These use an unexported node type, so we match on Kind instead
+		// of a type assertion.
+		if mark := extrasKindToMark(n.Kind()); mark != nil {
+			newMarks := append(copyMarks(marks), mark)
+			var nodes []*Node
+			for child := n.FirstChild(); child != nil; child = child.NextSibling() {
+				nodes = append(nodes, c.convertInlineNode(child, newMarks)...)
+			}
+			return nodes
+		}
+
 		var nodes []*Node
 		for child := n.FirstChild(); child != nil; child = child.NextSibling() {
 			nodes = append(nodes, c.convertInlineNode(child, marks)...)
 		}
 		return nodes
+	}
+}
+
+// extrasKindToMark maps hugo-goldmark-extensions/extras AST node kinds to
+// their corresponding ADF marks per the Atlassian Document Format spec.
+func extrasKindToMark(kind ast.NodeKind) *Mark {
+	switch kind {
+	case extras.KindDelete:
+		return &Mark{Type: "strike"}
+	case extras.KindSubscript:
+		return &Mark{Type: "subsup", Attrs: map[string]any{"type": "sub"}}
+	case extras.KindSuperscript:
+		return &Mark{Type: "subsup", Attrs: map[string]any{"type": "sup"}}
+	case extras.KindInsert:
+		return &Mark{Type: "underline"}
+	default:
+		return nil
 	}
 }
 

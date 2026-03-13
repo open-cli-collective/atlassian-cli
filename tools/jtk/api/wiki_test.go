@@ -184,6 +184,21 @@ func TestWikiToMarkdown(t *testing.T) {
 			input:    "h1. Guide\n\nThis is about {{code}}.\n\n{code:python}\nprint('hello')\n{code}\n\nSee [docs|https://example.com].",
 			expected: "# Guide\n\nThis is about `code`.\n\n```python\nprint('hello')\n```\n\nSee [docs](https://example.com).",
 		},
+		{
+			name:     "subscript passes through for goldmark extras",
+			input:    "h1. Formula\n\nH~2~O",
+			expected: "# Formula\n\nH~2~O",
+		},
+		{
+			name:     "superscript passes through for goldmark extras",
+			input:    "h1. Math\n\nx^2^ squared",
+			expected: "# Math\n\nx^2^ squared",
+		},
+		{
+			name:     "underline converted to double plus for goldmark extras",
+			input:    "h1. Note\n\nThis is +important+ text",
+			expected: "# Note\n\nThis is ++important++ text",
+		},
 	}
 
 	for _, tt := range tests {
@@ -360,6 +375,11 @@ func TestIsWikiMarkup_MarkdownHeadings(t *testing.T) {
 			name:     "h3 headings should not be detected as wiki",
 			input:    "### Section A\n\n### Section B\n\n### Section C",
 			expected: false,
+		},
+		{
+			name:     "adjacent h1 without blank line is treated as wiki list (intentional)",
+			input:    "# First item\n# Second item",
+			expected: true,
 		},
 	}
 

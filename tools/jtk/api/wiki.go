@@ -19,6 +19,11 @@ var (
 // open/close tags. The outer pattern must include surrounding whitespace or
 // boundary anchors to avoid matching inside compound words. The inner pattern
 // extracts the content between delimiters.
+//
+// Limitation: formatting adjacent to punctuation (e.g., "(-deleted-)") will not
+// be converted, since the patterns require whitespace or string boundaries around
+// delimiters. This is an acceptable tradeoff to avoid false positives with
+// hyphens in compound words like "signal-webapp-frontend".
 func replaceWikiFormatting(text string, outer, inner *regexp.Regexp, openTag, closeTag string) string {
 	return outer.ReplaceAllStringFunc(text, func(match string) string {
 		sub := inner.FindStringSubmatch(match)
@@ -118,6 +123,14 @@ func looksLikeWikiNumberedList(text string) bool {
 // WikiToMarkdown converts Jira wiki markup to markdown format.
 // This enables users to paste wiki-formatted text and have it properly
 // converted to ADF for Jira Cloud.
+//
+// Note: subscript (~text~) and superscript (^text^) pass through unchanged,
+// as they are handled natively by goldmark with the hugo-goldmark-extensions/extras
+// extension in the ADF converter. Underline (+text+) is converted to ++text++
+// for the extras Insert extension. Strikethrough (-text-) is converted to ~~text~~.
+//
+// The output of this function is intended for consumption by MarkdownToADF /
+// goldmark-extras, not standalone markdown renderers.
 func WikiToMarkdown(wiki string) string {
 	if wiki == "" {
 		return ""

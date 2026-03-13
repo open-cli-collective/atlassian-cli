@@ -300,9 +300,14 @@ func TestConvertWikiTextFormatting_EdgeCases(t *testing.T) {
 			expected: "2026-03-12-design.md",
 		},
 		{
-			name:     "consecutive strikethrough",
+			name:     "consecutive strikethrough with word between",
 			input:    "-one- and -two-",
 			expected: "~~one~~ and ~~two~~",
+		},
+		{
+			name:     "adjacent strikethrough single space",
+			input:    "-one- -two-",
+			expected: "~~one~~ ~~two~~",
 		},
 		{
 			name:     "strikethrough at end of string",

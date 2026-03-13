@@ -25,7 +25,7 @@ var (
 // delimiters. This is an acceptable tradeoff to avoid false positives with
 // hyphens in compound words like "signal-webapp-frontend".
 func replaceWikiFormatting(text string, outer, inner *regexp.Regexp, openTag, closeTag string) string {
-	return outer.ReplaceAllStringFunc(text, func(match string) string {
+	replacer := func(match string) string {
 		sub := inner.FindStringSubmatch(match)
 		if len(sub) < 2 {
 			return match
@@ -40,7 +40,12 @@ func replaceWikiFormatting(text string, outer, inner *regexp.Regexp, openTag, cl
 			suffix = string(match[len(match)-1])
 		}
 		return prefix + openTag + sub[1] + closeTag + suffix
-	})
+	}
+
+	// Run replacement twice to handle adjacent spans where the first match
+	// consumes a shared whitespace boundary (e.g., "-one- -two-").
+	result := outer.ReplaceAllStringFunc(text, replacer)
+	return outer.ReplaceAllStringFunc(result, replacer)
 }
 
 // wikiPatterns defines regex patterns for Jira wiki markup detection
@@ -94,7 +99,7 @@ func looksLikeWikiNumberedList(text string) bool {
 	// Any multi-hash heading (##, ###, etc.) means this is markdown, not wiki
 	for _, line := range lines {
 		trimmed := strings.TrimSpace(line)
-		if len(trimmed) >= 3 && trimmed[0] == '#' && trimmed[1] == '#' {
+		if len(trimmed) >= 2 && trimmed[0] == '#' && trimmed[1] == '#' {
 			return false
 		}
 	}

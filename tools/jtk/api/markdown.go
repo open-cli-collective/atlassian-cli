@@ -8,8 +8,12 @@ import (
 // Supports: headings (h1-h6), paragraphs, bold, italic, strikethrough, code,
 // code blocks, bullet lists, numbered lists, links, blockquotes, and tables.
 //
-// If the input contains Jira wiki markup (h1., {{code}}, [text|url], etc.),
-// it will be automatically converted to markdown first.
+// Auto-detection is conservative by design: it prioritizes not corrupting plain
+// markdown over detecting every wiki edge case. Inline-only wiki formatting
+// (e.g., ~subscript~ without block-level markers like h1.) will NOT be detected.
+// This bias is intentional for mixed content from LLM agents and user input.
+// Callers that know the input is wiki markup should call WikiToMarkdown +
+// adf.ToDocumentWiki directly to bypass heuristics.
 func MarkdownToADF(markdown string) *ADFDocument {
 	if markdown == "" {
 		return nil

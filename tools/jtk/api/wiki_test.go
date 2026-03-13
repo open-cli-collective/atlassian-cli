@@ -345,6 +345,11 @@ func TestConvertWikiTextFormatting_EdgeCases(t *testing.T) {
 			expected: "end.-deleted-",
 		},
 		{
+			name:     "square bracket adjacent strikethrough converts",
+			input:    "[-deleted-]",
+			expected: "[~~deleted~~]",
+		},
+		{
 			name:     "newline adjacent strikethrough converts",
 			input:    "text\n-removed-\nend",
 			expected: "text\n~~removed~~\nend",
@@ -395,6 +400,11 @@ func TestIsWikiMarkup_MarkdownHeadings(t *testing.T) {
 			name:     "adjacent h1 without blank line is treated as wiki list (intentional)",
 			input:    "# First item\n# Second item",
 			expected: true,
+		},
+		{
+			name:     "nested wiki ## under # treated as markdown not wiki (intentional false negative)",
+			input:    "# Top level\n## Nested item\n## Another nested",
+			expected: false,
 		},
 	}
 

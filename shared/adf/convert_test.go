@@ -703,3 +703,94 @@ func TestToPlainText_UnknownNodeWithChildren(t *testing.T) {
 	text := doc.ToPlainText()
 	testutil.Contains(t, text, "inner")
 }
+
+// TestToDocument_NoSubscriptSuperscript verifies the standard parser does NOT
+// convert ~text~ to subscript or ^text^ to superscript.
+func TestToDocument_NoSubscriptSuperscript(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{name: "even tildes", input: "signal~webapp~frontend"},
+		{name: "subscript pattern", input: "H~2~O"},
+		{name: "superscript pattern", input: "x^2^y"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			doc := ToDocument(tt.input)
+			testutil.NotNil(t, doc)
+			for _, block := range doc.Content {
+				for _, node := range block.Content {
+					for _, mark := range node.Marks {
+						if mark.Type == "subsup" {
+							t.Errorf("ToDocument should not produce subsup marks, found on %q", node.Text)
+						}
+					}
+				}
+			}
+		})
+	}
+}
+
+// TestToDocumentWiki_ProducesSubSupAndUnderline verifies the wiki parser
+// correctly converts ~text~, ^text^, and ++text++ to ADF marks.
+func TestToDocumentWiki_ProducesSubSupAndUnderline(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name     string
+		input    string
+		markType string
+		markAttr map[string]any // nil if no attrs expected
+	}{
+		{name: "subscript", input: "H~2~O", markType: "subsup", markAttr: map[string]any{"type": "sub"}},
+		{name: "superscript", input: "x^2^y", markType: "subsup", markAttr: map[string]any{"type": "sup"}},
+		{name: "underline", input: "++important++", markType: "underline", markAttr: nil},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			doc := ToDocumentWiki(tt.input)
+			testutil.NotNil(t, doc)
+			var found bool
+			for _, block := range doc.Content {
+				for _, node := range block.Content {
+					for _, mark := range node.Marks {
+						if mark.Type == tt.markType {
+							found = true
+							if tt.markAttr != nil {
+								for k, v := range tt.markAttr {
+									testutil.Equal(t, mark.Attrs[k], v)
+								}
+							}
+						}
+					}
+				}
+			}
+			testutil.True(t, found, fmt.Sprintf("ToDocumentWiki should produce %s mark", tt.markType))
+		})
+	}
+}
+
+// TestToJSON_NoSubscriptSuperscript verifies ToJSON uses the standard parser
+// and does NOT produce subsup marks (same as ToDocument).
+func TestToJSON_NoSubscriptSuperscript(t *testing.T) {
+	t.Parallel()
+	result, err := ToJSON([]byte("signal~webapp~frontend"))
+	testutil.RequireNoError(t, err)
+
+	var doc Document
+	err = json.Unmarshal([]byte(result), &doc)
+	testutil.RequireNoError(t, err)
+
+	for _, block := range doc.Content {
+		for _, node := range block.Content {
+			for _, mark := range node.Marks {
+				if mark.Type == "subsup" {
+					t.Errorf("ToJSON should not produce subsup marks, found on %q", node.Text)
+				}
+			}
+		}
+	}
+}

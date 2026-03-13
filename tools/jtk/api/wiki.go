@@ -23,7 +23,7 @@ import (
 // in wikiPatterns, not here.
 const (
 	wikiBoundaryBefore = `(?:^|[\s(["'])`
-	wikiBoundaryAfter  = `(?:[\s).,"'!?;:]|$)`
+	wikiBoundaryAfter  = `(?:[\s).,"'!?;:\]]|$)`
 )
 
 var (
@@ -148,17 +148,17 @@ func looksLikeWikiNumberedList(text string) bool {
 	return maxConsecutive >= 2
 }
 
-// WikiToMarkdown converts Jira wiki markup to markdown format.
-// This enables users to paste wiki-formatted text and have it properly
-// converted to ADF for Jira Cloud.
+// WikiToMarkdown converts Jira wiki markup to a markdown dialect tuned for the
+// MarkdownToADF / goldmark-extras pipeline. The output is NOT general-purpose
+// markdown — it relies on adf.ToDocumentWiki (the extended goldmark parser) to
+// interpret certain patterns:
 //
-// Note: subscript (~text~) and superscript (^text^) pass through unchanged,
-// as they are handled natively by goldmark with the hugo-goldmark-extensions/extras
-// extension in the ADF converter. Underline (+text+) is converted to ++text++
-// for the extras Insert extension. Strikethrough (-text-) is converted to ~~text~~.
+//   - ~text~ and ^text^ pass through unchanged for goldmark subscript/superscript
+//   - +text+ is converted to ++text++ for goldmark Insert (→ ADF underline)
+//   - -text- is converted to ~~text~~ for goldmark Delete (→ ADF strikethrough)
 //
-// The output of this function is intended for consumption by MarkdownToADF /
-// goldmark-extras, not standalone markdown renderers.
+// Callers MUST use adf.ToDocumentWiki (not adf.ToDocument) to parse the output,
+// otherwise ~text~ and ^text^ will not produce the expected ADF marks.
 func WikiToMarkdown(wiki string) string {
 	if wiki == "" {
 		return ""

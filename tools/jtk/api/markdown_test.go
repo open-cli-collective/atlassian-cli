@@ -711,3 +711,38 @@ func TestMarkdownToADF_EvenCaretCompoundWord(t *testing.T) {
 		}
 	}
 }
+
+// TestMarkdownToADF_InlineOnlyWikiNotDetected verifies that inline-only wiki
+// formatting (H~2~O, +important+, -deleted-) without block-level wiki markers
+// (h1., {code}, etc.) is NOT detected as wiki markup. These go through the
+// standard parser, so ~text~ and ^text^ won't produce ADF marks.
+func TestMarkdownToADF_InlineOnlyWikiNotDetected(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{name: "subscript only", input: "H~2~O is water"},
+		{name: "superscript only", input: "x^2^ squared"},
+		{name: "underline only", input: "this is +important+ text"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Should NOT be detected as wiki
+			testutil.Equal(t, IsWikiMarkup(tt.input), false)
+
+			// Should go through standard parser without subsup/underline marks
+			result := MarkdownToADF(tt.input)
+			testutil.NotNil(t, result)
+			for _, block := range result.Content {
+				for _, node := range block.Content {
+					for _, mark := range node.Marks {
+						if mark.Type == "subsup" || mark.Type == "underline" {
+							t.Errorf("found unexpected %s mark on %q — inline-only wiki should use standard parser", mark.Type, node.Text)
+						}
+					}
+				}
+			}
+		})
+	}
+}

@@ -290,6 +290,11 @@ func TestConvertWikiTextFormatting_EdgeCases(t *testing.T) {
 			expected: "three~tier",
 		},
 		{
+			name:     "caret in compound word not converted",
+			input:    "x^2^y",
+			expected: "x^2^y",
+		},
+		{
 			name:     "underline converts to double plus for goldmark",
 			input:    "this is +important+ text",
 			expected: "this is ++important++ text",
@@ -333,6 +338,11 @@ func TestConvertWikiTextFormatting_EdgeCases(t *testing.T) {
 			name:     "tab adjacent strikethrough converts",
 			input:    "text\t-removed-\tend",
 			expected: "text\t~~removed~~\tend",
+		},
+		{
+			name:     "period before delimiter does not trigger (asymmetric boundary)",
+			input:    "end.-deleted-",
+			expected: "end.-deleted-",
 		},
 		{
 			name:     "newline adjacent strikethrough converts",

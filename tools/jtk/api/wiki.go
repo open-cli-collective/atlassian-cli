@@ -9,9 +9,13 @@ import (
 // Outer patterns match the delimiter + surrounding whitespace/boundaries.
 // Inner patterns extract the content between delimiters.
 // Boundary patterns for wiki formatting delimiters. We allow whitespace,
-// common punctuation (parens, brackets, quotes), and string boundaries
-// around formatting delimiters to support patterns like "(-deleted-)" while
-// still rejecting compound words like "signal-webapp-frontend".
+// common punctuation, and string boundaries around formatting delimiters
+// to support patterns like "(-deleted-)" while rejecting compound words
+// like "signal-webapp-frontend".
+//
+// The before/after sets are intentionally asymmetric: before allows opening
+// punctuation (parens, brackets, quotes) while after allows closing punctuation
+// (parens, period, comma, quotes, etc.). This mirrors natural prose patterns.
 const (
 	wikiBoundaryBefore = `(?:^|[\s(["'])`
 	wikiBoundaryAfter  = `(?:[\s).,"'!?;:]|$)`
@@ -104,7 +108,10 @@ func IsWikiMarkup(text string) bool {
 func looksLikeWikiNumberedList(text string) bool {
 	lines := strings.Split(text, "\n")
 
-	// Any multi-hash heading (##, ###, etc.) means this is markdown, not wiki
+	// Any multi-hash heading (##, ###, etc.) means this is markdown, not wiki.
+	// Known tradeoff: Jira wiki supports ## for nested numbered lists, but in
+	// practice this is rare compared to markdown ## headings. We prioritize
+	// not mangling markdown content over detecting every wiki edge case.
 	for _, line := range lines {
 		trimmed := strings.TrimSpace(line)
 		if len(trimmed) >= 2 && trimmed[0] == '#' && trimmed[1] == '#' {

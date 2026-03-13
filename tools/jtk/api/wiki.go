@@ -23,7 +23,7 @@ var (
 // open/close tags. The outer pattern must include surrounding whitespace or
 // boundary anchors to avoid matching inside compound words. The inner pattern
 // extracts the content between delimiters.
-func replaceWikiFormatting(text string, outer, inner *regexp.Regexp, open, close string) string {
+func replaceWikiFormatting(text string, outer, inner *regexp.Regexp, openTag, closeTag string) string {
 	return outer.ReplaceAllStringFunc(text, func(match string) string {
 		sub := inner.FindStringSubmatch(match)
 		if len(sub) < 2 {
@@ -38,7 +38,7 @@ func replaceWikiFormatting(text string, outer, inner *regexp.Regexp, open, close
 		if len(match) > 0 && match[len(match)-1] != delim {
 			suffix = string(match[len(match)-1])
 		}
-		return prefix + open + sub[1] + close + suffix
+		return prefix + openTag + sub[1] + closeTag + suffix
 	})
 }
 

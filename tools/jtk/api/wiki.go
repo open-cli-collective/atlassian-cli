@@ -5,6 +5,43 @@ import (
 	"strings"
 )
 
+// Pre-compiled patterns for wiki text formatting conversion.
+// Outer patterns match the delimiter + surrounding whitespace/boundaries.
+// Inner patterns extract the content between delimiters.
+var (
+	wikiStrikeOuter    = regexp.MustCompile(`(?:^|\s)-([^\s-][^-]*[^\s-]|[^\s-])-(?:\s|$)`)
+	wikiStrikeInner    = regexp.MustCompile(`-([^-]+)-`)
+	wikiUnderlineOuter = regexp.MustCompile(`(?:^|\s)\+([^\s+][^+]*[^\s+]|[^\s+])\+(?:\s|$)`)
+	wikiUnderlineInner = regexp.MustCompile(`\+([^+]+)\+`)
+	wikiSubOuter       = regexp.MustCompile(`(?:^|\s)~([^\s~][^~]*[^\s~]|[^\s~])~(?:\s|$)`)
+	wikiSubInner       = regexp.MustCompile(`~([^~]+)~`)
+	wikiSupOuter       = regexp.MustCompile(`(?:^|\s)\^([^\s^][^^]*[^\s^]|[^\s^])\^(?:\s|$)`)
+	wikiSupInner       = regexp.MustCompile(`\^([^^]+)\^`)
+)
+
+// replaceWikiFormatting replaces wiki-style inline formatting with the given
+// open/close tags. The outer pattern must include surrounding whitespace or
+// boundary anchors to avoid matching inside compound words. The inner pattern
+// extracts the content between delimiters.
+func replaceWikiFormatting(text string, outer, inner *regexp.Regexp, open, close string) string {
+	return outer.ReplaceAllStringFunc(text, func(match string) string {
+		sub := inner.FindStringSubmatch(match)
+		if len(sub) < 2 {
+			return match
+		}
+		prefix := ""
+		suffix := ""
+		delim := sub[0][0] // first char of the inner match is the delimiter
+		if len(match) > 0 && match[0] != delim {
+			prefix = string(match[0])
+		}
+		if len(match) > 0 && match[len(match)-1] != delim {
+			suffix = string(match[len(match)-1])
+		}
+		return prefix + open + sub[1] + close + suffix
+	})
+}
+
 // wikiPatterns defines regex patterns for Jira wiki markup detection
 var wikiPatterns = []*regexp.Regexp{
 	regexp.MustCompile(`(?m)^h[1-6]\.\s`),                  // h1. h2. etc
@@ -46,32 +83,28 @@ func IsWikiMarkup(text string) bool {
 	return false
 }
 
-// looksLikeWikiNumberedList checks if # usage looks like wiki numbered lists
+// looksLikeWikiNumberedList checks if # usage looks like wiki numbered lists.
+// Wiki numbered lists use single # (e.g., "# item"), while markdown headings
+// use ## or more (e.g., "## Section"). A line with "## " is always a markdown
+// heading, never a wiki list.
 func looksLikeWikiNumberedList(text string) bool {
 	lines := strings.Split(text, "\n")
+	singleHashListCount := 0
 	for _, line := range lines {
 		trimmed := strings.TrimSpace(line)
-		// Wiki numbered lists: # item, ## nested item
-		// Markdown headings: # Title (usually followed by content, not lists)
-		if strings.HasPrefix(trimmed, "# ") || strings.HasPrefix(trimmed, "## ") {
-			// If the line after # is short and there are multiple such lines,
-			// it's likely a wiki numbered list
-			rest := strings.TrimLeft(trimmed, "# ")
-			if len(rest) < 80 && !strings.Contains(rest, "#") {
-				// Count consecutive # lines
-				count := 0
-				for _, l := range lines {
-					if strings.HasPrefix(strings.TrimSpace(l), "#") {
-						count++
-					}
-				}
-				if count >= 2 {
-					return true
-				}
+		// Markdown headings use ## or more — these are never wiki lists
+		if strings.HasPrefix(trimmed, "## ") {
+			return false
+		}
+		// Count lines that are exactly "# text" (single hash + space)
+		if strings.HasPrefix(trimmed, "# ") {
+			rest := trimmed[2:]
+			if len(rest) < 80 {
+				singleHashListCount++
 			}
 		}
 	}
-	return false
+	return singleHashListCount >= 2
 }
 
 // WikiToMarkdown converts Jira wiki markup to markdown format.
@@ -233,36 +266,22 @@ func convertWikiTextFormatting(text string) string {
 	// Only convert if it's clearly wiki style (word boundaries)
 
 	// Strikethrough: -text- -> ~~text~~
-	strikePattern := regexp.MustCompile(`(?:^|[^-])-([^\s-][^-]*[^\s-]|[^\s-])-(?:[^-]|$)`)
-	text = strikePattern.ReplaceAllStringFunc(text, func(match string) string {
-		// Extract the content between dashes
-		innerPattern := regexp.MustCompile(`-([^-]+)-`)
-		inner := innerPattern.FindStringSubmatch(match)
-		if len(inner) >= 2 {
-			prefix := ""
-			suffix := ""
-			if len(match) > 0 && match[0] != '-' {
-				prefix = string(match[0])
-			}
-			if len(match) > 0 && match[len(match)-1] != '-' {
-				suffix = string(match[len(match)-1])
-			}
-			return prefix + "~~" + inner[1] + "~~" + suffix
-		}
-		return match
-	})
+	// Require whitespace or start/end of string around the delimiters to avoid
+	// matching hyphens in compound words like "signal-webapp-frontend".
+	text = replaceWikiFormatting(text, wikiStrikeOuter, wikiStrikeInner, "~~", "~~")
 
 	// Underline: +text+ -> <u>text</u> (no markdown equivalent, use HTML)
-	underlinePattern := regexp.MustCompile(`\+([^\s+][^+]*[^\s+]|[^\s+])\+`)
-	text = underlinePattern.ReplaceAllString(text, "<u>$1</u>")
+	// Require whitespace or start/end of string around delimiters.
+	text = replaceWikiFormatting(text, wikiUnderlineOuter, wikiUnderlineInner, "<u>", "</u>")
 
 	// Subscript: ~text~ -> <sub>text</sub>
-	subPattern := regexp.MustCompile(`~([^\s~][^~]*[^\s~]|[^\s~])~`)
-	text = subPattern.ReplaceAllString(text, "<sub>$1</sub>")
+	// Require whitespace or start/end of string around delimiters to avoid
+	// matching tildes in compound words like "three~tier" or "ui~components".
+	text = replaceWikiFormatting(text, wikiSubOuter, wikiSubInner, "<sub>", "</sub>")
 
 	// Superscript: ^text^ -> <sup>text</sup>
-	supPattern := regexp.MustCompile(`\^([^\s^][^^]*[^\s^]|[^\s^])\^`)
-	text = supPattern.ReplaceAllString(text, "<sup>$1</sup>")
+	// Require whitespace or start/end of string around delimiters.
+	text = replaceWikiFormatting(text, wikiSupOuter, wikiSupInner, "<sup>", "</sup>")
 
 	// Citation: ??text?? -> <cite>text</cite>
 	citePattern := regexp.MustCompile(`\?\?([^?]+)\?\?`)

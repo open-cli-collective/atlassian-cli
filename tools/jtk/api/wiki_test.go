@@ -221,12 +221,117 @@ func TestWikiToMarkdownPreservesMarkdown(t *testing.T) {
 			name:  "markdown list",
 			input: "- Item 1\n- Item 2",
 		},
+		{
+			name:  "hyphenated compound words preserved",
+			input: "Deploy signal-webapp-frontend to ui-components",
+		},
+		{
+			name:  "tilde in text preserved",
+			input: "Introduce a three~tier system with ui~components",
+		},
+		{
+			name:  "file paths with hyphens preserved",
+			input: "See docs/2026-03-12-v3-theming-design.md",
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := WikiToMarkdown(tt.input)
 			testutil.Equal(t, result, tt.input)
+		})
+	}
+}
+
+func TestConvertWikiTextFormatting_EdgeCases(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "strikethrough at start of line",
+			input:    "-deleted text-",
+			expected: "~~deleted text~~",
+		},
+		{
+			name:     "strikethrough after space",
+			input:    "some -deleted- text",
+			expected: "some ~~deleted~~ text",
+		},
+		{
+			name:     "hyphenated word not converted",
+			input:    "signal-webapp-frontend",
+			expected: "signal-webapp-frontend",
+		},
+		{
+			name:     "subscript after space",
+			input:    "H ~2~ O",
+			expected: "H <sub>2</sub> O",
+		},
+		{
+			name:     "tilde in compound word not converted",
+			input:    "three~tier",
+			expected: "three~tier",
+		},
+		{
+			name:     "file path hyphens preserved",
+			input:    "2026-03-12-design.md",
+			expected: "2026-03-12-design.md",
+		},
+		{
+			name:     "consecutive strikethrough",
+			input:    "-one- and -two-",
+			expected: "~~one~~ and ~~two~~",
+		},
+		{
+			name:     "strikethrough at end of string",
+			input:    "remove -this-",
+			expected: "remove ~~this~~",
+		},
+		{
+			name:     "subscript at end of string",
+			input:    "log ~n~",
+			expected: "log <sub>n</sub>",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := convertWikiTextFormatting(tt.input)
+			testutil.Equal(t, result, tt.expected)
+		})
+	}
+}
+
+func TestIsWikiMarkup_MarkdownHeadings(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name     string
+		input    string
+		expected bool
+	}{
+		{
+			name:     "markdown h2 headings should not be detected as wiki",
+			input:    "## What\n\nSome content\n\n## Scope\n\nMore content",
+			expected: false,
+		},
+		{
+			name:     "markdown mixed heading levels",
+			input:    "## Overview\n\n### Details\n\n## Summary",
+			expected: false,
+		},
+		{
+			name:     "actual wiki numbered list",
+			input:    "# First item\n# Second item\n# Third item",
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := IsWikiMarkup(tt.input)
+			testutil.Equal(t, result, tt.expected)
 		})
 	}
 }

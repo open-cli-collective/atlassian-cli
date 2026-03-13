@@ -88,7 +88,7 @@ func TestIsWikiMarkup(t *testing.T) {
 	}
 }
 
-func TestWikiToMarkdown(t *testing.T) {
+func TestWikiToADFMarkdown(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    string
@@ -203,13 +203,13 @@ func TestWikiToMarkdown(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := WikiToMarkdown(tt.input)
+			result := WikiToADFMarkdown(tt.input)
 			testutil.Equal(t, result, tt.expected)
 		})
 	}
 }
 
-func TestWikiToMarkdownPreservesMarkdown(t *testing.T) {
+func TestWikiToADFMarkdownPreservesMarkdown(t *testing.T) {
 	// Markdown input should pass through mostly unchanged
 	// (some edge cases may have minor differences)
 	tests := []struct {
@@ -252,7 +252,7 @@ func TestWikiToMarkdownPreservesMarkdown(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := WikiToMarkdown(tt.input)
+			result := WikiToADFMarkdown(tt.input)
 			testutil.Equal(t, result, tt.input)
 		})
 	}

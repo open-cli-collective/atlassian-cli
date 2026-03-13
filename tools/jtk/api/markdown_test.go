@@ -642,7 +642,16 @@ func TestMarkdownToADF_CompoundWordsEndToEnd(t *testing.T) {
 	result := MarkdownToADF(input)
 	testutil.NotNil(t, result)
 
-	// Collect all text content from the ADF document
+	// Verify compound words appear intact within single ADF text nodes.
+	// This is stronger than joining all text — it proves words aren't
+	// fragmented across nodes by wiki formatting conversion.
+	compoundWords := []string{
+		"signal-webapp-frontend",
+		"ui-components",
+		"2026-03-12-v3-theming-design.md",
+		"three-tier",
+	}
+
 	var allText []string
 	var collectText func(nodes []*ADFNode)
 	collectText = func(nodes []*ADFNode) {
@@ -657,16 +666,16 @@ func TestMarkdownToADF_CompoundWordsEndToEnd(t *testing.T) {
 	}
 	collectText(result.Content)
 
-	joined := ""
-	for _, s := range allText {
-		joined += s
+	for _, word := range compoundWords {
+		found := false
+		for _, nodeText := range allText {
+			if strings.Contains(nodeText, word) {
+				found = true
+				break
+			}
+		}
+		testutil.True(t, found, word+" should appear intact within a single text node")
 	}
-
-	// Verify compound words are intact (not mangled by wiki conversion)
-	testutil.True(t, strings.Contains(joined, "signal-webapp-frontend"), "signal-webapp-frontend should be preserved")
-	testutil.True(t, strings.Contains(joined, "ui-components"), "ui-components should be preserved")
-	testutil.True(t, strings.Contains(joined, "2026-03-12-v3-theming-design.md"), "file path should be preserved")
-	testutil.True(t, strings.Contains(joined, "three-tier"), "three-tier should be preserved")
 }
 
 // TestMarkdownToADF_EvenTildeCompoundWord verifies that compound words with an

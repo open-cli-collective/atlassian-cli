@@ -148,7 +148,7 @@ func looksLikeWikiNumberedList(text string) bool {
 	return maxConsecutive >= 2
 }
 
-// WikiToMarkdown converts Jira wiki markup to a markdown dialect tuned for the
+// WikiToADFMarkdown converts Jira wiki markup to a markdown dialect tuned for the
 // MarkdownToADF / goldmark-extras pipeline. The output is NOT general-purpose
 // markdown — it relies on adf.ToDocumentWiki (the extended goldmark parser) to
 // interpret certain patterns:
@@ -159,7 +159,7 @@ func looksLikeWikiNumberedList(text string) bool {
 //
 // Callers MUST use adf.ToDocumentWiki (not adf.ToDocument) to parse the output,
 // otherwise ~text~ and ^text^ will not produce the expected ADF marks.
-func WikiToMarkdown(wiki string) string {
+func WikiToADFMarkdown(wiki string) string {
 	if wiki == "" {
 		return ""
 	}

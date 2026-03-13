@@ -33,7 +33,7 @@ var mdParser = goldmark.New(
 // superscript (^text^), delete (~~text~~), and insert (++text++)
 // which produce proper ADF marks (subsup, strike, underline).
 // Only used when input has been detected as wiki markup and converted
-// by WikiToMarkdown, so the tilde/caret patterns are intentional.
+// by WikiToADFMarkdown, so the tilde/caret patterns are intentional.
 var wikiParser = goldmark.New(
 	goldmark.WithExtensions(
 		extension.Table,
@@ -89,13 +89,15 @@ func toDocument(markdown string, parser goldmark.Markdown) *Document {
 // ToDocumentWiki converts wiki-converted markdown to an ADF Document struct.
 // Uses the extended parser with subscript, superscript, delete, and insert
 // support. Only call this when the input has been converted from wiki markup
-// via WikiToMarkdown, where ~text~ and ^text^ patterns are intentional.
+// via WikiToADFMarkdown, where ~text~ and ^text^ patterns are intentional.
 func ToDocumentWiki(markdown string) *Document {
 	return toDocument(markdown, wikiParser)
 }
 
 // ToJSON converts markdown to an ADF JSON string.
-// Returns an empty document JSON for empty input.
+// Uses the standard parser (same as ToDocument) — no subscript/superscript/insert.
+// Wiki-converted markdown with ~text~ or ^text^ patterns should use
+// ToDocumentWiki instead. Returns an empty document JSON for empty input.
 func ToJSON(markdown []byte) (string, error) {
 	doc := &Document{
 		Type:    "doc",

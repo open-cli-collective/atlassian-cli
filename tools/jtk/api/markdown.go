@@ -12,7 +12,7 @@ import (
 // markdown over detecting every wiki edge case. Inline-only wiki formatting
 // (e.g., ~subscript~ without block-level markers like h1.) will NOT be detected.
 // This bias is intentional for mixed content from LLM agents and user input.
-// Callers that know the input is wiki markup should call WikiToMarkdown +
+// Callers that know the input is wiki markup should call WikiToADFMarkdown +
 // adf.ToDocumentWiki directly to bypass heuristics.
 func MarkdownToADF(markdown string) *ADFDocument {
 	if markdown == "" {
@@ -25,7 +25,7 @@ func MarkdownToADF(markdown string) *ADFDocument {
 	// Plain markdown uses the standard parser to avoid mangling tildes
 	// and carets in compound words (e.g., "signal~webapp~frontend").
 	if IsWikiMarkup(markdown) {
-		markdown = WikiToMarkdown(markdown)
+		markdown = WikiToADFMarkdown(markdown)
 		return adf.ToDocumentWiki(markdown)
 	}
 

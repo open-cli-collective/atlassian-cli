@@ -8,10 +8,19 @@ import (
 // Pre-compiled patterns for wiki text formatting conversion.
 // Outer patterns match the delimiter + surrounding whitespace/boundaries.
 // Inner patterns extract the content between delimiters.
+// Boundary patterns for wiki formatting delimiters. We allow whitespace,
+// common punctuation (parens, brackets, quotes), and string boundaries
+// around formatting delimiters to support patterns like "(-deleted-)" while
+// still rejecting compound words like "signal-webapp-frontend".
+const (
+	wikiBoundaryBefore = `(?:^|[\s(["'])`
+	wikiBoundaryAfter  = `(?:[\s).,"'!?;:]|$)`
+)
+
 var (
-	wikiStrikeOuter    = regexp.MustCompile(`(?:^|\s)-([^\s-][^-]*[^\s-]|[^\s-])-(?:\s|$)`)
+	wikiStrikeOuter    = regexp.MustCompile(wikiBoundaryBefore + `-([^\s-][^-]*[^\s-]|[^\s-])-` + wikiBoundaryAfter)
 	wikiStrikeInner    = regexp.MustCompile(`-([^-]+)-`)
-	wikiUnderlineOuter = regexp.MustCompile(`(?:^|\s)\+([^\s+][^+]*[^\s+]|[^\s+])\+(?:\s|$)`)
+	wikiUnderlineOuter = regexp.MustCompile(wikiBoundaryBefore + `\+([^\s+][^+]*[^\s+]|[^\s+])\+` + wikiBoundaryAfter)
 	wikiUnderlineInner = regexp.MustCompile(`\+([^+]+)\+`)
 )
 
@@ -20,10 +29,9 @@ var (
 // boundary anchors to avoid matching inside compound words. The inner pattern
 // extracts the content between delimiters.
 //
-// Limitation: formatting adjacent to punctuation (e.g., "(-deleted-)") will not
-// be converted, since the patterns require whitespace or string boundaries around
-// delimiters. This is an acceptable tradeoff to avoid false positives with
-// hyphens in compound words like "signal-webapp-frontend".
+// Boundaries allow whitespace, common punctuation (parens, brackets, quotes),
+// and string edges around delimiters. This supports wiki patterns like
+// "(-deleted-)" while rejecting compound words like "signal-webapp-frontend".
 func replaceWikiFormatting(text string, outer, inner *regexp.Regexp, openTag, closeTag string) string {
 	replacer := func(match string) string {
 		sub := inner.FindStringSubmatch(match)
@@ -106,6 +114,9 @@ func looksLikeWikiNumberedList(text string) bool {
 
 	// Count consecutive "# text" lines. Wiki numbered lists are consecutive;
 	// markdown h1 headings have blank lines and content between them.
+	// Known tradeoff: consecutive h1 headings with no blank line between them
+	// (e.g., "# A\n# B") will be detected as wiki. This is acceptable because
+	// such formatting is malformed markdown but valid wiki numbered lists.
 	consecutive := 0
 	maxConsecutive := 0
 	for _, line := range lines {

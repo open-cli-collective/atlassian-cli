@@ -2,6 +2,7 @@ package api //nolint:revive // package name is intentional
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/open-cli-collective/atlassian-go/testutil"
@@ -631,4 +632,39 @@ func TestMarkdownToADF_WikiUnderline(t *testing.T) {
 		}
 	}
 	testutil.True(t, found, "should find underlined text 'important'")
+}
+
+// TestMarkdownToADF_CompoundWordsEndToEnd verifies the full pipeline preserves
+// compound words with hyphens and tildes — the original bug that motivated this
+// change. Tests the complete path: input → wiki detection → goldmark → ADF.
+func TestMarkdownToADF_CompoundWordsEndToEnd(t *testing.T) {
+	input := "## Overview\n\nDeploy signal-webapp-frontend to ui-components.\n\n## Spec\n\nSee 2026-03-12-v3-theming-design.md for the three-tier token system."
+	result := MarkdownToADF(input)
+	testutil.NotNil(t, result)
+
+	// Collect all text content from the ADF document
+	var allText []string
+	var collectText func(nodes []*ADFNode)
+	collectText = func(nodes []*ADFNode) {
+		for _, n := range nodes {
+			if n.Text != "" {
+				allText = append(allText, n.Text)
+			}
+			if n.Content != nil {
+				collectText(n.Content)
+			}
+		}
+	}
+	collectText(result.Content)
+
+	joined := ""
+	for _, t := range allText {
+		joined += t
+	}
+
+	// Verify compound words are intact (not mangled by wiki conversion)
+	testutil.True(t, strings.Contains(joined, "signal-webapp-frontend"), "signal-webapp-frontend should be preserved")
+	testutil.True(t, strings.Contains(joined, "ui-components"), "ui-components should be preserved")
+	testutil.True(t, strings.Contains(joined, "2026-03-12-v3-theming-design.md"), "file path should be preserved")
+	testutil.True(t, strings.Contains(joined, "three-tier"), "three-tier should be preserved")
 }

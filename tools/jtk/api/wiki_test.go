@@ -325,9 +325,9 @@ func TestConvertWikiTextFormatting_EdgeCases(t *testing.T) {
 			expected: "migrate ~22 new components",
 		},
 		{
-			name:     "punctuation adjacent formatting not converted",
+			name:     "punctuation adjacent formatting converts",
 			input:    "see (-deleted-) here",
-			expected: "see (-deleted-) here",
+			expected: "see (~~deleted~~) here",
 		},
 		{
 			name:     "tab adjacent strikethrough converts",

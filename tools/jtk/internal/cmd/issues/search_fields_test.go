@@ -1,13 +1,21 @@
 package issues
 
 import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/open-cli-collective/atlassian-go/testutil"
 	"github.com/open-cli-collective/jira-ticket-cli/api"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 )
 
 func TestResolveFields(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name       string
 		fieldsFlag string
@@ -64,6 +72,20 @@ func TestResolveFields(t *testing.T) {
 			full:       false,
 			want:       []string{"summary"},
 		},
+		{
+			name:       "trims whitespace around fields",
+			fieldsFlag: "summary , customfield_10005 , status",
+			output:     "",
+			full:       false,
+			want:       []string{"summary", "customfield_10005", "status"},
+		},
+		{
+			name:       "drops empty segments from trailing comma",
+			fieldsFlag: "summary,status,",
+			output:     "",
+			full:       false,
+			want:       []string{"summary", "status"},
+		},
 	}
 
 	for _, tt := range tests {
@@ -75,4 +97,181 @@ func TestResolveFields(t *testing.T) {
 			}
 		})
 	}
+}
+
+// newSearchServer creates an httptest server that captures the request body
+// and responds with a valid JQL search result.
+func newSearchServer(t *testing.T, capturedBody *api.SearchRequest) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Fatalf("reading request body: %v", err)
+		}
+		if capturedBody != nil {
+			if err := json.Unmarshal(body, capturedBody); err != nil {
+				t.Fatalf("parsing request body: %v", err)
+			}
+		}
+
+		result := api.JQLSearchResult{
+			Issues: []api.Issue{
+				{
+					Key: "TEST-1",
+					Fields: api.IssueFields{
+						Summary:   "Test issue",
+						Status:    &api.Status{Name: "Open"},
+						IssueType: &api.IssueType{Name: "Task"},
+					},
+				},
+			},
+			IsLast: true,
+		}
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(result)
+	}))
+}
+
+func TestRunSearch_JSONOutputRequestsAllFields(t *testing.T) {
+	t.Parallel()
+	var captured api.SearchRequest
+	server := newSearchServer(t, &captured)
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{
+		URL:      server.URL,
+		Email:    "test@example.com",
+		APIToken: "token",
+	})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{
+		Output: "json",
+		Stdout: &stdout,
+		Stderr: &bytes.Buffer{},
+	}
+	opts.SetAPIClient(client)
+
+	err = runSearch(context.Background(), opts, "project = TEST", 25, "", false, "")
+	testutil.RequireNoError(t, err)
+
+	testutil.Equal(t, 1, len(captured.Fields))
+	testutil.Equal(t, "*all", captured.Fields[0])
+}
+
+func TestRunSearch_FieldsFlagOverridesJSONDefault(t *testing.T) {
+	t.Parallel()
+	var captured api.SearchRequest
+	server := newSearchServer(t, &captured)
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{
+		URL:      server.URL,
+		Email:    "test@example.com",
+		APIToken: "token",
+	})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{
+		Output: "json",
+		Stdout: &stdout,
+		Stderr: &bytes.Buffer{},
+	}
+	opts.SetAPIClient(client)
+
+	err = runSearch(context.Background(), opts, "project = TEST", 25, "", false, "summary,customfield_10005")
+	testutil.RequireNoError(t, err)
+
+	testutil.Equal(t, 2, len(captured.Fields))
+	testutil.Equal(t, "summary", captured.Fields[0])
+	testutil.Equal(t, "customfield_10005", captured.Fields[1])
+}
+
+func TestRunSearch_TableOutputUsesListFields(t *testing.T) {
+	t.Parallel()
+	var captured api.SearchRequest
+	server := newSearchServer(t, &captured)
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{
+		URL:      server.URL,
+		Email:    "test@example.com",
+		APIToken: "token",
+	})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{
+		Output: "table",
+		Stdout: &stdout,
+		Stderr: &bytes.Buffer{},
+	}
+	opts.SetAPIClient(client)
+
+	err = runSearch(context.Background(), opts, "project = TEST", 25, "", false, "")
+	testutil.RequireNoError(t, err)
+
+	testutil.Equal(t, len(api.ListSearchFields), len(captured.Fields))
+	for i, f := range api.ListSearchFields {
+		testutil.Equal(t, f, captured.Fields[i])
+	}
+}
+
+func TestRunList_JSONOutputRequestsAllFields(t *testing.T) {
+	t.Parallel()
+	var captured api.SearchRequest
+	server := newSearchServer(t, &captured)
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{
+		URL:      server.URL,
+		Email:    "test@example.com",
+		APIToken: "token",
+	})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{
+		Output: "json",
+		Stdout: &stdout,
+		Stderr: &bytes.Buffer{},
+	}
+	opts.SetAPIClient(client)
+
+	err = runList(context.Background(), opts, "TEST", "", 25, "", false, "")
+	testutil.RequireNoError(t, err)
+
+	testutil.Equal(t, 1, len(captured.Fields))
+	testutil.Equal(t, "*all", captured.Fields[0])
+}
+
+func TestRunList_FieldsFlagOverridesJSONDefault(t *testing.T) {
+	t.Parallel()
+	var captured api.SearchRequest
+	server := newSearchServer(t, &captured)
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{
+		URL:      server.URL,
+		Email:    "test@example.com",
+		APIToken: "token",
+	})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{
+		Output: "json",
+		Stdout: &stdout,
+		Stderr: &bytes.Buffer{},
+	}
+	opts.SetAPIClient(client)
+
+	err = runList(context.Background(), opts, "TEST", "", 25, "", false, "summary,customfield_10035")
+	testutil.RequireNoError(t, err)
+
+	testutil.Equal(t, 2, len(captured.Fields))
+	testutil.Equal(t, "summary", captured.Fields[0])
+	testutil.Equal(t, "customfield_10035", captured.Fields[1])
 }

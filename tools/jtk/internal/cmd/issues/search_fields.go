@@ -10,7 +10,14 @@ import (
 // the --fields flag, output format, and --full flag.
 func resolveFields(fieldsFlag, outputFormat string, full bool) []string {
 	if fieldsFlag != "" {
-		return strings.Split(fieldsFlag, ",")
+		parts := strings.Split(fieldsFlag, ",")
+		fields := make([]string, 0, len(parts))
+		for _, p := range parts {
+			if f := strings.TrimSpace(p); f != "" {
+				fields = append(fields, f)
+			}
+		}
+		return fields
 	}
 	if outputFormat == "json" {
 		return []string{"*all"}

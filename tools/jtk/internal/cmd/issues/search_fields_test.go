@@ -86,6 +86,20 @@ func TestResolveFields(t *testing.T) {
 			full:       false,
 			want:       []string{"summary", "status"},
 		},
+		{
+			name:       "all empty tokens falls through to json default",
+			fieldsFlag: ",, ",
+			output:     "json",
+			full:       false,
+			want:       []string{"*all"},
+		},
+		{
+			name:       "all empty tokens falls through to list default",
+			fieldsFlag: ",, ",
+			output:     "",
+			full:       false,
+			want:       api.ListSearchFields,
+		},
 	}
 
 	for _, tt := range tests {

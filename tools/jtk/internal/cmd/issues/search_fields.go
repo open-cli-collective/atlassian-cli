@@ -17,13 +17,16 @@ func resolveFields(fieldsFlag, outputFormat string, full bool) []string {
 				fields = append(fields, f)
 			}
 		}
-		return fields
+		if len(fields) > 0 {
+			return fields
+		}
+		// Fall through to defaults if all tokens were empty/whitespace
 	}
 	if outputFormat == "json" {
 		return []string{"*all"}
 	}
 	if full {
-		return api.DefaultSearchFields
+		return append([]string(nil), api.DefaultSearchFields...)
 	}
-	return api.ListSearchFields
+	return append([]string(nil), api.ListSearchFields...)
 }

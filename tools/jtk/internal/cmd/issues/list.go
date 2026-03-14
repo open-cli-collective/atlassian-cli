@@ -16,6 +16,7 @@ func newListCmd(opts *root.Options) *cobra.Command {
 	var maxResults int
 	var nextPageToken string
 	var full bool
+	var fieldsFlag string
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -31,9 +32,12 @@ func newListCmd(opts *root.Options) *cobra.Command {
   jtk issues list --project MYPROJECT --next-page-token <token>
 
   # List with full details (includes description)
-  jtk issues list --project MYPROJECT --full`,
+  jtk issues list --project MYPROJECT --full
+
+  # List with specific fields (e.g. custom fields)
+  jtk issues list --project MYPROJECT --fields summary,status,customfield_10005 -o json`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runList(cmd.Context(), opts, project, sprint, maxResults, nextPageToken, full)
+			return runList(cmd.Context(), opts, project, sprint, maxResults, nextPageToken, full, fieldsFlag)
 		},
 	}
 
@@ -42,11 +46,12 @@ func newListCmd(opts *root.Options) *cobra.Command {
 	cmd.Flags().IntVarP(&maxResults, "max", "m", 25, "Page size (number of results per page)")
 	cmd.Flags().StringVar(&nextPageToken, "next-page-token", "", "Token for next page of results")
 	cmd.Flags().BoolVar(&full, "full", false, "Include all fields (e.g. description)")
+	cmd.Flags().StringVar(&fieldsFlag, "fields", "", "Comma-separated list of fields to return (e.g. summary,customfield_10005)")
 
 	return cmd
 }
 
-func runList(ctx context.Context, opts *root.Options, project, sprint string, maxResults int, nextPageToken string, full bool) error {
+func runList(ctx context.Context, opts *root.Options, project, sprint string, maxResults int, nextPageToken string, full bool, fieldsFlag string) error {
 	v := opts.View()
 
 	client, err := opts.APIClient()
@@ -81,11 +86,7 @@ func runList(ctx context.Context, opts *root.Options, project, sprint string, ma
 		jql += " ORDER BY updated DESC"
 	}
 
-	// Select fields based on --full flag
-	fields := api.ListSearchFields
-	if full {
-		fields = api.DefaultSearchFields
-	}
+	fields := resolveFields(fieldsFlag, opts.Output, full)
 
 	result, err := client.SearchPage(ctx, api.SearchPageOptions{
 		JQL:           jql,

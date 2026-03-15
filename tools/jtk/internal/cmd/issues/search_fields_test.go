@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 
 	"github.com/open-cli-collective/atlassian-go/testutil"
@@ -289,4 +291,119 @@ func TestRunList_FieldsFlagOverridesJSONDefault(t *testing.T) {
 	testutil.Equal(t, 2, len(captured.Fields))
 	testutil.Equal(t, "summary", captured.Fields[0])
 	testutil.Equal(t, "customfield_10035", captured.Fields[1])
+}
+
+// newPaginatedSearchServer creates a server that returns pageSize issues per request
+// across multiple pages, up to totalIssues total.
+func newPaginatedSearchServer(t *testing.T, pageSize, totalIssues int) *httptest.Server {
+	t.Helper()
+	var requestCount atomic.Int32
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		var req api.SearchRequest
+		_ = json.Unmarshal(body, &req)
+
+		page := int(requestCount.Add(1))
+		start := (page - 1) * pageSize
+		remaining := totalIssues - start
+		count := pageSize
+		if remaining < count {
+			count = remaining
+		}
+		if count < 0 {
+			count = 0
+		}
+
+		issues := make([]api.Issue, count)
+		for i := range count {
+			issues[i] = api.Issue{
+				Key: fmt.Sprintf("TEST-%d", start+i+1),
+				Fields: api.IssueFields{
+					Summary:   fmt.Sprintf("Issue %d", start+i+1),
+					Status:    &api.Status{Name: "Open"},
+					IssueType: &api.IssueType{Name: "Task"},
+				},
+			}
+		}
+
+		isLast := start+count >= totalIssues
+		nextToken := ""
+		if !isLast {
+			nextToken = fmt.Sprintf("page%dtoken", page+1)
+		}
+
+		result := api.JQLSearchResult{
+			Issues:        issues,
+			IsLast:        isLast,
+			NextPageToken: nextToken,
+		}
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(result)
+	}))
+}
+
+func TestRunSearch_AutoPaginationJSON(t *testing.T) {
+	t.Parallel()
+	// Server has 150 issues, serves 75 per page
+	server := newPaginatedSearchServer(t, 75, 150)
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{
+		URL:      server.URL,
+		Email:    "test@example.com",
+		APIToken: "token",
+	})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{
+		Output: "json",
+		Stdout: &stdout,
+		Stderr: &bytes.Buffer{},
+	}
+	opts.SetAPIClient(client)
+
+	err = runSearch(context.Background(), opts, "project = TEST", 150, "", false, "")
+	testutil.RequireNoError(t, err)
+
+	var result api.PaginatedIssues
+	err = json.Unmarshal(stdout.Bytes(), &result)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, 150, len(result.Issues))
+	testutil.Equal(t, 150, result.Pagination.Total)
+	testutil.True(t, result.Pagination.IsLast)
+	testutil.Equal(t, "TEST-1", result.Issues[0].Key)
+	testutil.Equal(t, "TEST-150", result.Issues[149].Key)
+}
+
+func TestRunList_AutoPaginationJSON(t *testing.T) {
+	t.Parallel()
+	// Server has 120 issues, serves 60 per page
+	server := newPaginatedSearchServer(t, 60, 120)
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{
+		URL:      server.URL,
+		Email:    "test@example.com",
+		APIToken: "token",
+	})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{
+		Output: "json",
+		Stdout: &stdout,
+		Stderr: &bytes.Buffer{},
+	}
+	opts.SetAPIClient(client)
+
+	err = runList(context.Background(), opts, "TEST", "", 120, "", false, "")
+	testutil.RequireNoError(t, err)
+
+	var result api.PaginatedIssues
+	err = json.Unmarshal(stdout.Bytes(), &result)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, 120, len(result.Issues))
+	testutil.Equal(t, 120, result.Pagination.Total)
+	testutil.True(t, result.Pagination.IsLast)
 }

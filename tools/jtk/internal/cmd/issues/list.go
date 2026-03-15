@@ -28,7 +28,10 @@ func newListCmd(opts *root.Options) *cobra.Command {
   # List issues in the current sprint
   jtk issues list --project MYPROJECT --sprint current
 
-  # List next page using token from previous result
+  # Get up to 200 results (auto-paginates)
+  jtk issues list --project MYPROJECT --max 200
+
+  # Resume from a previous page token
   jtk issues list --project MYPROJECT --next-page-token <token>
 
   # List with full details (includes description)
@@ -43,7 +46,7 @@ func newListCmd(opts *root.Options) *cobra.Command {
 
 	cmd.Flags().StringVarP(&project, "project", "p", "", "Filter by project key")
 	cmd.Flags().StringVarP(&sprint, "sprint", "s", "", "Filter by sprint (use 'current' for active sprint)")
-	cmd.Flags().IntVarP(&maxResults, "max", "m", 25, "Page size (number of results per page)")
+	cmd.Flags().IntVarP(&maxResults, "max", "m", 25, "Maximum number of results to return")
 	cmd.Flags().StringVar(&nextPageToken, "next-page-token", "", "Token for next page of results")
 	cmd.Flags().BoolVar(&full, "full", false, "Include all fields (e.g. description)")
 	cmd.Flags().StringVar(&fieldsFlag, "fields", "", "Comma-separated list of fields to return (e.g. summary,customfield_10005)")
@@ -90,7 +93,7 @@ func runList(ctx context.Context, opts *root.Options, project, sprint string, ma
 
 	result, err := client.SearchPage(ctx, api.SearchPageOptions{
 		JQL:           jql,
-		PageSize:      maxResults,
+		MaxResults:    maxResults,
 		Fields:        fields,
 		NextPageToken: nextPageToken,
 	})

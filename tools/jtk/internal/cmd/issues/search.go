@@ -26,7 +26,10 @@ func newSearchCmd(opts *root.Options) *cobra.Command {
   # Search for recent issues
   jtk issues search --jql "project = MYPROJECT AND updated >= -7d"
 
-  # Search with pagination
+  # Get up to 200 results (auto-paginates)
+  jtk issues search --jql "project = MYPROJECT" --max 200
+
+  # Resume from a previous page token
   jtk issues search --jql "project = MYPROJECT" --next-page-token <token>
 
   # Search with full details (includes description)
@@ -40,7 +43,7 @@ func newSearchCmd(opts *root.Options) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&jql, "jql", "", "JQL query string (required)")
-	cmd.Flags().IntVarP(&maxResults, "max", "m", 25, "Page size (number of results per page)")
+	cmd.Flags().IntVarP(&maxResults, "max", "m", 25, "Maximum number of results to return")
 	cmd.Flags().StringVar(&nextPageToken, "next-page-token", "", "Token for next page of results")
 	cmd.Flags().BoolVar(&full, "full", false, "Include all fields (e.g. description)")
 	cmd.Flags().StringVar(&fieldsFlag, "fields", "", "Comma-separated list of fields to return (e.g. summary,customfield_10005)")
@@ -61,7 +64,7 @@ func runSearch(ctx context.Context, opts *root.Options, jql string, maxResults i
 
 	result, err := client.SearchPage(ctx, api.SearchPageOptions{
 		JQL:           jql,
-		PageSize:      maxResults,
+		MaxResults:    maxResults,
 		Fields:        fields,
 		NextPageToken: nextPageToken,
 	})

@@ -93,6 +93,7 @@ When a release-triggering commit is merged to main:
 | `TAP_GITHUB_TOKEN` | Push tags + update Homebrew tap |
 | `CHOCOLATEY_API_KEY` | Publish to Chocolatey |
 | `WINGET_GITHUB_TOKEN` | Submit to microsoft/winget-pkgs |
+| `LINUX_PACKAGES_DISPATCH_TOKEN` | Trigger APT/RPM repo update in open-cli-collective/linux-packages |
 
 ### Build Matrix
 

@@ -165,3 +165,21 @@ jobs:
       - name: Submit manifests
         run: |
           ./wingetcreate.exe submit manifests --token ${{ secrets.WINGET_GITHUB_TOKEN }}
+
+  linux-packages:
+    needs: goreleaser
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Trigger linux-packages repo update
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.LINUX_PACKAGES_DISPATCH_TOKEN }}
+          repository: open-cli-collective/linux-packages
+          event-type: package-release
+          client-payload: |-
+            {
+              "package": "jtk",
+              "version": "${{ github.ref_name }}",
+              "repo": "open-cli-collective/atlassian-cli"
+            }

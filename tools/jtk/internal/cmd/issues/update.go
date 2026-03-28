@@ -132,8 +132,13 @@ func runUpdate(ctx context.Context, opts *root.Options, issueKey, summary, descr
 				fieldID = key
 			}
 
-			// Format value based on field type
-			fields[fieldID] = api.FormatFieldValue(field, value)
+			// Format value based on field type, merging with existing if same key repeated
+			formatted := api.FormatFieldValue(field, value)
+			if existing, ok := fields[fieldID]; ok {
+				fields[fieldID] = api.MergeFieldValues(existing, formatted)
+			} else {
+				fields[fieldID] = formatted
+			}
 		}
 	}
 

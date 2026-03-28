@@ -132,6 +132,28 @@ func FormatFieldValue(field *Field, value string) any {
 	}
 }
 
+// MergeFieldValues merges a new formatted field value into an existing one.
+// For array fields (e.g., multi-checkbox, labels), this appends to the existing
+// array. For non-array fields, the new value replaces the existing one.
+func MergeFieldValues(existing, newVal any) any {
+	// Try to merge []map[string]string (option arrays like multi-checkbox)
+	if existArr, ok := existing.([]map[string]string); ok {
+		if newArr, ok := newVal.([]map[string]string); ok {
+			return append(existArr, newArr...)
+		}
+	}
+
+	// Try to merge []string (string arrays like labels)
+	if existArr, ok := existing.([]string); ok {
+		if newArr, ok := newVal.([]string); ok {
+			return append(existArr, newArr...)
+		}
+	}
+
+	// Non-array field: new value wins
+	return newVal
+}
+
 // FieldOptionsResponse represents the response from field options endpoint
 type FieldOptionsResponse struct {
 	Options []FieldOptionValue `json:"values"`

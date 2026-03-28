@@ -99,8 +99,13 @@ func runCreate(ctx context.Context, opts *root.Options, project, issueType, summ
 				fieldID = key
 			}
 
-			// Format value based on field type
-			extraFields[fieldID] = api.FormatFieldValue(field, value)
+			// Format value based on field type, merging with existing if same key repeated
+			formatted := api.FormatFieldValue(field, value)
+			if existing, ok := extraFields[fieldID]; ok {
+				extraFields[fieldID] = api.MergeFieldValues(existing, formatted)
+			} else {
+				extraFields[fieldID] = formatted
+			}
 		}
 	}
 

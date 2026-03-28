@@ -126,28 +126,4 @@ func TestResolveAssignee_EmailNotFound(t *testing.T) {
 	testutil.Contains(t, err.Error(), "no user found")
 }
 
-func TestIsNullValue(t *testing.T) {
-	t.Parallel()
-	tests := []struct {
-		input string
-		want  bool
-	}{
-		{"none", true},
-		{"None", true},
-		{"NONE", true},
-		{"null", true},
-		{"Null", true},
-		{"NULL", true},
-		{"", true},
-		{" none ", true},
-		{"user@example.com", false},
-		{"me", false},
-		{"61292e4c4f29230069621c5f", false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.input, func(t *testing.T) {
-			testutil.Equal(t, isNullValue(tt.input), tt.want)
-		})
-	}
-}
+// IsNullValue tests are in api/fields_test.go since the function is exported from the api package.

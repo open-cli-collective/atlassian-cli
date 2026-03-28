@@ -8,12 +8,6 @@ import (
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 )
 
-// isNullValue returns true if the value represents an explicit null/clear intent.
-func isNullValue(v string) bool {
-	lower := strings.ToLower(strings.TrimSpace(v))
-	return lower == "none" || lower == "null" || lower == ""
-}
-
 // resolveAssignee resolves an assignee value to a Jira account ID.
 // Accepts "me" (current user), an email address (searched via API), or a raw account ID.
 func resolveAssignee(ctx context.Context, client *api.Client, assignee string) (string, error) {

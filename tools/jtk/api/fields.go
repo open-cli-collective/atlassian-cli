@@ -75,6 +75,13 @@ func ResolveFieldID(fields []Field, nameOrID string) (string, error) {
 	return "", fmt.Errorf("field not found: %s", nameOrID)
 }
 
+// IsNullValue returns true if the value represents an explicit null/clear intent.
+// Accepted values: "none", "null", or empty string (case-insensitive, whitespace-trimmed).
+func IsNullValue(v string) bool {
+	lower := strings.ToLower(strings.TrimSpace(v))
+	return lower == "none" || lower == "null" || lower == ""
+}
+
 // FormatFieldValue formats a field value based on its type for the Jira API.
 // It handles special cases like:
 //   - option fields: wraps value as {"value": "..."}
@@ -110,8 +117,7 @@ func FormatFieldValue(field *Field, value string) any {
 		}
 		return []string{value}
 	case "user":
-		lower := strings.ToLower(strings.TrimSpace(value))
-		if lower == "none" || lower == "null" || lower == "" {
+		if IsNullValue(value) {
 			return nil
 		}
 		return map[string]string{"accountId": value}

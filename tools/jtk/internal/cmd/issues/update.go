@@ -100,7 +100,7 @@ func runUpdate(ctx context.Context, opts *root.Options, issueKey, summary, descr
 	}
 
 	if assignee != "" {
-		if isNullValue(assignee) {
+		if api.IsNullValue(assignee) {
 			fields["assignee"] = nil
 		} else {
 			accountID, err := resolveAssignee(ctx, client, assignee)

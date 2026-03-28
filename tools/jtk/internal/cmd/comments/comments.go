@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/text"
 )
 
 // Register registers the comments commands
@@ -138,7 +139,7 @@ func runAdd(ctx context.Context, opts *root.Options, issueKey, body string) erro
 		return err
 	}
 
-	comment, err := client.AddComment(ctx, issueKey, body)
+	comment, err := client.AddComment(ctx, issueKey, text.InterpretEscapes(body))
 	if err != nil {
 		return err
 	}

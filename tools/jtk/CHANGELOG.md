@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `users get <account-id>` subcommand to look up a user by account ID ([#189](https://github.com/open-cli-collective/atlassian-cli/pull/189))
+- `--assignee none` on `issues update` and `--field assignee=null` to unassign issues ([#187](https://github.com/open-cli-collective/atlassian-cli/pull/187))
+- `--field` flag accumulates repeated values for the same key, enabling multi-checkbox and multi-select custom fields ([#186](https://github.com/open-cli-collective/atlassian-cli/pull/186))
+- `--fields` flag on `issues list` and `issues search` for explicit field selection ([#180](https://github.com/open-cli-collective/atlassian-cli/pull/180))
+- Auto-pagination for `issues list` and `issues search` — `--max` returns up to N results across pages ([#182](https://github.com/open-cli-collective/atlassian-cli/pull/182))
 - Automation rule builder module for constructing rule JSON programmatically with a fluent Go API ([#174](https://github.com/open-cli-collective/atlassian-cli/pull/174))
 - Service account support with bearer auth (`--auth-method bearer`) for scoped API tokens ([#171](https://github.com/open-cli-collective/atlassian-cli/pull/171))
 - Cursor-based pagination with `--next-page-token` and lightweight fields (`--full`) for `issues list` and `issues search` ([#168](https://github.com/open-cli-collective/atlassian-cli/pull/168))
@@ -42,6 +47,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `\n`, `\t`, `\\` escape sequences now work in `comments add --body` ([#188](https://github.com/open-cli-collective/atlassian-cli/pull/188))
+- `issues search` and `issues list` with `-o json` now return all fields including custom fields by default ([#180](https://github.com/open-cli-collective/atlassian-cli/pull/180))
+- Wiki markup conversion no longer mangles hyphens and tildes ([#178](https://github.com/open-cli-collective/atlassian-cli/pull/178))
 - `--field parent=PROJ-123` and issuelink-type custom fields now format correctly instead of producing a `"data was not an object"` API error ([#140](https://github.com/open-cli-collective/atlassian-cli/pull/140))
 - `config show -o json` no longer appends trailing plain text after JSON body ([#124](https://github.com/open-cli-collective/atlassian-cli/pull/124))
 - `projects create` success message uses the input name instead of the empty API response name ([#121](https://github.com/open-cli-collective/atlassian-cli/pull/121))

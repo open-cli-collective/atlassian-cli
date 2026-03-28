@@ -82,6 +82,9 @@ jtk fields list --custom
 
 # $SELECT_FIELD — pick a select/multiselect custom field with options
 # (same as $CUSTOM_FIELD if it's a select type)
+
+# $MULTI_FIELD — pick a multi-select or multi-checkbox custom field (optional)
+# Used for multi-value --field tests. Skip those tests if unavailable.
 ```
 
 ### Test Data Conventions
@@ -154,6 +157,26 @@ jtk fields list --custom
 | 2 | `jtk issues search --jql "project = $PROJECT" --max 2 -o json` | Valid JSON array |
 | 3 | `jtk issues search --jql "project = $PROJECT AND summary ~ 'xyznonexistent999'"` | `No issues found` |
 | 4 | `jtk issues search --jql "invalid jql ((("` | `bad request: Error in the JQL Query: ...` |
+
+### Auto-pagination (issues search / issues list)
+
+> These tests require a project with more than 100 issues. If your project has fewer, lower the `--max` value and adjust expected counts accordingly.
+
+| # | Command | Expected Output |
+|---|---------|-----------------|
+| 1 | `jtk issues search --jql "project = $PROJECT" --max 200 -o json \| jq '.issues \| length'` | Number >= 101 (proves multi-page fetch) |
+| 2 | `jtk issues search --jql "project = $PROJECT" --max 200 -o json \| jq '.pagination'` | `total` matches count, `pageSize` <= 100 |
+| 3 | `jtk issues search --jql "project = $PROJECT" --max 200` | Table output with > 100 rows |
+| 4 | `jtk issues list -p $PROJECT --max 200 -o json \| jq '.issues \| length'` | Same multi-page behavior for list |
+
+### `--fields` flag (issues search / issues list)
+
+| # | Command | Expected Output |
+|---|---------|-----------------|
+| 1 | `jtk issues search --jql "project = $PROJECT" --max 1 -o json \| jq '.issues[0].fields \| keys'` | Includes `customfield_*` keys (default `*all`) |
+| 2 | `jtk issues search --jql "project = $PROJECT" --max 1 --fields summary,status -o json \| jq '.issues[0].fields \| keys'` | Only `summary`, `status` |
+| 3 | `jtk issues list -p $PROJECT --max 1 -o json \| jq '.issues[0].fields \| keys'` | Same `*all` default |
+| 4 | `jtk issues list -p $PROJECT --max 1 --fields summary,customfield_10005 -o json \| jq '.issues[0].fields \| keys'` | Only requested fields |
 
 ### issues types
 
@@ -282,11 +305,21 @@ jtk fields list --custom
 
 ## 7. Users (Read-Only)
 
+### users search
+
 | # | Command | Expected Output |
 |---|---------|-----------------|
 | 1 | `jtk users search "YOUR_NAME"` | Table with columns: ACCOUNT_ID, NAME, EMAIL, ACTIVE |
 | 2 | `jtk users search "YOUR_NAME" -o json` | Valid JSON array |
 | 3 | `jtk users search "xyznonexistent999"` | `No users found matching 'xyznonexistent999'` |
+
+### users get
+
+| # | Command | Expected Output |
+|---|---------|-----------------|
+| 1 | `jtk users get $ACCOUNT_ID` | Table with Account ID, Display Name, Email, Active |
+| 2 | `jtk users get $ACCOUNT_ID -o json` | Valid JSON with `accountId`, `displayName`, `emailAddress`, `active` |
+| 3 | `jtk users get 000000000000000000000000` | Error: 404 (user not found) |
 
 ---
 
@@ -374,12 +407,18 @@ Run these steps in order. Each step depends on the previous.
    ```
    Expected: `✓ Assigned issue $TEST_ISSUE to YOUR_NAME`
 
-6. **Add comment:**
+6. **Add comment with escape sequences:**
    ```bash
-   jtk comments add $TEST_ISSUE -b "Test comment from integration testing"
+   jtk comments add $TEST_ISSUE -b "Line one\nLine two\n\tIndented line"
    ```
    Expected: `✓ Added comment XXXXX to $TEST_ISSUE`
    Capture the comment ID → `$COMMENT_ID`
+
+6b. **Verify escape sequences rendered:**
+   ```bash
+   jtk comments list $TEST_ISSUE --full
+   ```
+   Expected: Comment body shows actual newlines and tab, not literal `\n` or `\t`
 
 7. **List comments:**
    ```bash
@@ -409,11 +448,24 @@ Run these steps in order. Each step depends on the previous.
     ```
     Expected: Status shows the new value
 
-11. **Unassign:**
+11. **Unassign (via assign command):**
     ```bash
     jtk issues assign $TEST_ISSUE --unassign
     ```
     Expected: `✓ Unassigned issue $TEST_ISSUE`
+
+11b. **Re-assign, then unassign via update --assignee none:**
+    ```bash
+    jtk issues assign $TEST_ISSUE $ACCOUNT_ID
+    jtk issues update $TEST_ISSUE --assignee none
+    ```
+    Expected: First command assigns, second command shows `✓ Updated issue $TEST_ISSUE`
+
+11c. **Verify unassignment:**
+    ```bash
+    jtk issues get $TEST_ISSUE -o json | jq '.fields.assignee'
+    ```
+    Expected: `null`
 
 12. **Delete comment:**
     ```bash
@@ -426,6 +478,29 @@ Run these steps in order. Each step depends on the previous.
     jtk issues delete $TEST_ISSUE --force
     ```
     Expected: `✓ Deleted issue $TEST_ISSUE`
+
+### Multi-value `--field` flag
+
+> Requires a multi-select or multi-checkbox custom field (`$MULTI_FIELD`) on the project. Skip if unavailable.
+
+1. **Create issue with multi-value field:**
+   ```bash
+   jtk issues create -p $PROJECT -t $ISSUE_TYPE -s "[Test] Multi-Value Field" \
+     --field $MULTI_FIELD=Option1 --field $MULTI_FIELD=Option2
+   ```
+   Expected: `✓ Created issue $PROJECT-XXXX`
+   Capture the issue key → `$MV_ISSUE`
+
+2. **Verify both values set:**
+   ```bash
+   jtk issues get $MV_ISSUE -o json | jq ".fields.$MULTI_FIELD"
+   ```
+   Expected: JSON array containing both Option1 and Option2
+
+3. **Cleanup:**
+   ```bash
+   jtk issues delete $MV_ISSUE --force
+   ```
 
 ### Error cases
 
@@ -963,6 +1038,8 @@ Verify each alias produces the same output as the full command:
 - [ ] `issues list` (table, JSON, plain, error)
 - [ ] `issues get` (table, JSON, 404)
 - [ ] `issues search` (results, JSON, no results, bad JQL)
+- [ ] Auto-pagination (search multi-page, list multi-page)
+- [ ] `--fields` flag (default `*all`, explicit fields for search and list)
 - [ ] `issues types` (table, JSON, 404)
 - [ ] `issues fields` (all, custom, JSON)
 - [ ] `issues field-options` (with --issue, JSON)
@@ -988,6 +1065,7 @@ Verify each alias produces the same output as the full command:
 
 #### Users Read-Only (Section 7)
 - [ ] `users search` (results, JSON, no results)
+- [ ] `users get` (table, JSON, 404)
 
 #### Automation Read-Only (Section 8)
 - [ ] `auto list` (all, filtered, JSON)
@@ -1000,7 +1078,9 @@ Verify each alias produces the same output as the full command:
 - [ ] `fields options list` (table, JSON)
 
 #### Issue Mutations (Section 10)
-- [ ] Create → get → update → assign → comment → transition → unassign → delete comment → delete issue
+- [ ] Create → get → update → assign → comment (with escape sequences) → transition → unassign → delete comment → delete issue
+- [ ] Unassign via `--assignee none` on `issues update`
+- [ ] Multi-value `--field` flag (create issue with repeated `--field` same key)
 - [ ] Error cases (missing flags, 404)
 
 #### Link Mutations (Section 11)
@@ -1069,6 +1149,8 @@ Verify each alias produces the same output as the full command:
 - [ ] `issues list` (table, JSON, plain, error)
 - [ ] `issues get` (table, JSON, 404)
 - [ ] `issues search` (results, JSON, no results, bad JQL)
+- [ ] Auto-pagination (search multi-page, list multi-page)
+- [ ] `--fields` flag (default `*all`, explicit fields for search and list)
 - [ ] `issues types` (table, JSON, 404)
 - [ ] `issues fields` (all, custom, JSON)
 - [ ] `issues field-options` (with --issue, JSON)
@@ -1084,6 +1166,7 @@ Verify each alias produces the same output as the full command:
 
 #### Users Read-Only (Section 7)
 - [ ] `users search` (results, JSON, no results)
+- [ ] `users get` (table, JSON, 404)
 
 #### Fields Read-Only (Section 9)
 - [ ] `fields list` (all, custom, JSON)
@@ -1091,7 +1174,9 @@ Verify each alias produces the same output as the full command:
 - [ ] `fields options list` (table, JSON)
 
 #### Issue Mutations (Section 10)
-- [ ] Create → get → update → assign → comment → transition → unassign → delete comment → delete issue
+- [ ] Create → get → update → assign → comment (with escape sequences) → transition → unassign → delete comment → delete issue
+- [ ] Unassign via `--assignee none` on `issues update`
+- [ ] Multi-value `--field` flag (create issue with repeated `--field` same key)
 - [ ] Error cases (missing flags, 404)
 
 #### Link Mutations (Section 11)

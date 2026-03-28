@@ -110,6 +110,10 @@ func FormatFieldValue(field *Field, value string) any {
 		}
 		return []string{value}
 	case "user":
+		lower := strings.ToLower(strings.TrimSpace(value))
+		if lower == "none" || lower == "null" || lower == "" {
+			return nil
+		}
 		return map[string]string{"accountId": value}
 	case "number":
 		if n, err := strconv.ParseFloat(value, 64); err == nil {

@@ -43,6 +43,9 @@ transparently (since the standard update API does not support type changes).`,
   # Reassign an issue
   jtk issues update PROJ-123 --assignee user@example.com
 
+  # Unassign an issue
+  jtk issues update PROJ-123 --assignee none
+
   # Update custom fields
   jtk issues update PROJ-123 --field priority=High --field "Story Points"=5`,
 		Args: cobra.ExactArgs(1),
@@ -97,11 +100,15 @@ func runUpdate(ctx context.Context, opts *root.Options, issueKey, summary, descr
 	}
 
 	if assignee != "" {
-		accountID, err := resolveAssignee(ctx, client, assignee)
-		if err != nil {
-			return err
+		if isNullValue(assignee) {
+			fields["assignee"] = nil
+		} else {
+			accountID, err := resolveAssignee(ctx, client, assignee)
+			if err != nil {
+				return err
+			}
+			fields["assignee"] = map[string]string{"accountId": accountID}
 		}
-		fields["assignee"] = map[string]string{"accountId": accountID}
 	}
 
 	// Parse additional fields

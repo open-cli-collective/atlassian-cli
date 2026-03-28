@@ -232,6 +232,30 @@ func TestFormatFieldValue(t *testing.T) {
 			want:  map[string]string{"accountId": "abc123"},
 		},
 		{
+			name: "user field with none - returns nil for unassignment",
+			field: &Field{
+				ID:   "assignee",
+				Name: "Assignee",
+				Schema: FieldSchema{
+					Type: "user",
+				},
+			},
+			value: "none",
+			want:  nil,
+		},
+		{
+			name: "user field with null - returns nil for unassignment",
+			field: &Field{
+				ID:   "assignee",
+				Name: "Assignee",
+				Schema: FieldSchema{
+					Type: "user",
+				},
+			},
+			value: "null",
+			want:  nil,
+		},
+		{
 			name: "string field - returns as-is",
 			field: &Field{
 				ID:   "summary",

@@ -536,4 +536,20 @@ func TestMergeFieldValues(t *testing.T) {
 			testutil.Equal(t, got, tt.want)
 		})
 	}
+
+	t.Run("chained merges - three option values", func(t *testing.T) {
+		v1 := []map[string]string{{"value": "CheckSync"}}
+		v2 := []map[string]string{{"value": "MoniCore"}}
+		v3 := []map[string]string{{"value": "Monit Accounting"}}
+
+		merged := MergeFieldValues(v1, v2)
+		merged = MergeFieldValues(merged, v3)
+
+		want := []map[string]string{
+			{"value": "CheckSync"},
+			{"value": "MoniCore"},
+			{"value": "Monit Accounting"},
+		}
+		testutil.Equal(t, merged, want)
+	})
 }

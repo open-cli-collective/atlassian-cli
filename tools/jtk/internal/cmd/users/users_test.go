@@ -14,6 +14,101 @@ import (
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 )
 
+func newTestUserServer(_ *testing.T, user api.User) *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(user)
+	}))
+}
+
+func TestNewGetCmd(t *testing.T) {
+	t.Parallel()
+	opts := &root.Options{}
+	cmd := newGetCmd(opts)
+
+	testutil.Equal(t, cmd.Use, "get <account-id>")
+	testutil.NotEmpty(t, cmd.Short)
+}
+
+func TestRunGet_Table(t *testing.T) {
+	t.Parallel()
+	user := api.User{
+		AccountID:    "abc123",
+		DisplayName:  "John Doe",
+		EmailAddress: "john@example.com",
+		Active:       true,
+	}
+
+	server := newTestUserServer(t, user)
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runGet(context.Background(), opts, "abc123")
+	testutil.RequireNoError(t, err)
+
+	output := stdout.String()
+	testutil.Contains(t, output, "abc123")
+	testutil.Contains(t, output, "John Doe")
+	testutil.Contains(t, output, "john@example.com")
+	testutil.Contains(t, output, "yes")
+}
+
+func TestRunGet_JSON(t *testing.T) {
+	t.Parallel()
+	user := api.User{
+		AccountID:   "abc123",
+		DisplayName: "John Doe",
+		Active:      true,
+	}
+
+	server := newTestUserServer(t, user)
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "json", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runGet(context.Background(), opts, "abc123")
+	testutil.RequireNoError(t, err)
+
+	output := stdout.String()
+	testutil.Contains(t, output, `"accountId"`)
+	testutil.Contains(t, output, "abc123")
+}
+
+func TestRunGet_InactiveUser(t *testing.T) {
+	t.Parallel()
+	user := api.User{
+		AccountID:   "abc123",
+		DisplayName: "John Doe",
+		Active:      false,
+	}
+
+	server := newTestUserServer(t, user)
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runGet(context.Background(), opts, "abc123")
+	testutil.RequireNoError(t, err)
+
+	testutil.Contains(t, stdout.String(), "no")
+}
+
 func TestNewSearchCmd(t *testing.T) {
 	t.Parallel()
 	opts := &root.Options{}

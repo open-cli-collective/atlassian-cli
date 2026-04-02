@@ -20,6 +20,7 @@ import (
 type Options struct {
 	Output  string
 	NoColor bool
+	Compact bool
 	Stdin   io.Reader
 	Stdout  io.Writer
 	Stderr  io.Writer
@@ -34,6 +35,7 @@ type Options struct {
 // View returns a configured View instance
 func (o *Options) View() *view.View {
 	v := view.NewWithFormat(o.Output, o.NoColor)
+	v.Compact = o.Compact
 	v.Out = o.Stdout
 	v.Err = o.Stderr
 	return v
@@ -113,6 +115,7 @@ Get started by running: cfl init`,
 	cmd.PersistentFlags().StringP("config", "c", "", "config file (default: ~/.config/cfl/config.yml)")
 	cmd.PersistentFlags().StringVarP(&opts.Output, "output", "o", "table", "output format: table, json, plain")
 	cmd.PersistentFlags().BoolVar(&opts.NoColor, "no-color", false, "disable colored output")
+	cmd.PersistentFlags().BoolVar(&opts.Compact, "compact", false, "strip null fields and metadata from JSON output (reduces size for agent consumers)")
 
 	// Set version template
 	cmd.SetVersionTemplate("cfl version {{.Version}} (commit: " + version.Commit + ", built: " + version.BuildDate + ")\n")

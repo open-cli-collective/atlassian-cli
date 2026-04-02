@@ -567,6 +567,232 @@ func TestView_RenderKeyValue(t *testing.T) {
 	})
 }
 
+func TestView_JSON_Compact(t *testing.T) {
+	t.Parallel()
+
+	t.Run("strips null fields", func(t *testing.T) {
+		t.Parallel()
+		buf := &bytes.Buffer{}
+		v := New(FormatJSON, false)
+		v.Compact = true
+		v.SetOutput(buf)
+
+		data := map[string]any{
+			"key":         "MON-123",
+			"summary":     "Fix bug",
+			"description": nil,
+			"labels":      nil,
+		}
+		if err := v.JSON(data); err != nil {
+			t.Fatalf("JSON() error = %v", err)
+		}
+
+		var result map[string]any
+		if err := json.Unmarshal(buf.Bytes(), &result); err != nil {
+			t.Fatalf("invalid JSON: %v", err)
+		}
+		if _, ok := result["description"]; ok {
+			t.Error("compact should strip null 'description'")
+		}
+		if _, ok := result["labels"]; ok {
+			t.Error("compact should strip null 'labels'")
+		}
+		if result["key"] != "MON-123" {
+			t.Error("compact should preserve non-null fields")
+		}
+	})
+
+	t.Run("strips avatarUrls", func(t *testing.T) {
+		t.Parallel()
+		buf := &bytes.Buffer{}
+		v := New(FormatJSON, false)
+		v.Compact = true
+		v.SetOutput(buf)
+
+		data := map[string]any{
+			"displayName": "Alice",
+			"avatarUrls": map[string]any{
+				"48x48": "https://avatar.example.com/48",
+				"32x32": "https://avatar.example.com/32",
+			},
+		}
+		if err := v.JSON(data); err != nil {
+			t.Fatalf("JSON() error = %v", err)
+		}
+
+		var result map[string]any
+		if err := json.Unmarshal(buf.Bytes(), &result); err != nil {
+			t.Fatalf("invalid JSON: %v", err)
+		}
+		if _, ok := result["avatarUrls"]; ok {
+			t.Error("compact should strip avatarUrls")
+		}
+		if result["displayName"] != "Alice" {
+			t.Error("compact should preserve displayName")
+		}
+	})
+
+	t.Run("strips self links", func(t *testing.T) {
+		t.Parallel()
+		buf := &bytes.Buffer{}
+		v := New(FormatJSON, false)
+		v.Compact = true
+		v.SetOutput(buf)
+
+		data := map[string]any{
+			"id":   "123",
+			"self": "https://example.atlassian.net/rest/api/3/issue/123",
+		}
+		if err := v.JSON(data); err != nil {
+			t.Fatalf("JSON() error = %v", err)
+		}
+
+		var result map[string]any
+		if err := json.Unmarshal(buf.Bytes(), &result); err != nil {
+			t.Fatalf("invalid JSON: %v", err)
+		}
+		if _, ok := result["self"]; ok {
+			t.Error("compact should strip self API links")
+		}
+	})
+
+	t.Run("preserves self when not API URL", func(t *testing.T) {
+		t.Parallel()
+		buf := &bytes.Buffer{}
+		v := New(FormatJSON, false)
+		v.Compact = true
+		v.SetOutput(buf)
+
+		data := map[string]any{
+			"self": "this is not a URL",
+		}
+		if err := v.JSON(data); err != nil {
+			t.Fatalf("JSON() error = %v", err)
+		}
+
+		var result map[string]any
+		if err := json.Unmarshal(buf.Bytes(), &result); err != nil {
+			t.Fatalf("invalid JSON: %v", err)
+		}
+		if _, ok := result["self"]; !ok {
+			t.Error("compact should preserve non-URL 'self' values")
+		}
+	})
+
+	t.Run("strips _links and _expandable", func(t *testing.T) {
+		t.Parallel()
+		buf := &bytes.Buffer{}
+		v := New(FormatJSON, false)
+		v.Compact = true
+		v.SetOutput(buf)
+
+		data := map[string]any{
+			"title":       "My Page",
+			"_links":      map[string]any{"webui": "/spaces/ENG/pages/123"},
+			"_expandable": map[string]any{"body": ""},
+		}
+		if err := v.JSON(data); err != nil {
+			t.Fatalf("JSON() error = %v", err)
+		}
+
+		var result map[string]any
+		if err := json.Unmarshal(buf.Bytes(), &result); err != nil {
+			t.Fatalf("invalid JSON: %v", err)
+		}
+		if _, ok := result["_links"]; ok {
+			t.Error("compact should strip _links")
+		}
+		if _, ok := result["_expandable"]; ok {
+			t.Error("compact should strip _expandable")
+		}
+		if result["title"] != "My Page" {
+			t.Error("compact should preserve title")
+		}
+	})
+
+	t.Run("recurses into nested objects and arrays", func(t *testing.T) {
+		t.Parallel()
+		buf := &bytes.Buffer{}
+		v := New(FormatJSON, false)
+		v.Compact = true
+		v.SetOutput(buf)
+
+		data := map[string]any{
+			"fields": map[string]any{
+				"assignee": map[string]any{
+					"displayName": "Bob",
+					"avatarUrls":  map[string]any{"48x48": "https://avatar.example.com"},
+					"self":        "https://example.atlassian.net/rest/api/3/user/bob",
+				},
+				"customfield_10001": nil,
+			},
+			"items": []any{
+				map[string]any{"id": "1", "self": "https://example.atlassian.net/rest/api/3/item/1"},
+				map[string]any{"id": "2", "extra": nil},
+			},
+		}
+		if err := v.JSON(data); err != nil {
+			t.Fatalf("JSON() error = %v", err)
+		}
+
+		var result map[string]any
+		if err := json.Unmarshal(buf.Bytes(), &result); err != nil {
+			t.Fatalf("invalid JSON: %v", err)
+		}
+
+		fields := result["fields"].(map[string]any)
+		assignee := fields["assignee"].(map[string]any)
+		if assignee["displayName"] != "Bob" {
+			t.Error("should preserve nested displayName")
+		}
+		if _, ok := assignee["avatarUrls"]; ok {
+			t.Error("should strip nested avatarUrls")
+		}
+		if _, ok := assignee["self"]; ok {
+			t.Error("should strip nested self links")
+		}
+		if _, ok := fields["customfield_10001"]; ok {
+			t.Error("should strip nested null fields")
+		}
+
+		items := result["items"].([]any)
+		item0 := items[0].(map[string]any)
+		if _, ok := item0["self"]; ok {
+			t.Error("should strip self in array items")
+		}
+		item1 := items[1].(map[string]any)
+		if _, ok := item1["extra"]; ok {
+			t.Error("should strip null in array items")
+		}
+	})
+
+	t.Run("no-op when compact is false", func(t *testing.T) {
+		t.Parallel()
+		buf := &bytes.Buffer{}
+		v := New(FormatJSON, false)
+		// Compact is false by default
+		v.SetOutput(buf)
+
+		data := map[string]any{
+			"self":        "https://example.atlassian.net/rest/api/3/issue/1",
+			"description": nil,
+		}
+		if err := v.JSON(data); err != nil {
+			t.Fatalf("JSON() error = %v", err)
+		}
+
+		var result map[string]any
+		if err := json.Unmarshal(buf.Bytes(), &result); err != nil {
+			t.Fatalf("invalid JSON: %v", err)
+		}
+		if _, ok := result["self"]; !ok {
+			t.Error("non-compact should preserve self links")
+		}
+		// Note: encoding/json does include null values from map[string]any
+		// but nil in the original map becomes json null
+	})
+}
+
 func TestView_RenderText(t *testing.T) {
 	t.Parallel()
 	buf := &bytes.Buffer{}

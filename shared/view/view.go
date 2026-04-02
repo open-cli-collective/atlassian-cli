@@ -42,6 +42,7 @@ func ValidateFormat(format string) error {
 type View struct {
 	Format  Format
 	NoColor bool
+	Compact bool
 	Out     io.Writer
 	Err     io.Writer
 }
@@ -118,7 +119,13 @@ func (v *View) tableAsJSON(headers []string, rows [][]string) error {
 }
 
 // JSON renders data as formatted JSON.
+// When Compact is true, null fields, avatar URLs, self-links, and
+// Atlassian metadata keys (_links, _expandable) are stripped to
+// reduce output size for agent/LLM consumers.
 func (v *View) JSON(data any) error {
+	if v.Compact {
+		data = compactData(data)
+	}
 	enc := json.NewEncoder(v.Out)
 	enc.SetIndent("", "  ")
 	return enc.Encode(data)
@@ -260,6 +267,60 @@ func (v *View) RenderKeyValue(key, value string) {
 // RenderText renders plain text.
 func (v *View) RenderText(text string) {
 	_, _ = fmt.Fprintln(v.Out, text)
+}
+
+// compactData converts data to a generic map/slice structure and strips
+// verbose metadata that inflates output without adding useful content.
+// Removes: null-valued fields, avatarUrls, self-link URLs, _links, _expandable.
+func compactData(data any) any {
+	// Round-trip through JSON to get a generic map/slice structure.
+	raw, err := json.Marshal(data)
+	if err != nil {
+		return data
+	}
+	var generic any
+	if err := json.Unmarshal(raw, &generic); err != nil {
+		return data
+	}
+	return pruneValue(generic)
+}
+
+// Metadata keys stripped unconditionally in compact mode.
+var compactStripKeys = map[string]bool{
+	"avatarUrls":  true,
+	"_links":      true,
+	"_expandable": true,
+}
+
+func pruneValue(v any) any {
+	switch val := v.(type) {
+	case map[string]any:
+		pruned := make(map[string]any, len(val))
+		for k, child := range val {
+			if child == nil {
+				continue
+			}
+			if compactStripKeys[k] {
+				continue
+			}
+			// Strip "self" keys that hold API URLs (e.g., "https://...atlassian.net/rest/...")
+			if k == "self" {
+				if s, ok := child.(string); ok && strings.Contains(s, "/rest/") {
+					continue
+				}
+			}
+			pruned[k] = pruneValue(child)
+		}
+		return pruned
+	case []any:
+		result := make([]any, len(val))
+		for i, item := range val {
+			result[i] = pruneValue(item)
+		}
+		return result
+	default:
+		return v
+	}
 }
 
 // Truncate truncates a string to the specified length, adding "..." if truncated.

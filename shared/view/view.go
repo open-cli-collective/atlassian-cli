@@ -271,7 +271,11 @@ func (v *View) RenderText(text string) {
 
 // compactData converts data to a generic map/slice structure and strips
 // verbose metadata that inflates output without adding useful content.
-// Removes: null-valued fields, avatarUrls, self-link URLs, _links, _expandable.
+// Removes: null-valued fields, avatarUrls, self-link URLs, _links, _expandable,
+// and any maps/slices left empty after pruning.
+//
+// Uses a JSON round-trip (marshal → unmarshal → walk) for simplicity over a
+// reflection-based approach. The extra allocation is negligible for CLI output.
 func compactData(data any) any {
 	// Round-trip through JSON to get a generic map/slice structure.
 	raw, err := json.Marshal(data)
@@ -309,17 +313,35 @@ func pruneValue(v any) any {
 					continue
 				}
 			}
-			pruned[k] = pruneValue(child)
+			pv := pruneValue(child)
+			// Drop fields left empty after pruning (e.g., a user object
+			// that only had avatarUrls + self becomes {})
+			if isEmpty(pv) {
+				continue
+			}
+			pruned[k] = pv
 		}
 		return pruned
 	case []any:
-		result := make([]any, len(val))
-		for i, item := range val {
-			result[i] = pruneValue(item)
+		result := make([]any, 0, len(val))
+		for _, item := range val {
+			result = append(result, pruneValue(item))
 		}
 		return result
 	default:
 		return v
+	}
+}
+
+// isEmpty returns true for empty maps and empty slices.
+func isEmpty(v any) bool {
+	switch val := v.(type) {
+	case map[string]any:
+		return len(val) == 0
+	case []any:
+		return len(val) == 0
+	default:
+		return false
 	}
 }
 

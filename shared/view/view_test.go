@@ -766,6 +766,72 @@ func TestView_JSON_Compact(t *testing.T) {
 		}
 	})
 
+	t.Run("strips empty maps after pruning", func(t *testing.T) {
+		t.Parallel()
+		buf := &bytes.Buffer{}
+		v := New(FormatJSON, false)
+		v.Compact = true
+		v.SetOutput(buf)
+
+		data := map[string]any{
+			"key": "MON-1",
+			"assignee": map[string]any{
+				"avatarUrls": map[string]any{"48x48": "https://example.com"},
+				"self":       "https://example.atlassian.net/rest/api/3/user/1",
+			},
+		}
+		if err := v.JSON(data); err != nil {
+			t.Fatalf("JSON() error = %v", err)
+		}
+
+		var result map[string]any
+		if err := json.Unmarshal(buf.Bytes(), &result); err != nil {
+			t.Fatalf("invalid JSON: %v", err)
+		}
+		if _, ok := result["assignee"]; ok {
+			t.Error("compact should strip maps left empty after pruning")
+		}
+	})
+
+	t.Run("works with top-level array", func(t *testing.T) {
+		t.Parallel()
+		buf := &bytes.Buffer{}
+		v := New(FormatJSON, false)
+		v.Compact = true
+		v.SetOutput(buf)
+
+		data := []any{
+			map[string]any{
+				"id":   "1",
+				"self": "https://example.atlassian.net/rest/api/3/issue/1",
+				"name": nil,
+			},
+			map[string]any{
+				"id": "2",
+			},
+		}
+		if err := v.JSON(data); err != nil {
+			t.Fatalf("JSON() error = %v", err)
+		}
+
+		var result []map[string]any
+		if err := json.Unmarshal(buf.Bytes(), &result); err != nil {
+			t.Fatalf("invalid JSON: %v", err)
+		}
+		if len(result) != 2 {
+			t.Fatalf("expected 2 items, got %d", len(result))
+		}
+		if _, ok := result[0]["self"]; ok {
+			t.Error("should strip self in array items")
+		}
+		if _, ok := result[0]["name"]; ok {
+			t.Error("should strip null in array items")
+		}
+		if result[0]["id"] != "1" {
+			t.Error("should preserve non-null fields in array items")
+		}
+	})
+
 	t.Run("no-op when compact is false", func(t *testing.T) {
 		t.Parallel()
 		buf := &bytes.Buffer{}

@@ -3,6 +3,7 @@ package fields
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -33,30 +34,35 @@ func Register(parent *cobra.Command, opts *root.Options) {
 
 func newListCmd(opts *root.Options) *cobra.Command {
 	var customOnly bool
+	var nameFilter string
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List field definitions",
-		Long:  "List all fields or only custom fields. Shows field ID, name, type, and whether it is custom.",
+		Long:  "List all fields or only custom fields. Supports filtering by name with case-insensitive substring matching.",
 		Example: `  # List all fields
   jtk fields list
 
   # List only custom fields
   jtk fields list --custom
 
+  # Search for fields by name
+  jtk fields list --name "story point"
+
   # List fields as JSON
   jtk fields list -o json`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runList(cmd.Context(), opts, customOnly)
+			return runList(cmd.Context(), opts, customOnly, nameFilter)
 		},
 	}
 
 	cmd.Flags().BoolVar(&customOnly, "custom", false, "Show only custom fields")
+	cmd.Flags().StringVar(&nameFilter, "name", "", "Filter fields by name (case-insensitive substring match)")
 
 	return cmd
 }
 
-func runList(ctx context.Context, opts *root.Options, customOnly bool) error {
+func runList(ctx context.Context, opts *root.Options, customOnly bool, nameFilter string) error {
 	v := opts.View()
 
 	client, err := opts.APIClient()
@@ -72,6 +78,17 @@ func runList(ctx context.Context, opts *root.Options, customOnly bool) error {
 	}
 	if err != nil {
 		return err
+	}
+
+	if nameFilter != "" {
+		nameLower := strings.ToLower(nameFilter)
+		var filtered []api.Field
+		for _, f := range fields {
+			if strings.Contains(strings.ToLower(f.Name), nameLower) {
+				filtered = append(filtered, f)
+			}
+		}
+		fields = filtered
 	}
 
 	if len(fields) == 0 {

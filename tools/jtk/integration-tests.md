@@ -350,6 +350,10 @@ jtk fields list --custom
 | 1 | `jtk fields list` | Table with columns: ID, NAME, TYPE, CUSTOM |
 | 2 | `jtk fields list --custom` | Same table but only rows where CUSTOM = yes |
 | 3 | `jtk fields list -o json` | Valid JSON array |
+| 4 | `jtk fields list --name "story"` | Table showing only fields with "story" in the name |
+| 5 | `jtk fields list --name "story" -o json` | Valid JSON array, filtered to matching fields |
+| 6 | `jtk fields list --name "nonexistent"` | `No fields found` |
+| 7 | `jtk fields list --name "story" --custom` | Only custom fields matching "story" |
 
 ### fields contexts list
 
@@ -830,6 +834,11 @@ Run these steps in order. Each step depends on the previous.
    Capture the field ID → `$TEST_FIELD`
 
 2. **Verify creation:**
+   ```bash
+   jtk fields list --name "[Test] Integration Select"
+   ```
+   Expected: Table showing the newly created field
+
    ```bash
    jtk fields list --custom -o json | jq '.[] | select(.name == "[Test] Integration Select")'
    ```

@@ -441,17 +441,19 @@ Manage custom fields, their contexts, and options.
 
 #### `jtk fields list`
 
-List all fields (system and custom).
+List all fields (system and custom). Supports filtering by name with case-insensitive substring matching.
 
 ```bash
 jtk fields list
 jtk fields list --custom
+jtk fields list --name "story point"
 jtk fields list -o json
 ```
 
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--custom` | `false` | Show only custom fields |
+| `--name` | | Filter fields by name (case-insensitive substring match) |
 
 #### `jtk fields create`
 

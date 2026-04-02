@@ -36,6 +36,10 @@ func TestNewListCmd(t *testing.T) {
 	customFlag := cmd.Flags().Lookup("custom")
 	testutil.NotNil(t, customFlag)
 	testutil.Equal(t, customFlag.DefValue, "false")
+
+	nameFlag := cmd.Flags().Lookup("name")
+	testutil.NotNil(t, nameFlag)
+	testutil.Equal(t, nameFlag.DefValue, "")
 }
 
 func TestRunList_Table(t *testing.T) {
@@ -55,7 +59,7 @@ func TestRunList_Table(t *testing.T) {
 	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runList(context.Background(), opts, false)
+	err = runList(context.Background(), opts, false, "")
 	testutil.RequireNoError(t, err)
 	testutil.Contains(t, stdout.String(), "summary")
 	testutil.Contains(t, stdout.String(), "customfield_10100")
@@ -78,7 +82,7 @@ func TestRunList_JSON(t *testing.T) {
 	opts := &root.Options{Output: "json", Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runList(context.Background(), opts, false)
+	err = runList(context.Background(), opts, false, "")
 	testutil.RequireNoError(t, err)
 	testutil.Contains(t, stdout.String(), `"id"`)
 	testutil.Contains(t, stdout.String(), "customfield_10100")
@@ -98,9 +102,125 @@ func TestRunList_Empty(t *testing.T) {
 	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runList(context.Background(), opts, false)
+	err = runList(context.Background(), opts, false, "")
 	testutil.RequireNoError(t, err)
 	testutil.Contains(t, stdout.String(), "No fields found")
+}
+
+func TestRunList_NameFilter(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode([]api.Field{
+			{ID: "summary", Name: "Summary", Schema: api.FieldSchema{Type: "string"}},
+			{ID: "customfield_10016", Name: "Story Points", Custom: true, Schema: api.FieldSchema{Type: "number"}},
+			{ID: "customfield_10020", Name: "Story Status", Custom: true, Schema: api.FieldSchema{Type: "option"}},
+		})
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runList(context.Background(), opts, false, "story")
+	testutil.RequireNoError(t, err)
+	testutil.Contains(t, stdout.String(), "Story Points")
+	testutil.Contains(t, stdout.String(), "Story Status")
+	testutil.NotContains(t, stdout.String(), "Summary")
+}
+
+func TestRunList_NameFilter_CaseInsensitive(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode([]api.Field{
+			{ID: "summary", Name: "Summary", Schema: api.FieldSchema{Type: "string"}},
+			{ID: "customfield_10016", Name: "Story Points", Custom: true, Schema: api.FieldSchema{Type: "number"}},
+		})
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runList(context.Background(), opts, false, "STORY")
+	testutil.RequireNoError(t, err)
+	testutil.Contains(t, stdout.String(), "Story Points")
+	testutil.NotContains(t, stdout.String(), "Summary")
+}
+
+func TestRunList_NameFilter_NoMatch(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode([]api.Field{
+			{ID: "summary", Name: "Summary", Schema: api.FieldSchema{Type: "string"}},
+		})
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runList(context.Background(), opts, false, "nonexistent")
+	testutil.RequireNoError(t, err)
+	testutil.Contains(t, stdout.String(), "No fields found")
+}
+
+func TestRunList_NameFilter_JSON(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode([]api.Field{
+			{ID: "summary", Name: "Summary", Schema: api.FieldSchema{Type: "string"}},
+			{ID: "customfield_10016", Name: "Story Points", Custom: true, Schema: api.FieldSchema{Type: "number"}},
+		})
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "json", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runList(context.Background(), opts, false, "story")
+	testutil.RequireNoError(t, err)
+	testutil.Contains(t, stdout.String(), "Story Points")
+	testutil.NotContains(t, stdout.String(), "Summary")
+}
+
+func TestRunList_NameFilter_WithCustom(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		// GetCustomFields returns only custom fields
+		_ = json.NewEncoder(w).Encode([]api.Field{
+			{ID: "customfield_10016", Name: "Story Points", Custom: true, Schema: api.FieldSchema{Type: "number"}},
+			{ID: "customfield_10020", Name: "Sprint", Custom: true, Schema: api.FieldSchema{Type: "array"}},
+		})
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runList(context.Background(), opts, true, "story")
+	testutil.RequireNoError(t, err)
+	testutil.Contains(t, stdout.String(), "Story Points")
+	testutil.NotContains(t, stdout.String(), "Sprint")
 }
 
 func TestNewCreateCmd(t *testing.T) {

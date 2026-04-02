@@ -307,16 +307,20 @@ func pruneValue(v any) any {
 			if compactStripKeys[k] {
 				continue
 			}
-			// Strip "self" keys that hold API URLs (e.g., "https://...atlassian.net/rest/...")
+			// Strip "self" keys that hold API URLs. Covers both Jira v3 (/rest/...)
+			// and Confluence v2 (/wiki/api/v2/...) endpoints.
 			if k == "self" {
-				if s, ok := child.(string); ok && strings.Contains(s, "/rest/") {
+				if s, ok := child.(string); ok && (strings.HasPrefix(s, "http://") || strings.HasPrefix(s, "https://")) {
 					continue
 				}
 			}
 			pv := pruneValue(child)
-			// Drop fields left empty after pruning (e.g., a user object
-			// that only had avatarUrls + self becomes {})
-			if isEmpty(pv) {
+			// Drop fields that became empty due to pruning (e.g., a user
+			// object that only had avatarUrls + self becomes {}).
+			// Preserve originally-empty collections: [] means "no items"
+			// and {} means "empty object" — both are semantically distinct
+			// from an absent field.
+			if wasNonEmpty(child) && isEmpty(pv) {
 				continue
 			}
 			pruned[k] = pv
@@ -325,11 +329,27 @@ func pruneValue(v any) any {
 	case []any:
 		result := make([]any, 0, len(val))
 		for _, item := range val {
-			result = append(result, pruneValue(item))
+			pv := pruneValue(item)
+			if wasNonEmpty(item) && isEmpty(pv) {
+				continue
+			}
+			result = append(result, pv)
 		}
 		return result
 	default:
 		return v
+	}
+}
+
+// wasNonEmpty returns true if the value is a map or slice with at least one element.
+func wasNonEmpty(v any) bool {
+	switch val := v.(type) {
+	case map[string]any:
+		return len(val) > 0
+	case []any:
+		return len(val) > 0
+	default:
+		return false
 	}
 }
 

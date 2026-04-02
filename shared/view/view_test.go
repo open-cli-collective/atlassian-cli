@@ -656,7 +656,32 @@ func TestView_JSON_Compact(t *testing.T) {
 		}
 	})
 
-	t.Run("preserves self when not API URL", func(t *testing.T) {
+	t.Run("strips self for any HTTP URL", func(t *testing.T) {
+		t.Parallel()
+		buf := &bytes.Buffer{}
+		v := New(FormatJSON, false)
+		v.Compact = true
+		v.SetOutput(buf)
+
+		// Confluence v2 uses /wiki/api/v2/ paths, not /rest/
+		data := map[string]any{
+			"id":   "123",
+			"self": "https://example.atlassian.net/wiki/api/v2/pages/123",
+		}
+		if err := v.JSON(data); err != nil {
+			t.Fatalf("JSON() error = %v", err)
+		}
+
+		var result map[string]any
+		if err := json.Unmarshal(buf.Bytes(), &result); err != nil {
+			t.Fatalf("invalid JSON: %v", err)
+		}
+		if _, ok := result["self"]; ok {
+			t.Error("compact should strip self for Confluence v2 URLs")
+		}
+	})
+
+	t.Run("preserves self when not a URL", func(t *testing.T) {
 		t.Parallel()
 		buf := &bytes.Buffer{}
 		v := New(FormatJSON, false)
@@ -676,6 +701,35 @@ func TestView_JSON_Compact(t *testing.T) {
 		}
 		if _, ok := result["self"]; !ok {
 			t.Error("compact should preserve non-URL 'self' values")
+		}
+	})
+
+	t.Run("preserves originally-empty arrays and maps", func(t *testing.T) {
+		t.Parallel()
+		buf := &bytes.Buffer{}
+		v := New(FormatJSON, false)
+		v.Compact = true
+		v.SetOutput(buf)
+
+		data := map[string]any{
+			"key":        "MON-1",
+			"labels":     []any{},
+			"components": []any{},
+			"subtasks":   []any{},
+		}
+		if err := v.JSON(data); err != nil {
+			t.Fatalf("JSON() error = %v", err)
+		}
+
+		var result map[string]any
+		if err := json.Unmarshal(buf.Bytes(), &result); err != nil {
+			t.Fatalf("invalid JSON: %v", err)
+		}
+		if _, ok := result["labels"]; !ok {
+			t.Error("compact should preserve originally-empty 'labels' array")
+		}
+		if _, ok := result["components"]; !ok {
+			t.Error("compact should preserve originally-empty 'components' array")
 		}
 	})
 
@@ -829,6 +883,77 @@ func TestView_JSON_Compact(t *testing.T) {
 		}
 		if result[0]["id"] != "1" {
 			t.Error("should preserve non-null fields in array items")
+		}
+	})
+
+	t.Run("drops empty array items after pruning", func(t *testing.T) {
+		t.Parallel()
+		buf := &bytes.Buffer{}
+		v := New(FormatJSON, false)
+		v.Compact = true
+		v.SetOutput(buf)
+
+		data := []any{
+			map[string]any{
+				"id":         "1",
+				"avatarUrls": map[string]any{"48x48": "https://example.com"},
+			},
+			map[string]any{
+				// This item has only stripped fields — should be dropped entirely
+				"avatarUrls": map[string]any{"48x48": "https://example.com"},
+				"self":       "https://example.atlassian.net/rest/api/3/user/1",
+			},
+			map[string]any{
+				"id": "3",
+			},
+		}
+		if err := v.JSON(data); err != nil {
+			t.Fatalf("JSON() error = %v", err)
+		}
+
+		var result []map[string]any
+		if err := json.Unmarshal(buf.Bytes(), &result); err != nil {
+			t.Fatalf("invalid JSON: %v", err)
+		}
+		if len(result) != 2 {
+			t.Fatalf("expected 2 items after pruning empty, got %d", len(result))
+		}
+		if result[0]["id"] != "1" || result[1]["id"] != "3" {
+			t.Error("surviving items should be id=1 and id=3")
+		}
+	})
+
+	t.Run("compact is no-op for table format", func(t *testing.T) {
+		t.Parallel()
+		buf := &bytes.Buffer{}
+		v := New(FormatTable, true)
+		v.Compact = true
+		v.SetOutput(buf)
+
+		headers := []string{"KEY", "STATUS"}
+		rows := [][]string{{"MON-1", "Open"}}
+		if err := v.Table(headers, rows); err != nil {
+			t.Fatalf("Table() error = %v", err)
+		}
+		output := buf.String()
+		if !strings.Contains(output, "MON-1") {
+			t.Error("table output should still contain row data when compact is set")
+		}
+	})
+
+	t.Run("compact is no-op for plain format", func(t *testing.T) {
+		t.Parallel()
+		buf := &bytes.Buffer{}
+		v := New(FormatPlain, false)
+		v.Compact = true
+		v.SetOutput(buf)
+
+		rows := [][]string{{"a", "b"}}
+		if err := v.Plain(rows); err != nil {
+			t.Fatalf("Plain() error = %v", err)
+		}
+		if !strings.Contains(buf.String(), "a\tb") {
+			t.Error("plain output should be unchanged when compact is set")
 		}
 	})
 

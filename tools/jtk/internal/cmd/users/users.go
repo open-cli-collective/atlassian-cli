@@ -6,6 +6,10 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/open-cli-collective/atlassian-go/artifact"
+	"github.com/open-cli-collective/atlassian-go/view"
+
+	jtkartifact "github.com/open-cli-collective/jira-ticket-cli/internal/artifact"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 )
 
@@ -54,8 +58,8 @@ func runGet(ctx context.Context, opts *root.Options, accountID string) error {
 		return err
 	}
 
-	if opts.Output == "json" {
-		return v.JSON(user)
+	if v.Format == view.FormatJSON {
+		return v.RenderArtifact(jtkartifact.ProjectUser(user, opts.ArtifactMode()))
 	}
 
 	active := "yes"
@@ -120,8 +124,9 @@ func runSearch(ctx context.Context, opts *root.Options, query string, maxResults
 		return nil
 	}
 
-	if opts.Output == "json" {
-		return v.JSON(users)
+	if v.Format == view.FormatJSON {
+		arts := jtkartifact.ProjectUsers(users, opts.ArtifactMode())
+		return v.RenderArtifactList(artifact.NewListResult(arts, false))
 	}
 
 	headers := []string{"ACCOUNT_ID", "NAME", "EMAIL", "ACTIVE"}

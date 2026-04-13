@@ -7,7 +7,11 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/open-cli-collective/atlassian-go/artifact"
+	"github.com/open-cli-collective/atlassian-go/view"
+
 	"github.com/open-cli-collective/jira-ticket-cli/api"
+	jtkartifact "github.com/open-cli-collective/jira-ticket-cli/internal/artifact"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 )
 
@@ -87,8 +91,10 @@ func runList(ctx context.Context, opts *root.Options, boardID int, state string,
 		return nil
 	}
 
-	if opts.Output == "json" {
-		return v.JSON(result.Values)
+	if v.Format == view.FormatJSON {
+		arts := jtkartifact.ProjectSprints(result.Values, opts.ArtifactMode())
+		hasMore := !result.IsLast
+		return v.RenderArtifactList(artifact.NewListResult(arts, hasMore))
 	}
 
 	headers := []string{"ID", "NAME", "STATE", "START", "END"}
@@ -150,8 +156,8 @@ func runCurrent(ctx context.Context, opts *root.Options, boardID int) error {
 		return err
 	}
 
-	if opts.Output == "json" {
-		return v.JSON(sprint)
+	if v.Format == view.FormatJSON {
+		return v.RenderArtifact(jtkartifact.ProjectSprint(sprint, opts.ArtifactMode()))
 	}
 
 	v.Println("ID:    %d", sprint.ID)
@@ -211,8 +217,10 @@ func runIssues(ctx context.Context, opts *root.Options, sprintID int, maxResults
 		return nil
 	}
 
-	if opts.Output == "json" {
-		return v.JSON(result.Issues)
+	if v.Format == view.FormatJSON {
+		arts := jtkartifact.ProjectIssues(result.Issues, opts.ArtifactMode())
+		hasMore := result.StartAt+len(result.Issues) < result.Total
+		return v.RenderArtifactList(artifact.NewListResult(arts, hasMore))
 	}
 
 	headers := []string{"KEY", "SUMMARY", "STATUS", "ASSIGNEE", "TYPE"}

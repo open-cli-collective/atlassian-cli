@@ -7,7 +7,11 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/open-cli-collective/atlassian-go/artifact"
+	"github.com/open-cli-collective/atlassian-go/view"
+
 	"github.com/open-cli-collective/jira-ticket-cli/api"
+	jtkartifact "github.com/open-cli-collective/jira-ticket-cli/internal/artifact"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 )
 
@@ -80,8 +84,10 @@ func runList(ctx context.Context, opts *root.Options, project string, maxResults
 		return nil
 	}
 
-	if opts.Output == "json" {
-		return v.JSON(result.Values)
+	if v.Format == view.FormatJSON {
+		arts := jtkartifact.ProjectBoards(result.Values, opts.ArtifactMode())
+		hasMore := !result.IsLast
+		return v.RenderArtifactList(artifact.NewListResult(arts, hasMore))
 	}
 
 	headers := []string{"ID", "NAME", "TYPE", "PROJECT"}
@@ -129,8 +135,8 @@ func runGet(ctx context.Context, opts *root.Options, boardID int) error {
 		return err
 	}
 
-	if opts.Output == "json" {
-		return v.JSON(board)
+	if v.Format == view.FormatJSON {
+		return v.RenderArtifact(jtkartifact.ProjectBoard(board, opts.ArtifactMode()))
 	}
 
 	v.Println("ID:      %d", board.ID)

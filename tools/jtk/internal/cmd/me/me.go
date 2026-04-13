@@ -6,6 +6,9 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/open-cli-collective/atlassian-go/view"
+
+	jtkartifact "github.com/open-cli-collective/jira-ticket-cli/internal/artifact"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 )
 
@@ -41,11 +44,11 @@ func run(ctx context.Context, opts *root.Options) error {
 		return err
 	}
 
-	if opts.Output == "json" {
-		return v.JSON(user)
+	if v.Format == view.FormatJSON {
+		return v.RenderArtifact(jtkartifact.ProjectUser(user, opts.ArtifactMode()))
 	}
 
-	if opts.Output == "plain" {
+	if v.Format == view.FormatPlain {
 		v.Println("%s", user.AccountID)
 		return nil
 	}

@@ -64,6 +64,9 @@ func TestNewCmd_FlagDefaults(t *testing.T) {
 	noColorFlag := cmd.PersistentFlags().Lookup("no-color")
 	testutil.Equal(t, noColorFlag.DefValue, "false")
 
+	fullFlag := cmd.PersistentFlags().Lookup("full")
+	testutil.Equal(t, fullFlag.DefValue, "false")
+
 	verboseFlag := cmd.PersistentFlags().Lookup("verbose")
 	testutil.Equal(t, verboseFlag.DefValue, "false")
 }

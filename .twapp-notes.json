@@ -1,0 +1,17 @@
+[
+  {
+    "id": "c6d2471a-323d-4b62-99dc-b59685847cd4",
+    "text": "run the automation tests for onboarding then clean up",
+    "timestamp": 1773140550494
+  },
+  {
+    "id": "b20804ec-dd80-4d0a-9d81-2c7ce067e484",
+    "text": "Other instances of CC struggle to find certain meta operations, like “current sprint” in particular",
+    "timestamp": 1773051449821
+  },
+  {
+    "id": "bc3ad7cf-379d-426b-acb9-e6a0c3831580",
+    "text": "Can we have a “if checkbox checked && platform type == foo” automation?",
+    "timestamp": 1773051274779
+  }
+]

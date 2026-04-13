@@ -100,7 +100,7 @@ func NewCmd() (*cobra.Command, *Options) {
 	// Global flags - bound to opts struct
 	cmd.PersistentFlags().StringVarP(&opts.Output, "output", "o", "table", "Output format: table, json, plain")
 	cmd.PersistentFlags().BoolVar(&opts.NoColor, "no-color", false, "Disable colored output")
-	cmd.PersistentFlags().BoolVar(&opts.Compact, "compact", false, "Strip null fields and metadata from JSON output (reduces size for agent consumers)")
+	cmd.PersistentFlags().BoolVar(&opts.Compact, "compact", false, "Strip null fields and metadata from JSON output (ignored for migrated commands, will be removed)")
 	cmd.PersistentFlags().BoolVar(&opts.Full, "full", false, "Show full inspection-oriented output (default: agent)")
 	cmd.PersistentFlags().BoolVarP(&opts.Verbose, "verbose", "v", false, "Enable verbose output")
 

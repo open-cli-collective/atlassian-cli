@@ -122,7 +122,7 @@ Get started by running: cfl init`,
 	cmd.PersistentFlags().StringP("config", "c", "", "config file (default: ~/.config/cfl/config.yml)")
 	cmd.PersistentFlags().StringVarP(&opts.Output, "output", "o", "table", "output format: table, json, plain")
 	cmd.PersistentFlags().BoolVar(&opts.NoColor, "no-color", false, "disable colored output")
-	cmd.PersistentFlags().BoolVar(&opts.Compact, "compact", false, "strip null fields and metadata from JSON output (reduces size for agent consumers)")
+	cmd.PersistentFlags().BoolVar(&opts.Compact, "compact", false, "strip null fields and metadata from JSON output (ignored for migrated commands, will be removed)")
 	cmd.PersistentFlags().BoolVar(&opts.Full, "full", false, "show full inspection-oriented output (default: agent)")
 
 	// Set version template

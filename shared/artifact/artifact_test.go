@@ -102,4 +102,17 @@ func TestNewListResult(t *testing.T) {
 			t.Errorf("Meta.Count = %d, want 2", result.Meta.Count)
 		}
 	})
+
+	t.Run("nil slice normalized to empty", func(t *testing.T) {
+		var items []string // nil slice
+		result := NewListResult(items, false)
+
+		if result.Meta.Count != 0 {
+			t.Errorf("Meta.Count = %d, want 0", result.Meta.Count)
+		}
+		// Verify Results is not nil (would serialize as null)
+		if result.Results == nil {
+			t.Error("Results should not be nil after normalization")
+		}
+	})
 }

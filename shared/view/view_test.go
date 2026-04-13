@@ -1176,6 +1176,15 @@ func TestView_RenderArtifactList(t *testing.T) {
 			t.Fatalf("RenderArtifactList() error = %v", err)
 		}
 
+		output := buf.String()
+		// Verify _meta is present in raw output (not just parsed as zero values)
+		if !strings.Contains(output, `"_meta"`) {
+			t.Error("output should contain _meta key")
+		}
+		if !strings.Contains(output, `"hasMore"`) {
+			t.Error("output should contain hasMore key even when false")
+		}
+
 		var parsed struct {
 			Results []any `json:"results"`
 			Meta    struct {

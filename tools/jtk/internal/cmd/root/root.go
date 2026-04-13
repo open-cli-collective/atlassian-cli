@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/open-cli-collective/atlassian-go/artifact"
 	"github.com/open-cli-collective/atlassian-go/version"
 	"github.com/open-cli-collective/atlassian-go/view"
 
@@ -19,6 +20,7 @@ type Options struct {
 	Output  string
 	NoColor bool
 	Compact bool
+	Full    bool
 	Verbose bool
 	Stdin   io.Reader
 	Stdout  io.Writer
@@ -38,6 +40,11 @@ func (o *Options) View() *view.View {
 	v.Out = o.Stdout
 	v.Err = o.Stderr
 	return v
+}
+
+// ArtifactMode returns the artifact type based on the --full flag.
+func (o *Options) ArtifactMode() artifact.Type {
+	return artifact.Mode(o.Full)
 }
 
 // APIClient returns the API client, creating it on first call.
@@ -94,6 +101,7 @@ func NewCmd() (*cobra.Command, *Options) {
 	cmd.PersistentFlags().StringVarP(&opts.Output, "output", "o", "table", "Output format: table, json, plain")
 	cmd.PersistentFlags().BoolVar(&opts.NoColor, "no-color", false, "Disable colored output")
 	cmd.PersistentFlags().BoolVar(&opts.Compact, "compact", false, "Strip null fields and metadata from JSON output (reduces size for agent consumers)")
+	cmd.PersistentFlags().BoolVar(&opts.Full, "full", false, "Show full inspection-oriented output (default: agent)")
 	cmd.PersistentFlags().BoolVarP(&opts.Verbose, "verbose", "v", false, "Enable verbose output")
 
 	return cmd, opts
@@ -111,12 +119,14 @@ func GetOptions(cmd *cobra.Command) *Options {
 	output, _ := cmd.Root().PersistentFlags().GetString("output")
 	noColor, _ := cmd.Root().PersistentFlags().GetBool("no-color")
 	compact, _ := cmd.Root().PersistentFlags().GetBool("compact")
+	full, _ := cmd.Root().PersistentFlags().GetBool("full")
 	verbose, _ := cmd.Root().PersistentFlags().GetBool("verbose")
 
 	return &Options{
 		Output:  output,
 		NoColor: noColor,
 		Compact: compact,
+		Full:    full,
 		Verbose: verbose,
 		Stdin:   os.Stdin,
 		Stdout:  os.Stdout,

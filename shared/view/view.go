@@ -10,6 +10,8 @@ import (
 	"text/tabwriter"
 
 	"github.com/fatih/color"
+
+	"github.com/open-cli-collective/atlassian-go/artifact"
 )
 
 // Format represents an output format.
@@ -129,6 +131,26 @@ func (v *View) JSON(data any) error {
 	enc := json.NewEncoder(v.Out)
 	enc.SetIndent("", "  ")
 	return enc.Encode(data)
+}
+
+// RenderArtifact outputs an intentional artifact as JSON.
+// Unlike JSON(), never applies Compact post-processing because artifacts
+// are already intentionally shaped by the command's projection function.
+// Callers should check v.Format == FormatJSON before calling.
+func (v *View) RenderArtifact(data any) error {
+	enc := json.NewEncoder(v.Out)
+	enc.SetIndent("", "  ")
+	return enc.Encode(data)
+}
+
+// RenderArtifactList outputs a list of artifacts with metadata.
+// Unlike JSON(), never applies Compact post-processing because artifacts
+// are already intentionally shaped by the command's projection function.
+// Callers should check v.Format == FormatJSON before calling.
+func (v *View) RenderArtifactList(result *artifact.ListResult) error {
+	enc := json.NewEncoder(v.Out)
+	enc.SetIndent("", "  ")
+	return enc.Encode(result)
 }
 
 // Plain renders rows as tab-separated values without headers.

@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/open-cli-collective/atlassian-go/artifact"
 	"github.com/open-cli-collective/atlassian-go/auth"
 	"github.com/open-cli-collective/atlassian-go/version"
 	"github.com/open-cli-collective/atlassian-go/view"
@@ -21,6 +22,7 @@ type Options struct {
 	Output  string
 	NoColor bool
 	Compact bool
+	Full    bool
 	Stdin   io.Reader
 	Stdout  io.Writer
 	Stderr  io.Writer
@@ -39,6 +41,11 @@ func (o *Options) View() *view.View {
 	v.Out = o.Stdout
 	v.Err = o.Stderr
 	return v
+}
+
+// ArtifactMode returns the artifact type based on the --full flag.
+func (o *Options) ArtifactMode() artifact.Type {
+	return artifact.Mode(o.Full)
 }
 
 // Config loads and returns the config, caching it for reuse.
@@ -116,6 +123,7 @@ Get started by running: cfl init`,
 	cmd.PersistentFlags().StringVarP(&opts.Output, "output", "o", "table", "output format: table, json, plain")
 	cmd.PersistentFlags().BoolVar(&opts.NoColor, "no-color", false, "disable colored output")
 	cmd.PersistentFlags().BoolVar(&opts.Compact, "compact", false, "strip null fields and metadata from JSON output (reduces size for agent consumers)")
+	cmd.PersistentFlags().BoolVar(&opts.Full, "full", false, "show full inspection-oriented output (default: agent)")
 
 	// Set version template
 	cmd.SetVersionTemplate("cfl version {{.Version}} (commit: " + version.Commit + ", built: " + version.BuildDate + ")\n")

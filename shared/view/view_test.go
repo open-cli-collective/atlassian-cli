@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+
+	"github.com/open-cli-collective/atlassian-go/artifact"
 )
 
 func TestValidFormats(t *testing.T) {
@@ -996,4 +998,199 @@ func TestView_RenderText(t *testing.T) {
 	if output != "Hello World\n" {
 		t.Errorf("RenderText output = %q, want 'Hello World\\n'", output)
 	}
+}
+
+func TestView_RenderArtifact(t *testing.T) {
+	t.Parallel()
+
+	t.Run("renders struct as JSON", func(t *testing.T) {
+		t.Parallel()
+		buf := &bytes.Buffer{}
+		v := New(FormatJSON, false)
+		v.SetOutput(buf)
+
+		type TestArtifact struct {
+			Key     string `json:"key"`
+			Summary string `json:"summary"`
+		}
+		artifact := TestArtifact{Key: "PROJ-1", Summary: "Test issue"}
+
+		err := v.RenderArtifact(artifact)
+		if err != nil {
+			t.Fatalf("RenderArtifact() error = %v", err)
+		}
+
+		var result map[string]any
+		if err := json.Unmarshal(buf.Bytes(), &result); err != nil {
+			t.Fatalf("invalid JSON: %v", err)
+		}
+		if result["key"] != "PROJ-1" {
+			t.Errorf("key = %v, want PROJ-1", result["key"])
+		}
+		if result["summary"] != "Test issue" {
+			t.Errorf("summary = %v, want 'Test issue'", result["summary"])
+		}
+	})
+
+	t.Run("does not apply Compact post-processing", func(t *testing.T) {
+		t.Parallel()
+		buf := &bytes.Buffer{}
+		v := New(FormatJSON, false)
+		v.Compact = true // Setting this should have no effect on RenderArtifact
+		v.SetOutput(buf)
+
+		data := map[string]any{
+			"key":  "PROJ-1",
+			"self": "https://example.atlassian.net/rest/api/3/issue/1",
+		}
+
+		err := v.RenderArtifact(data)
+		if err != nil {
+			t.Fatalf("RenderArtifact() error = %v", err)
+		}
+
+		var result map[string]any
+		if err := json.Unmarshal(buf.Bytes(), &result); err != nil {
+			t.Fatalf("invalid JSON: %v", err)
+		}
+		// With Compact=true, JSON() would strip "self", but RenderArtifact should preserve it
+		if _, ok := result["self"]; !ok {
+			t.Error("RenderArtifact should not apply Compact — 'self' should be preserved")
+		}
+	})
+
+	t.Run("omits empty fields with omitempty", func(t *testing.T) {
+		t.Parallel()
+		buf := &bytes.Buffer{}
+		v := New(FormatJSON, false)
+		v.SetOutput(buf)
+
+		type ArtifactWithOptional struct {
+			Key     string `json:"key"`
+			Created string `json:"created,omitempty"`
+		}
+		artifact := ArtifactWithOptional{Key: "PROJ-1"} // Created is empty
+
+		err := v.RenderArtifact(artifact)
+		if err != nil {
+			t.Fatalf("RenderArtifact() error = %v", err)
+		}
+
+		var result map[string]any
+		if err := json.Unmarshal(buf.Bytes(), &result); err != nil {
+			t.Fatalf("invalid JSON: %v", err)
+		}
+		if _, ok := result["created"]; ok {
+			t.Error("empty field with omitempty should not appear in output")
+		}
+	})
+}
+
+func TestView_RenderArtifactList(t *testing.T) {
+	t.Parallel()
+
+	t.Run("renders list with metadata", func(t *testing.T) {
+		t.Parallel()
+		buf := &bytes.Buffer{}
+		v := New(FormatJSON, false)
+		v.SetOutput(buf)
+
+		type ItemArtifact struct {
+			ID   string `json:"id"`
+			Name string `json:"name"`
+		}
+		items := []*ItemArtifact{
+			{ID: "1", Name: "First"},
+			{ID: "2", Name: "Second"},
+		}
+		result := artifact.NewListResult(items, true)
+
+		err := v.RenderArtifactList(result)
+		if err != nil {
+			t.Fatalf("RenderArtifactList() error = %v", err)
+		}
+
+		var parsed struct {
+			Results []map[string]any `json:"results"`
+			Meta    struct {
+				Count   int  `json:"count"`
+				HasMore bool `json:"hasMore"`
+			} `json:"_meta"`
+		}
+		if err := json.Unmarshal(buf.Bytes(), &parsed); err != nil {
+			t.Fatalf("invalid JSON: %v", err)
+		}
+		if parsed.Meta.Count != 2 {
+			t.Errorf("Meta.Count = %d, want 2", parsed.Meta.Count)
+		}
+		if !parsed.Meta.HasMore {
+			t.Error("Meta.HasMore = false, want true")
+		}
+		if len(parsed.Results) != 2 {
+			t.Errorf("len(Results) = %d, want 2", len(parsed.Results))
+		}
+	})
+
+	t.Run("does not apply Compact post-processing", func(t *testing.T) {
+		t.Parallel()
+		buf := &bytes.Buffer{}
+		v := New(FormatJSON, false)
+		v.Compact = true
+		v.SetOutput(buf)
+
+		items := []map[string]any{
+			{
+				"id":   "1",
+				"self": "https://example.atlassian.net/rest/api/3/item/1",
+			},
+		}
+		result := artifact.NewListResult(items, false)
+
+		err := v.RenderArtifactList(result)
+		if err != nil {
+			t.Fatalf("RenderArtifactList() error = %v", err)
+		}
+
+		var parsed struct {
+			Results []map[string]any `json:"results"`
+		}
+		if err := json.Unmarshal(buf.Bytes(), &parsed); err != nil {
+			t.Fatalf("invalid JSON: %v", err)
+		}
+		if _, ok := parsed.Results[0]["self"]; !ok {
+			t.Error("RenderArtifactList should not apply Compact — 'self' should be preserved")
+		}
+	})
+
+	t.Run("handles empty list", func(t *testing.T) {
+		t.Parallel()
+		buf := &bytes.Buffer{}
+		v := New(FormatJSON, false)
+		v.SetOutput(buf)
+
+		items := []string{}
+		result := artifact.NewListResult(items, false)
+
+		err := v.RenderArtifactList(result)
+		if err != nil {
+			t.Fatalf("RenderArtifactList() error = %v", err)
+		}
+
+		var parsed struct {
+			Results []any `json:"results"`
+			Meta    struct {
+				Count   int  `json:"count"`
+				HasMore bool `json:"hasMore"`
+			} `json:"_meta"`
+		}
+		if err := json.Unmarshal(buf.Bytes(), &parsed); err != nil {
+			t.Fatalf("invalid JSON: %v", err)
+		}
+		if parsed.Meta.Count != 0 {
+			t.Errorf("Meta.Count = %d, want 0", parsed.Meta.Count)
+		}
+		if len(parsed.Results) != 0 {
+			t.Errorf("len(Results) = %d, want 0", len(parsed.Results))
+		}
+	})
 }

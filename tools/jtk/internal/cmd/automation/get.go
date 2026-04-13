@@ -12,32 +12,32 @@ import (
 )
 
 func newGetCmd(opts *root.Options) *cobra.Command {
-	var full bool
+	var showComponents bool
 
 	cmd := &cobra.Command{
 		Use:   "get <rule-id>",
 		Short: "Get automation rule details",
 		Long: `Retrieve and display details for a specific automation rule.
 
-Shows rule metadata and a summary of components. Use --full to see
+Shows rule metadata and a summary of components. Use --show-components to see
 component type details. Use -o json for the full rule object.
 
 For the exact JSON needed for editing, use 'jtk auto export' instead.`,
 		Example: `  jtk automation get 12345
-  jtk auto get 12345 --full
+  jtk auto get 12345 --show-components
   jtk auto get 12345 -o json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runGet(cmd.Context(), opts, args[0], full)
+			return runGet(cmd.Context(), opts, args[0], showComponents)
 		},
 	}
 
-	cmd.Flags().BoolVar(&full, "full", false, "Show component type details")
+	cmd.Flags().BoolVar(&showComponents, "show-components", false, "Show component type details")
 
 	return cmd
 }
 
-func runGet(ctx context.Context, opts *root.Options, ruleID string, full bool) error {
+func runGet(ctx context.Context, opts *root.Options, ruleID string, showComponents bool) error {
 	v := opts.View()
 
 	client, err := opts.APIClient()
@@ -85,7 +85,7 @@ func runGet(ctx context.Context, opts *root.Options, ruleID string, full bool) e
 
 	v.Println("Components:  %s", summarizeComponents(rule.Components))
 
-	if full && len(rule.Components) > 0 {
+	if showComponents && len(rule.Components) > 0 {
 		v.Println("")
 		v.Println("Component Details:")
 		for i, c := range rule.Components {

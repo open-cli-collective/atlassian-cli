@@ -7,8 +7,8 @@ import (
 )
 
 // resolveFields determines which fields to request from the Jira API based on
-// the --fields flag, output format, and --full flag.
-func resolveFields(fieldsFlag, outputFormat string, full bool) []string {
+// the --fields flag, output format, and --all-fields flag.
+func resolveFields(fieldsFlag, outputFormat string, allFields bool) []string {
 	if fieldsFlag != "" {
 		parts := strings.Split(fieldsFlag, ",")
 		fields := make([]string, 0, len(parts))
@@ -25,7 +25,7 @@ func resolveFields(fieldsFlag, outputFormat string, full bool) []string {
 	if outputFormat == "json" {
 		return []string{"*all"}
 	}
-	if full {
+	if allFields {
 		return append([]string(nil), api.DefaultSearchFields...)
 	}
 	return append([]string(nil), api.ListSearchFields...)

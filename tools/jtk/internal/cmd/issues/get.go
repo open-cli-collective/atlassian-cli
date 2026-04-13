@@ -12,27 +12,27 @@ import (
 )
 
 func newGetCmd(opts *root.Options) *cobra.Command {
-	var full bool
+	var noTruncate bool
 
 	cmd := &cobra.Command{
 		Use:   "get <issue-key>",
 		Short: "Get issue details",
 		Long:  "Retrieve and display details for a specific issue.",
 		Example: `  jtk issues get PROJ-123
-  jtk issues get PROJ-123 --full
+  jtk issues get PROJ-123 --no-truncate
   jtk issues get PROJ-123 -o json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runGet(cmd.Context(), opts, args[0], full)
+			return runGet(cmd.Context(), opts, args[0], noTruncate)
 		},
 	}
 
-	cmd.Flags().BoolVar(&full, "full", false, "Show full description without truncation")
+	cmd.Flags().BoolVar(&noTruncate, "no-truncate", false, "Show full description without truncation")
 
 	return cmd
 }
 
-func runGet(ctx context.Context, opts *root.Options, issueKey string, full bool) error {
+func runGet(ctx context.Context, opts *root.Options, issueKey string, noTruncate bool) error {
 	v := opts.View()
 
 	client, err := opts.APIClient()
@@ -79,8 +79,8 @@ func runGet(ctx context.Context, opts *root.Options, issueKey string, full bool)
 	description := ""
 	if issue.Fields.Description != nil {
 		description = issue.Fields.Description.ToPlainText()
-		if !full && len(description) > 200 {
-			description = description[:200] + "... [truncated, use --full for complete text]"
+		if !noTruncate && len(description) > 200 {
+			description = description[:200] + "... [truncated, use --no-truncate for complete text]"
 		}
 	}
 

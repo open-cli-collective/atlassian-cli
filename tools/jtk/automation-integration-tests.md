@@ -211,7 +211,7 @@ Creates a rule using the pattern from real backups: extract a custom field to a 
    ```
    Capture UUID → `$COMP_UUID`
    ```bash
-   jtk auto get $COMP_UUID --full
+   jtk auto get $COMP_UUID --show-components
    jtk auto export $COMP_UUID > /tmp/auto-comparator-export.json
    ```
 
@@ -333,7 +333,7 @@ Creates a rule with if/else branching — the most complex structure.
    ```
    Capture UUID → `$IFELSE_UUID`
    ```bash
-   jtk auto get $IFELSE_UUID --full
+   jtk auto get $IFELSE_UUID --show-components
    jtk auto export $IFELSE_UUID > /tmp/auto-ifelse-export.json
    ```
 
@@ -424,7 +424,7 @@ Creates a rule with multiple conditions: platform = Q2 AND product includes Chec
    ```
    Capture UUID → `$MULTI_UUID`
    ```bash
-   jtk auto get $MULTI_UUID --full
+   jtk auto get $MULTI_UUID --show-components
    jtk auto export $MULTI_UUID > /tmp/auto-multi-export.json
    ```
 
@@ -546,7 +546,7 @@ Creates a rule with a `jira.issue.edit` action that sets a custom field.
    ```
    Capture UUID → `$EDIT_UUID`
    ```bash
-   jtk auto get $EDIT_UUID --full
+   jtk auto get $EDIT_UUID --show-components
    jtk auto export $EDIT_UUID > /tmp/auto-edit-export.json
    jq '.rule.components[0].value.operations' /tmp/auto-edit-export.json
    ```

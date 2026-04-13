@@ -9,7 +9,7 @@ import (
 // IssueArtifact is the projected output for an issue.
 // This is a minimal artifact for list contexts (e.g., sprints issues).
 // Full issue artifact with more fields will be added when issues commands
-// are migrated after the --full flag collision is resolved.
+// are migrated to artifact projection (see #205 for flag collision resolution).
 type IssueArtifact struct {
 	// Agent fields - essential for triage
 	Key      string `json:"key"`

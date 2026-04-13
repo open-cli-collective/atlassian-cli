@@ -28,27 +28,27 @@ func Register(parent *cobra.Command, opts *root.Options) {
 
 func newListCmd(opts *root.Options) *cobra.Command {
 	var maxResults int
-	var full bool
+	var noTruncate bool
 
 	cmd := &cobra.Command{
 		Use:   "list <issue-key>",
 		Short: "List comments on an issue",
 		Long:  "List all comments on a specific issue.",
 		Example: `  jtk comments list PROJ-123
-  jtk comments list PROJ-123 --full`,
+  jtk comments list PROJ-123 --no-truncate`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runList(cmd.Context(), opts, args[0], maxResults, full)
+			return runList(cmd.Context(), opts, args[0], maxResults, noTruncate)
 		},
 	}
 
 	cmd.Flags().IntVarP(&maxResults, "max", "m", 50, "Maximum number of comments")
-	cmd.Flags().BoolVar(&full, "full", false, "Show full comment bodies without truncation")
+	cmd.Flags().BoolVar(&noTruncate, "no-truncate", false, "Show full comment bodies without truncation")
 
 	return cmd
 }
 
-func runList(ctx context.Context, opts *root.Options, issueKey string, maxResults int, full bool) error {
+func runList(ctx context.Context, opts *root.Options, issueKey string, maxResults int, noTruncate bool) error {
 	v := opts.View()
 
 	client, err := opts.APIClient()
@@ -70,8 +70,8 @@ func runList(ctx context.Context, opts *root.Options, issueKey string, maxResult
 		return v.JSON(result.Comments)
 	}
 
-	// Full mode: display each comment with complete body text
-	if full {
+	// No-truncate mode: display each comment with complete body text
+	if noTruncate {
 		for i, c := range result.Comments {
 			if i > 0 {
 				v.Println("---")
@@ -96,7 +96,7 @@ func runList(ctx context.Context, opts *root.Options, issueKey string, maxResult
 		if c.Body != nil {
 			body = c.Body.ToPlainText()
 			if len(body) > 100 {
-				body = body[:100] + "... [truncated, use --full for complete text]"
+				body = body[:100] + "... [truncated, use --no-truncate for complete text]"
 			}
 		}
 

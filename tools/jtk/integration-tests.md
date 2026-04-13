@@ -334,7 +334,7 @@ jtk fields list --custom
 | 3 | `jtk auto list --state DISABLED` | Only DISABLED rules |
 | 4 | `jtk auto list -o json` | Valid JSON array |
 | 5 | `jtk auto get $AUTO_UUID` | Shows Name, UUID, State, Description, Components summary |
-| 6 | `jtk auto get $AUTO_UUID --full` | Adds component details: `[1] CONDITION: type`, `[2] ACTION: type`, etc. |
+| 6 | `jtk auto get $AUTO_UUID --show-components` | Adds component details: `[1] CONDITION: type`, `[2] ACTION: type`, etc. |
 | 7 | `jtk auto get $AUTO_UUID -o json` | Valid JSON |
 | 8 | `jtk auto export $AUTO_UUID \| jq .` | Pretty-printed valid JSON (top-level keys: `rule`, `connections`) |
 | 9 | `jtk auto export $AUTO_UUID --compact` | Single-line JSON |
@@ -420,7 +420,7 @@ Run these steps in order. Each step depends on the previous.
 
 6b. **Verify escape sequences rendered:**
    ```bash
-   jtk comments list $TEST_ISSUE --full
+   jtk comments list $TEST_ISSUE --no-truncate
    ```
    Expected: Comment body shows actual newlines and tab, not literal `\n` or `\t`
 
@@ -1078,7 +1078,7 @@ Verify each alias produces the same output as the full command:
 
 #### Automation Read-Only (Section 8)
 - [ ] `auto list` (all, filtered, JSON)
-- [ ] `auto get` (summary, --full, JSON)
+- [ ] `auto get` (summary, --show-components, JSON)
 - [ ] `auto export` (pretty, compact)
 
 #### Fields Read-Only (Section 9)

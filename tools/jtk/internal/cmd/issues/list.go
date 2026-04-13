@@ -15,7 +15,7 @@ func newListCmd(opts *root.Options) *cobra.Command {
 	var sprint string
 	var maxResults int
 	var nextPageToken string
-	var full bool
+	var allFields bool
 	var fieldsFlag string
 
 	cmd := &cobra.Command{
@@ -34,13 +34,13 @@ func newListCmd(opts *root.Options) *cobra.Command {
   # Resume from a previous page token
   jtk issues list --project MYPROJECT --next-page-token <token>
 
-  # List with full details (includes description)
-  jtk issues list --project MYPROJECT --full
+  # List with all fields (includes description)
+  jtk issues list --project MYPROJECT --all-fields
 
   # List with specific fields (e.g. custom fields)
   jtk issues list --project MYPROJECT --fields summary,status,customfield_10005 -o json`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runList(cmd.Context(), opts, project, sprint, maxResults, nextPageToken, full, fieldsFlag)
+			return runList(cmd.Context(), opts, project, sprint, maxResults, nextPageToken, allFields, fieldsFlag)
 		},
 	}
 
@@ -48,13 +48,13 @@ func newListCmd(opts *root.Options) *cobra.Command {
 	cmd.Flags().StringVarP(&sprint, "sprint", "s", "", "Filter by sprint (use 'current' for active sprint)")
 	cmd.Flags().IntVarP(&maxResults, "max", "m", 25, "Maximum number of results to return")
 	cmd.Flags().StringVar(&nextPageToken, "next-page-token", "", "Token for next page of results")
-	cmd.Flags().BoolVar(&full, "full", false, "Include all fields (e.g. description)")
+	cmd.Flags().BoolVar(&allFields, "all-fields", false, "Include all fields (e.g. description)")
 	cmd.Flags().StringVar(&fieldsFlag, "fields", "", "Comma-separated list of fields to return (e.g. summary,customfield_10005)")
 
 	return cmd
 }
 
-func runList(ctx context.Context, opts *root.Options, project, sprint string, maxResults int, nextPageToken string, full bool, fieldsFlag string) error {
+func runList(ctx context.Context, opts *root.Options, project, sprint string, maxResults int, nextPageToken string, allFields bool, fieldsFlag string) error {
 	v := opts.View()
 
 	client, err := opts.APIClient()
@@ -89,7 +89,7 @@ func runList(ctx context.Context, opts *root.Options, project, sprint string, ma
 		jql += " ORDER BY updated DESC"
 	}
 
-	fields := resolveFields(fieldsFlag, opts.Output, full)
+	fields := resolveFields(fieldsFlag, opts.Output, allFields)
 
 	result, err := client.SearchPage(ctx, api.SearchPageOptions{
 		JQL:           jql,

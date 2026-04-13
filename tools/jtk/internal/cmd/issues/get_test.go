@@ -23,10 +23,10 @@ func TestNewGetCmd(t *testing.T) {
 	testutil.Equal(t, cmd.Use, "get <issue-key>")
 	testutil.Equal(t, cmd.Short, "Get issue details")
 
-	// Check that full flag exists
-	fullFlag := cmd.Flags().Lookup("full")
-	testutil.NotNil(t, fullFlag)
-	testutil.Equal(t, fullFlag.DefValue, "false")
+	// Check that no-truncate flag exists
+	noTruncateFlag := cmd.Flags().Lookup("no-truncate")
+	testutil.NotNil(t, noTruncateFlag)
+	testutil.Equal(t, noTruncateFlag.DefValue, "false")
 }
 
 func newTestIssueServer(_ *testing.T, issue api.Issue) *httptest.Server {
@@ -72,7 +72,7 @@ func TestRunGet_TruncatesDescription(t *testing.T) {
 
 	output := stdout.String()
 	testutil.Contains(t, output, "TEST-1")
-	testutil.Contains(t, output, "[truncated, use --full for complete text]")
+	testutil.Contains(t, output, "[truncated, use --no-truncate for complete text]")
 	testutil.NotContains(t, output, longText)
 }
 

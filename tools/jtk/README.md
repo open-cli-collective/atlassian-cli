@@ -258,7 +258,7 @@ jtk issues list --project MYPROJECT --fields summary,status,customfield_10005 -o
 | `--sprint` | `-s` | | Filter by sprint: sprint ID or `current` |
 | `--max` | `-m` | `25` | Maximum number of results to return |
 | `--fields` | | `*all` | Comma-separated list of fields to include in JSON output |
-| `--full` | | `false` | Include all fields (e.g. description) |
+| `--all-fields` | | `false` | Include all fields (e.g. description) |
 | `--next-page-token` | | | Token for next page of results |
 
 ---
@@ -269,13 +269,13 @@ Get details of a specific issue.
 
 ```bash
 jtk issues get PROJ-123
-jtk issues get PROJ-123 --full
+jtk issues get PROJ-123 --no-truncate
 jtk issues get PROJ-123 -o json
 ```
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--full` | `false` | Show full description without truncation |
+| `--no-truncate` | `false` | Show full description without truncation |
 
 **Arguments:**
 - `<issue-key>` - The issue key (e.g., `PROJ-123`) (**required**)
@@ -354,7 +354,7 @@ jtk issues search --jql "project = MYPROJECT" --fields summary,status -o json
 | `--jql` | | | JQL query string (**required**) |
 | `--max` | `-m` | `25` | Maximum number of results to return |
 | `--fields` | | `*all` | Comma-separated list of fields to include in JSON output |
-| `--full` | | `false` | Include all fields (e.g. description) |
+| `--all-fields` | | `false` | Include all fields (e.g. description) |
 | `--next-page-token` | | | Token for next page of results |
 
 ---
@@ -761,14 +761,14 @@ List comments on an issue.
 
 ```bash
 jtk comments list PROJ-123
-jtk comments list PROJ-123 --full
+jtk comments list PROJ-123 --no-truncate
 jtk comments list PROJ-123 -o json
 ```
 
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
 | `--max` | `-m` | `50` | Maximum number of comments |
-| `--full` | | `false` | Show full comment bodies without truncation |
+| `--no-truncate` | | `false` | Show full comment bodies without truncation |
 
 **Arguments:**
 - `<issue-key>` - The issue key (**required**)
@@ -1139,12 +1139,12 @@ Get details of an automation rule.
 
 ```bash
 jtk automation get 123
-jtk automation get 123 --full
+jtk automation get 123 --show-components
 ```
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--full` | `false` | Show component type details |
+| `--show-components` | `false` | Show component type details |
 
 **Arguments:**
 - `<rule-id>` - The rule ID (**required**)

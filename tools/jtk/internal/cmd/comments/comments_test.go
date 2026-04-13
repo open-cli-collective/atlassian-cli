@@ -22,10 +22,10 @@ func TestNewListCmd(t *testing.T) {
 
 	testutil.Equal(t, cmd.Use, "list <issue-key>")
 
-	// Check that full flag exists
-	fullFlag := cmd.Flags().Lookup("full")
-	testutil.NotNil(t, fullFlag)
-	testutil.Equal(t, fullFlag.DefValue, "false")
+	// Check that no-truncate flag exists
+	noTruncateFlag := cmd.Flags().Lookup("no-truncate")
+	testutil.NotNil(t, noTruncateFlag)
+	testutil.Equal(t, noTruncateFlag.DefValue, "false")
 
 	// Check that max flag exists
 	maxFlag := cmd.Flags().Lookup("max")
@@ -92,7 +92,7 @@ func TestRunList_TruncatesCommentBody(t *testing.T) {
 
 	output := stdout.String()
 	testutil.Contains(t, output, "Alice")
-	testutil.Contains(t, output, "[truncated, use --full for complete text]")
+	testutil.Contains(t, output, "[truncated, use --no-truncate for complete text]")
 	testutil.NotContains(t, output, longText)
 }
 

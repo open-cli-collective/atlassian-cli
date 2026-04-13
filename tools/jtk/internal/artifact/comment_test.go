@@ -52,6 +52,33 @@ func TestProjectComment_AgentMode_TruncatesLongBody(t *testing.T) {
 	testutil.True(t, strings.HasSuffix(art.Body, "..."))
 }
 
+func TestProjectComment_AgentMode_TruncatesMultiByteChars(t *testing.T) {
+	t.Parallel()
+
+	// Use multi-byte characters (emoji and CJK) to verify rune-based truncation
+	// Each emoji is 4 bytes, each CJK character is 3 bytes
+	longBody := strings.Repeat("日本語", 100) // 300 runes, 900 bytes
+	comment := &api.Comment{
+		ID:      "12345",
+		Author:  api.User{DisplayName: "John Doe"},
+		Body:    api.NewADFDocument(longBody),
+		Created: "2024-01-15T10:00:00.000Z",
+	}
+
+	art := ProjectComment(comment, artifact.Agent)
+
+	// Body should be truncated to 200 runes + "..."
+	runes := []rune(art.Body)
+	testutil.Equal(t, len(runes), 203) // 200 runes + "..."
+	testutil.True(t, strings.HasSuffix(art.Body, "..."))
+
+	// Verify the truncated body is valid UTF-8 (no partial runes)
+	truncatedPart := art.Body[:len(art.Body)-3] // Remove "..."
+	for _, r := range truncatedPart {
+		testutil.True(t, r != '\uFFFD') // No replacement characters
+	}
+}
+
 func TestProjectComment_FullMode(t *testing.T) {
 	t.Parallel()
 

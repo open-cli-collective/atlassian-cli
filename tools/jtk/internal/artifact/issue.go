@@ -16,12 +16,13 @@ type IssueArtifact struct {
 	Assignee string `json:"assignee,omitempty"`
 
 	// Full-only fields
-	Priority string   `json:"priority,omitempty"`
-	Project  string   `json:"project,omitempty"`
-	Created  string   `json:"created,omitempty"`
-	Updated  string   `json:"updated,omitempty"`
-	Reporter string   `json:"reporter,omitempty"`
-	Labels   []string `json:"labels,omitempty"`
+	Priority    string   `json:"priority,omitempty"`
+	Project     string   `json:"project,omitempty"`
+	Created     string   `json:"created,omitempty"`
+	Updated     string   `json:"updated,omitempty"`
+	Reporter    string   `json:"reporter,omitempty"`
+	Labels      []string `json:"labels,omitempty"`
+	Description string   `json:"description,omitempty"`
 }
 
 // ProjectIssue projects an api.Issue to an IssueArtifact.
@@ -53,6 +54,9 @@ func ProjectIssue(issue *api.Issue, mode artifact.Type) *IssueArtifact {
 		}
 		if len(issue.Fields.Labels) > 0 {
 			a.Labels = issue.Fields.Labels
+		}
+		if issue.Fields.Description != nil {
+			a.Description = issue.Fields.Description.ToPlainText()
 		}
 	}
 	return a

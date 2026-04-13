@@ -207,6 +207,17 @@ Bearer auth routes requests through `https://api.atlassian.com/ex/jira/{cloudId}
 
 > **Scope limitations:** Scoped tokens lack Agile (boards/sprints), Automation, and Dashboard scopes. These commands are unavailable with bearer auth — this is an Atlassian platform limitation.
 
+## Output Artifact Contract
+
+Commands produce intentional artifacts, not raw API payloads. See [docs/ARTIFACT_CONTRACT.md](../../docs/ARTIFACT_CONTRACT.md) for the full specification.
+
+**Representations:**
+- `agent` (default): Action-oriented output with essential fields for LLM/agent consumption
+- `full` (`--full`): Inspection-oriented output with additional fields (dates, authors, versions)
+- `raw` (`--raw`): Source-faithful content. Command-specific (not all commands support this).
+
+For jtk, the `agent` artifact for issues includes: key, summary, status, assignee (enough to triage).
+
 ## Dependencies
 
 Key dependencies:

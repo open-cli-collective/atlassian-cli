@@ -157,6 +157,17 @@ Two auth methods are supported:
 
 Bearer auth routes requests through `https://api.atlassian.com/ex/confluence/{cloudId}/wiki/...` and requires a Cloud ID. The `api/client.go` file has a separate `NewBearerClient()` constructor, selected in `root.go` based on config auth method.
 
+## Output Artifact Contract
+
+Commands produce intentional artifacts, not raw API payloads. See [docs/ARTIFACT_CONTRACT.md](../../docs/ARTIFACT_CONTRACT.md) for the full specification.
+
+**Representations:**
+- `agent` (default): Action-oriented output with essential fields for LLM/agent consumption
+- `full` (`--full`): Inspection-oriented output with additional fields (dates, authors, versions)
+- `raw` (`--raw`): Source-faithful content (XHTML instead of markdown). Command-specific.
+
+For cfl, the `agent` artifact for page view includes: id, title, space, ancestors, content as markdown.
+
 ## Undocumented Constants
 
 | Constant | Value | Location |

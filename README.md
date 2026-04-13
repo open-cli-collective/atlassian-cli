@@ -17,6 +17,7 @@ Unified CLI tools for Atlassian Cloud products.
   - [Configuration](#configuration)
   - [Authentication](#authentication)
   - [Shared Credentials](#shared-credentials)
+  - [Output Representations](#output-representations)
 - [jtk - Jira CLI](#jtk---jira-cli)
 - [cfl - Confluence CLI](#cfl---confluence-cli)
 - [Shell Completion](#shell-completion)
@@ -228,6 +229,33 @@ export ATLASSIAN_API_TOKEN="your-api-token"
 jtk issues list --project PROJ
 cfl page list --space DEV
 ```
+
+### Output Representations
+
+Both tools support three output representations:
+
+| Flag | Representation | Description |
+|------|----------------|-------------|
+| (default) | `agent` | Action-oriented output with essential fields. Optimized for LLM/agent consumption. |
+| `--full` | `full` | Inspection-oriented output with additional fields (dates, authors, versions). |
+| `--raw` | `raw` | Source-faithful content (e.g., XHTML instead of markdown). Command-specific. |
+
+**Examples:**
+
+```bash
+# Default agent output (curated, action-ready)
+jtk issues get PROJ-123
+cfl page view 123456
+
+# Full output for debugging
+jtk issues get PROJ-123 --full
+cfl page view 123456 --full
+
+# Raw content (cfl only, where content transformation occurs)
+cfl page view 123456 --raw
+```
+
+Output format (`-o table|json|plain`) is independent of representation. See [docs/ARTIFACT_CONTRACT.md](docs/ARTIFACT_CONTRACT.md) for the full contract specification.
 
 ## jtk - Jira CLI
 

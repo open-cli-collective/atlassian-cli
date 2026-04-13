@@ -229,10 +229,22 @@ func TestSummarizeComponents(t *testing.T) {
 			},
 			expected: "5 total — 1 trigger(s), 2 condition(s), 2 action(s)",
 		},
+		{
+			name: "with unknown component types",
+			components: []api.RuleComponent{
+				{Component: "TRIGGER", Type: "scheduled"},
+				{Component: "BRANCH", Type: "parallel"},
+				{Component: "ACTION", Type: "transition"},
+			},
+			expected: "3 total — 1 trigger(s), 1 action(s), 1 other",
+		},
 	}
 
 	for _, tt := range tests {
-		result := summarizeComponents(tt.components)
-		testutil.Equal(t, result, tt.expected)
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			result := summarizeComponents(tt.components)
+			testutil.Equal(t, result, tt.expected)
+		})
 	}
 }

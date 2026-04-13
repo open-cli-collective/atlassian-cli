@@ -28,9 +28,13 @@ func ProjectComment(c *api.Comment, mode artifact.Type) *CommentArtifact {
 		body = strings.TrimSpace(c.Body.ToPlainText())
 	}
 
-	// In agent mode, truncate body for triage readability
-	if !mode.IsFull() && len(body) > 200 {
-		body = body[:200] + "..."
+	// In agent mode, truncate body for triage readability.
+	// Use rune-based truncation to avoid cutting multi-byte UTF-8 characters.
+	if !mode.IsFull() {
+		runes := []rune(body)
+		if len(runes) > 200 {
+			body = string(runes[:200]) + "..."
+		}
 	}
 
 	a := &CommentArtifact{

@@ -72,8 +72,16 @@ func runList(ctx context.Context, opts *root.Options, issueKey string, maxResult
 
 	if v.Format == view.FormatJSON {
 		arts := jtkartifact.ProjectComments(result.Comments, opts.ArtifactMode())
-		// Use authoritative pagination metadata from API response
-		hasMore := result.StartAt+len(result.Comments) < result.Total
+		// Use authoritative pagination metadata from API response.
+		// Guard against Total==0 edge case in Jira Cloud by also checking
+		// if we received a full page of results.
+		hasMore := false
+		if result.Total > 0 {
+			hasMore = result.StartAt+len(result.Comments) < result.Total
+		} else if len(result.Comments) == maxResults {
+			// Total is 0 but we got a full page - likely more results exist
+			hasMore = true
+		}
 		return v.RenderArtifactList(artifact.NewListResult(arts, hasMore))
 	}
 

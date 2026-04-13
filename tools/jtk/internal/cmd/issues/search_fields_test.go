@@ -416,4 +416,6 @@ func TestRunList_AutoPaginationJSON(t *testing.T) {
 	testutil.Equal(t, 120, len(result.Results))
 	testutil.Equal(t, 120, result.Meta.Count)
 	testutil.False(t, result.Meta.HasMore) // All results fetched
+	testutil.Equal(t, "TEST-1", result.Results[0].Key)
+	testutil.Equal(t, "TEST-120", result.Results[119].Key)
 }

@@ -52,7 +52,7 @@ func summarizeComponents(components []api.RuleComponent) string {
 		return "none"
 	}
 
-	triggers, conditions, actions := 0, 0, 0
+	triggers, conditions, actions, other := 0, 0, 0, 0
 	for _, c := range components {
 		switch c.Component {
 		case "TRIGGER":
@@ -61,10 +61,12 @@ func summarizeComponents(components []api.RuleComponent) string {
 			conditions++
 		case "ACTION":
 			actions++
+		default:
+			other++
 		}
 	}
 
-	parts := make([]string, 0, 3)
+	parts := make([]string, 0, 4)
 	if triggers > 0 {
 		parts = append(parts, fmt.Sprintf("%d trigger(s)", triggers))
 	}
@@ -73,6 +75,9 @@ func summarizeComponents(components []api.RuleComponent) string {
 	}
 	if actions > 0 {
 		parts = append(parts, fmt.Sprintf("%d action(s)", actions))
+	}
+	if other > 0 {
+		parts = append(parts, fmt.Sprintf("%d other", other))
 	}
 
 	return fmt.Sprintf("%d total — %s", len(components), strings.Join(parts, ", "))

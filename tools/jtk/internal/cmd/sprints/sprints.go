@@ -219,7 +219,14 @@ func runIssues(ctx context.Context, opts *root.Options, sprintID int, maxResults
 
 	if v.Format == view.FormatJSON {
 		arts := jtkartifact.ProjectIssues(result.Issues, opts.ArtifactMode())
-		hasMore := result.StartAt+len(result.Issues) < result.Total
+		// Guard against Total < 0 (Jira returns -1 when count is unknown).
+		// When Total is unknown, assume more results if we got a full page.
+		var hasMore bool
+		if result.Total < 0 {
+			hasMore = len(result.Issues) == maxResults
+		} else {
+			hasMore = result.StartAt+len(result.Issues) < result.Total
+		}
 		return v.RenderArtifactList(artifact.NewListResult(arts, hasMore))
 	}
 

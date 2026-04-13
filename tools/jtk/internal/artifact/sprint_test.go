@@ -33,12 +33,12 @@ func TestProjectSprint_AgentMode(t *testing.T) {
 	testutil.Equal(t, art.Name, "Sprint 1")
 	testutil.Equal(t, art.State, "active")
 
-	// Full-only fields empty
+	// Full-only fields empty/nil
 	testutil.Equal(t, art.StartDate, "")
 	testutil.Equal(t, art.EndDate, "")
 	testutil.Equal(t, art.CompleteDate, "")
 	testutil.Equal(t, art.Goal, "")
-	testutil.Equal(t, art.BoardID, 0)
+	testutil.Nil(t, art.BoardID)
 }
 
 func TestProjectSprint_FullMode(t *testing.T) {
@@ -71,7 +71,8 @@ func TestProjectSprint_FullMode(t *testing.T) {
 	testutil.Equal(t, art.EndDate, "2024-01-14T00:00:00Z")
 	testutil.Equal(t, art.CompleteDate, "2024-01-13T00:00:00Z")
 	testutil.Equal(t, art.Goal, "Complete feature X")
-	testutil.Equal(t, art.BoardID, 456)
+	testutil.NotNil(t, art.BoardID)
+	testutil.Equal(t, *art.BoardID, 456)
 }
 
 func TestProjectSprint_NilDates(t *testing.T) {

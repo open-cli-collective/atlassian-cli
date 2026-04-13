@@ -20,7 +20,7 @@ type SprintArtifact struct {
 	EndDate      string `json:"endDate,omitempty"`
 	CompleteDate string `json:"completeDate,omitempty"`
 	Goal         string `json:"goal,omitempty"`
-	BoardID      int    `json:"boardId,omitempty"`
+	BoardID      *int   `json:"boardId,omitempty"` // Pointer so 0 is explicit in full mode
 }
 
 // ProjectSprint projects an api.Sprint to a SprintArtifact.
@@ -41,7 +41,7 @@ func ProjectSprint(s *api.Sprint, mode artifact.Type) *SprintArtifact {
 			a.CompleteDate = s.CompleteDate.Format(time.RFC3339)
 		}
 		a.Goal = s.Goal
-		a.BoardID = s.OriginBoardID
+		a.BoardID = &s.OriginBoardID
 	}
 	return a
 }

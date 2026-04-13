@@ -126,7 +126,10 @@ func runSearch(ctx context.Context, opts *root.Options, query string, maxResults
 
 	if v.Format == view.FormatJSON {
 		arts := jtkartifact.ProjectUsers(users, opts.ArtifactMode())
-		return v.RenderArtifactList(artifact.NewListResult(arts, false))
+		// API returns bare []User with no pagination metadata.
+		// Infer hasMore when result count equals requested max.
+		hasMore := maxResults > 0 && len(users) == maxResults
+		return v.RenderArtifactList(artifact.NewListResult(arts, hasMore))
 	}
 
 	headers := []string{"ACCOUNT_ID", "NAME", "EMAIL", "ACTIVE"}

@@ -46,7 +46,7 @@ func TestProjectPage(t *testing.T) {
 		testutil.Equal(t, "12345", art.ID)
 		testutil.Equal(t, "Test Page", art.Title)
 		testutil.Equal(t, 5, art.Version)
-		testutil.Equal(t, "2024-01-15T10:30:00Z", art.CreatedAt)
+		testutil.Equal(t, "2024-01-15T10:30:00Z", art.CreatedAt) // UTC with Z offset
 		testutil.Equal(t, "user123", art.AuthorID)
 	})
 

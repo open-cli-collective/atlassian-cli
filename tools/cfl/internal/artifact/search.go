@@ -31,9 +31,11 @@ func ProjectSearchResult(r *api.SearchResult, mode artifact.Type) *SearchResultA
 
 	// Truncate excerpt in agent mode
 	excerpt := r.Excerpt
-	if mode == artifact.Agent && len([]rune(excerpt)) > maxExcerptRunes {
+	if mode == artifact.Agent {
 		runes := []rune(excerpt)
-		excerpt = string(runes[:maxExcerptRunes]) + "..."
+		if len(runes) > maxExcerptRunes {
+			excerpt = string(runes[:maxExcerptRunes]) + "..."
+		}
 	}
 	if excerpt != "" {
 		art.Excerpt = excerpt

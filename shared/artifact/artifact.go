@@ -26,7 +26,7 @@ func (t Type) String() string {
 	case Full:
 		return "full"
 	default:
-		return "agent"
+		return "unknown"
 	}
 }
 

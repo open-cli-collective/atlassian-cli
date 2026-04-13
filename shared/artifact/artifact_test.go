@@ -12,7 +12,7 @@ func TestType_String(t *testing.T) {
 	}{
 		{"agent", Agent, "agent"},
 		{"full", Full, "full"},
-		{"unknown defaults to agent", Type(99), "agent"},
+		{"unknown returns unknown", Type(99), "unknown"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

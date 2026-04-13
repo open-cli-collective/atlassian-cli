@@ -8,6 +8,7 @@ import (
 
 	"github.com/open-cli-collective/atlassian-go/view"
 
+	jtkartifact "github.com/open-cli-collective/jira-ticket-cli/internal/artifact"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 )
 
@@ -45,9 +46,9 @@ func runGet(ctx context.Context, opts *root.Options, issueKey string, noTruncate
 		return err
 	}
 
-	// For JSON output, return the full issue
-	if opts.Output == "json" {
-		return v.JSON(issue)
+	// For JSON output, return the projected artifact
+	if v.Format == view.FormatJSON {
+		return v.RenderArtifact(jtkartifact.ProjectIssue(issue, opts.ArtifactMode()))
 	}
 
 	// For table/plain output, display key details

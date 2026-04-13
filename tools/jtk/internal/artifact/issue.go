@@ -7,9 +7,6 @@ import (
 )
 
 // IssueArtifact is the projected output for an issue.
-// This is a minimal artifact for list contexts (e.g., sprints issues).
-// Full issue artifact with more fields will be added when issues commands
-// are migrated to artifact projection (see #205 for flag collision resolution).
 type IssueArtifact struct {
 	// Agent fields - essential for triage
 	Key      string `json:"key"`
@@ -19,8 +16,12 @@ type IssueArtifact struct {
 	Assignee string `json:"assignee,omitempty"`
 
 	// Full-only fields
-	Priority string `json:"priority,omitempty"`
-	Project  string `json:"project,omitempty"`
+	Priority string   `json:"priority,omitempty"`
+	Project  string   `json:"project,omitempty"`
+	Created  string   `json:"created,omitempty"`
+	Updated  string   `json:"updated,omitempty"`
+	Reporter string   `json:"reporter,omitempty"`
+	Labels   []string `json:"labels,omitempty"`
 }
 
 // ProjectIssue projects an api.Issue to an IssueArtifact.
@@ -44,6 +45,14 @@ func ProjectIssue(issue *api.Issue, mode artifact.Type) *IssueArtifact {
 		}
 		if issue.Fields.Project != nil {
 			a.Project = issue.Fields.Project.Key
+		}
+		a.Created = formatDate(issue.Fields.Created)
+		a.Updated = formatDate(issue.Fields.Updated)
+		if issue.Fields.Reporter != nil {
+			a.Reporter = issue.Fields.Reporter.DisplayName
+		}
+		if len(issue.Fields.Labels) > 0 {
+			a.Labels = issue.Fields.Labels
 		}
 	}
 	return a

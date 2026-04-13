@@ -7,7 +7,10 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/open-cli-collective/atlassian-go/view"
+
 	"github.com/open-cli-collective/jira-ticket-cli/api"
+	jtkartifact "github.com/open-cli-collective/jira-ticket-cli/internal/artifact"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 )
 
@@ -50,8 +53,8 @@ func runGet(ctx context.Context, opts *root.Options, ruleID string, showComponen
 		return err
 	}
 
-	if opts.Output == "json" {
-		return v.JSON(rule)
+	if v.Format == view.FormatJSON {
+		return v.RenderArtifact(jtkartifact.ProjectAutomationRule(rule, opts.ArtifactMode()))
 	}
 
 	v.Println("Name:        %s", rule.Name)

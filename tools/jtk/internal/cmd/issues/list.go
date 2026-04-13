@@ -6,7 +6,11 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/open-cli-collective/atlassian-go/artifact"
+	"github.com/open-cli-collective/atlassian-go/view"
+
 	"github.com/open-cli-collective/jira-ticket-cli/api"
+	jtkartifact "github.com/open-cli-collective/jira-ticket-cli/internal/artifact"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 )
 
@@ -106,9 +110,11 @@ func runList(ctx context.Context, opts *root.Options, project, sprint string, ma
 		return nil
 	}
 
-	// For JSON output, return the paginated wrapper
-	if opts.Output == "json" {
-		return v.JSON(result)
+	// For JSON output, return the projected artifacts
+	if v.Format == view.FormatJSON {
+		arts := jtkartifact.ProjectIssues(result.Issues, opts.ArtifactMode())
+		hasMore := !result.Pagination.IsLast
+		return v.RenderArtifactList(artifact.NewListResult(arts, hasMore))
 	}
 
 	headers := []string{"KEY", "SUMMARY", "STATUS", "ASSIGNEE", "TYPE"}

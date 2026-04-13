@@ -14,8 +14,18 @@ import (
 	"github.com/open-cli-collective/atlassian-go/testutil"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
+	jtkartifact "github.com/open-cli-collective/jira-ticket-cli/internal/artifact"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 )
+
+// artifactListResult is a helper struct for parsing artifact list output in tests.
+type artifactListResult struct {
+	Results []*jtkartifact.IssueArtifact `json:"results"`
+	Meta    struct {
+		Count   int  `json:"count"`
+		HasMore bool `json:"hasMore"`
+	} `json:"_meta"`
+}
 
 func TestResolveFields(t *testing.T) {
 	t.Parallel()
@@ -366,14 +376,14 @@ func TestRunSearch_AutoPaginationJSON(t *testing.T) {
 	err = runSearch(context.Background(), opts, "project = TEST", 150, "", false, "")
 	testutil.RequireNoError(t, err)
 
-	var result api.PaginatedIssues
+	var result artifactListResult
 	err = json.Unmarshal(stdout.Bytes(), &result)
 	testutil.RequireNoError(t, err)
-	testutil.Equal(t, 150, len(result.Issues))
-	testutil.Equal(t, 150, result.Pagination.Total)
-	testutil.True(t, result.Pagination.IsLast)
-	testutil.Equal(t, "TEST-1", result.Issues[0].Key)
-	testutil.Equal(t, "TEST-150", result.Issues[149].Key)
+	testutil.Equal(t, 150, len(result.Results))
+	testutil.Equal(t, 150, result.Meta.Count)
+	testutil.False(t, result.Meta.HasMore) // All results fetched
+	testutil.Equal(t, "TEST-1", result.Results[0].Key)
+	testutil.Equal(t, "TEST-150", result.Results[149].Key)
 }
 
 func TestRunList_AutoPaginationJSON(t *testing.T) {
@@ -400,10 +410,10 @@ func TestRunList_AutoPaginationJSON(t *testing.T) {
 	err = runList(context.Background(), opts, "TEST", "", 120, "", false, "")
 	testutil.RequireNoError(t, err)
 
-	var result api.PaginatedIssues
+	var result artifactListResult
 	err = json.Unmarshal(stdout.Bytes(), &result)
 	testutil.RequireNoError(t, err)
-	testutil.Equal(t, 120, len(result.Issues))
-	testutil.Equal(t, 120, result.Pagination.Total)
-	testutil.True(t, result.Pagination.IsLast)
+	testutil.Equal(t, 120, len(result.Results))
+	testutil.Equal(t, 120, result.Meta.Count)
+	testutil.False(t, result.Meta.HasMore) // All results fetched
 }

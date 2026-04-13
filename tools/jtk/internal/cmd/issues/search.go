@@ -5,7 +5,11 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/open-cli-collective/atlassian-go/artifact"
+	"github.com/open-cli-collective/atlassian-go/view"
+
 	"github.com/open-cli-collective/jira-ticket-cli/api"
+	jtkartifact "github.com/open-cli-collective/jira-ticket-cli/internal/artifact"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 )
 
@@ -77,8 +81,10 @@ func runSearch(ctx context.Context, opts *root.Options, jql string, maxResults i
 		return nil
 	}
 
-	if opts.Output == "json" {
-		return v.JSON(result)
+	if v.Format == view.FormatJSON {
+		arts := jtkartifact.ProjectIssues(result.Issues, opts.ArtifactMode())
+		hasMore := !result.Pagination.IsLast
+		return v.RenderArtifactList(artifact.NewListResult(arts, hasMore))
 	}
 
 	headers := []string{"KEY", "SUMMARY", "STATUS", "ASSIGNEE", "TYPE"}

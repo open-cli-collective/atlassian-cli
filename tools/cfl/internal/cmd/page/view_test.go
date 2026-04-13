@@ -441,12 +441,12 @@ func TestTruncateContent(t *testing.T) {
 		long := strings.Repeat("x", maxViewChars+100)
 		result := truncateContent(long, opts)
 		testutil.Len(t, strings.SplitN(result, "\n\n... [truncated", 2)[0], maxViewChars)
-		testutil.Contains(t, result, fmt.Sprintf("... [truncated at %d chars, use --full for complete text]", maxViewChars))
+		testutil.Contains(t, result, fmt.Sprintf("... [truncated at %d chars, use --no-truncate for complete text]", maxViewChars))
 	})
 
 	t.Run("--full bypasses truncation", func(t *testing.T) {
 		t.Parallel()
-		opts := &viewOptions{full: true}
+		opts := &viewOptions{noTruncate: true}
 		long := strings.Repeat("x", maxViewChars+100)
 		result := truncateContent(long, opts)
 		testutil.Equal(t, long, result)

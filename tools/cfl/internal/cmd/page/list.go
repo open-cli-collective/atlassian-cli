@@ -79,7 +79,8 @@ func runList(ctx context.Context, opts *listOptions) error {
 
 	if opts.limit == 0 {
 		if opts.Output == "json" {
-			return v.JSON([]any{})
+			arts := cflartifact.ProjectPageListItems(nil, opts.ArtifactMode())
+			return v.RenderArtifactList(artifact.NewListResult(arts, false))
 		}
 		v.RenderText("No pages found.")
 		return nil

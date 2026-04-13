@@ -8,6 +8,11 @@
 .vscode/
 *.swp
 *.swo
+.twapp-*.json
+
+# Test artifacts
+coverage.out
+coverage.html
 
 # OS
 .DS_Store

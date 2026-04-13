@@ -9,9 +9,11 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/open-cli-collective/atlassian-go/artifact"
 	"github.com/open-cli-collective/atlassian-go/view"
 
 	"github.com/open-cli-collective/confluence-cli/api"
+	cflartifact "github.com/open-cli-collective/confluence-cli/internal/artifact"
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
 )
 
@@ -126,7 +128,8 @@ func runSearch(ctx context.Context, opts *searchOptions) error {
 	// Handle limit 0 - return empty
 	if opts.limit == 0 {
 		if opts.Output == "json" {
-			return v.JSON([]any{})
+			arts := cflartifact.ProjectSearchResults(nil, opts.ArtifactMode())
+			return v.RenderArtifactList(artifact.NewListResult(arts, false))
 		}
 		v.RenderText("No results.")
 		return nil
@@ -166,11 +169,21 @@ func runSearch(ctx context.Context, opts *searchOptions) error {
 	}
 
 	if len(result.Results) == 0 {
+		if opts.Output == "json" {
+			arts := cflartifact.ProjectSearchResults(nil, opts.ArtifactMode())
+			return v.RenderArtifactList(artifact.NewListResult(arts, false))
+		}
 		v.RenderText("No results found.")
 		return nil
 	}
 
-	// Render results
+	// JSON output uses artifact projection
+	if opts.Output == "json" {
+		arts := cflartifact.ProjectSearchResults(result.Results, opts.ArtifactMode())
+		return v.RenderArtifactList(artifact.NewListResult(arts, result.HasMore()))
+	}
+
+	// Table output
 	headers := []string{"ID", "TYPE", "SPACE KEY", "TITLE"}
 	rows := make([][]string, 0, len(result.Results))
 
@@ -184,9 +197,11 @@ func runSearch(ctx context.Context, opts *searchOptions) error {
 		})
 	}
 
-	_ = v.RenderList(headers, rows, result.HasMore())
+	if err := v.Table(headers, rows); err != nil {
+		return err
+	}
 
-	if result.HasMore() && opts.Output != "json" {
+	if result.HasMore() {
 		_, _ = fmt.Fprintf(opts.Stderr, "\n(showing %d of %d results, use --limit to see more)\n",
 			len(result.Results), result.TotalSize)
 	}

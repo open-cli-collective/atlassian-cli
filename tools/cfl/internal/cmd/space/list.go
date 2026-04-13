@@ -7,9 +7,11 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/open-cli-collective/atlassian-go/artifact"
 	"github.com/open-cli-collective/atlassian-go/view"
 
 	"github.com/open-cli-collective/confluence-cli/api"
+	cflartifact "github.com/open-cli-collective/confluence-cli/internal/artifact"
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
 )
 
@@ -64,7 +66,8 @@ func runList(ctx context.Context, opts *listOptions) error {
 
 	if opts.limit == 0 {
 		if opts.Output == "json" {
-			return v.JSON([]any{})
+			arts := cflartifact.ProjectSpaces(nil, opts.ArtifactMode())
+			return v.RenderArtifactList(artifact.NewListResult(arts, false))
 		}
 		v.RenderText("No spaces found.")
 		return nil
@@ -87,10 +90,21 @@ func runList(ctx context.Context, opts *listOptions) error {
 	}
 
 	if len(result.Results) == 0 {
+		if opts.Output == "json" {
+			arts := cflartifact.ProjectSpaces(nil, opts.ArtifactMode())
+			return v.RenderArtifactList(artifact.NewListResult(arts, false))
+		}
 		v.RenderText("No spaces found.")
 		return nil
 	}
 
+	// JSON output uses artifact projection
+	if opts.Output == "json" {
+		arts := cflartifact.ProjectSpaces(result.Results, opts.ArtifactMode())
+		return v.RenderArtifactList(artifact.NewListResult(arts, result.HasMore()))
+	}
+
+	// Table output
 	headers := []string{"KEY", "NAME", "TYPE", "DESCRIPTION"}
 	rows := make([][]string, 0, len(result.Results))
 
@@ -107,9 +121,11 @@ func runList(ctx context.Context, opts *listOptions) error {
 		})
 	}
 
-	_ = v.RenderList(headers, rows, result.HasMore())
+	if err := v.Table(headers, rows); err != nil {
+		return err
+	}
 
-	if result.HasMore() && opts.Output != "json" {
+	if result.HasMore() {
 		nextCursor := extractCursor(result.Links.Next)
 		if nextCursor != "" {
 			_, _ = fmt.Fprintf(opts.Stderr, "\nNext page: cfl space list --cursor %q\n", nextCursor)

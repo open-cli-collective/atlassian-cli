@@ -10,7 +10,7 @@ import (
 
 	"github.com/open-cli-collective/atlassian-go/view"
 
-	"github.com/open-cli-collective/confluence-cli/api"
+	cflartifact "github.com/open-cli-collective/confluence-cli/internal/artifact"
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
 	"github.com/open-cli-collective/confluence-cli/pkg/md"
 )
@@ -128,9 +128,16 @@ func runView(ctx context.Context, pageID string, opts *viewOptions) error {
 	}
 
 	if opts.Output == "json" {
-		// Enrich JSON output with spaceKey
-		enriched := enrichPageWithSpaceKey(page, spaceKey)
-		return v.JSON(enriched)
+		// Extract content (XHTML storage format by default, until #196 validates markdown)
+		content := ""
+		if hasStorageContent(page) {
+			content = page.Body.Storage.Value
+		} else if hasADFContent(page) {
+			content = page.Body.AtlasDocFormat.Value
+		}
+
+		art := cflartifact.ProjectPage(page, spaceKey, content, opts.ArtifactMode())
+		return v.RenderArtifact(art)
 	}
 
 	if !opts.contentOnly {
@@ -214,18 +221,4 @@ func openBrowser(url string) error {
 	}
 
 	return cmd.Start()
-}
-
-// enrichedPage wraps api.Page with an additional spaceKey field for JSON output.
-type enrichedPage struct {
-	*api.Page
-	SpaceKey string `json:"spaceKey,omitempty"`
-}
-
-// enrichPageWithSpaceKey creates an enriched page with the space key for JSON output.
-func enrichPageWithSpaceKey(page *api.Page, spaceKey string) *enrichedPage {
-	return &enrichedPage{
-		Page:     page,
-		SpaceKey: spaceKey,
-	}
 }

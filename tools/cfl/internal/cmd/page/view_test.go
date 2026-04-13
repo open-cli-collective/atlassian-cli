@@ -426,21 +426,6 @@ func TestRunView_SpaceLookupFails_Graceful(t *testing.T) {
 	testutil.RequireNoError(t, err)
 }
 
-func TestEnrichPageWithSpaceKey(t *testing.T) {
-	t.Parallel()
-	page := &api.Page{
-		ID:      "12345",
-		Title:   "Test Page",
-		SpaceID: "98765",
-	}
-
-	enriched := enrichPageWithSpaceKey(page, "DEV")
-
-	testutil.Equal(t, "12345", enriched.ID)
-	testutil.Equal(t, "Test Page", enriched.Title)
-	testutil.Equal(t, "DEV", enriched.SpaceKey)
-}
-
 func TestTruncateContent(t *testing.T) {
 	t.Parallel()
 	t.Run("short content is not truncated", func(t *testing.T) {

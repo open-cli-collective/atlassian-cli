@@ -8,6 +8,7 @@ import (
 
 	"github.com/open-cli-collective/atlassian-go/view"
 
+	cflartifact "github.com/open-cli-collective/confluence-cli/internal/artifact"
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
 )
 
@@ -55,7 +56,8 @@ func runView(ctx context.Context, spaceKey string, opts *viewOptions) error {
 	v := opts.View()
 
 	if opts.Output == "json" {
-		return v.JSON(space)
+		art := cflartifact.ProjectSpace(space, opts.ArtifactMode())
+		return v.RenderArtifact(art)
 	}
 
 	v.RenderKeyValue("Key", space.Key)

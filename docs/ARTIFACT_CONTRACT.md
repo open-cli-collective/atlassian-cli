@@ -56,6 +56,8 @@ Some commands expose a `--raw` mode for source-faithful content where transforma
 --full --raw → error: mutually exclusive
 ```
 
+> **Implementation note:** The mutual exclusivity constraint (`--full --raw → error`) and command-specific `--raw` validation are forward-looking requirements. They will be enforced as commands are migrated in #199 and #200.
+
 ## Output Format Interaction
 
 Artifact type and output format (`-o table|json|plain`) are independent concerns:
@@ -68,7 +70,7 @@ Artifact type and output format (`-o table|json|plain`) are independent concerns
 **Table output:**
 - `agent` = focused columns for action (defined per-command)
 - `full` = additional columns for inspection (defined per-command, still curated)
-- `raw` = not applicable (raw is about content fidelity, not list views)
+- `raw` = error (raw is about content fidelity, not list views; commands should reject `--raw -o table`)
 
 ## Design Principles
 

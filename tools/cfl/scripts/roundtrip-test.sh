@@ -9,7 +9,12 @@
 #
 # Requirements:
 #   - cfl configured and in PATH
+#   - jq for JSON parsing
 #   - Write access to the specified space for creating test pages
+#
+# Note: Golden files are generated via the CLI pipeline (cfl page view --content-only),
+# which is a thin wrapper around FromConfluenceStorageWithOptions. The Go test validates
+# the library directly, so any divergence between CLI and library would cause mismatches.
 #
 # Output:
 #   - Source fixtures: testdata/roundtrip/<id>.before.xhtml, <id>.golden.md
@@ -136,7 +141,7 @@ process_page() {
     local raw_content
     if ! raw_content=$(cfl page view "$id" --raw --content-only 2>&1); then
         echo "[$id] FAIL: Could not fetch page: $raw_content"
-        ((FAIL++))
+        FAIL=$((FAIL + 1))
         return 1
     fi
 
@@ -144,7 +149,7 @@ process_page() {
     local first_char="${raw_content:0:1}"
     if [[ "$first_char" != "<" ]]; then
         echo "[$id] SKIP: ADF-backed (not storage format)"
-        ((SKIP++))
+        SKIP=$((SKIP + 1))
         return 0
     fi
 
@@ -155,7 +160,7 @@ process_page() {
     local md_content
     if ! md_content=$(cfl page view "$id" --content-only --show-macros 2>&1); then
         echo "[$id] FAIL: Could not convert to markdown: $md_content"
-        ((FAIL++))
+        FAIL=$((FAIL + 1))
         return 1
     fi
     printf '%s' "$md_content" > "$staging_md"
@@ -165,7 +170,7 @@ process_page() {
     new_id=$(printf '%s' "$md_content" | cfl page create -s "$SPACE" -t "[Test] Roundtrip $id" --legacy -o json 2>/dev/null | jq -r '.id') || true
     if [[ -z "$new_id" || "$new_id" == "null" ]]; then
         echo "[$id] FAIL: Could not create test page"
-        ((FAIL++))
+        FAIL=$((FAIL + 1))
         return 1
     fi
     CLEANUP_IDS+=("$new_id")
@@ -173,7 +178,7 @@ process_page() {
     # Step 5: Capture roundtripped XHTML
     if ! cfl page view "$new_id" --raw --content-only > "$after_file" 2>/dev/null; then
         echo "[$id] FAIL: Could not fetch roundtripped page"
-        ((FAIL++))
+        FAIL=$((FAIL + 1))
         return 1
     fi
 
@@ -182,7 +187,7 @@ process_page() {
         echo "[$id] PASS: Lossless roundtrip"
         # Only write golden file for passing tests
         cp "$staging_md" "$golden_file"
-        ((PASS++))
+        PASS=$((PASS + 1))
     else
         echo "[$id] FAIL: Content differs (see $after_file)"
         # Show brief diff summary
@@ -190,7 +195,7 @@ process_page() {
         diff_lines=$(diff "$before_file" "$after_file" 2>/dev/null | wc -l | tr -d ' ')
         echo "       Diff: $diff_lines lines changed"
         echo "       Staged MD: $staging_md (not promoted to golden)"
-        ((FAIL++))
+        FAIL=$((FAIL + 1))
     fi
 }
 

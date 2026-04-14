@@ -63,5 +63,6 @@ func run(ctx context.Context, opts *root.Options) error {
 	}
 	pairs = append(pairs, view.KeyValue{Key: "Active", Value: fmt.Sprintf("%t", user.Active)})
 
-	return v.RenderKeyValues(pairs)
+	v.RenderKeyValues(pairs)
+	return nil
 }

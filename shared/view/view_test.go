@@ -691,6 +691,26 @@ func TestView_Table_AgentPolicy_NormalizesNewlines(t *testing.T) {
 	}
 }
 
+func TestView_Table_AgentPolicy_EscapesPipes(t *testing.T) {
+	t.Parallel()
+	buf := &bytes.Buffer{}
+	v := New(FormatTable, true)
+	v.SetPolicy(PolicyAgent)
+	v.SetOutput(buf)
+
+	headers := []string{"KEY", "SUMMARY"}
+	rows := [][]string{
+		{"A", "Fix A | B pipeline"},
+	}
+	_ = v.Table(headers, rows)
+
+	// Pipe in content should be escaped to avoid delimiter confusion
+	want := "KEY | SUMMARY\nA | Fix A \\| B pipeline\n"
+	if buf.String() != want {
+		t.Errorf("pipe escaping:\ngot:\n%s\nwant:\n%s", buf.String(), want)
+	}
+}
+
 func TestView_Table_DefaultPolicy_UsesTabwriter(t *testing.T) {
 	t.Parallel()
 	buf := &bytes.Buffer{}
@@ -748,11 +768,11 @@ func TestView_RenderKeyValues(t *testing.T) {
 	v.SetOutput(buf)
 
 	pairs := []KeyValue{
-		{"Account ID", "abc123"},
-		{"Name", "Alice"},
-		{"Email", "alice@example.com"},
+		{Key: "Account ID", Value: "abc123"},
+		{Key: "Name", Value: "Alice"},
+		{Key: "Email", Value: "alice@example.com"},
 	}
-	_ = v.RenderKeyValues(pairs)
+	v.RenderKeyValues(pairs)
 
 	want := "Account ID: abc123\nName: Alice\nEmail: alice@example.com\n"
 	if buf.String() != want {

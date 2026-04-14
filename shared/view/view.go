@@ -108,13 +108,16 @@ func (v *View) Table(headers []string, rows [][]string) error {
 }
 
 // agentTable renders a pipe-delimited table for token-efficient agent output.
+// Escapes pipes in cell content to avoid delimiter confusion.
 func (v *View) agentTable(headers []string, rows [][]string) error {
 	_, _ = fmt.Fprintln(v.Out, strings.Join(headers, " | "))
 	for _, row := range rows {
 		normalized := make([]string, len(row))
 		for i, cell := range row {
-			// Normalize newlines to spaces
-			normalized[i] = strings.ReplaceAll(cell, "\n", " ")
+			// Normalize newlines to spaces, escape pipes to avoid delimiter confusion
+			cell = strings.ReplaceAll(cell, "\n", " ")
+			cell = strings.ReplaceAll(cell, "|", "\\|")
+			normalized[i] = cell
 		}
 		_, _ = fmt.Fprintln(v.Out, strings.Join(normalized, " | "))
 	}
@@ -327,11 +330,10 @@ type KeyValue struct {
 // Delegates to RenderKeyValue() for each pair to maintain single source of truth.
 // Note: This helper is NOT for JSON output. Commands should handle JSON at the command
 // level (branching on v.Format == FormatJSON before calling this).
-func (v *View) RenderKeyValues(pairs []KeyValue) error {
+func (v *View) RenderKeyValues(pairs []KeyValue) {
 	for _, kv := range pairs {
 		v.RenderKeyValue(kv.Key, kv.Value)
 	}
-	return nil
 }
 
 // RenderText renders plain text.

@@ -187,8 +187,9 @@ func TestRun_AuthFailure(t *testing.T) {
 	testutil.NotNil(t, err)
 }
 
-func TestRun_AgentOutput(t *testing.T) {
+func TestRun_UnpaddedKeyValueOutput(t *testing.T) {
 	t.Parallel()
+	// Verifies the migration from manual padding to RenderKeyValues produces unpadded output
 	user := &api.User{
 		AccountID:    "abc123",
 		DisplayName:  "Alice",

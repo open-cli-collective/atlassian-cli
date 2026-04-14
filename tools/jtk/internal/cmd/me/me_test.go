@@ -186,3 +186,31 @@ func TestRun_AuthFailure(t *testing.T) {
 	err = run(context.Background(), opts)
 	testutil.NotNil(t, err)
 }
+
+func TestRun_AgentOutput(t *testing.T) {
+	t.Parallel()
+	user := &api.User{
+		AccountID:    "abc123",
+		DisplayName:  "Alice",
+		EmailAddress: "alice@example.com",
+		Active:       true,
+	}
+
+	server := newTestUserServer(t, http.StatusOK, user)
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", NoColor: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = run(context.Background(), opts)
+	testutil.RequireNoError(t, err)
+
+	want := "Account ID: abc123\nDisplay Name: Alice\nEmail: alice@example.com\nActive: true\n"
+	if stdout.String() != want {
+		t.Errorf("me output:\ngot:\n%s\nwant:\n%s", stdout.String(), want)
+	}
+}

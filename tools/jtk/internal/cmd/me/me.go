@@ -3,6 +3,7 @@ package me
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/spf13/cobra"
 
@@ -53,12 +54,14 @@ func run(ctx context.Context, opts *root.Options) error {
 		return nil
 	}
 
-	v.Println("Account ID:   %s", user.AccountID)
-	v.Println("Display Name: %s", user.DisplayName)
-	if user.EmailAddress != "" {
-		v.Println("Email:        %s", user.EmailAddress)
+	pairs := []view.KeyValue{
+		{Key: "Account ID", Value: user.AccountID},
+		{Key: "Display Name", Value: user.DisplayName},
 	}
-	v.Println("Active:       %t", user.Active)
+	if user.EmailAddress != "" {
+		pairs = append(pairs, view.KeyValue{Key: "Email", Value: user.EmailAddress})
+	}
+	pairs = append(pairs, view.KeyValue{Key: "Active", Value: fmt.Sprintf("%t", user.Active)})
 
-	return nil
+	return v.RenderKeyValues(pairs)
 }

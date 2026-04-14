@@ -6,6 +6,7 @@ import (
 
 	"github.com/open-cli-collective/atlassian-go/artifact"
 	"github.com/open-cli-collective/atlassian-go/testutil"
+	"github.com/open-cli-collective/atlassian-go/view"
 	"github.com/spf13/cobra"
 )
 
@@ -111,4 +112,19 @@ func TestRegisterCommands(t *testing.T) {
 
 	RegisterCommands(cmd, opts, registrar)
 	testutil.True(t, called)
+}
+
+func TestOptions_View_UsesDefaultPolicy(t *testing.T) {
+	t.Parallel()
+	opts := &Options{
+		Output: "table",
+		Stdout: &bytes.Buffer{},
+		Stderr: &bytes.Buffer{},
+	}
+	v := opts.View()
+
+	// cfl should NOT use PolicyAgent - it keeps human-oriented output
+	if v.Policy != view.PolicyDefault {
+		t.Errorf("cfl View should use PolicyDefault, got %v", v.Policy)
+	}
 }

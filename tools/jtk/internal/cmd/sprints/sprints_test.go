@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -430,4 +431,32 @@ func TestRunAdd_SingleIssue(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	testutil.Contains(t, stdout.String(), "Moved PROJ-101 to sprint 123")
+}
+
+func TestRunAdd_AgentOutput(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}, NoColor: true}
+	opts.SetAPIClient(client)
+
+	err = runAdd(context.Background(), opts, 456, []string{"MON-123"})
+	testutil.RequireNoError(t, err)
+
+	// Agent policy: plain text, no checkmark
+	want := "Moved MON-123 to sprint 456\n"
+	if stdout.String() != want {
+		t.Errorf("mutation output:\ngot: %q\nwant: %q", stdout.String(), want)
+	}
+	// Verify no checkmark
+	if strings.Contains(stdout.String(), "✓") {
+		t.Error("agent policy should not have checkmark")
+	}
 }

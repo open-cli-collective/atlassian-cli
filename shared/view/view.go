@@ -24,6 +24,15 @@ const (
 	FormatPlain Format = "plain"
 )
 
+// RenderPolicy controls output formatting style.
+type RenderPolicy int
+
+// Rendering policy constants.
+const (
+	PolicyDefault RenderPolicy = iota // Human-oriented (padded tables, ✓ decorators)
+	PolicyAgent                       // Token-efficient (pipe-delimited, plain text)
+)
+
 // ValidFormats returns the list of valid output formats.
 func ValidFormats() []string {
 	return []string{string(FormatTable), string(FormatJSON), string(FormatPlain)}
@@ -44,6 +53,7 @@ func ValidateFormat(format string) error {
 type View struct {
 	Format  Format
 	NoColor bool
+	Policy  RenderPolicy // Zero value is PolicyDefault
 	Out     io.Writer
 	Err     io.Writer
 }
@@ -75,6 +85,11 @@ func (v *View) SetError(w io.Writer) {
 	v.Err = w
 }
 
+// SetPolicy sets the rendering policy.
+func (v *View) SetPolicy(p RenderPolicy) {
+	v.Policy = p
+}
+
 // Table renders data as a formatted table with aligned columns.
 // For JSON format, use the JSON method instead.
 func (v *View) Table(headers []string, rows [][]string) error {
@@ -86,6 +101,28 @@ func (v *View) Table(headers []string, rows [][]string) error {
 		return v.Plain(rows)
 	}
 
+	if v.Policy == PolicyAgent {
+		return v.agentTable(headers, rows)
+	}
+	return v.humanTable(headers, rows)
+}
+
+// agentTable renders a pipe-delimited table for token-efficient agent output.
+func (v *View) agentTable(headers []string, rows [][]string) error {
+	_, _ = fmt.Fprintln(v.Out, strings.Join(headers, " | "))
+	for _, row := range rows {
+		normalized := make([]string, len(row))
+		for i, cell := range row {
+			// Normalize newlines to spaces
+			normalized[i] = strings.ReplaceAll(cell, "\n", " ")
+		}
+		_, _ = fmt.Fprintln(v.Out, strings.Join(normalized, " | "))
+	}
+	return nil
+}
+
+// humanTable renders a padded table using tabwriter for human-readable output.
+func (v *View) humanTable(headers []string, rows [][]string) error {
 	w := tabwriter.NewWriter(v.Out, 0, 0, 2, ' ', 0)
 
 	// Print headers with bold formatting
@@ -168,8 +205,13 @@ func (v *View) Render(headers []string, rows [][]string, jsonData any) error {
 }
 
 // Success prints a success message with a green checkmark.
+// With PolicyAgent, prints plain text without the checkmark.
 func (v *View) Success(format string, args ...any) {
 	msg := fmt.Sprintf(format, args...)
+	if v.Policy == PolicyAgent {
+		_, _ = fmt.Fprintln(v.Out, msg)
+		return
+	}
 	if v.NoColor {
 		_, _ = fmt.Fprintln(v.Out, "✓ "+msg)
 	} else {
@@ -273,6 +315,23 @@ func (v *View) RenderKeyValue(key, value string) {
 		_, _ = bold.Fprintf(v.Out, "%s: ", key)
 		_, _ = fmt.Fprintln(v.Out, value)
 	}
+}
+
+// KeyValue represents a single key-value pair for rendering.
+type KeyValue struct {
+	Key   string
+	Value string
+}
+
+// RenderKeyValues renders multiple key-value pairs for default/table/plain text output.
+// Delegates to RenderKeyValue() for each pair to maintain single source of truth.
+// Note: This helper is NOT for JSON output. Commands should handle JSON at the command
+// level (branching on v.Format == FormatJSON before calling this).
+func (v *View) RenderKeyValues(pairs []KeyValue) error {
+	for _, kv := range pairs {
+		v.RenderKeyValue(kv.Key, kv.Value)
+	}
+	return nil
 }
 
 // RenderText renders plain text.

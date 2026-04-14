@@ -32,9 +32,10 @@ type Options struct {
 	cachedClient *api.Client
 }
 
-// View returns a configured View instance
+// View returns a configured View instance with token-efficient agent policy.
 func (o *Options) View() *view.View {
 	v := view.NewWithFormat(o.Output, o.NoColor)
+	v.SetPolicy(view.PolicyAgent) // jtk uses token-efficient output
 	v.Out = o.Stdout
 	v.Err = o.Stderr
 	return v
@@ -94,6 +95,7 @@ func NewCmd() (*cobra.Command, *Options) {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
+	cmd.SetVersionTemplate("{{.Version}}\n") // Bare version output for token efficiency
 
 	// Global flags - bound to opts struct
 	cmd.PersistentFlags().StringVarP(&opts.Output, "output", "o", "table", "Output format: table, json, plain")

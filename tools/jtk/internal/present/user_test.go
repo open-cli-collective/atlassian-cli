@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/open-cli-collective/atlassian-go/present"
+
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 )
 

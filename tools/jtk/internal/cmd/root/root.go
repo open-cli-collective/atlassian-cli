@@ -33,10 +33,13 @@ type Options struct {
 	cachedClient *api.Client
 }
 
-// View returns a configured View instance with token-efficient agent policy.
+// View returns a configured View instance, deriving policy from RenderMode.
 func (o *Options) View() *view.View {
 	v := view.NewWithFormat(o.Output, o.NoColor)
-	v.SetPolicy(view.PolicyAgent) // jtk uses token-efficient output
+	// Derive legacy policy from RenderMode - single source of truth
+	if o.RenderMode() == present.RenderModeAgent {
+		v.SetPolicy(view.PolicyAgent)
+	}
 	v.Out = o.Stdout
 	v.Err = o.Stderr
 	return v
@@ -47,10 +50,16 @@ func (o *Options) ArtifactMode() artifact.Type {
 	return artifact.Mode(o.Full)
 }
 
-// RenderStyle returns the presentation rendering style.
-// jtk always uses agent style for token efficiency.
+// RenderMode returns the authoritative rendering mode.
+// This is the single source of truth that both legacy View() and new render paths use.
+// jtk always uses agent mode for token efficiency.
+func (o *Options) RenderMode() present.RenderMode {
+	return present.RenderModeAgent
+}
+
+// RenderStyle returns the presentation rendering style, derived from RenderMode.
 func (o *Options) RenderStyle() present.Style {
-	return present.StyleAgent
+	return present.StyleFromMode(o.RenderMode())
 }
 
 // APIClient returns the API client, creating it on first call.

@@ -18,10 +18,13 @@ func TestRender_DetailSection_Agent(t *testing.T) {
 		},
 	}
 
-	got := Render(model, StyleAgent)
+	out := Render(model, StyleAgent)
 	want := "Name: Alice\nID: 123\n"
-	if got != want {
-		t.Errorf("detail agent:\ngot:\n%s\nwant:\n%s", got, want)
+	if out.Stdout != want {
+		t.Errorf("detail agent stdout:\ngot:\n%s\nwant:\n%s", out.Stdout, want)
+	}
+	if out.Stderr != "" {
+		t.Errorf("detail agent stderr should be empty, got: %q", out.Stderr)
 	}
 }
 
@@ -38,10 +41,13 @@ func TestRender_DetailSection_Human(t *testing.T) {
 		},
 	}
 
-	got := Render(model, StyleHuman)
+	out := Render(model, StyleHuman)
 	want := "Name: Alice\nID: 123\n"
-	if got != want {
-		t.Errorf("detail human:\ngot:\n%s\nwant:\n%s", got, want)
+	if out.Stdout != want {
+		t.Errorf("detail human stdout:\ngot:\n%s\nwant:\n%s", out.Stdout, want)
+	}
+	if out.Stderr != "" {
+		t.Errorf("detail human stderr should be empty, got: %q", out.Stderr)
 	}
 }
 
@@ -59,10 +65,13 @@ func TestRender_TableSection_Agent(t *testing.T) {
 		},
 	}
 
-	got := Render(model, StyleAgent)
+	out := Render(model, StyleAgent)
 	want := "KEY | SUMMARY\nPROJ-1 | First issue\nPROJ-2 | Second issue\n"
-	if got != want {
-		t.Errorf("table agent:\ngot:\n%s\nwant:\n%s", got, want)
+	if out.Stdout != want {
+		t.Errorf("table agent stdout:\ngot:\n%s\nwant:\n%s", out.Stdout, want)
+	}
+	if out.Stderr != "" {
+		t.Errorf("table agent stderr should be empty, got: %q", out.Stderr)
 	}
 }
 
@@ -80,16 +89,19 @@ func TestRender_TableSection_Human(t *testing.T) {
 		},
 	}
 
-	got := Render(model, StyleHuman)
+	out := Render(model, StyleHuman)
 	// Human style uses tabwriter - verify structure, not exact spacing
-	if !strings.Contains(got, "KEY") || !strings.Contains(got, "SUMMARY") {
-		t.Errorf("missing headers in output: %s", got)
+	if !strings.Contains(out.Stdout, "KEY") || !strings.Contains(out.Stdout, "SUMMARY") {
+		t.Errorf("missing headers in stdout: %s", out.Stdout)
 	}
-	if !strings.Contains(got, "PROJ-1") || !strings.Contains(got, "First") {
-		t.Errorf("missing row 1 in output: %s", got)
+	if !strings.Contains(out.Stdout, "PROJ-1") || !strings.Contains(out.Stdout, "First") {
+		t.Errorf("missing row 1 in stdout: %s", out.Stdout)
 	}
-	if !strings.Contains(got, "PROJ-2") || !strings.Contains(got, "Second") {
-		t.Errorf("missing row 2 in output: %s", got)
+	if !strings.Contains(out.Stdout, "PROJ-2") || !strings.Contains(out.Stdout, "Second") {
+		t.Errorf("missing row 2 in stdout: %s", out.Stdout)
+	}
+	if out.Stderr != "" {
+		t.Errorf("table human stderr should be empty, got: %q", out.Stderr)
 	}
 }
 
@@ -101,10 +113,13 @@ func TestRender_MessageSection_Success_Agent(t *testing.T) {
 		},
 	}
 
-	got := Render(model, StyleAgent)
+	out := Render(model, StyleAgent)
 	want := "Issue updated\n"
-	if got != want {
-		t.Errorf("message agent:\ngot: %q\nwant: %q", got, want)
+	if out.Stdout != want {
+		t.Errorf("message success agent stdout:\ngot: %q\nwant: %q", out.Stdout, want)
+	}
+	if out.Stderr != "" {
+		t.Errorf("message success agent stderr should be empty, got: %q", out.Stderr)
 	}
 }
 
@@ -116,14 +131,17 @@ func TestRender_MessageSection_Success_Human(t *testing.T) {
 		},
 	}
 
-	got := Render(model, StyleHuman)
+	out := Render(model, StyleHuman)
 	want := "✓ Issue updated\n"
-	if got != want {
-		t.Errorf("message human:\ngot: %q\nwant: %q", got, want)
+	if out.Stdout != want {
+		t.Errorf("message success human stdout:\ngot: %q\nwant: %q", out.Stdout, want)
+	}
+	if out.Stderr != "" {
+		t.Errorf("message success human stderr should be empty, got: %q", out.Stderr)
 	}
 }
 
-func TestRender_MessageSection_Warning_Human(t *testing.T) {
+func TestRender_MessageSection_Warning_GoesToStderr(t *testing.T) {
 	t.Parallel()
 	model := &OutputModel{
 		Sections: []Section{
@@ -131,10 +149,22 @@ func TestRender_MessageSection_Warning_Human(t *testing.T) {
 		},
 	}
 
-	got := Render(model, StyleHuman)
-	want := "⚠ Deprecated API\n"
-	if got != want {
-		t.Errorf("message warning human:\ngot: %q\nwant: %q", got, want)
+	// Agent style - warning goes to stderr
+	outAgent := Render(model, StyleAgent)
+	if outAgent.Stdout != "" {
+		t.Errorf("warning agent stdout should be empty, got: %q", outAgent.Stdout)
+	}
+	if outAgent.Stderr != "Deprecated API\n" {
+		t.Errorf("warning agent stderr:\ngot: %q\nwant: %q", outAgent.Stderr, "Deprecated API\n")
+	}
+
+	// Human style - warning goes to stderr with decorator
+	outHuman := Render(model, StyleHuman)
+	if outHuman.Stdout != "" {
+		t.Errorf("warning human stdout should be empty, got: %q", outHuman.Stdout)
+	}
+	if outHuman.Stderr != "⚠ Deprecated API\n" {
+		t.Errorf("warning human stderr:\ngot: %q\nwant: %q", outHuman.Stderr, "⚠ Deprecated API\n")
 	}
 }
 
@@ -146,20 +176,24 @@ func TestRender_MessageSection_Info_Human(t *testing.T) {
 		},
 	}
 
-	got := Render(model, StyleHuman)
+	out := Render(model, StyleHuman)
 	want := "Processing...\n"
-	if got != want {
-		t.Errorf("message info human:\ngot: %q\nwant: %q", got, want)
+	if out.Stdout != want {
+		t.Errorf("message info human stdout:\ngot: %q\nwant: %q", out.Stdout, want)
+	}
+	if out.Stderr != "" {
+		t.Errorf("message info human stderr should be empty, got: %q", out.Stderr)
 	}
 }
 
-func TestRender_MixedSections(t *testing.T) {
+func TestRender_MixedSections_WithWarning(t *testing.T) {
 	t.Parallel()
 	model := &OutputModel{
 		Sections: []Section{
 			&DetailSection{
 				Fields: []Field{{Label: "ID", Value: "123"}},
 			},
+			&MessageSection{Kind: MessageWarning, Message: "Field deprecated"},
 			&TableSection{
 				Headers: []string{"NAME", "VALUE"},
 				Rows:    []Row{{Cells: []string{"foo", "bar"}}},
@@ -167,19 +201,37 @@ func TestRender_MixedSections(t *testing.T) {
 		},
 	}
 
-	got := Render(model, StyleAgent)
-	want := "ID: 123\nNAME | VALUE\nfoo | bar\n"
-	if got != want {
-		t.Errorf("mixed agent:\ngot:\n%s\nwant:\n%s", got, want)
+	out := Render(model, StyleAgent)
+	wantStdout := "ID: 123\nNAME | VALUE\nfoo | bar\n"
+	wantStderr := "Field deprecated\n"
+	if out.Stdout != wantStdout {
+		t.Errorf("mixed stdout:\ngot:\n%s\nwant:\n%s", out.Stdout, wantStdout)
+	}
+	if out.Stderr != wantStderr {
+		t.Errorf("mixed stderr:\ngot:\n%s\nwant:\n%s", out.Stderr, wantStderr)
 	}
 }
 
 func TestRender_EmptyModel(t *testing.T) {
 	t.Parallel()
 	model := &OutputModel{Sections: []Section{}}
-	got := Render(model, StyleAgent)
-	if got != "" {
-		t.Errorf("empty model should produce empty string, got: %q", got)
+	out := Render(model, StyleAgent)
+	if out.Stdout != "" {
+		t.Errorf("empty model stdout should be empty, got: %q", out.Stdout)
+	}
+	if out.Stderr != "" {
+		t.Errorf("empty model stderr should be empty, got: %q", out.Stderr)
+	}
+}
+
+func TestRender_NilModel(t *testing.T) {
+	t.Parallel()
+	out := Render(nil, StyleAgent)
+	if out.Stdout != "" {
+		t.Errorf("nil model stdout should be empty, got: %q", out.Stdout)
+	}
+	if out.Stderr != "" {
+		t.Errorf("nil model stderr should be empty, got: %q", out.Stderr)
 	}
 }
 
@@ -194,10 +246,13 @@ func TestRender_EmptyTable(t *testing.T) {
 		},
 	}
 
-	got := Render(model, StyleAgent)
+	out := Render(model, StyleAgent)
 	want := "KEY | SUMMARY\n"
-	if got != want {
-		t.Errorf("empty table:\ngot: %q\nwant: %q", got, want)
+	if out.Stdout != want {
+		t.Errorf("empty table stdout:\ngot: %q\nwant: %q", out.Stdout, want)
+	}
+	if out.Stderr != "" {
+		t.Errorf("empty table stderr should be empty, got: %q", out.Stderr)
 	}
 }
 
@@ -210,16 +265,30 @@ func TestRender_MessageSection_UnknownKind(t *testing.T) {
 		},
 	}
 
-	// Both styles should render the message without decorators for unknown kinds
-	gotAgent := Render(model, StyleAgent)
-	wantAgent := "Unknown kind\n"
-	if gotAgent != wantAgent {
-		t.Errorf("unknown kind agent:\ngot: %q\nwant: %q", gotAgent, wantAgent)
+	// Unknown kinds go to stdout (not stderr)
+	outAgent := Render(model, StyleAgent)
+	if outAgent.Stdout != "Unknown kind\n" {
+		t.Errorf("unknown kind agent stdout:\ngot: %q\nwant: %q", outAgent.Stdout, "Unknown kind\n")
+	}
+	if outAgent.Stderr != "" {
+		t.Errorf("unknown kind agent stderr should be empty, got: %q", outAgent.Stderr)
 	}
 
-	gotHuman := Render(model, StyleHuman)
-	wantHuman := "Unknown kind\n"
-	if gotHuman != wantHuman {
-		t.Errorf("unknown kind human:\ngot: %q\nwant: %q", gotHuman, wantHuman)
+	outHuman := Render(model, StyleHuman)
+	if outHuman.Stdout != "Unknown kind\n" {
+		t.Errorf("unknown kind human stdout:\ngot: %q\nwant: %q", outHuman.Stdout, "Unknown kind\n")
+	}
+	if outHuman.Stderr != "" {
+		t.Errorf("unknown kind human stderr should be empty, got: %q", outHuman.Stderr)
+	}
+}
+
+func TestStyleFromMode(t *testing.T) {
+	t.Parallel()
+	if got := StyleFromMode(RenderModeAgent); got != StyleAgent {
+		t.Errorf("StyleFromMode(RenderModeAgent) = %v, want %v", got, StyleAgent)
+	}
+	if got := StyleFromMode(RenderModeHuman); got != StyleHuman {
+		t.Errorf("StyleFromMode(RenderModeHuman) = %v, want %v", got, StyleHuman)
 	}
 }

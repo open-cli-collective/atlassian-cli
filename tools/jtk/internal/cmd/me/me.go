@@ -58,9 +58,10 @@ func run(ctx context.Context, opts *root.Options) error {
 		return nil
 	}
 
-	// Text path: presenter → pure render → write
+	// Text path: presenter → model → pure render → write to both streams
 	model := jtkpresent.UserPresenter{}.Present(user)
-	output := present.Render(model, opts.RenderStyle())
-	_, _ = fmt.Fprint(opts.Stdout, output)
+	out := present.Render(model, opts.RenderStyle())
+	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
+	_, _ = fmt.Fprint(opts.Stderr, out.Stderr)
 	return nil
 }

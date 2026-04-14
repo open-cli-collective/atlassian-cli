@@ -6,14 +6,30 @@ import (
 	"text/tabwriter"
 )
 
-// Render converts an OutputModel to a string based on the given style.
+// Render converts an OutputModel to RenderedOutput with proper stream routing.
 // This is a pure function with no side effects.
-func Render(model *OutputModel, style Style) string {
-	var buf bytes.Buffer
-	for _, section := range model.Sections {
-		buf.WriteString(renderSection(section, style))
+func Render(model *OutputModel, style Style) RenderedOutput {
+	if model == nil {
+		return RenderedOutput{}
 	}
-	return buf.String()
+	var stdout, stderr bytes.Buffer
+	for _, section := range model.Sections {
+		text := renderSection(section, style)
+		if isStderrSection(section) {
+			stderr.WriteString(text)
+		} else {
+			stdout.WriteString(text)
+		}
+	}
+	return RenderedOutput{Stdout: stdout.String(), Stderr: stderr.String()}
+}
+
+// isStderrSection returns true if this section should go to stderr.
+func isStderrSection(s Section) bool {
+	if msg, ok := s.(*MessageSection); ok {
+		return msg.Kind == MessageWarning // Warnings go to stderr
+	}
+	return false // DetailSection, TableSection, MessageInfo, MessageSuccess -> stdout
 }
 
 func renderSection(s Section, style Style) string {

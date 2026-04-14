@@ -167,7 +167,7 @@ The init wizards will prompt for:
 - API token
 
 Configuration is stored in:
-- jtk: `~/.config/jtk/config.json`
+- jtk: `~/.config/jira-ticket-cli/config.json`
 - cfl: `~/.config/cfl/config.yml`
 
 ### Authentication

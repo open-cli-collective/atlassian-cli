@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/open-cli-collective/atlassian-go/artifact"
+	"github.com/open-cli-collective/atlassian-go/present"
 	"github.com/open-cli-collective/atlassian-go/version"
 	"github.com/open-cli-collective/atlassian-go/view"
 
@@ -44,6 +45,12 @@ func (o *Options) View() *view.View {
 // ArtifactMode returns the artifact type based on the --full flag.
 func (o *Options) ArtifactMode() artifact.Type {
 	return artifact.Mode(o.Full)
+}
+
+// RenderStyle returns the presentation rendering style.
+// jtk always uses agent style for token efficiency.
+func (o *Options) RenderStyle() present.Style {
+	return present.StyleAgent
 }
 
 // APIClient returns the API client, creating it on first call.

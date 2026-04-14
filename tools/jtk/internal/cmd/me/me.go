@@ -7,10 +7,12 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/open-cli-collective/atlassian-go/present"
 	"github.com/open-cli-collective/atlassian-go/view"
 
 	jtkartifact "github.com/open-cli-collective/jira-ticket-cli/internal/artifact"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
+	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
 )
 
 // Register registers the me command
@@ -45,24 +47,20 @@ func run(ctx context.Context, opts *root.Options) error {
 		return err
 	}
 
+	// JSON path: use existing artifact layer (unchanged)
 	if v.Format == view.FormatJSON {
 		return v.RenderArtifact(jtkartifact.ProjectUser(user, opts.ArtifactMode()))
 	}
 
+	// Plain path: just the account ID
 	if v.Format == view.FormatPlain {
-		v.Println("%s", user.AccountID)
+		_, _ = fmt.Fprintln(opts.Stdout, user.AccountID)
 		return nil
 	}
 
-	pairs := []view.KeyValue{
-		{Key: "Account ID", Value: user.AccountID},
-		{Key: "Display Name", Value: user.DisplayName},
-	}
-	if user.EmailAddress != "" {
-		pairs = append(pairs, view.KeyValue{Key: "Email", Value: user.EmailAddress})
-	}
-	pairs = append(pairs, view.KeyValue{Key: "Active", Value: fmt.Sprintf("%t", user.Active)})
-
-	v.RenderKeyValues(pairs)
+	// Text path: presenter → pure render → write
+	model := jtkpresent.UserPresenter{}.Present(user)
+	output := present.Render(model, opts.RenderStyle())
+	_, _ = fmt.Fprint(opts.Stdout, output)
 	return nil
 }

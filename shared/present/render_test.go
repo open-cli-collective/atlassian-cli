@@ -200,3 +200,26 @@ func TestRender_EmptyTable(t *testing.T) {
 		t.Errorf("empty table:\ngot: %q\nwant: %q", got, want)
 	}
 }
+
+func TestRender_MessageSection_UnknownKind(t *testing.T) {
+	t.Parallel()
+	// Test that unknown MessageKind values fall through gracefully
+	model := &OutputModel{
+		Sections: []Section{
+			&MessageSection{Kind: MessageKind(99), Message: "Unknown kind"},
+		},
+	}
+
+	// Both styles should render the message without decorators for unknown kinds
+	gotAgent := Render(model, StyleAgent)
+	wantAgent := "Unknown kind\n"
+	if gotAgent != wantAgent {
+		t.Errorf("unknown kind agent:\ngot: %q\nwant: %q", gotAgent, wantAgent)
+	}
+
+	gotHuman := Render(model, StyleHuman)
+	wantHuman := "Unknown kind\n"
+	if gotHuman != wantHuman {
+		t.Errorf("unknown kind human:\ngot: %q\nwant: %q", gotHuman, wantHuman)
+	}
+}

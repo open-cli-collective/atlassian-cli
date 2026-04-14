@@ -127,37 +127,42 @@ process_page() {
     local before_file="$FIXTURE_DIR/${id}.before.xhtml"
     local golden_file="$FIXTURE_DIR/${id}.golden.md"
     local after_file="$TRIAGE_DIR/${id}.after.xhtml"
+    local staging_md="$TRIAGE_DIR/${id}.md"
 
     echo "[$id] Processing..."
 
-    # Step 1: Format check — skip ADF-backed pages
-    local format
-    format=$(cfl page view "$id" --raw --content-only 2>/dev/null | head -c1) || true
-    if [[ "$format" != "<" ]]; then
+    # Step 1: Fetch page and check format
+    # Capture raw content first to distinguish fetch failures from ADF pages
+    local raw_content
+    if ! raw_content=$(cfl page view "$id" --raw --content-only 2>&1); then
+        echo "[$id] FAIL: Could not fetch page: $raw_content"
+        ((FAIL++))
+        return 1
+    fi
+
+    # Check if storage format (XHTML starts with <) vs ADF (JSON starts with {)
+    local first_char="${raw_content:0:1}"
+    if [[ "$first_char" != "<" ]]; then
         echo "[$id] SKIP: ADF-backed (not storage format)"
         ((SKIP++))
         return 0
     fi
 
-    # Step 2: Capture original XHTML
-    if ! cfl page view "$id" --raw --content-only > "$before_file" 2>/dev/null; then
-        echo "[$id] FAIL: Could not fetch page"
-        ((FAIL++))
-        return 1
-    fi
+    # Step 2: Save original XHTML
+    printf '%s' "$raw_content" > "$before_file"
 
-    # Step 3: Convert to markdown
+    # Step 3: Convert to markdown (save to staging, not final location)
     local md_content
-    if ! md_content=$(cfl page view "$id" --content-only --show-macros 2>/dev/null); then
-        echo "[$id] FAIL: Could not convert to markdown"
+    if ! md_content=$(cfl page view "$id" --content-only --show-macros 2>&1); then
+        echo "[$id] FAIL: Could not convert to markdown: $md_content"
         ((FAIL++))
         return 1
     fi
-    echo "$md_content" > "$golden_file"
+    printf '%s' "$md_content" > "$staging_md"
 
     # Step 4: Create test page from markdown
     local new_id
-    new_id=$(echo "$md_content" | cfl page create -s "$SPACE" -t "[Test] Roundtrip $id" --legacy -o json 2>/dev/null | jq -r '.id') || true
+    new_id=$(printf '%s' "$md_content" | cfl page create -s "$SPACE" -t "[Test] Roundtrip $id" --legacy -o json 2>/dev/null | jq -r '.id') || true
     if [[ -z "$new_id" || "$new_id" == "null" ]]; then
         echo "[$id] FAIL: Could not create test page"
         ((FAIL++))
@@ -172,9 +177,11 @@ process_page() {
         return 1
     fi
 
-    # Step 6: Compare
+    # Step 6: Compare and only commit golden on success
     if diff -q "$before_file" "$after_file" >/dev/null 2>&1; then
         echo "[$id] PASS: Lossless roundtrip"
+        # Only write golden file for passing tests
+        cp "$staging_md" "$golden_file"
         ((PASS++))
     else
         echo "[$id] FAIL: Content differs (see $after_file)"
@@ -182,6 +189,7 @@ process_page() {
         local diff_lines
         diff_lines=$(diff "$before_file" "$after_file" 2>/dev/null | wc -l | tr -d ' ')
         echo "       Diff: $diff_lines lines changed"
+        echo "       Staged MD: $staging_md (not promoted to golden)"
         ((FAIL++))
     fi
 }

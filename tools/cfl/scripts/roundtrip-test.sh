@@ -145,6 +145,13 @@ process_page() {
         return 1
     fi
 
+    # Check for empty content
+    if [[ -z "$raw_content" ]]; then
+        echo "[$id] FAIL: Empty page content"
+        FAIL=$((FAIL + 1))
+        return 1
+    fi
+
     # Check if storage format (XHTML starts with <) vs ADF (JSON starts with {)
     local first_char="${raw_content:0:1}"
     if [[ "$first_char" != "<" ]]; then
@@ -190,9 +197,9 @@ process_page() {
         PASS=$((PASS + 1))
     else
         echo "[$id] FAIL: Content differs (see $after_file)"
-        # Show brief diff summary
+        # Show brief diff summary (diff exits 1 when files differ, so suppress error)
         local diff_lines
-        diff_lines=$(diff "$before_file" "$after_file" 2>/dev/null | wc -l | tr -d ' ')
+        diff_lines=$(diff "$before_file" "$after_file" 2>/dev/null | wc -l | tr -d ' ' || echo "?")
         echo "       Diff: $diff_lines lines changed"
         echo "       Staged MD: $staging_md (not promoted to golden)"
         FAIL=$((FAIL + 1))

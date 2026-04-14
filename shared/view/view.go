@@ -44,7 +44,6 @@ func ValidateFormat(format string) error {
 type View struct {
 	Format  Format
 	NoColor bool
-	Compact bool
 	Out     io.Writer
 	Err     io.Writer
 }
@@ -121,21 +120,13 @@ func (v *View) tableAsJSON(headers []string, rows [][]string) error {
 }
 
 // JSON renders data as formatted JSON.
-// When Compact is true, null fields, avatar URLs, self-links, and
-// Atlassian metadata keys (_links, _expandable) are stripped to
-// reduce output size for agent/LLM consumers.
 func (v *View) JSON(data any) error {
-	if v.Compact {
-		data = compactData(data)
-	}
 	enc := json.NewEncoder(v.Out)
 	enc.SetIndent("", "  ")
 	return enc.Encode(data)
 }
 
 // RenderArtifact outputs an intentional artifact as JSON.
-// Unlike JSON(), never applies Compact post-processing because artifacts
-// are already intentionally shaped by the command's projection function.
 // Callers should check v.Format == FormatJSON before calling.
 func (v *View) RenderArtifact(data any) error {
 	enc := json.NewEncoder(v.Out)
@@ -144,8 +135,6 @@ func (v *View) RenderArtifact(data any) error {
 }
 
 // RenderArtifactList outputs a list of artifacts with metadata.
-// Unlike JSON(), never applies Compact post-processing because artifacts
-// are already intentionally shaped by the command's projection function.
 // Callers should check v.Format == FormatJSON before calling.
 func (v *View) RenderArtifactList(result *artifact.ListResult) error {
 	enc := json.NewEncoder(v.Out)
@@ -289,102 +278,6 @@ func (v *View) RenderKeyValue(key, value string) {
 // RenderText renders plain text.
 func (v *View) RenderText(text string) {
 	_, _ = fmt.Fprintln(v.Out, text)
-}
-
-// compactData converts data to a generic map/slice structure and strips
-// verbose metadata that inflates output without adding useful content.
-// Removes: null-valued fields, avatarUrls, self-link URLs, _links, _expandable,
-// and any maps/slices left empty after pruning.
-//
-// Uses a JSON round-trip (marshal → unmarshal → walk) for simplicity over a
-// reflection-based approach. The extra allocation is negligible for CLI output.
-func compactData(data any) any {
-	// Round-trip through JSON to get a generic map/slice structure.
-	raw, err := json.Marshal(data)
-	if err != nil {
-		return data
-	}
-	var generic any
-	if err := json.Unmarshal(raw, &generic); err != nil {
-		return data
-	}
-	return pruneValue(generic)
-}
-
-// Metadata keys stripped unconditionally in compact mode.
-var compactStripKeys = map[string]bool{
-	"avatarUrls":  true,
-	"_links":      true,
-	"_expandable": true,
-}
-
-func pruneValue(v any) any {
-	switch val := v.(type) {
-	case map[string]any:
-		pruned := make(map[string]any, len(val))
-		for k, child := range val {
-			if child == nil {
-				continue
-			}
-			if compactStripKeys[k] {
-				continue
-			}
-			// Strip "self" keys that hold API URLs. Covers both Jira v3 (/rest/...)
-			// and Confluence v2 (/wiki/api/v2/...) endpoints.
-			if k == "self" {
-				if s, ok := child.(string); ok && (strings.HasPrefix(s, "http://") || strings.HasPrefix(s, "https://")) {
-					continue
-				}
-			}
-			pv := pruneValue(child)
-			// Drop fields that became empty due to pruning (e.g., a user
-			// object that only had avatarUrls + self becomes {}).
-			// Preserve originally-empty collections: [] means "no items"
-			// and {} means "empty object" — both are semantically distinct
-			// from an absent field.
-			if wasNonEmpty(child) && isEmpty(pv) {
-				continue
-			}
-			pruned[k] = pv
-		}
-		return pruned
-	case []any:
-		result := make([]any, 0, len(val))
-		for _, item := range val {
-			pv := pruneValue(item)
-			if wasNonEmpty(item) && isEmpty(pv) {
-				continue
-			}
-			result = append(result, pv)
-		}
-		return result
-	default:
-		return v
-	}
-}
-
-// wasNonEmpty returns true if the value is a map or slice with at least one element.
-func wasNonEmpty(v any) bool {
-	switch val := v.(type) {
-	case map[string]any:
-		return len(val) > 0
-	case []any:
-		return len(val) > 0
-	default:
-		return false
-	}
-}
-
-// isEmpty returns true for empty maps and empty slices.
-func isEmpty(v any) bool {
-	switch val := v.(type) {
-	case map[string]any:
-		return len(val) == 0
-	case []any:
-		return len(val) == 0
-	default:
-		return false
-	}
 }
 
 // Truncate truncates a string to the specified length, adding "..." if truncated.

@@ -19,7 +19,6 @@ import (
 type Options struct {
 	Output  string
 	NoColor bool
-	Compact bool
 	Full    bool
 	Verbose bool
 	Stdin   io.Reader
@@ -36,7 +35,6 @@ type Options struct {
 // View returns a configured View instance
 func (o *Options) View() *view.View {
 	v := view.NewWithFormat(o.Output, o.NoColor)
-	v.Compact = o.Compact
 	v.Out = o.Stdout
 	v.Err = o.Stderr
 	return v
@@ -100,8 +98,6 @@ func NewCmd() (*cobra.Command, *Options) {
 	// Global flags - bound to opts struct
 	cmd.PersistentFlags().StringVarP(&opts.Output, "output", "o", "table", "Output format: table, json, plain")
 	cmd.PersistentFlags().BoolVar(&opts.NoColor, "no-color", false, "Disable colored output")
-	cmd.PersistentFlags().BoolVar(&opts.Compact, "compact", false, "Strip null fields and metadata from JSON output")
-	_ = cmd.PersistentFlags().MarkDeprecated("compact", "use artifact projection instead; will be removed after command migration")
 	cmd.PersistentFlags().BoolVar(&opts.Full, "full", false, "Show full inspection-oriented output (default: agent)")
 	cmd.PersistentFlags().BoolVarP(&opts.Verbose, "verbose", "v", false, "Enable verbose output")
 
@@ -119,14 +115,12 @@ func RegisterCommands(root *cobra.Command, opts *Options, registrars ...func(*co
 func GetOptions(cmd *cobra.Command) *Options {
 	output, _ := cmd.Root().PersistentFlags().GetString("output")
 	noColor, _ := cmd.Root().PersistentFlags().GetBool("no-color")
-	compact, _ := cmd.Root().PersistentFlags().GetBool("compact")
 	full, _ := cmd.Root().PersistentFlags().GetBool("full")
 	verbose, _ := cmd.Root().PersistentFlags().GetBool("verbose")
 
 	return &Options{
 		Output:  output,
 		NoColor: noColor,
-		Compact: compact,
 		Full:    full,
 		Verbose: verbose,
 		Stdin:   os.Stdin,

@@ -82,12 +82,8 @@ Artifact type and output format (`-o table|json|plain`) are independent concerns
 
 4. **Curated, not pass-through.** Even `--full` is curated by the CLI. Raw API payloads are not exposed directly.
 
-## Migration from --compact
+## History: --compact flag
 
-The `--compact` flag is deprecated. Its behavior is replaced by agent-default semantics:
+The global `--compact` flag was removed after the artifact projection migration. Its behavior (stripping null fields, avatarUrls, self-links, `_links`, `_expandable`) is superseded by agent-default semantics — commands now produce intentionally shaped artifacts rather than post-processing raw API payloads.
 
-| Old | New |
-|-----|-----|
-| Default output | Now produces agent artifact (was full-ish) |
-| `--compact` | Deprecated (agent is now default) |
-| Explicit full output | Use `--full` |
+Note: `jtk automation export --compact` is unrelated — it controls JSON formatting (minified vs pretty-printed), not metadata stripping.

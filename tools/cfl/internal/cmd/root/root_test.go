@@ -39,7 +39,6 @@ func TestNewCmd_Flags(t *testing.T) {
 	}{
 		{"output flag", "output"},
 		{"no-color flag", "no-color"},
-		{"compact flag", "compact"},
 		{"full flag", "full"},
 		{"config flag", "config"},
 	}

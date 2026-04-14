@@ -235,6 +235,10 @@ func (v *View) Error(format string, args ...any) {
 // Warning prints a warning message with a yellow warning sign.
 func (v *View) Warning(format string, args ...any) {
 	msg := fmt.Sprintf(format, args...)
+	if v.Policy == PolicyAgent {
+		_, _ = fmt.Fprintln(v.Err, msg)
+		return
+	}
 	if v.NoColor {
 		_, _ = fmt.Fprintln(v.Err, "⚠ "+msg)
 	} else {

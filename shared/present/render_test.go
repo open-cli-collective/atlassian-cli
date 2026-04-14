@@ -292,3 +292,45 @@ func TestStyleFromMode(t *testing.T) {
 		t.Errorf("StyleFromMode(RenderModeHuman) = %v, want %v", got, StyleHuman)
 	}
 }
+
+func TestRender_TableSection_Agent_EscapesPipes(t *testing.T) {
+	t.Parallel()
+	model := &OutputModel{
+		Sections: []Section{
+			&TableSection{
+				Headers: []string{"KEY", "SUMMARY"},
+				Rows: []Row{
+					{Cells: []string{"PROJ-1", "Fix A | B pipeline"}},
+				},
+			},
+		},
+	}
+
+	out := Render(model, StyleAgent)
+	// Pipes in cell content should be escaped to avoid delimiter confusion
+	want := "KEY | SUMMARY\nPROJ-1 | Fix A \\| B pipeline\n"
+	if out.Stdout != want {
+		t.Errorf("pipe escaping:\ngot:\n%s\nwant:\n%s", out.Stdout, want)
+	}
+}
+
+func TestRender_TableSection_Agent_NormalizesNewlines(t *testing.T) {
+	t.Parallel()
+	model := &OutputModel{
+		Sections: []Section{
+			&TableSection{
+				Headers: []string{"KEY", "DESC"},
+				Rows: []Row{
+					{Cells: []string{"PROJ-1", "Line one\nLine two"}},
+				},
+			},
+		},
+	}
+
+	out := Render(model, StyleAgent)
+	// Newlines in cell content should be normalized to spaces
+	want := "KEY | DESC\nPROJ-1 | Line one Line two\n"
+	if out.Stdout != want {
+		t.Errorf("newline normalization:\ngot:\n%s\nwant:\n%s", out.Stdout, want)
+	}
+}

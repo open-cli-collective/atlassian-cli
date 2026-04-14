@@ -3,6 +3,9 @@ package present
 
 // RenderMode is the authoritative rendering configuration.
 // Both legacy view.Policy and new present.Style derive from this.
+//
+// RenderMode exists at the CLI root/options level as the single source of truth.
+// Tool-specific options (e.g., root.Options.RenderMode()) return this type.
 type RenderMode int
 
 // RenderMode constants.
@@ -11,7 +14,16 @@ const (
 	RenderModeAgent                   // Pipe-delimited, plain text, token-efficient
 )
 
-// Style controls rendering format (derived from RenderMode).
+// Style controls rendering format for the pure Render() function.
+//
+// Style is derived from RenderMode via StyleFromMode(). While currently 1:1
+// with RenderMode, Style is a separate type to allow the renderer API to
+// evolve independently of CLI configuration. For example, the renderer could
+// add finer-grained styles (e.g., StyleCompact) without changing the CLI mode.
+//
+// During migration from view.View to present.Render, both view.RenderPolicy
+// and present.Style coexist. They derive from the same RenderMode, ensuring
+// a single knob controls both legacy and new paths. See root.Options.RenderMode().
 type Style int
 
 // Style constants.
@@ -21,6 +33,7 @@ const (
 )
 
 // StyleFromMode converts RenderMode to Style.
+// Currently a 1:1 mapping; may diverge as rendering needs evolve.
 func StyleFromMode(m RenderMode) Style {
 	if m == RenderModeAgent {
 		return StyleAgent

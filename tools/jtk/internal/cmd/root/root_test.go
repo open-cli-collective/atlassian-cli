@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/open-cli-collective/atlassian-go/artifact"
+	"github.com/open-cli-collective/atlassian-go/present"
 	"github.com/open-cli-collective/atlassian-go/testutil"
 	"github.com/open-cli-collective/atlassian-go/view"
 	"github.com/spf13/cobra"
@@ -148,6 +149,24 @@ func TestOptions_View_UsesAgentPolicy(t *testing.T) {
 
 	if v.Policy != view.PolicyAgent {
 		t.Errorf("jtk View should use PolicyAgent, got %v", v.Policy)
+	}
+}
+
+func TestOptions_RenderMode(t *testing.T) {
+	t.Parallel()
+	opts := &Options{}
+	// jtk always uses agent mode for token efficiency
+	if got := opts.RenderMode(); got != present.RenderModeAgent {
+		t.Errorf("RenderMode() = %v, want RenderModeAgent", got)
+	}
+}
+
+func TestOptions_RenderStyle(t *testing.T) {
+	t.Parallel()
+	opts := &Options{}
+	// RenderStyle derives from RenderMode via StyleFromMode
+	if got := opts.RenderStyle(); got != present.StyleAgent {
+		t.Errorf("RenderStyle() = %v, want StyleAgent", got)
 	}
 }
 

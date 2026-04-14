@@ -65,15 +65,31 @@ func renderTable(sec *TableSection, style Style) string {
 
 func renderAgentTable(sec *TableSection) string {
 	var buf bytes.Buffer
-	// Headers
-	buf.WriteString(strings.Join(sec.Headers, " | "))
+	// Headers - escape pipes defensively
+	escapedHeaders := make([]string, len(sec.Headers))
+	for i, h := range sec.Headers {
+		escapedHeaders[i] = escapeAgentCell(h)
+	}
+	buf.WriteString(strings.Join(escapedHeaders, " | "))
 	buf.WriteByte('\n')
-	// Rows - cells are already normalized by presenter
+	// Rows - escape pipes and normalize newlines defensively
 	for _, row := range sec.Rows {
-		buf.WriteString(strings.Join(row.Cells, " | "))
+		escapedCells := make([]string, len(row.Cells))
+		for i, cell := range row.Cells {
+			escapedCells[i] = escapeAgentCell(cell)
+		}
+		buf.WriteString(strings.Join(escapedCells, " | "))
 		buf.WriteByte('\n')
 	}
 	return buf.String()
+}
+
+// escapeAgentCell escapes pipe characters and normalizes newlines in cell content.
+// This prevents cell content from being structurally indistinguishable from delimiters.
+func escapeAgentCell(s string) string {
+	s = strings.ReplaceAll(s, "\n", " ")
+	s = strings.ReplaceAll(s, "|", "\\|")
+	return s
 }
 
 func renderHumanTable(sec *TableSection) string {

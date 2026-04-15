@@ -179,3 +179,155 @@ func TestIssuePresenter_PresentTypes(t *testing.T) {
 		t.Errorf("Bug description: expected 'A bug in the software', got %q", table.Rows[0].Cells[3])
 	}
 }
+
+func TestIssuePresenter_PresentListWithPagination_NoMore(t *testing.T) {
+	t.Parallel()
+	issues := []api.Issue{
+		{Key: "PROJ-1", Fields: api.IssueFields{Summary: "Issue 1"}},
+	}
+
+	p := IssuePresenter{}
+	model := p.PresentListWithPagination(issues, false)
+
+	// Should have only 1 section (table, no pagination hint)
+	if len(model.Sections) != 1 {
+		t.Errorf("expected 1 section, got %d", len(model.Sections))
+	}
+	if _, ok := model.Sections[0].(*present.TableSection); !ok {
+		t.Errorf("expected TableSection, got %T", model.Sections[0])
+	}
+}
+
+func TestIssuePresenter_PresentListWithPagination_HasMore(t *testing.T) {
+	t.Parallel()
+	issues := []api.Issue{
+		{Key: "PROJ-1", Fields: api.IssueFields{Summary: "Issue 1"}},
+	}
+
+	p := IssuePresenter{}
+	model := p.PresentListWithPagination(issues, true)
+
+	// Should have 2 sections (table + pagination hint)
+	if len(model.Sections) != 2 {
+		t.Fatalf("expected 2 sections, got %d", len(model.Sections))
+	}
+
+	msg, ok := model.Sections[1].(*present.MessageSection)
+	if !ok {
+		t.Fatalf("expected MessageSection for pagination hint, got %T", model.Sections[1])
+	}
+	if msg.Stream != present.StreamStderr {
+		t.Errorf("pagination hint should go to stderr, got %v", msg.Stream)
+	}
+}
+
+func TestIssuePresenter_PresentTypeNotFound(t *testing.T) {
+	t.Parallel()
+	p := IssuePresenter{}
+	model := p.PresentTypeNotFound("Story", "PROJ", []string{"Bug", "Task", "Epic"})
+
+	// Should have: error + "Available types" header + 3 type entries = 5 sections
+	if len(model.Sections) != 5 {
+		t.Fatalf("expected 5 sections, got %d", len(model.Sections))
+	}
+
+	// First section is error
+	errMsg := model.Sections[0].(*present.MessageSection)
+	if errMsg.Kind != present.MessageError {
+		t.Errorf("first section should be error, got %v", errMsg.Kind)
+	}
+	if errMsg.Stream != present.StreamStderr {
+		t.Errorf("error should go to stderr")
+	}
+
+	// All sections should go to stderr
+	for i, s := range model.Sections {
+		msg := s.(*present.MessageSection)
+		if msg.Stream != present.StreamStderr {
+			t.Errorf("section %d should go to stderr", i)
+		}
+	}
+}
+
+func TestIssuePresenter_PresentMoveInitiated(t *testing.T) {
+	t.Parallel()
+	p := IssuePresenter{}
+	model := p.PresentMoveInitiated("task-123")
+
+	// Should have 2 sections: success + info hint
+	if len(model.Sections) != 2 {
+		t.Fatalf("expected 2 sections, got %d", len(model.Sections))
+	}
+
+	success := model.Sections[0].(*present.MessageSection)
+	if success.Kind != present.MessageSuccess {
+		t.Errorf("expected success, got %v", success.Kind)
+	}
+	if success.Stream != present.StreamStdout {
+		t.Errorf("success should go to stdout")
+	}
+
+	info := model.Sections[1].(*present.MessageSection)
+	if info.Kind != present.MessageInfo {
+		t.Errorf("expected info, got %v", info.Kind)
+	}
+	if info.Stream != present.StreamStdout {
+		t.Errorf("info hint should go to stdout")
+	}
+}
+
+func TestIssuePresenter_PresentMovePartialFailure(t *testing.T) {
+	t.Parallel()
+	p := IssuePresenter{}
+	successful := []string{"PROJ-1", "PROJ-2"}
+	failed := []MoveFailedIssue{
+		{Key: "PROJ-3", Errors: []string{"Invalid type"}},
+	}
+	model := p.PresentMovePartialFailure(successful, failed)
+
+	// Should have: warning + 1 error + 1 success = 3 sections
+	if len(model.Sections) != 3 {
+		t.Fatalf("expected 3 sections, got %d", len(model.Sections))
+	}
+
+	// Warning first
+	warn := model.Sections[0].(*present.MessageSection)
+	if warn.Kind != present.MessageWarning {
+		t.Errorf("expected warning, got %v", warn.Kind)
+	}
+	if warn.Stream != present.StreamStderr {
+		t.Errorf("warning should go to stderr")
+	}
+
+	// Error second
+	errMsg := model.Sections[1].(*present.MessageSection)
+	if errMsg.Kind != present.MessageError {
+		t.Errorf("expected error, got %v", errMsg.Kind)
+	}
+	if errMsg.Stream != present.StreamStderr {
+		t.Errorf("error should go to stderr")
+	}
+
+	// Success third
+	success := model.Sections[2].(*present.MessageSection)
+	if success.Kind != present.MessageSuccess {
+		t.Errorf("expected success, got %v", success.Kind)
+	}
+	if success.Stream != present.StreamStdout {
+		t.Errorf("success should go to stdout")
+	}
+}
+
+func TestIssuePresenter_PresentMovePartialFailure_NoSuccessful(t *testing.T) {
+	t.Parallel()
+	p := IssuePresenter{}
+	failed := []MoveFailedIssue{
+		{Key: "PROJ-1", Errors: []string{"Error 1"}},
+	}
+	model := p.PresentMovePartialFailure(nil, failed)
+
+	// Should have: warning + 1 error = 2 sections (no success section)
+	if len(model.Sections) != 2 {
+		t.Errorf("expected 2 sections when no successful, got %d", len(model.Sections))
+	}
+}

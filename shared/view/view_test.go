@@ -761,6 +761,35 @@ func TestView_Success_DefaultPolicy_HasCheckmark(t *testing.T) {
 	}
 }
 
+func TestView_Warning_AgentPolicy(t *testing.T) {
+	t.Parallel()
+	buf := &bytes.Buffer{}
+	v := New(FormatTable, true)
+	v.SetPolicy(PolicyAgent)
+	v.SetError(buf)
+
+	v.Warning("Field %s is deprecated", "foo")
+
+	want := "Field foo is deprecated\n"
+	if buf.String() != want {
+		t.Errorf("agent warning:\ngot: %q\nwant: %q", buf.String(), want)
+	}
+}
+
+func TestView_Warning_DefaultPolicy_HasWarningSign(t *testing.T) {
+	t.Parallel()
+	buf := &bytes.Buffer{}
+	v := New(FormatTable, true)
+	// No SetPolicy — uses PolicyDefault
+	v.SetError(buf)
+
+	v.Warning("Deprecated")
+
+	if !strings.Contains(buf.String(), "⚠") {
+		t.Error("default policy warning should contain warning sign")
+	}
+}
+
 func TestView_RenderKeyValues(t *testing.T) {
 	t.Parallel()
 	buf := &bytes.Buffer{}

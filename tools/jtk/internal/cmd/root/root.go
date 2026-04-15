@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/open-cli-collective/atlassian-go/artifact"
+	"github.com/open-cli-collective/atlassian-go/present"
 	"github.com/open-cli-collective/atlassian-go/version"
 	"github.com/open-cli-collective/atlassian-go/view"
 
@@ -32,9 +33,13 @@ type Options struct {
 	cachedClient *api.Client
 }
 
-// View returns a configured View instance
+// View returns a configured View instance, deriving policy from RenderMode.
 func (o *Options) View() *view.View {
 	v := view.NewWithFormat(o.Output, o.NoColor)
+	// Derive legacy policy from RenderMode - single source of truth
+	if o.RenderMode() == present.RenderModeAgent {
+		v.SetPolicy(view.PolicyAgent)
+	}
 	v.Out = o.Stdout
 	v.Err = o.Stderr
 	return v
@@ -43,6 +48,18 @@ func (o *Options) View() *view.View {
 // ArtifactMode returns the artifact type based on the --full flag.
 func (o *Options) ArtifactMode() artifact.Type {
 	return artifact.Mode(o.Full)
+}
+
+// RenderMode returns the authoritative rendering mode.
+// This is the single source of truth that both legacy View() and new render paths use.
+// jtk always uses agent mode for token efficiency.
+func (o *Options) RenderMode() present.RenderMode {
+	return present.RenderModeAgent
+}
+
+// RenderStyle returns the presentation rendering style, derived from RenderMode.
+func (o *Options) RenderStyle() present.Style {
+	return present.StyleFromMode(o.RenderMode())
 }
 
 // APIClient returns the API client, creating it on first call.
@@ -94,6 +111,7 @@ func NewCmd() (*cobra.Command, *Options) {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
+	cmd.SetVersionTemplate("{{.Version}}\n") // Bare version output for token efficiency
 
 	// Global flags - bound to opts struct
 	cmd.PersistentFlags().StringVarP(&opts.Output, "output", "o", "table", "Output format: table, json, plain")

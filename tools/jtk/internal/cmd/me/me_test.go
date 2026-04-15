@@ -60,7 +60,7 @@ func TestRun_Table(t *testing.T) {
 	testutil.Contains(t, output, "abc123")
 	testutil.Contains(t, output, "John Doe")
 	testutil.Contains(t, output, "john@example.com")
-	testutil.Contains(t, output, "true")
+	testutil.Contains(t, output, "yes")
 }
 
 func TestRun_JSON(t *testing.T) {
@@ -185,4 +185,33 @@ func TestRun_AuthFailure(t *testing.T) {
 
 	err = run(context.Background(), opts)
 	testutil.NotNil(t, err)
+}
+
+func TestRun_UnpaddedKeyValueOutput(t *testing.T) {
+	t.Parallel()
+	// Verifies the migration from manual padding to RenderKeyValues produces unpadded output
+	user := &api.User{
+		AccountID:    "abc123",
+		DisplayName:  "Alice",
+		EmailAddress: "alice@example.com",
+		Active:       true,
+	}
+
+	server := newTestUserServer(t, http.StatusOK, user)
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", NoColor: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = run(context.Background(), opts)
+	testutil.RequireNoError(t, err)
+
+	want := "Account ID: abc123\nDisplay Name: Alice\nEmail: alice@example.com\nActive: yes\n"
+	if stdout.String() != want {
+		t.Errorf("me output:\ngot:\n%s\nwant:\n%s", stdout.String(), want)
+	}
 }

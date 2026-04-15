@@ -8,11 +8,13 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/open-cli-collective/atlassian-go/artifact"
+	"github.com/open-cli-collective/atlassian-go/present"
 	"github.com/open-cli-collective/atlassian-go/view"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	jtkartifact "github.com/open-cli-collective/jira-ticket-cli/internal/artifact"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
+	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
 )
 
 // Register registers the boards commands
@@ -80,7 +82,9 @@ func runList(ctx context.Context, opts *root.Options, project string, maxResults
 	}
 
 	if len(result.Values) == 0 {
-		v.Info("No boards found")
+		model := jtkpresent.BoardPresenter{}.PresentEmpty()
+		out := present.Render(model, opts.RenderStyle())
+		_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
 		return nil
 	}
 
@@ -90,19 +94,12 @@ func runList(ctx context.Context, opts *root.Options, project string, maxResults
 		return v.RenderArtifactList(artifact.NewListResult(arts, hasMore))
 	}
 
-	headers := []string{"ID", "NAME", "TYPE", "PROJECT"}
-	rows := make([][]string, 0, len(result.Values))
-
-	for _, b := range result.Values {
-		rows = append(rows, []string{
-			fmt.Sprintf("%d", b.ID),
-			b.Name,
-			b.Type,
-			b.Location.ProjectKey,
-		})
-	}
-
-	return v.Table(headers, rows)
+	// Text path: presenter → render → write
+	model := jtkpresent.BoardPresenter{}.PresentList(result.Values)
+	out := present.Render(model, opts.RenderStyle())
+	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
+	_, _ = fmt.Fprint(opts.Stderr, out.Stderr)
+	return nil
 }
 
 func newGetCmd(opts *root.Options) *cobra.Command {
@@ -139,10 +136,10 @@ func runGet(ctx context.Context, opts *root.Options, boardID int) error {
 		return v.RenderArtifact(jtkartifact.ProjectBoard(board, opts.ArtifactMode()))
 	}
 
-	v.Println("ID:      %d", board.ID)
-	v.Println("Name:    %s", board.Name)
-	v.Println("Type:    %s", board.Type)
-	v.Println("Project: %s", board.Location.ProjectKey)
-
+	// Text path: presenter → render → write
+	model := jtkpresent.BoardPresenter{}.PresentDetail(board)
+	out := present.Render(model, opts.RenderStyle())
+	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
+	_, _ = fmt.Fprint(opts.Stderr, out.Stderr)
 	return nil
 }

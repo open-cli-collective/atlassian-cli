@@ -7,8 +7,12 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/open-cli-collective/atlassian-go/present"
+	"github.com/open-cli-collective/atlassian-go/view"
+
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
+	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
 )
 
 // Register registers the links commands
@@ -58,42 +62,22 @@ func runList(opts *root.Options, issueKey string) error {
 	}
 
 	if len(links) == 0 {
-		v.Info("No links on %s", issueKey)
+		model := jtkpresent.LinkPresenter{}.PresentEmpty(issueKey)
+		out := present.Render(model, opts.RenderStyle())
+		_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
 		return nil
 	}
 
-	if opts.Output == "json" {
+	if v.Format == view.FormatJSON {
 		return v.JSON(links)
 	}
 
-	headers := []string{"ID", "TYPE", "DIRECTION", "ISSUE", "SUMMARY"}
-	var rows [][]string
-
-	for _, link := range links {
-		var direction, key, summary string
-
-		if link.OutwardIssue != nil {
-			// OutwardIssue is set → current issue is the inward side
-			direction = link.Type.Inward
-			key = link.OutwardIssue.Key
-			summary = link.OutwardIssue.Fields.Summary
-		} else if link.InwardIssue != nil {
-			// InwardIssue is set → current issue is the outward side
-			direction = link.Type.Outward
-			key = link.InwardIssue.Key
-			summary = link.InwardIssue.Fields.Summary
-		}
-
-		rows = append(rows, []string{
-			link.ID,
-			link.Type.Name,
-			direction,
-			key,
-			summary,
-		})
-	}
-
-	return v.Table(headers, rows)
+	// Text path: presenter → render → write
+	model := jtkpresent.LinkPresenter{}.PresentList(links)
+	out := present.Render(model, opts.RenderStyle())
+	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
+	_, _ = fmt.Fprint(opts.Stderr, out.Stderr)
+	return nil
 }
 
 func newCreateCmd(opts *root.Options) *cobra.Command {
@@ -161,7 +145,7 @@ func runCreate(opts *root.Options, outwardKey, inwardKey, linkType string) error
 		return err
 	}
 
-	if opts.Output == "json" {
+	if v.Format == view.FormatJSON {
 		return v.JSON(map[string]string{
 			"status":       "created",
 			"outwardIssue": outwardKey,
@@ -170,7 +154,9 @@ func runCreate(opts *root.Options, outwardKey, inwardKey, linkType string) error
 		})
 	}
 
-	v.Success("Created %s link: %s → %s", linkType, outwardKey, inwardKey)
+	model := jtkpresent.LinkPresenter{}.PresentCreated(linkType, outwardKey, inwardKey)
+	out := present.Render(model, opts.RenderStyle())
+	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
 	return nil
 }
 
@@ -202,11 +188,13 @@ func runDelete(opts *root.Options, linkID string) error {
 		return err
 	}
 
-	if opts.Output == "json" {
+	if v.Format == view.FormatJSON {
 		return v.JSON(map[string]string{"status": "deleted", "linkId": linkID})
 	}
 
-	v.Success("Deleted link %s", linkID)
+	model := jtkpresent.LinkPresenter{}.PresentDeleted(linkID)
+	out := present.Render(model, opts.RenderStyle())
+	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
 	return nil
 }
 
@@ -239,27 +227,22 @@ func runTypes(opts *root.Options) error {
 	}
 
 	if len(linkTypes) == 0 {
-		v.Info("No link types available")
+		model := jtkpresent.LinkPresenter{}.PresentNoTypes()
+		out := present.Render(model, opts.RenderStyle())
+		_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
 		return nil
 	}
 
-	if opts.Output == "json" {
+	if v.Format == view.FormatJSON {
 		return v.JSON(linkTypes)
 	}
 
-	headers := []string{"ID", "NAME", "OUTWARD", "INWARD"}
-	var rows [][]string
-
-	for _, lt := range linkTypes {
-		rows = append(rows, []string{
-			lt.ID,
-			lt.Name,
-			lt.Outward,
-			lt.Inward,
-		})
-	}
-
-	return v.Table(headers, rows)
+	// Text path: presenter → render → write
+	model := jtkpresent.LinkPresenter{}.PresentTypes(linkTypes)
+	out := present.Render(model, opts.RenderStyle())
+	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
+	_, _ = fmt.Fprint(opts.Stderr, out.Stderr)
+	return nil
 }
 
 // GetIssueLinkTypes returns all link types (exported for use by other commands)

@@ -277,5 +277,5 @@ func TestRunList_MultipleCommentsFullMode(t *testing.T) {
 	output := stdout.String()
 	testutil.Contains(t, output, "First comment")
 	testutil.Contains(t, output, "Second comment")
-	testutil.Contains(t, output, "---") // separator between comments
+	// Comments are now rendered as DetailSections with blank line separators (renderer-owned)
 }

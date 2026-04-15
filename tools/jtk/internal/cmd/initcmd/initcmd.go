@@ -1,4 +1,10 @@
 // Package initcmd provides the interactive setup wizard for the jtk CLI.
+//
+// This package intentionally uses direct view output (v.Println, v.Success, etc.)
+// rather than the presenter pattern used elsewhere. The presenter model is designed
+// for structured results (tables, detail views, messages) that get rendered once.
+// Interactive wizards have a different flow: prompts, stdin reads, progressive
+// feedback, and conversational back-and-forth that doesn't fit that model cleanly.
 package initcmd
 
 import (

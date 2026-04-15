@@ -2,15 +2,18 @@ package issues
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/spf13/cobra"
 
 	"github.com/open-cli-collective/atlassian-go/artifact"
+	"github.com/open-cli-collective/atlassian-go/present"
 	"github.com/open-cli-collective/atlassian-go/view"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	jtkartifact "github.com/open-cli-collective/jira-ticket-cli/internal/artifact"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
+	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
 )
 
 func newSearchCmd(opts *root.Options) *cobra.Command {
@@ -77,7 +80,9 @@ func runSearch(ctx context.Context, opts *root.Options, jql string, maxResults i
 	}
 
 	if len(result.Issues) == 0 {
-		v.Info("No issues found")
+		model := jtkpresent.IssuePresenter{}.PresentEmpty()
+		out := present.Render(model, opts.RenderStyle())
+		_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
 		return nil
 	}
 
@@ -87,35 +92,12 @@ func runSearch(ctx context.Context, opts *root.Options, jql string, maxResults i
 		return v.RenderArtifactList(artifact.NewListResult(arts, hasMore))
 	}
 
-	headers := []string{"KEY", "SUMMARY", "STATUS", "ASSIGNEE", "TYPE"}
-	rows := make([][]string, 0, len(result.Issues))
-
-	for _, issue := range result.Issues {
-		status := ""
-		if issue.Fields.Status != nil {
-			status = issue.Fields.Status.Name
-		}
-
-		assignee := ""
-		if issue.Fields.Assignee != nil {
-			assignee = issue.Fields.Assignee.DisplayName
-		}
-
-		issueType := ""
-		if issue.Fields.IssueType != nil {
-			issueType = issue.Fields.IssueType.Name
-		}
-
-		rows = append(rows, formatIssueRow(issue.Key, issue.Fields.Summary, status, assignee, issueType))
-	}
-
-	if err := v.Table(headers, rows); err != nil {
-		return err
-	}
-
-	if !result.Pagination.IsLast {
-		v.Info("More results available (use --next-page-token to fetch next page)")
-	}
+	// Text path: presenter → render → write
+	hasMore := !result.Pagination.IsLast
+	model := jtkpresent.IssuePresenter{}.PresentListWithPagination(result.Issues, hasMore)
+	out := present.Render(model, opts.RenderStyle())
+	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
+	_, _ = fmt.Fprint(opts.Stderr, out.Stderr)
 
 	return nil
 }

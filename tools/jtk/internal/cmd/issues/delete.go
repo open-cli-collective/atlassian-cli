@@ -6,9 +6,11 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/open-cli-collective/atlassian-go/present"
 	"github.com/open-cli-collective/atlassian-go/prompt"
 
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
+	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
 )
 
 func newDeleteCmd(opts *root.Options) *cobra.Command {
@@ -35,9 +37,8 @@ func newDeleteCmd(opts *root.Options) *cobra.Command {
 }
 
 func runDelete(ctx context.Context, opts *root.Options, issueKey string, force bool) error {
-	v := opts.View()
-
 	if !force {
+		// Interactive prompt goes directly to stderr
 		fmt.Fprintf(opts.Stderr, "This will permanently delete issue %s. This action cannot be undone.\n", issueKey)
 		fmt.Fprint(opts.Stderr, "Are you sure? [y/N]: ")
 
@@ -46,7 +47,9 @@ func runDelete(ctx context.Context, opts *root.Options, issueKey string, force b
 			return fmt.Errorf("reading confirmation: %w", err)
 		}
 		if !confirmed {
-			v.Info("Deletion cancelled.")
+			model := jtkpresent.IssuePresenter{}.PresentDeleteCancelled()
+			out := present.Render(model, opts.RenderStyle())
+			_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
 			return nil
 		}
 	}
@@ -60,6 +63,9 @@ func runDelete(ctx context.Context, opts *root.Options, issueKey string, force b
 		return err
 	}
 
-	v.Success("Deleted issue %s", issueKey)
+	model := jtkpresent.IssuePresenter{}.PresentDeleted(issueKey)
+	out := present.Render(model, opts.RenderStyle())
+	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
+	_, _ = fmt.Fprint(opts.Stderr, out.Stderr)
 	return nil
 }

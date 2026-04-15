@@ -6,9 +6,11 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/open-cli-collective/atlassian-go/present"
 	"github.com/open-cli-collective/atlassian-go/prompt"
 
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
+	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
 )
 
 func newDeleteCmd(opts *root.Options) *cobra.Command {
@@ -37,8 +39,6 @@ The project can be restored from trash using 'jtk projects restore'.`,
 }
 
 func runDelete(ctx context.Context, opts *root.Options, keyOrID string, force bool) error {
-	v := opts.View()
-
 	if !force {
 		fmt.Fprintf(opts.Stderr, "This will delete project %s (moves to trash). It can be restored later.\n", keyOrID)
 		fmt.Fprint(opts.Stderr, "Are you sure? [y/N]: ")
@@ -48,7 +48,9 @@ func runDelete(ctx context.Context, opts *root.Options, keyOrID string, force bo
 			return fmt.Errorf("reading confirmation: %w", err)
 		}
 		if !confirmed {
-			v.Info("Deletion cancelled.")
+			model := jtkpresent.ProjectPresenter{}.PresentDeleteCancelled()
+			out := present.Render(model, opts.RenderStyle())
+			_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
 			return nil
 		}
 	}
@@ -62,6 +64,8 @@ func runDelete(ctx context.Context, opts *root.Options, keyOrID string, force bo
 		return err
 	}
 
-	v.Success("Deleted project %s (moved to trash)", keyOrID)
+	model := jtkpresent.ProjectPresenter{}.PresentDeleted(keyOrID)
+	out := present.Render(model, opts.RenderStyle())
+	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
 	return nil
 }

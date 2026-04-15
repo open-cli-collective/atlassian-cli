@@ -2,13 +2,15 @@ package automation
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/spf13/cobra"
 
-	"github.com/open-cli-collective/atlassian-go/view"
+	"github.com/open-cli-collective/atlassian-go/present"
 
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
+	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
 )
 
 func newListCmd(opts *root.Options) *cobra.Command {
@@ -32,8 +34,6 @@ func newListCmd(opts *root.Options) *cobra.Command {
 }
 
 func runList(ctx context.Context, opts *root.Options, state string) error {
-	v := opts.View()
-
 	client, err := opts.APIClient()
 	if err != nil {
 		return err
@@ -45,32 +45,21 @@ func runList(ctx context.Context, opts *root.Options, state string) error {
 	}
 
 	if len(rules) == 0 {
-		v.Info("No automation rules found")
+		model := jtkpresent.AutomationPresenter{}.PresentEmpty()
+		out := present.Render(model, opts.RenderStyle())
+		fmt.Fprint(opts.Stdout, out.Stdout)
 		return nil
 	}
 
-	headers := []string{"UUID", "NAME", "STATE", "LABELS"}
-	rows := make([][]string, 0, len(rules))
-	for _, r := range rules {
-		labels := "-"
-		if len(r.Labels) > 0 {
-			labels = strings.Join(r.Labels, ", ")
-		}
-		if len(r.Tags) > 0 && labels == "-" {
-			labels = strings.Join(r.Tags, ", ")
-		}
-
-		rows = append(rows, []string{
-			r.Identifier(),
-			view.Truncate(r.Name, 60),
-			r.State,
-			labels,
-		})
-	}
-
 	if opts.Output == "json" {
+		v := opts.View()
 		return v.JSON(rules)
 	}
 
-	return v.Table(headers, rows)
+	model := jtkpresent.AutomationPresenter{}.PresentList(rules)
+	out := present.Render(model, opts.RenderStyle())
+	fmt.Fprint(opts.Stdout, out.Stdout)
+	fmt.Fprint(opts.Stderr, out.Stderr)
+
+	return nil
 }

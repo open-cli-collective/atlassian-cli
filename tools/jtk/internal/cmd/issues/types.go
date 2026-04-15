@@ -2,12 +2,14 @@ package issues
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/spf13/cobra"
 
-	"github.com/open-cli-collective/atlassian-go/view"
+	"github.com/open-cli-collective/atlassian-go/present"
 
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
+	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
 )
 
 func newTypesCmd(opts *root.Options) *cobra.Command {
@@ -51,20 +53,16 @@ func runTypes(ctx context.Context, opts *root.Options, project string) error {
 	}
 
 	if len(projectDetail.IssueTypes) == 0 {
-		v.Info("No issue types found for project %s", project)
+		model := jtkpresent.IssuePresenter{}.PresentNoTypes(project)
+		out := present.Render(model, opts.RenderStyle())
+		_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
 		return nil
 	}
 
-	headers := []string{"ID", "NAME", "SUBTASK", "DESCRIPTION"}
-	var rows [][]string
-
-	for _, t := range projectDetail.IssueTypes {
-		subtask := "no"
-		if t.Subtask {
-			subtask = "yes"
-		}
-		rows = append(rows, []string{t.ID, t.Name, subtask, view.Truncate(t.Description, 60)})
-	}
-
-	return v.Table(headers, rows)
+	// Text path: presenter → render → write
+	model := jtkpresent.IssuePresenter{}.PresentTypes(projectDetail.IssueTypes)
+	out := present.Render(model, opts.RenderStyle())
+	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
+	_, _ = fmt.Fprint(opts.Stderr, out.Stderr)
+	return nil
 }

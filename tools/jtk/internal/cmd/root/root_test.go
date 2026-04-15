@@ -2,10 +2,14 @@ package root
 
 import (
 	"bytes"
+	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/open-cli-collective/atlassian-go/artifact"
+	"github.com/open-cli-collective/atlassian-go/present"
 	"github.com/open-cli-collective/atlassian-go/testutil"
+	"github.com/open-cli-collective/atlassian-go/view"
 	"github.com/spf13/cobra"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
@@ -132,4 +136,55 @@ func TestOptions_ArtifactMode(t *testing.T) {
 		opts := &Options{Full: true}
 		testutil.Equal(t, opts.ArtifactMode(), artifact.Full)
 	})
+}
+
+func TestOptions_View_UsesAgentPolicy(t *testing.T) {
+	t.Parallel()
+	opts := &Options{
+		Output: "table",
+		Stdout: &bytes.Buffer{},
+		Stderr: &bytes.Buffer{},
+	}
+	v := opts.View()
+
+	if v.Policy != view.PolicyAgent {
+		t.Errorf("jtk View should use PolicyAgent, got %v", v.Policy)
+	}
+}
+
+func TestOptions_RenderMode(t *testing.T) {
+	t.Parallel()
+	opts := &Options{}
+	// jtk always uses agent mode for token efficiency
+	if got := opts.RenderMode(); got != present.RenderModeAgent {
+		t.Errorf("RenderMode() = %v, want RenderModeAgent", got)
+	}
+}
+
+func TestOptions_RenderStyle(t *testing.T) {
+	t.Parallel()
+	opts := &Options{}
+	// RenderStyle derives from RenderMode via StyleFromMode
+	if got := opts.RenderStyle(); got != present.StyleAgent {
+		t.Errorf("RenderStyle() = %v, want StyleAgent", got)
+	}
+}
+
+func TestVersion_BareOutput(t *testing.T) {
+	t.Parallel()
+	cmd, _ := NewCmd()
+	buf := &bytes.Buffer{}
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"--version"})
+	_ = cmd.Execute()
+
+	got := strings.TrimSpace(buf.String())
+	// Should be just the version number, no "jtk version" prefix
+	if strings.HasPrefix(got, "jtk") {
+		t.Errorf("version output should be bare, got %q", got)
+	}
+	// Should match semver pattern or "dev"
+	if got != "dev" && !regexp.MustCompile(`^\d+\.\d+\.\d+`).MatchString(got) {
+		t.Errorf("version output should be semver or 'dev', got %q", got)
+	}
 }

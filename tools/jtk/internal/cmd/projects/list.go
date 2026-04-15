@@ -2,10 +2,15 @@ package projects
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/spf13/cobra"
 
+	"github.com/open-cli-collective/atlassian-go/present"
+	"github.com/open-cli-collective/atlassian-go/view"
+
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
+	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
 )
 
 func newListCmd(opts *root.Options) *cobra.Command {
@@ -49,29 +54,19 @@ func runList(ctx context.Context, opts *root.Options, query string, maxResults i
 	}
 
 	if len(result.Values) == 0 {
-		v.Info("No projects found")
+		model := jtkpresent.ProjectPresenter{}.PresentEmpty()
+		out := present.Render(model, opts.RenderStyle())
+		_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
 		return nil
 	}
 
-	if opts.Output == "json" {
+	if v.Format == view.FormatJSON {
 		return v.JSON(result.Values)
 	}
 
-	headers := []string{"KEY", "NAME", "TYPE", "LEAD"}
-	rows := make([][]string, 0, len(result.Values))
-
-	for _, p := range result.Values {
-		lead := ""
-		if p.Lead != nil {
-			lead = p.Lead.DisplayName
-		}
-		rows = append(rows, []string{
-			p.Key,
-			p.Name,
-			p.ProjectTypeKey,
-			lead,
-		})
-	}
-
-	return v.Table(headers, rows)
+	model := jtkpresent.ProjectPresenter{}.PresentList(result.Values)
+	out := present.Render(model, opts.RenderStyle())
+	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
+	_, _ = fmt.Fprint(opts.Stderr, out.Stderr)
+	return nil
 }

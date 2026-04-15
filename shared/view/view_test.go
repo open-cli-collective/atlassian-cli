@@ -642,6 +642,173 @@ func TestView_RenderArtifact(t *testing.T) {
 	})
 }
 
+// --- Phase 1 TDD: RenderPolicy tests ---
+
+func TestRenderPolicy_DefaultIsZeroValue(t *testing.T) {
+	t.Parallel()
+	var p RenderPolicy
+	if p != PolicyDefault {
+		t.Errorf("zero value of RenderPolicy should be PolicyDefault, got %v", p)
+	}
+}
+
+func TestView_Table_AgentPolicy(t *testing.T) {
+	t.Parallel()
+	buf := &bytes.Buffer{}
+	v := New(FormatTable, true)
+	v.SetPolicy(PolicyAgent)
+	v.SetOutput(buf)
+
+	headers := []string{"ID", "NAME", "STATUS"}
+	rows := [][]string{
+		{"1", "First", "Active"},
+		{"2", "Second", "Done"},
+	}
+	_ = v.Table(headers, rows)
+
+	want := "ID | NAME | STATUS\n1 | First | Active\n2 | Second | Done\n"
+	if buf.String() != want {
+		t.Errorf("agent table:\ngot:\n%s\nwant:\n%s", buf.String(), want)
+	}
+}
+
+func TestView_Table_AgentPolicy_NormalizesNewlines(t *testing.T) {
+	t.Parallel()
+	buf := &bytes.Buffer{}
+	v := New(FormatTable, true)
+	v.SetPolicy(PolicyAgent)
+	v.SetOutput(buf)
+
+	headers := []string{"KEY", "SUMMARY"}
+	rows := [][]string{
+		{"A", "Line one\nLine two"},
+	}
+	_ = v.Table(headers, rows)
+
+	want := "KEY | SUMMARY\nA | Line one Line two\n"
+	if buf.String() != want {
+		t.Errorf("newline normalization:\ngot:\n%s\nwant:\n%s", buf.String(), want)
+	}
+}
+
+func TestView_Table_AgentPolicy_EscapesPipes(t *testing.T) {
+	t.Parallel()
+	buf := &bytes.Buffer{}
+	v := New(FormatTable, true)
+	v.SetPolicy(PolicyAgent)
+	v.SetOutput(buf)
+
+	headers := []string{"KEY", "SUMMARY"}
+	rows := [][]string{
+		{"A", "Fix A | B pipeline"},
+	}
+	_ = v.Table(headers, rows)
+
+	// Pipe in content should be escaped to avoid delimiter confusion
+	want := "KEY | SUMMARY\nA | Fix A \\| B pipeline\n"
+	if buf.String() != want {
+		t.Errorf("pipe escaping:\ngot:\n%s\nwant:\n%s", buf.String(), want)
+	}
+}
+
+func TestView_Table_DefaultPolicy_UsesTabwriter(t *testing.T) {
+	t.Parallel()
+	buf := &bytes.Buffer{}
+	v := New(FormatTable, true)
+	// No SetPolicy — uses PolicyDefault
+	v.SetOutput(buf)
+
+	headers := []string{"ID", "NAME"}
+	rows := [][]string{{"1", "First"}}
+	_ = v.Table(headers, rows)
+
+	// Tabwriter pads with spaces, not pipes
+	output := buf.String()
+	if strings.Contains(output, "|") {
+		t.Error("default policy should not contain pipes")
+	}
+	if !strings.Contains(output, "ID") || !strings.Contains(output, "NAME") {
+		t.Error("default policy should contain headers")
+	}
+}
+
+func TestView_Success_AgentPolicy(t *testing.T) {
+	t.Parallel()
+	buf := &bytes.Buffer{}
+	v := New(FormatTable, true)
+	v.SetPolicy(PolicyAgent)
+	v.SetOutput(buf)
+
+	v.Success("Issue %s updated", "MON-123")
+
+	want := "Issue MON-123 updated\n"
+	if buf.String() != want {
+		t.Errorf("agent success:\ngot: %q\nwant: %q", buf.String(), want)
+	}
+}
+
+func TestView_Success_DefaultPolicy_HasCheckmark(t *testing.T) {
+	t.Parallel()
+	buf := &bytes.Buffer{}
+	v := New(FormatTable, true)
+	// No SetPolicy — uses PolicyDefault
+	v.SetOutput(buf)
+
+	v.Success("Done")
+
+	if !strings.Contains(buf.String(), "✓") {
+		t.Error("default policy success should contain checkmark")
+	}
+}
+
+func TestView_Warning_AgentPolicy(t *testing.T) {
+	t.Parallel()
+	buf := &bytes.Buffer{}
+	v := New(FormatTable, true)
+	v.SetPolicy(PolicyAgent)
+	v.SetError(buf)
+
+	v.Warning("Field %s is deprecated", "foo")
+
+	want := "Field foo is deprecated\n"
+	if buf.String() != want {
+		t.Errorf("agent warning:\ngot: %q\nwant: %q", buf.String(), want)
+	}
+}
+
+func TestView_Warning_DefaultPolicy_HasWarningSign(t *testing.T) {
+	t.Parallel()
+	buf := &bytes.Buffer{}
+	v := New(FormatTable, true)
+	// No SetPolicy — uses PolicyDefault
+	v.SetError(buf)
+
+	v.Warning("Deprecated")
+
+	if !strings.Contains(buf.String(), "⚠") {
+		t.Error("default policy warning should contain warning sign")
+	}
+}
+
+func TestView_RenderKeyValues(t *testing.T) {
+	t.Parallel()
+	buf := &bytes.Buffer{}
+	v := New(FormatTable, true)
+	v.SetOutput(buf)
+
+	pairs := []KeyValue{
+		{Key: "Account ID", Value: "abc123"},
+		{Key: "Name", Value: "Alice"},
+		{Key: "Email", Value: "alice@example.com"},
+	}
+	v.RenderKeyValues(pairs)
+
+	want := "Account ID: abc123\nName: Alice\nEmail: alice@example.com\n"
+	if buf.String() != want {
+		t.Errorf("batch key/value:\ngot:\n%s\nwant:\n%s", buf.String(), want)
+	}
+}
+
 func TestView_RenderArtifactList(t *testing.T) {
 	t.Parallel()
 

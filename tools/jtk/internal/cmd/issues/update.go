@@ -8,8 +8,11 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/open-cli-collective/atlassian-go/present"
+
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
+	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/text"
 )
 
@@ -65,8 +68,6 @@ transparently (since the standard update API does not support type changes).`,
 }
 
 func runUpdate(ctx context.Context, opts *root.Options, issueKey, summary, description, parent, assignee, issueType string, fieldArgs []string) error {
-	v := opts.View()
-
 	// Validate that at least one field is being updated before making API calls
 	if summary == "" && description == "" && parent == "" && assignee == "" && issueType == "" && len(fieldArgs) == 0 {
 		return fmt.Errorf("no fields specified to update")
@@ -79,7 +80,7 @@ func runUpdate(ctx context.Context, opts *root.Options, issueKey, summary, descr
 
 	// Handle type change via the move API
 	if issueType != "" {
-		if err := changeIssueType(ctx, client, v, issueKey, issueType); err != nil {
+		if err := changeIssueType(ctx, client, opts, issueKey, issueType); err != nil {
 			return err
 		}
 	}
@@ -160,14 +161,14 @@ func runUpdate(ctx context.Context, opts *root.Options, issueKey, summary, descr
 		return err
 	}
 
-	v.Success("Updated issue %s", issueKey)
+	model := jtkpresent.IssuePresenter{}.PresentUpdated(issueKey)
+	out := present.Render(model, opts.RenderStyle())
+	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
+	_, _ = fmt.Fprint(opts.Stderr, out.Stderr)
 	return nil
 }
 
-func changeIssueType(ctx context.Context, client *api.Client, v interface {
-	Info(string, ...any)
-	Success(string, ...any)
-}, issueKey, targetTypeName string) error {
+func changeIssueType(ctx context.Context, client *api.Client, opts *root.Options, issueKey, targetTypeName string) error {
 	// Get the issue to find its project
 	issue, err := client.GetIssue(ctx, issueKey)
 	if err != nil {
@@ -181,7 +182,10 @@ func changeIssueType(ctx context.Context, client *api.Client, v interface {
 
 	// Check if the type is already correct
 	if issue.Fields.IssueType != nil && strings.EqualFold(issue.Fields.IssueType.Name, targetTypeName) {
-		v.Info("Issue %s is already type %s", issueKey, targetTypeName)
+		model := jtkpresent.IssuePresenter{}.PresentTypeAlreadyCurrent(issueKey, targetTypeName)
+		out := present.Render(model, opts.RenderStyle())
+		_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
+		_, _ = fmt.Fprint(opts.Stderr, out.Stderr)
 		return nil
 	}
 
@@ -209,7 +213,10 @@ func changeIssueType(ctx context.Context, client *api.Client, v interface {
 		return fmt.Errorf("issue type %q not found in project %s (available: %s)", targetTypeName, projectKey, strings.Join(available, ", "))
 	}
 
-	v.Info("Changing %s type to %s...", issueKey, targetIssueType.Name)
+	// Progress message to stderr (advisory)
+	advisory := jtkpresent.IssuePresenter{}.PresentTypeChangeProgress(issueKey, targetIssueType.Name)
+	advOut := present.Render(advisory, opts.RenderStyle())
+	_, _ = fmt.Fprint(opts.Stderr, advOut.Stderr)
 
 	// Use the move API to change the type within the same project
 	req := api.BuildMoveRequest([]string{issueKey}, projectKey, targetIssueType.ID, false)
@@ -236,7 +243,9 @@ func changeIssueType(ctx context.Context, client *api.Client, v interface {
 					return fmt.Errorf("type change failed for %s: %s", failed.IssueKey, strings.Join(failed.Errors, ", "))
 				}
 			}
-			v.Success("Changed %s type to %s", issueKey, targetIssueType.Name)
+			model := jtkpresent.IssuePresenter{}.PresentTypeChanged(issueKey, targetIssueType.Name)
+			out := present.Render(model, opts.RenderStyle())
+			_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
 			return nil
 
 		case "FAILED":

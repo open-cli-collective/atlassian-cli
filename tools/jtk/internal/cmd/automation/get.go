@@ -3,15 +3,15 @@ package automation
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/spf13/cobra"
 
+	"github.com/open-cli-collective/atlassian-go/present"
 	"github.com/open-cli-collective/atlassian-go/view"
 
-	"github.com/open-cli-collective/jira-ticket-cli/api"
 	jtkartifact "github.com/open-cli-collective/jira-ticket-cli/internal/artifact"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
+	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
 )
 
 func newGetCmd(opts *root.Options) *cobra.Command {
@@ -58,75 +58,9 @@ func runGet(ctx context.Context, opts *root.Options, ruleID string, showComponen
 		return v.RenderArtifact(jtkartifact.ProjectAutomationRule(rule, opts.ArtifactMode()))
 	}
 
-	v.Println("Name:        %s", rule.Name)
-	v.Println("UUID:        %s", rule.Identifier())
-	v.Println("State:       %s", rule.State)
-
-	if rule.Description != "" {
-		v.Println("Description: %s", rule.Description)
-	}
-
-	if len(rule.Labels) > 0 {
-		v.Println("Labels:      %s", strings.Join(rule.Labels, ", "))
-	}
-	if len(rule.Tags) > 0 {
-		v.Println("Tags:        %s", strings.Join(rule.Tags, ", "))
-	}
-
-	if len(rule.Projects) > 0 {
-		projects := make([]string, 0, len(rule.Projects))
-		for _, p := range rule.Projects {
-			if p.ProjectKey != "" {
-				projects = append(projects, p.ProjectKey)
-			} else if p.ProjectName != "" {
-				projects = append(projects, p.ProjectName)
-			}
-		}
-		if len(projects) > 0 {
-			v.Println("Projects:    %s", strings.Join(projects, ", "))
-		}
-	}
-
-	v.Println("Components:  %s", summarizeComponents(rule.Components))
-
-	if showComponents && len(rule.Components) > 0 {
-		v.Println("")
-		v.Println("Component Details:")
-		for i, c := range rule.Components {
-			v.Println("  [%d] %s: %s", i+1, c.Component, c.Type)
-		}
-	}
-
+	model := jtkpresent.AutomationPresenter{}.PresentDetail(rule, showComponents)
+	out := present.Render(model, opts.RenderStyle())
+	fmt.Fprint(opts.Stdout, out.Stdout)
+	fmt.Fprint(opts.Stderr, out.Stderr)
 	return nil
-}
-
-func summarizeComponents(components []api.RuleComponent) string {
-	if len(components) == 0 {
-		return "none"
-	}
-
-	triggers, conditions, actions := 0, 0, 0
-	for _, c := range components {
-		switch c.Component {
-		case "TRIGGER":
-			triggers++
-		case "CONDITION":
-			conditions++
-		case "ACTION":
-			actions++
-		}
-	}
-
-	parts := make([]string, 0, 3)
-	if triggers > 0 {
-		parts = append(parts, fmt.Sprintf("%d trigger(s)", triggers))
-	}
-	if conditions > 0 {
-		parts = append(parts, fmt.Sprintf("%d condition(s)", conditions))
-	}
-	if actions > 0 {
-		parts = append(parts, fmt.Sprintf("%d action(s)", actions))
-	}
-
-	return fmt.Sprintf("%d total — %s", len(components), strings.Join(parts, ", "))
 }

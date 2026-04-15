@@ -7,10 +7,13 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/open-cli-collective/atlassian-go/present"
 	"github.com/open-cli-collective/atlassian-go/prompt"
+	"github.com/open-cli-collective/atlassian-go/view"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
+	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
 )
 
 func newContextsCmd(opts *root.Options) *cobra.Command {
@@ -55,30 +58,32 @@ func runContextsList(ctx context.Context, opts *root.Options, fieldID string) er
 	}
 
 	if len(result.Values) == 0 {
-		v.Info("No contexts found for field %s", fieldID)
+		model := jtkpresent.FieldPresenter{}.PresentNoContexts(fieldID)
+		out := present.Render(model, opts.RenderStyle())
+		fmt.Fprint(opts.Stdout, out.Stdout)
+		fmt.Fprint(opts.Stderr, out.Stderr)
 		return nil
 	}
 
-	if opts.Output == "json" {
+	if v.Format == view.FormatJSON {
 		return v.JSON(result.Values)
 	}
 
-	headers := []string{"ID", "NAME", "GLOBAL", "ANY_ISSUE_TYPE"}
-	var rows [][]string
-
-	for _, ctx := range result.Values {
-		global := "no"
-		if ctx.IsGlobalContext {
-			global = "yes"
+	contexts := make([]jtkpresent.FieldContext, len(result.Values))
+	for i, ctx := range result.Values {
+		contexts[i] = jtkpresent.FieldContext{
+			ID:              ctx.ID,
+			Name:            ctx.Name,
+			IsGlobalContext: ctx.IsGlobalContext,
+			IsAnyIssueType:  ctx.IsAnyIssueType,
 		}
-		anyIssueType := "no"
-		if ctx.IsAnyIssueType {
-			anyIssueType = "yes"
-		}
-		rows = append(rows, []string{ctx.ID, ctx.Name, global, anyIssueType})
 	}
 
-	return v.Table(headers, rows)
+	model := jtkpresent.FieldPresenter{}.PresentContexts(contexts)
+	out := present.Render(model, opts.RenderStyle())
+	fmt.Fprint(opts.Stdout, out.Stdout)
+	fmt.Fprint(opts.Stderr, out.Stderr)
+	return nil
 }
 
 func newContextsCreateCmd(opts *root.Options) *cobra.Command {
@@ -126,11 +131,13 @@ func runContextsCreate(ctx context.Context, opts *root.Options, fieldID, name, p
 		return err
 	}
 
-	if opts.Output == "json" {
+	if v.Format == view.FormatJSON {
 		return v.JSON(fc)
 	}
 
-	v.Success("Created context %s (%s)", fc.ID, fc.Name)
+	model := jtkpresent.FieldPresenter{}.PresentContextCreated(fc.ID, fc.Name)
+	out := present.Render(model, opts.RenderStyle())
+	fmt.Fprint(opts.Stdout, out.Stdout)
 	return nil
 }
 
@@ -157,8 +164,6 @@ func newContextsDeleteCmd(opts *root.Options) *cobra.Command {
 }
 
 func runContextsDelete(ctx context.Context, opts *root.Options, fieldID, contextID string, force bool) error {
-	v := opts.View()
-
 	if !force {
 		fmt.Fprintf(opts.Stderr, "This will delete context %s from field %s.\n", contextID, fieldID)
 		fmt.Fprint(opts.Stderr, "Are you sure? [y/N]: ")
@@ -168,7 +173,10 @@ func runContextsDelete(ctx context.Context, opts *root.Options, fieldID, context
 			return fmt.Errorf("reading confirmation: %w", err)
 		}
 		if !confirmed {
-			v.Info("Deletion cancelled.")
+			model := jtkpresent.FieldPresenter{}.PresentDeleteCancelled()
+			out := present.Render(model, opts.RenderStyle())
+			fmt.Fprint(opts.Stdout, out.Stdout)
+			fmt.Fprint(opts.Stderr, out.Stderr)
 			return nil
 		}
 	}
@@ -182,6 +190,8 @@ func runContextsDelete(ctx context.Context, opts *root.Options, fieldID, context
 		return err
 	}
 
-	v.Success("Deleted context %s from field %s", contextID, fieldID)
+	model := jtkpresent.FieldPresenter{}.PresentContextDeleted(contextID, fieldID)
+	out := present.Render(model, opts.RenderStyle())
+	fmt.Fprint(opts.Stdout, out.Stdout)
 	return nil
 }

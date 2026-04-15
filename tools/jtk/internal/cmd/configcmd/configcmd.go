@@ -10,8 +10,11 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/open-cli-collective/atlassian-go/present"
+
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/config"
+	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
 )
 
 // Register registers the config commands
@@ -45,8 +48,6 @@ func newShowCmd(opts *root.Options) *cobra.Command {
 		Short: "Show current configuration",
 		Long:  "Display the current configuration values (token is masked).",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			v := opts.View()
-
 			url := config.GetURL()
 			email := config.GetEmail()
 			token := config.GetAPIToken()
@@ -56,36 +57,37 @@ func newShowCmd(opts *root.Options) *cobra.Command {
 
 			maskedToken := maskToken(token)
 
+			// JSON output
+			if opts.Output == "json" {
+				data := map[string]string{
+					"url":             url,
+					"email":           email,
+					"api_token":       maskedToken,
+					"default_project": defaultProject,
+					"auth_method":     authMethod,
+					"cloud_id":        cloudID,
+					"path":            config.Path(),
+				}
+				return opts.View().JSON(data)
+			}
+
+			// Text output
 			_, authMethodSource := config.GetAuthMethodWithSource()
 			_, cloudIDSource := config.GetCloudIDWithSource()
 
-			headers := []string{"KEY", "VALUE", "SOURCE"}
-			rows := [][]string{
-				{"url", url, getURLSource()},
-				{"email", email, getEmailSource()},
-				{"api_token", maskedToken, getAPITokenSource()},
-				{"default_project", defaultProject, getDefaultProjectSource()},
-				{"auth_method", authMethod, authMethodSource},
-				{"cloud_id", cloudID, cloudIDSource},
+			entries := []jtkpresent.ConfigEntry{
+				{Key: "url", Value: url, Source: getURLSource()},
+				{Key: "email", Value: email, Source: getEmailSource()},
+				{Key: "api_token", Value: maskedToken, Source: getAPITokenSource()},
+				{Key: "default_project", Value: defaultProject, Source: getDefaultProjectSource()},
+				{Key: "auth_method", Value: authMethod, Source: authMethodSource},
+				{Key: "cloud_id", Value: cloudID, Source: cloudIDSource},
 			}
 
-			data := map[string]string{
-				"url":             url,
-				"email":           email,
-				"api_token":       maskedToken,
-				"default_project": defaultProject,
-				"auth_method":     authMethod,
-				"cloud_id":        cloudID,
-				"path":            config.Path(),
-			}
-
-			if err := v.Render(headers, rows, data); err != nil {
-				return err
-			}
-
-			if opts.Output != "json" {
-				v.Info("\nConfig file: %s", config.Path())
-			}
+			model := jtkpresent.ConfigPresenter{}.PresentConfigWithPath(entries, config.Path())
+			out := present.Render(model, opts.RenderStyle())
+			fmt.Fprint(opts.Stdout, out.Stdout)
+			fmt.Fprint(opts.Stderr, out.Stderr)
 			return nil
 		},
 	}
@@ -126,12 +128,14 @@ Note: Environment variables (JIRA_*, ATLASSIAN_*) will still be used if set.`,
 
 func runClear(ctx context.Context, opts *clearOptions) error {
 	_ = ctx
-	v := opts.View()
 	configPath := config.Path()
 
 	// Check if config file exists
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		v.Info("No configuration file found at %s", configPath)
+		model := jtkpresent.ConfigPresenter{}.PresentNoConfig(configPath)
+		out := present.Render(model, opts.RenderStyle())
+		fmt.Fprint(opts.Stdout, out.Stdout)
+		fmt.Fprint(opts.Stderr, out.Stderr)
 		return nil
 	}
 
@@ -148,7 +152,10 @@ func runClear(ctx context.Context, opts *clearOptions) error {
 
 		response = strings.TrimSpace(strings.ToLower(response))
 		if response != "y" && response != "yes" {
-			v.Info("Cancelled.")
+			cancelModel := jtkpresent.ConfigPresenter{}.PresentClearCancelled()
+			cancelOut := present.Render(cancelModel, opts.RenderStyle())
+			fmt.Fprint(opts.Stdout, cancelOut.Stdout)
+			fmt.Fprint(opts.Stderr, cancelOut.Stderr)
 			return nil
 		}
 	}
@@ -157,10 +164,8 @@ func runClear(ctx context.Context, opts *clearOptions) error {
 		return err
 	}
 
-	v.Success("Configuration file removed: %s", configPath)
-
 	// Check for active environment variables
-	envVars := []string{}
+	var envVars []string
 	if os.Getenv("JIRA_URL") != "" || os.Getenv("ATLASSIAN_URL") != "" {
 		envVars = append(envVars, "URL")
 	}
@@ -171,12 +176,10 @@ func runClear(ctx context.Context, opts *clearOptions) error {
 		envVars = append(envVars, "API Token")
 	}
 
-	if len(envVars) > 0 {
-		fmt.Fprintln(opts.Stderr)
-		fmt.Fprintf(opts.Stderr, "Note: The following are still configured via environment variables: %s\n",
-			strings.Join(envVars, ", "))
-		fmt.Fprintln(opts.Stderr, "These will continue to be used. Unset them if you want to fully clear configuration.")
-	}
+	model := jtkpresent.ConfigPresenter{}.PresentClearedWithEnvVars(configPath, envVars)
+	out := present.Render(model, opts.RenderStyle())
+	fmt.Fprint(opts.Stdout, out.Stdout)
+	fmt.Fprint(opts.Stderr, out.Stderr)
 
 	return nil
 }
@@ -264,44 +267,26 @@ pass/fail status and troubleshooting suggestions on failure.`,
 		Example: `  # Test connection
   jtk config test`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			v := opts.View()
+			result := jtkpresent.TestResult{URL: config.GetURL()}
 
-			url := config.GetURL()
-			if url == "" {
-				v.Error("No Jira URL configured")
-				v.Println("")
-				v.Info("Configure with: jtk init")
-				v.Info("Or set environment variable: JIRA_URL")
-				return nil
+			if result.URL != "" {
+				client, err := opts.APIClient()
+				if err != nil {
+					result.ClientError = err
+				} else {
+					user, err := client.GetCurrentUser(cmd.Context())
+					if err != nil {
+						result.AuthError = err
+					} else {
+						result.User = user
+					}
+				}
 			}
 
-			v.Println("Testing connection to %s...", url)
-			v.Println("")
-
-			client, err := opts.APIClient()
-			if err != nil {
-				v.Error("Failed to create client: %v", err)
-				v.Println("")
-				v.Info("Check your configuration with: jtk config show")
-				v.Info("Reconfigure with: jtk init")
-				return nil
-			}
-
-			user, err := client.GetCurrentUser(cmd.Context())
-			if err != nil {
-				v.Error("Authentication failed: %v", err)
-				v.Println("")
-				v.Info("Check your credentials with: jtk config show")
-				v.Info("Reconfigure with: jtk init")
-				return nil
-			}
-
-			v.Success("Authentication successful")
-			v.Success("API access verified")
-			v.Println("")
-			v.Println("Authenticated as: %s (%s)", user.DisplayName, user.EmailAddress)
-			v.Println("Account ID: %s", user.AccountID)
-
+			model := jtkpresent.ConfigPresenter{}.PresentTestResult(result)
+			out := present.Render(model, opts.RenderStyle())
+			fmt.Fprint(opts.Stdout, out.Stdout)
+			fmt.Fprint(opts.Stderr, out.Stderr)
 			return nil
 		},
 	}

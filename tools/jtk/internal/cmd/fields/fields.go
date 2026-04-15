@@ -7,10 +7,13 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/open-cli-collective/atlassian-go/present"
 	"github.com/open-cli-collective/atlassian-go/prompt"
+	"github.com/open-cli-collective/atlassian-go/view"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
+	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
 )
 
 // Register registers the fields commands
@@ -92,26 +95,22 @@ func runList(ctx context.Context, opts *root.Options, customOnly bool, nameFilte
 	}
 
 	if len(fields) == 0 {
-		v.Info("No fields found")
+		model := jtkpresent.FieldPresenter{}.PresentEmpty()
+		out := present.Render(model, opts.RenderStyle())
+		fmt.Fprint(opts.Stdout, out.Stdout)
+		fmt.Fprint(opts.Stderr, out.Stderr)
 		return nil
 	}
 
-	if opts.Output == "json" {
+	if v.Format == view.FormatJSON {
 		return v.JSON(fields)
 	}
 
-	headers := []string{"ID", "NAME", "TYPE", "CUSTOM"}
-	var rows [][]string
-
-	for _, f := range fields {
-		custom := "no"
-		if f.Custom {
-			custom = "yes"
-		}
-		rows = append(rows, []string{f.ID, f.Name, f.Schema.Type, custom})
-	}
-
-	return v.Table(headers, rows)
+	model := jtkpresent.FieldPresenter{}.PresentList(fields)
+	out := present.Render(model, opts.RenderStyle())
+	fmt.Fprint(opts.Stdout, out.Stdout)
+	fmt.Fprint(opts.Stderr, out.Stderr)
+	return nil
 }
 
 func newCreateCmd(opts *root.Options) *cobra.Command {
@@ -165,11 +164,13 @@ func runCreate(ctx context.Context, opts *root.Options, name, fieldType, descrip
 		return err
 	}
 
-	if opts.Output == "json" {
+	if v.Format == view.FormatJSON {
 		return v.JSON(field)
 	}
 
-	v.Success("Created field %s (%s)", field.ID, field.Name)
+	model := jtkpresent.FieldPresenter{}.PresentCreated(field.ID, field.Name)
+	out := present.Render(model, opts.RenderStyle())
+	fmt.Fprint(opts.Stdout, out.Stdout)
 	return nil
 }
 
@@ -200,8 +201,6 @@ Trashed fields are permanently deleted after 60 days.`,
 }
 
 func runDelete(ctx context.Context, opts *root.Options, fieldID string, force bool) error {
-	v := opts.View()
-
 	if !force {
 		fmt.Fprintf(opts.Stderr, "This will trash field %s. It can be restored later.\n", fieldID)
 		fmt.Fprint(opts.Stderr, "Are you sure? [y/N]: ")
@@ -211,7 +210,10 @@ func runDelete(ctx context.Context, opts *root.Options, fieldID string, force bo
 			return fmt.Errorf("reading confirmation: %w", err)
 		}
 		if !confirmed {
-			v.Info("Deletion cancelled.")
+			model := jtkpresent.FieldPresenter{}.PresentDeleteCancelled()
+			out := present.Render(model, opts.RenderStyle())
+			fmt.Fprint(opts.Stdout, out.Stdout)
+			fmt.Fprint(opts.Stderr, out.Stderr)
 			return nil
 		}
 	}
@@ -225,7 +227,9 @@ func runDelete(ctx context.Context, opts *root.Options, fieldID string, force bo
 		return err
 	}
 
-	v.Success("Trashed field %s", fieldID)
+	model := jtkpresent.FieldPresenter{}.PresentTrashed(fieldID)
+	out := present.Render(model, opts.RenderStyle())
+	fmt.Fprint(opts.Stdout, out.Stdout)
 	return nil
 }
 
@@ -244,8 +248,6 @@ func newRestoreCmd(opts *root.Options) *cobra.Command {
 }
 
 func runRestore(ctx context.Context, opts *root.Options, fieldID string) error {
-	v := opts.View()
-
 	client, err := opts.APIClient()
 	if err != nil {
 		return err
@@ -255,6 +257,8 @@ func runRestore(ctx context.Context, opts *root.Options, fieldID string) error {
 		return err
 	}
 
-	v.Success("Restored field %s", fieldID)
+	model := jtkpresent.FieldPresenter{}.PresentRestored(fieldID)
+	out := present.Render(model, opts.RenderStyle())
+	fmt.Fprint(opts.Stdout, out.Stdout)
 	return nil
 }

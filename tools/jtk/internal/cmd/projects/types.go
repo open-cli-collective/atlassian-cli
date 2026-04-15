@@ -2,10 +2,15 @@ package projects
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/spf13/cobra"
 
+	"github.com/open-cli-collective/atlassian-go/present"
+	"github.com/open-cli-collective/atlassian-go/view"
+
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
+	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
 )
 
 func newTypesCmd(opts *root.Options) *cobra.Command {
@@ -34,23 +39,19 @@ func runTypes(ctx context.Context, opts *root.Options) error {
 	}
 
 	if len(types) == 0 {
-		v.Info("No project types found")
+		model := jtkpresent.ProjectPresenter{}.PresentNoTypes()
+		out := present.Render(model, opts.RenderStyle())
+		_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
 		return nil
 	}
 
-	if opts.Output == "json" {
+	if v.Format == view.FormatJSON {
 		return v.JSON(types)
 	}
 
-	headers := []string{"KEY", "FORMATTED"}
-	var rows [][]string
-
-	for _, t := range types {
-		rows = append(rows, []string{
-			t.Key,
-			t.FormattedKey,
-		})
-	}
-
-	return v.Table(headers, rows)
+	model := jtkpresent.ProjectPresenter{}.PresentTypes(types)
+	out := present.Render(model, opts.RenderStyle())
+	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
+	_, _ = fmt.Fprint(opts.Stderr, out.Stderr)
+	return nil
 }

@@ -3,14 +3,17 @@ package comments
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/spf13/cobra"
 
 	"github.com/open-cli-collective/atlassian-go/artifact"
+	"github.com/open-cli-collective/atlassian-go/present"
 	"github.com/open-cli-collective/atlassian-go/view"
 
 	jtkartifact "github.com/open-cli-collective/jira-ticket-cli/internal/artifact"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
+	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/text"
 )
 
@@ -66,7 +69,10 @@ func runList(ctx context.Context, opts *root.Options, issueKey string, maxResult
 	}
 
 	if len(result.Comments) == 0 {
-		v.Info("No comments on %s", issueKey)
+		model := jtkpresent.CommentPresenter{}.PresentEmpty(issueKey)
+		out := present.Render(model, opts.RenderStyle())
+		fmt.Fprint(opts.Stdout, out.Stdout)
+		fmt.Fprint(opts.Stderr, out.Stderr)
 		return nil
 	}
 
@@ -85,45 +91,16 @@ func runList(ctx context.Context, opts *root.Options, issueKey string, maxResult
 		return v.RenderArtifactList(artifact.NewListResult(arts, hasMore))
 	}
 
-	// No-truncate mode: display each comment with complete body text
+	var model *present.OutputModel
 	if noTruncate {
-		for i, c := range result.Comments {
-			if i > 0 {
-				v.Println("---")
-			}
-			body := ""
-			if c.Body != nil {
-				body = c.Body.ToPlainText()
-			}
-			v.Println("ID:      %s", c.ID)
-			v.Println("Author:  %s", c.Author.DisplayName)
-			v.Println("Created: %s", formatTime(c.Created))
-			v.Println("Body:    %s", body)
-		}
-		return nil
+		model = jtkpresent.CommentPresenter{}.PresentListFull(result.Comments)
+	} else {
+		model = jtkpresent.CommentPresenter{}.PresentList(result.Comments)
 	}
-
-	headers := []string{"ID", "AUTHOR", "CREATED", "BODY"}
-	rows := make([][]string, 0, len(result.Comments))
-
-	for _, c := range result.Comments {
-		body := ""
-		if c.Body != nil {
-			body = c.Body.ToPlainText()
-			if len(body) > 100 {
-				body = body[:100] + "... [truncated, use --no-truncate for complete text]"
-			}
-		}
-
-		rows = append(rows, []string{
-			c.ID,
-			c.Author.DisplayName,
-			formatTime(c.Created),
-			body,
-		})
-	}
-
-	return v.Table(headers, rows)
+	out := present.Render(model, opts.RenderStyle())
+	fmt.Fprint(opts.Stdout, out.Stdout)
+	fmt.Fprint(opts.Stderr, out.Stderr)
+	return nil
 }
 
 func newAddCmd(opts *root.Options) *cobra.Command {
@@ -163,7 +140,10 @@ func runAdd(ctx context.Context, opts *root.Options, issueKey, body string) erro
 		return v.JSON(comment)
 	}
 
-	v.Success("Added comment %s to %s", comment.ID, issueKey)
+	model := jtkpresent.CommentPresenter{}.PresentAdded(comment.ID, issueKey)
+	out := present.Render(model, opts.RenderStyle())
+	fmt.Fprint(opts.Stdout, out.Stdout)
+	fmt.Fprint(opts.Stderr, out.Stderr)
 	return nil
 }
 
@@ -198,14 +178,9 @@ func runDelete(ctx context.Context, opts *root.Options, issueKey, commentID stri
 		return v.JSON(map[string]string{"status": "deleted", "commentId": commentID})
 	}
 
-	v.Success("Deleted comment %s from %s", commentID, issueKey)
+	model := jtkpresent.CommentPresenter{}.PresentDeleted(commentID, issueKey)
+	out := present.Render(model, opts.RenderStyle())
+	fmt.Fprint(opts.Stdout, out.Stdout)
+	fmt.Fprint(opts.Stderr, out.Stderr)
 	return nil
-}
-
-func formatTime(t string) string {
-	// Jira returns ISO 8601 format, just show date
-	if len(t) >= 10 {
-		return t[:10]
-	}
-	return t
 }

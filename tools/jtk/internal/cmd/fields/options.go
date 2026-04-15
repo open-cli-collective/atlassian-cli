@@ -6,10 +6,13 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/open-cli-collective/atlassian-go/present"
 	"github.com/open-cli-collective/atlassian-go/prompt"
+	"github.com/open-cli-collective/atlassian-go/view"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
+	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
 )
 
 func newOptionsCmd(opts *root.Options) *cobra.Command {
@@ -84,26 +87,31 @@ func runOptionsList(ctx context.Context, opts *root.Options, fieldID, contextFla
 	}
 
 	if len(result.Values) == 0 {
-		v.Info("No options found for field %s", fieldID)
+		model := jtkpresent.FieldPresenter{}.PresentNoOptions(fieldID)
+		out := present.Render(model, opts.RenderStyle())
+		fmt.Fprint(opts.Stdout, out.Stdout)
+		fmt.Fprint(opts.Stderr, out.Stderr)
 		return nil
 	}
 
-	if opts.Output == "json" {
+	if v.Format == view.FormatJSON {
 		return v.JSON(result.Values)
 	}
 
-	headers := []string{"ID", "VALUE", "DISABLED"}
-	var rows [][]string
-
-	for _, opt := range result.Values {
-		disabled := "no"
-		if opt.Disabled {
-			disabled = "yes"
+	options := make([]jtkpresent.FieldContextOption, len(result.Values))
+	for i, opt := range result.Values {
+		options[i] = jtkpresent.FieldContextOption{
+			ID:       opt.ID,
+			Value:    opt.Value,
+			Disabled: opt.Disabled,
 		}
-		rows = append(rows, []string{opt.ID, opt.Value, disabled})
 	}
 
-	return v.Table(headers, rows)
+	model := jtkpresent.FieldPresenter{}.PresentContextOptions(options)
+	out := present.Render(model, opts.RenderStyle())
+	fmt.Fprint(opts.Stdout, out.Stdout)
+	fmt.Fprint(opts.Stderr, out.Stderr)
+	return nil
 }
 
 func newOptionsAddCmd(opts *root.Options) *cobra.Command {
@@ -154,15 +162,19 @@ func runOptionsAdd(ctx context.Context, opts *root.Options, fieldID, value, cont
 		return err
 	}
 
-	if opts.Output == "json" {
+	if v.Format == view.FormatJSON {
 		return v.JSON(options)
 	}
 
+	optionID := ""
+	optionValue := value
 	if len(options) > 0 {
-		v.Success("Added option %s (%s)", options[0].ID, options[0].Value)
-	} else {
-		v.Success("Added option %s", value)
+		optionID = options[0].ID
+		optionValue = options[0].Value
 	}
+	model := jtkpresent.FieldPresenter{}.PresentOptionAdded(optionID, optionValue)
+	out := present.Render(model, opts.RenderStyle())
+	fmt.Fprint(opts.Stdout, out.Stdout)
 	return nil
 }
 
@@ -213,11 +225,13 @@ func runOptionsUpdate(ctx context.Context, opts *root.Options, fieldID, optionID
 		return err
 	}
 
-	if opts.Output == "json" {
+	if v.Format == view.FormatJSON {
 		return v.JSON(options)
 	}
 
-	v.Success("Updated option %s", optionID)
+	model := jtkpresent.FieldPresenter{}.PresentOptionUpdated(optionID)
+	out := present.Render(model, opts.RenderStyle())
+	fmt.Fprint(opts.Stdout, out.Stdout)
 	return nil
 }
 
@@ -250,8 +264,6 @@ func newOptionsDeleteCmd(opts *root.Options) *cobra.Command {
 }
 
 func runOptionsDelete(ctx context.Context, opts *root.Options, fieldID, optionID, contextFlag string, force bool) error {
-	v := opts.View()
-
 	if !force {
 		fmt.Fprintf(opts.Stderr, "This will delete option %s from field %s.\n", optionID, fieldID)
 		fmt.Fprint(opts.Stderr, "Are you sure? [y/N]: ")
@@ -261,7 +273,10 @@ func runOptionsDelete(ctx context.Context, opts *root.Options, fieldID, optionID
 			return fmt.Errorf("reading confirmation: %w", err)
 		}
 		if !confirmed {
-			v.Info("Deletion cancelled.")
+			model := jtkpresent.FieldPresenter{}.PresentDeleteCancelled()
+			out := present.Render(model, opts.RenderStyle())
+			fmt.Fprint(opts.Stdout, out.Stdout)
+			fmt.Fprint(opts.Stderr, out.Stderr)
 			return nil
 		}
 	}
@@ -280,6 +295,8 @@ func runOptionsDelete(ctx context.Context, opts *root.Options, fieldID, optionID
 		return err
 	}
 
-	v.Success("Deleted option %s from field %s", optionID, fieldID)
+	model := jtkpresent.FieldPresenter{}.PresentOptionDeleted(optionID, fieldID)
+	out := present.Render(model, opts.RenderStyle())
+	fmt.Fprint(opts.Stdout, out.Stdout)
 	return nil
 }

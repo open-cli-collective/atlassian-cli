@@ -2,6 +2,7 @@ package dashboards
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -32,7 +33,7 @@ func TestRunList(t *testing.T) {
 	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runList(opts, "", 50)
+	err = runList(context.Background(), opts, "", 50)
 	testutil.RequireNoError(t, err)
 	testutil.Contains(t, stdout.String(), "Sprint Board")
 }
@@ -56,7 +57,7 @@ func TestRunList_Search(t *testing.T) {
 	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runList(opts, "Sprint", 50)
+	err = runList(context.Background(), opts, "Sprint", 50)
 	testutil.RequireNoError(t, err)
 	testutil.Contains(t, stdout.String(), "Sprint Board")
 }
@@ -88,7 +89,7 @@ func TestRunGet(t *testing.T) {
 	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runGet(opts, "10001")
+	err = runGet(context.Background(), opts, "10001")
 	testutil.RequireNoError(t, err)
 	testutil.Contains(t, stdout.String(), "My Dashboard")
 	testutil.Contains(t, stdout.String(), "Filter Results")
@@ -158,7 +159,7 @@ func TestRunGadgetsList(t *testing.T) {
 	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runGadgetsList(opts, "10001")
+	err = runGadgetsList(context.Background(), opts, "10001")
 	testutil.RequireNoError(t, err)
 	testutil.Contains(t, stdout.String(), "Filter Results")
 	testutil.Contains(t, stdout.String(), "Pie Chart")

@@ -27,9 +27,9 @@ func Render(model *OutputModel, style Style) RenderedOutput {
 // isStderrSection returns true if this section should go to stderr.
 func isStderrSection(s Section) bool {
 	if msg, ok := s.(*MessageSection); ok {
-		return msg.Kind == MessageWarning // Warnings go to stderr
+		return msg.Stream == StreamStderr // Explicit stream routing
 	}
-	return false // DetailSection, TableSection, MessageInfo, MessageSuccess -> stdout
+	return false // DetailSection, TableSection -> stdout
 }
 
 func renderSection(s Section, style Style) string {
@@ -116,6 +116,8 @@ func renderMessage(sec *MessageSection, style Style) string {
 		return "✓ " + sec.Message + "\n"
 	case MessageWarning:
 		return "⚠ " + sec.Message + "\n"
+	case MessageError:
+		return "✗ " + sec.Message + "\n"
 	case MessageInfo:
 		return sec.Message + "\n"
 	}

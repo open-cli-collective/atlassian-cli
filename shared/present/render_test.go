@@ -145,7 +145,7 @@ func TestRender_MessageSection_Warning_GoesToStderr(t *testing.T) {
 	t.Parallel()
 	model := &OutputModel{
 		Sections: []Section{
-			&MessageSection{Kind: MessageWarning, Message: "Deprecated API"},
+			&MessageSection{Kind: MessageWarning, Message: "Deprecated API", Stream: StreamStderr},
 		},
 	}
 
@@ -193,7 +193,7 @@ func TestRender_MixedSections_WithWarning(t *testing.T) {
 			&DetailSection{
 				Fields: []Field{{Label: "ID", Value: "123"}},
 			},
-			&MessageSection{Kind: MessageWarning, Message: "Field deprecated"},
+			&MessageSection{Kind: MessageWarning, Message: "Field deprecated", Stream: StreamStderr},
 			&TableSection{
 				Headers: []string{"NAME", "VALUE"},
 				Rows:    []Row{{Cells: []string{"foo", "bar"}}},
@@ -332,5 +332,77 @@ func TestRender_TableSection_Agent_NormalizesNewlines(t *testing.T) {
 	want := "KEY | DESC\nPROJ-1 | Line one Line two\n"
 	if out.Stdout != want {
 		t.Errorf("newline normalization:\ngot:\n%s\nwant:\n%s", out.Stdout, want)
+	}
+}
+
+func TestRender_TableSection_Human_NoEscaping(t *testing.T) {
+	t.Parallel()
+	// Human mode should NOT escape pipes - verifies style-agnostic presenters
+	model := &OutputModel{
+		Sections: []Section{
+			&TableSection{
+				Headers: []string{"KEY", "DESC"},
+				Rows: []Row{
+					{Cells: []string{"PROJ-1", "A | B"}},
+				},
+			},
+		},
+	}
+
+	out := Render(model, StyleHuman)
+	// Human mode passes through raw content (tabwriter handles alignment)
+	if strings.Contains(out.Stdout, "\\|") {
+		t.Errorf("human mode should not escape pipes, got: %s", out.Stdout)
+	}
+	if !strings.Contains(out.Stdout, "A | B") {
+		t.Errorf("human mode should preserve raw pipe character, got: %s", out.Stdout)
+	}
+}
+
+func TestRender_MessageSection_Error(t *testing.T) {
+	t.Parallel()
+	model := &OutputModel{
+		Sections: []Section{
+			&MessageSection{Kind: MessageError, Message: "Connection failed", Stream: StreamStderr},
+		},
+	}
+
+	// Agent style - error goes to stderr, no decorator
+	outAgent := Render(model, StyleAgent)
+	if outAgent.Stdout != "" {
+		t.Errorf("error agent stdout should be empty, got: %q", outAgent.Stdout)
+	}
+	if outAgent.Stderr != "Connection failed\n" {
+		t.Errorf("error agent stderr:\ngot: %q\nwant: %q", outAgent.Stderr, "Connection failed\n")
+	}
+
+	// Human style - error goes to stderr with ✗ decorator
+	outHuman := Render(model, StyleHuman)
+	if outHuman.Stdout != "" {
+		t.Errorf("error human stdout should be empty, got: %q", outHuman.Stdout)
+	}
+	if outHuman.Stderr != "✗ Connection failed\n" {
+		t.Errorf("error human stderr:\ngot: %q\nwant: %q", outHuman.Stderr, "✗ Connection failed\n")
+	}
+}
+
+func TestRender_Stream_ExplicitRouting(t *testing.T) {
+	t.Parallel()
+	// Test that Stream field controls routing, not Kind
+	model := &OutputModel{
+		Sections: []Section{
+			// Info message explicitly routed to stderr (advisory)
+			&MessageSection{Kind: MessageInfo, Message: "More results available", Stream: StreamStderr},
+			// Success message to stdout (default)
+			&MessageSection{Kind: MessageSuccess, Message: "Operation completed", Stream: StreamStdout},
+		},
+	}
+
+	out := Render(model, StyleAgent)
+	if out.Stdout != "Operation completed\n" {
+		t.Errorf("explicit stdout routing:\ngot: %q\nwant: %q", out.Stdout, "Operation completed\n")
+	}
+	if out.Stderr != "More results available\n" {
+		t.Errorf("explicit stderr routing:\ngot: %q\nwant: %q", out.Stderr, "More results available\n")
 	}
 }

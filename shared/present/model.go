@@ -83,10 +83,20 @@ type Row struct {
 	Cells []string
 }
 
+// Stream indicates which output stream a section targets.
+type Stream int
+
+// Stream constants.
+const (
+	StreamStdout Stream = iota // Primary result/artifact
+	StreamStderr               // Diagnostics, advisory, progress, commentary
+)
+
 // MessageSection displays a status message (mutations, confirmations).
 type MessageSection struct {
 	Kind    MessageKind
 	Message string
+	Stream  Stream // Explicit stream routing (zero value = StreamStdout)
 }
 
 func (*MessageSection) sectionMarker() {}
@@ -99,4 +109,5 @@ const (
 	MessageInfo MessageKind = iota
 	MessageSuccess
 	MessageWarning
+	MessageError
 )

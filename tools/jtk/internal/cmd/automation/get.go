@@ -8,9 +8,10 @@ import (
 
 	"github.com/open-cli-collective/atlassian-go/present"
 	"github.com/open-cli-collective/atlassian-go/view"
+
 	jtkartifact "github.com/open-cli-collective/jira-ticket-cli/internal/artifact"
-	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
+	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
 )
 
 func newGetCmd(opts *root.Options) *cobra.Command {

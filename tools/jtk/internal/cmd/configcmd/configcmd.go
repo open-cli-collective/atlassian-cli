@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/open-cli-collective/atlassian-go/present"
+
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/config"
 	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
@@ -75,12 +76,12 @@ func newShowCmd(opts *root.Options) *cobra.Command {
 			_, cloudIDSource := config.GetCloudIDWithSource()
 
 			entries := []jtkpresent.ConfigEntry{
-				{"url", url, getURLSource()},
-				{"email", email, getEmailSource()},
-				{"api_token", maskedToken, getAPITokenSource()},
-				{"default_project", defaultProject, getDefaultProjectSource()},
-				{"auth_method", authMethod, authMethodSource},
-				{"cloud_id", cloudID, cloudIDSource},
+				{Key: "url", Value: url, Source: getURLSource()},
+				{Key: "email", Value: email, Source: getEmailSource()},
+				{Key: "api_token", Value: maskedToken, Source: getAPITokenSource()},
+				{Key: "default_project", Value: defaultProject, Source: getDefaultProjectSource()},
+				{Key: "auth_method", Value: authMethod, Source: authMethodSource},
+				{Key: "cloud_id", Value: cloudID, Source: cloudIDSource},
 			}
 
 			model := jtkpresent.ConfigPresenter{}.PresentConfigWithPath(entries, config.Path())

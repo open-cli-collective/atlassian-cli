@@ -68,7 +68,7 @@ func newListCmd(opts *root.Options) *cobra.Command {
 	return cmd
 }
 
-func runList(ctx context.Context, opts *root.Options, search string, maxResults int) error {
+func runList(_ context.Context, opts *root.Options, search string, maxResults int) error {
 	v := opts.View()
 
 	client, err := opts.APIClient()
@@ -127,7 +127,7 @@ func newGetCmd(opts *root.Options) *cobra.Command {
 	return cmd
 }
 
-func runGet(ctx context.Context, opts *root.Options, dashboardID string) error {
+func runGet(_ context.Context, opts *root.Options, dashboardID string) error {
 	v := opts.View()
 
 	client, err := opts.APIClient()
@@ -285,7 +285,7 @@ func newGadgetsListCmd(opts *root.Options) *cobra.Command {
 	return cmd
 }
 
-func runGadgetsList(ctx context.Context, opts *root.Options, dashboardID string) error {
+func runGadgetsList(_ context.Context, opts *root.Options, dashboardID string) error {
 	v := opts.View()
 
 	client, err := opts.APIClient()
@@ -361,4 +361,3 @@ func runGadgetsRemove(opts *root.Options, dashboardID string, gadgetID int) erro
 	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
 	return nil
 }
-

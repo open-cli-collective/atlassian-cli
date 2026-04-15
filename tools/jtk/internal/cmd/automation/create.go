@@ -9,8 +9,9 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/open-cli-collective/atlassian-go/present"
-	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
+
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
+	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
 )
 
 func newCreateCmd(opts *root.Options) *cobra.Command {

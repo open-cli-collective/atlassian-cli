@@ -363,7 +363,7 @@ func (IssuePresenter) PresentTypeNotFound(targetType, project string, availableT
 	sections := []present.Section{
 		&present.MessageSection{
 			Kind:    present.MessageError,
-			Message: "Issue type not found in target project",
+			Message: fmt.Sprintf("Issue type %q not found in target project", targetType),
 			Stream:  present.StreamStderr,
 		},
 		&present.MessageSection{

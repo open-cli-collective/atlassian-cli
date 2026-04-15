@@ -92,10 +92,10 @@ func (FieldPresenter) PresentFieldOptions(options []FieldOption) *present.Output
 
 // FieldContext represents a field context.
 type FieldContext struct {
-	ID               string
-	Name             string
-	IsGlobalContext  bool
-	IsAnyIssueType   bool
+	ID              string
+	Name            string
+	IsGlobalContext bool
+	IsAnyIssueType  bool
 }
 
 // PresentContexts creates a table view for field contexts.

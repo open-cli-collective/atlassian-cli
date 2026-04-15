@@ -61,30 +61,6 @@ func runGet(ctx context.Context, opts *root.Options, issueKey string, noTruncate
 	return nil
 }
 
-func orDash(s string) string {
-	if s == "" {
-		return "-"
-	}
-	return s
-}
-
-func formatAssignee(name string) string {
-	if name == "" {
-		return "Unassigned"
-	}
-	return name
-}
-
-func formatIssueRow(key, summary, status, assignee, issueType string) []string {
-	return []string{
-		key,
-		view.Truncate(summary, 50),
-		orDash(status),
-		formatAssignee(assignee),
-		orDash(issueType),
-	}
-}
-
 // safeString extracts string from an interface value
 func safeString(v any) string {
 	if v == nil {

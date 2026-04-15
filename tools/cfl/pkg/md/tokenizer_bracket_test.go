@@ -466,3 +466,86 @@ func TestTokenizeBrackets_WhitespaceHandling(t *testing.T) {
 		})
 	}
 }
+
+// TestTokenizeBrackets_FailedParseDoesNotDuplicateText is a regression test
+// for a bug where a failed parseBracketTag call flushed the accumulated text
+// run up to the offending '[' without advancing textStart. At the next
+// successful bracket match, the tokenizer re-emitted the same text range,
+// so every chunk between a failing '[…]' and the next valid macro tag — or
+// end of input — was delivered twice.
+//
+// In practice the trigger is any markdown link whose text contains a
+// character outside [A-Za-z0-9_-], e.g. [signalft!116](url), [foo bar](url),
+// [app.monitapp.io](url). The duplication surfaced downstream as doubled
+// paragraphs in rendered Confluence pages and as leaked CFCODE…ENDC
+// placeholders (because restoreCodeRegions used single-match replace).
+func TestTokenizeBrackets_FailedParseDoesNotDuplicateText(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{
+			"link text with bang",
+			"Related MR: [signalft!116](https://example.com/mr/116)",
+		},
+		{
+			"link text with space",
+			"See [the runbook](https://example.com/runbook)",
+		},
+		{
+			"link text with slash",
+			"Covers [CheckSync / MonitSSOv2](https://example.com/page)",
+		},
+		{
+			"link text with dot",
+			"Domain [app.monitapp.io](https://app.monitapp.io)",
+		},
+		{
+			"failing bracket followed by valid macro",
+			"Text [foo!bar] middle [TOC] tail",
+		},
+		{
+			"two failing brackets back to back",
+			"[foo!bar] and [baz qux] and done",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			tokens, err := TokenizeBrackets(tt.input)
+			testutil.RequireNoError(t, err)
+
+			// Reassemble the text-segment content and verify we round-trip
+			// exactly to the input (modulo any successfully-tokenized macros,
+			// which are reconstructed separately). If the tokenizer
+			// duplicates text, the concatenation will be longer than the
+			// input.
+			var assembled string
+			for _, tok := range tokens {
+				switch tok.Type {
+				case BracketTokenText:
+					assembled += tok.Text
+				case BracketTokenOpenTag, BracketTokenCloseTag, BracketTokenSelfClose:
+					assembled += tok.OriginalTagText
+				}
+			}
+			testutil.Equal(t, tt.input, assembled)
+
+			// Stronger check: the sum of token text lengths must equal the
+			// input length. Any duplication makes the sum exceed the input
+			// length even if the substrings happen to reassemble by luck.
+			var totalLen int
+			for _, tok := range tokens {
+				switch tok.Type {
+				case BracketTokenText:
+					totalLen += len(tok.Text)
+				case BracketTokenOpenTag, BracketTokenCloseTag, BracketTokenSelfClose:
+					totalLen += len(tok.OriginalTagText)
+				}
+			}
+			testutil.Equal(t, len(tt.input), totalLen)
+		})
+	}
+}

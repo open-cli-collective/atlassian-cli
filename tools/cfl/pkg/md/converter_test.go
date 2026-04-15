@@ -754,3 +754,41 @@ More outer
 		testutil.NotContains(t, result, "CFMACRO")
 	}
 }
+
+// TestToConfluenceStorage_FailingBracketLinkDoesNotDuplicateOrLeakPlaceholders
+// is a regression test for a tokenizer bug where markdown links whose link
+// text contained characters outside [A-Za-z0-9_-] caused the text between
+// the failing '[' and the next valid bracket to be emitted twice. When the
+// duplicated chunk contained inline code, the second copy's CFCODE…ENDC
+// placeholder was never restored (restoreCodeRegions used single-match
+// Replace), so it leaked into the final HTML as literal text.
+//
+// This test covers the end-to-end path a user of the CLI hits: a markdown
+// document with a "bad" link text followed by content that contains inline
+// code. The output must contain the original content exactly once and have
+// no CFCODE / CFMACRO placeholder residue.
+func TestToConfluenceStorage_FailingBracketLinkDoesNotDuplicateOrLeakPlaceholders(t *testing.T) {
+	t.Parallel()
+	input := "# Repro\n\n" +
+		"Related MR: [signalft!116](https://example.com/mr/116) · Ticket: [MON-4791](https://example.com/browse/MON-4791)\n\n" +
+		"Some text with `inline code` and more.\n"
+
+	result, err := ToConfluenceStorage([]byte(input))
+	testutil.RequireNoError(t, err)
+
+	// No placeholder residue.
+	testutil.NotContains(t, result, "CFCODE")
+	testutil.NotContains(t, result, "CFMACRO")
+	testutil.NotContains(t, result, "CFCHILD")
+
+	// Exactly one rendered heading.
+	testutil.Equal(t, 1, strings.Count(result, "<h1>Repro</h1>"))
+	// Exactly one occurrence of the inline code.
+	testutil.Equal(t, 1, strings.Count(result, "<code>inline code</code>"))
+	// Exactly one "Some text with" paragraph.
+	testutil.Equal(t, 1, strings.Count(result, "Some text with"))
+	// The "# Repro" string must NOT appear anywhere outside the h1 — the
+	// bug caused a second copy of "# Repro" to be flushed as literal text
+	// inside the "Related MR:" paragraph.
+	testutil.NotContains(t, result, "# Repro")
+}

@@ -22,21 +22,26 @@ func TokenizeBrackets(input string) ([]BracketToken, error) {
 	for pos < len(input) {
 		// Look for opening bracket
 		if input[pos] == '[' {
-			// Emit any accumulated text before this bracket
+			// Try to parse a macro tag first. If it fails, keep accumulating
+			// text and let the caller re-discover the '[' as literal content.
+			// We must NOT flush the text run until we know we have a real tag,
+			// otherwise a failed parse would orphan textStart at the '[' and
+			// cause the previously-flushed content to be re-emitted on the
+			// next successful bracket match (duplicating everything between).
+			token, endPos, err := parseBracketTag(input, pos)
+			if err != nil {
+				// Not a valid macro tag - treat '[' as text.
+				pos++
+				continue
+			}
+
+			// Flush any accumulated text that precedes this tag.
 			if pos > textStart {
 				tokens = append(tokens, BracketToken{
 					Type:     BracketTokenText,
 					Text:     input[textStart:pos],
 					Position: textStart,
 				})
-			}
-
-			// Try to parse a macro tag
-			token, endPos, err := parseBracketTag(input, pos)
-			if err != nil {
-				// Not a valid macro tag - treat '[' as text
-				pos++
-				continue
 			}
 
 			tokens = append(tokens, token)

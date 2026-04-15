@@ -88,11 +88,18 @@ func protectCodeRegions(input []byte) ([]byte, []codeRegion) {
 }
 
 // restoreCodeRegions replaces code placeholders with their original content.
+//
+// ReplaceAll (not Replace with n=1) is used deliberately: if an upstream
+// preprocessor duplicates any chunk of the stream, a single-match replace
+// would leave the second copy of the placeholder as literal text in the
+// output. ReplaceAll makes the restore step robust against such duplication,
+// since placeholders are unique per source region and are never legitimately
+// emitted by the markdown input itself.
 func restoreCodeRegions(input []byte, regions []codeRegion) []byte {
 	s := string(input)
 	for _, r := range regions {
 		placeholder := formatCodePlaceholder(r.id)
-		s = strings.Replace(s, placeholder, r.content, 1)
+		s = strings.ReplaceAll(s, placeholder, r.content)
 	}
 	return []byte(s)
 }

@@ -1,0 +1,41 @@
+// Package present provides presenters that map domain types to presentation models.
+package present
+
+import (
+	"github.com/open-cli-collective/atlassian-go/present"
+
+	"github.com/open-cli-collective/jira-ticket-cli/api"
+)
+
+// CommentPresenter creates presentation models for comment data.
+type CommentPresenter struct{}
+
+// PresentList creates a table view for a list of comments.
+func (CommentPresenter) PresentList(comments []api.Comment) *present.OutputModel {
+	rows := make([]present.Row, len(comments))
+	for i, c := range comments {
+		author := "Unknown"
+		if c.Author.DisplayName != "" {
+			author = c.Author.DisplayName
+		}
+		// Truncate body for table display
+		body := ""
+		if c.Body != nil {
+			body = c.Body.ToPlainText()
+			if len(body) > 100 {
+				body = body[:100] + "... [truncated, use --no-truncate for complete text]"
+			}
+		}
+		rows[i] = present.Row{
+			Cells: []string{c.ID, author, FormatTime(c.Created), body},
+		}
+	}
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.TableSection{
+				Headers: []string{"ID", "AUTHOR", "CREATED", "BODY"},
+				Rows:    rows,
+			},
+		},
+	}
+}

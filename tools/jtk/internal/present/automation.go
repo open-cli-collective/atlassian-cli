@@ -1,0 +1,106 @@
+// Package present provides presenters that map domain types to presentation models.
+package present
+
+import (
+	"fmt"
+	"strings"
+
+	"github.com/open-cli-collective/atlassian-go/present"
+	"github.com/open-cli-collective/jira-ticket-cli/api"
+)
+
+// AutomationPresenter creates presentation models for automation rules.
+type AutomationPresenter struct{}
+
+// PresentDetail creates a detailed view of a single automation rule.
+func (AutomationPresenter) PresentDetail(rule *api.AutomationRule) *present.OutputModel {
+	fields := []present.Field{
+		{Label: "Name", Value: rule.Name},
+		{Label: "UUID", Value: rule.Identifier()},
+		{Label: "State", Value: rule.State},
+	}
+
+	if rule.Description != "" {
+		fields = append(fields, present.Field{Label: "Description", Value: rule.Description})
+	}
+
+	if len(rule.Labels) > 0 {
+		fields = append(fields, present.Field{Label: "Labels", Value: strings.Join(rule.Labels, ", ")})
+	}
+
+	if len(rule.Tags) > 0 {
+		fields = append(fields, present.Field{Label: "Tags", Value: strings.Join(rule.Tags, ", ")})
+	}
+
+	if len(rule.Projects) > 0 {
+		projects := make([]string, 0, len(rule.Projects))
+		for _, p := range rule.Projects {
+			if p.ProjectKey != "" {
+				projects = append(projects, p.ProjectKey)
+			} else if p.ProjectName != "" {
+				projects = append(projects, p.ProjectName)
+			}
+		}
+		if len(projects) > 0 {
+			fields = append(fields, present.Field{Label: "Projects", Value: strings.Join(projects, ", ")})
+		}
+	}
+
+	fields = append(fields, present.Field{Label: "Components", Value: SummarizeComponents(rule.Components)})
+
+	return &present.OutputModel{
+		Sections: []present.Section{&present.DetailSection{Fields: fields}},
+	}
+}
+
+// PresentList creates a table view of automation rules.
+func (AutomationPresenter) PresentList(rules []api.AutomationRuleSummary) *present.OutputModel {
+	rows := make([]present.Row, len(rules))
+	for i, r := range rules {
+		rows[i] = present.Row{
+			Cells: []string{r.Identifier(), r.Name, r.State},
+		}
+	}
+
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.TableSection{
+				Headers: []string{"UUID", "NAME", "STATE"},
+				Rows:    rows,
+			},
+		},
+	}
+}
+
+// SummarizeComponents creates a compact summary of rule components.
+// Exported for testing.
+func SummarizeComponents(components []api.RuleComponent) string {
+	if len(components) == 0 {
+		return "none"
+	}
+
+	triggers, conditions, actions := 0, 0, 0
+	for _, c := range components {
+		switch c.Component {
+		case "TRIGGER":
+			triggers++
+		case "CONDITION":
+			conditions++
+		case "ACTION":
+			actions++
+		}
+	}
+
+	parts := make([]string, 0, 3)
+	if triggers > 0 {
+		parts = append(parts, fmt.Sprintf("%d trigger(s)", triggers))
+	}
+	if conditions > 0 {
+		parts = append(parts, fmt.Sprintf("%d condition(s)", conditions))
+	}
+	if actions > 0 {
+		parts = append(parts, fmt.Sprintf("%d action(s)", actions))
+	}
+
+	return fmt.Sprintf("%d total — %s", len(components), strings.Join(parts, ", "))
+}

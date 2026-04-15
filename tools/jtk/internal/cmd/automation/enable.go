@@ -2,9 +2,12 @@ package automation
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/spf13/cobra"
 
+	"github.com/open-cli-collective/atlassian-go/present"
+	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 )
 
@@ -25,8 +28,6 @@ func newEnableCmd(opts *root.Options) *cobra.Command {
 }
 
 func runSetState(ctx context.Context, opts *root.Options, ruleID string, enabled bool) error {
-	v := opts.View()
-
 	client, err := opts.APIClient()
 	if err != nil {
 		return err
@@ -44,7 +45,9 @@ func runSetState(ctx context.Context, opts *root.Options, ruleID string, enabled
 	}
 
 	if current.State == newState {
-		v.Info("Rule %q is already %s", current.Name, newState)
+		model := jtkpresent.MutationPresenter{}.Info("Rule %q is already %s", current.Name, newState)
+		out := present.Render(model, opts.RenderStyle())
+		fmt.Fprint(opts.Stdout, out.Stdout)
 		return nil
 	}
 
@@ -52,6 +55,8 @@ func runSetState(ctx context.Context, opts *root.Options, ruleID string, enabled
 		return err
 	}
 
-	v.Success("Rule %q: %s → %s", current.Name, current.State, newState)
+	model := jtkpresent.MutationPresenter{}.Success("Rule %q: %s → %s", current.Name, current.State, newState)
+	out := present.Render(model, opts.RenderStyle())
+	fmt.Fprint(opts.Stdout, out.Stdout)
 	return nil
 }

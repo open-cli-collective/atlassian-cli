@@ -47,8 +47,8 @@ func TestUserPresenter_Present(t *testing.T) {
 	if got := findField("Email"); got != "john@example.com" {
 		t.Errorf("Email = %q, want john@example.com", got)
 	}
-	if got := findField("Active"); got != "true" {
-		t.Errorf("Active = %q, want true", got)
+	if got := findField("Active"); got != "yes" {
+		t.Errorf("Active = %q, want yes", got)
 	}
 }
 
@@ -92,7 +92,7 @@ func TestUserPresenter_InactiveUser(t *testing.T) {
 		return ""
 	}
 
-	if got := findField("Active"); got != "false" {
-		t.Errorf("Active = %q, want false", got)
+	if got := findField("Active"); got != "no" {
+		t.Errorf("Active = %q, want no", got)
 	}
 }

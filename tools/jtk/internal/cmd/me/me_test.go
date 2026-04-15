@@ -60,7 +60,7 @@ func TestRun_Table(t *testing.T) {
 	testutil.Contains(t, output, "abc123")
 	testutil.Contains(t, output, "John Doe")
 	testutil.Contains(t, output, "john@example.com")
-	testutil.Contains(t, output, "true")
+	testutil.Contains(t, output, "yes")
 }
 
 func TestRun_JSON(t *testing.T) {
@@ -210,7 +210,7 @@ func TestRun_UnpaddedKeyValueOutput(t *testing.T) {
 	err = run(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 
-	want := "Account ID: abc123\nDisplay Name: Alice\nEmail: alice@example.com\nActive: true\n"
+	want := "Account ID: abc123\nDisplay Name: Alice\nEmail: alice@example.com\nActive: yes\n"
 	if stdout.String() != want {
 		t.Errorf("me output:\ngot:\n%s\nwant:\n%s", stdout.String(), want)
 	}

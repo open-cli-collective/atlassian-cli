@@ -8,6 +8,8 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/open-cli-collective/atlassian-go/present"
+	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 )
 
@@ -48,8 +50,6 @@ field mappings and workflow configuration.`,
 }
 
 func runUpdate(ctx context.Context, opts *root.Options, ruleID, filePath string) error {
-	v := opts.View()
-
 	// Read and validate file before creating the API client so we fail
 	// fast on bad input without needing network access.
 	data, err := os.ReadFile(filePath) //nolint:gosec // CLI tool reads user-provided file paths
@@ -72,12 +72,16 @@ func runUpdate(ctx context.Context, opts *root.Options, ruleID, filePath string)
 		return fmt.Errorf("fetching current rule: %w", err)
 	}
 
-	v.Info("Updating rule: %s (UUID: %s, State: %s)", current.Name, current.Identifier(), current.State)
+	model := jtkpresent.MutationPresenter{}.Info("Updating rule: %s (UUID: %s, State: %s)", current.Name, current.Identifier(), current.State)
+	out := present.Render(model, opts.RenderStyle())
+	fmt.Fprint(opts.Stdout, out.Stdout)
 
 	if err := client.UpdateAutomationRule(ctx, ruleID, json.RawMessage(data)); err != nil {
 		return err
 	}
 
-	v.Success("Updated automation rule %s", ruleID)
+	successModel := jtkpresent.MutationPresenter{}.Success("Updated automation rule %s", ruleID)
+	successOut := present.Render(successModel, opts.RenderStyle())
+	fmt.Fprint(opts.Stdout, successOut.Stdout)
 	return nil
 }

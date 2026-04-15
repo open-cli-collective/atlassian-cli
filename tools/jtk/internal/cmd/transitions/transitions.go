@@ -8,8 +8,11 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/open-cli-collective/atlassian-go/present"
+
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
+	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
 )
 
 // Register registers the transitions commands
@@ -64,7 +67,10 @@ func runList(ctx context.Context, opts *root.Options, issueKey string, showField
 	}
 
 	if len(transitions) == 0 {
-		v.Info("No transitions available for %s", issueKey)
+		model := jtkpresent.MutationPresenter{}.Info("No transitions available for %s", issueKey)
+		out := present.Render(model, opts.RenderStyle())
+		fmt.Fprint(opts.Stdout, out.Stdout)
+		fmt.Fprint(opts.Stderr, out.Stderr)
 		return nil
 	}
 
@@ -72,40 +78,22 @@ func runList(ctx context.Context, opts *root.Options, issueKey string, showField
 		return v.JSON(transitions)
 	}
 
+	var model *present.OutputModel
 	if showFields {
-		headers := []string{"ID", "NAME", "TO STATUS", "REQUIRED FIELDS"}
-		rows := make([][]string, 0, len(transitions))
-
-		for _, t := range transitions {
-			required := getRequiredFields(t)
-			rows = append(rows, []string{t.ID, t.Name, t.To.Name, required})
-		}
-
-		return v.Table(headers, rows)
+		model = jtkpresent.TransitionPresenter{}.PresentListWithFields(transitions)
+	} else {
+		model = jtkpresent.TransitionPresenter{}.PresentList(transitions)
 	}
-
-	headers := []string{"ID", "NAME", "TO STATUS"}
-	rows := make([][]string, 0, len(transitions))
-
-	for _, t := range transitions {
-		rows = append(rows, []string{t.ID, t.Name, t.To.Name})
-	}
-
-	return v.Table(headers, rows)
+	out := present.Render(model, opts.RenderStyle())
+	fmt.Fprint(opts.Stdout, out.Stdout)
+	fmt.Fprint(opts.Stderr, out.Stderr)
+	return nil
 }
 
 // getRequiredFields returns a comma-separated list of required field names
+// This is exported for testing and delegates to the presenter implementation
 func getRequiredFields(t api.Transition) string {
-	var required []string
-	for _, field := range t.Fields {
-		if field.Required {
-			required = append(required, field.Name)
-		}
-	}
-	if len(required) == 0 {
-		return "-"
-	}
-	return strings.Join(required, ", ")
+	return jtkpresent.GetRequiredFieldsForTransition(t)
 }
 
 func newDoCmd(opts *root.Options) *cobra.Command {
@@ -138,8 +126,6 @@ Some transitions require additional fields to be set. Use --field to provide the
 }
 
 func runDo(ctx context.Context, opts *root.Options, issueKey, transitionNameOrID string, fieldArgs []string) error {
-	v := opts.View()
-
 	client, err := opts.APIClient()
 	if err != nil {
 		return err
@@ -170,10 +156,18 @@ func runDo(ctx context.Context, opts *root.Options, issueKey, transitionNameOrID
 	}
 
 	if transitionID == "" {
-		v.Error("Transition '%s' not found", transitionNameOrID)
-		v.Info("Available transitions:")
+		errModel := jtkpresent.MutationPresenter{}.Error("Transition '%s' not found", transitionNameOrID)
+		errOut := present.Render(errModel, opts.RenderStyle())
+		_, _ = fmt.Fprint(opts.Stderr, errOut.Stderr)
+
+		infoModel := jtkpresent.MutationPresenter{}.Info("Available transitions:")
+		infoOut := present.Render(infoModel, opts.RenderStyle())
+		_, _ = fmt.Fprint(opts.Stdout, infoOut.Stdout)
+
 		for _, t := range transitions {
-			v.Info("  %s: %s -> %s", t.ID, t.Name, t.To.Name)
+			lineModel := jtkpresent.MutationPresenter{}.Info("  %s: %s -> %s", t.ID, t.Name, t.To.Name)
+			lineOut := present.Render(lineModel, opts.RenderStyle())
+			_, _ = fmt.Fprint(opts.Stdout, lineOut.Stdout)
 		}
 		return fmt.Errorf("transition not found: %s", transitionNameOrID)
 	}
@@ -219,6 +213,9 @@ func runDo(ctx context.Context, opts *root.Options, issueKey, transitionNameOrID
 		return err
 	}
 
-	v.Success("Transitioned %s", issueKey)
+	model := jtkpresent.MutationPresenter{}.Success("Transitioned %s", issueKey)
+	out := present.Render(model, opts.RenderStyle())
+	fmt.Fprint(opts.Stdout, out.Stdout)
+	fmt.Fprint(opts.Stderr, out.Stderr)
 	return nil
 }

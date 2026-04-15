@@ -87,3 +87,68 @@ func (FieldPresenter) PresentFieldOptions(options []FieldOption) *present.Output
 		},
 	}
 }
+
+// FieldContext represents a field context.
+type FieldContext struct {
+	ID               string
+	Name             string
+	IsGlobalContext  bool
+	IsAnyIssueType   bool
+}
+
+// PresentContexts creates a table view for field contexts.
+func (FieldPresenter) PresentContexts(contexts []FieldContext) *present.OutputModel {
+	rows := make([]present.Row, len(contexts))
+	for i, ctx := range contexts {
+		global := "no"
+		if ctx.IsGlobalContext {
+			global = "yes"
+		}
+		anyIssueType := "no"
+		if ctx.IsAnyIssueType {
+			anyIssueType = "yes"
+		}
+		rows[i] = present.Row{
+			Cells: []string{ctx.ID, ctx.Name, global, anyIssueType},
+		}
+	}
+
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.TableSection{
+				Headers: []string{"ID", "NAME", "GLOBAL", "ANY_ISSUE_TYPE"},
+				Rows:    rows,
+			},
+		},
+	}
+}
+
+// FieldContextOption represents a field context option.
+type FieldContextOption struct {
+	ID       string
+	Value    string
+	Disabled bool
+}
+
+// PresentContextOptions creates a table view for field context options.
+func (FieldPresenter) PresentContextOptions(options []FieldContextOption) *present.OutputModel {
+	rows := make([]present.Row, len(options))
+	for i, opt := range options {
+		disabled := "no"
+		if opt.Disabled {
+			disabled = "yes"
+		}
+		rows[i] = present.Row{
+			Cells: []string{opt.ID, opt.Value, disabled},
+		}
+	}
+
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.TableSection{
+				Headers: []string{"ID", "VALUE", "DISABLED"},
+				Rows:    rows,
+			},
+		},
+	}
+}

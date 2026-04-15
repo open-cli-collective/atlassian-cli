@@ -108,7 +108,7 @@ func runList(ctx context.Context, opts *root.Options, project, sprint string, ma
 	}
 
 	if len(result.Issues) == 0 {
-		model := jtkpresent.MutationPresenter{}.Info("No issues found")
+		model := jtkpresent.IssuePresenter{}.PresentEmpty()
 		out := present.Render(model, opts.RenderStyle())
 		_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
 		return nil
@@ -129,7 +129,7 @@ func runList(ctx context.Context, opts *root.Options, project, sprint string, ma
 
 	// Print pagination footer on stderr when there are more results
 	if !result.Pagination.IsLast {
-		advisory := jtkpresent.MutationPresenter{}.Advisory("More results available (use --next-page-token to fetch next page)")
+		advisory := jtkpresent.IssuePresenter{}.PresentPaginationHint()
 		advOut := present.Render(advisory, opts.RenderStyle())
 		_, _ = fmt.Fprint(opts.Stderr, advOut.Stderr)
 	}

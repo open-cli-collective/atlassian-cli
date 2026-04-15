@@ -68,6 +68,33 @@ func (AutomationPresenter) PresentDetail(rule *api.AutomationRule, showComponent
 	return &present.OutputModel{Sections: sections}
 }
 
+// PresentStateChanged creates a success message for a state transition.
+func (AutomationPresenter) PresentStateChanged(name, fromState, toState string) *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageSuccess,
+				Message: fmt.Sprintf("Rule %q: %s → %s", name, fromState, toState),
+				Stream:  present.StreamStdout,
+			},
+		},
+	}
+}
+
+// PresentNoChange creates an advisory message when rule is already in desired state.
+// Routes to stderr because no mutation occurred.
+func (AutomationPresenter) PresentNoChange(name, state string) *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageInfo,
+				Message: fmt.Sprintf("Rule %q is already %s", name, state),
+				Stream:  present.StreamStderr,
+			},
+		},
+	}
+}
+
 // PresentList creates a table view of automation rules.
 func (AutomationPresenter) PresentList(rules []api.AutomationRuleSummary) *present.OutputModel {
 	rows := make([]present.Row, len(rules))

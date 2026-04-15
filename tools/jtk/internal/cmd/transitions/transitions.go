@@ -67,7 +67,7 @@ func runList(ctx context.Context, opts *root.Options, issueKey string, showField
 	}
 
 	if len(transitions) == 0 {
-		model := jtkpresent.MutationPresenter{}.Info("No transitions available for %s", issueKey)
+		model := jtkpresent.TransitionPresenter{}.PresentEmpty(issueKey)
 		out := present.Render(model, opts.RenderStyle())
 		fmt.Fprint(opts.Stdout, out.Stdout)
 		fmt.Fprint(opts.Stderr, out.Stderr)
@@ -156,19 +156,10 @@ func runDo(ctx context.Context, opts *root.Options, issueKey, transitionNameOrID
 	}
 
 	if transitionID == "" {
-		errModel := jtkpresent.MutationPresenter{}.Error("Transition '%s' not found", transitionNameOrID)
-		errOut := present.Render(errModel, opts.RenderStyle())
-		_, _ = fmt.Fprint(opts.Stderr, errOut.Stderr)
-
-		infoModel := jtkpresent.MutationPresenter{}.Info("Available transitions:")
-		infoOut := present.Render(infoModel, opts.RenderStyle())
-		_, _ = fmt.Fprint(opts.Stdout, infoOut.Stdout)
-
-		for _, t := range transitions {
-			lineModel := jtkpresent.MutationPresenter{}.Info("  %s: %s -> %s", t.ID, t.Name, t.To.Name)
-			lineOut := present.Render(lineModel, opts.RenderStyle())
-			_, _ = fmt.Fprint(opts.Stdout, lineOut.Stdout)
-		}
+		model := jtkpresent.TransitionPresenter{}.PresentNotFound(transitionNameOrID, transitions)
+		out := present.Render(model, opts.RenderStyle())
+		_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
+		_, _ = fmt.Fprint(opts.Stderr, out.Stderr)
 		return fmt.Errorf("transition not found: %s", transitionNameOrID)
 	}
 
@@ -213,7 +204,7 @@ func runDo(ctx context.Context, opts *root.Options, issueKey, transitionNameOrID
 		return err
 	}
 
-	model := jtkpresent.MutationPresenter{}.Success("Transitioned %s", issueKey)
+	model := jtkpresent.TransitionPresenter{}.PresentTransitioned(issueKey)
 	out := present.Render(model, opts.RenderStyle())
 	fmt.Fprint(opts.Stdout, out.Stdout)
 	fmt.Fprint(opts.Stderr, out.Stderr)

@@ -136,7 +136,7 @@ func runCreate(ctx context.Context, opts *root.Options, project, issueType, summ
 	}
 
 	// Success message includes the URL for convenience
-	model := jtkpresent.MutationPresenter{}.Success("Created issue %s (%s)", issue.Key, client.IssueURL(issue.Key))
+	model := jtkpresent.IssuePresenter{}.PresentCreated(issue.Key, client.IssueURL(issue.Key))
 	out := present.Render(model, opts.RenderStyle())
 	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
 	_, _ = fmt.Fprint(opts.Stderr, out.Stderr)

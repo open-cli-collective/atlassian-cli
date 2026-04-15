@@ -2,6 +2,7 @@
 package present
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/open-cli-collective/atlassian-go/present"
@@ -75,4 +76,57 @@ func GetRequiredFieldsForTransition(t api.Transition) string {
 // getRequiredFields returns a comma-separated list of required field names (internal use)
 func getRequiredFields(t api.Transition) string {
 	return GetRequiredFieldsForTransition(t)
+}
+
+// PresentTransitioned creates a success message for a completed transition.
+func (TransitionPresenter) PresentTransitioned(issueKey string) *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageSuccess,
+				Message: fmt.Sprintf("Transitioned %s", issueKey),
+				Stream:  present.StreamStdout,
+			},
+		},
+	}
+}
+
+// PresentEmpty creates an info message when no transitions are available.
+func (TransitionPresenter) PresentEmpty(issueKey string) *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageInfo,
+				Message: fmt.Sprintf("No transitions available for %s", issueKey),
+				Stream:  present.StreamStdout,
+			},
+		},
+	}
+}
+
+// PresentNotFound creates an error with available transitions as context.
+// Both the error and the available options route to stderr.
+func (TransitionPresenter) PresentNotFound(name string, available []api.Transition) *present.OutputModel {
+	sections := []present.Section{
+		&present.MessageSection{
+			Kind:    present.MessageError,
+			Message: fmt.Sprintf("Transition '%s' not found", name),
+			Stream:  present.StreamStderr,
+		},
+		&present.MessageSection{
+			Kind:    present.MessageInfo,
+			Message: "Available transitions:",
+			Stream:  present.StreamStderr,
+		},
+	}
+
+	for _, t := range available {
+		sections = append(sections, &present.MessageSection{
+			Kind:    present.MessageInfo,
+			Message: fmt.Sprintf("  %s: %s -> %s", t.ID, t.Name, t.To.Name),
+			Stream:  present.StreamStderr,
+		})
+	}
+
+	return &present.OutputModel{Sections: sections}
 }

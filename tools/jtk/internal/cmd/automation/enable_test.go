@@ -56,7 +56,8 @@ func TestRunSetState_AlreadyEnabled(t *testing.T) {
 
 	err = runSetState(context.Background(), opts, "42", true)
 	testutil.RequireNoError(t, err)
-	testutil.Contains(t, stdout.String(), "already ENABLED")
+	// No-change messages route to stderr (no mutation occurred)
+	testutil.Contains(t, stderr.String(), "already ENABLED")
 }
 
 func TestRunSetState_AlreadyDisabled(t *testing.T) {
@@ -87,7 +88,8 @@ func TestRunSetState_AlreadyDisabled(t *testing.T) {
 
 	err = runSetState(context.Background(), opts, "42", false)
 	testutil.RequireNoError(t, err)
-	testutil.Contains(t, stdout.String(), "already DISABLED")
+	// No-change messages route to stderr (no mutation occurred)
+	testutil.Contains(t, stderr.String(), "already DISABLED")
 }
 
 func TestRunSetState_EnableDisabledRule(t *testing.T) {

@@ -45,9 +45,10 @@ func runSetState(ctx context.Context, opts *root.Options, ruleID string, enabled
 	}
 
 	if current.State == newState {
-		model := jtkpresent.MutationPresenter{}.Info("Rule %q is already %s", current.Name, newState)
+		model := jtkpresent.AutomationPresenter{}.PresentNoChange(current.Name, newState)
 		out := present.Render(model, opts.RenderStyle())
 		fmt.Fprint(opts.Stdout, out.Stdout)
+		fmt.Fprint(opts.Stderr, out.Stderr)
 		return nil
 	}
 
@@ -55,8 +56,9 @@ func runSetState(ctx context.Context, opts *root.Options, ruleID string, enabled
 		return err
 	}
 
-	model := jtkpresent.MutationPresenter{}.Success("Rule %q: %s → %s", current.Name, current.State, newState)
+	model := jtkpresent.AutomationPresenter{}.PresentStateChanged(current.Name, current.State, newState)
 	out := present.Render(model, opts.RenderStyle())
 	fmt.Fprint(opts.Stdout, out.Stdout)
+	fmt.Fprint(opts.Stderr, out.Stderr)
 	return nil
 }

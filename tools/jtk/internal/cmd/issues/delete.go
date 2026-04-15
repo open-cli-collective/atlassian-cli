@@ -47,7 +47,7 @@ func runDelete(ctx context.Context, opts *root.Options, issueKey string, force b
 			return fmt.Errorf("reading confirmation: %w", err)
 		}
 		if !confirmed {
-			model := jtkpresent.MutationPresenter{}.Info("Deletion cancelled.")
+			model := jtkpresent.IssuePresenter{}.PresentDeleteCancelled()
 			out := present.Render(model, opts.RenderStyle())
 			_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
 			return nil
@@ -63,7 +63,7 @@ func runDelete(ctx context.Context, opts *root.Options, issueKey string, force b
 		return err
 	}
 
-	model := jtkpresent.MutationPresenter{}.Success("Deleted issue %s", issueKey)
+	model := jtkpresent.IssuePresenter{}.PresentDeleted(issueKey)
 	out := present.Render(model, opts.RenderStyle())
 	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
 	_, _ = fmt.Fprint(opts.Stderr, out.Stderr)

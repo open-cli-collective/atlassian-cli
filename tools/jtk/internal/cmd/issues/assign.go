@@ -54,18 +54,16 @@ func runAssign(ctx context.Context, opts *root.Options, issueKey, accountID stri
 		return err
 	}
 
-	var model *present.OutputModel
-	if unassign || accountID == "" {
-		model = jtkpresent.MutationPresenter{}.Success("Unassigned issue %s", issueKey)
-	} else {
-		// Try to get the user's display name for a friendlier message
-		displayName := accountID
+	// Resolve display name for a friendlier message
+	displayName := ""
+	if !unassign && accountID != "" {
+		displayName = accountID
 		if user, err := client.GetUser(ctx, accountID); err == nil && user.DisplayName != "" {
 			displayName = user.DisplayName
 		}
-		model = jtkpresent.MutationPresenter{}.Success("Assigned issue %s to %s", issueKey, displayName)
 	}
 
+	model := jtkpresent.IssuePresenter{}.PresentAssigned(issueKey, displayName)
 	out := present.Render(model, opts.RenderStyle())
 	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
 	_, _ = fmt.Fprint(opts.Stderr, out.Stderr)

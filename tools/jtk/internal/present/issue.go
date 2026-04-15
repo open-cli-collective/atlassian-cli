@@ -178,3 +178,174 @@ func (IssuePresenter) PresentMoveStatus(status *api.MoveTaskStatus) *present.Out
 
 	return &present.OutputModel{Sections: sections}
 }
+
+// --- Mutation result methods ---
+
+// PresentCreated creates a success message for issue creation.
+func (IssuePresenter) PresentCreated(key, url string) *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageSuccess,
+				Message: fmt.Sprintf("Created issue %s (%s)", key, url),
+				Stream:  present.StreamStdout,
+			},
+		},
+	}
+}
+
+// PresentUpdated creates a success message for issue update.
+func (IssuePresenter) PresentUpdated(key string) *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageSuccess,
+				Message: fmt.Sprintf("Updated issue %s", key),
+				Stream:  present.StreamStdout,
+			},
+		},
+	}
+}
+
+// PresentDeleted creates a success message for issue deletion.
+func (IssuePresenter) PresentDeleted(key string) *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageSuccess,
+				Message: fmt.Sprintf("Deleted issue %s", key),
+				Stream:  present.StreamStdout,
+			},
+		},
+	}
+}
+
+// PresentAssigned creates a success message for assignment.
+// If assignee is empty, presents as unassignment.
+func (IssuePresenter) PresentAssigned(key, assignee string) *present.OutputModel {
+	msg := fmt.Sprintf("Unassigned issue %s", key)
+	if assignee != "" {
+		msg = fmt.Sprintf("Assigned issue %s to %s", key, assignee)
+	}
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageSuccess,
+				Message: msg,
+				Stream:  present.StreamStdout,
+			},
+		},
+	}
+}
+
+// PresentTypeChanged creates a success message for type change.
+func (IssuePresenter) PresentTypeChanged(key, newType string) *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageSuccess,
+				Message: fmt.Sprintf("Changed %s type to %s", key, newType),
+				Stream:  present.StreamStdout,
+			},
+		},
+	}
+}
+
+// --- No-change/idempotent methods (route to stderr) ---
+
+// PresentTypeAlreadyCurrent creates an advisory when type is already current.
+func (IssuePresenter) PresentTypeAlreadyCurrent(key, typeName string) *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageInfo,
+				Message: fmt.Sprintf("Issue %s is already type %s", key, typeName),
+				Stream:  present.StreamStderr,
+			},
+		},
+	}
+}
+
+// --- Empty state methods ---
+
+// PresentEmpty creates an info message for empty issue list.
+func (IssuePresenter) PresentEmpty() *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageInfo,
+				Message: "No issues found",
+				Stream:  present.StreamStdout,
+			},
+		},
+	}
+}
+
+// PresentNoEditableFields creates an info message for no editable fields.
+func (IssuePresenter) PresentNoEditableFields(key string) *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageInfo,
+				Message: fmt.Sprintf("No editable fields found for %s", key),
+				Stream:  present.StreamStdout,
+			},
+		},
+	}
+}
+
+// PresentNoTypes creates an info message for no issue types found.
+func (IssuePresenter) PresentNoTypes(project string) *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageInfo,
+				Message: fmt.Sprintf("No issue types found for project %s", project),
+				Stream:  present.StreamStdout,
+			},
+		},
+	}
+}
+
+// --- Cancellation methods ---
+
+// PresentDeleteCancelled creates an info message for cancelled deletion.
+func (IssuePresenter) PresentDeleteCancelled() *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageInfo,
+				Message: "Deletion cancelled.",
+				Stream:  present.StreamStdout,
+			},
+		},
+	}
+}
+
+// --- Advisory methods (route to stderr) ---
+
+// PresentPaginationHint creates an advisory about more results.
+func (IssuePresenter) PresentPaginationHint() *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageInfo,
+				Message: "More results available (use --next-page-token to fetch next page)",
+				Stream:  present.StreamStderr,
+			},
+		},
+	}
+}
+
+// PresentTypeChangeProgress creates an advisory about type change in progress.
+func (IssuePresenter) PresentTypeChangeProgress(key, typeName string) *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageInfo,
+				Message: fmt.Sprintf("Changing %s type to %s...", key, typeName),
+				Stream:  present.StreamStderr,
+			},
+		},
+	}
+}

@@ -161,7 +161,7 @@ func runUpdate(ctx context.Context, opts *root.Options, issueKey, summary, descr
 		return err
 	}
 
-	model := jtkpresent.MutationPresenter{}.Success("Updated issue %s", issueKey)
+	model := jtkpresent.IssuePresenter{}.PresentUpdated(issueKey)
 	out := present.Render(model, opts.RenderStyle())
 	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
 	_, _ = fmt.Fprint(opts.Stderr, out.Stderr)
@@ -182,9 +182,10 @@ func changeIssueType(ctx context.Context, client *api.Client, opts *root.Options
 
 	// Check if the type is already correct
 	if issue.Fields.IssueType != nil && strings.EqualFold(issue.Fields.IssueType.Name, targetTypeName) {
-		model := jtkpresent.MutationPresenter{}.Info("Issue %s is already type %s", issueKey, targetTypeName)
+		model := jtkpresent.IssuePresenter{}.PresentTypeAlreadyCurrent(issueKey, targetTypeName)
 		out := present.Render(model, opts.RenderStyle())
 		_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
+		_, _ = fmt.Fprint(opts.Stderr, out.Stderr)
 		return nil
 	}
 
@@ -213,7 +214,7 @@ func changeIssueType(ctx context.Context, client *api.Client, opts *root.Options
 	}
 
 	// Progress message to stderr (advisory)
-	advisory := jtkpresent.MutationPresenter{}.Advisory("Changing %s type to %s...", issueKey, targetIssueType.Name)
+	advisory := jtkpresent.IssuePresenter{}.PresentTypeChangeProgress(issueKey, targetIssueType.Name)
 	advOut := present.Render(advisory, opts.RenderStyle())
 	_, _ = fmt.Fprint(opts.Stderr, advOut.Stderr)
 
@@ -242,7 +243,7 @@ func changeIssueType(ctx context.Context, client *api.Client, opts *root.Options
 					return fmt.Errorf("type change failed for %s: %s", failed.IssueKey, strings.Join(failed.Errors, ", "))
 				}
 			}
-			model := jtkpresent.MutationPresenter{}.Success("Changed %s type to %s", issueKey, targetIssueType.Name)
+			model := jtkpresent.IssuePresenter{}.PresentTypeChanged(issueKey, targetIssueType.Name)
 			out := present.Render(model, opts.RenderStyle())
 			_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
 			return nil

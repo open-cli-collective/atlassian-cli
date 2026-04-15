@@ -65,7 +65,7 @@ func runFields(ctx context.Context, opts *root.Options, issueKey string, customO
 		// Extract field information from metadata
 		fieldsData, ok := meta["fields"].(map[string]any)
 		if !ok {
-			model := jtkpresent.MutationPresenter{}.Info("No editable fields found for %s", issueKey)
+			model := jtkpresent.IssuePresenter{}.PresentNoEditableFields(issueKey)
 			out := present.Render(model, opts.RenderStyle())
 			_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
 			return nil

@@ -311,29 +311,40 @@ func (FieldPresenter) PresentOptionDeleted(optionID, fieldID string) *present.Ou
 	}
 }
 
-// --- Generic message methods ---
+// --- Field options with header ---
 
-// PresentInfo creates an informational message that goes to stdout.
-func (FieldPresenter) PresentInfo(format string, args ...any) *present.OutputModel {
+// PresentOptionsNoContext creates a warning about missing issue context.
+func (FieldPresenter) PresentOptionsNoContext() *present.OutputModel {
 	return &present.OutputModel{
 		Sections: []present.Section{
 			&present.MessageSection{
-				Kind:    present.MessageInfo,
-				Message: fmt.Sprintf(format, args...),
-				Stream:  present.StreamStdout,
+				Kind:    present.MessageWarning,
+				Message: "Could not get field options without issue context. Use --issue flag for better results.",
+				Stream:  present.StreamStderr,
 			},
 		},
 	}
 }
 
-// PresentWarning creates a warning message that goes to stderr.
-func (FieldPresenter) PresentWarning(format string, args ...any) *present.OutputModel {
+// PresentFieldOptionsWithHeader creates a header + table for field options.
+func (FieldPresenter) PresentFieldOptionsWithHeader(fieldName string, options []FieldOption) *present.OutputModel {
+	rows := make([]present.Row, len(options))
+	for i, opt := range options {
+		rows[i] = present.Row{
+			Cells: []string{opt.ID, opt.Value},
+		}
+	}
+
 	return &present.OutputModel{
 		Sections: []present.Section{
 			&present.MessageSection{
-				Kind:    present.MessageWarning,
-				Message: fmt.Sprintf(format, args...),
-				Stream:  present.StreamStderr,
+				Kind:    present.MessageInfo,
+				Message: fmt.Sprintf("Allowed values for field '%s':", fieldName),
+				Stream:  present.StreamStdout,
+			},
+			&present.TableSection{
+				Headers: []string{"ID", "VALUE"},
+				Rows:    rows,
 			},
 		},
 	}

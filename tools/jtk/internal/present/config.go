@@ -113,6 +113,29 @@ func (ConfigPresenter) PresentConfigPath(path string) *present.OutputModel {
 	}
 }
 
+// PresentConfigWithPath creates config entries + path info as single output.
+func (ConfigPresenter) PresentConfigWithPath(entries []ConfigEntry, configPath string) *present.OutputModel {
+	rows := make([]present.Row, len(entries))
+	for i, e := range entries {
+		rows[i] = present.Row{
+			Cells: []string{e.Key, e.Value, e.Source},
+		}
+	}
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.TableSection{
+				Headers: []string{"KEY", "VALUE", "SOURCE"},
+				Rows:    rows,
+			},
+			&present.MessageSection{
+				Kind:    present.MessageInfo,
+				Message: fmt.Sprintf("\nConfig file: %s", configPath),
+				Stream:  present.StreamStdout,
+			},
+		},
+	}
+}
+
 // PresentCleared creates a success message for config file removal.
 func (ConfigPresenter) PresentCleared(path string) *present.OutputModel {
 	return &present.OutputModel{

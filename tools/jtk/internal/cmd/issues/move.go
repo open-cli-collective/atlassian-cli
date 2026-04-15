@@ -125,29 +125,23 @@ func runMove(ctx context.Context, opts *root.Options, issueKeys []string, target
 	}
 
 	if targetIssueType == nil {
-		// Error message to stderr
-		errModel := ip.PresentError("Issue type not found in target project")
-		errOut := present.Render(errModel, opts.RenderStyle())
-		_, _ = fmt.Fprint(opts.Stderr, errOut.Stderr)
-
-		// Available types info to stderr
-		infoModel := ip.PresentAdvisory("Available types in %s:", targetProject)
-		infoOut := present.Render(infoModel, opts.RenderStyle())
-		_, _ = fmt.Fprint(opts.Stderr, infoOut.Stderr)
+		var availableTypes []string
 		for _, t := range issueTypes {
 			if !t.Subtask {
-				typeModel := ip.PresentAdvisory("  - %s", t.Name)
-				typeOut := present.Render(typeModel, opts.RenderStyle())
-				_, _ = fmt.Fprint(opts.Stderr, typeOut.Stderr)
+				availableTypes = append(availableTypes, t.Name)
 			}
 		}
+		model := ip.PresentTypeNotFound(targetType, targetProject, availableTypes)
+		out := present.Render(model, opts.RenderStyle())
+		_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
+		_, _ = fmt.Fprint(opts.Stderr, out.Stderr)
 		return fmt.Errorf("issue type not found: %s", targetType)
 	}
 
 	// Progress message to stderr
-	advisory := ip.PresentAdvisory("Moving %d issue(s) to %s (%s)...", len(issueKeys), targetProject, targetIssueType.Name)
-	advOut := present.Render(advisory, opts.RenderStyle())
-	_, _ = fmt.Fprint(opts.Stderr, advOut.Stderr)
+	progressModel := ip.PresentMoveProgress(len(issueKeys), targetProject, targetIssueType.Name)
+	progressOut := present.Render(progressModel, opts.RenderStyle())
+	_, _ = fmt.Fprint(opts.Stderr, progressOut.Stderr)
 
 	// Build and execute the move request
 	req := api.BuildMoveRequest(issueKeys, targetProject, targetIssueType.ID, notify)
@@ -162,17 +156,15 @@ func runMove(ctx context.Context, opts *root.Options, issueKeys []string, target
 	}
 
 	if !wait {
-		model := ip.PresentSuccess("Move initiated (Task ID: %s)", resp.TaskID)
+		model := ip.PresentMoveInitiated(resp.TaskID)
 		out := present.Render(model, opts.RenderStyle())
 		_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
-		infoModel := ip.PresentInfo("Check status with: jtk issues move-status %s", resp.TaskID)
-		infoOut := present.Render(infoModel, opts.RenderStyle())
-		_, _ = fmt.Fprint(opts.Stdout, infoOut.Stdout)
+		_, _ = fmt.Fprint(opts.Stderr, out.Stderr)
 		return nil
 	}
 
 	// Wait for completion - progress to stderr
-	waitModel := ip.PresentAdvisory("Waiting for move to complete...")
+	waitModel := ip.PresentMoveWaiting()
 	waitOut := present.Render(waitModel, opts.RenderStyle())
 	_, _ = fmt.Fprint(opts.Stderr, waitOut.Stderr)
 
@@ -185,22 +177,17 @@ func runMove(ctx context.Context, opts *root.Options, issueKeys []string, target
 		switch status.Status {
 		case "COMPLETE":
 			if status.Result != nil && len(status.Result.Failed) > 0 {
-				warnModel := ip.PresentWarning("Move completed with errors")
-				warnOut := present.Render(warnModel, opts.RenderStyle())
-				_, _ = fmt.Fprint(opts.Stderr, warnOut.Stderr)
-				for _, failed := range status.Result.Failed {
-					errModel := ip.PresentError("  %s: %s", failed.IssueKey, strings.Join(failed.Errors, ", "))
-					errOut := present.Render(errModel, opts.RenderStyle())
-					_, _ = fmt.Fprint(opts.Stderr, errOut.Stderr)
+				failed := make([]jtkpresent.MoveFailedIssue, len(status.Result.Failed))
+				for i, f := range status.Result.Failed {
+					failed[i] = jtkpresent.MoveFailedIssue{Key: f.IssueKey, Errors: f.Errors}
 				}
-				if len(status.Result.Successful) > 0 {
-					successModel := ip.PresentSuccess("Successfully moved: %s", strings.Join(status.Result.Successful, ", "))
-					successOut := present.Render(successModel, opts.RenderStyle())
-					_, _ = fmt.Fprint(opts.Stdout, successOut.Stdout)
-				}
+				model := ip.PresentMovePartialFailure(status.Result.Successful, failed)
+				out := present.Render(model, opts.RenderStyle())
+				_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
+				_, _ = fmt.Fprint(opts.Stderr, out.Stderr)
 				return fmt.Errorf("some issues failed to move")
 			}
-			model := ip.PresentSuccess("Moved %d issue(s) to %s", len(issueKeys), targetProject)
+			model := ip.PresentMoved(len(issueKeys), targetProject)
 			out := present.Render(model, opts.RenderStyle())
 			_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
 			return nil

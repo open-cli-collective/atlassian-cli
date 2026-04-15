@@ -350,69 +350,172 @@ func (IssuePresenter) PresentTypeChangeProgress(key, typeName string) *present.O
 	}
 }
 
-// --- Generic message methods (for backwards compatibility with MutationPresenter) ---
+// --- Move operations ---
 
-// PresentSuccess creates a success message that goes to stdout (it IS the result).
-func (IssuePresenter) PresentSuccess(format string, args ...any) *present.OutputModel {
+// MoveFailedIssue represents a failed issue in a move operation.
+type MoveFailedIssue struct {
+	Key    string
+	Errors []string
+}
+
+// PresentTypeNotFound creates a multi-section error for type not found with available types.
+func (IssuePresenter) PresentTypeNotFound(targetType, project string, availableTypes []string) *present.OutputModel {
+	sections := []present.Section{
+		&present.MessageSection{
+			Kind:    present.MessageError,
+			Message: "Issue type not found in target project",
+			Stream:  present.StreamStderr,
+		},
+		&present.MessageSection{
+			Kind:    present.MessageInfo,
+			Message: fmt.Sprintf("Available types in %s:", project),
+			Stream:  present.StreamStderr,
+		},
+	}
+
+	for _, t := range availableTypes {
+		sections = append(sections, &present.MessageSection{
+			Kind:    present.MessageInfo,
+			Message: fmt.Sprintf("  - %s", t),
+			Stream:  present.StreamStderr,
+		})
+	}
+
+	return &present.OutputModel{Sections: sections}
+}
+
+// PresentMoveProgress creates an advisory about move in progress.
+func (IssuePresenter) PresentMoveProgress(count int, project, typeName string) *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageInfo,
+				Message: fmt.Sprintf("Moving %d issue(s) to %s (%s)...", count, project, typeName),
+				Stream:  present.StreamStderr,
+			},
+		},
+	}
+}
+
+// PresentMoveInitiated creates success + hint for async move (no-wait mode).
+func (IssuePresenter) PresentMoveInitiated(taskID string) *present.OutputModel {
 	return &present.OutputModel{
 		Sections: []present.Section{
 			&present.MessageSection{
 				Kind:    present.MessageSuccess,
-				Message: fmt.Sprintf(format, args...),
+				Message: fmt.Sprintf("Move initiated (Task ID: %s)", taskID),
+				Stream:  present.StreamStdout,
+			},
+			&present.MessageSection{
+				Kind:    present.MessageInfo,
+				Message: fmt.Sprintf("Check status with: jtk issues move-status %s", taskID),
 				Stream:  present.StreamStdout,
 			},
 		},
 	}
 }
 
-// PresentInfo creates an informational message that goes to stdout.
-func (IssuePresenter) PresentInfo(format string, args ...any) *present.OutputModel {
+// PresentMoveWaiting creates an advisory about waiting for completion.
+func (IssuePresenter) PresentMoveWaiting() *present.OutputModel {
 	return &present.OutputModel{
 		Sections: []present.Section{
 			&present.MessageSection{
 				Kind:    present.MessageInfo,
-				Message: fmt.Sprintf(format, args...),
+				Message: "Waiting for move to complete...",
+				Stream:  present.StreamStderr,
+			},
+		},
+	}
+}
+
+// PresentMovePartialFailure creates warning + errors + successes for partial failure.
+func (IssuePresenter) PresentMovePartialFailure(successful []string, failed []MoveFailedIssue) *present.OutputModel {
+	sections := []present.Section{
+		&present.MessageSection{
+			Kind:    present.MessageWarning,
+			Message: "Move completed with errors",
+			Stream:  present.StreamStderr,
+		},
+	}
+
+	for _, f := range failed {
+		sections = append(sections, &present.MessageSection{
+			Kind:    present.MessageError,
+			Message: fmt.Sprintf("  %s: %s", f.Key, strings.Join(f.Errors, ", ")),
+			Stream:  present.StreamStderr,
+		})
+	}
+
+	if len(successful) > 0 {
+		sections = append(sections, &present.MessageSection{
+			Kind:    present.MessageSuccess,
+			Message: fmt.Sprintf("Successfully moved: %s", strings.Join(successful, ", ")),
+			Stream:  present.StreamStdout,
+		})
+	}
+
+	return &present.OutputModel{Sections: sections}
+}
+
+// PresentMoved creates a success message for completed move.
+func (IssuePresenter) PresentMoved(count int, project string) *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageSuccess,
+				Message: fmt.Sprintf("Moved %d issue(s) to %s", count, project),
 				Stream:  present.StreamStdout,
 			},
 		},
 	}
 }
 
-// PresentAdvisory creates a non-primary message that goes to stderr (pagination, hints).
-func (IssuePresenter) PresentAdvisory(format string, args ...any) *present.OutputModel {
-	return &present.OutputModel{
-		Sections: []present.Section{
-			&present.MessageSection{
-				Kind:    present.MessageInfo,
-				Message: fmt.Sprintf(format, args...),
-				Stream:  present.StreamStderr,
-			},
-		},
-	}
-}
+// --- List with pagination ---
 
-// PresentWarning creates a warning message that goes to stderr.
-func (IssuePresenter) PresentWarning(format string, args ...any) *present.OutputModel {
-	return &present.OutputModel{
-		Sections: []present.Section{
-			&present.MessageSection{
-				Kind:    present.MessageWarning,
-				Message: fmt.Sprintf(format, args...),
-				Stream:  present.StreamStderr,
-			},
-		},
-	}
-}
+// PresentListWithPagination creates a table with optional pagination hint.
+func (p IssuePresenter) PresentListWithPagination(issues []api.Issue, hasMore bool) *present.OutputModel {
+	rows := make([]present.Row, len(issues))
+	for i, issue := range issues {
+		status := ""
+		if issue.Fields.Status != nil {
+			status = issue.Fields.Status.Name
+		}
 
-// PresentError creates an error message that goes to stderr.
-func (IssuePresenter) PresentError(format string, args ...any) *present.OutputModel {
-	return &present.OutputModel{
-		Sections: []present.Section{
-			&present.MessageSection{
-				Kind:    present.MessageError,
-				Message: fmt.Sprintf(format, args...),
-				Stream:  present.StreamStderr,
+		assignee := ""
+		if issue.Fields.Assignee != nil {
+			assignee = issue.Fields.Assignee.DisplayName
+		}
+
+		issueType := ""
+		if issue.Fields.IssueType != nil {
+			issueType = issue.Fields.IssueType.Name
+		}
+
+		rows[i] = present.Row{
+			Cells: []string{
+				issue.Key,
+				TruncateText(issue.Fields.Summary, 50),
+				OrDash(status),
+				FormatAssignee(assignee),
+				OrDash(issueType),
 			},
+		}
+	}
+
+	sections := []present.Section{
+		&present.TableSection{
+			Headers: []string{"KEY", "SUMMARY", "STATUS", "ASSIGNEE", "TYPE"},
+			Rows:    rows,
 		},
 	}
+
+	if hasMore {
+		sections = append(sections, &present.MessageSection{
+			Kind:    present.MessageInfo,
+			Message: "More results available (use --next-page-token to fetch next page)",
+			Stream:  present.StreamStderr,
+		})
+	}
+
+	return &present.OutputModel{Sections: sections}
 }

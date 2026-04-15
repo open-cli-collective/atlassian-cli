@@ -82,15 +82,10 @@ func newShowCmd(opts *root.Options) *cobra.Command {
 				{"cloud_id", cloudID, cloudIDSource},
 			}
 
-			model := jtkpresent.ConfigPresenter{}.PresentConfig(entries)
+			model := jtkpresent.ConfigPresenter{}.PresentConfigWithPath(entries, config.Path())
 			out := present.Render(model, opts.RenderStyle())
 			fmt.Fprint(opts.Stdout, out.Stdout)
 			fmt.Fprint(opts.Stderr, out.Stderr)
-
-			infoModel := jtkpresent.ConfigPresenter{}.PresentConfigPath(config.Path())
-			infoOut := present.Render(infoModel, opts.RenderStyle())
-			fmt.Fprint(opts.Stdout, infoOut.Stdout)
-			fmt.Fprint(opts.Stderr, infoOut.Stderr)
 			return nil
 		},
 	}

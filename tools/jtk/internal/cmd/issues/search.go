@@ -93,17 +93,11 @@ func runSearch(ctx context.Context, opts *root.Options, jql string, maxResults i
 	}
 
 	// Text path: presenter → render → write
-	model := jtkpresent.IssuePresenter{}.PresentList(result.Issues)
+	hasMore := !result.Pagination.IsLast
+	model := jtkpresent.IssuePresenter{}.PresentListWithPagination(result.Issues, hasMore)
 	out := present.Render(model, opts.RenderStyle())
 	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
 	_, _ = fmt.Fprint(opts.Stderr, out.Stderr)
-
-	// Print pagination footer on stderr when there are more results
-	if !result.Pagination.IsLast {
-		advisory := jtkpresent.IssuePresenter{}.PresentPaginationHint()
-		advOut := present.Render(advisory, opts.RenderStyle())
-		_, _ = fmt.Fprint(opts.Stderr, advOut.Stderr)
-	}
 
 	return nil
 }

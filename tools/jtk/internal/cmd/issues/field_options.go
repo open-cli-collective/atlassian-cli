@@ -80,7 +80,7 @@ func runFieldOptions(ctx context.Context, opts *root.Options, fieldNameOrID, iss
 		// Try to get options without issue context
 		options, err = client.GetFieldOptions(ctx, fieldID)
 		if err != nil {
-			warnModel := fp.PresentWarning("Could not get field options without issue context. Use --issue flag for better results.")
+			warnModel := fp.PresentOptionsNoContext()
 			warnOut := present.Render(warnModel, opts.RenderStyle())
 			_, _ = fmt.Fprint(opts.Stderr, warnOut.Stderr)
 			return fmt.Errorf("getting options for field %s: %w", fieldName, err)
@@ -98,11 +98,6 @@ func runFieldOptions(ctx context.Context, opts *root.Options, fieldNameOrID, iss
 		return v.JSON(options)
 	}
 
-	// Display header info to stdout
-	headerModel := fp.PresentInfo("Allowed values for field '%s':", fieldName)
-	headerOut := present.Render(headerModel, opts.RenderStyle())
-	_, _ = fmt.Fprint(opts.Stdout, headerOut.Stdout)
-
 	// Build field options list
 	fieldOpts := make([]jtkpresent.FieldOption, len(options))
 	for i, opt := range options {
@@ -119,7 +114,7 @@ func runFieldOptions(ctx context.Context, opts *root.Options, fieldNameOrID, iss
 		}
 	}
 
-	model := jtkpresent.FieldPresenter{}.PresentFieldOptions(fieldOpts)
+	model := fp.PresentFieldOptionsWithHeader(fieldName, fieldOpts)
 	out := present.Render(model, opts.RenderStyle())
 	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
 	_, _ = fmt.Fprint(opts.Stderr, out.Stderr)

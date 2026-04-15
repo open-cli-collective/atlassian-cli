@@ -160,6 +160,24 @@ func (AutomationPresenter) PresentUpdateProgress(name, uuid, state string) *pres
 	}
 }
 
+// PresentUpdateComplete creates progress + success as single output.
+func (AutomationPresenter) PresentUpdateComplete(name, uuid, state, ruleID string) *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageInfo,
+				Message: fmt.Sprintf("Updating rule: %s (UUID: %s, State: %s)", name, uuid, state),
+				Stream:  present.StreamStderr,
+			},
+			&present.MessageSection{
+				Kind:    present.MessageSuccess,
+				Message: fmt.Sprintf("Updated automation rule %s", ruleID),
+				Stream:  present.StreamStdout,
+			},
+		},
+	}
+}
+
 // PresentDeleted creates a success message for rule deletion.
 func (AutomationPresenter) PresentDeleted(name, ruleID string) *present.OutputModel {
 	return &present.OutputModel{

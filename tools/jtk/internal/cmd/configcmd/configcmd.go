@@ -65,6 +65,7 @@ func newShowCmd(opts *root.Options) *cobra.Command {
 					"default_project": defaultProject,
 					"auth_method":     authMethod,
 					"cloud_id":        cloudID,
+					"path":            config.Path(),
 				}
 				return opts.View().JSON(data)
 			}

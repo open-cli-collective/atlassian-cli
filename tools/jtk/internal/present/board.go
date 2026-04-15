@@ -46,3 +46,16 @@ func (BoardPresenter) PresentList(boards []api.Board) *present.OutputModel {
 		},
 	}
 }
+
+// PresentEmpty creates an info message when no boards are found.
+func (BoardPresenter) PresentEmpty() *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageInfo,
+				Message: "No boards found",
+				Stream:  present.StreamStdout,
+			},
+		},
+	}
+}

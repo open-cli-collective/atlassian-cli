@@ -82,7 +82,7 @@ func runList(ctx context.Context, opts *root.Options, project string, maxResults
 	}
 
 	if len(result.Values) == 0 {
-		model := jtkpresent.MutationPresenter{}.Info("No boards found")
+		model := jtkpresent.BoardPresenter{}.PresentEmpty()
 		out := present.Render(model, opts.RenderStyle())
 		_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
 		return nil

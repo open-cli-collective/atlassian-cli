@@ -80,7 +80,7 @@ func runCreate(ctx context.Context, opts *root.Options, key, name, projectType, 
 		return v.JSON(project)
 	}
 
-	model := jtkpresent.MutationPresenter{}.Success("Created project %s (%s)", project.Key, name)
+	model := jtkpresent.ProjectPresenter{}.PresentCreated(project.Key, name)
 	out := present.Render(model, opts.RenderStyle())
 	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
 	return nil

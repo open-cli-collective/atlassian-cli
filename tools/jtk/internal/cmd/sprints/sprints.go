@@ -89,7 +89,7 @@ func runList(ctx context.Context, opts *root.Options, boardID int, state string,
 	}
 
 	if len(result.Values) == 0 {
-		model := jtkpresent.MutationPresenter{}.Info("No sprints found")
+		model := jtkpresent.SprintPresenter{}.PresentEmpty()
 		out := present.Render(model, opts.RenderStyle())
 		_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
 		return nil
@@ -192,7 +192,7 @@ func runIssues(ctx context.Context, opts *root.Options, sprintID int, maxResults
 	}
 
 	if len(result.Issues) == 0 {
-		model := jtkpresent.MutationPresenter{}.Info("No issues in sprint")
+		model := jtkpresent.SprintPresenter{}.PresentNoIssues()
 		out := present.Render(model, opts.RenderStyle())
 		_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
 		return nil
@@ -252,12 +252,7 @@ func runAdd(ctx context.Context, opts *root.Options, sprintID int, issueKeys []s
 		return err
 	}
 
-	var model *present.OutputModel
-	if len(issueKeys) == 1 {
-		model = jtkpresent.MutationPresenter{}.Success("Moved %s to sprint %d", issueKeys[0], sprintID)
-	} else {
-		model = jtkpresent.MutationPresenter{}.Success("Moved %d issues to sprint %d", len(issueKeys), sprintID)
-	}
+	model := jtkpresent.SprintPresenter{}.PresentMoved(issueKeys, sprintID)
 	out := present.Render(model, opts.RenderStyle())
 	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
 	_, _ = fmt.Fprint(opts.Stderr, out.Stderr)

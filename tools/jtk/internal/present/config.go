@@ -99,3 +99,55 @@ func (ConfigPresenter) PresentConfig(entries []ConfigEntry) *present.OutputModel
 		},
 	}
 }
+
+// PresentConfigPath creates an info message showing the config file path.
+func (ConfigPresenter) PresentConfigPath(path string) *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageInfo,
+				Message: fmt.Sprintf("\nConfig file: %s", path),
+				Stream:  present.StreamStdout,
+			},
+		},
+	}
+}
+
+// PresentCleared creates a success message for config file removal.
+func (ConfigPresenter) PresentCleared(path string) *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageSuccess,
+				Message: fmt.Sprintf("Configuration file removed: %s", path),
+				Stream:  present.StreamStdout,
+			},
+		},
+	}
+}
+
+// PresentNoConfig creates an info message when no config file exists.
+func (ConfigPresenter) PresentNoConfig(path string) *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageInfo,
+				Message: fmt.Sprintf("No configuration file found at %s", path),
+				Stream:  present.StreamStdout,
+			},
+		},
+	}
+}
+
+// PresentClearCancelled creates an info message for cancelled config clear.
+func (ConfigPresenter) PresentClearCancelled() *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageInfo,
+				Message: "Cancelled.",
+				Stream:  present.StreamStdout,
+			},
+		},
+	}
+}

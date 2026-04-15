@@ -87,7 +87,7 @@ func runOptionsList(ctx context.Context, opts *root.Options, fieldID, contextFla
 	}
 
 	if len(result.Values) == 0 {
-		model := jtkpresent.MutationPresenter{}.Info("No options found for field %s", fieldID)
+		model := jtkpresent.FieldPresenter{}.PresentNoOptions(fieldID)
 		out := present.Render(model, opts.RenderStyle())
 		fmt.Fprint(opts.Stdout, out.Stdout)
 		fmt.Fprint(opts.Stderr, out.Stderr)
@@ -172,7 +172,7 @@ func runOptionsAdd(ctx context.Context, opts *root.Options, fieldID, value, cont
 	} else {
 		msg = fmt.Sprintf("Added option %s", value)
 	}
-	model := jtkpresent.MutationPresenter{}.Success("%s", msg)
+	model := jtkpresent.FieldPresenter{}.PresentOptionAdded(msg)
 	out := present.Render(model, opts.RenderStyle())
 	fmt.Fprint(opts.Stdout, out.Stdout)
 	return nil
@@ -229,7 +229,7 @@ func runOptionsUpdate(ctx context.Context, opts *root.Options, fieldID, optionID
 		return v.JSON(options)
 	}
 
-	model := jtkpresent.MutationPresenter{}.Success("Updated option %s", optionID)
+	model := jtkpresent.FieldPresenter{}.PresentOptionUpdated(optionID)
 	out := present.Render(model, opts.RenderStyle())
 	fmt.Fprint(opts.Stdout, out.Stdout)
 	return nil
@@ -273,7 +273,7 @@ func runOptionsDelete(ctx context.Context, opts *root.Options, fieldID, optionID
 			return fmt.Errorf("reading confirmation: %w", err)
 		}
 		if !confirmed {
-			model := jtkpresent.MutationPresenter{}.Info("Deletion cancelled.")
+			model := jtkpresent.FieldPresenter{}.PresentDeleteCancelled()
 			out := present.Render(model, opts.RenderStyle())
 			fmt.Fprint(opts.Stdout, out.Stdout)
 			fmt.Fprint(opts.Stderr, out.Stderr)
@@ -295,7 +295,7 @@ func runOptionsDelete(ctx context.Context, opts *root.Options, fieldID, optionID
 		return err
 	}
 
-	model := jtkpresent.MutationPresenter{}.Success("Deleted option %s from field %s", optionID, fieldID)
+	model := jtkpresent.FieldPresenter{}.PresentOptionDeleted(optionID, fieldID)
 	out := present.Render(model, opts.RenderStyle())
 	fmt.Fprint(opts.Stdout, out.Stdout)
 	return nil

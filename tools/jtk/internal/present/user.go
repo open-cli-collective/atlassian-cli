@@ -2,6 +2,8 @@
 package present
 
 import (
+	"fmt"
+
 	"github.com/open-cli-collective/atlassian-go/present"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
@@ -46,6 +48,19 @@ func (UserPresenter) PresentList(users []api.User) *present.OutputModel {
 			&present.TableSection{
 				Headers: []string{"ACCOUNT ID", "NAME", "EMAIL", "ACTIVE"},
 				Rows:    rows,
+			},
+		},
+	}
+}
+
+// PresentEmpty creates an info message when no users are found.
+func (UserPresenter) PresentEmpty(query string) *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageInfo,
+				Message: fmt.Sprintf("No users found matching '%s'", query),
+				Stream:  present.StreamStdout,
 			},
 		},
 	}

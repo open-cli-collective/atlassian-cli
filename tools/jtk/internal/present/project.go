@@ -90,3 +90,94 @@ func (ProjectPresenter) PresentTypes(types []api.ProjectType) *present.OutputMod
 		},
 	}
 }
+
+// PresentCreated creates a success message for project creation.
+func (ProjectPresenter) PresentCreated(key, name string) *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageSuccess,
+				Message: fmt.Sprintf("Created project %s (%s)", key, name),
+				Stream:  present.StreamStdout,
+			},
+		},
+	}
+}
+
+// PresentUpdated creates a success message for project update.
+func (ProjectPresenter) PresentUpdated(key string) *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageSuccess,
+				Message: fmt.Sprintf("Updated project %s", key),
+				Stream:  present.StreamStdout,
+			},
+		},
+	}
+}
+
+// PresentDeleted creates a success message for project deletion.
+func (ProjectPresenter) PresentDeleted(key string) *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageSuccess,
+				Message: fmt.Sprintf("Deleted project %s (moved to trash)", key),
+				Stream:  present.StreamStdout,
+			},
+		},
+	}
+}
+
+// PresentRestored creates a success message for project restoration.
+func (ProjectPresenter) PresentRestored(key, name string) *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageSuccess,
+				Message: fmt.Sprintf("Restored project %s (%s)", key, name),
+				Stream:  present.StreamStdout,
+			},
+		},
+	}
+}
+
+// PresentEmpty creates an info message when no projects are found.
+func (ProjectPresenter) PresentEmpty() *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageInfo,
+				Message: "No projects found",
+				Stream:  present.StreamStdout,
+			},
+		},
+	}
+}
+
+// PresentNoTypes creates an info message when no project types are found.
+func (ProjectPresenter) PresentNoTypes() *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageInfo,
+				Message: "No project types found",
+				Stream:  present.StreamStdout,
+			},
+		},
+	}
+}
+
+// PresentDeleteCancelled creates an info message for cancelled deletion.
+func (ProjectPresenter) PresentDeleteCancelled() *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageInfo,
+				Message: "Deletion cancelled.",
+				Stream:  present.StreamStdout,
+			},
+		},
+	}
+}

@@ -349,3 +349,70 @@ func (IssuePresenter) PresentTypeChangeProgress(key, typeName string) *present.O
 		},
 	}
 }
+
+// --- Generic message methods (for backwards compatibility with MutationPresenter) ---
+
+// PresentSuccess creates a success message that goes to stdout (it IS the result).
+func (IssuePresenter) PresentSuccess(format string, args ...any) *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageSuccess,
+				Message: fmt.Sprintf(format, args...),
+				Stream:  present.StreamStdout,
+			},
+		},
+	}
+}
+
+// PresentInfo creates an informational message that goes to stdout.
+func (IssuePresenter) PresentInfo(format string, args ...any) *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageInfo,
+				Message: fmt.Sprintf(format, args...),
+				Stream:  present.StreamStdout,
+			},
+		},
+	}
+}
+
+// PresentAdvisory creates a non-primary message that goes to stderr (pagination, hints).
+func (IssuePresenter) PresentAdvisory(format string, args ...any) *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageInfo,
+				Message: fmt.Sprintf(format, args...),
+				Stream:  present.StreamStderr,
+			},
+		},
+	}
+}
+
+// PresentWarning creates a warning message that goes to stderr.
+func (IssuePresenter) PresentWarning(format string, args ...any) *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageWarning,
+				Message: fmt.Sprintf(format, args...),
+				Stream:  present.StreamStderr,
+			},
+		},
+	}
+}
+
+// PresentError creates an error message that goes to stderr.
+func (IssuePresenter) PresentError(format string, args ...any) *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageError,
+				Message: fmt.Sprintf(format, args...),
+				Stream:  present.StreamStderr,
+			},
+		},
+	}
+}

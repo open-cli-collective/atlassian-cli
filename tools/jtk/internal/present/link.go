@@ -2,6 +2,8 @@
 package present
 
 import (
+	"fmt"
+
 	"github.com/open-cli-collective/atlassian-go/present"
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 )
@@ -54,6 +56,58 @@ func (LinkPresenter) PresentTypes(types []api.IssueLinkType) *present.OutputMode
 			&present.TableSection{
 				Headers: []string{"ID", "NAME", "OUTWARD", "INWARD"},
 				Rows:    rows,
+			},
+		},
+	}
+}
+
+// PresentCreated creates a success message for link creation.
+func (LinkPresenter) PresentCreated(linkType, outwardKey, inwardKey string) *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageSuccess,
+				Message: fmt.Sprintf("Created %s link: %s → %s", linkType, outwardKey, inwardKey),
+				Stream:  present.StreamStdout,
+			},
+		},
+	}
+}
+
+// PresentDeleted creates a success message for link deletion.
+func (LinkPresenter) PresentDeleted(linkID string) *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageSuccess,
+				Message: fmt.Sprintf("Deleted link %s", linkID),
+				Stream:  present.StreamStdout,
+			},
+		},
+	}
+}
+
+// PresentEmpty creates an info message when no links are found.
+func (LinkPresenter) PresentEmpty(issueKey string) *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageInfo,
+				Message: fmt.Sprintf("No links on %s", issueKey),
+				Stream:  present.StreamStdout,
+			},
+		},
+	}
+}
+
+// PresentNoTypes creates an info message when no link types are available.
+func (LinkPresenter) PresentNoTypes() *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageInfo,
+				Message: "No link types available",
+				Stream:  present.StreamStdout,
 			},
 		},
 	}

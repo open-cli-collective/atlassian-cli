@@ -1,6 +1,8 @@
 package present
 
 import (
+	"fmt"
+
 	"github.com/open-cli-collective/atlassian-go/present"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
@@ -148,6 +150,190 @@ func (FieldPresenter) PresentContextOptions(options []FieldContextOption) *prese
 			&present.TableSection{
 				Headers: []string{"ID", "VALUE", "DISABLED"},
 				Rows:    rows,
+			},
+		},
+	}
+}
+
+// PresentCreated creates a success message for field creation.
+func (FieldPresenter) PresentCreated(id, name string) *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageSuccess,
+				Message: fmt.Sprintf("Created field %s (%s)", id, name),
+				Stream:  present.StreamStdout,
+			},
+		},
+	}
+}
+
+// PresentTrashed creates a success message for field trashing.
+func (FieldPresenter) PresentTrashed(fieldID string) *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageSuccess,
+				Message: fmt.Sprintf("Trashed field %s", fieldID),
+				Stream:  present.StreamStdout,
+			},
+		},
+	}
+}
+
+// PresentRestored creates a success message for field restoration.
+func (FieldPresenter) PresentRestored(fieldID string) *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageSuccess,
+				Message: fmt.Sprintf("Restored field %s", fieldID),
+				Stream:  present.StreamStdout,
+			},
+		},
+	}
+}
+
+// PresentEmpty creates an info message when no fields are found.
+func (FieldPresenter) PresentEmpty() *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageInfo,
+				Message: "No fields found",
+				Stream:  present.StreamStdout,
+			},
+		},
+	}
+}
+
+// PresentDeleteCancelled creates an info message for cancelled field deletion.
+func (FieldPresenter) PresentDeleteCancelled() *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageInfo,
+				Message: "Deletion cancelled.",
+				Stream:  present.StreamStdout,
+			},
+		},
+	}
+}
+
+// PresentNoContexts creates an info message when no contexts are found.
+func (FieldPresenter) PresentNoContexts(fieldID string) *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageInfo,
+				Message: fmt.Sprintf("No contexts found for field %s", fieldID),
+				Stream:  present.StreamStdout,
+			},
+		},
+	}
+}
+
+// PresentContextCreated creates a success message for context creation.
+func (FieldPresenter) PresentContextCreated(id, name string) *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageSuccess,
+				Message: fmt.Sprintf("Created context %s (%s)", id, name),
+				Stream:  present.StreamStdout,
+			},
+		},
+	}
+}
+
+// PresentContextDeleted creates a success message for context deletion.
+func (FieldPresenter) PresentContextDeleted(contextID, fieldID string) *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageSuccess,
+				Message: fmt.Sprintf("Deleted context %s from field %s", contextID, fieldID),
+				Stream:  present.StreamStdout,
+			},
+		},
+	}
+}
+
+// PresentNoOptions creates an info message when no options are found.
+func (FieldPresenter) PresentNoOptions(fieldID string) *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageInfo,
+				Message: fmt.Sprintf("No options found for field %s", fieldID),
+				Stream:  present.StreamStdout,
+			},
+		},
+	}
+}
+
+// PresentOptionAdded creates a success message for option addition.
+func (FieldPresenter) PresentOptionAdded(msg string) *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageSuccess,
+				Message: msg,
+				Stream:  present.StreamStdout,
+			},
+		},
+	}
+}
+
+// PresentOptionUpdated creates a success message for option update.
+func (FieldPresenter) PresentOptionUpdated(optionID string) *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageSuccess,
+				Message: fmt.Sprintf("Updated option %s", optionID),
+				Stream:  present.StreamStdout,
+			},
+		},
+	}
+}
+
+// PresentOptionDeleted creates a success message for option deletion.
+func (FieldPresenter) PresentOptionDeleted(optionID, fieldID string) *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageSuccess,
+				Message: fmt.Sprintf("Deleted option %s from field %s", optionID, fieldID),
+				Stream:  present.StreamStdout,
+			},
+		},
+	}
+}
+
+// --- Generic message methods ---
+
+// PresentInfo creates an informational message that goes to stdout.
+func (FieldPresenter) PresentInfo(format string, args ...any) *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageInfo,
+				Message: fmt.Sprintf(format, args...),
+				Stream:  present.StreamStdout,
+			},
+		},
+	}
+}
+
+// PresentWarning creates a warning message that goes to stderr.
+func (FieldPresenter) PresentWarning(format string, args ...any) *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageWarning,
+				Message: fmt.Sprintf(format, args...),
+				Stream:  present.StreamStderr,
 			},
 		},
 	}

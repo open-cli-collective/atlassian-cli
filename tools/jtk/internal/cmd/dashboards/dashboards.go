@@ -93,7 +93,7 @@ func runList(ctx context.Context, opts *root.Options, search string, maxResults 
 	}
 
 	if len(dashboards) == 0 {
-		model := jtkpresent.MutationPresenter{}.Info("No dashboards found")
+		model := jtkpresent.DashboardPresenter{}.PresentEmpty()
 		out := present.Render(model, opts.RenderStyle())
 		_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
 		return nil
@@ -207,14 +207,14 @@ func runCreate(opts *root.Options, name, description string) error {
 		return v.JSON(dash)
 	}
 
-	model := jtkpresent.MutationPresenter{}.Success("Created dashboard %s (%s)", dash.Name, dash.ID)
+	var model *present.OutputModel
+	if dash.View != "" {
+		model = jtkpresent.DashboardPresenter{}.PresentCreatedWithURL(dash.Name, dash.ID, dash.View)
+	} else {
+		model = jtkpresent.DashboardPresenter{}.PresentCreated(dash.Name, dash.ID)
+	}
 	out := present.Render(model, opts.RenderStyle())
 	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
-	if dash.View != "" {
-		infoModel := jtkpresent.MutationPresenter{}.Info("URL: %s", dash.View)
-		infoOut := present.Render(infoModel, opts.RenderStyle())
-		_, _ = fmt.Fprint(opts.Stdout, infoOut.Stdout)
-	}
 
 	return nil
 }
@@ -250,7 +250,7 @@ func runDelete(opts *root.Options, dashboardID string) error {
 		return v.JSON(map[string]string{"status": "deleted", "dashboardId": dashboardID})
 	}
 
-	model := jtkpresent.MutationPresenter{}.Success("Deleted dashboard %s", dashboardID)
+	model := jtkpresent.DashboardPresenter{}.PresentDeleted(dashboardID)
 	out := present.Render(model, opts.RenderStyle())
 	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
 	return nil
@@ -299,7 +299,7 @@ func runGadgetsList(ctx context.Context, opts *root.Options, dashboardID string)
 	}
 
 	if len(result.Gadgets) == 0 {
-		model := jtkpresent.MutationPresenter{}.Info("No gadgets on dashboard %s", dashboardID)
+		model := jtkpresent.DashboardPresenter{}.PresentNoGadgets(dashboardID)
 		out := present.Render(model, opts.RenderStyle())
 		_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
 		return nil
@@ -356,7 +356,7 @@ func runGadgetsRemove(opts *root.Options, dashboardID string, gadgetID int) erro
 		})
 	}
 
-	model := jtkpresent.MutationPresenter{}.Success("Removed gadget %d from dashboard %s", gadgetID, dashboardID)
+	model := jtkpresent.DashboardPresenter{}.PresentGadgetRemoved(gadgetID, dashboardID)
 	out := present.Render(model, opts.RenderStyle())
 	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
 	return nil

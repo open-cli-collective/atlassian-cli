@@ -94,8 +94,7 @@ func runCreate(ctx context.Context, opts *root.Options, filePath string) error {
 	}
 	if err := json.Unmarshal(respBody, &created); err != nil {
 		// Even if we can't parse the response, the rule was created.
-		var model *present.OutputModel
-		model = jtkpresent.MutationPresenter{}.Success("Created automation rule (could not parse response for details)")
+		model := jtkpresent.AutomationPresenter{}.PresentCreatedUnparsed()
 		out := present.Render(model, opts.RenderStyle())
 		fmt.Fprint(opts.Stdout, out.Stdout)
 		return nil
@@ -114,9 +113,9 @@ func runCreate(ctx context.Context, opts *root.Options, filePath string) error {
 
 	var model *present.OutputModel
 	if created.Name != "" {
-		model = jtkpresent.MutationPresenter{}.Success("Created automation rule: %s (UUID: %s)", created.Name, identifier)
+		model = jtkpresent.AutomationPresenter{}.PresentCreated(created.Name, identifier)
 	} else {
-		model = jtkpresent.MutationPresenter{}.Success("Created automation rule (UUID: %s)", identifier)
+		model = jtkpresent.AutomationPresenter{}.PresentCreatedMinimal(identifier)
 	}
 	out := present.Render(model, opts.RenderStyle())
 	fmt.Fprint(opts.Stdout, out.Stdout)

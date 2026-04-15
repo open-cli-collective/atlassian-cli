@@ -68,7 +68,7 @@ func runList(ctx context.Context, opts *root.Options, issueKey string) error {
 	}
 
 	if len(attachments) == 0 {
-		model := jtkpresent.MutationPresenter{}.Info("No attachments found on %s", issueKey)
+		model := jtkpresent.AttachmentPresenter{}.PresentEmpty(issueKey)
 		out := present.Render(model, opts.RenderStyle())
 		_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
 		return nil
@@ -147,7 +147,7 @@ func runAdd(ctx context.Context, opts *root.Options, issueKey string, files []st
 		}
 
 		for _, att := range attachments {
-			model := jtkpresent.MutationPresenter{}.Success("Uploaded %s (ID: %s, Size: %s)", att.Filename, att.ID.String(), api.FormatFileSize(att.Size))
+			model := jtkpresent.AttachmentPresenter{}.PresentUploaded(att.Filename, att.ID.String(), api.FormatFileSize(att.Size))
 			out := present.Render(model, opts.RenderStyle())
 			_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
 		}
@@ -206,7 +206,7 @@ func runGet(ctx context.Context, opts *root.Options, attachmentID, outputPath st
 		actualPath = filepath.Join(outputPath, attachment.Filename)
 	}
 
-	model := jtkpresent.MutationPresenter{}.Success("Downloaded %s (%s)", actualPath, api.FormatFileSize(attachment.Size))
+	model := jtkpresent.AttachmentPresenter{}.PresentDownloaded(actualPath, api.FormatFileSize(attachment.Size))
 	out := present.Render(model, opts.RenderStyle())
 	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
 	return nil
@@ -239,7 +239,7 @@ func runDelete(ctx context.Context, opts *root.Options, attachmentID string) err
 		return fmt.Errorf("deleting attachment: %w", err)
 	}
 
-	model := jtkpresent.MutationPresenter{}.Success("Deleted attachment %s", attachmentID)
+	model := jtkpresent.AttachmentPresenter{}.PresentDeleted(attachmentID)
 	out := present.Render(model, opts.RenderStyle())
 	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
 	return nil

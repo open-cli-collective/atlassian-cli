@@ -87,7 +87,7 @@ func newShowCmd(opts *root.Options) *cobra.Command {
 			fmt.Fprint(opts.Stdout, out.Stdout)
 			fmt.Fprint(opts.Stderr, out.Stderr)
 
-			infoModel := jtkpresent.MutationPresenter{}.Info("\nConfig file: %s", config.Path())
+			infoModel := jtkpresent.ConfigPresenter{}.PresentConfigPath(config.Path())
 			infoOut := present.Render(infoModel, opts.RenderStyle())
 			fmt.Fprint(opts.Stdout, infoOut.Stdout)
 			fmt.Fprint(opts.Stderr, infoOut.Stderr)
@@ -135,7 +135,7 @@ func runClear(ctx context.Context, opts *clearOptions) error {
 
 	// Check if config file exists
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		model := jtkpresent.MutationPresenter{}.Info("No configuration file found at %s", configPath)
+		model := jtkpresent.ConfigPresenter{}.PresentNoConfig(configPath)
 		out := present.Render(model, opts.RenderStyle())
 		fmt.Fprint(opts.Stdout, out.Stdout)
 		fmt.Fprint(opts.Stderr, out.Stderr)
@@ -155,7 +155,7 @@ func runClear(ctx context.Context, opts *clearOptions) error {
 
 		response = strings.TrimSpace(strings.ToLower(response))
 		if response != "y" && response != "yes" {
-			cancelModel := jtkpresent.MutationPresenter{}.Info("Cancelled.")
+			cancelModel := jtkpresent.ConfigPresenter{}.PresentClearCancelled()
 			cancelOut := present.Render(cancelModel, opts.RenderStyle())
 			fmt.Fprint(opts.Stdout, cancelOut.Stdout)
 			fmt.Fprint(opts.Stderr, cancelOut.Stderr)
@@ -167,7 +167,7 @@ func runClear(ctx context.Context, opts *clearOptions) error {
 		return err
 	}
 
-	successModel := jtkpresent.MutationPresenter{}.Success("Configuration file removed: %s", configPath)
+	successModel := jtkpresent.ConfigPresenter{}.PresentCleared(configPath)
 	successOut := present.Render(successModel, opts.RenderStyle())
 	fmt.Fprint(opts.Stdout, successOut.Stdout)
 	fmt.Fprint(opts.Stderr, successOut.Stderr)

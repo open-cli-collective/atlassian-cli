@@ -41,7 +41,7 @@ Without --issue, attempts to show all possible values for the field.`,
 
 func runFieldOptions(ctx context.Context, opts *root.Options, fieldNameOrID, issueKey string) error {
 	v := opts.View()
-	mp := jtkpresent.MutationPresenter{}
+	fp := jtkpresent.FieldPresenter{}
 
 	client, err := opts.APIClient()
 	if err != nil {
@@ -80,7 +80,7 @@ func runFieldOptions(ctx context.Context, opts *root.Options, fieldNameOrID, iss
 		// Try to get options without issue context
 		options, err = client.GetFieldOptions(ctx, fieldID)
 		if err != nil {
-			warnModel := mp.Warning("Could not get field options without issue context. Use --issue flag for better results.")
+			warnModel := fp.PresentWarning("Could not get field options without issue context. Use --issue flag for better results.")
 			warnOut := present.Render(warnModel, opts.RenderStyle())
 			_, _ = fmt.Fprint(opts.Stderr, warnOut.Stderr)
 			return fmt.Errorf("getting options for field %s: %w", fieldName, err)
@@ -88,7 +88,7 @@ func runFieldOptions(ctx context.Context, opts *root.Options, fieldNameOrID, iss
 	}
 
 	if len(options) == 0 {
-		model := mp.Info("No options found for field '%s'", fieldName)
+		model := fp.PresentNoOptions(fieldID)
 		out := present.Render(model, opts.RenderStyle())
 		_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
 		return nil
@@ -99,7 +99,7 @@ func runFieldOptions(ctx context.Context, opts *root.Options, fieldNameOrID, iss
 	}
 
 	// Display header info to stdout
-	headerModel := mp.Info("Allowed values for field '%s':", fieldName)
+	headerModel := fp.PresentInfo("Allowed values for field '%s':", fieldName)
 	headerOut := present.Render(headerModel, opts.RenderStyle())
 	_, _ = fmt.Fprint(opts.Stdout, headerOut.Stdout)
 

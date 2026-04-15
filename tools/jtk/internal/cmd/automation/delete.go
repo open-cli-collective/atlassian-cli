@@ -58,7 +58,7 @@ func runDelete(ctx context.Context, opts *root.Options, ruleID string, force boo
 			return fmt.Errorf("reading confirmation: %w", err)
 		}
 		if !confirmed {
-			model := jtkpresent.MutationPresenter{}.Info("Deletion cancelled.")
+			model := jtkpresent.AutomationPresenter{}.PresentDeleteCancelled()
 			out := present.Render(model, opts.RenderStyle())
 			fmt.Fprint(opts.Stdout, out.Stdout)
 			return nil
@@ -85,7 +85,7 @@ func runDelete(ctx context.Context, opts *root.Options, ruleID string, force boo
 		return v.JSON(map[string]string{"status": "deleted", "ruleId": ruleID, "name": current.Name})
 	}
 
-	model := jtkpresent.MutationPresenter{}.Success("Deleted automation rule %q (%s)", current.Name, ruleID)
+	model := jtkpresent.AutomationPresenter{}.PresentDeleted(current.Name, ruleID)
 	out := present.Render(model, opts.RenderStyle())
 	fmt.Fprint(opts.Stdout, out.Stdout)
 	return nil

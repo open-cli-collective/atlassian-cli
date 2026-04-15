@@ -69,7 +69,7 @@ func runList(ctx context.Context, opts *root.Options, issueKey string, maxResult
 	}
 
 	if len(result.Comments) == 0 {
-		model := jtkpresent.MutationPresenter{}.Info("No comments on %s", issueKey)
+		model := jtkpresent.CommentPresenter{}.PresentEmpty(issueKey)
 		out := present.Render(model, opts.RenderStyle())
 		fmt.Fprint(opts.Stdout, out.Stdout)
 		fmt.Fprint(opts.Stderr, out.Stderr)
@@ -140,7 +140,7 @@ func runAdd(ctx context.Context, opts *root.Options, issueKey, body string) erro
 		return v.JSON(comment)
 	}
 
-	model := jtkpresent.MutationPresenter{}.Success("Added comment %s to %s", comment.ID, issueKey)
+	model := jtkpresent.CommentPresenter{}.PresentAdded(comment.ID, issueKey)
 	out := present.Render(model, opts.RenderStyle())
 	fmt.Fprint(opts.Stdout, out.Stdout)
 	fmt.Fprint(opts.Stderr, out.Stderr)
@@ -178,7 +178,7 @@ func runDelete(ctx context.Context, opts *root.Options, issueKey, commentID stri
 		return v.JSON(map[string]string{"status": "deleted", "commentId": commentID})
 	}
 
-	model := jtkpresent.MutationPresenter{}.Success("Deleted comment %s from %s", commentID, issueKey)
+	model := jtkpresent.CommentPresenter{}.PresentDeleted(commentID, issueKey)
 	out := present.Render(model, opts.RenderStyle())
 	fmt.Fprint(opts.Stdout, out.Stdout)
 	fmt.Fprint(opts.Stderr, out.Stderr)

@@ -39,7 +39,7 @@ func runTypes(ctx context.Context, opts *root.Options) error {
 	}
 
 	if len(types) == 0 {
-		model := jtkpresent.MutationPresenter{}.Info("No project types found")
+		model := jtkpresent.ProjectPresenter{}.PresentNoTypes()
 		out := present.Render(model, opts.RenderStyle())
 		_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
 		return nil

@@ -95,6 +95,110 @@ func (AutomationPresenter) PresentNoChange(name, state string) *present.OutputMo
 	}
 }
 
+// PresentCreated creates a success message for rule creation with name.
+func (AutomationPresenter) PresentCreated(name, uuid string) *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageSuccess,
+				Message: fmt.Sprintf("Created automation rule: %s (UUID: %s)", name, uuid),
+				Stream:  present.StreamStdout,
+			},
+		},
+	}
+}
+
+// PresentCreatedMinimal creates a success message for rule creation without name.
+func (AutomationPresenter) PresentCreatedMinimal(uuid string) *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageSuccess,
+				Message: fmt.Sprintf("Created automation rule (UUID: %s)", uuid),
+				Stream:  present.StreamStdout,
+			},
+		},
+	}
+}
+
+// PresentCreatedUnparsed creates a success message when response couldn't be parsed.
+func (AutomationPresenter) PresentCreatedUnparsed() *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageSuccess,
+				Message: "Created automation rule (could not parse response for details)",
+				Stream:  present.StreamStdout,
+			},
+		},
+	}
+}
+
+// PresentUpdated creates a success message for rule update.
+func (AutomationPresenter) PresentUpdated(ruleID string) *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageSuccess,
+				Message: fmt.Sprintf("Updated automation rule %s", ruleID),
+				Stream:  present.StreamStdout,
+			},
+		},
+	}
+}
+
+// PresentUpdateProgress creates an advisory message showing update progress.
+func (AutomationPresenter) PresentUpdateProgress(name, uuid, state string) *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageInfo,
+				Message: fmt.Sprintf("Updating rule: %s (UUID: %s, State: %s)", name, uuid, state),
+				Stream:  present.StreamStderr,
+			},
+		},
+	}
+}
+
+// PresentDeleted creates a success message for rule deletion.
+func (AutomationPresenter) PresentDeleted(name, ruleID string) *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageSuccess,
+				Message: fmt.Sprintf("Deleted automation rule %q (%s)", name, ruleID),
+				Stream:  present.StreamStdout,
+			},
+		},
+	}
+}
+
+// PresentDeleteCancelled creates an info message for cancelled deletion.
+func (AutomationPresenter) PresentDeleteCancelled() *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageInfo,
+				Message: "Deletion cancelled.",
+				Stream:  present.StreamStdout,
+			},
+		},
+	}
+}
+
+// PresentEmpty creates an info message for empty automation list.
+func (AutomationPresenter) PresentEmpty() *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageInfo,
+				Message: "No automation rules found",
+				Stream:  present.StreamStdout,
+			},
+		},
+	}
+}
+
 // PresentList creates a table view of automation rules.
 func (AutomationPresenter) PresentList(rules []api.AutomationRuleSummary) *present.OutputModel {
 	rows := make([]present.Row, len(rules))

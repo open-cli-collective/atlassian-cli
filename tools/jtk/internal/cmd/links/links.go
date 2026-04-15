@@ -62,7 +62,7 @@ func runList(opts *root.Options, issueKey string) error {
 	}
 
 	if len(links) == 0 {
-		model := jtkpresent.MutationPresenter{}.Info("No links on %s", issueKey)
+		model := jtkpresent.LinkPresenter{}.PresentEmpty(issueKey)
 		out := present.Render(model, opts.RenderStyle())
 		_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
 		return nil
@@ -154,7 +154,7 @@ func runCreate(opts *root.Options, outwardKey, inwardKey, linkType string) error
 		})
 	}
 
-	model := jtkpresent.MutationPresenter{}.Success("Created %s link: %s → %s", linkType, outwardKey, inwardKey)
+	model := jtkpresent.LinkPresenter{}.PresentCreated(linkType, outwardKey, inwardKey)
 	out := present.Render(model, opts.RenderStyle())
 	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
 	return nil
@@ -192,7 +192,7 @@ func runDelete(opts *root.Options, linkID string) error {
 		return v.JSON(map[string]string{"status": "deleted", "linkId": linkID})
 	}
 
-	model := jtkpresent.MutationPresenter{}.Success("Deleted link %s", linkID)
+	model := jtkpresent.LinkPresenter{}.PresentDeleted(linkID)
 	out := present.Render(model, opts.RenderStyle())
 	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
 	return nil
@@ -227,7 +227,7 @@ func runTypes(opts *root.Options) error {
 	}
 
 	if len(linkTypes) == 0 {
-		model := jtkpresent.MutationPresenter{}.Info("No link types available")
+		model := jtkpresent.LinkPresenter{}.PresentNoTypes()
 		out := present.Render(model, opts.RenderStyle())
 		_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
 		return nil

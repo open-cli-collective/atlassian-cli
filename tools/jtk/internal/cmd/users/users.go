@@ -116,7 +116,7 @@ func runSearch(ctx context.Context, opts *root.Options, query string, maxResults
 	}
 
 	if len(users) == 0 {
-		model := jtkpresent.MutationPresenter{}.Info("No users found matching '%s'", query)
+		model := jtkpresent.UserPresenter{}.PresentEmpty(query)
 		out := present.Render(model, opts.RenderStyle())
 		_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
 		return nil

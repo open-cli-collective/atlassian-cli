@@ -43,7 +43,7 @@ func runRestore(ctx context.Context, opts *root.Options, keyOrID string) error {
 		return v.JSON(project)
 	}
 
-	model := jtkpresent.MutationPresenter{}.Success("Restored project %s (%s)", project.Key, project.Name)
+	model := jtkpresent.ProjectPresenter{}.PresentRestored(project.Key, project.Name)
 	out := present.Render(model, opts.RenderStyle())
 	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
 	return nil

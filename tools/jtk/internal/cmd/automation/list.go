@@ -44,7 +44,7 @@ func runList(ctx context.Context, opts *root.Options, state string) error {
 	}
 
 	if len(rules) == 0 {
-		model := jtkpresent.MutationPresenter{}.Info("No automation rules found")
+		model := jtkpresent.AutomationPresenter{}.PresentEmpty()
 		out := present.Render(model, opts.RenderStyle())
 		fmt.Fprint(opts.Stdout, out.Stdout)
 		return nil

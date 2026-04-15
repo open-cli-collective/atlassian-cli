@@ -2,6 +2,8 @@
 package present
 
 import (
+	"fmt"
+
 	"github.com/open-cli-collective/atlassian-go/present"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
@@ -63,4 +65,43 @@ func (CommentPresenter) PresentListFull(comments []api.Comment) *present.OutputM
 		}
 	}
 	return &present.OutputModel{Sections: sections}
+}
+
+// PresentAdded creates a success message for comment addition.
+func (CommentPresenter) PresentAdded(commentID, issueKey string) *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageSuccess,
+				Message: fmt.Sprintf("Added comment %s to %s", commentID, issueKey),
+				Stream:  present.StreamStdout,
+			},
+		},
+	}
+}
+
+// PresentDeleted creates a success message for comment deletion.
+func (CommentPresenter) PresentDeleted(commentID, issueKey string) *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageSuccess,
+				Message: fmt.Sprintf("Deleted comment %s from %s", commentID, issueKey),
+				Stream:  present.StreamStdout,
+			},
+		},
+	}
+}
+
+// PresentEmpty creates an info message when no comments are found.
+func (CommentPresenter) PresentEmpty(issueKey string) *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageInfo,
+				Message: fmt.Sprintf("No comments on %s", issueKey),
+				Stream:  present.StreamStdout,
+			},
+		},
+	}
 }

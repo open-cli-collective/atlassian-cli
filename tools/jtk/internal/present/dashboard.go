@@ -1,6 +1,8 @@
 package present
 
 import (
+	"fmt"
+
 	"github.com/open-cli-collective/atlassian-go/present"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
@@ -83,6 +85,89 @@ func (DashboardPresenter) PresentGadgets(gadgets []api.DashboardGadget) *present
 			&present.TableSection{
 				Headers: []string{"ID", "TITLE", "MODULE", "POSITION"},
 				Rows:    rows,
+			},
+		},
+	}
+}
+
+// PresentCreated creates a success message for dashboard creation.
+func (DashboardPresenter) PresentCreated(name, id string) *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageSuccess,
+				Message: fmt.Sprintf("Created dashboard %s (%s)", name, id),
+				Stream:  present.StreamStdout,
+			},
+		},
+	}
+}
+
+// PresentCreatedWithURL creates a success message with URL for dashboard creation.
+func (DashboardPresenter) PresentCreatedWithURL(name, id, url string) *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageSuccess,
+				Message: fmt.Sprintf("Created dashboard %s (%s)", name, id),
+				Stream:  present.StreamStdout,
+			},
+			&present.MessageSection{
+				Kind:    present.MessageInfo,
+				Message: fmt.Sprintf("URL: %s", url),
+				Stream:  present.StreamStdout,
+			},
+		},
+	}
+}
+
+// PresentDeleted creates a success message for dashboard deletion.
+func (DashboardPresenter) PresentDeleted(dashboardID string) *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageSuccess,
+				Message: fmt.Sprintf("Deleted dashboard %s", dashboardID),
+				Stream:  present.StreamStdout,
+			},
+		},
+	}
+}
+
+// PresentGadgetRemoved creates a success message for gadget removal.
+func (DashboardPresenter) PresentGadgetRemoved(gadgetID int, dashboardID string) *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageSuccess,
+				Message: fmt.Sprintf("Removed gadget %d from dashboard %s", gadgetID, dashboardID),
+				Stream:  present.StreamStdout,
+			},
+		},
+	}
+}
+
+// PresentEmpty creates an info message when no dashboards are found.
+func (DashboardPresenter) PresentEmpty() *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageInfo,
+				Message: "No dashboards found",
+				Stream:  present.StreamStdout,
+			},
+		},
+	}
+}
+
+// PresentNoGadgets creates an info message when no gadgets are on a dashboard.
+func (DashboardPresenter) PresentNoGadgets(dashboardID string) *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageInfo,
+				Message: fmt.Sprintf("No gadgets on dashboard %s", dashboardID),
+				Stream:  present.StreamStdout,
 			},
 		},
 	}

@@ -95,7 +95,7 @@ func runList(ctx context.Context, opts *root.Options, customOnly bool, nameFilte
 	}
 
 	if len(fields) == 0 {
-		model := jtkpresent.MutationPresenter{}.Info("No fields found")
+		model := jtkpresent.FieldPresenter{}.PresentEmpty()
 		out := present.Render(model, opts.RenderStyle())
 		fmt.Fprint(opts.Stdout, out.Stdout)
 		fmt.Fprint(opts.Stderr, out.Stderr)
@@ -168,7 +168,7 @@ func runCreate(ctx context.Context, opts *root.Options, name, fieldType, descrip
 		return v.JSON(field)
 	}
 
-	model := jtkpresent.MutationPresenter{}.Success("Created field %s (%s)", field.ID, field.Name)
+	model := jtkpresent.FieldPresenter{}.PresentCreated(field.ID, field.Name)
 	out := present.Render(model, opts.RenderStyle())
 	fmt.Fprint(opts.Stdout, out.Stdout)
 	return nil
@@ -210,7 +210,7 @@ func runDelete(ctx context.Context, opts *root.Options, fieldID string, force bo
 			return fmt.Errorf("reading confirmation: %w", err)
 		}
 		if !confirmed {
-			model := jtkpresent.MutationPresenter{}.Info("Deletion cancelled.")
+			model := jtkpresent.FieldPresenter{}.PresentDeleteCancelled()
 			out := present.Render(model, opts.RenderStyle())
 			fmt.Fprint(opts.Stdout, out.Stdout)
 			fmt.Fprint(opts.Stderr, out.Stderr)
@@ -227,7 +227,7 @@ func runDelete(ctx context.Context, opts *root.Options, fieldID string, force bo
 		return err
 	}
 
-	model := jtkpresent.MutationPresenter{}.Success("Trashed field %s", fieldID)
+	model := jtkpresent.FieldPresenter{}.PresentTrashed(fieldID)
 	out := present.Render(model, opts.RenderStyle())
 	fmt.Fprint(opts.Stdout, out.Stdout)
 	return nil
@@ -257,7 +257,7 @@ func runRestore(ctx context.Context, opts *root.Options, fieldID string) error {
 		return err
 	}
 
-	model := jtkpresent.MutationPresenter{}.Success("Restored field %s", fieldID)
+	model := jtkpresent.FieldPresenter{}.PresentRestored(fieldID)
 	out := present.Render(model, opts.RenderStyle())
 	fmt.Fprint(opts.Stdout, out.Stdout)
 	return nil

@@ -54,7 +54,7 @@ func runList(ctx context.Context, opts *root.Options, query string, maxResults i
 	}
 
 	if len(result.Values) == 0 {
-		model := jtkpresent.MutationPresenter{}.Info("No projects found")
+		model := jtkpresent.ProjectPresenter{}.PresentEmpty()
 		out := present.Render(model, opts.RenderStyle())
 		_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
 		return nil

@@ -67,7 +67,7 @@ func runUpdate(ctx context.Context, opts *root.Options, keyOrID, name, descripti
 		return v.JSON(project)
 	}
 
-	model := jtkpresent.MutationPresenter{}.Success("Updated project %s", project.Key)
+	model := jtkpresent.ProjectPresenter{}.PresentUpdated(project.Key)
 	out := present.Render(model, opts.RenderStyle())
 	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
 	return nil

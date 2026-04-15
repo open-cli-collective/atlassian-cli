@@ -58,7 +58,7 @@ func runContextsList(ctx context.Context, opts *root.Options, fieldID string) er
 	}
 
 	if len(result.Values) == 0 {
-		model := jtkpresent.MutationPresenter{}.Info("No contexts found for field %s", fieldID)
+		model := jtkpresent.FieldPresenter{}.PresentNoContexts(fieldID)
 		out := present.Render(model, opts.RenderStyle())
 		fmt.Fprint(opts.Stdout, out.Stdout)
 		fmt.Fprint(opts.Stderr, out.Stderr)
@@ -135,7 +135,7 @@ func runContextsCreate(ctx context.Context, opts *root.Options, fieldID, name, p
 		return v.JSON(fc)
 	}
 
-	model := jtkpresent.MutationPresenter{}.Success("Created context %s (%s)", fc.ID, fc.Name)
+	model := jtkpresent.FieldPresenter{}.PresentContextCreated(fc.ID, fc.Name)
 	out := present.Render(model, opts.RenderStyle())
 	fmt.Fprint(opts.Stdout, out.Stdout)
 	return nil
@@ -173,7 +173,7 @@ func runContextsDelete(ctx context.Context, opts *root.Options, fieldID, context
 			return fmt.Errorf("reading confirmation: %w", err)
 		}
 		if !confirmed {
-			model := jtkpresent.MutationPresenter{}.Info("Deletion cancelled.")
+			model := jtkpresent.FieldPresenter{}.PresentDeleteCancelled()
 			out := present.Render(model, opts.RenderStyle())
 			fmt.Fprint(opts.Stdout, out.Stdout)
 			fmt.Fprint(opts.Stderr, out.Stderr)
@@ -190,7 +190,7 @@ func runContextsDelete(ctx context.Context, opts *root.Options, fieldID, context
 		return err
 	}
 
-	model := jtkpresent.MutationPresenter{}.Success("Deleted context %s from field %s", contextID, fieldID)
+	model := jtkpresent.FieldPresenter{}.PresentContextDeleted(contextID, fieldID)
 	out := present.Render(model, opts.RenderStyle())
 	fmt.Fprint(opts.Stdout, out.Stdout)
 	return nil

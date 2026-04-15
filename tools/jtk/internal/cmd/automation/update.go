@@ -72,15 +72,15 @@ func runUpdate(ctx context.Context, opts *root.Options, ruleID, filePath string)
 		return fmt.Errorf("fetching current rule: %w", err)
 	}
 
-	model := jtkpresent.MutationPresenter{}.Info("Updating rule: %s (UUID: %s, State: %s)", current.Name, current.Identifier(), current.State)
-	out := present.Render(model, opts.RenderStyle())
-	fmt.Fprint(opts.Stdout, out.Stdout)
+	progressModel := jtkpresent.AutomationPresenter{}.PresentUpdateProgress(current.Name, current.Identifier(), current.State)
+	progressOut := present.Render(progressModel, opts.RenderStyle())
+	fmt.Fprint(opts.Stderr, progressOut.Stderr)
 
 	if err := client.UpdateAutomationRule(ctx, ruleID, json.RawMessage(data)); err != nil {
 		return err
 	}
 
-	successModel := jtkpresent.MutationPresenter{}.Success("Updated automation rule %s", ruleID)
+	successModel := jtkpresent.AutomationPresenter{}.PresentUpdated(ruleID)
 	successOut := present.Render(successModel, opts.RenderStyle())
 	fmt.Fprint(opts.Stdout, successOut.Stdout)
 	return nil

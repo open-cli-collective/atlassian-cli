@@ -2,11 +2,78 @@
 package present
 
 import (
+	"fmt"
+
 	"github.com/open-cli-collective/atlassian-go/present"
+
+	"github.com/open-cli-collective/jira-ticket-cli/api"
 )
 
 // ConfigPresenter creates presentation models for config commands.
 type ConfigPresenter struct{}
+
+// TestResult contains the outcome of a config test operation.
+type TestResult struct {
+	URL         string    // Jira URL being tested (empty if not configured)
+	User        *api.User // User info if auth succeeded, nil otherwise
+	ClientError error     // Error from client creation, nil if successful
+	AuthError   error     // Error from authentication, nil if successful
+}
+
+// PresentTestResult creates a complete output model for the config test command.
+func (ConfigPresenter) PresentTestResult(r TestResult) *present.OutputModel {
+	var sections []present.Section
+
+	// Case 1: No URL configured
+	if r.URL == "" {
+		sections = append(sections,
+			&present.MessageSection{Kind: present.MessageError, Message: "No Jira URL configured", Stream: present.StreamStderr},
+			&present.MessageSection{Kind: present.MessageInfo, Message: "Configure with: jtk init"},
+			&present.MessageSection{Kind: present.MessageInfo, Message: "Or set environment variable: JIRA_URL"},
+		)
+		return &present.OutputModel{Sections: sections}
+	}
+
+	// Show what we're testing
+	sections = append(sections,
+		&present.MessageSection{Kind: present.MessageInfo, Message: fmt.Sprintf("Testing connection to %s...", r.URL)},
+	)
+
+	// Case 2: Client creation failed
+	if r.ClientError != nil {
+		sections = append(sections,
+			&present.MessageSection{Kind: present.MessageError, Message: fmt.Sprintf("Failed to create client: %v", r.ClientError), Stream: present.StreamStderr},
+			&present.MessageSection{Kind: present.MessageInfo, Message: "Check your configuration with: jtk config show"},
+			&present.MessageSection{Kind: present.MessageInfo, Message: "Reconfigure with: jtk init"},
+		)
+		return &present.OutputModel{Sections: sections}
+	}
+
+	// Case 3: Authentication failed
+	if r.AuthError != nil {
+		sections = append(sections,
+			&present.MessageSection{Kind: present.MessageError, Message: fmt.Sprintf("Authentication failed: %v", r.AuthError), Stream: present.StreamStderr},
+			&present.MessageSection{Kind: present.MessageInfo, Message: "Check your credentials with: jtk config show"},
+			&present.MessageSection{Kind: present.MessageInfo, Message: "Reconfigure with: jtk init"},
+		)
+		return &present.OutputModel{Sections: sections}
+	}
+
+	// Case 4: Success
+	sections = append(sections,
+		&present.MessageSection{Kind: present.MessageSuccess, Message: "Authentication successful"},
+		&present.MessageSection{Kind: present.MessageSuccess, Message: "API access verified"},
+	)
+
+	if r.User != nil {
+		sections = append(sections,
+			&present.MessageSection{Kind: present.MessageInfo, Message: fmt.Sprintf("Authenticated as: %s (%s)", r.User.DisplayName, r.User.EmailAddress)},
+			&present.MessageSection{Kind: present.MessageInfo, Message: fmt.Sprintf("Account ID: %s", r.User.AccountID)},
+		)
+	}
+
+	return &present.OutputModel{Sections: sections}
+}
 
 // ConfigEntry represents a single configuration entry.
 type ConfigEntry struct {

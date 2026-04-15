@@ -254,45 +254,9 @@ func runMoveStatus(ctx context.Context, opts *root.Options, taskID string) error
 		return v.JSON(status)
 	}
 
-	// Build detail section for move status
-	fields := []present.Field{
-		{Label: "Task ID", Value: status.TaskID},
-		{Label: "Status", Value: status.Status},
-		{Label: "Progress", Value: fmt.Sprintf("%d%%", status.Progress)},
-		{Label: "Submitted", Value: status.SubmittedAt},
-	}
-
-	if status.StartedAt != "" {
-		fields = append(fields, present.Field{Label: "Started", Value: status.StartedAt})
-	}
-	if status.FinishedAt != "" {
-		fields = append(fields, present.Field{Label: "Finished", Value: status.FinishedAt})
-	}
-
-	model := &present.OutputModel{
-		Sections: []present.Section{&present.DetailSection{Fields: fields}},
-	}
+	model := jtkpresent.IssuePresenter{}.PresentMoveStatus(status)
 	out := present.Render(model, opts.RenderStyle())
 	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
-
-	if status.Result != nil {
-		mp := jtkpresent.MutationPresenter{}
-		if len(status.Result.Successful) > 0 {
-			successModel := mp.Success("Successful: %s", strings.Join(status.Result.Successful, ", "))
-			successOut := present.Render(successModel, opts.RenderStyle())
-			_, _ = fmt.Fprint(opts.Stdout, successOut.Stdout)
-		}
-		if len(status.Result.Failed) > 0 {
-			errModel := mp.Error("Failed:")
-			errOut := present.Render(errModel, opts.RenderStyle())
-			_, _ = fmt.Fprint(opts.Stderr, errOut.Stderr)
-			for _, failed := range status.Result.Failed {
-				failedModel := mp.Error("  %s: %s", failed.IssueKey, strings.Join(failed.Errors, ", "))
-				failedOut := present.Render(failedModel, opts.RenderStyle())
-				_, _ = fmt.Fprint(opts.Stderr, failedOut.Stderr)
-			}
-		}
-	}
-
+	_, _ = fmt.Fprint(opts.Stderr, out.Stderr)
 	return nil
 }

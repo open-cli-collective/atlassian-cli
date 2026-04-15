@@ -91,27 +91,12 @@ func runList(ctx context.Context, opts *root.Options, issueKey string, maxResult
 		return v.RenderArtifactList(artifact.NewListResult(arts, hasMore))
 	}
 
-	// No-truncate mode: display each comment with complete body text
+	var model *present.OutputModel
 	if noTruncate {
-		for i, c := range result.Comments {
-			if i > 0 {
-				sepModel := jtkpresent.MutationPresenter{}.Info("---")
-				sepOut := present.Render(sepModel, opts.RenderStyle())
-				_, _ = fmt.Fprint(opts.Stdout, sepOut.Stdout)
-			}
-			body := ""
-			if c.Body != nil {
-				body = c.Body.ToPlainText()
-			}
-			detailModel := jtkpresent.MutationPresenter{}.Info("ID:      %s\nAuthor:  %s\nCreated: %s\nBody:    %s",
-				c.ID, c.Author.DisplayName, formatTime(c.Created), body)
-			detailOut := present.Render(detailModel, opts.RenderStyle())
-			_, _ = fmt.Fprint(opts.Stdout, detailOut.Stdout)
-		}
-		return nil
+		model = jtkpresent.CommentPresenter{}.PresentListFull(result.Comments)
+	} else {
+		model = jtkpresent.CommentPresenter{}.PresentList(result.Comments)
 	}
-
-	model := jtkpresent.CommentPresenter{}.PresentList(result.Comments)
 	out := present.Render(model, opts.RenderStyle())
 	fmt.Fprint(opts.Stdout, out.Stdout)
 	fmt.Fprint(opts.Stderr, out.Stderr)
@@ -198,12 +183,4 @@ func runDelete(ctx context.Context, opts *root.Options, issueKey, commentID stri
 	fmt.Fprint(opts.Stdout, out.Stdout)
 	fmt.Fprint(opts.Stderr, out.Stderr)
 	return nil
-}
-
-func formatTime(t string) string {
-	// Jira returns ISO 8601 format, just show date
-	if len(t) >= 10 {
-		return t[:10]
-	}
-	return t
 }

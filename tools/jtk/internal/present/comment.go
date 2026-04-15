@@ -39,3 +39,28 @@ func (CommentPresenter) PresentList(comments []api.Comment) *present.OutputModel
 		},
 	}
 }
+
+// PresentListFull creates detail views for comments without truncation.
+// Each comment becomes a DetailSection; the renderer owns spacing between sections.
+func (CommentPresenter) PresentListFull(comments []api.Comment) *present.OutputModel {
+	sections := make([]present.Section, len(comments))
+	for i, c := range comments {
+		author := "Unknown"
+		if c.Author.DisplayName != "" {
+			author = c.Author.DisplayName
+		}
+		body := ""
+		if c.Body != nil {
+			body = c.Body.ToPlainText()
+		}
+		sections[i] = &present.DetailSection{
+			Fields: []present.Field{
+				{Label: "ID", Value: c.ID},
+				{Label: "Author", Value: author},
+				{Label: "Created", Value: FormatTime(c.Created)},
+				{Label: "Body", Value: body},
+			},
+		}
+	}
+	return &present.OutputModel{Sections: sections}
+}

@@ -277,113 +277,26 @@ pass/fail status and troubleshooting suggestions on failure.`,
 		Example: `  # Test connection
   jtk config test`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			url := config.GetURL()
-			if url == "" {
-				errorModel := jtkpresent.MutationPresenter{}.Error("No Jira URL configured")
-				errorOut := present.Render(errorModel, opts.RenderStyle())
-				fmt.Fprint(opts.Stdout, errorOut.Stdout)
-				fmt.Fprint(opts.Stderr, errorOut.Stderr)
+			result := jtkpresent.TestResult{URL: config.GetURL()}
 
-				infoModel1 := jtkpresent.MutationPresenter{}.Info("")
-				infoOut1 := present.Render(infoModel1, opts.RenderStyle())
-				fmt.Fprint(opts.Stdout, infoOut1.Stdout)
-				fmt.Fprint(opts.Stderr, infoOut1.Stderr)
-
-				infoModel2 := jtkpresent.MutationPresenter{}.Info("Configure with: jtk init")
-				infoOut2 := present.Render(infoModel2, opts.RenderStyle())
-				fmt.Fprint(opts.Stdout, infoOut2.Stdout)
-				fmt.Fprint(opts.Stderr, infoOut2.Stderr)
-
-				infoModel3 := jtkpresent.MutationPresenter{}.Info("Or set environment variable: JIRA_URL")
-				infoOut3 := present.Render(infoModel3, opts.RenderStyle())
-				fmt.Fprint(opts.Stdout, infoOut3.Stdout)
-				fmt.Fprint(opts.Stderr, infoOut3.Stderr)
-				return nil
+			if result.URL != "" {
+				client, err := opts.APIClient()
+				if err != nil {
+					result.ClientError = err
+				} else {
+					user, err := client.GetCurrentUser(cmd.Context())
+					if err != nil {
+						result.AuthError = err
+					} else {
+						result.User = user
+					}
+				}
 			}
 
-			testingModel := jtkpresent.MutationPresenter{}.Info("Testing connection to %s...", url)
-			testingOut := present.Render(testingModel, opts.RenderStyle())
-			fmt.Fprint(opts.Stdout, testingOut.Stdout)
-			fmt.Fprint(opts.Stderr, testingOut.Stderr)
-
-			blankModel1 := jtkpresent.MutationPresenter{}.Info("")
-			blankOut1 := present.Render(blankModel1, opts.RenderStyle())
-			fmt.Fprint(opts.Stdout, blankOut1.Stdout)
-			fmt.Fprint(opts.Stderr, blankOut1.Stderr)
-
-			client, err := opts.APIClient()
-			if err != nil {
-				errorModel := jtkpresent.MutationPresenter{}.Error("Failed to create client: %v", err)
-				errorOut := present.Render(errorModel, opts.RenderStyle())
-				fmt.Fprint(opts.Stdout, errorOut.Stdout)
-				fmt.Fprint(opts.Stderr, errorOut.Stderr)
-
-				blankModel := jtkpresent.MutationPresenter{}.Info("")
-				blankOut := present.Render(blankModel, opts.RenderStyle())
-				fmt.Fprint(opts.Stdout, blankOut.Stdout)
-				fmt.Fprint(opts.Stderr, blankOut.Stderr)
-
-				infoModel1 := jtkpresent.MutationPresenter{}.Info("Check your configuration with: jtk config show")
-				infoOut1 := present.Render(infoModel1, opts.RenderStyle())
-				fmt.Fprint(opts.Stdout, infoOut1.Stdout)
-				fmt.Fprint(opts.Stderr, infoOut1.Stderr)
-
-				infoModel2 := jtkpresent.MutationPresenter{}.Info("Reconfigure with: jtk init")
-				infoOut2 := present.Render(infoModel2, opts.RenderStyle())
-				fmt.Fprint(opts.Stdout, infoOut2.Stdout)
-				fmt.Fprint(opts.Stderr, infoOut2.Stderr)
-				return nil
-			}
-
-			user, err := client.GetCurrentUser(cmd.Context())
-			if err != nil {
-				errorModel := jtkpresent.MutationPresenter{}.Error("Authentication failed: %v", err)
-				errorOut := present.Render(errorModel, opts.RenderStyle())
-				fmt.Fprint(opts.Stdout, errorOut.Stdout)
-				fmt.Fprint(opts.Stderr, errorOut.Stderr)
-
-				blankModel := jtkpresent.MutationPresenter{}.Info("")
-				blankOut := present.Render(blankModel, opts.RenderStyle())
-				fmt.Fprint(opts.Stdout, blankOut.Stdout)
-				fmt.Fprint(opts.Stderr, blankOut.Stderr)
-
-				infoModel1 := jtkpresent.MutationPresenter{}.Info("Check your credentials with: jtk config show")
-				infoOut1 := present.Render(infoModel1, opts.RenderStyle())
-				fmt.Fprint(opts.Stdout, infoOut1.Stdout)
-				fmt.Fprint(opts.Stderr, infoOut1.Stderr)
-
-				infoModel2 := jtkpresent.MutationPresenter{}.Info("Reconfigure with: jtk init")
-				infoOut2 := present.Render(infoModel2, opts.RenderStyle())
-				fmt.Fprint(opts.Stdout, infoOut2.Stdout)
-				fmt.Fprint(opts.Stderr, infoOut2.Stderr)
-				return nil
-			}
-
-			successModel1 := jtkpresent.MutationPresenter{}.Success("Authentication successful")
-			successOut1 := present.Render(successModel1, opts.RenderStyle())
-			fmt.Fprint(opts.Stdout, successOut1.Stdout)
-			fmt.Fprint(opts.Stderr, successOut1.Stderr)
-
-			successModel2 := jtkpresent.MutationPresenter{}.Success("API access verified")
-			successOut2 := present.Render(successModel2, opts.RenderStyle())
-			fmt.Fprint(opts.Stdout, successOut2.Stdout)
-			fmt.Fprint(opts.Stderr, successOut2.Stderr)
-
-			blankModel2 := jtkpresent.MutationPresenter{}.Info("")
-			blankOut2 := present.Render(blankModel2, opts.RenderStyle())
-			fmt.Fprint(opts.Stdout, blankOut2.Stdout)
-			fmt.Fprint(opts.Stderr, blankOut2.Stderr)
-
-			infoModel4 := jtkpresent.MutationPresenter{}.Info("Authenticated as: %s (%s)", user.DisplayName, user.EmailAddress)
-			infoOut4 := present.Render(infoModel4, opts.RenderStyle())
-			fmt.Fprint(opts.Stdout, infoOut4.Stdout)
-			fmt.Fprint(opts.Stderr, infoOut4.Stderr)
-
-			infoModel5 := jtkpresent.MutationPresenter{}.Info("Account ID: %s", user.AccountID)
-			infoOut5 := present.Render(infoModel5, opts.RenderStyle())
-			fmt.Fprint(opts.Stdout, infoOut5.Stdout)
-			fmt.Fprint(opts.Stderr, infoOut5.Stderr)
-
+			model := jtkpresent.ConfigPresenter{}.PresentTestResult(result)
+			out := present.Render(model, opts.RenderStyle())
+			fmt.Fprint(opts.Stdout, out.Stdout)
+			fmt.Fprint(opts.Stderr, out.Stderr)
 			return nil
 		},
 	}

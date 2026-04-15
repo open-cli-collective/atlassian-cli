@@ -57,17 +57,9 @@ func runGet(ctx context.Context, opts *root.Options, ruleID string, showComponen
 		return v.RenderArtifact(jtkartifact.ProjectAutomationRule(rule, opts.ArtifactMode()))
 	}
 
-	model := jtkpresent.AutomationPresenter{}.PresentDetail(rule)
+	model := jtkpresent.AutomationPresenter{}.PresentDetail(rule, showComponents)
 	out := present.Render(model, opts.RenderStyle())
 	fmt.Fprint(opts.Stdout, out.Stdout)
 	fmt.Fprint(opts.Stderr, out.Stderr)
-
-	if showComponents && len(rule.Components) > 0 {
-		fmt.Fprint(opts.Stderr, "\nComponent Details:\n")
-		for i, c := range rule.Components {
-			fmt.Fprintf(opts.Stderr, "  [%d] %s: %s\n", i+1, c.Component, c.Type)
-		}
-	}
-
 	return nil
 }

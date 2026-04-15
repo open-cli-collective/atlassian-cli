@@ -1,6 +1,9 @@
 package present
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/open-cli-collective/atlassian-go/present"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
@@ -129,4 +132,49 @@ func (IssuePresenter) PresentTypes(types []api.IssueType) *present.OutputModel {
 			},
 		},
 	}
+}
+
+// PresentMoveStatus creates a detail view for a move task status.
+func (IssuePresenter) PresentMoveStatus(status *api.MoveTaskStatus) *present.OutputModel {
+	fields := []present.Field{
+		{Label: "Task ID", Value: status.TaskID},
+		{Label: "Status", Value: status.Status},
+		{Label: "Progress", Value: fmt.Sprintf("%d%%", status.Progress)},
+		{Label: "Submitted", Value: status.SubmittedAt},
+	}
+
+	if status.StartedAt != "" {
+		fields = append(fields, present.Field{Label: "Started", Value: status.StartedAt})
+	}
+	if status.FinishedAt != "" {
+		fields = append(fields, present.Field{Label: "Finished", Value: status.FinishedAt})
+	}
+
+	sections := []present.Section{&present.DetailSection{Fields: fields}}
+
+	// Append result messages if available
+	if status.Result != nil {
+		if len(status.Result.Successful) > 0 {
+			sections = append(sections, &present.MessageSection{
+				Kind:    present.MessageSuccess,
+				Message: fmt.Sprintf("Successful: %s", strings.Join(status.Result.Successful, ", ")),
+			})
+		}
+		if len(status.Result.Failed) > 0 {
+			sections = append(sections, &present.MessageSection{
+				Kind:    present.MessageError,
+				Message: "Failed:",
+				Stream:  present.StreamStderr,
+			})
+			for _, failed := range status.Result.Failed {
+				sections = append(sections, &present.MessageSection{
+					Kind:    present.MessageError,
+					Message: fmt.Sprintf("  %s: %s", failed.IssueKey, strings.Join(failed.Errors, ", ")),
+					Stream:  present.StreamStderr,
+				})
+			}
+		}
+	}
+
+	return &present.OutputModel{Sections: sections}
 }

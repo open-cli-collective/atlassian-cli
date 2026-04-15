@@ -13,7 +13,8 @@ import (
 type AutomationPresenter struct{}
 
 // PresentDetail creates a detailed view of a single automation rule.
-func (AutomationPresenter) PresentDetail(rule *api.AutomationRule) *present.OutputModel {
+// When showComponents is true, a table of component details is appended.
+func (AutomationPresenter) PresentDetail(rule *api.AutomationRule, showComponents bool) *present.OutputModel {
 	fields := []present.Field{
 		{Label: "Name", Value: rule.Name},
 		{Label: "UUID", Value: rule.Identifier()},
@@ -48,9 +49,23 @@ func (AutomationPresenter) PresentDetail(rule *api.AutomationRule) *present.Outp
 
 	fields = append(fields, present.Field{Label: "Components", Value: SummarizeComponents(rule.Components)})
 
-	return &present.OutputModel{
-		Sections: []present.Section{&present.DetailSection{Fields: fields}},
+	sections := []present.Section{&present.DetailSection{Fields: fields}}
+
+	// Append component details table when requested
+	if showComponents && len(rule.Components) > 0 {
+		rows := make([]present.Row, len(rule.Components))
+		for i, c := range rule.Components {
+			rows[i] = present.Row{
+				Cells: []string{fmt.Sprintf("%d", i+1), c.Component, c.Type},
+			}
+		}
+		sections = append(sections, &present.TableSection{
+			Headers: []string{"#", "COMPONENT", "TYPE"},
+			Rows:    rows,
+		})
 	}
+
+	return &present.OutputModel{Sections: sections}
 }
 
 // PresentList creates a table view of automation rules.

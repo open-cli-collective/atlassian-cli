@@ -352,12 +352,6 @@ func (IssuePresenter) PresentTypeChangeProgress(key, typeName string) *present.O
 
 // --- Move operations ---
 
-// MoveFailedIssue represents a failed issue in a move operation.
-type MoveFailedIssue struct {
-	Key    string
-	Errors []string
-}
-
 // PresentTypeNotFound creates a multi-section error for type not found with available types.
 func (IssuePresenter) PresentTypeNotFound(targetType, project string, availableTypes []string) *present.OutputModel {
 	sections := []present.Section{
@@ -429,7 +423,7 @@ func (IssuePresenter) PresentMoveWaiting() *present.OutputModel {
 }
 
 // PresentMovePartialFailure creates warning + errors + successes for partial failure.
-func (IssuePresenter) PresentMovePartialFailure(successful []string, failed []MoveFailedIssue) *present.OutputModel {
+func (IssuePresenter) PresentMovePartialFailure(successful []string, failed []api.MoveFailedIssue) *present.OutputModel {
 	sections := []present.Section{
 		&present.MessageSection{
 			Kind:    present.MessageWarning,
@@ -441,7 +435,7 @@ func (IssuePresenter) PresentMovePartialFailure(successful []string, failed []Mo
 	for _, f := range failed {
 		sections = append(sections, &present.MessageSection{
 			Kind:    present.MessageError,
-			Message: fmt.Sprintf("  %s: %s", f.Key, strings.Join(f.Errors, ", ")),
+			Message: fmt.Sprintf("  %s: %s", f.IssueKey, strings.Join(f.Errors, ", ")),
 			Stream:  present.StreamStderr,
 		})
 	}

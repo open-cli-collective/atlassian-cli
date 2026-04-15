@@ -177,11 +177,7 @@ func runMove(ctx context.Context, opts *root.Options, issueKeys []string, target
 		switch status.Status {
 		case "COMPLETE":
 			if status.Result != nil && len(status.Result.Failed) > 0 {
-				failed := make([]jtkpresent.MoveFailedIssue, len(status.Result.Failed))
-				for i, f := range status.Result.Failed {
-					failed[i] = jtkpresent.MoveFailedIssue{Key: f.IssueKey, Errors: f.Errors}
-				}
-				model := ip.PresentMovePartialFailure(status.Result.Successful, failed)
+				model := ip.PresentMovePartialFailure(status.Result.Successful, status.Result.Failed)
 				out := present.Render(model, opts.RenderStyle())
 				_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
 				_, _ = fmt.Fprint(opts.Stderr, out.Stderr)

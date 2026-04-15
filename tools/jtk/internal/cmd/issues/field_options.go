@@ -98,23 +98,7 @@ func runFieldOptions(ctx context.Context, opts *root.Options, fieldNameOrID, iss
 		return v.JSON(options)
 	}
 
-	// Build field options list
-	fieldOpts := make([]jtkpresent.FieldOption, len(options))
-	for i, opt := range options {
-		value := opt.Value
-		if value == "" {
-			value = opt.Name
-		}
-		if opt.Disabled {
-			value = value + " (disabled)"
-		}
-		fieldOpts[i] = jtkpresent.FieldOption{
-			ID:    opt.ID,
-			Value: value,
-		}
-	}
-
-	model := fp.PresentFieldOptionsWithHeader(fieldName, fieldOpts)
+	model := fp.PresentFieldOptionsWithHeader(fieldName, options)
 	out := present.Render(model, opts.RenderStyle())
 	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
 	_, _ = fmt.Fprint(opts.Stderr, out.Stderr)

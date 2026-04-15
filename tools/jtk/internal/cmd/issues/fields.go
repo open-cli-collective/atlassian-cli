@@ -71,35 +71,7 @@ func runFields(ctx context.Context, opts *root.Options, issueKey string, customO
 			return nil
 		}
 
-		// Build editable fields list
-		editableFields := make([]jtkpresent.EditableField, 0, len(fieldsData))
-
-		for id, data := range fieldsData {
-			fieldData, ok := data.(map[string]any)
-			if !ok {
-				continue
-			}
-
-			name := safeString(fieldData["name"])
-			required := false
-			if req, ok := fieldData["required"].(bool); ok && req {
-				required = true
-			}
-
-			// Get schema type
-			fieldType := ""
-			if schema, ok := fieldData["schema"].(map[string]any); ok {
-				fieldType = safeString(schema["type"])
-			}
-
-			editableFields = append(editableFields, jtkpresent.EditableField{
-				ID:       id,
-				Name:     name,
-				Type:     fieldType,
-				Required: required,
-			})
-		}
-
+		editableFields := api.ParseEditMeta(fieldsData)
 		model := jtkpresent.FieldPresenter{}.PresentEditableFields(editableFields)
 		out := present.Render(model, opts.RenderStyle())
 		_, _ = fmt.Fprint(opts.Stdout, out.Stdout)

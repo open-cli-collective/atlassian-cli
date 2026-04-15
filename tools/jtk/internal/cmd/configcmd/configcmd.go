@@ -12,6 +12,7 @@ import (
 
 	"github.com/open-cli-collective/atlassian-go/present"
 
+	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/config"
 	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
@@ -48,43 +49,33 @@ func newShowCmd(opts *root.Options) *cobra.Command {
 		Short: "Show current configuration",
 		Long:  "Display the current configuration values (token is masked).",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			url := config.GetURL()
-			email := config.GetEmail()
-			token := config.GetAPIToken()
-			defaultProject := config.GetDefaultProject()
-			authMethod := config.GetAuthMethod()
-			cloudID := config.GetCloudID()
-
-			maskedToken := maskToken(token)
+			cfg := config.GetValuesWithSources()
+			maskedToken := maskToken(cfg.APIToken)
 
 			// JSON output
 			if opts.Output == "json" {
 				data := map[string]string{
-					"url":             url,
-					"email":           email,
+					"url":             cfg.URL,
+					"email":           cfg.Email,
 					"api_token":       maskedToken,
-					"default_project": defaultProject,
-					"auth_method":     authMethod,
-					"cloud_id":        cloudID,
-					"path":            config.Path(),
+					"default_project": cfg.DefaultProject,
+					"auth_method":     cfg.AuthMethod,
+					"cloud_id":        cfg.CloudID,
+					"path":            cfg.Path,
 				}
 				return opts.View().JSON(data)
 			}
 
 			// Text output
-			_, authMethodSource := config.GetAuthMethodWithSource()
-			_, cloudIDSource := config.GetCloudIDWithSource()
-
-			entries := []jtkpresent.ConfigEntry{
-				{Key: "url", Value: url, Source: getURLSource()},
-				{Key: "email", Value: email, Source: getEmailSource()},
-				{Key: "api_token", Value: maskedToken, Source: getAPITokenSource()},
-				{Key: "default_project", Value: defaultProject, Source: getDefaultProjectSource()},
-				{Key: "auth_method", Value: authMethod, Source: authMethodSource},
-				{Key: "cloud_id", Value: cloudID, Source: cloudIDSource},
-			}
-
-			model := jtkpresent.ConfigPresenter{}.PresentConfigWithPath(entries, config.Path())
+			model := jtkpresent.ConfigPresenter{}.PresentConfigShow(
+				cfg.URL, cfg.URLSource,
+				cfg.Email, cfg.EmailSource,
+				maskedToken, cfg.TokenSource,
+				cfg.DefaultProject, cfg.ProjectSource,
+				cfg.AuthMethod, cfg.AuthMethodSrc,
+				cfg.CloudID, cfg.CloudIDSrc,
+				cfg.Path,
+			)
 			out := present.Render(model, opts.RenderStyle())
 			fmt.Fprint(opts.Stdout, out.Stdout)
 			fmt.Fprint(opts.Stderr, out.Stderr)
@@ -184,78 +175,6 @@ func runClear(ctx context.Context, opts *clearOptions) error {
 	return nil
 }
 
-func getURLSource() string {
-	if os.Getenv("JIRA_URL") != "" {
-		return "env (JIRA_URL)"
-	}
-	if os.Getenv("ATLASSIAN_URL") != "" {
-		return "env (ATLASSIAN_URL)"
-	}
-	cfg, err := config.Load()
-	if err != nil {
-		return "-"
-	}
-	if cfg.URL != "" {
-		return "config"
-	}
-	// Check legacy domain sources
-	if os.Getenv("JIRA_DOMAIN") != "" {
-		return "env (JIRA_DOMAIN, deprecated)"
-	}
-	if cfg.Domain != "" {
-		return "config (domain, deprecated)"
-	}
-	return "-"
-}
-
-func getEmailSource() string {
-	if os.Getenv("JIRA_EMAIL") != "" {
-		return "env (JIRA_EMAIL)"
-	}
-	if os.Getenv("ATLASSIAN_EMAIL") != "" {
-		return "env (ATLASSIAN_EMAIL)"
-	}
-	cfg, err := config.Load()
-	if err != nil {
-		return "-"
-	}
-	if cfg.Email != "" {
-		return "config"
-	}
-	return "-"
-}
-
-func getAPITokenSource() string {
-	if os.Getenv("JIRA_API_TOKEN") != "" {
-		return "env (JIRA_API_TOKEN)"
-	}
-	if os.Getenv("ATLASSIAN_API_TOKEN") != "" {
-		return "env (ATLASSIAN_API_TOKEN)"
-	}
-	cfg, err := config.Load()
-	if err != nil {
-		return "-"
-	}
-	if cfg.APIToken != "" {
-		return "config"
-	}
-	return "-"
-}
-
-func getDefaultProjectSource() string {
-	if os.Getenv("JIRA_DEFAULT_PROJECT") != "" {
-		return "env (JIRA_DEFAULT_PROJECT)"
-	}
-	cfg, err := config.Load()
-	if err != nil {
-		return "-"
-	}
-	if cfg.DefaultProject != "" {
-		return "config"
-	}
-	return "-"
-}
-
 func newTestCmd(opts *root.Options) *cobra.Command {
 	return &cobra.Command{
 		Use:   "test",
@@ -267,23 +186,20 @@ pass/fail status and troubleshooting suggestions on failure.`,
 		Example: `  # Test connection
   jtk config test`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			result := jtkpresent.TestResult{URL: config.GetURL()}
+			url := config.GetURL()
+			var user *api.User
+			var clientErr, authErr error
 
-			if result.URL != "" {
+			if url != "" {
 				client, err := opts.APIClient()
 				if err != nil {
-					result.ClientError = err
+					clientErr = err
 				} else {
-					user, err := client.GetCurrentUser(cmd.Context())
-					if err != nil {
-						result.AuthError = err
-					} else {
-						result.User = user
-					}
+					user, authErr = client.GetCurrentUser(cmd.Context())
 				}
 			}
 
-			model := jtkpresent.ConfigPresenter{}.PresentTestResult(result)
+			model := jtkpresent.ConfigPresenter{}.PresentTestResult(url, user, clientErr, authErr)
 			out := present.Render(model, opts.RenderStyle())
 			fmt.Fprint(opts.Stdout, out.Stdout)
 			fmt.Fprint(opts.Stderr, out.Stderr)

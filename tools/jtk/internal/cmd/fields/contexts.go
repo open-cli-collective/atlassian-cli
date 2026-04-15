@@ -69,17 +69,7 @@ func runContextsList(ctx context.Context, opts *root.Options, fieldID string) er
 		return v.JSON(result.Values)
 	}
 
-	contexts := make([]jtkpresent.FieldContext, len(result.Values))
-	for i, ctx := range result.Values {
-		contexts[i] = jtkpresent.FieldContext{
-			ID:              ctx.ID,
-			Name:            ctx.Name,
-			IsGlobalContext: ctx.IsGlobalContext,
-			IsAnyIssueType:  ctx.IsAnyIssueType,
-		}
-	}
-
-	model := jtkpresent.FieldPresenter{}.PresentContexts(contexts)
+	model := jtkpresent.FieldPresenter{}.PresentContexts(result.Values)
 	out := present.Render(model, opts.RenderStyle())
 	fmt.Fprint(opts.Stdout, out.Stdout)
 	fmt.Fprint(opts.Stderr, out.Stderr)

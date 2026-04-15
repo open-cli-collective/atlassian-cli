@@ -280,8 +280,8 @@ func TestIssuePresenter_PresentMovePartialFailure(t *testing.T) {
 	t.Parallel()
 	p := IssuePresenter{}
 	successful := []string{"PROJ-1", "PROJ-2"}
-	failed := []MoveFailedIssue{
-		{Key: "PROJ-3", Errors: []string{"Invalid type"}},
+	failed := []api.MoveFailedIssue{
+		{IssueKey: "PROJ-3", Errors: []string{"Invalid type"}},
 	}
 	model := p.PresentMovePartialFailure(successful, failed)
 
@@ -321,8 +321,8 @@ func TestIssuePresenter_PresentMovePartialFailure(t *testing.T) {
 func TestIssuePresenter_PresentMovePartialFailure_NoSuccessful(t *testing.T) {
 	t.Parallel()
 	p := IssuePresenter{}
-	failed := []MoveFailedIssue{
-		{Key: "PROJ-1", Errors: []string{"Error 1"}},
+	failed := []api.MoveFailedIssue{
+		{IssueKey: "PROJ-1", Errors: []string{"Error 1"}},
 	}
 	model := p.PresentMovePartialFailure(nil, failed)
 

@@ -137,3 +137,55 @@ func BuildCreateRequest(projectKey, issueType, summary, description string, extr
 func BuildUpdateRequest(fields map[string]any) *UpdateIssueRequest {
 	return &UpdateIssueRequest{Fields: fields}
 }
+
+// EditFieldMeta represents field metadata from issue edit metadata API.
+type EditFieldMeta struct {
+	ID       string
+	Name     string
+	Type     string // from schema.type
+	Required bool
+}
+
+// ParseEditMeta extracts field metadata from raw edit metadata response.
+// The input is the "fields" map from the edit metadata API response.
+func ParseEditMeta(fieldsData map[string]any) []EditFieldMeta {
+	result := make([]EditFieldMeta, 0, len(fieldsData))
+
+	for id, data := range fieldsData {
+		fieldData, ok := data.(map[string]any)
+		if !ok {
+			continue
+		}
+
+		name := safeString(fieldData["name"])
+		required := false
+		if req, ok := fieldData["required"].(bool); ok && req {
+			required = true
+		}
+
+		fieldType := ""
+		if schema, ok := fieldData["schema"].(map[string]any); ok {
+			fieldType = safeString(schema["type"])
+		}
+
+		result = append(result, EditFieldMeta{
+			ID:       id,
+			Name:     name,
+			Type:     fieldType,
+			Required: required,
+		})
+	}
+
+	return result
+}
+
+// safeString extracts a string from an interface value.
+func safeString(v any) string {
+	if v == nil {
+		return ""
+	}
+	if s, ok := v.(string); ok {
+		return s
+	}
+	return fmt.Sprintf("%v", v)
+}

@@ -60,14 +60,3 @@ func runGet(ctx context.Context, opts *root.Options, issueKey string, noTruncate
 	_, _ = fmt.Fprint(opts.Stderr, out.Stderr)
 	return nil
 }
-
-// safeString extracts string from an interface value
-func safeString(v any) string {
-	if v == nil {
-		return ""
-	}
-	if s, ok := v.(string); ok {
-		return s
-	}
-	return fmt.Sprintf("%v", v)
-}

@@ -289,7 +289,7 @@ func TestRunClear_Force(t *testing.T) {
 	testutil.True(t, os.IsNotExist(err))
 }
 
-func TestGetDefaultProjectSource(t *testing.T) {
+func TestGetDefaultProjectWithSource(t *testing.T) {
 	// Clear env vars
 	t.Setenv("JIRA_DEFAULT_PROJECT", "")
 
@@ -299,11 +299,13 @@ func TestGetDefaultProjectSource(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", tempDir)
 
 	// No config, no env
-	testutil.Equal(t, getDefaultProjectSource(), "-")
+	_, source := config.GetDefaultProjectWithSource()
+	testutil.Equal(t, source, "-")
 
 	// With env var
 	t.Setenv("JIRA_DEFAULT_PROJECT", "PROJ")
-	testutil.Equal(t, getDefaultProjectSource(), "env (JIRA_DEFAULT_PROJECT)")
+	_, source = config.GetDefaultProjectWithSource()
+	testutil.Equal(t, source, "env (JIRA_DEFAULT_PROJECT)")
 }
 
 func TestShowCmd_BearerAuth_JSONOutput(t *testing.T) {

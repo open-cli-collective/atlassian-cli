@@ -34,16 +34,8 @@ func (FieldPresenter) PresentList(fields []api.Field) *present.OutputModel {
 	}
 }
 
-// EditableField represents a field from issue edit metadata.
-type EditableField struct {
-	ID       string
-	Name     string
-	Type     string
-	Required bool
-}
-
 // PresentEditableFields creates a table view for editable fields.
-func (FieldPresenter) PresentEditableFields(fields []EditableField) *present.OutputModel {
+func (FieldPresenter) PresentEditableFields(fields []api.EditFieldMeta) *present.OutputModel {
 	rows := make([]present.Row, len(fields))
 	for i, f := range fields {
 		required := "no"
@@ -65,18 +57,19 @@ func (FieldPresenter) PresentEditableFields(fields []EditableField) *present.Out
 	}
 }
 
-// FieldOption represents a field option value.
-type FieldOption struct {
-	ID    string
-	Value string
-}
-
 // PresentFieldOptions creates a table view for field options.
-func (FieldPresenter) PresentFieldOptions(options []FieldOption) *present.OutputModel {
+func (FieldPresenter) PresentFieldOptions(options []api.FieldOptionValue) *present.OutputModel {
 	rows := make([]present.Row, len(options))
 	for i, opt := range options {
+		value := opt.Value
+		if value == "" {
+			value = opt.Name
+		}
+		if opt.Disabled {
+			value = value + " (disabled)"
+		}
 		rows[i] = present.Row{
-			Cells: []string{opt.ID, opt.Value},
+			Cells: []string{opt.ID, value},
 		}
 	}
 
@@ -90,16 +83,8 @@ func (FieldPresenter) PresentFieldOptions(options []FieldOption) *present.Output
 	}
 }
 
-// FieldContext represents a field context.
-type FieldContext struct {
-	ID              string
-	Name            string
-	IsGlobalContext bool
-	IsAnyIssueType  bool
-}
-
 // PresentContexts creates a table view for field contexts.
-func (FieldPresenter) PresentContexts(contexts []FieldContext) *present.OutputModel {
+func (FieldPresenter) PresentContexts(contexts []api.FieldContext) *present.OutputModel {
 	rows := make([]present.Row, len(contexts))
 	for i, ctx := range contexts {
 		global := "no"
@@ -125,15 +110,8 @@ func (FieldPresenter) PresentContexts(contexts []FieldContext) *present.OutputMo
 	}
 }
 
-// FieldContextOption represents a field context option.
-type FieldContextOption struct {
-	ID       string
-	Value    string
-	Disabled bool
-}
-
 // PresentContextOptions creates a table view for field context options.
-func (FieldPresenter) PresentContextOptions(options []FieldContextOption) *present.OutputModel {
+func (FieldPresenter) PresentContextOptions(options []api.FieldContextOption) *present.OutputModel {
 	rows := make([]present.Row, len(options))
 	for i, opt := range options {
 		disabled := "no"
@@ -332,11 +310,18 @@ func (FieldPresenter) PresentOptionsNoContext() *present.OutputModel {
 }
 
 // PresentFieldOptionsWithHeader creates a header + table for field options.
-func (FieldPresenter) PresentFieldOptionsWithHeader(fieldName string, options []FieldOption) *present.OutputModel {
+func (FieldPresenter) PresentFieldOptionsWithHeader(fieldName string, options []api.FieldOptionValue) *present.OutputModel {
 	rows := make([]present.Row, len(options))
 	for i, opt := range options {
+		value := opt.Value
+		if value == "" {
+			value = opt.Name
+		}
+		if opt.Disabled {
+			value = value + " (disabled)"
+		}
 		rows[i] = present.Row{
-			Cells: []string{opt.ID, opt.Value},
+			Cells: []string{opt.ID, value},
 		}
 	}
 

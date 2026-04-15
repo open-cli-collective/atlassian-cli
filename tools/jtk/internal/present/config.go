@@ -13,20 +13,17 @@ import (
 // ConfigPresenter creates presentation models for config commands.
 type ConfigPresenter struct{}
 
-// TestResult contains the outcome of a config test operation.
-type TestResult struct {
-	URL         string    // Jira URL being tested (empty if not configured)
-	User        *api.User // User info if auth succeeded, nil otherwise
-	ClientError error     // Error from client creation, nil if successful
-	AuthError   error     // Error from authentication, nil if successful
-}
-
 // PresentTestResult creates a complete output model for the config test command.
-func (ConfigPresenter) PresentTestResult(r TestResult) *present.OutputModel {
+// Parameters:
+//   - url: Jira URL being tested (empty if not configured)
+//   - user: User info if auth succeeded, nil otherwise
+//   - clientErr: Error from client creation, nil if successful
+//   - authErr: Error from authentication, nil if successful
+func (ConfigPresenter) PresentTestResult(url string, user *api.User, clientErr, authErr error) *present.OutputModel {
 	var sections []present.Section
 
 	// Case 1: No URL configured
-	if r.URL == "" {
+	if url == "" {
 		sections = append(sections,
 			&present.MessageSection{Kind: present.MessageError, Message: "No Jira URL configured", Stream: present.StreamStderr},
 			&present.MessageSection{Kind: present.MessageInfo, Message: "Configure with: jtk init"},
@@ -37,13 +34,13 @@ func (ConfigPresenter) PresentTestResult(r TestResult) *present.OutputModel {
 
 	// Show what we're testing
 	sections = append(sections,
-		&present.MessageSection{Kind: present.MessageInfo, Message: fmt.Sprintf("Testing connection to %s...", r.URL)},
+		&present.MessageSection{Kind: present.MessageInfo, Message: fmt.Sprintf("Testing connection to %s...", url)},
 	)
 
 	// Case 2: Client creation failed
-	if r.ClientError != nil {
+	if clientErr != nil {
 		sections = append(sections,
-			&present.MessageSection{Kind: present.MessageError, Message: fmt.Sprintf("Failed to create client: %v", r.ClientError), Stream: present.StreamStderr},
+			&present.MessageSection{Kind: present.MessageError, Message: fmt.Sprintf("Failed to create client: %v", clientErr), Stream: present.StreamStderr},
 			&present.MessageSection{Kind: present.MessageInfo, Message: "Check your configuration with: jtk config show"},
 			&present.MessageSection{Kind: present.MessageInfo, Message: "Reconfigure with: jtk init"},
 		)
@@ -51,9 +48,9 @@ func (ConfigPresenter) PresentTestResult(r TestResult) *present.OutputModel {
 	}
 
 	// Case 3: Authentication failed
-	if r.AuthError != nil {
+	if authErr != nil {
 		sections = append(sections,
-			&present.MessageSection{Kind: present.MessageError, Message: fmt.Sprintf("Authentication failed: %v", r.AuthError), Stream: present.StreamStderr},
+			&present.MessageSection{Kind: present.MessageError, Message: fmt.Sprintf("Authentication failed: %v", authErr), Stream: present.StreamStderr},
 			&present.MessageSection{Kind: present.MessageInfo, Message: "Check your credentials with: jtk config show"},
 			&present.MessageSection{Kind: present.MessageInfo, Message: "Reconfigure with: jtk init"},
 		)
@@ -66,60 +63,49 @@ func (ConfigPresenter) PresentTestResult(r TestResult) *present.OutputModel {
 		&present.MessageSection{Kind: present.MessageSuccess, Message: "API access verified"},
 	)
 
-	if r.User != nil {
+	if user != nil {
 		sections = append(sections,
-			&present.MessageSection{Kind: present.MessageInfo, Message: fmt.Sprintf("Authenticated as: %s (%s)", r.User.DisplayName, r.User.EmailAddress)},
-			&present.MessageSection{Kind: present.MessageInfo, Message: fmt.Sprintf("Account ID: %s", r.User.AccountID)},
+			&present.MessageSection{Kind: present.MessageInfo, Message: fmt.Sprintf("Authenticated as: %s (%s)", user.DisplayName, user.EmailAddress)},
+			&present.MessageSection{Kind: present.MessageInfo, Message: fmt.Sprintf("Account ID: %s", user.AccountID)},
 		)
 	}
 
 	return &present.OutputModel{Sections: sections}
 }
 
-// ConfigEntry represents a single configuration entry.
-type ConfigEntry struct {
-	Key    string
-	Value  string
-	Source string
+// configEntry represents a single configuration entry (internal use only).
+type configEntry struct {
+	key    string
+	value  string
+	source string
 }
 
-// PresentConfig creates a table presentation model for configuration entries.
-func (ConfigPresenter) PresentConfig(entries []ConfigEntry) *present.OutputModel {
+
+
+// PresentConfigShow creates config table + path info as single output.
+// Accepts pre-computed (value, source) pairs for each config field.
+func (ConfigPresenter) PresentConfigShow(
+	url, urlSrc,
+	email, emailSrc,
+	maskedToken, tokenSrc,
+	defaultProject, projectSrc,
+	authMethod, authMethodSrc,
+	cloudID, cloudIDSrc,
+	configPath string,
+) *present.OutputModel {
+	entries := []configEntry{
+		{key: "url", value: url, source: urlSrc},
+		{key: "email", value: email, source: emailSrc},
+		{key: "api_token", value: maskedToken, source: tokenSrc},
+		{key: "default_project", value: defaultProject, source: projectSrc},
+		{key: "auth_method", value: authMethod, source: authMethodSrc},
+		{key: "cloud_id", value: cloudID, source: cloudIDSrc},
+	}
+
 	rows := make([]present.Row, len(entries))
 	for i, e := range entries {
 		rows[i] = present.Row{
-			Cells: []string{e.Key, e.Value, e.Source},
-		}
-	}
-	return &present.OutputModel{
-		Sections: []present.Section{
-			&present.TableSection{
-				Headers: []string{"KEY", "VALUE", "SOURCE"},
-				Rows:    rows,
-			},
-		},
-	}
-}
-
-// PresentConfigPath creates an info message showing the config file path.
-func (ConfigPresenter) PresentConfigPath(path string) *present.OutputModel {
-	return &present.OutputModel{
-		Sections: []present.Section{
-			&present.MessageSection{
-				Kind:    present.MessageInfo,
-				Message: fmt.Sprintf("\nConfig file: %s", path),
-				Stream:  present.StreamStdout,
-			},
-		},
-	}
-}
-
-// PresentConfigWithPath creates config entries + path info as single output.
-func (ConfigPresenter) PresentConfigWithPath(entries []ConfigEntry, configPath string) *present.OutputModel {
-	rows := make([]present.Row, len(entries))
-	for i, e := range entries {
-		rows[i] = present.Row{
-			Cells: []string{e.Key, e.Value, e.Source},
+			Cells: []string{e.key, e.value, e.source},
 		}
 	}
 	return &present.OutputModel{

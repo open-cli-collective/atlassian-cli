@@ -107,11 +107,16 @@ func (IssuePresenter) PresentList(issues []api.Issue) *present.OutputModel {
 func (IssuePresenter) PresentTypes(types []api.IssueType) *present.OutputModel {
 	rows := make([]present.Row, len(types))
 	for i, t := range types {
+		subtask := "no"
+		if t.Subtask {
+			subtask = "yes"
+		}
 		rows[i] = present.Row{
 			Cells: []string{
 				t.ID,
 				t.Name,
-				BoolString(t.Subtask),
+				subtask,
+				TruncateText(t.Description, 60),
 			},
 		}
 	}
@@ -119,7 +124,7 @@ func (IssuePresenter) PresentTypes(types []api.IssueType) *present.OutputModel {
 	return &present.OutputModel{
 		Sections: []present.Section{
 			&present.TableSection{
-				Headers: []string{"ID", "NAME", "SUBTASK"},
+				Headers: []string{"ID", "NAME", "SUBTASK", "DESCRIPTION"},
 				Rows:    rows,
 			},
 		},

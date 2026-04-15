@@ -149,8 +149,8 @@ func TestIssuePresenter_PresentList(t *testing.T) {
 func TestIssuePresenter_PresentTypes(t *testing.T) {
 	t.Parallel()
 	types := []api.IssueType{
-		{ID: "1", Name: "Bug", Subtask: false},
-		{ID: "2", Name: "Sub-task", Subtask: true},
+		{ID: "1", Name: "Bug", Subtask: false, Description: "A bug in the software"},
+		{ID: "2", Name: "Sub-task", Subtask: true, Description: "A subtask of another issue"},
 	}
 
 	p := IssuePresenter{}
@@ -158,18 +158,24 @@ func TestIssuePresenter_PresentTypes(t *testing.T) {
 
 	table := model.Sections[0].(*present.TableSection)
 
-	if len(table.Headers) != 3 {
-		t.Errorf("expected 3 headers, got %d", len(table.Headers))
+	// Headers: ID, NAME, SUBTASK, DESCRIPTION
+	if len(table.Headers) != 4 {
+		t.Errorf("expected 4 headers, got %d", len(table.Headers))
 	}
 	if len(table.Rows) != 2 {
 		t.Errorf("expected 2 rows, got %d", len(table.Rows))
 	}
 
-	// Verify subtask display
-	if table.Rows[0].Cells[2] != "No" {
-		t.Errorf("Bug subtask: expected 'No', got %q", table.Rows[0].Cells[2])
+	// Verify subtask display (lowercase)
+	if table.Rows[0].Cells[2] != "no" {
+		t.Errorf("Bug subtask: expected 'no', got %q", table.Rows[0].Cells[2])
 	}
-	if table.Rows[1].Cells[2] != "Yes" {
-		t.Errorf("Sub-task subtask: expected 'Yes', got %q", table.Rows[1].Cells[2])
+	if table.Rows[1].Cells[2] != "yes" {
+		t.Errorf("Sub-task subtask: expected 'yes', got %q", table.Rows[1].Cells[2])
+	}
+
+	// Verify description is included
+	if table.Rows[0].Cells[3] != "A bug in the software" {
+		t.Errorf("Bug description: expected 'A bug in the software', got %q", table.Rows[0].Cells[3])
 	}
 }

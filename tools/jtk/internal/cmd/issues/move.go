@@ -8,8 +8,11 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/open-cli-collective/atlassian-go/present"
+
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
+	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
 )
 
 func newMoveCmd(opts *root.Options) *cobra.Command {
@@ -64,7 +67,7 @@ Limitations:
 }
 
 func runMove(ctx context.Context, opts *root.Options, issueKeys []string, targetProject, targetType string, notify, wait bool) error {
-	v := opts.View()
+	mp := jtkpresent.MutationPresenter{}
 
 	if len(issueKeys) > 1000 {
 		return fmt.Errorf("cannot move more than 1000 issues at once (got %d)", len(issueKeys))
@@ -122,17 +125,29 @@ func runMove(ctx context.Context, opts *root.Options, issueKeys []string, target
 	}
 
 	if targetIssueType == nil {
-		v.Error("Issue type not found in target project")
-		v.Info("Available types in %s:", targetProject)
+		// Error message to stderr
+		errModel := mp.Error("Issue type not found in target project")
+		errOut := present.Render(errModel, opts.RenderStyle())
+		_, _ = fmt.Fprint(opts.Stderr, errOut.Stderr)
+
+		// Available types info to stderr
+		infoModel := mp.Advisory("Available types in %s:", targetProject)
+		infoOut := present.Render(infoModel, opts.RenderStyle())
+		_, _ = fmt.Fprint(opts.Stderr, infoOut.Stderr)
 		for _, t := range issueTypes {
 			if !t.Subtask {
-				v.Info("  - %s", t.Name)
+				typeModel := mp.Advisory("  - %s", t.Name)
+				typeOut := present.Render(typeModel, opts.RenderStyle())
+				_, _ = fmt.Fprint(opts.Stderr, typeOut.Stderr)
 			}
 		}
 		return fmt.Errorf("issue type not found: %s", targetType)
 	}
 
-	v.Info("Moving %d issue(s) to %s (%s)...", len(issueKeys), targetProject, targetIssueType.Name)
+	// Progress message to stderr
+	advisory := mp.Advisory("Moving %d issue(s) to %s (%s)...", len(issueKeys), targetProject, targetIssueType.Name)
+	advOut := present.Render(advisory, opts.RenderStyle())
+	_, _ = fmt.Fprint(opts.Stderr, advOut.Stderr)
 
 	// Build and execute the move request
 	req := api.BuildMoveRequest(issueKeys, targetProject, targetIssueType.ID, notify)
@@ -147,13 +162,19 @@ func runMove(ctx context.Context, opts *root.Options, issueKeys []string, target
 	}
 
 	if !wait {
-		v.Success("Move initiated (Task ID: %s)", resp.TaskID)
-		v.Info("Check status with: jtk issues move-status %s", resp.TaskID)
+		model := mp.Success("Move initiated (Task ID: %s)", resp.TaskID)
+		out := present.Render(model, opts.RenderStyle())
+		_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
+		infoModel := mp.Info("Check status with: jtk issues move-status %s", resp.TaskID)
+		infoOut := present.Render(infoModel, opts.RenderStyle())
+		_, _ = fmt.Fprint(opts.Stdout, infoOut.Stdout)
 		return nil
 	}
 
-	// Wait for completion
-	v.Info("Waiting for move to complete...")
+	// Wait for completion - progress to stderr
+	waitModel := mp.Advisory("Waiting for move to complete...")
+	waitOut := present.Render(waitModel, opts.RenderStyle())
+	_, _ = fmt.Fprint(opts.Stderr, waitOut.Stderr)
 
 	for {
 		status, err := client.GetMoveTaskStatus(ctx, resp.TaskID)
@@ -164,16 +185,24 @@ func runMove(ctx context.Context, opts *root.Options, issueKeys []string, target
 		switch status.Status {
 		case "COMPLETE":
 			if status.Result != nil && len(status.Result.Failed) > 0 {
-				v.Warning("Move completed with errors")
+				warnModel := mp.Warning("Move completed with errors")
+				warnOut := present.Render(warnModel, opts.RenderStyle())
+				_, _ = fmt.Fprint(opts.Stderr, warnOut.Stderr)
 				for _, failed := range status.Result.Failed {
-					v.Error("  %s: %s", failed.IssueKey, strings.Join(failed.Errors, ", "))
+					errModel := mp.Error("  %s: %s", failed.IssueKey, strings.Join(failed.Errors, ", "))
+					errOut := present.Render(errModel, opts.RenderStyle())
+					_, _ = fmt.Fprint(opts.Stderr, errOut.Stderr)
 				}
 				if len(status.Result.Successful) > 0 {
-					v.Success("Successfully moved: %s", strings.Join(status.Result.Successful, ", "))
+					successModel := mp.Success("Successfully moved: %s", strings.Join(status.Result.Successful, ", "))
+					successOut := present.Render(successModel, opts.RenderStyle())
+					_, _ = fmt.Fprint(opts.Stdout, successOut.Stdout)
 				}
 				return fmt.Errorf("some issues failed to move")
 			}
-			v.Success("Moved %d issue(s) to %s", len(issueKeys), targetProject)
+			model := mp.Success("Moved %d issue(s) to %s", len(issueKeys), targetProject)
+			out := present.Render(model, opts.RenderStyle())
+			_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
 			return nil
 
 		case "FAILED":
@@ -225,27 +254,42 @@ func runMoveStatus(ctx context.Context, opts *root.Options, taskID string) error
 		return v.JSON(status)
 	}
 
-	v.Println("Task ID:     %s", status.TaskID)
-	v.Println("Status:      %s", status.Status)
-	v.Println("Progress:    %d%%", status.Progress)
-	v.Println("Submitted:   %s", status.SubmittedAt)
+	// Build detail section for move status
+	fields := []present.Field{
+		{Label: "Task ID", Value: status.TaskID},
+		{Label: "Status", Value: status.Status},
+		{Label: "Progress", Value: fmt.Sprintf("%d%%", status.Progress)},
+		{Label: "Submitted", Value: status.SubmittedAt},
+	}
 
 	if status.StartedAt != "" {
-		v.Println("Started:     %s", status.StartedAt)
+		fields = append(fields, present.Field{Label: "Started", Value: status.StartedAt})
 	}
 	if status.FinishedAt != "" {
-		v.Println("Finished:    %s", status.FinishedAt)
+		fields = append(fields, present.Field{Label: "Finished", Value: status.FinishedAt})
 	}
 
+	model := &present.OutputModel{
+		Sections: []present.Section{&present.DetailSection{Fields: fields}},
+	}
+	out := present.Render(model, opts.RenderStyle())
+	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
+
 	if status.Result != nil {
-		v.Println("")
+		mp := jtkpresent.MutationPresenter{}
 		if len(status.Result.Successful) > 0 {
-			v.Success("Successful: %s", strings.Join(status.Result.Successful, ", "))
+			successModel := mp.Success("Successful: %s", strings.Join(status.Result.Successful, ", "))
+			successOut := present.Render(successModel, opts.RenderStyle())
+			_, _ = fmt.Fprint(opts.Stdout, successOut.Stdout)
 		}
 		if len(status.Result.Failed) > 0 {
-			v.Error("Failed:")
+			errModel := mp.Error("Failed:")
+			errOut := present.Render(errModel, opts.RenderStyle())
+			_, _ = fmt.Fprint(opts.Stderr, errOut.Stderr)
 			for _, failed := range status.Result.Failed {
-				v.Error("  %s: %s", failed.IssueKey, strings.Join(failed.Errors, ", "))
+				failedModel := mp.Error("  %s: %s", failed.IssueKey, strings.Join(failed.Errors, ", "))
+				failedOut := present.Render(failedModel, opts.RenderStyle())
+				_, _ = fmt.Fprint(opts.Stderr, failedOut.Stderr)
 			}
 		}
 	}

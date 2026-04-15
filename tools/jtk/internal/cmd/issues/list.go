@@ -7,11 +7,13 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/open-cli-collective/atlassian-go/artifact"
+	"github.com/open-cli-collective/atlassian-go/present"
 	"github.com/open-cli-collective/atlassian-go/view"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	jtkartifact "github.com/open-cli-collective/jira-ticket-cli/internal/artifact"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
+	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
 )
 
 func newListCmd(opts *root.Options) *cobra.Command {
@@ -106,7 +108,9 @@ func runList(ctx context.Context, opts *root.Options, project, sprint string, ma
 	}
 
 	if len(result.Issues) == 0 {
-		v.Info("No issues found")
+		model := jtkpresent.MutationPresenter{}.Info("No issues found")
+		out := present.Render(model, opts.RenderStyle())
+		_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
 		return nil
 	}
 
@@ -117,35 +121,17 @@ func runList(ctx context.Context, opts *root.Options, project, sprint string, ma
 		return v.RenderArtifactList(artifact.NewListResult(arts, hasMore))
 	}
 
-	headers := []string{"KEY", "SUMMARY", "STATUS", "ASSIGNEE", "TYPE"}
-	rows := make([][]string, 0, len(result.Issues))
-
-	for _, issue := range result.Issues {
-		status := ""
-		if issue.Fields.Status != nil {
-			status = issue.Fields.Status.Name
-		}
-
-		assignee := ""
-		if issue.Fields.Assignee != nil {
-			assignee = issue.Fields.Assignee.DisplayName
-		}
-
-		issueType := ""
-		if issue.Fields.IssueType != nil {
-			issueType = issue.Fields.IssueType.Name
-		}
-
-		rows = append(rows, formatIssueRow(issue.Key, issue.Fields.Summary, status, assignee, issueType))
-	}
-
-	if err := v.Table(headers, rows); err != nil {
-		return err
-	}
+	// Text path: presenter → render → write
+	model := jtkpresent.IssuePresenter{}.PresentList(result.Issues)
+	out := present.Render(model, opts.RenderStyle())
+	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
+	_, _ = fmt.Fprint(opts.Stderr, out.Stderr)
 
 	// Print pagination footer on stderr when there are more results
 	if !result.Pagination.IsLast {
-		v.Info("More results available (use --next-page-token to fetch next page)")
+		advisory := jtkpresent.MutationPresenter{}.Advisory("More results available (use --next-page-token to fetch next page)")
+		advOut := present.Render(advisory, opts.RenderStyle())
+		_, _ = fmt.Fprint(opts.Stderr, advOut.Stderr)
 	}
 
 	return nil

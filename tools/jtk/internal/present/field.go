@@ -273,7 +273,12 @@ func (FieldPresenter) PresentNoOptions(fieldID string) *present.OutputModel {
 }
 
 // PresentOptionAdded creates a success message for option addition.
-func (FieldPresenter) PresentOptionAdded(msg string) *present.OutputModel {
+// If optionID is empty, only the value is shown.
+func (FieldPresenter) PresentOptionAdded(optionID, value string) *present.OutputModel {
+	msg := fmt.Sprintf("Added option %s", value)
+	if optionID != "" {
+		msg = fmt.Sprintf("Added option %s (%s)", optionID, value)
+	}
 	return &present.OutputModel{
 		Sections: []present.Section{
 			&present.MessageSection{

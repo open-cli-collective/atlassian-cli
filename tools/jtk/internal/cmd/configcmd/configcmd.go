@@ -162,13 +162,8 @@ func runClear(ctx context.Context, opts *clearOptions) error {
 		return err
 	}
 
-	successModel := jtkpresent.ConfigPresenter{}.PresentCleared(configPath)
-	successOut := present.Render(successModel, opts.RenderStyle())
-	fmt.Fprint(opts.Stdout, successOut.Stdout)
-	fmt.Fprint(opts.Stderr, successOut.Stderr)
-
 	// Check for active environment variables
-	envVars := []string{}
+	var envVars []string
 	if os.Getenv("JIRA_URL") != "" || os.Getenv("ATLASSIAN_URL") != "" {
 		envVars = append(envVars, "URL")
 	}
@@ -179,12 +174,10 @@ func runClear(ctx context.Context, opts *clearOptions) error {
 		envVars = append(envVars, "API Token")
 	}
 
-	if len(envVars) > 0 {
-		fmt.Fprintln(opts.Stderr)
-		fmt.Fprintf(opts.Stderr, "Note: The following are still configured via environment variables: %s\n",
-			strings.Join(envVars, ", "))
-		fmt.Fprintln(opts.Stderr, "These will continue to be used. Unset them if you want to fully clear configuration.")
-	}
+	model := jtkpresent.ConfigPresenter{}.PresentClearedWithEnvVars(configPath, envVars)
+	out := present.Render(model, opts.RenderStyle())
+	fmt.Fprint(opts.Stdout, out.Stdout)
+	fmt.Fprint(opts.Stderr, out.Stderr)
 
 	return nil
 }

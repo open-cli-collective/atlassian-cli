@@ -166,13 +166,13 @@ func runOptionsAdd(ctx context.Context, opts *root.Options, fieldID, value, cont
 		return v.JSON(options)
 	}
 
-	var msg string
+	optionID := ""
+	optionValue := value
 	if len(options) > 0 {
-		msg = fmt.Sprintf("Added option %s (%s)", options[0].ID, options[0].Value)
-	} else {
-		msg = fmt.Sprintf("Added option %s", value)
+		optionID = options[0].ID
+		optionValue = options[0].Value
 	}
-	model := jtkpresent.FieldPresenter{}.PresentOptionAdded(msg)
+	model := jtkpresent.FieldPresenter{}.PresentOptionAdded(optionID, optionValue)
 	out := present.Render(model, opts.RenderStyle())
 	fmt.Fprint(opts.Stdout, out.Stdout)
 	return nil

@@ -3,6 +3,7 @@ package present
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/open-cli-collective/atlassian-go/present"
 
@@ -147,6 +148,34 @@ func (ConfigPresenter) PresentCleared(path string) *present.OutputModel {
 			},
 		},
 	}
+}
+
+// PresentClearedWithEnvVars creates a success message with env var advisory.
+func (ConfigPresenter) PresentClearedWithEnvVars(path string, envVars []string) *present.OutputModel {
+	sections := []present.Section{
+		&present.MessageSection{
+			Kind:    present.MessageSuccess,
+			Message: fmt.Sprintf("Configuration file removed: %s", path),
+			Stream:  present.StreamStdout,
+		},
+	}
+
+	if len(envVars) > 0 {
+		sections = append(sections,
+			&present.MessageSection{
+				Kind:    present.MessageInfo,
+				Message: fmt.Sprintf("\nNote: The following are still configured via environment variables: %s", strings.Join(envVars, ", ")),
+				Stream:  present.StreamStderr,
+			},
+			&present.MessageSection{
+				Kind:    present.MessageInfo,
+				Message: "These will continue to be used. Unset them if you want to fully clear configuration.",
+				Stream:  present.StreamStderr,
+			},
+		)
+	}
+
+	return &present.OutputModel{Sections: sections}
 }
 
 // PresentNoConfig creates an info message when no config file exists.

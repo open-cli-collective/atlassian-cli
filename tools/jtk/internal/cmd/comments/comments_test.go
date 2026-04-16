@@ -452,6 +452,24 @@ func TestRunList_IDOnlyWithMoreResultsAppendsContinuation(t *testing.T) {
 	}
 }
 
+func TestRunList_EmptyWithIDOnly_EmitsNothing(t *testing.T) {
+	t.Parallel()
+	server := commentsServerWithTotal(nil, 0)
+	defer server.Close()
+
+	opts, stdout, stderr := newCommentsOpts(t, server)
+	opts.IDOnly = true
+	err := runList(context.Background(), opts, "TEST-1", 50, false)
+	testutil.RequireNoError(t, err)
+
+	if stdout.String() != "" {
+		t.Errorf("stdout should be empty under --id with zero comments, got: %q", stdout.String())
+	}
+	if stderr.String() != "" {
+		t.Errorf("stderr should be empty, got: %q", stderr.String())
+	}
+}
+
 func TestRunList_EmptyDefaultGoesToStdout(t *testing.T) {
 	t.Parallel()
 	server := commentsServerWithTotal(nil, 0)

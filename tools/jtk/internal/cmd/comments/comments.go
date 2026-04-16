@@ -80,7 +80,9 @@ func runList(ctx context.Context, opts *root.Options, issueKey string, maxResult
 	}
 
 	if len(result.Comments) == 0 {
-		return jtkpresent.Emit(opts, jtkpresent.CommentPresenter{}.PresentEmpty(issueKey))
+		model := jtkpresent.CommentPresenter{}.PresentEmpty(issueKey)
+		model.Sections = jtkpresent.AppendPaginationHint(model.Sections, hasMore)
+		return jtkpresent.Emit(opts, model)
 	}
 
 	if v.Format == view.FormatJSON {
@@ -100,7 +102,14 @@ func runList(ctx context.Context, opts *root.Options, issueKey string, maxResult
 // commentsHasMore computes pagination using the authoritative API metadata,
 // falling back to a full-page heuristic when Total is unavailable (Jira Cloud
 // occasionally returns Total=0).
+//
+// When got==0 there are definitionally no more pages, even with the
+// heuristic — without this guard, degenerate inputs like (0,0,0,0) would
+// falsely report hasMore=true.
 func commentsHasMore(total, startAt, got, maxResults int) bool {
+	if got == 0 {
+		return false
+	}
 	if total > 0 {
 		return startAt+got < total
 	}

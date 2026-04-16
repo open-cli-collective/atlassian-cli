@@ -122,6 +122,24 @@ func TestRunList_EmptyDefault_NoIssuesFoundOnStdout(t *testing.T) {
 	}
 }
 
+func TestRunList_EmptyWithMoreResults_StillEmitsPaginationHint(t *testing.T) {
+	t.Parallel()
+	// Edge case: empty page but IsLast=false (more pages exist). The
+	// continuation hint must still reach stdout in default mode so agents
+	// don't terminate prematurely on a mid-stream empty page.
+	server := listResultServer(t, nil, false)
+	defer server.Close()
+
+	opts, stdout, stderr := newListOpts(t, server)
+	err := runList(context.Background(), opts, "TEST", "", 25, "", false, "")
+	testutil.RequireNoError(t, err)
+
+	if !strings.Contains(stdout.String(), "More results available") {
+		t.Errorf("pagination hint should appear on stdout for empty page with hasMore=true; got stdout=%q stderr=%q",
+			stdout.String(), stderr.String())
+	}
+}
+
 func TestRunList_EmptyWithIDOnly_EmitsNothing(t *testing.T) {
 	t.Parallel()
 	server := listResultServer(t, nil, true)

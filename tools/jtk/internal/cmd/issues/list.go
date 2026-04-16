@@ -117,7 +117,9 @@ func runList(ctx context.Context, opts *root.Options, project, sprint string, ma
 	}
 
 	if len(result.Issues) == 0 {
-		return jtkpresent.Emit(opts, jtkpresent.IssuePresenter{}.PresentEmpty())
+		model := jtkpresent.IssuePresenter{}.PresentEmpty()
+		model.Sections = jtkpresent.AppendPaginationHint(model.Sections, hasMore)
+		return jtkpresent.Emit(opts, model)
 	}
 
 	// For JSON output, return the projected artifacts

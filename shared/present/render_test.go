@@ -437,8 +437,11 @@ func TestRender_DetailThenTable_NoSeparator(t *testing.T) {
 	}
 }
 
-func TestRender_DetailThenStderrMessage_NoStdoutSeparator(t *testing.T) {
+func TestRender_StderrMessageBetweenDetails_StdoutSeparatorStillApplies(t *testing.T) {
 	t.Parallel()
+	// A stderr-routed section between two stdout-bound DetailSections must
+	// not interrupt the stdout separator chain — the separator rule tracks
+	// the previous stdout-bound section, not the previous section overall.
 	model := &OutputModel{
 		Sections: []Section{
 			&DetailSection{Fields: []Field{{Label: "ID", Value: "1"}}},
@@ -448,8 +451,6 @@ func TestRender_DetailThenStderrMessage_NoStdoutSeparator(t *testing.T) {
 	}
 
 	out := Render(model, StyleAgent)
-	// Previous stdout-bound section was a DetailSection, so separator applies
-	// even with a stderr message between them (it doesn't affect stdout stream).
 	wantStdout := "ID: 1\n\nID: 2\n"
 	wantStderr := "advisory\n"
 	if out.Stdout != wantStdout {

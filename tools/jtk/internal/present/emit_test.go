@@ -43,7 +43,7 @@ func TestEmitIDs_OnePerLine(t *testing.T) {
 	t.Parallel()
 	opts, stdout, stderr := newTestOpts()
 
-	if err := EmitIDs(opts, "MON-1", "MON-2", "MON-3"); err != nil {
+	if err := EmitIDs(opts, []string{"MON-1", "MON-2", "MON-3"}); err != nil {
 		t.Fatalf("EmitIDs returned error: %v", err)
 	}
 
@@ -60,7 +60,7 @@ func TestEmitIDs_EmptyEmitsNothing(t *testing.T) {
 	t.Parallel()
 	opts, stdout, stderr := newTestOpts()
 
-	if err := EmitIDs(opts); err != nil {
+	if err := EmitIDs(opts, nil); err != nil {
 		t.Fatalf("EmitIDs returned error: %v", err)
 	}
 
@@ -141,12 +141,12 @@ func TestAppendPaginationHint(t *testing.T) {
 		&present.TableSection{Headers: []string{"K"}, Rows: []present.Row{{Cells: []string{"v"}}}},
 	}
 
-	same := appendPaginationHint(base, false)
+	same := AppendPaginationHint(base, false)
 	if len(same) != 1 {
 		t.Errorf("no-op when hasMore=false: got %d sections, want 1", len(same))
 	}
 
-	withHint := appendPaginationHint(base, true)
+	withHint := AppendPaginationHint(base, true)
 	if len(withHint) != 2 {
 		t.Fatalf("hasMore=true: got %d sections, want 2", len(withHint))
 	}

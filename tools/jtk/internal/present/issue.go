@@ -490,5 +490,5 @@ func (p IssuePresenter) PresentListWithPagination(issues []api.Issue, hasMore bo
 		},
 	}
 
-	return &present.OutputModel{Sections: appendPaginationHint(sections, hasMore)}
+	return &present.OutputModel{Sections: AppendPaginationHint(sections, hasMore)}
 }

@@ -48,7 +48,7 @@ func runGet(ctx context.Context, opts *root.Options, issueKey string, noTruncate
 	}
 
 	if opts.EmitIDOnly() {
-		return jtkpresent.EmitIDs(opts, issue.Key)
+		return jtkpresent.EmitIDs(opts, []string{issue.Key})
 	}
 
 	// For JSON output, return the projected artifact

@@ -452,6 +452,27 @@ func TestRunList_IDOnlyWithMoreResultsAppendsContinuation(t *testing.T) {
 	}
 }
 
+func TestRunList_EmptyNeverEmitsSpuriousPaginationHint(t *testing.T) {
+	t.Parallel()
+	// Even when the API reports Total>0, an empty page means we cannot
+	// meaningfully continue paging (no cursor advances). commentsHasMore's
+	// got==0 guard ensures the pagination hint is NOT emitted — no false
+	// "there are more" signal on stdout or stderr.
+	server := commentsServerWithTotal(nil, 5)
+	defer server.Close()
+
+	opts, stdout, stderr := newCommentsOpts(t, server)
+	err := runList(context.Background(), opts, "TEST-1", 50, false)
+	testutil.RequireNoError(t, err)
+
+	if strings.Contains(stdout.String(), "More results available") {
+		t.Errorf("pagination hint should NOT appear for empty page; got stdout=%q", stdout.String())
+	}
+	if strings.Contains(stderr.String(), "More results available") {
+		t.Errorf("pagination hint should NOT appear on stderr either; got stderr=%q", stderr.String())
+	}
+}
+
 func TestRunList_EmptyWithIDOnly_EmitsNothing(t *testing.T) {
 	t.Parallel()
 	server := commentsServerWithTotal(nil, 0)
@@ -499,6 +520,9 @@ func TestCommentsHasMore(t *testing.T) {
 		{"total zero and full page (heuristic true)", 0, 0, 5, 5, true},
 		{"total zero and partial page", 0, 0, 3, 5, false},
 		{"later page, more remain", 20, 10, 5, 5, true},
+		{"empty page, total zero (no more)", 0, 0, 0, 5, false},
+		{"empty page, total nonzero (no more)", 10, 10, 0, 5, false},
+		{"degenerate all-zeros", 0, 0, 0, 0, false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

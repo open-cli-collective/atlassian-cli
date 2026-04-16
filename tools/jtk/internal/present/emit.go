@@ -23,10 +23,11 @@ func paginationMessageSection() *present.MessageSection {
 	}
 }
 
-// appendPaginationHint returns sections with a pagination MessageSection
+// AppendPaginationHint returns sections with a pagination MessageSection
 // appended when hasMore is true, otherwise returns sections unchanged.
-// Every model-building pagination call site should funnel through this.
-func appendPaginationHint(sections []present.Section, hasMore bool) []present.Section {
+// Every model-building pagination call site funnels through this so
+// wording, kind, and stream stay in sync across presenters and commands.
+func AppendPaginationHint(sections []present.Section, hasMore bool) []present.Section {
 	if !hasMore {
 		return sections
 	}
@@ -43,9 +44,9 @@ func Emit(opts *root.Options, model *present.OutputModel) error {
 	return nil
 }
 
-// EmitIDs writes one identifier per line to opts.Stdout. Empty input emits
+// EmitIDs writes one identifier per line to opts.Stdout. Empty slice emits
 // nothing. Matches `kubectl get -o name` / `ls -1` semantics.
-func EmitIDs(opts *root.Options, ids ...string) error {
+func EmitIDs(opts *root.Options, ids []string) error {
 	for _, id := range ids {
 		_, _ = fmt.Fprintln(opts.Stdout, id)
 	}
@@ -57,7 +58,7 @@ func EmitIDs(opts *root.Options, ids ...string) error {
 // model-building presenters via paginationMessageSection() so `--id` and
 // default mode can never drift on wording or stream.
 func EmitIDsWithPagination(opts *root.Options, ids []string, hasMore bool) error {
-	if err := EmitIDs(opts, ids...); err != nil {
+	if err := EmitIDs(opts, ids); err != nil {
 		return err
 	}
 	if hasMore {

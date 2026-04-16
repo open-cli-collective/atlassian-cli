@@ -116,8 +116,7 @@ func newGetCmd(opts *root.Options) *cobra.Command {
 		Use:   "get <dashboard-id>",
 		Short: "Get dashboard details",
 		Long:  "Get details of a specific dashboard including its gadgets.",
-		Example: `  jtk dashboards get 10001
-  jtk dashboards get 10001 -o json`,
+		Example: `  jtk dashboards get 10001`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runGet(cmd.Context(), opts, args[0])
@@ -274,8 +273,7 @@ func newGadgetsListCmd(opts *root.Options) *cobra.Command {
 		Use:   "list <dashboard-id>",
 		Short: "List gadgets on a dashboard",
 		Long:  "List all gadgets on a specific dashboard.",
-		Example: `  jtk dashboards gadgets list 10001
-  jtk dashboards gadgets list 10001 -o json`,
+		Example: `  jtk dashboards gadgets list 10001`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runGadgetsList(cmd.Context(), opts, args[0])

@@ -44,7 +44,7 @@ func newListCmd(opts *root.Options) *cobra.Command {
   jtk issues list --project MYPROJECT --all-fields
 
   # List with specific fields (e.g. custom fields)
-  jtk issues list --project MYPROJECT --fields summary,status,customfield_10005 -o json`,
+  jtk issues list --project MYPROJECT --fields summary,status,customfield_10005`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runList(cmd.Context(), opts, project, sprint, maxResults, nextPageToken, allFields, fieldsFlag)
 		},

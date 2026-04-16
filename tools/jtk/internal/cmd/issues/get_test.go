@@ -203,6 +203,59 @@ func TestNewGetCmd_NoTruncateAndFullTextBothSet(t *testing.T) {
 	testutil.NotContains(t, output, "[truncated")
 }
 
+func TestRunGet_IDOnly(t *testing.T) {
+	t.Parallel()
+	issue := api.Issue{
+		Key: "TEST-1",
+		Fields: api.IssueFields{
+			Summary:   "Test issue",
+			Status:    &api.Status{Name: "Open"},
+			IssueType: &api.IssueType{Name: "Task"},
+		},
+	}
+
+	server := newTestIssueServer(t, issue)
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", IDOnly: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	testutil.RequireNoError(t, runGet(context.Background(), opts, "TEST-1", false))
+	testutil.Equal(t, stdout.String(), "TEST-1\n")
+}
+
+func TestRunGet_IDOnlyPrecedenceOverExtendedFullText(t *testing.T) {
+	t.Parallel()
+	issue := api.Issue{
+		Key: "TEST-1",
+		Fields: api.IssueFields{
+			Summary:     "Test issue",
+			Description: &api.Description{Text: strings.Repeat("A", 300)},
+			Status:      &api.Status{Name: "Open"},
+			IssueType:   &api.IssueType{Name: "Task"},
+		},
+	}
+
+	server := newTestIssueServer(t, issue)
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", IDOnly: true, Extended: true, FullText: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	// runGet receives noTruncate derived from RunE; when --id is set, the truncation
+	// value doesn't matter because EmitIDOnly collapses output before presenter runs.
+	testutil.RequireNoError(t, runGet(context.Background(), opts, "TEST-1", true))
+	testutil.Equal(t, stdout.String(), "TEST-1\n")
+}
+
 func TestRunGet_ShortDescriptionNotTruncated(t *testing.T) {
 	t.Parallel()
 	issue := api.Issue{

@@ -41,10 +41,7 @@ func newListCmd(opts *root.Options) *cobra.Command {
 		Short:   "List attachments on an issue",
 		Long:    "List all attachments on a Jira issue.",
 		Example: `  # List attachments
-  jtk attachments list PROJ-123
-
-  # Output as JSON
-  jtk attachments list PROJ-123 -o json`,
+  jtk attachments list PROJ-123`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runList(cmd.Context(), opts, args[0])

@@ -43,7 +43,7 @@ func newSearchCmd(opts *root.Options) *cobra.Command {
   jtk issues search --jql "project = MYPROJECT" --all-fields
 
   # Search with specific fields (e.g. custom fields)
-  jtk issues search --jql "project = MYPROJECT" --fields summary,status,customfield_10005 -o json`,
+  jtk issues search --jql "project = MYPROJECT" --fields summary,status,customfield_10005`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runSearch(cmd.Context(), opts, jql, maxResults, nextPageToken, allFields, fieldsFlag)
 		},

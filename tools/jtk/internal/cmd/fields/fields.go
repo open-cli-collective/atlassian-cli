@@ -50,10 +50,7 @@ func newListCmd(opts *root.Options) *cobra.Command {
   jtk fields list --custom
 
   # Search for fields by name
-  jtk fields list --name "story point"
-
-  # List fields as JSON
-  jtk fields list -o json`,
+  jtk fields list --name "story point"`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runList(cmd.Context(), opts, customOnly, nameFilter)
 		},

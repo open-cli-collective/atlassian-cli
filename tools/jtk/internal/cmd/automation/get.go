@@ -28,8 +28,7 @@ labels, tags).
 
 For the exact JSON needed for editing, use 'jtk auto export' instead.`,
 		Example: `  jtk automation get 12345
-  jtk auto get 12345 --show-components
-  jtk auto get 12345 -o json`,
+  jtk auto get 12345 --show-components`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runGet(cmd.Context(), opts, args[0], showComponents)

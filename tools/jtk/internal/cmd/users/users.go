@@ -39,8 +39,8 @@ func newGetCmd(opts *root.Options) *cobra.Command {
 		Example: `  # Get user details
   jtk users get 61292e4c4f29230069621c5f
 
-  # Get as JSON
-  jtk users get 61292e4c4f29230069621c5f -o json`,
+  # Print just the account ID
+  jtk users get 61292e4c4f29230069621c5f --id`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runGet(cmd.Context(), opts, args[0])
@@ -59,6 +59,11 @@ func runGet(ctx context.Context, opts *root.Options, accountID string) error {
 	user, err := client.GetUser(ctx, accountID)
 	if err != nil {
 		return err
+	}
+
+	if opts.EmitIDOnly() {
+		_, _ = fmt.Fprintln(opts.Stdout, user.AccountID)
+		return nil
 	}
 
 	if v.Format == view.FormatJSON {
@@ -85,9 +90,6 @@ The search is case-insensitive and matches against display name, email address,
 and other user attributes. Use this to find account IDs for issue assignment.`,
 		Example: `  # Search for users named "john"
   jtk users search john
-
-  # Get results as JSON
-  jtk users search john -o json
 
   # Limit results
   jtk users search john --max 5`,

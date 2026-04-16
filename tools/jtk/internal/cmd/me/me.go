@@ -25,7 +25,7 @@ func Register(parent *cobra.Command, opts *root.Options) {
   jtk me
 
   # Show just the account ID (for scripting)
-  jtk me -o plain`,
+  jtk me --id`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return run(cmd.Context(), opts)
 		},
@@ -47,12 +47,18 @@ func run(ctx context.Context, opts *root.Options) error {
 		return err
 	}
 
+	// --id: collapse output to the primary identifier.
+	if opts.EmitIDOnly() {
+		_, _ = fmt.Fprintln(opts.Stdout, user.AccountID)
+		return nil
+	}
+
 	// JSON path: use existing artifact layer (unchanged)
 	if v.Format == view.FormatJSON {
 		return v.RenderArtifact(jtkartifact.ProjectUser(user, opts.ArtifactMode()))
 	}
 
-	// Plain path: just the account ID
+	// Plain path: just the account ID (legacy; --id is the preferred surface)
 	if v.Format == view.FormatPlain {
 		_, _ = fmt.Fprintln(opts.Stdout, user.AccountID)
 		return nil

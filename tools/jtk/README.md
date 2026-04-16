@@ -200,8 +200,12 @@ Show information about the currently authenticated user.
 
 ```bash
 jtk me
-jtk me -o json
+jtk me --id     # print just the account ID (for scripting)
 ```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--id` | `false` | Emit only the account ID (global) |
 
 ---
 
@@ -274,11 +278,12 @@ Get details of a specific issue.
 ```bash
 jtk issues get PROJ-123
 jtk issues get PROJ-123 --fulltext
-jtk issues get PROJ-123 -o json
+jtk issues get PROJ-123 --id
 ```
 
 | Flag | Default | Description |
 |------|---------|-------------|
+| `--id` | `false` | Emit only the issue key (global) |
 | `--fulltext` | `false` | Show full description without truncation (global) |
 | `--no-truncate` | `false` | Deprecated alias for `--fulltext` (kept during migration) |
 
@@ -1116,8 +1121,12 @@ Get details for a specific user by account ID.
 
 ```bash
 jtk users get 5b10ac8d82e05b22cc7d4ef5
-jtk users get 5b10ac8d82e05b22cc7d4ef5 -o json
+jtk users get 5b10ac8d82e05b22cc7d4ef5 --id
 ```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--id` | `false` | Emit only the account ID (global) |
 
 **Arguments:**
 - `<account-id>` - The Atlassian account ID (**required**)

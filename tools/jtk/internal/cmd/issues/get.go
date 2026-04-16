@@ -23,7 +23,7 @@ func newGetCmd(opts *root.Options) *cobra.Command {
 		Long:  "Retrieve and display details for a specific issue.",
 		Example: `  jtk issues get PROJ-123
   jtk issues get PROJ-123 --fulltext
-  jtk issues get PROJ-123 -o json`,
+  jtk issues get PROJ-123 --id`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runGet(cmd.Context(), opts, args[0], noTruncate || opts.IsFullText())
@@ -46,6 +46,11 @@ func runGet(ctx context.Context, opts *root.Options, issueKey string, noTruncate
 	issue, err := client.GetIssue(ctx, issueKey)
 	if err != nil {
 		return err
+	}
+
+	if opts.EmitIDOnly() {
+		_, _ = fmt.Fprintln(opts.Stdout, issue.Key)
+		return nil
 	}
 
 	// For JSON output, return the projected artifact

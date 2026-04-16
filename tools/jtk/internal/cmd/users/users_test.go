@@ -59,6 +59,42 @@ func TestRunGet_Table(t *testing.T) {
 	testutil.Contains(t, output, "yes")
 }
 
+func TestRunGet_IDOnly(t *testing.T) {
+	t.Parallel()
+	user := api.User{AccountID: "abc123", DisplayName: "John Doe", Active: true}
+
+	server := newTestUserServer(t, user)
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", IDOnly: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	testutil.RequireNoError(t, runGet(context.Background(), opts, "abc123"))
+	testutil.Equal(t, stdout.String(), "abc123\n")
+}
+
+func TestRunGet_IDOnlyPrecedenceOverExtended(t *testing.T) {
+	t.Parallel()
+	user := api.User{AccountID: "abc123", DisplayName: "John Doe", Active: true}
+
+	server := newTestUserServer(t, user)
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", IDOnly: true, Extended: true, FullText: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	testutil.RequireNoError(t, runGet(context.Background(), opts, "abc123"))
+	testutil.Equal(t, stdout.String(), "abc123\n")
+}
+
 func TestRunGet_JSON(t *testing.T) {
 	t.Parallel()
 	user := api.User{

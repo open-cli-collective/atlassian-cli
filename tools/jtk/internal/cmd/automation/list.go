@@ -21,8 +21,7 @@ func newListCmd(opts *root.Options) *cobra.Command {
 		Short: "List automation rules",
 		Long:  "List all automation rules with optional state filtering.",
 		Example: `  jtk automation list
-  jtk automation list --state ENABLED
-  jtk auto list -o json`,
+  jtk automation list --state ENABLED`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runList(cmd.Context(), opts, strings.ToUpper(state))
 		},

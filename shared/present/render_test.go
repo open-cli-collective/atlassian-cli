@@ -437,6 +437,29 @@ func TestRender_DetailThenTable_NoSeparator(t *testing.T) {
 	}
 }
 
+func TestRender_StdoutMessageBetweenDetails_SuppressesSeparator(t *testing.T) {
+	t.Parallel()
+	// A stdout-bound MessageSection between two DetailSections resets the
+	// separator chain — the second DetailSection is NOT preceded by a blank
+	// line, because the tracker only fires when the immediately-previous
+	// stdout section was a DetailSection. No current code triggers this
+	// pattern; this test locks the behavior so future adopters find it
+	// intentional rather than accidental.
+	model := &OutputModel{
+		Sections: []Section{
+			&DetailSection{Fields: []Field{{Label: "ID", Value: "1"}}},
+			&MessageSection{Kind: MessageInfo, Message: "note", Stream: StreamStdout},
+			&DetailSection{Fields: []Field{{Label: "ID", Value: "2"}}},
+		},
+	}
+
+	out := Render(model, StyleAgent)
+	want := "ID: 1\nnote\nID: 2\n"
+	if out.Stdout != want {
+		t.Errorf("stdout:\ngot:\n%q\nwant:\n%q", out.Stdout, want)
+	}
+}
+
 func TestRender_StderrMessageBetweenDetails_StdoutSeparatorStillApplies(t *testing.T) {
 	t.Parallel()
 	// A stderr-routed section between two stdout-bound DetailSections must

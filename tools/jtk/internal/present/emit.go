@@ -27,6 +27,11 @@ func paginationMessageSection() *present.MessageSection {
 // appended when hasMore is true, otherwise returns sections unchanged.
 // Every model-building pagination call site funnels through this so
 // wording, kind, and stream stay in sync across presenters and commands.
+//
+// Follows Go's standard append semantics: the returned slice may share
+// its backing array with the input. Callers that pass a slice with spare
+// capacity beyond its length should treat the input as consumed, or
+// allocate a fresh slice before calling.
 func AppendPaginationHint(sections []present.Section, hasMore bool) []present.Section {
 	if !hasMore {
 		return sections

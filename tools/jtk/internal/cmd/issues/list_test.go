@@ -122,11 +122,12 @@ func TestRunList_EmptyDefault_NoIssuesFoundOnStdout(t *testing.T) {
 	}
 }
 
-func TestRunList_EmptyWithMoreResults_StillEmitsPaginationHint(t *testing.T) {
+func TestRunList_EmptyWithMoreResults_EmitsOnlyPaginationHint(t *testing.T) {
 	t.Parallel()
-	// Edge case: empty page but IsLast=false (more pages exist). The
-	// continuation hint must still reach stdout in default mode so agents
-	// don't terminate prematurely on a mid-stream empty page.
+	// Empty page with IsLast=false (more pages exist). The continuation hint
+	// alone reaches stdout so agents keep paging; the "No issues found"
+	// message is suppressed because the result set is not actually empty —
+	// only this page is. Emitting both would self-contradict.
 	server := listResultServer(t, nil, false)
 	defer server.Close()
 
@@ -135,8 +136,13 @@ func TestRunList_EmptyWithMoreResults_StillEmitsPaginationHint(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	if !strings.Contains(stdout.String(), "More results available") {
-		t.Errorf("pagination hint should appear on stdout for empty page with hasMore=true; got stdout=%q stderr=%q",
-			stdout.String(), stderr.String())
+		t.Errorf("pagination hint should appear on stdout; got %q", stdout.String())
+	}
+	if strings.Contains(stdout.String(), "No issues found") {
+		t.Errorf("'No issues found' must not co-occur with pagination hint; got %q", stdout.String())
+	}
+	if stderr.String() != "" {
+		t.Errorf("stderr should be empty, got: %q", stderr.String())
 	}
 }
 

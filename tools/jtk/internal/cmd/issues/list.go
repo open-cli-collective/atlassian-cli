@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/open-cli-collective/atlassian-go/artifact"
+	"github.com/open-cli-collective/atlassian-go/present"
 	"github.com/open-cli-collective/atlassian-go/view"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
@@ -117,9 +118,17 @@ func runList(ctx context.Context, opts *root.Options, project, sprint string, ma
 	}
 
 	if len(result.Issues) == 0 {
-		model := jtkpresent.IssuePresenter{}.PresentEmpty()
-		model.Sections = jtkpresent.AppendPaginationHint(model.Sections, hasMore)
-		return jtkpresent.Emit(opts, model)
+		// Two cases, each with a single unambiguous message:
+		//   hasMore=false → "No issues found" (the query's result set is empty)
+		//   hasMore=true  → pagination hint only (this page is empty but more
+		//                    pages exist; the agent should keep paging)
+		// Emitting both together would contradict itself; pick one.
+		if hasMore {
+			return jtkpresent.Emit(opts, &present.OutputModel{
+				Sections: jtkpresent.AppendPaginationHint(nil, true),
+			})
+		}
+		return jtkpresent.Emit(opts, jtkpresent.IssuePresenter{}.PresentEmpty())
 	}
 
 	// For JSON output, return the projected artifacts

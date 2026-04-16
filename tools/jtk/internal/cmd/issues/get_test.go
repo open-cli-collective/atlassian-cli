@@ -72,7 +72,7 @@ func TestRunGet_TruncatesDescription(t *testing.T) {
 
 	output := stdout.String()
 	testutil.Contains(t, output, "TEST-1")
-	testutil.Contains(t, output, "[truncated, use --no-truncate for complete text]")
+	testutil.Contains(t, output, "[truncated, use --fulltext for complete text]")
 	testutil.NotContains(t, output, longText)
 }
 
@@ -109,6 +109,50 @@ func TestRunGet_FullDescription(t *testing.T) {
 
 	err = runGet(context.Background(), opts, "TEST-1", true)
 	testutil.RequireNoError(t, err)
+
+	output := stdout.String()
+	testutil.Contains(t, output, longText)
+	testutil.NotContains(t, output, "[truncated")
+}
+
+// TestNewGetCmd_FullTextRoutesFromRoot verifies that when --fulltext is set on
+// the root Options (as the persistent --fulltext flag does), runGet is invoked
+// with noTruncate=true even though the local --no-truncate flag is not set.
+func TestNewGetCmd_FullTextRoutesFromRoot(t *testing.T) {
+	t.Parallel()
+	longText := strings.Repeat("A", 300)
+	issue := api.Issue{
+		Key: "TEST-1",
+		Fields: api.IssueFields{
+			Summary:     "Test issue",
+			Description: &api.Description{Text: longText},
+			Status:      &api.Status{Name: "Open"},
+			IssueType:   &api.IssueType{Name: "Task"},
+		},
+	}
+
+	server := newTestIssueServer(t, issue)
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{
+		URL:      server.URL,
+		Email:    "test@example.com",
+		APIToken: "token",
+	})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{
+		Output:   "table",
+		FullText: true, // global --fulltext
+		Stdout:   &stdout,
+		Stderr:   &bytes.Buffer{},
+	}
+	opts.SetAPIClient(client)
+
+	cmd := newGetCmd(opts)
+	cmd.SetArgs([]string{"TEST-1"}) // no --no-truncate locally
+	testutil.RequireNoError(t, cmd.Execute())
 
 	output := stdout.String()
 	testutil.Contains(t, output, longText)

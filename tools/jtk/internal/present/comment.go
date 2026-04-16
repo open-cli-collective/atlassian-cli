@@ -25,7 +25,7 @@ func (CommentPresenter) PresentList(comments []api.Comment) *present.OutputModel
 		if c.Body != nil {
 			body = c.Body.ToPlainText()
 			if len(body) > 100 {
-				body = body[:100] + "... [truncated, use --no-truncate for complete text]"
+				body = body[:100] + "... [truncated, use --fulltext for complete text]"
 			}
 		}
 		rows[i] = present.Row{

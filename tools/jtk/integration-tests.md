@@ -420,7 +420,7 @@ Run these steps in order. Each step depends on the previous.
 
 6b. **Verify escape sequences rendered:**
    ```bash
-   jtk comments list $TEST_ISSUE --no-truncate
+   jtk comments list $TEST_ISSUE --fulltext
    ```
    Expected: Comment body shows actual newlines and tab, not literal `\n` or `\t`
 

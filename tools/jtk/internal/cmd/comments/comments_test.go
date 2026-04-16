@@ -92,7 +92,7 @@ func TestRunList_TruncatesCommentBody(t *testing.T) {
 
 	output := stdout.String()
 	testutil.Contains(t, output, "Alice")
-	testutil.Contains(t, output, "[truncated, use --no-truncate for complete text]")
+	testutil.Contains(t, output, "[truncated, use --fulltext for complete text]")
 	testutil.NotContains(t, output, longText)
 }
 
@@ -147,6 +147,60 @@ func TestRunList_FullCommentBody(t *testing.T) {
 	testutil.Contains(t, output, "ID:")
 	testutil.Contains(t, output, "Author:")
 	testutil.Contains(t, output, "Body:")
+}
+
+// TestNewListCmd_FullTextRoutesFromRoot verifies that --fulltext on the root
+// Options flows through the RunE wrapper to disable truncation, even when the
+// local --no-truncate flag is not set.
+func TestNewListCmd_FullTextRoutesFromRoot(t *testing.T) {
+	t.Parallel()
+	longText := strings.Repeat("B", 200)
+	comments := []api.Comment{
+		{
+			ID:     "1",
+			Author: api.User{DisplayName: "Alice"},
+			Body: &api.ADFDocument{
+				Type:    "doc",
+				Version: 1,
+				Content: []*api.ADFNode{
+					{
+						Type: "paragraph",
+						Content: []*api.ADFNode{
+							{Type: "text", Text: longText},
+						},
+					},
+				},
+			},
+			Created: "2024-01-15T10:00:00.000Z",
+		},
+	}
+
+	server := newTestCommentsServer(t, comments)
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{
+		URL:      server.URL,
+		Email:    "test@example.com",
+		APIToken: "token",
+	})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{
+		Output:   "table",
+		FullText: true,
+		Stdout:   &stdout,
+		Stderr:   &bytes.Buffer{},
+	}
+	opts.SetAPIClient(client)
+
+	cmd := newListCmd(opts)
+	cmd.SetArgs([]string{"TEST-1"}) // no --no-truncate locally
+	testutil.RequireNoError(t, cmd.Execute())
+
+	output := stdout.String()
+	testutil.Contains(t, output, longText)
+	testutil.NotContains(t, output, "[truncated")
 }
 
 func TestRunList_ShortCommentNotTruncated(t *testing.T) {

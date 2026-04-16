@@ -43,7 +43,7 @@ func (IssuePresenter) PresentDetail(issue *api.Issue, issueURL string, noTruncat
 	if issue.Fields.Description != nil {
 		description = issue.Fields.Description.ToPlainText()
 		if !noTruncate && len(description) > 200 {
-			description = description[:200] + "... [truncated, use --no-truncate for complete text]"
+			description = description[:200] + "... [truncated, use --fulltext for complete text]"
 		}
 	}
 

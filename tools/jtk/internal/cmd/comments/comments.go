@@ -42,15 +42,15 @@ func newListCmd(opts *root.Options) *cobra.Command {
 		Short: "List comments on an issue",
 		Long:  "List all comments on a specific issue.",
 		Example: `  jtk comments list PROJ-123
-  jtk comments list PROJ-123 --no-truncate`,
+  jtk comments list PROJ-123 --fulltext`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runList(cmd.Context(), opts, args[0], maxResults, noTruncate)
+			return runList(cmd.Context(), opts, args[0], maxResults, noTruncate || opts.IsFullText())
 		},
 	}
 
 	cmd.Flags().IntVarP(&maxResults, "max", "m", 50, "Maximum number of comments")
-	cmd.Flags().BoolVar(&noTruncate, "no-truncate", false, "Show full comment bodies without truncation")
+	cmd.Flags().BoolVar(&noTruncate, "no-truncate", false, "Show full comment bodies without truncation (deprecated: use --fulltext)")
 
 	return cmd
 }

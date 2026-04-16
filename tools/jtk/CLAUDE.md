@@ -207,16 +207,18 @@ Bearer auth routes requests through `https://api.atlassian.com/ex/jira/{cloudId}
 
 > **Scope limitations:** Scoped tokens lack Agile (boards/sprints), Automation, and Dashboard scopes. These commands are unavailable with bearer auth — this is an Atlassian platform limitation.
 
-## Output Artifact Contract
+## Output Contract
 
-Commands produce intentional artifacts, not raw API payloads. See [docs/ARTIFACT_CONTRACT.md](../../docs/ARTIFACT_CONTRACT.md) for the full specification.
+Commands produce intentional artifacts, not raw API payloads. The surface is controlled by three global flags (per [#230](https://github.com/open-cli-collective/atlassian-cli/issues/230)):
 
-**Representations:**
-- `agent` (default): Action-oriented output with essential fields for LLM/agent consumption
-- `full` (`--full`): Inspection-oriented output with additional fields (dates, authors, versions)
-- `raw` (`--raw`): Source-faithful content. Command-specific (not all commands support this).
+| Flag | Purpose |
+|------|---------|
+| *(none)* | Default: contextually-rich human+agent text. Stable format. |
+| `--extended` | Adds admin/schema/audit detail on top of default. |
+| `--id` | Emits only the primary identifier. Takes precedence over `--extended` and `--fulltext`. |
+| `--fulltext` | Disables truncation of descriptions and comments. |
 
-For jtk, the `agent` artifact for issues includes: key, summary, status, assignee (enough to triage).
+`--output` / `-o` (`table`/`json`/`plain`) is retained for compatibility but hidden from `--help`. Per-command migration to the text-first output model is tracked under #230. The JSON path still functions — removal is scheduled per follow-up.
 
 ## Dependencies
 

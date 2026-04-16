@@ -18,13 +18,15 @@ import (
 
 // Options contains global options for commands
 type Options struct {
-	Output  string
-	NoColor bool
-	Full    bool
-	Verbose bool
-	Stdin   io.Reader
-	Stdout  io.Writer
-	Stderr  io.Writer
+	Output   string // Legacy output format (table/json/plain); flag is hidden during migration.
+	NoColor  bool
+	Extended bool // --extended: include admin/schema/audit fields.
+	FullText bool // --fulltext: disable truncation of descriptions/comments.
+	IDOnly   bool // --id: emit only the primary identifier; takes precedence over Extended/FullText.
+	Verbose  bool
+	Stdin    io.Reader
+	Stdout   io.Writer
+	Stderr   io.Writer
 
 	// testClient is used for testing; if set, APIClient() returns this instead
 	testClient *api.Client
@@ -32,6 +34,15 @@ type Options struct {
 	// cachedClient caches the API client after first construction
 	cachedClient *api.Client
 }
+
+// EmitIDOnly reports whether output should collapse to the primary identifier.
+func (o *Options) EmitIDOnly() bool { return o.IDOnly }
+
+// IsExtended reports whether extended output is requested, honoring --id precedence (--id wins).
+func (o *Options) IsExtended() bool { return !o.IDOnly && o.Extended }
+
+// IsFullText reports whether body truncation is disabled, honoring --id precedence (--id wins).
+func (o *Options) IsFullText() bool { return !o.IDOnly && o.FullText }
 
 // View returns a configured View instance, deriving policy from RenderMode.
 func (o *Options) View() *view.View {
@@ -45,9 +56,10 @@ func (o *Options) View() *view.View {
 	return v
 }
 
-// ArtifactMode returns the artifact type based on the --full flag.
+// ArtifactMode returns the artifact type based on the --extended flag,
+// honoring --id precedence (--id collapses output, so Extended is ignored).
 func (o *Options) ArtifactMode() artifact.Type {
-	return artifact.Mode(o.Full)
+	return artifact.Mode(o.IsExtended())
 }
 
 // RenderMode returns the authoritative rendering mode.
@@ -115,8 +127,11 @@ func NewCmd() (*cobra.Command, *Options) {
 
 	// Global flags - bound to opts struct
 	cmd.PersistentFlags().StringVarP(&opts.Output, "output", "o", "table", "Output format: table, json, plain")
+	_ = cmd.PersistentFlags().MarkHidden("output")
 	cmd.PersistentFlags().BoolVar(&opts.NoColor, "no-color", false, "Disable colored output")
-	cmd.PersistentFlags().BoolVar(&opts.Full, "full", false, "Show full inspection-oriented output (default: agent)")
+	cmd.PersistentFlags().BoolVar(&opts.Extended, "extended", false, "Include admin/schema/audit fields in output")
+	cmd.PersistentFlags().BoolVar(&opts.FullText, "fulltext", false, "Disable truncation of descriptions and comments")
+	cmd.PersistentFlags().BoolVar(&opts.IDOnly, "id", false, "Emit only the primary identifier (takes precedence over --extended and --fulltext)")
 	cmd.PersistentFlags().BoolVarP(&opts.Verbose, "verbose", "v", false, "Enable verbose output")
 
 	return cmd, opts
@@ -133,16 +148,20 @@ func RegisterCommands(root *cobra.Command, opts *Options, registrars ...func(*co
 func GetOptions(cmd *cobra.Command) *Options {
 	output, _ := cmd.Root().PersistentFlags().GetString("output")
 	noColor, _ := cmd.Root().PersistentFlags().GetBool("no-color")
-	full, _ := cmd.Root().PersistentFlags().GetBool("full")
+	extended, _ := cmd.Root().PersistentFlags().GetBool("extended")
+	fullText, _ := cmd.Root().PersistentFlags().GetBool("fulltext")
+	idOnly, _ := cmd.Root().PersistentFlags().GetBool("id")
 	verbose, _ := cmd.Root().PersistentFlags().GetBool("verbose")
 
 	return &Options{
-		Output:  output,
-		NoColor: noColor,
-		Full:    full,
-		Verbose: verbose,
-		Stdin:   os.Stdin,
-		Stdout:  os.Stdout,
-		Stderr:  os.Stderr,
+		Output:   output,
+		NoColor:  noColor,
+		Extended: extended,
+		FullText: fullText,
+		IDOnly:   idOnly,
+		Verbose:  verbose,
+		Stdin:    os.Stdin,
+		Stdout:   os.Stdout,
+		Stderr:   os.Stderr,
 	}
 }

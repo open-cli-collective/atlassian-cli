@@ -45,7 +45,9 @@ func TestNewCmd_Flags(t *testing.T) {
 	}{
 		{"output flag", "output"},
 		{"no-color flag", "no-color"},
-		{"full flag", "full"},
+		{"extended flag", "extended"},
+		{"fulltext flag", "fulltext"},
+		{"id flag", "id"},
 		{"verbose flag", "verbose"},
 	}
 
@@ -58,6 +60,22 @@ func TestNewCmd_Flags(t *testing.T) {
 	}
 }
 
+func TestNewCmd_FullFlagRemoved(t *testing.T) {
+	t.Parallel()
+	cmd, _ := NewCmd()
+	if f := cmd.PersistentFlags().Lookup("full"); f != nil {
+		t.Errorf("--full should have been removed; still registered as %q", f.Name)
+	}
+}
+
+func TestNewCmd_OutputFlagHidden(t *testing.T) {
+	t.Parallel()
+	cmd, _ := NewCmd()
+	f := cmd.PersistentFlags().Lookup("output")
+	testutil.NotNil(t, f)
+	testutil.True(t, f.Hidden)
+}
+
 func TestNewCmd_FlagDefaults(t *testing.T) {
 	t.Parallel()
 	cmd, _ := NewCmd()
@@ -68,8 +86,14 @@ func TestNewCmd_FlagDefaults(t *testing.T) {
 	noColorFlag := cmd.PersistentFlags().Lookup("no-color")
 	testutil.Equal(t, noColorFlag.DefValue, "false")
 
-	fullFlag := cmd.PersistentFlags().Lookup("full")
-	testutil.Equal(t, fullFlag.DefValue, "false")
+	extendedFlag := cmd.PersistentFlags().Lookup("extended")
+	testutil.Equal(t, extendedFlag.DefValue, "false")
+
+	fullTextFlag := cmd.PersistentFlags().Lookup("fulltext")
+	testutil.Equal(t, fullTextFlag.DefValue, "false")
+
+	idFlag := cmd.PersistentFlags().Lookup("id")
+	testutil.Equal(t, idFlag.DefValue, "false")
 
 	verboseFlag := cmd.PersistentFlags().Lookup("verbose")
 	testutil.Equal(t, verboseFlag.DefValue, "false")
@@ -125,16 +149,52 @@ func TestRegisterCommands(t *testing.T) {
 func TestOptions_ArtifactMode(t *testing.T) {
 	t.Parallel()
 
-	t.Run("returns Agent when Full is false", func(t *testing.T) {
+	t.Run("returns Agent when Extended is false", func(t *testing.T) {
 		t.Parallel()
-		opts := &Options{Full: false}
+		opts := &Options{Extended: false}
 		testutil.Equal(t, opts.ArtifactMode(), artifact.Agent)
 	})
 
-	t.Run("returns Full when Full is true", func(t *testing.T) {
+	t.Run("returns Full when Extended is true", func(t *testing.T) {
 		t.Parallel()
-		opts := &Options{Full: true}
+		opts := &Options{Extended: true}
 		testutil.Equal(t, opts.ArtifactMode(), artifact.Full)
+	})
+
+	t.Run("returns Agent when IDOnly overrides Extended", func(t *testing.T) {
+		t.Parallel()
+		opts := &Options{Extended: true, IDOnly: true}
+		testutil.Equal(t, opts.ArtifactMode(), artifact.Agent)
+	})
+}
+
+func TestOptions_IDPrecedence(t *testing.T) {
+	t.Parallel()
+
+	t.Run("EmitIDOnly reflects IDOnly field", func(t *testing.T) {
+		t.Parallel()
+		testutil.True(t, (&Options{IDOnly: true}).EmitIDOnly())
+		testutil.False(t, (&Options{IDOnly: false}).EmitIDOnly())
+	})
+
+	t.Run("IsExtended is false when IDOnly is set", func(t *testing.T) {
+		t.Parallel()
+		testutil.False(t, (&Options{IDOnly: true, Extended: true}).IsExtended())
+	})
+
+	t.Run("IsExtended is true when Extended is set and IDOnly is not", func(t *testing.T) {
+		t.Parallel()
+		testutil.True(t, (&Options{IDOnly: false, Extended: true}).IsExtended())
+	})
+
+	t.Run("IsFullText is false when IDOnly is set", func(t *testing.T) {
+		t.Parallel()
+		testutil.False(t, (&Options{IDOnly: true, FullText: true}).IsFullText())
+	})
+
+	t.Run("IsFullText is true when FullText is set and IDOnly is not", func(t *testing.T) {
+		t.Parallel()
+		testutil.True(t, (&Options{IDOnly: false, FullText: true}).IsFullText())
 	})
 }
 

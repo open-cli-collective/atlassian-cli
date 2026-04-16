@@ -22,15 +22,15 @@ func newGetCmd(opts *root.Options) *cobra.Command {
 		Short: "Get issue details",
 		Long:  "Retrieve and display details for a specific issue.",
 		Example: `  jtk issues get PROJ-123
-  jtk issues get PROJ-123 --no-truncate
+  jtk issues get PROJ-123 --fulltext
   jtk issues get PROJ-123 -o json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runGet(cmd.Context(), opts, args[0], noTruncate)
+			return runGet(cmd.Context(), opts, args[0], noTruncate || opts.IsFullText())
 		},
 	}
 
-	cmd.Flags().BoolVar(&noTruncate, "no-truncate", false, "Show full description without truncation")
+	cmd.Flags().BoolVar(&noTruncate, "no-truncate", false, "Show full description without truncation (deprecated: use --fulltext)")
 
 	return cmd
 }

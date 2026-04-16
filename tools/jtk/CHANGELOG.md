@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Global output flags replaced with `--extended`, `--fulltext`, `--id` per the new output model. The `--full` flag is removed; use `--extended` for admin/schema/audit detail. `--id` takes precedence over `--extended` and `--fulltext`. `--output` / `-o` is hidden but still functional during migration. Per-command `--no-truncate` flags remain as deprecated aliases for `--fulltext`. ([#231](https://github.com/open-cli-collective/atlassian-cli/issues/231))
+
 ### Added
 
 - `users get <account-id>` subcommand to look up a user by account ID ([#189](https://github.com/open-cli-collective/atlassian-cli/pull/189))

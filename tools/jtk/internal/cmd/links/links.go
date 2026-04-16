@@ -34,11 +34,11 @@ func Register(parent *cobra.Command, opts *root.Options) {
 
 func newListCmd(opts *root.Options) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "list <issue-key>",
-		Short: "List links on an issue",
-		Long:  "List all links on a specific issue.",
+		Use:     "list <issue-key>",
+		Short:   "List links on an issue",
+		Long:    "List all links on a specific issue.",
 		Example: `  jtk links list PROJ-123`,
-		Args: cobra.ExactArgs(1),
+		Args:    cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			return runList(opts, args[0])
 		},
@@ -199,9 +199,9 @@ func runDelete(opts *root.Options, linkID string) error {
 
 func newTypesCmd(opts *root.Options) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "types",
-		Short: "List available link types",
-		Long:  "List all available issue link types in the Jira instance.",
+		Use:     "types",
+		Short:   "List available link types",
+		Long:    "List all available issue link types in the Jira instance.",
 		Example: `  jtk links types`,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			return runTypes(opts)

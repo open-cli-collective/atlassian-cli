@@ -113,11 +113,11 @@ func runList(_ context.Context, opts *root.Options, search string, maxResults in
 
 func newGetCmd(opts *root.Options) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "get <dashboard-id>",
-		Short: "Get dashboard details",
-		Long:  "Get details of a specific dashboard including its gadgets.",
+		Use:     "get <dashboard-id>",
+		Short:   "Get dashboard details",
+		Long:    "Get details of a specific dashboard including its gadgets.",
 		Example: `  jtk dashboards get 10001`,
-		Args: cobra.ExactArgs(1),
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runGet(cmd.Context(), opts, args[0])
 		},
@@ -270,11 +270,11 @@ func newGadgetsCmd(opts *root.Options) *cobra.Command {
 
 func newGadgetsListCmd(opts *root.Options) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "list <dashboard-id>",
-		Short: "List gadgets on a dashboard",
-		Long:  "List all gadgets on a specific dashboard.",
+		Use:     "list <dashboard-id>",
+		Short:   "List gadgets on a dashboard",
+		Long:    "List all gadgets on a specific dashboard.",
 		Example: `  jtk dashboards gadgets list 10001`,
-		Args: cobra.ExactArgs(1),
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runGadgetsList(cmd.Context(), opts, args[0])
 		},

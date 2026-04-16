@@ -80,8 +80,6 @@ type configEntry struct {
 	source string
 }
 
-
-
 // PresentConfigShow creates config table + path info as single output.
 // Accepts pre-computed (value, source) pairs for each config field.
 func (ConfigPresenter) PresentConfigShow(

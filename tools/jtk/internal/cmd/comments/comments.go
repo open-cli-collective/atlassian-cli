@@ -50,7 +50,8 @@ func newListCmd(opts *root.Options) *cobra.Command {
 	}
 
 	cmd.Flags().IntVarP(&maxResults, "max", "m", 50, "Maximum number of comments")
-	cmd.Flags().BoolVar(&noTruncate, "no-truncate", false, "Show full comment bodies without truncation (deprecated: use --fulltext)")
+	cmd.Flags().BoolVar(&noTruncate, "no-truncate", false, "Show full comment bodies without truncation")
+	_ = cmd.Flags().MarkDeprecated("no-truncate", "use --fulltext instead")
 
 	return cmd
 }

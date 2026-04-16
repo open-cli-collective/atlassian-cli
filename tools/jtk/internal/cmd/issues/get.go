@@ -30,7 +30,8 @@ func newGetCmd(opts *root.Options) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().BoolVar(&noTruncate, "no-truncate", false, "Show full description without truncation (deprecated: use --fulltext)")
+	cmd.Flags().BoolVar(&noTruncate, "no-truncate", false, "Show full description without truncation")
+	_ = cmd.Flags().MarkDeprecated("no-truncate", "use --fulltext instead")
 
 	return cmd
 }

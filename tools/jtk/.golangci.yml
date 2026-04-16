@@ -21,6 +21,14 @@ linters:
         - fmt.Fprint
         - fmt.Fprintf
         - fmt.Fprintln
+    revive:
+      # Explicit rule list so behavior is stable across golangci-lint versions
+      # (v2.0.2 used in CI vs. whatever developers install locally). Without
+      # this, revive falls back to defaults that differ between versions —
+      # most visibly, `unused-parameter` flipped between v2.0.2 (enabled)
+      # and later versions (not in the default set on v2.11.4).
+      rules:
+        - name: unused-parameter
   exclusions:
     rules:
       - path: _test\.go

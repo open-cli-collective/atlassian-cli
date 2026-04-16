@@ -12,6 +12,12 @@ linters:
     - gosec
     - errorlint
     - exhaustive
+  settings:
+    revive:
+      # Explicit rule list so behavior is stable across golangci-lint versions
+      # (see tools/jtk/.golangci.yml for context).
+      rules:
+        - name: unused-parameter
   exclusions:
     rules:
       - path: _test\.go

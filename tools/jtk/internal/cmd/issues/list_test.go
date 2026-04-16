@@ -19,7 +19,7 @@ import (
 // `keys` drives which issue keys the mock returns.
 func listResultServer(t *testing.T, keys []string, isLast bool) *httptest.Server {
 	t.Helper()
-	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		issues := make([]api.Issue, len(keys))
 		for i, k := range keys {
 			issues[i] = api.Issue{

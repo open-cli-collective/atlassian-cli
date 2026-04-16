@@ -324,20 +324,6 @@ func (IssuePresenter) PresentDeleteCancelled() *present.OutputModel {
 
 // --- Advisory methods (route to stderr) ---
 
-// PresentPaginationHint returns the continuation line that follows a list
-// when more pages exist. Routed to stdout so agents parse a single stream.
-func (IssuePresenter) PresentPaginationHint() *present.OutputModel {
-	return &present.OutputModel{
-		Sections: []present.Section{
-			&present.MessageSection{
-				Kind:    present.MessageInfo,
-				Message: paginationHint,
-				Stream:  present.StreamStdout,
-			},
-		},
-	}
-}
-
 // PresentTypeChangeProgress creates an advisory about type change in progress.
 func (IssuePresenter) PresentTypeChangeProgress(key, typeName string) *present.OutputModel {
 	return &present.OutputModel{
@@ -504,13 +490,5 @@ func (p IssuePresenter) PresentListWithPagination(issues []api.Issue, hasMore bo
 		},
 	}
 
-	if hasMore {
-		sections = append(sections, &present.MessageSection{
-			Kind:    present.MessageInfo,
-			Message: paginationHint,
-			Stream:  present.StreamStdout,
-		})
-	}
-
-	return &present.OutputModel{Sections: sections}
+	return &present.OutputModel{Sections: appendPaginationHint(sections, hasMore)}
 }

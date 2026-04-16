@@ -50,21 +50,6 @@ func (MutationPresenter) Advisory(format string, args ...any) *present.OutputMod
 	}
 }
 
-// Pagination creates a continuation-line message that goes to stdout, inline
-// with the primary output. Matches the #230 spec policy where an agent reading
-// a single stream sees both data rows and the pagination hint.
-func (MutationPresenter) Pagination(format string, args ...any) *present.OutputModel {
-	return &present.OutputModel{
-		Sections: []present.Section{
-			&present.MessageSection{
-				Kind:    present.MessageInfo,
-				Message: fmt.Sprintf(format, args...),
-				Stream:  present.StreamStdout,
-			},
-		},
-	}
-}
-
 // Warning creates a warning message that goes to stderr.
 func (MutationPresenter) Warning(format string, args ...any) *present.OutputModel {
 	return &present.OutputModel{

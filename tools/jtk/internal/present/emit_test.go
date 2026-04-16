@@ -119,6 +119,46 @@ func TestEmitIDsWithPagination_EmptyAndNoMore(t *testing.T) {
 	}
 }
 
+func TestPaginationMessageSection_Canonical(t *testing.T) {
+	t.Parallel()
+	// Every pagination call site funnels through this helper; drift would
+	// de-sync wording, kind, or stream across the three migrated commands.
+	msg := paginationMessageSection()
+	if msg.Kind != present.MessageInfo {
+		t.Errorf("kind: got %v, want MessageInfo", msg.Kind)
+	}
+	if msg.Stream != present.StreamStdout {
+		t.Errorf("stream: got %v, want StreamStdout", msg.Stream)
+	}
+	if msg.Message != paginationHint {
+		t.Errorf("message: got %q, want %q", msg.Message, paginationHint)
+	}
+}
+
+func TestAppendPaginationHint(t *testing.T) {
+	t.Parallel()
+	base := []present.Section{
+		&present.TableSection{Headers: []string{"K"}, Rows: []present.Row{{Cells: []string{"v"}}}},
+	}
+
+	same := appendPaginationHint(base, false)
+	if len(same) != 1 {
+		t.Errorf("no-op when hasMore=false: got %d sections, want 1", len(same))
+	}
+
+	withHint := appendPaginationHint(base, true)
+	if len(withHint) != 2 {
+		t.Fatalf("hasMore=true: got %d sections, want 2", len(withHint))
+	}
+	msg, ok := withHint[1].(*present.MessageSection)
+	if !ok {
+		t.Fatalf("second section should be *MessageSection, got %T", withHint[1])
+	}
+	if msg.Stream != present.StreamStdout || msg.Message != paginationHint {
+		t.Errorf("appended section mismatch: stream=%v msg=%q", msg.Stream, msg.Message)
+	}
+}
+
 func TestEmitIDsWithPagination_EmptyButHasMore(t *testing.T) {
 	t.Parallel()
 	// Edge case: zero results on this page but more pages exist. Emit only

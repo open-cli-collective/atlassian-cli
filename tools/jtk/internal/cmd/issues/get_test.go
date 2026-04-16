@@ -159,6 +159,50 @@ func TestNewGetCmd_FullTextRoutesFromRoot(t *testing.T) {
 	testutil.NotContains(t, output, "[truncated")
 }
 
+// TestNewGetCmd_NoTruncateAndFullTextBothSet guards the OR-combined path:
+// both the local --no-truncate flag and the global --fulltext must produce
+// the same result when set together (prevents accidental && regression).
+func TestNewGetCmd_NoTruncateAndFullTextBothSet(t *testing.T) {
+	t.Parallel()
+	longText := strings.Repeat("A", 300)
+	issue := api.Issue{
+		Key: "TEST-1",
+		Fields: api.IssueFields{
+			Summary:     "Test issue",
+			Description: &api.Description{Text: longText},
+			Status:      &api.Status{Name: "Open"},
+			IssueType:   &api.IssueType{Name: "Task"},
+		},
+	}
+
+	server := newTestIssueServer(t, issue)
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{
+		URL:      server.URL,
+		Email:    "test@example.com",
+		APIToken: "token",
+	})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{
+		Output:   "table",
+		FullText: true,
+		Stdout:   &stdout,
+		Stderr:   &bytes.Buffer{},
+	}
+	opts.SetAPIClient(client)
+
+	cmd := newGetCmd(opts)
+	cmd.SetArgs([]string{"TEST-1", "--no-truncate"})
+	testutil.RequireNoError(t, cmd.Execute())
+
+	output := stdout.String()
+	testutil.Contains(t, output, longText)
+	testutil.NotContains(t, output, "[truncated")
+}
+
 func TestRunGet_ShortDescriptionNotTruncated(t *testing.T) {
 	t.Parallel()
 	issue := api.Issue{

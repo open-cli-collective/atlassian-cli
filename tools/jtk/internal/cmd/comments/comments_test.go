@@ -203,6 +203,60 @@ func TestNewListCmd_FullTextRoutesFromRoot(t *testing.T) {
 	testutil.NotContains(t, output, "[truncated")
 }
 
+// TestNewListCmd_NoTruncateAndFullTextBothSet guards the OR-combined path:
+// both the local --no-truncate flag and the global --fulltext must produce
+// the same result when set together (prevents accidental && regression).
+func TestNewListCmd_NoTruncateAndFullTextBothSet(t *testing.T) {
+	t.Parallel()
+	longText := strings.Repeat("B", 200)
+	comments := []api.Comment{
+		{
+			ID:     "1",
+			Author: api.User{DisplayName: "Alice"},
+			Body: &api.ADFDocument{
+				Type:    "doc",
+				Version: 1,
+				Content: []*api.ADFNode{
+					{
+						Type: "paragraph",
+						Content: []*api.ADFNode{
+							{Type: "text", Text: longText},
+						},
+					},
+				},
+			},
+			Created: "2024-01-15T10:00:00.000Z",
+		},
+	}
+
+	server := newTestCommentsServer(t, comments)
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{
+		URL:      server.URL,
+		Email:    "test@example.com",
+		APIToken: "token",
+	})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{
+		Output:   "table",
+		FullText: true,
+		Stdout:   &stdout,
+		Stderr:   &bytes.Buffer{},
+	}
+	opts.SetAPIClient(client)
+
+	cmd := newListCmd(opts)
+	cmd.SetArgs([]string{"TEST-1", "--no-truncate"})
+	testutil.RequireNoError(t, cmd.Execute())
+
+	output := stdout.String()
+	testutil.Contains(t, output, longText)
+	testutil.NotContains(t, output, "[truncated")
+}
+
 func TestRunList_ShortCommentNotTruncated(t *testing.T) {
 	t.Parallel()
 	comments := []api.Comment{

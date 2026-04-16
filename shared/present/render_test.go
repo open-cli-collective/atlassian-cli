@@ -386,6 +386,115 @@ func TestRender_MessageSection_Error(t *testing.T) {
 	}
 }
 
+func TestRender_ConsecutiveDetailSections_AgentSeparator(t *testing.T) {
+	t.Parallel()
+	model := &OutputModel{
+		Sections: []Section{
+			&DetailSection{Fields: []Field{{Label: "ID", Value: "1"}}},
+			&DetailSection{Fields: []Field{{Label: "ID", Value: "2"}}},
+		},
+	}
+
+	out := Render(model, StyleAgent)
+	want := "ID: 1\n\nID: 2\n"
+	if out.Stdout != want {
+		t.Errorf("consecutive detail sections:\ngot:\n%q\nwant:\n%q", out.Stdout, want)
+	}
+}
+
+func TestRender_ConsecutiveDetailSections_HumanSeparator(t *testing.T) {
+	t.Parallel()
+	model := &OutputModel{
+		Sections: []Section{
+			&DetailSection{Fields: []Field{{Label: "ID", Value: "1"}}},
+			&DetailSection{Fields: []Field{{Label: "ID", Value: "2"}}},
+		},
+	}
+
+	out := Render(model, StyleHuman)
+	want := "ID: 1\n\nID: 2\n"
+	if out.Stdout != want {
+		t.Errorf("consecutive detail sections human:\ngot:\n%q\nwant:\n%q", out.Stdout, want)
+	}
+}
+
+func TestRender_DetailThenTable_NoSeparator(t *testing.T) {
+	t.Parallel()
+	model := &OutputModel{
+		Sections: []Section{
+			&DetailSection{Fields: []Field{{Label: "ID", Value: "1"}}},
+			&TableSection{
+				Headers: []string{"K", "V"},
+				Rows:    []Row{{Cells: []string{"a", "b"}}},
+			},
+		},
+	}
+
+	out := Render(model, StyleAgent)
+	want := "ID: 1\nK | V\na | b\n"
+	if out.Stdout != want {
+		t.Errorf("detail then table (no separator):\ngot:\n%q\nwant:\n%q", out.Stdout, want)
+	}
+}
+
+func TestRender_DetailThenStderrMessage_NoStdoutSeparator(t *testing.T) {
+	t.Parallel()
+	model := &OutputModel{
+		Sections: []Section{
+			&DetailSection{Fields: []Field{{Label: "ID", Value: "1"}}},
+			&MessageSection{Kind: MessageInfo, Message: "advisory", Stream: StreamStderr},
+			&DetailSection{Fields: []Field{{Label: "ID", Value: "2"}}},
+		},
+	}
+
+	out := Render(model, StyleAgent)
+	// Previous stdout-bound section was a DetailSection, so separator applies
+	// even with a stderr message between them (it doesn't affect stdout stream).
+	wantStdout := "ID: 1\n\nID: 2\n"
+	wantStderr := "advisory\n"
+	if out.Stdout != wantStdout {
+		t.Errorf("stdout:\ngot:\n%q\nwant:\n%q", out.Stdout, wantStdout)
+	}
+	if out.Stderr != wantStderr {
+		t.Errorf("stderr:\ngot:\n%q\nwant:\n%q", out.Stderr, wantStderr)
+	}
+}
+
+func TestRender_SingleDetailSection_NoTrailingSeparator(t *testing.T) {
+	t.Parallel()
+	model := &OutputModel{
+		Sections: []Section{
+			&DetailSection{Fields: []Field{{Label: "ID", Value: "1"}}},
+		},
+	}
+
+	out := Render(model, StyleAgent)
+	want := "ID: 1\n"
+	if out.Stdout != want {
+		t.Errorf("single detail should not have trailing separator:\ngot:\n%q\nwant:\n%q", out.Stdout, want)
+	}
+}
+
+func TestRender_TableThenDetail_NoSeparator(t *testing.T) {
+	t.Parallel()
+	model := &OutputModel{
+		Sections: []Section{
+			&TableSection{
+				Headers: []string{"K", "V"},
+				Rows:    []Row{{Cells: []string{"a", "b"}}},
+			},
+			&DetailSection{Fields: []Field{{Label: "ID", Value: "1"}}},
+		},
+	}
+
+	out := Render(model, StyleAgent)
+	// Separator only applies when BOTH prior and current are DetailSection.
+	want := "K | V\na | b\nID: 1\n"
+	if out.Stdout != want {
+		t.Errorf("table then detail (no separator):\ngot:\n%q\nwant:\n%q", out.Stdout, want)
+	}
+}
+
 func TestRender_Stream_ExplicitRouting(t *testing.T) {
 	t.Parallel()
 	// Test that Stream field controls routing, not Kind

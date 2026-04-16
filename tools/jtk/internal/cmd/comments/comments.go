@@ -69,39 +69,42 @@ func runList(ctx context.Context, opts *root.Options, issueKey string, maxResult
 		return err
 	}
 
+	hasMore := commentsHasMore(result.Total, result.StartAt, len(result.Comments), maxResults)
+
+	if opts.EmitIDOnly() {
+		ids := make([]string, len(result.Comments))
+		for i, c := range result.Comments {
+			ids[i] = c.ID
+		}
+		return jtkpresent.EmitIDsWithPagination(opts, ids, hasMore)
+	}
+
 	if len(result.Comments) == 0 {
-		model := jtkpresent.CommentPresenter{}.PresentEmpty(issueKey)
-		out := present.Render(model, opts.RenderStyle())
-		fmt.Fprint(opts.Stdout, out.Stdout)
-		fmt.Fprint(opts.Stderr, out.Stderr)
-		return nil
+		return jtkpresent.Emit(opts, jtkpresent.CommentPresenter{}.PresentEmpty(issueKey))
 	}
 
 	if v.Format == view.FormatJSON {
 		arts := jtkartifact.ProjectComments(result.Comments, opts.ArtifactMode())
-		// Use authoritative pagination metadata from API response.
-		// Guard against Total==0 edge case in Jira Cloud by also checking
-		// if we received a full page of results.
-		hasMore := false
-		if result.Total > 0 {
-			hasMore = result.StartAt+len(result.Comments) < result.Total
-		} else if len(result.Comments) == maxResults {
-			// Total is 0 but we got a full page - likely more results exist
-			hasMore = true
-		}
 		return v.RenderArtifactList(artifact.NewListResult(arts, hasMore))
 	}
 
 	var model *present.OutputModel
 	if noTruncate {
-		model = jtkpresent.CommentPresenter{}.PresentListFull(result.Comments)
+		model = jtkpresent.CommentPresenter{}.PresentListFullWithPagination(result.Comments, hasMore)
 	} else {
-		model = jtkpresent.CommentPresenter{}.PresentList(result.Comments)
+		model = jtkpresent.CommentPresenter{}.PresentListWithPagination(result.Comments, hasMore)
 	}
-	out := present.Render(model, opts.RenderStyle())
-	fmt.Fprint(opts.Stdout, out.Stdout)
-	fmt.Fprint(opts.Stderr, out.Stderr)
-	return nil
+	return jtkpresent.Emit(opts, model)
+}
+
+// commentsHasMore computes pagination using the authoritative API metadata,
+// falling back to a full-page heuristic when Total is unavailable (Jira Cloud
+// occasionally returns Total=0).
+func commentsHasMore(total, startAt, got, maxResults int) bool {
+	if total > 0 {
+		return startAt+got < total
+	}
+	return got == maxResults
 }
 
 func newAddCmd(opts *root.Options) *cobra.Command {

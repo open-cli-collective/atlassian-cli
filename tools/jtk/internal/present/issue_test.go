@@ -216,8 +216,10 @@ func TestIssuePresenter_PresentListWithPagination_HasMore(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected MessageSection for pagination hint, got %T", model.Sections[1])
 	}
-	if msg.Stream != present.StreamStderr {
-		t.Errorf("pagination hint should go to stderr, got %v", msg.Stream)
+	// Pagination continuation routes to stdout (inline with data rows) per #230
+	// so agents reading a single stream see both data and the hint.
+	if msg.Stream != present.StreamStdout {
+		t.Errorf("pagination hint should go to stdout, got %v", msg.Stream)
 	}
 }
 

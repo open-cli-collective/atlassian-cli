@@ -59,6 +59,23 @@ func TestMutationPresenter_Advisory(t *testing.T) {
 	}
 }
 
+func TestMutationPresenter_Pagination(t *testing.T) {
+	t.Parallel()
+	p := MutationPresenter{}
+	model := p.Pagination("More results available (next: %s)", "TOKEN")
+
+	msg := model.Sections[0].(*present.MessageSection)
+	if msg.Kind != present.MessageInfo {
+		t.Errorf("expected MessageInfo kind, got %v", msg.Kind)
+	}
+	if msg.Stream != present.StreamStdout {
+		t.Errorf("expected StreamStdout (pagination goes inline with data), got %v", msg.Stream)
+	}
+	if msg.Message != "More results available (next: TOKEN)" {
+		t.Errorf("unexpected message: %q", msg.Message)
+	}
+}
+
 func TestMutationPresenter_Warning(t *testing.T) {
 	t.Parallel()
 	p := MutationPresenter{}

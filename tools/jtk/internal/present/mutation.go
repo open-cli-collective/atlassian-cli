@@ -36,7 +36,8 @@ func (MutationPresenter) Info(format string, args ...any) *present.OutputModel {
 	}
 }
 
-// Advisory creates a non-primary message that goes to stderr (pagination, hints).
+// Advisory creates a non-primary message that goes to stderr (for genuine
+// diagnostics that should not mix with primary output).
 func (MutationPresenter) Advisory(format string, args ...any) *present.OutputModel {
 	return &present.OutputModel{
 		Sections: []present.Section{
@@ -44,6 +45,21 @@ func (MutationPresenter) Advisory(format string, args ...any) *present.OutputMod
 				Kind:    present.MessageInfo,
 				Message: fmt.Sprintf(format, args...),
 				Stream:  present.StreamStderr,
+			},
+		},
+	}
+}
+
+// Pagination creates a continuation-line message that goes to stdout, inline
+// with the primary output. Matches the #230 spec policy where an agent reading
+// a single stream sees both data rows and the pagination hint.
+func (MutationPresenter) Pagination(format string, args ...any) *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageInfo,
+				Message: fmt.Sprintf(format, args...),
+				Stream:  present.StreamStdout,
 			},
 		},
 	}

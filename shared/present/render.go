@@ -8,18 +8,27 @@ import (
 
 // Render converts an OutputModel to RenderedOutput with proper stream routing.
 // This is a pure function with no side effects.
+//
+// Block spacing rule: consecutive stdout-bound DetailSections are separated
+// by a blank line so block-mode lists (e.g. one DetailSection per comment)
+// render as distinct blocks rather than running together.
 func Render(model *OutputModel, style Style) RenderedOutput {
 	if model == nil {
 		return RenderedOutput{}
 	}
 	var stdout, stderr bytes.Buffer
+	var prevStdoutWasDetail bool
 	for _, section := range model.Sections {
 		text := renderSection(section, style)
 		if isStderrSection(section) {
 			stderr.WriteString(text)
-		} else {
-			stdout.WriteString(text)
+			continue
 		}
+		if _, isDetail := section.(*DetailSection); isDetail && prevStdoutWasDetail {
+			stdout.WriteByte('\n')
+		}
+		stdout.WriteString(text)
+		_, prevStdoutWasDetail = section.(*DetailSection)
 	}
 	return RenderedOutput{Stdout: stdout.String(), Stderr: stderr.String()}
 }

@@ -332,6 +332,167 @@ func TestRunList_NoComments(t *testing.T) {
 	testutil.Contains(t, combined, "No comments")
 }
 
+// commentsServerWithTotal is like newTestCommentsServer but lets the caller
+// set Total independently from len(comments), so pagination hasMore can be
+// exercised explicitly.
+func commentsServerWithTotal(comments []api.Comment, total int) *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		response := api.CommentsResponse{
+			StartAt:    0,
+			MaxResults: 50,
+			Total:      total,
+			Comments:   comments,
+		}
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(response)
+	}))
+}
+
+func plainComment(id, author, text string) api.Comment {
+	return api.Comment{
+		ID:     id,
+		Author: api.User{DisplayName: author},
+		Body: &api.ADFDocument{
+			Type: "doc", Version: 1,
+			Content: []*api.ADFNode{
+				{Type: "paragraph", Content: []*api.ADFNode{{Type: "text", Text: text}}},
+			},
+		},
+		Created: "2024-01-15T10:00:00.000Z",
+	}
+}
+
+func newCommentsOpts(t *testing.T, server *httptest.Server) (*root.Options, *bytes.Buffer, *bytes.Buffer) {
+	t.Helper()
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "e@x", APIToken: "t"})
+	testutil.RequireNoError(t, err)
+	var stdout, stderr bytes.Buffer
+	opts := &root.Options{Stdout: &stdout, Stderr: &stderr}
+	opts.SetAPIClient(client)
+	return opts, &stdout, &stderr
+}
+
+func TestRunList_FullTextBlockSpacing(t *testing.T) {
+	t.Parallel()
+	comments := []api.Comment{
+		plainComment("11", "Alice", "First comment body"),
+		plainComment("22", "Bob", "Second comment body"),
+	}
+	server := commentsServerWithTotal(comments, 2)
+	defer server.Close()
+
+	opts, stdout, _ := newCommentsOpts(t, server)
+	err := runList(context.Background(), opts, "TEST-1", 50, true)
+	testutil.RequireNoError(t, err)
+
+	out := stdout.String()
+	// Each comment block ends with "Body: <text>\n" and the second block starts with "ID: 22".
+	// A blank line between blocks means "Body: First comment body\n\nID: 22" appears.
+	if !strings.Contains(out, "First comment body\n\nID: 22") {
+		t.Errorf("expected blank line between comment blocks; got:\n%s", out)
+	}
+}
+
+func TestRunList_FullTextPaginationOnStdout(t *testing.T) {
+	t.Parallel()
+	comments := []api.Comment{plainComment("1", "Alice", "hello")}
+	// Total=5 means there are more pages after this one.
+	server := commentsServerWithTotal(comments, 5)
+	defer server.Close()
+
+	opts, stdout, stderr := newCommentsOpts(t, server)
+	err := runList(context.Background(), opts, "TEST-1", 1, true)
+	testutil.RequireNoError(t, err)
+
+	if !strings.Contains(stdout.String(), "More results available") {
+		t.Errorf("pagination hint should appear on stdout, got stdout=%q stderr=%q", stdout.String(), stderr.String())
+	}
+	if strings.Contains(stderr.String(), "More results available") {
+		t.Errorf("pagination hint should NOT appear on stderr: %q", stderr.String())
+	}
+}
+
+func TestRunList_IDOnlyEmitsIDsOnePerLine(t *testing.T) {
+	t.Parallel()
+	comments := []api.Comment{
+		plainComment("11", "Alice", "first"),
+		plainComment("22", "Bob", "second"),
+	}
+	server := commentsServerWithTotal(comments, 2)
+	defer server.Close()
+
+	opts, stdout, stderr := newCommentsOpts(t, server)
+	opts.IDOnly = true
+	err := runList(context.Background(), opts, "TEST-1", 50, false)
+	testutil.RequireNoError(t, err)
+
+	want := "11\n22\n"
+	if stdout.String() != want {
+		t.Errorf("stdout:\ngot:  %q\nwant: %q", stdout.String(), want)
+	}
+	if stderr.String() != "" {
+		t.Errorf("stderr should be empty, got: %q", stderr.String())
+	}
+}
+
+func TestRunList_IDOnlyWithMoreResultsAppendsContinuation(t *testing.T) {
+	t.Parallel()
+	comments := []api.Comment{plainComment("1", "Alice", "a")}
+	server := commentsServerWithTotal(comments, 5)
+	defer server.Close()
+
+	opts, stdout, _ := newCommentsOpts(t, server)
+	opts.IDOnly = true
+	err := runList(context.Background(), opts, "TEST-1", 1, false)
+	testutil.RequireNoError(t, err)
+
+	want := "1\nMore results available (use --next-page-token to fetch next page)\n"
+	if stdout.String() != want {
+		t.Errorf("stdout:\ngot:  %q\nwant: %q", stdout.String(), want)
+	}
+}
+
+func TestRunList_EmptyDefaultGoesToStdout(t *testing.T) {
+	t.Parallel()
+	server := commentsServerWithTotal(nil, 0)
+	defer server.Close()
+
+	opts, stdout, stderr := newCommentsOpts(t, server)
+	err := runList(context.Background(), opts, "TEST-1", 50, false)
+	testutil.RequireNoError(t, err)
+
+	if !strings.Contains(stdout.String(), "No comments on TEST-1") {
+		t.Errorf("expected 'No comments on TEST-1' on stdout, got: %q", stdout.String())
+	}
+	if stderr.String() != "" {
+		t.Errorf("stderr should be empty, got: %q", stderr.String())
+	}
+}
+
+func TestCommentsHasMore(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name                        string
+		total, startAt, got, maxRes int
+		want                        bool
+	}{
+		{"total exceeds page", 10, 0, 5, 5, true},
+		{"total reached", 5, 0, 5, 5, false},
+		{"total zero and full page (heuristic true)", 0, 0, 5, 5, true},
+		{"total zero and partial page", 0, 0, 3, 5, false},
+		{"later page, more remain", 20, 10, 5, 5, true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := commentsHasMore(tc.total, tc.startAt, tc.got, tc.maxRes)
+			if got != tc.want {
+				t.Errorf("commentsHasMore(total=%d startAt=%d got=%d maxRes=%d) = %v, want %v",
+					tc.total, tc.startAt, tc.got, tc.maxRes, got, tc.want)
+			}
+		})
+	}
+}
+
 func TestRunList_MultipleCommentsFullMode(t *testing.T) {
 	t.Parallel()
 	comments := []api.Comment{

@@ -3,6 +3,7 @@ package present
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/open-cli-collective/atlassian-go/present"
 
@@ -53,7 +54,10 @@ func (CommentPresenter) PresentListFull(comments []api.Comment) *present.OutputM
 		}
 		body := ""
 		if c.Body != nil {
-			body = c.Body.ToPlainText()
+			// ADF rendering can append a trailing newline; trim it so each
+			// block has consistent termination and the renderer's block
+			// separator produces exactly one blank line between comments.
+			body = strings.TrimRight(c.Body.ToPlainText(), "\n")
 		}
 		sections[i] = &present.DetailSection{
 			Fields: []present.Field{
@@ -65,6 +69,30 @@ func (CommentPresenter) PresentListFull(comments []api.Comment) *present.OutputM
 		}
 	}
 	return &present.OutputModel{Sections: sections}
+}
+
+// PresentListWithPagination wraps PresentList and appends a stdout-bound
+// pagination hint when hasMore is true.
+func (p CommentPresenter) PresentListWithPagination(comments []api.Comment, hasMore bool) *present.OutputModel {
+	return withPaginationHint(p.PresentList(comments), hasMore)
+}
+
+// PresentListFullWithPagination wraps PresentListFull and appends a
+// stdout-bound pagination hint when hasMore is true.
+func (p CommentPresenter) PresentListFullWithPagination(comments []api.Comment, hasMore bool) *present.OutputModel {
+	return withPaginationHint(p.PresentListFull(comments), hasMore)
+}
+
+func withPaginationHint(model *present.OutputModel, hasMore bool) *present.OutputModel {
+	if !hasMore {
+		return model
+	}
+	model.Sections = append(model.Sections, &present.MessageSection{
+		Kind:    present.MessageInfo,
+		Message: paginationHint,
+		Stream:  present.StreamStdout,
+	})
+	return model
 }
 
 // PresentAdded creates a success message for comment addition.

@@ -324,14 +324,15 @@ func (IssuePresenter) PresentDeleteCancelled() *present.OutputModel {
 
 // --- Advisory methods (route to stderr) ---
 
-// PresentPaginationHint creates an advisory about more results.
+// PresentPaginationHint returns the continuation line that follows a list
+// when more pages exist. Routed to stdout so agents parse a single stream.
 func (IssuePresenter) PresentPaginationHint() *present.OutputModel {
 	return &present.OutputModel{
 		Sections: []present.Section{
 			&present.MessageSection{
 				Kind:    present.MessageInfo,
-				Message: "More results available (use --next-page-token to fetch next page)",
-				Stream:  present.StreamStderr,
+				Message: paginationHint,
+				Stream:  present.StreamStdout,
 			},
 		},
 	}
@@ -506,8 +507,8 @@ func (p IssuePresenter) PresentListWithPagination(issues []api.Issue, hasMore bo
 	if hasMore {
 		sections = append(sections, &present.MessageSection{
 			Kind:    present.MessageInfo,
-			Message: "More results available (use --next-page-token to fetch next page)",
-			Stream:  present.StreamStderr,
+			Message: paginationHint,
+			Stream:  present.StreamStdout,
 		})
 	}
 

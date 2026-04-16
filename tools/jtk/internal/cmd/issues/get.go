@@ -2,11 +2,9 @@ package issues
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/spf13/cobra"
 
-	"github.com/open-cli-collective/atlassian-go/present"
 	"github.com/open-cli-collective/atlassian-go/view"
 
 	jtkartifact "github.com/open-cli-collective/jira-ticket-cli/internal/artifact"
@@ -50,8 +48,7 @@ func runGet(ctx context.Context, opts *root.Options, issueKey string, noTruncate
 	}
 
 	if opts.EmitIDOnly() {
-		_, _ = fmt.Fprintln(opts.Stdout, issue.Key)
-		return nil
+		return jtkpresent.EmitIDs(opts, issue.Key)
 	}
 
 	// For JSON output, return the projected artifact
@@ -59,10 +56,6 @@ func runGet(ctx context.Context, opts *root.Options, issueKey string, noTruncate
 		return v.RenderArtifact(jtkartifact.ProjectIssue(issue, opts.ArtifactMode()))
 	}
 
-	// Text path: presenter → render → write
 	model := jtkpresent.IssuePresenter{}.PresentDetail(issue, client.IssueURL(issue.Key), noTruncate)
-	out := present.Render(model, opts.RenderStyle())
-	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
-	_, _ = fmt.Fprint(opts.Stderr, out.Stderr)
-	return nil
+	return jtkpresent.Emit(opts, model)
 }

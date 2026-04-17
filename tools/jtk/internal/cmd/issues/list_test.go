@@ -358,6 +358,56 @@ func TestRunList_FieldsWithIDOnly_IDWins(t *testing.T) {
 	}
 }
 
+// Under --id, projection.Resolve is skipped entirely. A human-name --fields
+// token would normally trigger a GetFields() call; --id must suppress it.
+func TestRunList_IDOnly_SkipsFieldsResolution(t *testing.T) {
+	t.Parallel()
+	cs := newCapturingServer(t, []string{"TEST-1"}, true, []api.Field{
+		{ID: "issuetype", Name: "Issue Type"},
+	})
+	defer cs.server.Close()
+
+	opts, _, _ := newOptsFor(t, cs)
+	opts.IDOnly = true
+	err := runList(context.Background(), opts, "TEST", "", 25, "", false, "Issue Type")
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, 0, cs.fieldsCalls)
+}
+
+// Under --id, even an unknown --fields token must not fail — --id bypasses
+// projection entirely. Without this short-circuit, `--id --fields bogus`
+// would error even though --id would have discarded the projection anyway.
+func TestRunList_IDOnly_BypassesFieldsValidation(t *testing.T) {
+	t.Parallel()
+	cs := newCapturingServer(t, []string{"TEST-1"}, true, []api.Field{})
+	defer cs.server.Close()
+
+	opts, stdout, _ := newOptsFor(t, cs)
+	opts.IDOnly = true
+	err := runList(context.Background(), opts, "TEST", "", 25, "", false, "bogus")
+	testutil.RequireNoError(t, err)
+	if stdout.String() != "TEST-1\n" {
+		t.Errorf("expected bare key, got %q", stdout.String())
+	}
+}
+
+// Under --id, the JSON + --fields rejection also must not fire. --id produces
+// plain identifiers, not JSON, so the conflict is moot.
+func TestRunList_IDOnly_BypassesJSONFieldsRejection(t *testing.T) {
+	t.Parallel()
+	cs := newCapturingServer(t, []string{"TEST-1"}, true, nil)
+	defer cs.server.Close()
+
+	opts, stdout, _ := newOptsFor(t, cs)
+	opts.IDOnly = true
+	opts.Output = "json"
+	err := runList(context.Background(), opts, "TEST", "", 25, "", false, "SUMMARY")
+	testutil.RequireNoError(t, err)
+	if stdout.String() != "TEST-1\n" {
+		t.Errorf("expected bare key, got %q", stdout.String())
+	}
+}
+
 func TestRunList_Fields_TrumpsAllFieldsForFetch(t *testing.T) {
 	t.Parallel()
 	cs := newCapturingServer(t, []string{"TEST-1"}, true, nil)

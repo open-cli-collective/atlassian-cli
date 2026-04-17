@@ -96,3 +96,46 @@ func TestRunSearch_FieldsWithIDOnly_IDWins(t *testing.T) {
 		t.Errorf("stdout: got %q, want %q", stdout.String(), want)
 	}
 }
+
+func TestRunSearch_IDOnly_SkipsFieldsResolution(t *testing.T) {
+	t.Parallel()
+	cs := newCapturingServer(t, []string{"TEST-1"}, true, []api.Field{
+		{ID: "issuetype", Name: "Issue Type"},
+	})
+	defer cs.server.Close()
+
+	opts, _, _ := newOptsFor(t, cs)
+	opts.IDOnly = true
+	err := runSearch(context.Background(), opts, "project = TEST", 25, "", false, "Issue Type")
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, 0, cs.fieldsCalls)
+}
+
+func TestRunSearch_IDOnly_BypassesFieldsValidation(t *testing.T) {
+	t.Parallel()
+	cs := newCapturingServer(t, []string{"TEST-1"}, true, []api.Field{})
+	defer cs.server.Close()
+
+	opts, stdout, _ := newOptsFor(t, cs)
+	opts.IDOnly = true
+	err := runSearch(context.Background(), opts, "project = TEST", 25, "", false, "bogus")
+	testutil.RequireNoError(t, err)
+	if stdout.String() != "TEST-1\n" {
+		t.Errorf("expected bare key, got %q", stdout.String())
+	}
+}
+
+func TestRunSearch_IDOnly_BypassesJSONFieldsRejection(t *testing.T) {
+	t.Parallel()
+	cs := newCapturingServer(t, []string{"TEST-1"}, true, nil)
+	defer cs.server.Close()
+
+	opts, stdout, _ := newOptsFor(t, cs)
+	opts.IDOnly = true
+	opts.Output = "json"
+	err := runSearch(context.Background(), opts, "project = TEST", 25, "", false, "SUMMARY")
+	testutil.RequireNoError(t, err)
+	if stdout.String() != "TEST-1\n" {
+		t.Errorf("expected bare key, got %q", stdout.String())
+	}
+}

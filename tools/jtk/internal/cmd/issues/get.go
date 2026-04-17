@@ -48,6 +48,18 @@ func runGet(ctx context.Context, opts *root.Options, issueKey string, noTruncate
 		return err
 	}
 
+	// --id wins over --fields: skip projection entirely when --id is set so
+	// we don't waste a GetFields() call on a token whose result will be
+	// thrown away. Also defensively skip JSON + --fields error in this case
+	// — --id also overrides --output json semantics.
+	if opts.EmitIDOnly() {
+		issue, err := client.GetIssue(ctx, issueKey)
+		if err != nil {
+			return err
+		}
+		return jtkpresent.EmitIDs(opts, []string{issue.Key})
+	}
+
 	if fieldsFlag != "" && opts.Output == "json" {
 		return errFieldsWithJSON
 	}
@@ -70,10 +82,6 @@ func runGet(ctx context.Context, opts *root.Options, issueKey string, noTruncate
 	issue, err := client.GetIssue(ctx, issueKey)
 	if err != nil {
 		return err
-	}
-
-	if opts.EmitIDOnly() {
-		return jtkpresent.EmitIDs(opts, []string{issue.Key})
 	}
 
 	// For JSON output, return the projected artifact

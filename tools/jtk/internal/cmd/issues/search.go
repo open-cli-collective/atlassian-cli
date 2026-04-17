@@ -69,20 +69,29 @@ func runSearch(ctx context.Context, opts *root.Options, jql string, maxResults i
 		return err
 	}
 
-	if fieldsFlag != "" && opts.Output == "json" {
+	// --id wins over --fields: skip projection entirely when --id is set.
+	// See list.go for rationale.
+	idOnly := opts.EmitIDOnly()
+
+	if !idOnly && fieldsFlag != "" && opts.Output == "json" {
 		return errFieldsWithJSON
 	}
 
-	selected, projected, err := projection.Resolve(
-		ctx,
-		jtkpresent.IssueListSpec,
-		opts.IsExtended(),
-		fieldsFlag,
-		client.GetFields,
-		"issues search",
-	)
-	if err != nil {
-		return err
+	var selected []projection.ColumnSpec
+	var projected bool
+	if !idOnly {
+		var err error
+		selected, projected, err = projection.Resolve(
+			ctx,
+			jtkpresent.IssueListSpec,
+			opts.IsExtended(),
+			fieldsFlag,
+			client.GetFields,
+			"issues search",
+		)
+		if err != nil {
+			return err
+		}
 	}
 
 	fields := deriveFetchFields(selected, projected, opts.IsExtended(), allFields, opts.Output)
@@ -99,7 +108,7 @@ func runSearch(ctx context.Context, opts *root.Options, jql string, maxResults i
 
 	hasMore := !result.Pagination.IsLast
 
-	if opts.EmitIDOnly() {
+	if idOnly {
 		ids := make([]string, len(result.Issues))
 		for i, issue := range result.Issues {
 			ids[i] = issue.Key

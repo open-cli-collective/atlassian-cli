@@ -60,9 +60,15 @@ func TestResolve_HeaderAliases_NoFetch(t *testing.T) {
 func TestResolve_FieldIDs_NoFetch(t *testing.T) {
 	t.Parallel()
 	stub := &fetchStub{err: errors.New("should not be called")}
-	_, _, err := Resolve(context.Background(), testRegistry, false, "summary,assignee", stub.fetch, "issues list")
+	selected, applied, err := Resolve(context.Background(), testRegistry, false, "summary,assignee", stub.fetch, "issues list")
 	testutil.RequireNoError(t, err)
+	testutil.True(t, applied)
 	testutil.Equal(t, 0, stub.calls)
+	// Tokens resolved to the correct specs (identity KEY prepended).
+	testutil.Equal(t, 3, len(selected))
+	testutil.Equal(t, "KEY", selected[0].Header)
+	testutil.Equal(t, "SUMMARY", selected[1].Header)
+	testutil.Equal(t, "ASSIGNEE", selected[2].Header)
 }
 
 func TestResolve_HumanName_TriggersExactlyOneFetch(t *testing.T) {

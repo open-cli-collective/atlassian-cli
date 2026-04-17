@@ -75,20 +75,31 @@ func runList(ctx context.Context, opts *root.Options, project, sprint string, ma
 		return err
 	}
 
-	if fieldsFlag != "" && opts.Output == "json" {
+	// --id wins over --fields: skip projection entirely when --id is set so
+	// we don't waste a GetFields() call for a --fields token whose display
+	// result would be thrown away. --id also overrides the JSON + --fields
+	// error since we're not producing JSON.
+	idOnly := opts.EmitIDOnly()
+
+	if !idOnly && fieldsFlag != "" && opts.Output == "json" {
 		return errFieldsWithJSON
 	}
 
-	selected, projected, err := projection.Resolve(
-		ctx,
-		jtkpresent.IssueListSpec,
-		opts.IsExtended(),
-		fieldsFlag,
-		client.GetFields,
-		"issues list",
-	)
-	if err != nil {
-		return err
+	var selected []projection.ColumnSpec
+	var projected bool
+	if !idOnly {
+		var err error
+		selected, projected, err = projection.Resolve(
+			ctx,
+			jtkpresent.IssueListSpec,
+			opts.IsExtended(),
+			fieldsFlag,
+			client.GetFields,
+			"issues list",
+		)
+		if err != nil {
+			return err
+		}
 	}
 
 	// Build JQL query
@@ -132,7 +143,7 @@ func runList(ctx context.Context, opts *root.Options, project, sprint string, ma
 
 	hasMore := !result.Pagination.IsLast
 
-	if opts.EmitIDOnly() {
+	if idOnly {
 		ids := make([]string, len(result.Issues))
 		for i, issue := range result.Issues {
 			ids[i] = issue.Key

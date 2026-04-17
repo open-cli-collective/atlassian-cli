@@ -2,6 +2,7 @@ package projection
 
 import (
 	"sort"
+	"strings"
 
 	"github.com/open-cli-collective/atlassian-go/present"
 )
@@ -58,11 +59,11 @@ func ProjectDetail(section *present.DetailSection, selected []ColumnSpec) *prese
 	}
 	labelIndex := make(map[string]present.Field, len(section.Fields))
 	for _, f := range section.Fields {
-		labelIndex[lower(f.Label)] = f
+		labelIndex[strings.ToLower(f.Label)] = f
 	}
 	out := make([]present.Field, 0, len(selected))
 	for _, c := range selected {
-		if f, ok := labelIndex[lower(c.Header)]; ok {
+		if f, ok := labelIndex[strings.ToLower(c.Header)]; ok {
 			out = append(out, f)
 		}
 	}
@@ -89,19 +90,4 @@ func DeriveFetchFields(selected []ColumnSpec) []string {
 	}
 	sort.Strings(out)
 	return out
-}
-
-func lower(s string) string {
-	// Small helper to avoid importing strings into this file's hot path
-	// repeatedly. Go compiler inlines strings.ToLower reliably; kept here
-	// for readability at call sites.
-	b := make([]byte, len(s))
-	for i := 0; i < len(s); i++ {
-		c := s[i]
-		if c >= 'A' && c <= 'Z' {
-			c += 'a' - 'A'
-		}
-		b[i] = c
-	}
-	return string(b)
 }

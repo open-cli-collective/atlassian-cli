@@ -185,3 +185,48 @@ func TestRunGet_FieldsWithIDOnly_IDWins(t *testing.T) {
 		t.Errorf("expected bare key, got %q", stdout.String())
 	}
 }
+
+// Under --id, projection.Resolve is skipped entirely. A human-name --fields
+// token would normally trigger a GetFields() call; --id must suppress it.
+func TestRunGet_IDOnly_SkipsFieldsResolution(t *testing.T) {
+	t.Parallel()
+	cs := newCapturingGetServer(t, fullIssue(), []api.Field{
+		{ID: "issuetype", Name: "Issue Type"},
+	})
+	defer cs.server.Close()
+
+	opts, _, _ := newGetOpts(t, cs)
+	opts.IDOnly = true
+	err := runGet(context.Background(), opts, "TEST-1", false, "Issue Type")
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, 0, cs.fieldsCalls)
+}
+
+func TestRunGet_IDOnly_BypassesFieldsValidation(t *testing.T) {
+	t.Parallel()
+	cs := newCapturingGetServer(t, fullIssue(), []api.Field{})
+	defer cs.server.Close()
+
+	opts, stdout, _ := newGetOpts(t, cs)
+	opts.IDOnly = true
+	err := runGet(context.Background(), opts, "TEST-1", false, "bogus")
+	testutil.RequireNoError(t, err)
+	if stdout.String() != "TEST-1\n" {
+		t.Errorf("expected bare key, got %q", stdout.String())
+	}
+}
+
+func TestRunGet_IDOnly_BypassesJSONFieldsRejection(t *testing.T) {
+	t.Parallel()
+	cs := newCapturingGetServer(t, fullIssue(), nil)
+	defer cs.server.Close()
+
+	opts, stdout, _ := newGetOpts(t, cs)
+	opts.IDOnly = true
+	opts.Output = "json"
+	err := runGet(context.Background(), opts, "TEST-1", false, "Status")
+	testutil.RequireNoError(t, err)
+	if stdout.String() != "TEST-1\n" {
+		t.Errorf("expected bare key, got %q", stdout.String())
+	}
+}

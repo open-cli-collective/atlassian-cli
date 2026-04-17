@@ -335,22 +335,44 @@ func TestIssuePresenter_PresentMovePartialFailure_NoSuccessful(t *testing.T) {
 }
 
 // TestIssueListSpec_MatchesPresentListHeaders locks the IssueListSpec headers
-// against the hardcoded headers in PresentList / PresentListWithPagination.
-// Any drift between presenter output columns and the projection registry is
-// a bug — ProjectTable relies on exact header-name equality.
+// against the hardcoded headers in PresentList AND PresentListWithPagination.
+// Commands call PresentListWithPagination (not PresentList); drift between
+// the two method implementations and the registry would silently break
+// ProjectTable in production.
 func TestIssueListSpec_MatchesPresentListHeaders(t *testing.T) {
 	t.Parallel()
 	issues := []api.Issue{{Key: "PROJ-1", Fields: api.IssueFields{Summary: "x"}}}
-	model := IssuePresenter{}.PresentList(issues)
-	table := model.Sections[0].(*present.TableSection)
 
-	if len(table.Headers) != len(IssueListSpec) {
-		t.Fatalf("header count mismatch: spec has %d, table has %d", len(IssueListSpec), len(table.Headers))
+	cases := []struct {
+		name  string
+		model *present.OutputModel
+	}{
+		{"PresentList", IssuePresenter{}.PresentList(issues)},
+		{"PresentListWithPagination_NoMore", IssuePresenter{}.PresentListWithPagination(issues, false)},
+		{"PresentListWithPagination_HasMore", IssuePresenter{}.PresentListWithPagination(issues, true)},
 	}
-	for i, spec := range IssueListSpec {
-		if table.Headers[i] != spec.Header {
-			t.Errorf("index %d: spec Header=%q, table header=%q", i, spec.Header, table.Headers[i])
-		}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var table *present.TableSection
+			for _, s := range tc.model.Sections {
+				if ts, ok := s.(*present.TableSection); ok {
+					table = ts
+					break
+				}
+			}
+			if table == nil {
+				t.Fatalf("no TableSection in %s output", tc.name)
+			}
+			if len(table.Headers) != len(IssueListSpec) {
+				t.Fatalf("header count mismatch: spec has %d, table has %d", len(IssueListSpec), len(table.Headers))
+			}
+			for i, spec := range IssueListSpec {
+				if table.Headers[i] != spec.Header {
+					t.Errorf("index %d: spec Header=%q, table header=%q", i, spec.Header, table.Headers[i])
+				}
+			}
+		})
 	}
 }
 

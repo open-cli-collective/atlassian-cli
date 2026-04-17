@@ -246,6 +246,27 @@ func TestRunList_Fields_HeaderAliases_ProjectsTable(t *testing.T) {
 	}
 }
 
+// Projection must coexist with pagination state: when a --fields projection
+// runs against a multi-page result (hasMore=true), ProjectTable rewrites the
+// TableSection but the pagination hint section must survive untouched. A
+// regression that stripped the hint would only surface at runtime against a
+// multi-page paginated table result.
+func TestRunList_Fields_Projection_PreservesPaginationHint(t *testing.T) {
+	t.Parallel()
+	cs := newCapturingServer(t, []string{"TEST-1"}, false, nil) // isLast=false → hasMore=true
+	defer cs.server.Close()
+
+	opts, stdout, _ := newOptsFor(t, cs)
+	err := runList(context.Background(), opts, "TEST", "", 25, "", false, "SUMMARY,STATUS")
+	testutil.RequireNoError(t, err)
+
+	out := stdout.String()
+	testutil.Contains(t, out, "KEY | SUMMARY | STATUS")
+	// Pagination hint survives projection — AppendPaginationHint emits a
+	// Message section whose body contains "next-page-token" when hasMore.
+	testutil.Contains(t, out, "next-page-token")
+}
+
 func TestRunList_Fields_JiraFieldIDs_ProjectsTable(t *testing.T) {
 	t.Parallel()
 	cs := newCapturingServer(t, []string{"TEST-1"}, true, nil)

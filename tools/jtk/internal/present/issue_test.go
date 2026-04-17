@@ -355,9 +355,17 @@ func TestIssueListSpec_MatchesPresentListHeaders(t *testing.T) {
 }
 
 // TestIssueDetailSpec_MatchesPresentDetailLabels locks the IssueDetailSpec
-// entries against the Field labels emitted by PresentDetail. Description is
-// conditional; this test constructs an issue with a description present so
-// all spec entries should be rendered.
+// entries against the Field labels emitted by PresentDetail, both directions:
+//   - Every spec entry must appear in the rendered output.
+//   - Every rendered field must have a matching spec entry — otherwise
+//     --fields projection would silently drop it.
+//
+// Order is also checked: IssueDetailSpec's doc comment claims the spec order
+// matches the PresentDetail Field order, and ProjectDetail relies on that
+// for deterministic projection output.
+//
+// Description is conditional in PresentDetail; this test constructs an issue
+// with a description present so all spec entries should be rendered.
 func TestIssueDetailSpec_MatchesPresentDetailLabels(t *testing.T) {
 	t.Parallel()
 	issue := &api.Issue{
@@ -375,6 +383,7 @@ func TestIssueDetailSpec_MatchesPresentDetailLabels(t *testing.T) {
 	model := IssuePresenter{}.PresentDetail(issue, "https://example.com/PROJ-1", true)
 	detail := model.Sections[0].(*present.DetailSection)
 
+	// Spec → rendered: every spec entry has a corresponding rendered field.
 	renderedLabels := make(map[string]bool, len(detail.Fields))
 	for _, f := range detail.Fields {
 		renderedLabels[f.Label] = true
@@ -382,6 +391,38 @@ func TestIssueDetailSpec_MatchesPresentDetailLabels(t *testing.T) {
 	for _, spec := range IssueDetailSpec {
 		if !renderedLabels[spec.Header] {
 			t.Errorf("spec Header %q not emitted by PresentDetail", spec.Header)
+		}
+	}
+
+	// Rendered → spec: every rendered field has a corresponding spec entry.
+	// Without this, a new field added to PresentDetail would be silently
+	// unreachable via --fields.
+	specLabels := make(map[string]bool, len(IssueDetailSpec))
+	for _, spec := range IssueDetailSpec {
+		specLabels[spec.Header] = true
+	}
+	for _, f := range detail.Fields {
+		if !specLabels[f.Label] {
+			t.Errorf("rendered field %q has no matching IssueDetailSpec entry", f.Label)
+		}
+	}
+
+	// Order: the spec must list entries in the same relative order as
+	// PresentDetail's Field order, so ProjectDetail output is deterministic.
+	specOrder := make([]string, 0, len(IssueDetailSpec))
+	for _, spec := range IssueDetailSpec {
+		specOrder = append(specOrder, spec.Header)
+	}
+	renderedOrder := make([]string, 0, len(detail.Fields))
+	for _, f := range detail.Fields {
+		renderedOrder = append(renderedOrder, f.Label)
+	}
+	if len(specOrder) != len(renderedOrder) {
+		t.Fatalf("spec has %d entries, rendered has %d", len(specOrder), len(renderedOrder))
+	}
+	for i := range specOrder {
+		if specOrder[i] != renderedOrder[i] {
+			t.Errorf("order mismatch at index %d: spec=%q rendered=%q", i, specOrder[i], renderedOrder[i])
 		}
 	}
 }

@@ -83,7 +83,6 @@ func (r Registry) ForMode(extended bool) Registry {
 //
 // Returns (spec, true) on success, (_, false) otherwise.
 func (r Registry) Match(token string, fields []api.Field) (ColumnSpec, bool) {
-	tokenLower := strings.ToLower(token)
 	for _, c := range r {
 		if strings.EqualFold(c.Header, token) {
 			return c, true
@@ -113,10 +112,9 @@ func (r Registry) Match(token string, fields []api.Field) (ColumnSpec, bool) {
 				}
 			}
 			// Found in Jira but not in the registry — caller distinguishes
-			// this case via FindJiraField below.
+			// this case via findJiraField in resolve.go.
 			return ColumnSpec{}, false
 		}
 	}
-	_ = tokenLower // keep for future fuzzy suggestions
 	return ColumnSpec{}, false
 }

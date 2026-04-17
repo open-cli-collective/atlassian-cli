@@ -34,7 +34,7 @@ func (e *UnknownFieldError) Error() string {
 //
 // This is distinct from UnknownFieldError; callers (commands) print both
 // as prose on stderr, but tests assert on the specific type to verify
-// the scope contract of #233.
+// the projection-scope contract.
 type UnrenderedFieldError struct {
 	Token       string // What the user typed.
 	JiraName    string // api.Field.Name.
@@ -45,7 +45,7 @@ type UnrenderedFieldError struct {
 
 func (e *UnrenderedFieldError) Error() string {
 	return fmt.Sprintf(
-		"field %q (%s) exists but is not rendered by %q (tracked in #234/#239); supported fields: %s",
+		"field %q (%s) exists but is not rendered by %q; supported fields: %s",
 		e.JiraName, e.JiraID, e.Command, strings.Join(e.Suggestions, ", "),
 	)
 }
@@ -145,47 +145,67 @@ func Resolve(
 		}
 	}
 
-	for _, tok := range tokens {
-		// Fast path: mode registry (header/alias/FieldID).
+	// First-pass resolution: fast path against the mode registry
+	// (header/alias/FieldID) for every token. Any token that misses is
+	// deferred to the slow path so we make at most one fetchFields call
+	// regardless of how many tokens need metadata.
+	type pending struct {
+		index int
+		token string
+	}
+	var deferred []pending
+	for i, tok := range tokens {
 		if spec, ok := modeRegistry.Match(tok, nil); ok {
 			appendSpec(spec)
 			continue
 		}
+		deferred = append(deferred, pending{index: i, token: tok})
+	}
 
-		// Check if the token matches an Extended-only spec in the full
-		// registry — better error than "unknown" in that case.
-		if !extended {
-			if spec, ok := r.Match(tok, nil); ok && spec.Extended {
-				return nil, false, &ExtendedOnlyError{Token: tok, Header: spec.Header}
-			}
-		}
-
-		// Slow path: consult Jira metadata.
+	if len(deferred) > 0 {
 		fields, ferr := lookupFields()
 		if ferr != nil {
 			return nil, false, ferr
 		}
 
-		if spec, ok := modeRegistry.Match(tok, fields); ok {
-			appendSpec(spec)
-			continue
+		var unknown []string
+		for _, p := range deferred {
+			// Retry against the mode registry now that we have Jira metadata
+			// — this picks up human-name matches.
+			if spec, ok := modeRegistry.Match(p.token, fields); ok {
+				appendSpec(spec)
+				continue
+			}
+
+			// Next: if --extended is off and the token matches an
+			// Extended-only spec (by header, alias, FieldID, *or human
+			// name*), give the most informative error.
+			if !extended {
+				if spec, ok := r.Match(p.token, fields); ok && spec.Extended {
+					return nil, false, &ExtendedOnlyError{Token: p.token, Header: spec.Header}
+				}
+			}
+
+			// Token resolves to a real Jira field but no registry entry —
+			// projection-scope error, distinct from "unknown".
+			if jf := findJiraField(fields, p.token); jf != nil {
+				return nil, false, &UnrenderedFieldError{
+					Token:       p.token,
+					JiraName:    jf.Name,
+					JiraID:      jf.ID,
+					Command:     cmdName,
+					Suggestions: registryHeaders(modeRegistry),
+				}
+			}
+
+			unknown = append(unknown, p.token)
 		}
 
-		// Not in the mode registry. Check whether the token resolves to a
-		// real Jira field — that changes the error.
-		if jf := findJiraField(fields, tok); jf != nil {
-			return nil, false, &UnrenderedFieldError{
-				Token:       tok,
-				JiraName:    jf.Name,
-				JiraID:      jf.ID,
-				Command:     cmdName,
+		if len(unknown) > 0 {
+			return nil, false, &UnknownFieldError{
+				Unknown:     unknown,
 				Suggestions: registryHeaders(modeRegistry),
 			}
-		}
-
-		return nil, false, &UnknownFieldError{
-			Unknown:     []string{tok},
-			Suggestions: registryHeaders(modeRegistry),
 		}
 	}
 

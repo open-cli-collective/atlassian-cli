@@ -168,12 +168,18 @@ func TestResolve_UnrenderedField_ByFieldID_UsesHumanNameInMessage(t *testing.T) 
 
 func TestResolve_ExtendedOnlyToken_WithoutFlag_Errors(t *testing.T) {
 	t.Parallel()
-	stub := &fetchStub{}
+	// Tokens that miss the fast path (POINTS is Extended, so not in the
+	// non-extended mode registry) hit the slow path, which consults Jira
+	// metadata. This is intentional: the human-name variant of this case
+	// requires metadata, so we always fetch once before deciding the
+	// error kind.
+	stub := &fetchStub{fields: []api.Field{
+		{ID: "customfield_10035", Name: "Story Points"},
+	}}
 	_, _, err := Resolve(context.Background(), testRegistry, false, "POINTS", stub.fetch, "issues list")
 	var eoe *ExtendedOnlyError
 	testutil.True(t, errors.As(err, &eoe))
 	testutil.Equal(t, "POINTS", eoe.Header)
-	testutil.Equal(t, 0, stub.calls)
 }
 
 func TestResolve_ExtendedOnlyToken_WithFlag_Resolves(t *testing.T) {
@@ -183,6 +189,36 @@ func TestResolve_ExtendedOnlyToken_WithFlag_Resolves(t *testing.T) {
 	testutil.RequireNoError(t, err)
 	testutil.True(t, applied)
 	testutil.Equal(t, 2, len(selected)) // KEY + POINTS
+}
+
+// When the user passes the Jira human name of an Extended-only field
+// without --extended, they should get ExtendedOnlyError (actionable:
+// "add --extended") — not UnknownFieldError or UnrenderedFieldError.
+func TestResolve_ExtendedOnlyToken_ByHumanName_WithoutFlag_Errors(t *testing.T) {
+	t.Parallel()
+	// testRegistry has POINTS with FieldID "customfield_10035" and Extended=true.
+	stub := &fetchStub{fields: []api.Field{
+		{ID: "customfield_10035", Name: "Story Points"},
+	}}
+	_, _, err := Resolve(context.Background(), testRegistry, false, "Story Points", stub.fetch, "issues list")
+	var eoe *ExtendedOnlyError
+	testutil.True(t, errors.As(err, &eoe))
+	testutil.Equal(t, "POINTS", eoe.Header)
+}
+
+// Multiple unknown tokens are batched into a single UnknownFieldError so
+// users see all failures at once, not one-at-a-time.
+func TestResolve_MultipleUnknownTokens_BatchedIntoOneError(t *testing.T) {
+	t.Parallel()
+	stub := &fetchStub{fields: []api.Field{}}
+	_, _, err := Resolve(context.Background(), testRegistry, false, "bogus1,bogus2,bogus3", stub.fetch, "issues list")
+	var ufe *UnknownFieldError
+	testutil.True(t, errors.As(err, &ufe))
+	testutil.Equal(t, 3, len(ufe.Unknown))
+	testutil.Equal(t, "bogus1", ufe.Unknown[0])
+	testutil.Equal(t, "bogus2", ufe.Unknown[1])
+	testutil.Equal(t, "bogus3", ufe.Unknown[2])
+	testutil.Contains(t, err.Error(), "unknown fields")
 }
 
 func TestResolve_FetchFieldsErrorPropagates(t *testing.T) {

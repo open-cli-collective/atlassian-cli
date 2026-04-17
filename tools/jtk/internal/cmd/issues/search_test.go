@@ -81,6 +81,65 @@ func TestRunSearch_Fields_WithJSON_Errors(t *testing.T) {
 	testutil.Contains(t, err.Error(), "not supported with --output json")
 }
 
+// Search and List share deriveFetchFields, but assert here directly so a
+// future divergence in search's fetch wiring does not hide behind list's
+// coverage.
+func TestRunSearch_Fields_DerivesFetchSet(t *testing.T) {
+	t.Parallel()
+	cs := newCapturingServer(t, []string{"TEST-1"}, true, nil)
+	defer cs.server.Close()
+
+	opts, _, _ := newOptsFor(t, cs)
+	err := runSearch(context.Background(), opts, "project = TEST", 25, "", false, "SUMMARY,STATUS")
+	testutil.RequireNoError(t, err)
+
+	got := cs.searchCaptured.Fields
+	// KEY has an empty FieldID, so it never appears in the derived set.
+	want := map[string]bool{"summary": true, "status": true}
+	if len(got) != len(want) {
+		t.Fatalf("fetch set length: got %v, want keys %v", got, want)
+	}
+	for _, f := range got {
+		if !want[f] {
+			t.Errorf("unexpected fetch field %q (want only SUMMARY + STATUS IDs)", f)
+		}
+	}
+}
+
+// --id in search is new behavior in this PR. Cover the pagination branch
+// so the idOnly emit path is exercised with hasMore=true.
+func TestRunSearch_FieldsWithIDOnly_Pagination(t *testing.T) {
+	t.Parallel()
+	cs := newCapturingServer(t, []string{"TEST-1", "TEST-2"}, false, nil) // isLast=false → hasMore=true
+	defer cs.server.Close()
+
+	opts, stdout, _ := newOptsFor(t, cs)
+	opts.IDOnly = true
+	err := runSearch(context.Background(), opts, "project = TEST", 25, "", false, "SUMMARY")
+	testutil.RequireNoError(t, err)
+
+	// Bare keys plus a pagination hint on stderr; stdout stays parse-friendly.
+	got := stdout.String()
+	testutil.Contains(t, got, "TEST-1\n")
+	testutil.Contains(t, got, "TEST-2\n")
+}
+
+// Empty result set under --id must not emit anything on stdout (no header,
+// no "No issues found" noise — --id is a machine-friendly mode).
+func TestRunSearch_FieldsWithIDOnly_EmptyResults(t *testing.T) {
+	t.Parallel()
+	cs := newCapturingServer(t, []string{}, true, nil)
+	defer cs.server.Close()
+
+	opts, stdout, _ := newOptsFor(t, cs)
+	opts.IDOnly = true
+	err := runSearch(context.Background(), opts, "project = TEST", 25, "", false, "SUMMARY")
+	testutil.RequireNoError(t, err)
+	if stdout.String() != "" {
+		t.Errorf("expected empty stdout for --id with no results, got %q", stdout.String())
+	}
+}
+
 func TestRunSearch_FieldsWithIDOnly_IDWins(t *testing.T) {
 	t.Parallel()
 	cs := newCapturingServer(t, []string{"TEST-1", "TEST-2"}, true, nil)

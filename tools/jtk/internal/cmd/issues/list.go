@@ -81,7 +81,7 @@ func runList(ctx context.Context, opts *root.Options, project, sprint string, ma
 	// error since we're not producing JSON.
 	idOnly := opts.EmitIDOnly()
 
-	if !idOnly && fieldsFlag != "" && opts.Output == "json" {
+	if !idOnly && fieldsFlag != "" && v.Format == view.FormatJSON {
 		return errFieldsWithJSON
 	}
 

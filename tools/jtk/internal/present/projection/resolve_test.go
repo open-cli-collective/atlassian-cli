@@ -127,6 +127,22 @@ func TestResolve_UserOrderPreserved_AfterIdentity(t *testing.T) {
 	testutil.Equal(t, "SUMMARY", selected[2].Header)
 }
 
+// Mixed fast-path (header) and slow-path (human-name) tokens must land in
+// the user's order, not be grouped by resolution path.
+func TestResolve_UserOrder_MixedFastAndSlowPath(t *testing.T) {
+	t.Parallel()
+	stub := &fetchStub{fields: []api.Field{
+		{ID: "issuetype", Name: "Issue Type"},
+	}}
+	selected, _, err := Resolve(context.Background(), testRegistry, false, "STATUS,Issue Type,SUMMARY", stub.fetch, "issues list")
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, 4, len(selected))
+	testutil.Equal(t, "KEY", selected[0].Header)
+	testutil.Equal(t, "STATUS", selected[1].Header)
+	testutil.Equal(t, "TYPE", selected[2].Header)
+	testutil.Equal(t, "SUMMARY", selected[3].Header)
+}
+
 func TestResolve_UnknownToken_FallbackAttemptedButFails(t *testing.T) {
 	t.Parallel()
 	stub := &fetchStub{fields: []api.Field{

@@ -20,13 +20,13 @@ func ProjectTable(section *present.TableSection, selected []ColumnSpec) *present
 	}
 	headerIndex := make(map[string]int, len(section.Headers))
 	for i, h := range section.Headers {
-		headerIndex[h] = i
+		headerIndex[strings.ToLower(h)] = i
 	}
 
 	keepIdx := make([]int, 0, len(selected))
 	headers := make([]string, 0, len(selected))
 	for _, c := range selected {
-		idx, ok := headerIndex[c.Header]
+		idx, ok := headerIndex[strings.ToLower(c.Header)]
 		if !ok {
 			continue
 		}

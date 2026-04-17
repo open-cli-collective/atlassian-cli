@@ -145,21 +145,26 @@ func Resolve(
 		}
 	}
 
-	// First-pass resolution: fast path against the mode registry
-	// (header/alias/FieldID) for every token. Any token that misses is
-	// deferred to the slow path so we make at most one fetchFields call
-	// regardless of how many tokens need metadata.
-	type pending struct {
-		index int
-		token string
-	}
-	var deferred []pending
+	// Two-pass resolution that preserves user token order.
+	//
+	// Pass 1 (fast path): try header/alias/FieldID matching for every token
+	// without consulting Jira metadata. Tokens that miss are queued for the
+	// slow path. Resolved specs are stored by their token index so they land
+	// in the user's order even when interleaved with slow-path tokens.
+	//
+	// Pass 2 (slow path): if any tokens deferred, fetchFields() once, then
+	// retry each deferred token against the mode registry (picks up human
+	// names), the full registry (for Extended-only errors), and raw Jira
+	// metadata (for UnrenderedFieldError).
+	resolved := make([]*ColumnSpec, len(tokens))
+	var deferred []int
 	for i, tok := range tokens {
 		if spec, ok := modeRegistry.Match(tok, nil); ok {
-			appendSpec(spec)
+			s := spec
+			resolved[i] = &s
 			continue
 		}
-		deferred = append(deferred, pending{index: i, token: tok})
+		deferred = append(deferred, i)
 	}
 
 	if len(deferred) > 0 {
@@ -169,28 +174,23 @@ func Resolve(
 		}
 
 		var unknown []string
-		for _, p := range deferred {
-			// Retry against the mode registry now that we have Jira metadata
-			// — this picks up human-name matches.
-			if spec, ok := modeRegistry.Match(p.token, fields); ok {
-				appendSpec(spec)
+		for _, i := range deferred {
+			tok := tokens[i]
+			if spec, ok := modeRegistry.Match(tok, fields); ok {
+				s := spec
+				resolved[i] = &s
 				continue
 			}
 
-			// Next: if --extended is off and the token matches an
-			// Extended-only spec (by header, alias, FieldID, *or human
-			// name*), give the most informative error.
 			if !extended {
-				if spec, ok := r.Match(p.token, fields); ok && spec.Extended {
-					return nil, false, &ExtendedOnlyError{Token: p.token, Header: spec.Header}
+				if spec, ok := r.Match(tok, fields); ok && spec.Extended {
+					return nil, false, &ExtendedOnlyError{Token: tok, Header: spec.Header}
 				}
 			}
 
-			// Token resolves to a real Jira field but no registry entry —
-			// projection-scope error, distinct from "unknown".
-			if jf := findJiraField(fields, p.token); jf != nil {
+			if jf := findJiraField(fields, tok); jf != nil {
 				return nil, false, &UnrenderedFieldError{
-					Token:       p.token,
+					Token:       tok,
 					JiraName:    jf.Name,
 					JiraID:      jf.ID,
 					Command:     cmdName,
@@ -198,7 +198,7 @@ func Resolve(
 				}
 			}
 
-			unknown = append(unknown, p.token)
+			unknown = append(unknown, tok)
 		}
 
 		if len(unknown) > 0 {
@@ -206,6 +206,12 @@ func Resolve(
 				Unknown:     unknown,
 				Suggestions: registryHeaders(modeRegistry),
 			}
+		}
+	}
+
+	for _, spec := range resolved {
+		if spec != nil {
+			appendSpec(*spec)
 		}
 	}
 

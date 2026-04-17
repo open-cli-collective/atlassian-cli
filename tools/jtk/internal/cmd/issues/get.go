@@ -60,7 +60,7 @@ func runGet(ctx context.Context, opts *root.Options, issueKey string, noTruncate
 		return jtkpresent.EmitIDs(opts, []string{issue.Key})
 	}
 
-	if fieldsFlag != "" && opts.Output == "json" {
+	if fieldsFlag != "" && v.Format == view.FormatJSON {
 		return errFieldsWithJSON
 	}
 

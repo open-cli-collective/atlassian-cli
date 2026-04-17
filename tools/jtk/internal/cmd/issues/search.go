@@ -73,7 +73,7 @@ func runSearch(ctx context.Context, opts *root.Options, jql string, maxResults i
 	// See list.go for rationale.
 	idOnly := opts.EmitIDOnly()
 
-	if !idOnly && fieldsFlag != "" && opts.Output == "json" {
+	if !idOnly && fieldsFlag != "" && v.Format == view.FormatJSON {
 		return errFieldsWithJSON
 	}
 

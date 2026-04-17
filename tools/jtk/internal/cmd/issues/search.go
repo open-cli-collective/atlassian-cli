@@ -14,6 +14,7 @@ import (
 	jtkartifact "github.com/open-cli-collective/jira-ticket-cli/internal/artifact"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/present/projection"
 )
 
 func newSearchCmd(opts *root.Options) *cobra.Command {
@@ -42,8 +43,9 @@ func newSearchCmd(opts *root.Options) *cobra.Command {
   # Search with all fields (includes description)
   jtk issues search --jql "project = MYPROJECT" --all-fields
 
-  # Search with specific fields (e.g. custom fields)
-  jtk issues search --jql "project = MYPROJECT" --fields summary,status,customfield_10005`,
+  # Project display columns — headers, Jira field IDs, or human names
+  jtk issues search --jql "project = MYPROJECT" --fields SUMMARY,STATUS
+  jtk issues search --jql "project = MYPROJECT" --fields "Issue Type"`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runSearch(cmd.Context(), opts, jql, maxResults, nextPageToken, allFields, fieldsFlag)
 		},
@@ -53,7 +55,7 @@ func newSearchCmd(opts *root.Options) *cobra.Command {
 	cmd.Flags().IntVarP(&maxResults, "max", "m", 25, "Maximum number of results to return")
 	cmd.Flags().StringVar(&nextPageToken, "next-page-token", "", "Token for next page of results")
 	cmd.Flags().BoolVar(&allFields, "all-fields", false, "Include all fields (e.g. description)")
-	cmd.Flags().StringVar(&fieldsFlag, "fields", "", "Comma-separated list of fields to return (e.g. summary,customfield_10005)")
+	cmd.Flags().StringVar(&fieldsFlag, "fields", "", "Comma-separated display columns (headers, Jira field IDs, or human names)")
 	_ = cmd.MarkFlagRequired("jql")
 
 	return cmd
@@ -67,7 +69,23 @@ func runSearch(ctx context.Context, opts *root.Options, jql string, maxResults i
 		return err
 	}
 
-	fields := resolveFields(fieldsFlag, opts.Output, allFields)
+	if fieldsFlag != "" && opts.Output == "json" {
+		return errFieldsWithJSON
+	}
+
+	selected, projected, err := projection.Resolve(
+		ctx,
+		jtkpresent.IssueListSpec,
+		opts.IsExtended(),
+		fieldsFlag,
+		client.GetFields,
+		"issues search",
+	)
+	if err != nil {
+		return err
+	}
+
+	fields := deriveFetchFields(selected, projected, opts.IsExtended(), allFields, opts.Output)
 
 	result, err := client.SearchPage(ctx, api.SearchPageOptions{
 		JQL:           jql,
@@ -79,6 +97,16 @@ func runSearch(ctx context.Context, opts *root.Options, jql string, maxResults i
 		return err
 	}
 
+	hasMore := !result.Pagination.IsLast
+
+	if opts.EmitIDOnly() {
+		ids := make([]string, len(result.Issues))
+		for i, issue := range result.Issues {
+			ids[i] = issue.Key
+		}
+		return jtkpresent.EmitIDsWithPagination(opts, ids, hasMore)
+	}
+
 	if len(result.Issues) == 0 {
 		model := jtkpresent.IssuePresenter{}.PresentEmpty()
 		out := present.Render(model, opts.RenderStyle())
@@ -88,13 +116,14 @@ func runSearch(ctx context.Context, opts *root.Options, jql string, maxResults i
 
 	if v.Format == view.FormatJSON {
 		arts := jtkartifact.ProjectIssues(result.Issues, opts.ArtifactMode())
-		hasMore := !result.Pagination.IsLast
 		return v.RenderArtifactList(artifact.NewListResult(arts, hasMore))
 	}
 
 	// Text path: presenter → render → write
-	hasMore := !result.Pagination.IsLast
 	model := jtkpresent.IssuePresenter{}.PresentListWithPagination(result.Issues, hasMore)
+	if projected {
+		projectTableSectionInModel(model, selected)
+	}
 	out := present.Render(model, opts.RenderStyle())
 	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
 	_, _ = fmt.Fprint(opts.Stderr, out.Stderr)

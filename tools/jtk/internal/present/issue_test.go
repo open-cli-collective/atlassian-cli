@@ -333,3 +333,55 @@ func TestIssuePresenter_PresentMovePartialFailure_NoSuccessful(t *testing.T) {
 		t.Errorf("expected 2 sections when no successful, got %d", len(model.Sections))
 	}
 }
+
+// TestIssueListSpec_MatchesPresentListHeaders locks the IssueListSpec headers
+// against the hardcoded headers in PresentList / PresentListWithPagination.
+// Any drift between presenter output columns and the projection registry is
+// a bug — ProjectTable relies on exact header-name equality.
+func TestIssueListSpec_MatchesPresentListHeaders(t *testing.T) {
+	t.Parallel()
+	issues := []api.Issue{{Key: "PROJ-1", Fields: api.IssueFields{Summary: "x"}}}
+	model := IssuePresenter{}.PresentList(issues)
+	table := model.Sections[0].(*present.TableSection)
+
+	if len(table.Headers) != len(IssueListSpec) {
+		t.Fatalf("header count mismatch: spec has %d, table has %d", len(IssueListSpec), len(table.Headers))
+	}
+	for i, spec := range IssueListSpec {
+		if table.Headers[i] != spec.Header {
+			t.Errorf("index %d: spec Header=%q, table header=%q", i, spec.Header, table.Headers[i])
+		}
+	}
+}
+
+// TestIssueDetailSpec_MatchesPresentDetailLabels locks the IssueDetailSpec
+// entries against the Field labels emitted by PresentDetail. Description is
+// conditional; this test constructs an issue with a description present so
+// all spec entries should be rendered.
+func TestIssueDetailSpec_MatchesPresentDetailLabels(t *testing.T) {
+	t.Parallel()
+	issue := &api.Issue{
+		Key: "PROJ-1",
+		Fields: api.IssueFields{
+			Summary:     "s",
+			Status:      &api.Status{Name: "Open"},
+			IssueType:   &api.IssueType{Name: "Bug"},
+			Priority:    &api.Priority{Name: "High"},
+			Assignee:    &api.User{DisplayName: "Alice"},
+			Project:     &api.Project{Key: "PROJ"},
+			Description: &api.Description{Text: "body text"},
+		},
+	}
+	model := IssuePresenter{}.PresentDetail(issue, "https://example.com/PROJ-1", true)
+	detail := model.Sections[0].(*present.DetailSection)
+
+	renderedLabels := make(map[string]bool, len(detail.Fields))
+	for _, f := range detail.Fields {
+		renderedLabels[f.Label] = true
+	}
+	for _, spec := range IssueDetailSpec {
+		if !renderedLabels[spec.Header] {
+			t.Errorf("spec Header %q not emitted by PresentDetail", spec.Header)
+		}
+	}
+}

@@ -16,6 +16,7 @@ import (
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	jtkartifact "github.com/open-cli-collective/jira-ticket-cli/internal/artifact"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/present/projection"
 )
 
 // artifactListResult is a helper struct for parsing artifact list output in tests.
@@ -27,97 +28,82 @@ type artifactListResult struct {
 	} `json:"_meta"`
 }
 
-func TestResolveFields(t *testing.T) {
+func TestDeriveFetchFields(t *testing.T) {
 	t.Parallel()
+	selected := []projection.ColumnSpec{
+		{Header: "KEY", Identity: true}, // synthetic — no fetch contribution
+		{Header: "SUMMARY", FieldID: "summary"},
+	}
+
 	tests := []struct {
-		name       string
-		fieldsFlag string
-		output     string
-		full       bool
-		want       []string
+		name      string
+		projected bool
+		extended  bool
+		allFields bool
+		output    string
+		want      []string
 	}{
 		{
-			name:       "explicit fields flag takes precedence",
-			fieldsFlag: "summary,customfield_10005",
-			output:     "json",
-			full:       true,
-			want:       []string{"summary", "customfield_10005"},
+			name:   "json output → *all",
+			output: "json",
+			want:   []string{"*all"},
 		},
 		{
-			name:       "json output without fields flag returns all",
-			fieldsFlag: "",
-			output:     "json",
-			full:       false,
-			want:       []string{"*all"},
+			name:   "json + extended → still *all",
+			output: "json", extended: true,
+			want: []string{"*all"},
 		},
 		{
-			name:       "json output with full flag still returns all",
-			fieldsFlag: "",
-			output:     "json",
-			full:       true,
-			want:       []string{"*all"},
+			name:      "projected → union of selected specs",
+			projected: true,
+			output:    "table",
+			want:      []string{"summary"},
 		},
 		{
-			name:       "full flag returns DefaultSearchFields",
-			fieldsFlag: "",
-			output:     "",
-			full:       true,
-			want:       api.DefaultSearchFields,
+			name:      "projected wins over extended",
+			projected: true, extended: true,
+			output: "table",
+			want:   []string{"summary"},
 		},
 		{
-			name:       "default returns ListSearchFields",
-			fieldsFlag: "",
-			output:     "",
-			full:       false,
-			want:       api.ListSearchFields,
+			name:      "projected wins over allFields",
+			projected: true, allFields: true,
+			output: "table",
+			want:   []string{"summary"},
 		},
 		{
-			name:       "table output returns ListSearchFields",
-			fieldsFlag: "",
-			output:     "table",
-			full:       false,
-			want:       api.ListSearchFields,
+			name:     "extended without projection → DefaultSearchFields",
+			extended: true,
+			output:   "table",
+			want:     api.DefaultSearchFields,
 		},
 		{
-			name:       "single field",
-			fieldsFlag: "summary",
-			output:     "",
-			full:       false,
-			want:       []string{"summary"},
+			name:      "allFields without projection → DefaultSearchFields",
+			allFields: true,
+			output:    "table",
+			want:      api.DefaultSearchFields,
 		},
 		{
-			name:       "trims whitespace around fields",
-			fieldsFlag: "summary , customfield_10005 , status",
-			output:     "",
-			full:       false,
-			want:       []string{"summary", "customfield_10005", "status"},
+			name:     "extended and allFields are idempotent",
+			extended: true, allFields: true,
+			output: "table",
+			want:   api.DefaultSearchFields,
 		},
 		{
-			name:       "drops empty segments from trailing comma",
-			fieldsFlag: "summary,status,",
-			output:     "",
-			full:       false,
-			want:       []string{"summary", "status"},
+			name:   "default → ListSearchFields",
+			output: "table",
+			want:   api.ListSearchFields,
 		},
 		{
-			name:       "all empty tokens falls through to json default",
-			fieldsFlag: ",, ",
-			output:     "json",
-			full:       false,
-			want:       []string{"*all"},
-		},
-		{
-			name:       "all empty tokens falls through to list default",
-			fieldsFlag: ",, ",
-			output:     "",
-			full:       false,
-			want:       api.ListSearchFields,
+			name:   "empty output treated as non-json",
+			output: "",
+			want:   api.ListSearchFields,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := resolveFields(tt.fieldsFlag, tt.output, tt.full)
+			got := deriveFetchFields(selected, tt.projected, tt.extended, tt.allFields, tt.output)
 			testutil.Equal(t, len(tt.want), len(got))
 			for i := range tt.want {
 				testutil.Equal(t, tt.want[i], got[i])
@@ -187,35 +173,6 @@ func TestRunSearch_JSONOutputRequestsAllFields(t *testing.T) {
 	testutil.Equal(t, "*all", captured.Fields[0])
 }
 
-func TestRunSearch_FieldsFlagOverridesJSONDefault(t *testing.T) {
-	t.Parallel()
-	var captured api.SearchRequest
-	server := newSearchServer(t, &captured)
-	defer server.Close()
-
-	client, err := api.New(api.ClientConfig{
-		URL:      server.URL,
-		Email:    "test@example.com",
-		APIToken: "token",
-	})
-	testutil.RequireNoError(t, err)
-
-	var stdout bytes.Buffer
-	opts := &root.Options{
-		Output: "json",
-		Stdout: &stdout,
-		Stderr: &bytes.Buffer{},
-	}
-	opts.SetAPIClient(client)
-
-	err = runSearch(context.Background(), opts, "project = TEST", 25, "", false, "summary,customfield_10005")
-	testutil.RequireNoError(t, err)
-
-	testutil.Equal(t, 2, len(captured.Fields))
-	testutil.Equal(t, "summary", captured.Fields[0])
-	testutil.Equal(t, "customfield_10005", captured.Fields[1])
-}
-
 func TestRunSearch_TableOutputUsesListFields(t *testing.T) {
 	t.Parallel()
 	var captured api.SearchRequest
@@ -272,35 +229,6 @@ func TestRunList_JSONOutputRequestsAllFields(t *testing.T) {
 
 	testutil.Equal(t, 1, len(captured.Fields))
 	testutil.Equal(t, "*all", captured.Fields[0])
-}
-
-func TestRunList_FieldsFlagOverridesJSONDefault(t *testing.T) {
-	t.Parallel()
-	var captured api.SearchRequest
-	server := newSearchServer(t, &captured)
-	defer server.Close()
-
-	client, err := api.New(api.ClientConfig{
-		URL:      server.URL,
-		Email:    "test@example.com",
-		APIToken: "token",
-	})
-	testutil.RequireNoError(t, err)
-
-	var stdout bytes.Buffer
-	opts := &root.Options{
-		Output: "json",
-		Stdout: &stdout,
-		Stderr: &bytes.Buffer{},
-	}
-	opts.SetAPIClient(client)
-
-	err = runList(context.Background(), opts, "TEST", "", 25, "", false, "summary,customfield_10035")
-	testutil.RequireNoError(t, err)
-
-	testutil.Equal(t, 2, len(captured.Fields))
-	testutil.Equal(t, "summary", captured.Fields[0])
-	testutil.Equal(t, "customfield_10035", captured.Fields[1])
 }
 
 // newPaginatedSearchServer creates a server that returns pageSize issues per request

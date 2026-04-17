@@ -7,10 +7,40 @@ import (
 	"github.com/open-cli-collective/atlassian-go/present"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/present/projection"
 )
 
 // IssuePresenter creates presentation models for issue data.
 type IssuePresenter struct{}
+
+// IssueListSpec declares the columns emitted by PresentList /
+// PresentListWithPagination and the metadata needed for --fields
+// projection and minimum-fetch derivation. Order MUST match the
+// hardcoded Headers in PresentList (locked by a parity test).
+var IssueListSpec = projection.Registry{
+	{Header: "KEY", Identity: true},
+	{Header: "SUMMARY", FieldID: "summary"},
+	{Header: "STATUS", FieldID: "status"},
+	{Header: "ASSIGNEE", FieldID: "assignee"},
+	{Header: "TYPE", FieldID: "issuetype"},
+}
+
+// IssueDetailSpec declares the Fields emitted by PresentDetail and the
+// metadata for --fields projection. Order MUST match the default Field
+// order in PresentDetail at construction time; Description is optional
+// there (only emitted when non-empty) but is still declared here so
+// --fields Description resolves and projects correctly when present.
+var IssueDetailSpec = projection.Registry{
+	{Header: "Key", Identity: true},
+	{Header: "Summary", FieldID: "summary"},
+	{Header: "Status", FieldID: "status"},
+	{Header: "Type", FieldID: "issuetype"},
+	{Header: "Priority", FieldID: "priority"},
+	{Header: "Assignee", FieldID: "assignee"},
+	{Header: "Project", FieldID: "project"},
+	{Header: "Description", FieldID: "description"},
+	{Header: "URL"}, // synthetic; no Jira field ID
+}
 
 // PresentDetail creates a detail view for a single issue.
 func (IssuePresenter) PresentDetail(issue *api.Issue, issueURL string, noTruncate bool) *present.OutputModel {

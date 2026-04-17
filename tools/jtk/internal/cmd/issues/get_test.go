@@ -67,7 +67,7 @@ func TestRunGet_TruncatesDescription(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runGet(context.Background(), opts, "TEST-1", false)
+	err = runGet(context.Background(), opts, "TEST-1", false, "")
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()
@@ -107,7 +107,7 @@ func TestRunGet_FullDescription(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runGet(context.Background(), opts, "TEST-1", true)
+	err = runGet(context.Background(), opts, "TEST-1", true, "")
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()
@@ -224,7 +224,7 @@ func TestRunGet_IDOnly(t *testing.T) {
 	opts := &root.Options{Output: "table", IDOnly: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	testutil.RequireNoError(t, runGet(context.Background(), opts, "TEST-1", false))
+	testutil.RequireNoError(t, runGet(context.Background(), opts, "TEST-1", false, ""))
 	testutil.Equal(t, stdout.String(), "TEST-1\n")
 }
 
@@ -252,7 +252,7 @@ func TestRunGet_IDOnlyPrecedenceOverExtendedFullText(t *testing.T) {
 
 	// runGet receives noTruncate derived from RunE; when --id is set, the truncation
 	// value doesn't matter because EmitIDOnly collapses output before presenter runs.
-	testutil.RequireNoError(t, runGet(context.Background(), opts, "TEST-1", true))
+	testutil.RequireNoError(t, runGet(context.Background(), opts, "TEST-1", true, ""))
 	testutil.Equal(t, stdout.String(), "TEST-1\n")
 }
 
@@ -286,7 +286,7 @@ func TestRunGet_ShortDescriptionNotTruncated(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runGet(context.Background(), opts, "TEST-1", false)
+	err = runGet(context.Background(), opts, "TEST-1", false, "")
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()
@@ -323,7 +323,7 @@ func TestRunGet_JSONOutputIgnoresFullFlag(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runGet(context.Background(), opts, "TEST-1", true)
+	err = runGet(context.Background(), opts, "TEST-1", true, "")
 	testutil.RequireNoError(t, err)
 
 	// Should be valid JSON

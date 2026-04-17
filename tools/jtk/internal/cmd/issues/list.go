@@ -2,6 +2,7 @@ package issues
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -14,7 +15,12 @@ import (
 	jtkartifact "github.com/open-cli-collective/jira-ticket-cli/internal/artifact"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/present/projection"
 )
+
+// errFieldsWithJSON is returned when --fields is combined with --output json.
+// JSON output is not projected; mixing them silently would be surprising.
+var errFieldsWithJSON = errors.New("--fields is not supported with --output json")
 
 func newListCmd(opts *root.Options) *cobra.Command {
 	var project string
@@ -43,8 +49,9 @@ func newListCmd(opts *root.Options) *cobra.Command {
   # List with all fields (includes description)
   jtk issues list --project MYPROJECT --all-fields
 
-  # List with specific fields (e.g. custom fields)
-  jtk issues list --project MYPROJECT --fields summary,status,customfield_10005`,
+  # Project display columns — headers, Jira field IDs, or human names
+  jtk issues list --project MYPROJECT --fields SUMMARY,STATUS
+  jtk issues list --project MYPROJECT --fields "Issue Type"`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runList(cmd.Context(), opts, project, sprint, maxResults, nextPageToken, allFields, fieldsFlag)
 		},
@@ -55,7 +62,7 @@ func newListCmd(opts *root.Options) *cobra.Command {
 	cmd.Flags().IntVarP(&maxResults, "max", "m", 25, "Maximum number of results to return")
 	cmd.Flags().StringVar(&nextPageToken, "next-page-token", "", "Token for next page of results")
 	cmd.Flags().BoolVar(&allFields, "all-fields", false, "Include all fields (e.g. description)")
-	cmd.Flags().StringVar(&fieldsFlag, "fields", "", "Comma-separated list of fields to return (e.g. summary,customfield_10005)")
+	cmd.Flags().StringVar(&fieldsFlag, "fields", "", "Comma-separated display columns (headers, Jira field IDs, or human names)")
 
 	return cmd
 }
@@ -64,6 +71,22 @@ func runList(ctx context.Context, opts *root.Options, project, sprint string, ma
 	v := opts.View()
 
 	client, err := opts.APIClient()
+	if err != nil {
+		return err
+	}
+
+	if fieldsFlag != "" && opts.Output == "json" {
+		return errFieldsWithJSON
+	}
+
+	selected, projected, err := projection.Resolve(
+		ctx,
+		jtkpresent.IssueListSpec,
+		opts.IsExtended(),
+		fieldsFlag,
+		client.GetFields,
+		"issues list",
+	)
 	if err != nil {
 		return err
 	}
@@ -95,7 +118,7 @@ func runList(ctx context.Context, opts *root.Options, project, sprint string, ma
 		jql += " ORDER BY updated DESC"
 	}
 
-	fields := resolveFields(fieldsFlag, opts.Output, allFields)
+	fields := deriveFetchFields(selected, projected, opts.IsExtended(), allFields, opts.Output)
 
 	result, err := client.SearchPage(ctx, api.SearchPageOptions{
 		JQL:           jql,
@@ -138,5 +161,20 @@ func runList(ctx context.Context, opts *root.Options, project, sprint string, ma
 	}
 
 	model := jtkpresent.IssuePresenter{}.PresentListWithPagination(result.Issues, hasMore)
+	if projected {
+		projectTableSectionInModel(model, selected)
+	}
 	return jtkpresent.Emit(opts, model)
+}
+
+// projectTableSectionInModel rewrites the first TableSection of model to the
+// selected columns. No-op when there is no TableSection (e.g. model contains
+// only MessageSections).
+func projectTableSectionInModel(model *present.OutputModel, selected []projection.ColumnSpec) {
+	for i, s := range model.Sections {
+		if ts, ok := s.(*present.TableSection); ok {
+			model.Sections[i] = projection.ProjectTable(ts, selected)
+			return
+		}
+	}
 }

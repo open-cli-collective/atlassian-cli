@@ -15,7 +15,7 @@ import (
 func (r *Resolver) LinkType(ctx context.Context, input string) (api.IssueLinkType, error) {
 	return resolveEntity(ctx, r, "linktypes",
 		func() (api.IssueLinkType, error) { return lookupLinkType(input) },
-		// Link types never pass through — they're always looked up by name.
+		// Warm cache: no pass-through — typos must fail loudly.
 		func() (api.IssueLinkType, bool) { return api.IssueLinkType{}, false },
 		func() error {
 			return &NotFoundError{
@@ -24,6 +24,15 @@ func (r *Resolver) LinkType(ctx context.Context, input string) (api.IssueLinkTyp
 				RefreshHint: "jtk refresh linktypes",
 			}
 		},
+		// Cold-start fallback: without a cache to verify against, trust
+		// the caller. The API will reject unknown link types on its own.
+		// Note: directional-verb handling in links/links.go depends on
+		// Inward/Outward being set, which a synthetic can't provide — on
+		// cold start the user effectively must use the canonical name
+		// (the CLI still functions, just without verb support).
+		withColdFallback(func() (api.IssueLinkType, bool) {
+			return api.IssueLinkType{Name: input}, true
+		}),
 	)
 }
 

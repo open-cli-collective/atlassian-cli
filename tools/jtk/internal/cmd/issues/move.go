@@ -11,6 +11,7 @@ import (
 	"github.com/open-cli-collective/atlassian-go/present"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/cache"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/resolve"
@@ -89,8 +90,12 @@ func runMove(ctx context.Context, opts *root.Options, issueKeys []string, target
 
 	var targetIssueType *api.IssueType
 	if targetType == "" {
-		// Default to the source issue's type, matched against the target
-		// project's issue types via the cache.
+		// Default to the source issue's type if the target project has a
+		// matching type in the cache; otherwise fall back to the first
+		// cached non-subtask type. No live API fallback — if the cache
+		// can't answer, the user must specify --to-type. This keeps the
+		// default path deterministic and consistent with the rest of the
+		// resolver contract.
 		issue, err := client.GetIssue(ctx, issueKeys[0])
 		if err != nil {
 			return fmt.Errorf("getting source issue: %w", err)
@@ -98,25 +103,11 @@ func runMove(ctx context.Context, opts *root.Options, issueKeys []string, target
 		if issue.Fields.IssueType == nil {
 			return fmt.Errorf("source issue %s has no issue type", issueKeys[0])
 		}
-		resolved, err := resolver.IssueType(ctx, projectKey, issue.Fields.IssueType.Name)
-		if err != nil {
-			// Fall back to the first non-subtask type in the target project.
-			issueTypes, typesErr := client.GetProjectIssueTypes(ctx, projectKey)
-			if typesErr != nil {
-				return fmt.Errorf("getting target project issue types: %w", typesErr)
-			}
-			for i := range issueTypes {
-				if !issueTypes[i].Subtask {
-					targetIssueType = &issueTypes[i]
-					break
-				}
-			}
-			if targetIssueType == nil {
-				return fmt.Errorf("no non-subtask issue types available in target project %s", projectKey)
-			}
-		} else {
-			targetIssueType = &resolved
+		match, derr := matchCachedIssueType(projectKey, issue.Fields.IssueType.Name)
+		if derr != nil {
+			return fmt.Errorf("%w — supply --to-type to disambiguate", derr)
 		}
+		targetIssueType = match
 	} else {
 		resolved, err := resolver.IssueType(ctx, projectKey, targetType)
 		if err != nil {
@@ -229,4 +220,32 @@ func runMoveStatus(ctx context.Context, opts *root.Options, taskID string) error
 	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
 	_, _ = fmt.Fprint(opts.Stderr, out.Stderr)
 	return nil
+}
+
+// matchCachedIssueType looks up sourceTypeName in the target project's cached
+// issue types and, failing that, returns the first non-subtask type. Cache-
+// authoritative: no refresh, no live fallback. Used by `issues move` when
+// --to-type is omitted.
+func matchCachedIssueType(projectKey, sourceTypeName string) (*api.IssueType, error) {
+	env, err := cache.ReadResource[map[string][]api.IssueType]("issuetypes")
+	if err != nil {
+		return nil, fmt.Errorf("issuetypes cache unavailable for %s: %w", projectKey, err)
+	}
+	types, ok := env.Data[projectKey]
+	if !ok || len(types) == 0 {
+		return nil, fmt.Errorf("no cached issue types for project %s (try `jtk refresh issuetypes`)", projectKey)
+	}
+	// Preferred: source type (case-insensitive) exists in the target.
+	for i := range types {
+		if strings.EqualFold(types[i].Name, sourceTypeName) {
+			return &types[i], nil
+		}
+	}
+	// Fallback: first non-subtask.
+	for i := range types {
+		if !types[i].Subtask {
+			return &types[i], nil
+		}
+	}
+	return nil, fmt.Errorf("no non-subtask issue types cached for project %s", projectKey)
 }

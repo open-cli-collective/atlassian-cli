@@ -22,7 +22,9 @@ func (r *Resolver) IssueType(ctx context.Context, projectKey, input string) (api
 	}
 	return resolveEntity(ctx, r, "issuetypes",
 		func() (api.IssueType, error) { return lookupIssueType(projectKey, input) },
-		// Issue types never pass through — silent ID fall-through would mask typos.
+		// Issue types never pass through on warm cache — silent ID
+		// fall-through would mask typos. Typo-protection only applies
+		// when the cache is authoritative.
 		func() (api.IssueType, bool) { return api.IssueType{}, false },
 		func() error {
 			return &NotFoundError{
@@ -31,6 +33,13 @@ func (r *Resolver) IssueType(ctx context.Context, projectKey, input string) (api
 				RefreshHint: "jtk refresh issuetypes",
 			}
 		},
+		// Cold-start / offline: without any cache to check against, accept
+		// the raw name and let the API adjudicate. This preserves pre-#236
+		// behavior for uninitialized installs while staying strict on warm
+		// caches.
+		withColdFallback(func() (api.IssueType, bool) {
+			return api.IssueType{Name: input}, true
+		}),
 	)
 }
 

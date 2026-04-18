@@ -2,7 +2,11 @@ package resolve
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/open-cli-collective/atlassian-go/testutil"
@@ -37,6 +41,38 @@ func TestBoard_NameMatch(t *testing.T) {
 	b, err := New(nil).Board(context.Background(), "mon board")
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, b.ID, 23)
+}
+
+func TestBoard_NumericPassThroughWhenNotCached(t *testing.T) {
+	// Cache present but doesn't contain the requested ID. Numeric shape
+	// should short-circuit refresh and return a synthetic.
+	seedBoardsCache(t, []api.Board{{ID: 23, Name: "MON", Type: "scrum"}})
+	b, err := New(nil).Board(context.Background(), "999")
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, b.ID, 999)
+	testutil.Equal(t, b.Name, "")
+}
+
+func TestBoard_NotFoundCarriesRefreshHint(t *testing.T) {
+	seedBoardsCache(t, []api.Board{{ID: 23, Name: "MON", Type: "scrum"}})
+	// Refresh stub returns the same (no new board) → retry misses.
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(api.BoardsResponse{IsLast: true, Values: []api.Board{
+			{ID: 23, Name: "MON", Type: "scrum"},
+		}})
+	}))
+	defer server.Close()
+	client := newTestClient(t, server)
+
+	_, err := New(client).Board(context.Background(), "Unknown Board")
+	var nf *NotFoundError
+	if !errors.As(err, &nf) {
+		t.Fatalf("expected NotFoundError, got %T: %v", err, err)
+	}
+	testutil.Equal(t, nf.Entity, "board")
+	if !strings.Contains(err.Error(), "jtk refresh boards") {
+		t.Fatalf("missing refresh hint: %q", err.Error())
+	}
 }
 
 func TestBoard_AmbiguousName(t *testing.T) {

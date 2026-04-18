@@ -11,6 +11,7 @@ import (
 	"github.com/open-cli-collective/atlassian-go/testutil"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/cache"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 )
 
@@ -138,6 +139,61 @@ func TestRunList_Empty(t *testing.T) {
 
 	combined := stdout.String() + stderr.String()
 	testutil.Contains(t, combined, "No boards found")
+}
+
+func TestRunList_ResolvesProjectByName(t *testing.T) {
+	// --project "Platform" must resolve to its cached key before hitting
+	// the boards endpoint; the URL query string should carry the key, not
+	// the display name.
+	t.Cleanup(cache.SetRootForTest(t.TempDir()))
+	t.Cleanup(cache.SetInstanceKeyForTest("test.atlassian.net"))
+	testutil.RequireNoError(t, cache.WriteResource("projects", "24h", []api.Project{
+		{Key: "PLAT", Name: "Platform"},
+	}))
+
+	var capturedProject string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		capturedProject = r.URL.Query().Get("projectKeyOrId")
+		_ = json.NewEncoder(w).Encode(api.BoardsResponse{
+			IsLast: true, Values: []api.Board{{ID: 1, Name: "B", Type: "scrum"}},
+		})
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runList(context.Background(), opts, "Platform", 50)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, capturedProject, "PLAT")
+}
+
+func TestRunList_ProjectKeyShapePassesThrough(t *testing.T) {
+	// Project-key-shape input that isn't cached should still reach the API
+	// (cold-start / out-of-cache-horizon projects).
+	t.Cleanup(cache.SetRootForTest(t.TempDir()))
+	t.Cleanup(cache.SetInstanceKeyForTest("test.atlassian.net"))
+
+	var capturedProject string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		capturedProject = r.URL.Query().Get("projectKeyOrId")
+		_ = json.NewEncoder(w).Encode(api.BoardsResponse{IsLast: true, Values: []api.Board{}})
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	opts := &root.Options{Output: "table", Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runList(context.Background(), opts, "UNCACHED", 50)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, capturedProject, "UNCACHED")
 }
 
 func TestRunGet_Table(t *testing.T) {

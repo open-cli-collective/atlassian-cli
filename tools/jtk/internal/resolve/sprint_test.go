@@ -2,7 +2,10 @@ package resolve
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -73,6 +76,75 @@ func TestSprint_GlobalAmbiguousNameIncludesBoardInfo(t *testing.T) {
 	}
 	if !strings.Contains(msg, "active") || !strings.Contains(msg, "closed") {
 		t.Fatalf("expected sprint states in ambiguous match output: %q", msg)
+	}
+}
+
+func TestSprint_NumericPassThroughWhenNotCached(t *testing.T) {
+	// Cache seeded but missing the target ID, and the resolver's refresh
+	// fails. Numeric shape → pass-through synthetic.
+	seedSprintsCache(t, map[int][]api.Sprint{
+		23: {{ID: 1, Name: "Other"}},
+	}, nil)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+	client := newTestClient(t, server)
+
+	s, err := New(client).Sprint(context.Background(), "999", 0)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, s.ID, 999)
+	testutil.Equal(t, s.Name, "")
+}
+
+func TestSprint_ColdCacheTriggersRefresh(t *testing.T) {
+	// No sprints cache exists; refresh pulls boards + sprints.
+	t.Cleanup(cache.SetRootForTest(t.TempDir()))
+	t.Cleanup(cache.SetInstanceKeyForTest("test.atlassian.net"))
+	testutil.RequireNoError(t, cache.WriteResource("boards", "24h", []api.Board{{ID: 23, Name: "MON"}}))
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/rest/agile/1.0/board" {
+			_ = json.NewEncoder(w).Encode(api.BoardsResponse{IsLast: true, Values: []api.Board{{ID: 23, Name: "MON"}}})
+			return
+		}
+		if r.URL.Path == "/rest/agile/1.0/board/23/sprint" {
+			_ = json.NewEncoder(w).Encode(api.SprintsResponse{IsLast: true, Values: []api.Sprint{
+				{ID: 125, Name: "MON Sprint 70", State: "active"},
+			}})
+			return
+		}
+		t.Errorf("unexpected path: %s", r.URL.Path)
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+	client := newTestClient(t, server)
+
+	s, err := New(client).Sprint(context.Background(), "MON Sprint 70", 0)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, s.ID, 125)
+}
+
+func TestSprint_NotFoundCarriesRefreshHint(t *testing.T) {
+	seedSprintsCache(t, map[int][]api.Sprint{23: {{ID: 1, Name: "Other"}}}, nil)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "/board") {
+			_ = json.NewEncoder(w).Encode(api.BoardsResponse{IsLast: true, Values: []api.Board{}})
+			return
+		}
+		_ = json.NewEncoder(w).Encode(api.SprintsResponse{IsLast: true})
+	}))
+	defer server.Close()
+	client := newTestClient(t, server)
+
+	_, err := New(client).Sprint(context.Background(), "Nonexistent Sprint", 0)
+	var nf *NotFoundError
+	if !errors.As(err, &nf) {
+		t.Fatalf("expected NotFoundError, got %T: %v", err, err)
+	}
+	testutil.Equal(t, nf.Entity, "sprint")
+	if !strings.Contains(err.Error(), "jtk refresh sprints") {
+		t.Fatalf("missing refresh hint: %q", err.Error())
 	}
 }
 

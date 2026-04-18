@@ -128,6 +128,124 @@ func TestRunCreate(t *testing.T) {
 	testutil.Equal(t, req.InwardIssue.Key, "PROJ-456")
 }
 
+func TestRunCreate_InwardVerbSwapsDirection(t *testing.T) {
+	// A `jtk links create A B --type "is blocked by"` call must create a link
+	// where B blocks A — i.e., A is blocked by B. Since the Jira API always
+	// sees the link type by canonical name, correctness comes from the
+	// outward/inward issue ordering we post.
+	var capturedBody []byte
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/rest/api/3/issueLinkType":
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"issueLinkTypes": []map[string]string{
+					{"id": "1", "name": "Blocks", "inward": "is blocked by", "outward": "blocks"},
+				},
+			})
+		case "/rest/api/3/issueLink":
+			capturedBody, _ = io.ReadAll(r.Body)
+			w.WriteHeader(http.StatusCreated)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	isolateCache(t)
+	opts := &root.Options{Output: "table", Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	// User perspective: PROJ-1 IS BLOCKED BY PROJ-2.
+	err = runCreate(context.Background(), opts, "PROJ-1", "PROJ-2", "is blocked by")
+	testutil.RequireNoError(t, err)
+
+	var req api.CreateIssueLinkRequest
+	err = json.Unmarshal(capturedBody, &req)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, req.Type.Name, "Blocks")
+	// Swapped: PROJ-2 blocks PROJ-1 → outward=PROJ-2, inward=PROJ-1.
+	testutil.Equal(t, req.OutwardIssue.Key, "PROJ-2")
+	testutil.Equal(t, req.InwardIssue.Key, "PROJ-1")
+}
+
+func TestRunCreate_OutwardVerbPreservesOrder(t *testing.T) {
+	var capturedBody []byte
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/rest/api/3/issueLinkType":
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"issueLinkTypes": []map[string]string{
+					{"id": "1", "name": "Blocks", "inward": "is blocked by", "outward": "blocks"},
+				},
+			})
+		case "/rest/api/3/issueLink":
+			capturedBody, _ = io.ReadAll(r.Body)
+			w.WriteHeader(http.StatusCreated)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	isolateCache(t)
+	opts := &root.Options{Output: "table", Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runCreate(context.Background(), opts, "PROJ-1", "PROJ-2", "blocks")
+	testutil.RequireNoError(t, err)
+
+	var req api.CreateIssueLinkRequest
+	err = json.Unmarshal(capturedBody, &req)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, req.OutwardIssue.Key, "PROJ-1")
+	testutil.Equal(t, req.InwardIssue.Key, "PROJ-2")
+}
+
+func TestRunCreate_SymmetricVerbNoSwap(t *testing.T) {
+	// "Relates" has identical inward/outward verbs ("relates to"). A match
+	// against the inward verb must NOT swap, because the outward side also
+	// matches and the swap would invert the semantically-symmetric link.
+	var capturedBody []byte
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/rest/api/3/issueLinkType":
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"issueLinkTypes": []map[string]string{
+					{"id": "2", "name": "Relates", "inward": "relates to", "outward": "relates to"},
+				},
+			})
+		case "/rest/api/3/issueLink":
+			capturedBody, _ = io.ReadAll(r.Body)
+			w.WriteHeader(http.StatusCreated)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	isolateCache(t)
+	opts := &root.Options{Output: "table", Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runCreate(context.Background(), opts, "PROJ-1", "PROJ-2", "relates to")
+	testutil.RequireNoError(t, err)
+
+	var req api.CreateIssueLinkRequest
+	err = json.Unmarshal(capturedBody, &req)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, req.OutwardIssue.Key, "PROJ-1")
+	testutil.Equal(t, req.InwardIssue.Key, "PROJ-2")
+}
+
 func TestRunCreate_InvalidType(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{

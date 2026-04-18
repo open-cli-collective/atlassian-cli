@@ -8,6 +8,7 @@ package resolve
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
@@ -75,7 +76,13 @@ func resolveEntity[T any](
 	lookup func() (T, error),
 	passThrough func() (T, bool),
 	makeNotFound func() error,
+	opts ...resolveOption[T],
 ) (T, error) {
+	cfg := resolveConfig[T]{}
+	for _, o := range opts {
+		o(&cfg)
+	}
+
 	var zero T
 
 	result, err := lookup()
@@ -86,6 +93,8 @@ func resolveEntity[T any](
 		return zero, err
 	}
 
+	cacheWasEmpty := errors.Is(err, errCacheEmpty)
+
 	// Shape-based pass-through wins over refresh: if the input looks like
 	// a raw ID, the API is the authority — refreshing just to learn "this
 	// is an ID not a name" would be wasteful, and we want the CLI to work
@@ -95,6 +104,18 @@ func resolveEntity[T any](
 	}
 
 	if rerr := r.refreshResource(ctx, resource); rerr != nil {
+		// Cold cache + refresh unreachable is the "uninitialized
+		// environment" case: fresh install, no network, bearer-auth
+		// restriction. When the entity has no shape pass-through, an
+		// explicit coldFallback keeps the CLI usable by accepting the
+		// input as-is. When cacheWasEmpty is false, the cache was
+		// populated but didn't match — a refresh failure there is a real
+		// error, so we propagate it.
+		if cacheWasEmpty && cfg.coldFallback != nil {
+			if v, ok := cfg.coldFallback(); ok {
+				return v, nil
+			}
+		}
 		return zero, rerr
 	}
 
@@ -106,4 +127,18 @@ func resolveEntity[T any](
 		return zero, err
 	}
 	return zero, makeNotFound()
+}
+
+type resolveConfig[T any] struct {
+	coldFallback func() (T, bool)
+}
+
+type resolveOption[T any] func(*resolveConfig[T])
+
+// withColdFallback registers a synthetic-value fallback invoked only when
+// the cache was uninitialized *and* refresh failed. Intended for entities
+// with no shape-based pass-through (IssueType, LinkType) so they still
+// resolve on fresh installs/offline rather than dead-ending the CLI.
+func withColdFallback[T any](fn func() (T, bool)) resolveOption[T] {
+	return func(c *resolveConfig[T]) { c.coldFallback = fn }
 }

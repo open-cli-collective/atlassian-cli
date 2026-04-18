@@ -4,6 +4,7 @@ package links
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -121,6 +122,16 @@ func runCreate(ctx context.Context, opts *root.Options, outwardKey, inwardKey, l
 	resolvedLinkType, err := resolve.New(client).LinkType(ctx, linkType)
 	if err != nil {
 		return err
+	}
+
+	// If the user typed the inward verb ("is blocked by"), the positional
+	// arg order reads <inward> <outward> from their perspective. Swap so
+	// the resulting link matches the verb they chose. Input matching the
+	// canonical name or the outward verb maps to outward→inward as given.
+	if strings.EqualFold(linkType, resolvedLinkType.Inward) &&
+		!strings.EqualFold(linkType, resolvedLinkType.Outward) &&
+		!strings.EqualFold(linkType, resolvedLinkType.Name) {
+		outwardKey, inwardKey = inwardKey, outwardKey
 	}
 	linkType = resolvedLinkType.Name
 

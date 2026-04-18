@@ -14,8 +14,34 @@ import (
 	"github.com/open-cli-collective/atlassian-go/testutil"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/cache"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 )
+
+// seedBoardsAndSprints seeds the instance-scoped caches used by the Cobra
+// entry-point tests below. Pairs with cache.SetRootForTest for full
+// isolation; returns nothing (cleanup runs via t.Cleanup).
+func seedBoardsAndSprints(t *testing.T, boards []api.Board, byBoard map[int][]api.Sprint) {
+	t.Helper()
+	t.Cleanup(cache.SetRootForTest(t.TempDir()))
+	t.Cleanup(cache.SetInstanceKeyForTest("test.atlassian.net"))
+	testutil.RequireNoError(t, cache.WriteResource("boards", "24h", boards))
+	if byBoard != nil {
+		testutil.RequireNoError(t, cache.WriteResource("sprints", "24h", byBoard))
+	}
+}
+
+// newAgileClient builds an api.Client pointed at the given server with a
+// URL that triggers SupportsAgile() so the boards/sprints PersistentPreRunE
+// guard passes. The default httptest URL works because SupportsAgile checks
+// for AgileURL being non-empty — AgileURL is populated whenever BaseURL is
+// a non-api.atlassian.com host.
+func newAgileClient(t *testing.T, server *httptest.Server) *api.Client {
+	t.Helper()
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+	return client
+}
 
 // --- list subcommand ---
 
@@ -431,6 +457,135 @@ func TestRunAdd_SingleIssue(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	testutil.Contains(t, stdout.String(), "Moved PROJ-101 to sprint 123")
+}
+
+// --- Cobra entry-point tests that exercise the resolver ---
+
+func TestListCmd_ResolvesBoardByName(t *testing.T) {
+	// --board "MON board" must resolve via the cached boards to ID 23
+	// before hitting the sprints endpoint.
+	seedBoardsAndSprints(t,
+		[]api.Board{{ID: 23, Name: "MON board", Type: "scrum"}},
+		nil,
+	)
+
+	var capturedPath string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		capturedPath = r.URL.Path
+		_ = json.NewEncoder(w).Encode(api.SprintsResponse{IsLast: true, Values: []api.Sprint{}})
+	}))
+	defer server.Close()
+
+	client := newAgileClient(t, server)
+
+	rootCmd, opts := root.NewCmd()
+	opts.SetAPIClient(client)
+	opts.Stdout = &bytes.Buffer{}
+	opts.Stderr = &bytes.Buffer{}
+	Register(rootCmd, opts)
+
+	rootCmd.SetArgs([]string{"sprints", "list", "--board", "MON board"})
+	err := rootCmd.Execute()
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, capturedPath, "/rest/agile/1.0/board/23/sprint")
+}
+
+func TestCurrentCmd_ResolvesBoardByName(t *testing.T) {
+	seedBoardsAndSprints(t,
+		[]api.Board{{ID: 23, Name: "MON board", Type: "scrum"}},
+		nil,
+	)
+
+	var capturedPath string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		capturedPath = r.URL.Path
+		_ = json.NewEncoder(w).Encode(api.SprintsResponse{
+			IsLast: true,
+			Values: []api.Sprint{{ID: 125, Name: "MON Sprint 70", State: "active"}},
+		})
+	}))
+	defer server.Close()
+
+	client := newAgileClient(t, server)
+
+	rootCmd, opts := root.NewCmd()
+	opts.SetAPIClient(client)
+	opts.Stdout = &bytes.Buffer{}
+	opts.Stderr = &bytes.Buffer{}
+	Register(rootCmd, opts)
+
+	rootCmd.SetArgs([]string{"sprints", "current", "--board", "MON board"})
+	err := rootCmd.Execute()
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, capturedPath, "/rest/agile/1.0/board/23/sprint")
+}
+
+func TestAddCmd_ResolvesSprintByName(t *testing.T) {
+	// `jtk sprints add "MON Sprint 70" PROJ-1` must resolve the name via
+	// cache to sprint ID 125, then POST to /sprint/125/issue.
+	seedBoardsAndSprints(t,
+		[]api.Board{{ID: 23, Name: "MON board"}},
+		map[int][]api.Sprint{
+			23: {{ID: 125, Name: "MON Sprint 70", State: "active"}},
+		},
+	)
+
+	var capturedPath string
+	var capturedIssues []any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		capturedPath = r.URL.Path
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		if v, ok := body["issues"].([]any); ok {
+			capturedIssues = v
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+
+	client := newAgileClient(t, server)
+
+	rootCmd, opts := root.NewCmd()
+	opts.SetAPIClient(client)
+	opts.Stdout = &bytes.Buffer{}
+	opts.Stderr = &bytes.Buffer{}
+	opts.NoColor = true
+	Register(rootCmd, opts)
+
+	rootCmd.SetArgs([]string{"sprints", "add", "MON Sprint 70", "PROJ-1"})
+	err := rootCmd.Execute()
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, capturedPath, "/rest/agile/1.0/sprint/125/issue")
+	testutil.Len(t, capturedIssues, 1)
+}
+
+func TestAddCmd_NumericSprintPassThrough(t *testing.T) {
+	// Numeric sprint arg bypasses cache lookup and targets the given ID.
+	seedBoardsAndSprints(t,
+		[]api.Board{{ID: 23, Name: "MON"}},
+		map[int][]api.Sprint{23: {{ID: 1, Name: "Other"}}},
+	)
+
+	var capturedPath string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		capturedPath = r.URL.Path
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+
+	client := newAgileClient(t, server)
+
+	rootCmd, opts := root.NewCmd()
+	opts.SetAPIClient(client)
+	opts.Stdout = &bytes.Buffer{}
+	opts.Stderr = &bytes.Buffer{}
+	opts.NoColor = true
+	Register(rootCmd, opts)
+
+	rootCmd.SetArgs([]string{"sprints", "add", "999", "PROJ-1"})
+	err := rootCmd.Execute()
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, capturedPath, "/rest/agile/1.0/sprint/999/issue")
 }
 
 func TestRunAdd_AgentOutput(t *testing.T) {

@@ -66,6 +66,11 @@ func newListCmd(opts *root.Options) *cobra.Command {
 			if board == "" {
 				return fmt.Errorf("--board is required")
 			}
+			if board == "0" {
+				// Preserve the old IntVarP sentinel semantics: --board 0
+				// was never a valid board reference and would 404 downstream.
+				return fmt.Errorf("--board must be a non-zero board ID or name")
+			}
 			client, err := opts.APIClient()
 			if err != nil {
 				return err
@@ -126,6 +131,11 @@ func newCurrentCmd(opts *root.Options) *cobra.Command {
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if board == "" {
 				return fmt.Errorf("--board is required")
+			}
+			if board == "0" {
+				// Preserve the old IntVarP sentinel semantics: --board 0
+				// was never a valid board reference and would 404 downstream.
+				return fmt.Errorf("--board must be a non-zero board ID or name")
 			}
 			client, err := opts.APIClient()
 			if err != nil {

@@ -100,7 +100,18 @@ func runMove(ctx context.Context, opts *root.Options, issueKeys []string, target
 		if issue.Fields.IssueType == nil {
 			return fmt.Errorf("source issue %s has no issue type", issueKeys[0])
 		}
+		// Symmetric with the explicit --to-type path: on cache-miss, try
+		// one targeted refresh before giving up. Keeps fresh-install UX
+		// consistent — `jtk issues move PROJ-1 TARGET` and
+		// `jtk issues move PROJ-1 TARGET --to-type Task` behave the same
+		// when the issuetypes envelope hasn't been written yet.
 		match, derr := matchCachedIssueType(projectKey, issue.Fields.IssueType.Name)
+		if derr != nil && errors.Is(derr, errIssueTypesCacheUninitialized) {
+			if rerr := refreshIssueTypesOnce(ctx, client); rerr != nil {
+				return fmt.Errorf("%w (refresh attempt failed: %w)", derr, rerr)
+			}
+			match, derr = matchCachedIssueType(projectKey, issue.Fields.IssueType.Name)
+		}
 		if derr != nil {
 			return derr
 		}
@@ -238,11 +249,35 @@ func runMoveStatus(ctx context.Context, opts *root.Options, taskID string) error
 // the real problem instead of a misleading "cache missing" message. The
 // refresh hint is left to the caller since the root cause differs between
 // the cold-cache and the "populated but empty" paths.
+// errIssueTypesCacheUninitialized signals that the issuetypes envelope
+// doesn't exist yet, so a caller can attempt a one-shot refresh before
+// giving up (matches the resolver.IssueType path for --to-type).
+var errIssueTypesCacheUninitialized = errors.New("issuetypes cache not initialized — run `jtk refresh issuetypes`")
+
+// refreshIssueTypesOnce runs the issuetypes fetcher (plus its dependencies)
+// a single time. Used by the default-type path when the cache is cold, so
+// both move branches converge on the same fresh-install behavior.
+func refreshIssueTypesOnce(ctx context.Context, client *api.Client) error {
+	entries, err := cache.SelectWithDeps([]string{"issuetypes"})
+	if err != nil {
+		return err
+	}
+	for _, e := range entries {
+		if !e.IsAvailable(client) {
+			return fmt.Errorf("%s cache unavailable (scope restriction)", e.Name)
+		}
+		if _, err := e.Fetch(ctx, client); err != nil {
+			return fmt.Errorf("refreshing %s: %w", e.Name, err)
+		}
+	}
+	return nil
+}
+
 func matchCachedIssueType(projectKey, sourceTypeName string) (*api.IssueType, error) {
 	env, err := cache.ReadResource[map[string][]api.IssueType]("issuetypes")
 	if err != nil {
 		if errors.Is(err, cache.ErrCacheMiss) {
-			return nil, fmt.Errorf("issuetypes cache not initialized — run `jtk refresh issuetypes`")
+			return nil, errIssueTypesCacheUninitialized
 		}
 		return nil, fmt.Errorf("reading issuetypes cache: %w", err)
 	}

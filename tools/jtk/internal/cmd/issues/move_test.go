@@ -172,6 +172,112 @@ func TestRunMove_SourceTypeMissingFallsBackToCachedNonSubtask(t *testing.T) {
 	testutil.True(t, ok, "expected default fallback to first cached non-subtask")
 }
 
+func TestRunMove_DefaultTypePathAttemptsRefreshOnErrCacheMiss(t *testing.T) {
+	// Issuetypes envelope doesn't exist at all (ErrCacheMiss, not just a
+	// missing project key). --to-type omitted. The default-type path must
+	// attempt one refresh — symmetric with what resolver.IssueType does on
+	// the explicit path — before giving up. If refresh succeeds with a
+	// matching type, the move should proceed.
+	t.Cleanup(cache.SetRootForTest(t.TempDir()))
+	t.Cleanup(cache.SetInstanceKeyForTest("test.atlassian.net"))
+
+	// Seed only projects so the refresh for issuetypes can run (it depends
+	// on projects).
+	testutil.RequireNoError(t, cache.WriteResource("projects", "24h", []api.Project{
+		{Key: "TARGET", Name: "Target"}, {Key: "PROJ", Name: "Source"},
+	}))
+
+	var moveBody []byte
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasPrefix(r.URL.Path, "/rest/api/3/issue/PROJ-1") && r.Method == http.MethodGet:
+			_ = json.NewEncoder(w).Encode(api.Issue{
+				Key: "PROJ-1",
+				Fields: api.IssueFields{
+					Project:   &api.Project{Key: "PROJ"},
+					IssueType: &api.IssueType{ID: "1", Name: "Task"},
+				},
+			})
+		case r.URL.Path == "/rest/api/3/project" && r.Method == http.MethodGet:
+			_ = json.NewEncoder(w).Encode([]api.Project{
+				{Key: "TARGET", Name: "Target"}, {Key: "PROJ", Name: "Source"},
+			})
+		case strings.HasPrefix(r.URL.Path, "/rest/api/3/project/TARGET"):
+			_ = json.NewEncoder(w).Encode(struct {
+				IssueTypes []api.IssueType `json:"issueTypes"`
+			}{IssueTypes: []api.IssueType{{ID: "10090", Name: "Task"}}})
+		case strings.HasPrefix(r.URL.Path, "/rest/api/3/project/PROJ"):
+			_ = json.NewEncoder(w).Encode(struct {
+				IssueTypes []api.IssueType `json:"issueTypes"`
+			}{IssueTypes: []api.IssueType{{ID: "1", Name: "Task"}}})
+		case r.URL.Path == "/rest/api/3/bulk/issues/move" && r.Method == http.MethodPost:
+			moveBody, _ = io.ReadAll(r.Body)
+			_ = json.NewEncoder(w).Encode(api.MoveIssuesResponse{TaskID: "task-1"})
+		case strings.HasPrefix(r.URL.Path, "/rest/api/3/bulk/queue/"):
+			_ = json.NewEncoder(w).Encode(api.MoveTaskStatus{
+				TaskID: "task-1", Status: "COMPLETE", Progress: 100,
+				Result: &api.MoveTaskResult{Successful: []string{"PROJ-1"}},
+			})
+		default:
+			t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	opts := &root.Options{Output: "table", Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runMove(context.Background(), opts, []string{"PROJ-1"}, "TARGET", "", false, true)
+	testutil.RequireNoError(t, err)
+
+	var req api.MoveIssuesRequest
+	testutil.RequireNoError(t, json.Unmarshal(moveBody, &req))
+	_, ok := req.TargetToSourcesMapping["TARGET,10090"]
+	testutil.True(t, ok, "expected post-refresh resolution to hit TARGET,10090")
+}
+
+func TestRunMove_DefaultTypePathFailsWhenRefreshUnreachable(t *testing.T) {
+	// ErrCacheMiss, refresh fails (no working API for /project listing) —
+	// the default-type path should surface a clear error, not panic and not
+	// accept an empty-ID synthetic.
+	t.Cleanup(cache.SetRootForTest(t.TempDir()))
+	t.Cleanup(cache.SetInstanceKeyForTest("test.atlassian.net"))
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/rest/api/3/issue/PROJ-1") {
+			_ = json.NewEncoder(w).Encode(api.Issue{
+				Key: "PROJ-1",
+				Fields: api.IssueFields{
+					Project:   &api.Project{Key: "PROJ"},
+					IssueType: &api.IssueType{ID: "1", Name: "Task"},
+				},
+			})
+			return
+		}
+		// Every other request errors → refresh attempt fails.
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	opts := &root.Options{Output: "table", Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runMove(context.Background(), opts, []string{"PROJ-1"}, "TARGET", "", false, true)
+	if err == nil {
+		t.Fatalf("expected error when ErrCacheMiss + refresh fails")
+	}
+	if !strings.Contains(err.Error(), "jtk refresh issuetypes") {
+		t.Fatalf("expected refresh hint, got: %v", err)
+	}
+}
+
 func TestRunMove_ColdCacheErrorsInsteadOfEmptyID(t *testing.T) {
 	// Cold cache + explicit --to-type: the resolver's coldFallback returns
 	// IssueType{Name: "Task"} with no ID. The old code would have fed an

@@ -32,7 +32,7 @@ func (r *Resolver) User(ctx context.Context, input string) (api.User, error) {
 		return *u, nil
 	}
 
-	return resolveEntity(ctx, r, "users",
+	u, err := resolveEntity(ctx, r, "users",
 		func() (api.User, error) { return lookupUser(input) },
 		func() (api.User, bool) {
 			if looksLikeAccountID(input) {
@@ -48,6 +48,24 @@ func (r *Resolver) User(ctx context.Context, input string) (api.User, error) {
 			}
 		},
 	)
+	if err == nil {
+		return u, nil
+	}
+	// Last-resort live lookup for email-shaped input. The users cache is
+	// truncated on large instances (~1000-user ceiling in Jira's paginated
+	// enumeration), and newly-added users won't appear until the next
+	// refresh. Email is a unique identifier by Jira's contract, so there's
+	// no ambiguity risk. Only fires on NotFoundError *after* the one-shot
+	// refresh already ran — not a fast-path bypass of the cache.
+	if strings.Contains(input, "@") {
+		var nf *NotFoundError
+		if errors.As(err, &nf) {
+			if live, lerr := r.client.SearchUsers(ctx, input, 1); lerr == nil && len(live) == 1 {
+				return live[0], nil
+			}
+		}
+	}
+	return api.User{}, err
 }
 
 func lookupUser(input string) (api.User, error) {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"strconv"
 	"strings"
 
@@ -115,11 +116,11 @@ func runList(ctx context.Context, opts *root.Options, project, sprint string, ma
 		}
 		// Quote the key so any shape-pass-through value that happens to
 		// include JQL metacharacters can't produce malformed queries.
-		jql = fmt.Sprintf(`project = "%s"`, strings.ReplaceAll(resolvedProject.Key, `"`, `\"`))
+		jql = fmt.Sprintf(`project = "%s"`, jqlEscape(resolvedProject.Key))
 	}
 
 	if sprint != "" {
-		sprintClause, err := buildSprintClause(ctx, resolver, sprint)
+		sprintClause, err := buildSprintClause(ctx, resolver, sprint, opts.Stderr)
 		if err != nil {
 			return err
 		}
@@ -196,20 +197,45 @@ func runList(ctx context.Context, opts *root.Options, project, sprint string, ma
 //     global unique-match requirement is too strict for JQL — names that
 //     repeat across boards are legal JQL targets and Jira handles them
 //     natively in the project/board context.
-func buildSprintClause(ctx context.Context, resolver *resolve.Resolver, sprint string) (string, error) {
+//
+// When the fallback fires because of genuine ambiguity, a warning is
+// written to stderr so the user knows Jira's engine may return more than
+// they expected. `warn` is the caller's stderr (opts.Stderr) so command
+// tests can capture it without touching the process stderr.
+func buildSprintClause(ctx context.Context, resolver *resolve.Resolver, sprint string, warn io.Writer) (string, error) {
 	if sprint == "current" {
 		return "sprint in openSprints()", nil
 	}
 	if _, err := strconv.Atoi(sprint); err == nil {
 		return fmt.Sprintf("sprint = %s", sprint), nil
 	}
-	if resolved, err := resolver.Sprint(ctx, sprint, 0); err == nil && resolved.ID != 0 {
+	resolved, err := resolver.Sprint(ctx, sprint, 0)
+	if err == nil && resolved.ID != 0 {
 		return fmt.Sprintf("sprint = %d", resolved.ID), nil
 	}
+	if warn != nil {
+		var amb *resolve.AmbiguousMatchError
+		if errors.As(err, &amb) {
+			fmt.Fprintf(warn,
+				"warning: sprint name %q matched multiple cached boards; falling back to JQL name resolution — "+
+					"results may span sprints on different boards.\n", sprint)
+		}
+	}
 	// Cache miss, ambiguity, or synthetic-without-ID → let Jira's JQL
-	// engine resolve the name. Quote to handle spaces and escape
-	// embedded quotes so names like `Sprint "alpha"` don't break JQL.
-	return fmt.Sprintf(`sprint = "%s"`, strings.ReplaceAll(sprint, `"`, `\"`)), nil
+	// engine resolve the name. Quote to handle spaces and escape any
+	// JQL metacharacters.
+	return fmt.Sprintf(`sprint = "%s"`, jqlEscape(sprint)), nil
+}
+
+// jqlEscape makes a string safe to embed between JQL double quotes. JQL
+// parses backslash as an escape character inside quoted strings, so we
+// must escape backslashes before the double-quote pass to avoid producing
+// malformed queries for names like `Sprint\Eng` or keys smuggled in via
+// shape pass-through. Ordering matters: backslash first, then quote.
+func jqlEscape(s string) string {
+	s = strings.ReplaceAll(s, `\`, `\\`)
+	s = strings.ReplaceAll(s, `"`, `\"`)
+	return s
 }
 
 // projectTableSectionInModel rewrites the first TableSection of model to the

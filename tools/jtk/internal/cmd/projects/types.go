@@ -50,7 +50,7 @@ func runTypes(ctx context.Context, opts *root.Options, fieldsFlag string) error 
 	idOnly := opts.EmitIDOnly()
 
 	if !idOnly && fieldsFlag != "" && v.Format == view.FormatJSON {
-		return errFieldsWithJSON
+		return jtkpresent.ErrFieldsWithJSON
 	}
 
 	var selected []projection.ColumnSpec
@@ -93,7 +93,7 @@ func runTypes(ctx context.Context, opts *root.Options, fieldsFlag string) error 
 	presenter := jtkpresent.ProjectPresenter{}
 	model := presenter.PresentProjectTypes(types, opts.IsExtended())
 	if projected {
-		projectTableSectionInModel(model, selected)
+		projection.ApplyToTableInModel(model, selected)
 	}
 	return jtkpresent.Emit(opts, model)
 }

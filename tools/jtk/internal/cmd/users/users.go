@@ -3,14 +3,11 @@ package users
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"strconv"
 
 	"github.com/spf13/cobra"
 
 	"github.com/open-cli-collective/atlassian-go/artifact"
-	"github.com/open-cli-collective/atlassian-go/present"
 	"github.com/open-cli-collective/atlassian-go/view"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
@@ -20,14 +17,12 @@ import (
 	"github.com/open-cli-collective/jira-ticket-cli/internal/present/projection"
 )
 
-// errFieldsWithJSON is returned when --fields is combined with --output json.
-// JSON artifacts are not projected; mixing them silently would hide the flag.
-var errFieldsWithJSON = errors.New("--fields is not supported with --output json")
-
 // noFieldFetch is the projection.Resolve fetcher for user commands. Users are
 // not Jira issue fields, so there is no metadata to fetch; returning nil
 // routes any deferred tokens cleanly to UnknownFieldError rather than into a
 // real /rest/api/3/field call that would surface unrelated issue-field names.
+// Package-local rather than shared because it is trivial and typed for the
+// caller's context — consolidating it would obscure the intent.
 func noFieldFetch(_ context.Context) ([]api.Field, error) { return nil, nil }
 
 // Register registers the users commands
@@ -82,17 +77,17 @@ func runGet(ctx context.Context, opts *root.Options, accountID, fieldsFlag strin
 		return err
 	}
 
-	// --id wins: collapse output before we do any projection work.
+	// --id wins: collapse output before we do any projection work. The
+	// account ID is its own canonical identifier (no ID→key lookup step like
+	// projects), so we can round-trip the caller's input without fetching.
+	// Saves an API call and an expand=groups,applicationRoles query that
+	// would be thrown away immediately.
 	if opts.EmitIDOnly() {
-		user, err := client.GetUser(ctx, accountID)
-		if err != nil {
-			return err
-		}
-		return jtkpresent.EmitIDs(opts, []string{user.AccountID})
+		return jtkpresent.EmitIDs(opts, []string{accountID})
 	}
 
 	if fieldsFlag != "" && v.Format == view.FormatJSON {
-		return errFieldsWithJSON
+		return jtkpresent.ErrFieldsWithJSON
 	}
 
 	selected, projected, err := projection.Resolve(
@@ -119,7 +114,7 @@ func runGet(ctx context.Context, opts *root.Options, accountID, fieldsFlag strin
 	presenter := jtkpresent.UserPresenter{}
 	if projected {
 		model := presenter.PresentUserDetailProjection(user)
-		projectDetailSectionInModel(model, selected)
+		projection.ApplyToDetailInModel(model, selected)
 		return jtkpresent.Emit(opts, model)
 	}
 
@@ -182,13 +177,13 @@ func runSearch(ctx context.Context, opts *root.Options, query string, maxResults
 
 	idOnly := opts.EmitIDOnly()
 
-	startAt, err := parseStartAtToken(nextPageToken)
+	startAt, err := jtkpresent.ParseStartAtToken(nextPageToken)
 	if err != nil {
 		return err
 	}
 
 	if !idOnly && fieldsFlag != "" && v.Format == view.FormatJSON {
-		return errFieldsWithJSON
+		return jtkpresent.ErrFieldsWithJSON
 	}
 
 	var selected []projection.ColumnSpec
@@ -242,45 +237,8 @@ func runSearch(ctx context.Context, opts *root.Options, query string, maxResults
 	presenter := jtkpresent.UserPresenter{}
 	model := presenter.PresentUserList(users, opts.IsExtended())
 	if projected {
-		projectTableSectionInModel(model, selected)
+		projection.ApplyToTableInModel(model, selected)
 	}
 	model.Sections = jtkpresent.AppendPaginationHintWithToken(model.Sections, hasMore, nextToken)
 	return jtkpresent.Emit(opts, model)
-}
-
-// parseStartAtToken converts a `--next-page-token` value to a 0-based offset.
-// The spec surfaces the token as a decimal number; non-numeric input is
-// rejected up-front so we don't silently paginate past the start of the
-// result set.
-func parseStartAtToken(token string) (int, error) {
-	if token == "" {
-		return 0, nil
-	}
-	n, err := strconv.Atoi(token)
-	if err != nil || n < 0 {
-		return 0, fmt.Errorf("invalid --next-page-token %q: expected a non-negative decimal", token)
-	}
-	return n, nil
-}
-
-// projectDetailSectionInModel rewrites the first DetailSection of model to
-// the selected fields. No-op when there is no DetailSection.
-func projectDetailSectionInModel(model *present.OutputModel, selected []projection.ColumnSpec) {
-	for i, s := range model.Sections {
-		if ds, ok := s.(*present.DetailSection); ok {
-			model.Sections[i] = projection.ProjectDetail(ds, selected)
-			return
-		}
-	}
-}
-
-// projectTableSectionInModel rewrites the first TableSection of model to the
-// selected columns. No-op when there is no TableSection.
-func projectTableSectionInModel(model *present.OutputModel, selected []projection.ColumnSpec) {
-	for i, s := range model.Sections {
-		if ts, ok := s.(*present.TableSection); ok {
-			model.Sections[i] = projection.ProjectTable(ts, selected)
-			return
-		}
-	}
 }

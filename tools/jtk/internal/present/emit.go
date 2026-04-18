@@ -1,12 +1,35 @@
 package present
 
 import (
+	"errors"
 	"fmt"
+	"strconv"
 
 	"github.com/open-cli-collective/atlassian-go/present"
 
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 )
+
+// ErrFieldsWithJSON is the canonical error for `--fields` + `-o json`.
+// JSON artifacts are not projected; the two flags never combine. Previously
+// duplicated across cmd/issues, cmd/comments, cmd/users, and cmd/projects —
+// centralizing here stops the copies from drifting in wording.
+var ErrFieldsWithJSON = errors.New("--fields is not supported with --output json")
+
+// ParseStartAtToken converts a `--next-page-token` value (a decimal offset)
+// to a 0-based startAt. Empty input returns 0. Non-numeric or negative
+// values return an error that names the flag, so the user sees the same
+// message regardless of which migrated command they invoked.
+func ParseStartAtToken(token string) (int, error) {
+	if token == "" {
+		return 0, nil
+	}
+	n, err := strconv.Atoi(token)
+	if err != nil || n < 0 {
+		return 0, fmt.Errorf("invalid --next-page-token %q: expected a non-negative decimal", token)
+	}
+	return n, nil
+}
 
 // paginationHint is the legacy continuation-line wording retained for
 // commands that have not yet migrated to the token-embedding variant.

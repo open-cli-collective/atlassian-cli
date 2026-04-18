@@ -3,6 +3,7 @@ package me
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/spf13/cobra"
 
@@ -56,6 +57,16 @@ func run(ctx context.Context, opts *root.Options) error {
 	// JSON path: use existing artifact layer (unchanged)
 	if v.Format == view.FormatJSON {
 		return v.RenderArtifact(jtkartifact.ProjectUser(user, opts.ArtifactMode()))
+	}
+
+	// Plain path: preserve the legacy contract (bare account ID). This
+	// predates --id and is kept for backwards compatibility per CLAUDE.md
+	// ("--output / -o ... retained for compatibility but hidden from --help").
+	// --id is the preferred surface; `-o plain` stays working for scripts
+	// that haven't migrated.
+	if v.Format == view.FormatPlain {
+		_, _ = fmt.Fprintln(opts.Stdout, user.AccountID)
+		return nil
 	}
 
 	presenter := jtkpresent.UserPresenter{}

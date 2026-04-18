@@ -85,13 +85,20 @@ func (c *Client) ListProjects(ctx context.Context) ([]Project, error) {
 }
 
 // SearchProjects searches for projects with pagination.
-// ?expand populates issueTypes, url, lead, and the style/simplified/isPrivate
-// scalars that `jtk projects list --extended` depends on; issueTypes also
-// powers the default-mode list table.
-func (c *Client) SearchProjects(ctx context.Context, query string, startAt, maxResults int) (*ProjectSearchResponse, error) {
-	params := map[string]string{
-		"expand": "description,lead,issueTypes,url,projectKeys",
+//
+// extended toggles the expand set so default-mode `projects list` doesn't
+// pay for payload it won't render. Default sends `expand=lead` (the only
+// column beyond KEY/TYPE/NAME that needs expansion in default mode);
+// extended also pulls description, issueTypes, url, and projectKeys so the
+// extended list columns (STYLE / ISSUE_TYPES / COMPONENTS) are populated
+// without a second fetch. Style/simplified/isPrivate are top-level on
+// /project/search and don't need expand.
+func (c *Client) SearchProjects(ctx context.Context, query string, startAt, maxResults int, extended bool) (*ProjectSearchResponse, error) {
+	expand := "lead"
+	if extended {
+		expand = "description,lead,issueTypes,url,projectKeys"
 	}
+	params := map[string]string{"expand": expand}
 
 	if query != "" {
 		params["query"] = query

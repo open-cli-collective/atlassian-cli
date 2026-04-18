@@ -2,13 +2,10 @@ package projects
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"strconv"
 
 	"github.com/spf13/cobra"
 
-	"github.com/open-cli-collective/atlassian-go/present"
 	"github.com/open-cli-collective/atlassian-go/view"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
@@ -17,13 +14,12 @@ import (
 	"github.com/open-cli-collective/jira-ticket-cli/internal/present/projection"
 )
 
-// errFieldsWithJSON is returned when --fields is combined with --output json.
-var errFieldsWithJSON = errors.New("--fields is not supported with --output json")
-
 // noFieldFetch is the projection.Resolve fetcher for project commands — the
 // same no-op rationale as comments / users: projection tokens here resolve
 // against ProjectListSpec / ProjectDetailSpec / ProjectTypeSpec, not Jira
-// issue field metadata.
+// issue field metadata. Package-local by intent; the function is too
+// trivial to deserve a shared home and it reads more clearly next to the
+// specs it supports.
 func noFieldFetch(_ context.Context) ([]api.Field, error) { return nil, nil }
 
 func newListCmd(opts *root.Options) *cobra.Command {
@@ -73,13 +69,13 @@ func runList(ctx context.Context, opts *root.Options, query string, maxResults i
 
 	idOnly := opts.EmitIDOnly()
 
-	startAt, err := parseStartAtToken(nextPageToken)
+	startAt, err := jtkpresent.ParseStartAtToken(nextPageToken)
 	if err != nil {
 		return err
 	}
 
 	if !idOnly && fieldsFlag != "" && v.Format == view.FormatJSON {
-		return errFieldsWithJSON
+		return jtkpresent.ErrFieldsWithJSON
 	}
 
 	var selected []projection.ColumnSpec
@@ -98,7 +94,7 @@ func runList(ctx context.Context, opts *root.Options, query string, maxResults i
 		}
 	}
 
-	result, err := client.SearchProjects(ctx, query, startAt, maxResults)
+	result, err := client.SearchProjects(ctx, query, startAt, maxResults, opts.IsExtended())
 	if err != nil {
 		return err
 	}
@@ -128,44 +124,8 @@ func runList(ctx context.Context, opts *root.Options, query string, maxResults i
 	presenter := jtkpresent.ProjectPresenter{}
 	model := presenter.PresentProjectList(result.Values, opts.IsExtended())
 	if projected {
-		projectTableSectionInModel(model, selected)
+		projection.ApplyToTableInModel(model, selected)
 	}
 	model.Sections = jtkpresent.AppendPaginationHintWithToken(model.Sections, hasMore, nextToken)
 	return jtkpresent.Emit(opts, model)
-}
-
-// parseStartAtToken converts a `--next-page-token` value to a 0-based offset.
-// Non-numeric or negative input is rejected up-front so callers get a clean
-// error instead of a silently rewound page.
-func parseStartAtToken(token string) (int, error) {
-	if token == "" {
-		return 0, nil
-	}
-	n, err := strconv.Atoi(token)
-	if err != nil || n < 0 {
-		return 0, fmt.Errorf("invalid --next-page-token %q: expected a non-negative decimal", token)
-	}
-	return n, nil
-}
-
-// projectDetailSectionInModel rewrites the first DetailSection of model to the
-// selected fields. No-op when there is no DetailSection.
-func projectDetailSectionInModel(model *present.OutputModel, selected []projection.ColumnSpec) {
-	for i, s := range model.Sections {
-		if ds, ok := s.(*present.DetailSection); ok {
-			model.Sections[i] = projection.ProjectDetail(ds, selected)
-			return
-		}
-	}
-}
-
-// projectTableSectionInModel rewrites the first TableSection of model to the
-// selected columns. No-op when there is no TableSection.
-func projectTableSectionInModel(model *present.OutputModel, selected []projection.ColumnSpec) {
-	for i, s := range model.Sections {
-		if ts, ok := s.(*present.TableSection); ok {
-			model.Sections[i] = projection.ProjectTable(ts, selected)
-			return
-		}
-	}
 }

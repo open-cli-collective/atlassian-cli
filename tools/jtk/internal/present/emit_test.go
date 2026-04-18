@@ -2,6 +2,7 @@ package present
 
 import (
 	"bytes"
+	"strings"
 	"testing"
 
 	"github.com/open-cli-collective/atlassian-go/present"
@@ -12,6 +13,44 @@ import (
 func newTestOpts() (*root.Options, *bytes.Buffer, *bytes.Buffer) {
 	var stdout, stderr bytes.Buffer
 	return &root.Options{Stdout: &stdout, Stderr: &stderr}, &stdout, &stderr
+}
+
+func TestParseStartAtToken(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name    string
+		input   string
+		want    int
+		wantErr string
+	}{
+		{"empty", "", 0, ""},
+		{"zero", "0", 0, ""},
+		{"positive", "25", 25, ""},
+		{"non-numeric", "abc", 0, "invalid --next-page-token"},
+		{"negative", "-1", 0, "invalid --next-page-token"},
+		{"float-like", "2.5", 0, "invalid --next-page-token"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			got, err := ParseStartAtToken(tc.input)
+			if tc.wantErr == "" {
+				if err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+				if got != tc.want {
+					t.Errorf("got %d, want %d", got, tc.want)
+				}
+				return
+			}
+			if err == nil {
+				t.Fatalf("expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), tc.wantErr) {
+				t.Errorf("error = %q, want substring %q", err.Error(), tc.wantErr)
+			}
+		})
+	}
 }
 
 func TestAppendPaginationHintWithToken_EmbedsToken(t *testing.T) {

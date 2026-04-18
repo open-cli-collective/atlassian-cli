@@ -73,7 +73,7 @@ func TestSearchProjects(t *testing.T) {
 			testutil.RequireNoError(t, err)
 			client.BaseURL = server.URL + "/rest/api/3"
 
-			result, err := client.SearchProjects(context.Background(), tt.query, 0, 50)
+			result, err := client.SearchProjects(context.Background(), tt.query, 0, 50, false)
 			if tt.wantErr {
 				testutil.Error(t, err)
 				return
@@ -161,6 +161,48 @@ func TestGetProject(t *testing.T) {
 			testutil.Equal(t, project.Lead.DisplayName, "John Smith")
 		})
 	}
+}
+
+func TestSearchProjects_ExpandIsLeadOnlyInDefaultMode(t *testing.T) {
+	t.Parallel()
+	// Default-mode list renders only KEY | TYPE | LEAD | NAME; expanding
+	// description/issueTypes/url/projectKeys wastes payload. Lock the
+	// minimum.
+	var capturedExpand string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		capturedExpand = r.URL.Query().Get("expand")
+		_, _ = w.Write([]byte(`{"values":[],"isLast":true}`))
+	}))
+	defer server.Close()
+
+	client, err := New(ClientConfig{URL: "https://test.atlassian.net", Email: "t@t.com", APIToken: "x"})
+	testutil.RequireNoError(t, err)
+	client.BaseURL = server.URL + "/rest/api/3"
+
+	_, err = client.SearchProjects(context.Background(), "", 0, 50, false)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, capturedExpand, "lead")
+}
+
+func TestSearchProjects_ExpandIsFullInExtendedMode(t *testing.T) {
+	t.Parallel()
+	// --extended columns (STYLE / ISSUE_TYPES / COMPONENTS) need the full
+	// expand set. Assert the exact string so a future refactor that drops a
+	// key trips this test.
+	var capturedExpand string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		capturedExpand = r.URL.Query().Get("expand")
+		_, _ = w.Write([]byte(`{"values":[],"isLast":true}`))
+	}))
+	defer server.Close()
+
+	client, err := New(ClientConfig{URL: "https://test.atlassian.net", Email: "t@t.com", APIToken: "x"})
+	testutil.RequireNoError(t, err)
+	client.BaseURL = server.URL + "/rest/api/3"
+
+	_, err = client.SearchProjects(context.Background(), "", 0, 50, true)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, capturedExpand, "description,lead,issueTypes,url,projectKeys")
 }
 
 func TestGetProject_SendsExpandForExtendedFields(t *testing.T) {

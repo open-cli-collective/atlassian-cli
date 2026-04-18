@@ -58,7 +58,7 @@ func runGet(ctx context.Context, opts *root.Options, keyOrID, fieldsFlag string)
 	}
 
 	if fieldsFlag != "" && v.Format == view.FormatJSON {
-		return errFieldsWithJSON
+		return jtkpresent.ErrFieldsWithJSON
 	}
 
 	selected, projected, err := projection.Resolve(
@@ -85,7 +85,7 @@ func runGet(ctx context.Context, opts *root.Options, keyOrID, fieldsFlag string)
 	presenter := jtkpresent.ProjectPresenter{}
 	if projected {
 		model := presenter.PresentProjectDetailProjection(project)
-		projectDetailSectionInModel(model, selected)
+		projection.ApplyToDetailInModel(model, selected)
 		return jtkpresent.Emit(opts, model)
 	}
 	return jtkpresent.Emit(opts, presenter.PresentProjectDetail(project, opts.IsExtended()))

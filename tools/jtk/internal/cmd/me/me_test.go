@@ -174,6 +174,23 @@ func TestRun_JSON_UsesArtifactLayer(t *testing.T) {
 	testutil.Contains(t, output, "John Doe")
 }
 
+func TestRun_Plain_EmitsBareAccountID(t *testing.T) {
+	t.Parallel()
+	// Legacy contract (pre-#237): `-o plain` emits just the accountID, no
+	// name, no email. --id is the preferred surface, but the plain format
+	// stays working for backwards compatibility with unmigrated scripts.
+	user := &api.User{AccountID: "abc123", DisplayName: "John Doe", EmailAddress: "john@example.com", Active: true}
+	server := newTestUserServer(t, http.StatusOK, user)
+	defer server.Close()
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "plain", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(newClient(t, server.URL))
+
+	testutil.RequireNoError(t, run(context.Background(), opts))
+	testutil.Equal(t, stdout.String(), "abc123\n")
+}
+
 func TestRun_AuthFailure(t *testing.T) {
 	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

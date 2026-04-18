@@ -5,7 +5,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/open-cli-collective/atlassian-go/present"
 	"github.com/open-cli-collective/atlassian-go/view"
 
 	jtkartifact "github.com/open-cli-collective/jira-ticket-cli/internal/artifact"
@@ -61,7 +60,7 @@ func runGet(ctx context.Context, opts *root.Options, issueKey string, noTruncate
 	}
 
 	if fieldsFlag != "" && v.Format == view.FormatJSON {
-		return errFieldsWithJSON
+		return jtkpresent.ErrFieldsWithJSON
 	}
 
 	selected, projected, err := projection.Resolve(
@@ -91,18 +90,7 @@ func runGet(ctx context.Context, opts *root.Options, issueKey string, noTruncate
 
 	model := jtkpresent.IssuePresenter{}.PresentDetail(issue, client.IssueURL(issue.Key), noTruncate)
 	if projected {
-		projectDetailSectionInModel(model, selected)
+		projection.ApplyToDetailInModel(model, selected)
 	}
 	return jtkpresent.Emit(opts, model)
-}
-
-// projectDetailSectionInModel rewrites the first DetailSection of model to
-// the selected fields. No-op when there is no DetailSection.
-func projectDetailSectionInModel(model *present.OutputModel, selected []projection.ColumnSpec) {
-	for i, s := range model.Sections {
-		if ds, ok := s.(*present.DetailSection); ok {
-			model.Sections[i] = projection.ProjectDetail(ds, selected)
-			return
-		}
-	}
 }

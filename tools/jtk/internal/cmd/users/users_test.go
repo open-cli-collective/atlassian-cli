@@ -152,6 +152,41 @@ func TestRunGet_Fields_UnknownHeaderFails(t *testing.T) {
 	testutil.Contains(t, err.Error(), "unknown field")
 }
 
+func TestRunGet_IDOnly_SkipsAPIFetch(t *testing.T) {
+	t.Parallel()
+	// The accountID is its own canonical identifier — no API round-trip is
+	// needed in --id mode. A server that fails any request would return an
+	// error if we accidentally called it; the test passes only because no
+	// request happens.
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "no request should be made in --id mode", http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", IDOnly: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(newClient(t, server.URL))
+
+	testutil.RequireNoError(t, runGet(context.Background(), opts, "abc123", ""))
+	testutil.Equal(t, stdout.String(), "abc123\n")
+}
+
+func TestRunGet_Plain_MatchesSpecOneLiner(t *testing.T) {
+	t.Parallel()
+	// `-o plain` on users get was never a bare-ID shim (unlike me). Lock the
+	// current behavior: plain-format output is the same one-liner the table
+	// path emits.
+	server := newTestUserServer(t, api.User{AccountID: "abc123", DisplayName: "Alice", EmailAddress: "a@x.io", Active: true})
+	defer server.Close()
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "plain", NoColor: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(newClient(t, server.URL))
+
+	testutil.RequireNoError(t, runGet(context.Background(), opts, "abc123", ""))
+	testutil.Equal(t, stdout.String(), "abc123 | Alice | a@x.io\n")
+}
+
 func TestRunGet_JSON_PreservesArtifactOutput(t *testing.T) {
 	t.Parallel()
 	server := newTestUserServer(t, api.User{AccountID: "abc123", DisplayName: "John Doe", Active: true})
@@ -397,6 +432,29 @@ func TestRunSearch_Empty_ShowsFriendlyMessage(t *testing.T) {
 
 	testutil.RequireNoError(t, runSearch(context.Background(), opts, "ghost", 10, "", ""))
 	testutil.Contains(t, stdout.String(), "No users found")
+}
+
+func TestRunSearch_Plain_MatchesTableShape(t *testing.T) {
+	t.Parallel()
+	// Plain format for users search never had a bare-ID shim historically;
+	// lock current behavior (same shape as table) so a future change to the
+	// shared Emit path can't drift silently.
+	users := []api.User{
+		{AccountID: "a1", DisplayName: "Alice", EmailAddress: "a@x.io", Active: true},
+	}
+	server := newTestUsersServer(t, users)
+	defer server.Close()
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "plain", NoColor: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(newClient(t, server.URL))
+
+	testutil.RequireNoError(t, runSearch(context.Background(), opts, "al", 10, "", ""))
+
+	want := "ACCOUNT_ID | NAME | EMAIL | ACTIVE\na1 | Alice | a@x.io | yes\n"
+	if stdout.String() != want {
+		t.Errorf("users search -o plain:\ngot:  %q\nwant: %q", stdout.String(), want)
+	}
 }
 
 func TestRunSearch_JSON_RendersArtifacts(t *testing.T) {

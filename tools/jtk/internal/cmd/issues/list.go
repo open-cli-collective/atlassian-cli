@@ -22,10 +22,6 @@ import (
 	"github.com/open-cli-collective/jira-ticket-cli/internal/resolve"
 )
 
-// errFieldsWithJSON is returned when --fields is combined with --output json.
-// JSON output is not projected; mixing them silently would be surprising.
-var errFieldsWithJSON = errors.New("--fields is not supported with --output json")
-
 func newListCmd(opts *root.Options) *cobra.Command {
 	var project string
 	var sprint string
@@ -85,7 +81,7 @@ func runList(ctx context.Context, opts *root.Options, project, sprint string, ma
 	idOnly := opts.EmitIDOnly()
 
 	if !idOnly && fieldsFlag != "" && v.Format == view.FormatJSON {
-		return errFieldsWithJSON
+		return jtkpresent.ErrFieldsWithJSON
 	}
 
 	var selected []projection.ColumnSpec
@@ -181,7 +177,7 @@ func runList(ctx context.Context, opts *root.Options, project, sprint string, ma
 
 	model := jtkpresent.IssuePresenter{}.PresentListWithPagination(result.Issues, hasMore)
 	if projected {
-		projectTableSectionInModel(model, selected)
+		projection.ApplyToTableInModel(model, selected)
 	}
 	return jtkpresent.Emit(opts, model)
 }
@@ -255,16 +251,4 @@ func jqlEscape(s string) string {
 	s = strings.ReplaceAll(s, `\`, `\\`)
 	s = strings.ReplaceAll(s, `"`, `\"`)
 	return s
-}
-
-// projectTableSectionInModel rewrites the first TableSection of model to the
-// selected columns. No-op when there is no TableSection (e.g. model contains
-// only MessageSections).
-func projectTableSectionInModel(model *present.OutputModel, selected []projection.ColumnSpec) {
-	for i, s := range model.Sections {
-		if ts, ok := s.(*present.TableSection); ok {
-			model.Sections[i] = projection.ProjectTable(ts, selected)
-			return
-		}
-	}
 }

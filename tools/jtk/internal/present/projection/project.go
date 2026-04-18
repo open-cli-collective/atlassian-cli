@@ -70,6 +70,38 @@ func ProjectDetail(section *present.DetailSection, selected []ColumnSpec) *prese
 	return &present.DetailSection{Fields: out}
 }
 
+// ApplyToTableInModel rewrites the first TableSection of model in place to
+// keep only the selected columns. No-op when the model carries no
+// TableSection (e.g., an all-MessageSection model). Commands pass the
+// OutputModel a presenter built plus the `selected` slice from Resolve —
+// this helper was duplicated across cmd/issues, cmd/users, and cmd/projects
+// before extraction.
+func ApplyToTableInModel(model *present.OutputModel, selected []ColumnSpec) {
+	if model == nil {
+		return
+	}
+	for i, s := range model.Sections {
+		if ts, ok := s.(*present.TableSection); ok {
+			model.Sections[i] = ProjectTable(ts, selected)
+			return
+		}
+	}
+}
+
+// ApplyToDetailInModel is the DetailSection counterpart of
+// ApplyToTableInModel. No-op when the model carries no DetailSection.
+func ApplyToDetailInModel(model *present.OutputModel, selected []ColumnSpec) {
+	if model == nil {
+		return
+	}
+	for i, s := range model.Sections {
+		if ds, ok := s.(*present.DetailSection); ok {
+			model.Sections[i] = ProjectDetail(ds, selected)
+			return
+		}
+	}
+}
+
 // DeriveFetchFields returns the minimum Jira field-ID set needed to render
 // the selected specs. Output is sorted and deduplicated so API requests are
 // stable across runs. Synthetic specs (empty FieldID, empty Fetch) are

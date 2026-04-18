@@ -3,7 +3,6 @@ package comments
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -19,9 +18,6 @@ import (
 	"github.com/open-cli-collective/jira-ticket-cli/internal/present/projection"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/text"
 )
-
-// errFieldsWithJSON is returned when --fields is combined with --output json.
-var errFieldsWithJSON = errors.New("--fields is not supported with --output json")
 
 // noFieldFetch is the projection.Resolve fetcher for comments. Comment
 // fields are not Jira issue fields, so there is no metadata to fetch;
@@ -89,7 +85,7 @@ func runList(ctx context.Context, opts *root.Options, issueKey string, maxResult
 	var projected bool
 	if !idOnly {
 		if fieldsFlag != "" && v.Format == view.FormatJSON {
-			return errFieldsWithJSON
+			return jtkpresent.ErrFieldsWithJSON
 		}
 		spec := jtkpresent.CommentListSpec
 		if noTruncate {
@@ -143,7 +139,7 @@ func runList(ctx context.Context, opts *root.Options, issueKey string, maxResult
 	} else {
 		model = jtkpresent.CommentPresenter{}.PresentListWithPagination(result.Comments, hasMore)
 		if projected {
-			projectTableSectionInModel(model, selected)
+			projection.ApplyToTableInModel(model, selected)
 		}
 	}
 	return jtkpresent.Emit(opts, model)
@@ -156,17 +152,6 @@ func projectAllDetailSectionsInModel(model *present.OutputModel, selected []proj
 	for i, s := range model.Sections {
 		if ds, ok := s.(*present.DetailSection); ok {
 			model.Sections[i] = projection.ProjectDetail(ds, selected)
-		}
-	}
-}
-
-// projectTableSectionInModel rewrites the first TableSection of model to
-// the selected columns.
-func projectTableSectionInModel(model *present.OutputModel, selected []projection.ColumnSpec) {
-	for i, s := range model.Sections {
-		if ts, ok := s.(*present.TableSection); ok {
-			model.Sections[i] = projection.ProjectTable(ts, selected)
-			return
 		}
 	}
 }

@@ -74,7 +74,7 @@ func runSearch(ctx context.Context, opts *root.Options, jql string, maxResults i
 	idOnly := opts.EmitIDOnly()
 
 	if !idOnly && fieldsFlag != "" && v.Format == view.FormatJSON {
-		return errFieldsWithJSON
+		return jtkpresent.ErrFieldsWithJSON
 	}
 
 	var selected []projection.ColumnSpec
@@ -131,7 +131,7 @@ func runSearch(ctx context.Context, opts *root.Options, jql string, maxResults i
 	// Text path: presenter → render → write
 	model := jtkpresent.IssuePresenter{}.PresentListWithPagination(result.Issues, hasMore)
 	if projected {
-		projectTableSectionInModel(model, selected)
+		projection.ApplyToTableInModel(model, selected)
 	}
 	out := present.Render(model, opts.RenderStyle())
 	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)

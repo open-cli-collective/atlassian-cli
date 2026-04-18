@@ -4,6 +4,7 @@ package sprints
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	"github.com/spf13/cobra"
 
@@ -17,6 +18,20 @@ import (
 	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/resolve"
 )
+
+// validateBoardRef rejects inputs that would parse as numeric but produce a
+// synthetic Board{ID: n} with n <= 0, which the downstream Agile endpoints
+// return confusing 404s for. Non-numeric names pass through unchanged —
+// board-name resolution is handled by the resolver.
+func validateBoardRef(board string) error {
+	if board == "" {
+		return fmt.Errorf("--board is required")
+	}
+	if n, err := strconv.Atoi(board); err == nil && n <= 0 {
+		return fmt.Errorf("--board numeric ID must be positive (got %s)", board)
+	}
+	return nil
+}
 
 // Register registers the sprints commands
 func Register(parent *cobra.Command, opts *root.Options) {
@@ -63,13 +78,8 @@ func newListCmd(opts *root.Options) *cobra.Command {
   # List only active sprints
   jtk sprints list --board 123 --state active`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if board == "" {
-				return fmt.Errorf("--board is required")
-			}
-			if board == "0" {
-				// Preserve the old IntVarP sentinel semantics: --board 0
-				// was never a valid board reference and would 404 downstream.
-				return fmt.Errorf("--board must be a non-zero board ID or name")
+			if err := validateBoardRef(board); err != nil {
+				return err
 			}
 			client, err := opts.APIClient()
 			if err != nil {
@@ -129,13 +139,8 @@ func newCurrentCmd(opts *root.Options) *cobra.Command {
 		Example: `  jtk sprints current --board 123
   jtk sprints current --board "MON board"`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if board == "" {
-				return fmt.Errorf("--board is required")
-			}
-			if board == "0" {
-				// Preserve the old IntVarP sentinel semantics: --board 0
-				// was never a valid board reference and would 404 downstream.
-				return fmt.Errorf("--board must be a non-zero board ID or name")
+			if err := validateBoardRef(board); err != nil {
+				return err
 			}
 			client, err := opts.APIClient()
 			if err != nil {

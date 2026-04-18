@@ -206,8 +206,11 @@ func buildSprintClause(ctx context.Context, resolver *resolve.Resolver, sprint s
 	if sprint == "current" {
 		return "sprint in openSprints()", nil
 	}
-	if _, err := strconv.Atoi(sprint); err == nil {
-		return fmt.Sprintf("sprint = %s", sprint), nil
+	if n, err := strconv.Atoi(sprint); err == nil {
+		if n <= 0 {
+			return "", fmt.Errorf("--sprint numeric ID must be positive (got %s)", sprint)
+		}
+		return fmt.Sprintf("sprint = %d", n), nil
 	}
 	resolved, err := resolver.Sprint(ctx, sprint, 0)
 	if err == nil && resolved.ID != 0 {
@@ -215,10 +218,21 @@ func buildSprintClause(ctx context.Context, resolver *resolve.Resolver, sprint s
 	}
 	if warn != nil {
 		var amb *resolve.AmbiguousMatchError
-		if errors.As(err, &amb) {
+		var nf *resolve.NotFoundError
+		switch {
+		case errors.As(err, &amb):
 			fmt.Fprintf(warn,
 				"warning: sprint name %q matched multiple cached boards; falling back to JQL name resolution — "+
 					"results may span sprints on different boards.\n", sprint)
+		case errors.As(err, &nf):
+			fmt.Fprintf(warn,
+				"warning: sprint %q not found in cache; falling back to JQL name resolution — "+
+					"Jira will resolve the name or return an empty result set. Run `jtk refresh sprints` to update the cache.\n", sprint)
+		case err == nil && resolved.ID == 0:
+			// Resolver returned a synthetic (shouldn't happen for sprints today, but
+			// future-proofs the warning if sprint pass-through is ever added).
+			fmt.Fprintf(warn,
+				"warning: sprint %q not resolved to a cached ID; falling back to JQL name resolution.\n", sprint)
 		}
 	}
 	// Cache miss, ambiguity, or synthetic-without-ID → let Jira's JQL

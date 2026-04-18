@@ -16,14 +16,14 @@ import (
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 )
 
-// isolateCache points cache I/O at a temp directory and sets a valid instance
-// URL so InstanceKey resolves. Returns nothing — cleanup is via t.Cleanup.
+// isolateCache points cache I/O at a temp directory and overrides the
+// derived instance key directly (bypassing env-var parsing) so tests can
+// run under t.Parallel() without the t.Setenv race. Matches the pattern
+// used by the rest of the package.
 func isolateCache(t *testing.T) {
 	t.Helper()
 	t.Cleanup(cache.SetRootForTest(t.TempDir()))
-	t.Setenv("JIRA_URL", "https://test.atlassian.net")
-	t.Setenv("JIRA_EMAIL", "t@t.com")
-	t.Setenv("JIRA_API_TOKEN", "tok")
+	t.Cleanup(cache.SetInstanceKeyForTest("test.atlassian.net"))
 }
 
 func TestNewListCmd(t *testing.T) {

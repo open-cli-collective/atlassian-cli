@@ -1,6 +1,6 @@
 # GitHub Workflows
 
-Guidance for the 11 workflows in this directory. The root `CLAUDE.md` has the canonical release pipeline details — this file is a map and a source of intent.
+Guidance for the 11 workflows in this directory, grouped into five buckets. The root `CLAUDE.md` has the canonical release pipeline details — this file is a map and a source of intent.
 
 ## Buckets
 

@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 
 	"github.com/open-cli-collective/jira-ticket-cli/internal/config"
 )
@@ -34,15 +35,45 @@ func isSafeInstanceKey(k string) bool {
 	return true
 }
 
-// rootOverride is a package-level override for tests.
-// It is set by SetRootForTest and cleared by its cleanup function.
-var rootOverride string
+// rootOverride / instanceOverride are package-level overrides for tests,
+// guarded by overrideMu. Tests running in parallel still race for the
+// *values* (the last writer wins), but the reads/writes themselves are
+// synchronized so the race detector is satisfied.
+var (
+	overrideMu       sync.RWMutex
+	rootOverride     string
+	instanceOverride string
+)
+
+func getRootOverride() string {
+	overrideMu.RLock()
+	defer overrideMu.RUnlock()
+	return rootOverride
+}
+
+func getInstanceOverride() string {
+	overrideMu.RLock()
+	defer overrideMu.RUnlock()
+	return instanceOverride
+}
+
+func setRootOverride(v string) {
+	overrideMu.Lock()
+	rootOverride = v
+	overrideMu.Unlock()
+}
+
+func setInstanceOverride(v string) {
+	overrideMu.Lock()
+	instanceOverride = v
+	overrideMu.Unlock()
+}
 
 // Root returns the cache root directory, expanded from "~/.jtk/cache".
 // If SetRootForTest has overridden it, returns the override.
 func Root() (string, error) {
-	if rootOverride != "" {
-		return rootOverride, nil
+	if o := getRootOverride(); o != "" {
+		return o, nil
 	}
 
 	home, err := os.UserHomeDir()
@@ -58,6 +89,9 @@ func Root() (string, error) {
 // For bearer auth: config.GetCloudID() when the URL is api.atlassian.com.
 // Returns ErrNoInstance if no valid instance configuration is found.
 func InstanceKey() (string, error) {
+	if o := getInstanceOverride(); o != "" {
+		return o, nil
+	}
 	urlStr := config.GetURL()
 	if urlStr == "" {
 		return "", ErrNoInstance
@@ -108,9 +142,21 @@ func ResourceFile(name string) (string, error) {
 // Returns a cleanup function that restores the prior value.
 // Must only be called from tests in the cache package.
 func SetRootForTest(dir string) func() {
+	overrideMu.Lock()
 	oldRoot := rootOverride
 	rootOverride = dir
-	return func() {
-		rootOverride = oldRoot
-	}
+	overrideMu.Unlock()
+	return func() { setRootOverride(oldRoot) }
+}
+
+// SetInstanceKeyForTest overrides the derived instance-key name used for
+// per-instance cache directories. Pairs with SetRootForTest to give tests a
+// fully isolated cache directory without touching JIRA_URL/config state
+// (which would conflict with t.Parallel).
+func SetInstanceKeyForTest(key string) func() {
+	overrideMu.Lock()
+	oldInstance := instanceOverride
+	instanceOverride = key
+	overrideMu.Unlock()
+	return func() { setInstanceOverride(oldInstance) }
 }

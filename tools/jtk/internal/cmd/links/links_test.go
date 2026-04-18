@@ -2,6 +2,7 @@ package links
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -11,8 +12,19 @@ import (
 	"github.com/open-cli-collective/atlassian-go/testutil"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/cache"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 )
+
+// isolateCache points cache I/O at a temp directory and sets a valid instance
+// URL so InstanceKey resolves. Returns nothing — cleanup is via t.Cleanup.
+func isolateCache(t *testing.T) {
+	t.Helper()
+	t.Cleanup(cache.SetRootForTest(t.TempDir()))
+	t.Setenv("JIRA_URL", "https://test.atlassian.net")
+	t.Setenv("JIRA_EMAIL", "t@t.com")
+	t.Setenv("JIRA_API_TOKEN", "tok")
+}
 
 func TestNewListCmd(t *testing.T) {
 	opts := &root.Options{}
@@ -99,11 +111,12 @@ func TestRunCreate(t *testing.T) {
 	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
 	testutil.RequireNoError(t, err)
 
+	isolateCache(t)
 	var stdout bytes.Buffer
 	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runCreate(opts, "PROJ-123", "PROJ-456", "Blocks")
+	err = runCreate(context.Background(), opts, "PROJ-123", "PROJ-456", "Blocks")
 	testutil.RequireNoError(t, err)
 	testutil.Contains(t, stdout.String(), "Created")
 
@@ -129,13 +142,14 @@ func TestRunCreate_InvalidType(t *testing.T) {
 	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
 	testutil.RequireNoError(t, err)
 
+	isolateCache(t)
 	opts := &root.Options{Output: "table", Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runCreate(opts, "A", "B", "InvalidType")
+	err = runCreate(context.Background(), opts, "A", "B", "InvalidType")
 	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "InvalidType")
 	testutil.Contains(t, err.Error(), "not found")
-	testutil.Contains(t, err.Error(), "Blocks")
 }
 
 func TestRunDelete(t *testing.T) {

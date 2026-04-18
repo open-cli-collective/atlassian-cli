@@ -16,6 +16,7 @@ import (
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/present/projection"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/resolve"
 )
 
 // errFieldsWithJSON is returned when --fields is combined with --output json.
@@ -105,7 +106,11 @@ func runList(ctx context.Context, opts *root.Options, project, sprint string, ma
 	// Build JQL query
 	var jql string
 	if project != "" {
-		jql = fmt.Sprintf("project = %s", project)
+		resolvedProject, err := resolve.New(client).Project(ctx, project)
+		if err != nil {
+			return err
+		}
+		jql = fmt.Sprintf("project = %s", resolvedProject.Key)
 	}
 
 	if sprint != "" {

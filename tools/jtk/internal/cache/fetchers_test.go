@@ -287,3 +287,148 @@ func TestFetchBoards_StopsOnEmptyPage(t *testing.T) {
 	testutil.Equal(t, count, 0)
 	testutil.Equal(t, calls, 1)
 }
+
+func TestFetchSprints_MissingBoardsCache(t *testing.T) {
+	cleanup := SetRootForTest(t.TempDir())
+	defer cleanup()
+
+	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
+		t.Fatal("no API calls should be made when boards cache is absent")
+	}))
+	defer server.Close()
+
+	client := newTestClient(t, server)
+
+	_, err := fetchSprints(context.Background(), client)
+	testutil.Error(t, err)
+	if !strings.Contains(err.Error(), "refresh boards first") {
+		t.Fatalf("expected error to mention 'refresh boards first', got: %v", err)
+	}
+	if _, err := ReadResource[map[int][]api.Sprint]("sprints"); !errors.Is(err, ErrCacheMiss) {
+		t.Fatalf("expected no sprints envelope on disk, got err=%v", err)
+	}
+}
+
+func TestFetchSprints_MultiBoard(t *testing.T) {
+	cleanup := SetRootForTest(t.TempDir())
+	defer cleanup()
+
+	calls := map[string]int{}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls[r.URL.Path]++
+		switch r.URL.Path {
+		case "/rest/agile/1.0/board/23/sprint":
+			_ = json.NewEncoder(w).Encode(api.SprintsResponse{
+				IsLast: true,
+				Values: []api.Sprint{
+					{ID: 125, Name: "MON Sprint 70", State: "active"},
+					{ID: 124, Name: "MON Sprint 69", State: "closed"},
+				},
+			})
+		case "/rest/agile/1.0/board/24/sprint":
+			_ = json.NewEncoder(w).Encode(api.SprintsResponse{
+				IsLast: true,
+				Values: []api.Sprint{{ID: 200, Name: "ON Sprint 1", State: "active"}},
+			})
+		default:
+			t.Errorf("unexpected path: %s", r.URL.Path)
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	client := newTestClient(t, server)
+
+	testutil.RequireNoError(t, WriteResource("boards", "24h", []api.Board{
+		{ID: 23, Name: "MON board", Type: "scrum"},
+		{ID: 24, Name: "ON board", Type: "kanban"},
+	}))
+
+	count, err := fetchSprints(context.Background(), client)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, count, 3)
+	testutil.Equal(t, calls["/rest/agile/1.0/board/23/sprint"], 1)
+	testutil.Equal(t, calls["/rest/agile/1.0/board/24/sprint"], 1)
+
+	env, err := ReadResource[map[int][]api.Sprint]("sprints")
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, len(env.Data[23]), 2)
+	testutil.Equal(t, len(env.Data[24]), 1)
+	testutil.Equal(t, env.Data[23][0].Name, "MON Sprint 70")
+	testutil.Equal(t, env.Data[24][0].Name, "ON Sprint 1")
+}
+
+func TestFetchSprints_Pagination(t *testing.T) {
+	cleanup := SetRootForTest(t.TempDir())
+	defer cleanup()
+
+	calls := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		testutil.Equal(t, r.URL.Path, "/rest/agile/1.0/board/23/sprint")
+		startAt, _ := strconv.Atoi(r.URL.Query().Get("startAt"))
+		maxResults, _ := strconv.Atoi(r.URL.Query().Get("maxResults"))
+		testutil.Equal(t, maxResults, 50)
+		calls++
+
+		var values []api.Sprint
+		var isLast bool
+		switch startAt {
+		case 0:
+			for i := 0; i < 50; i++ {
+				values = append(values, api.Sprint{ID: i + 1, Name: "s" + strconv.Itoa(i+1)})
+			}
+		case 50:
+			for i := 50; i < 70; i++ {
+				values = append(values, api.Sprint{ID: i + 1, Name: "s" + strconv.Itoa(i+1)})
+			}
+			isLast = true
+		default:
+			t.Errorf("unexpected startAt: %d", startAt)
+		}
+		_ = json.NewEncoder(w).Encode(api.SprintsResponse{
+			StartAt:    startAt,
+			MaxResults: maxResults,
+			IsLast:     isLast,
+			Values:     values,
+		})
+	}))
+	defer server.Close()
+
+	client := newTestClient(t, server)
+
+	testutil.RequireNoError(t, WriteResource("boards", "24h", []api.Board{{ID: 23}}))
+
+	count, err := fetchSprints(context.Background(), client)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, count, 70)
+	testutil.Equal(t, calls, 2)
+}
+
+func TestFetchSprints_PerBoardError(t *testing.T) {
+	cleanup := SetRootForTest(t.TempDir())
+	defer cleanup()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/rest/agile/1.0/board/1/sprint":
+			_ = json.NewEncoder(w).Encode(api.SprintsResponse{IsLast: true, Values: []api.Sprint{{ID: 10}}})
+		case "/rest/agile/1.0/board/2/sprint":
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = w.Write([]byte(`{"errorMessages":["boom"]}`))
+		}
+	}))
+	defer server.Close()
+
+	client := newTestClient(t, server)
+
+	testutil.RequireNoError(t, WriteResource("boards", "24h", []api.Board{{ID: 1}, {ID: 2}}))
+
+	_, err := fetchSprints(context.Background(), client)
+	testutil.Error(t, err)
+	if !strings.Contains(err.Error(), "board 2") {
+		t.Fatalf("expected error to name the failing board, got: %v", err)
+	}
+	if _, err := ReadResource[map[int][]api.Sprint]("sprints"); !errors.Is(err, ErrCacheMiss) {
+		t.Fatalf("expected no sprints envelope after partial failure, got err=%v", err)
+	}
+}

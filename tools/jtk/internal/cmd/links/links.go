@@ -2,8 +2,8 @@
 package links
 
 import (
+	"context"
 	"fmt"
-	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -13,6 +13,7 @@ import (
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/resolve"
 )
 
 // Register registers the links commands
@@ -98,8 +99,8 @@ For example, "jtk links create A B --type Blocks" means "A blocks B".`,
   # A is cloned by B
   jtk links create PROJ-123 PROJ-456 --type Cloners`,
 		Args: cobra.ExactArgs(2),
-		RunE: func(_ *cobra.Command, args []string) error {
-			return runCreate(opts, args[0], args[1], linkType)
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCreate(cmd.Context(), opts, args[0], args[1], linkType)
 		},
 	}
 
@@ -109,7 +110,7 @@ For example, "jtk links create A B --type Blocks" means "A blocks B".`,
 	return cmd
 }
 
-func runCreate(opts *root.Options, outwardKey, inwardKey, linkType string) error {
+func runCreate(ctx context.Context, opts *root.Options, outwardKey, inwardKey, linkType string) error {
 	v := opts.View()
 
 	client, err := opts.APIClient()
@@ -117,28 +118,11 @@ func runCreate(opts *root.Options, outwardKey, inwardKey, linkType string) error
 		return err
 	}
 
-	// Validate link type exists
-	linkTypes, err := client.GetIssueLinkTypes()
+	resolvedLinkType, err := resolve.New(client).LinkType(ctx, linkType)
 	if err != nil {
-		return fmt.Errorf("failed to get link types: %w", err)
+		return err
 	}
-
-	var found bool
-	for _, lt := range linkTypes {
-		if strings.EqualFold(lt.Name, linkType) {
-			linkType = lt.Name // Use exact casing from server
-			found = true
-			break
-		}
-	}
-
-	if !found {
-		var available []string
-		for _, lt := range linkTypes {
-			available = append(available, lt.Name)
-		}
-		return fmt.Errorf("link type %q not found (available: %s)", linkType, strings.Join(available, ", "))
-	}
+	linkType = resolvedLinkType.Name
 
 	if err := client.CreateIssueLink(outwardKey, inwardKey, linkType); err != nil {
 		return err

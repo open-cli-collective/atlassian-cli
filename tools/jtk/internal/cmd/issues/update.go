@@ -13,6 +13,7 @@ import (
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/resolve"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/text"
 )
 
@@ -104,11 +105,11 @@ func runUpdate(ctx context.Context, opts *root.Options, issueKey, summary, descr
 		if api.IsNullValue(assignee) {
 			fields["assignee"] = nil
 		} else {
-			accountID, err := resolveAssignee(ctx, client, assignee)
+			resolvedUser, err := resolve.New(client).User(ctx, assignee)
 			if err != nil {
 				return err
 			}
-			fields["assignee"] = map[string]string{"accountId": accountID}
+			fields["assignee"] = map[string]string{"accountId": resolvedUser.AccountID}
 		}
 	}
 
@@ -189,29 +190,11 @@ func changeIssueType(ctx context.Context, client *api.Client, opts *root.Options
 		return nil
 	}
 
-	// Get available issue types in the project
-	issueTypes, err := client.GetProjectIssueTypes(ctx, projectKey)
+	resolvedType, err := resolve.New(client).IssueType(ctx, projectKey, targetTypeName)
 	if err != nil {
-		return fmt.Errorf("failed to get project issue types: %w", err)
+		return err
 	}
-
-	var targetIssueType *api.IssueType
-	for i := range issueTypes {
-		if strings.EqualFold(issueTypes[i].Name, targetTypeName) {
-			targetIssueType = &issueTypes[i]
-			break
-		}
-	}
-
-	if targetIssueType == nil {
-		var available []string
-		for _, t := range issueTypes {
-			if !t.Subtask {
-				available = append(available, t.Name)
-			}
-		}
-		return fmt.Errorf("issue type %q not found in project %s (available: %s)", targetTypeName, projectKey, strings.Join(available, ", "))
-	}
+	targetIssueType := &resolvedType
 
 	// Progress message to stderr (advisory)
 	advisory := jtkpresent.IssuePresenter{}.PresentTypeChangeProgress(issueKey, targetIssueType.Name)

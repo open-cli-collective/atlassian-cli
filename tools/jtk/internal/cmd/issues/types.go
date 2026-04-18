@@ -10,6 +10,7 @@ import (
 
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/resolve"
 )
 
 func newTypesCmd(opts *root.Options) *cobra.Command {
@@ -43,7 +44,13 @@ func runTypes(ctx context.Context, opts *root.Options, project string) error {
 		return err
 	}
 
-	projectDetail, err := client.GetProject(ctx, project)
+	resolvedProject, err := resolve.New(client).Project(ctx, project)
+	if err != nil {
+		return err
+	}
+	projectKey := resolvedProject.Key
+
+	projectDetail, err := client.GetProject(ctx, projectKey)
 	if err != nil {
 		return err
 	}
@@ -53,7 +60,7 @@ func runTypes(ctx context.Context, opts *root.Options, project string) error {
 	}
 
 	if len(projectDetail.IssueTypes) == 0 {
-		model := jtkpresent.IssuePresenter{}.PresentNoTypes(project)
+		model := jtkpresent.IssuePresenter{}.PresentNoTypes(projectKey)
 		out := present.Render(model, opts.RenderStyle())
 		_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
 		return nil

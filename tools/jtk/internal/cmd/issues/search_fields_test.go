@@ -204,7 +204,7 @@ func TestRunSearch_TableOutputUsesListFields(t *testing.T) {
 }
 
 func TestRunList_JSONOutputRequestsAllFields(t *testing.T) {
-	t.Parallel()
+	seedCacheForIssues(t)
 	var captured api.SearchRequest
 	server := newSearchServer(t, &captured)
 	defer server.Close()
@@ -315,7 +315,7 @@ func TestRunSearch_AutoPaginationJSON(t *testing.T) {
 }
 
 func TestRunList_AutoPaginationJSON(t *testing.T) {
-	t.Parallel()
+	seedCacheForIssues(t)
 	// Server has 120 issues, serves 60 per page
 	server := newPaginatedSearchServer(t, 60, 120)
 	defer server.Close()

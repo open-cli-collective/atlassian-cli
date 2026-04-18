@@ -15,6 +15,7 @@ import (
 	jtkartifact "github.com/open-cli-collective/jira-ticket-cli/internal/artifact"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/resolve"
 )
 
 // Register registers the sprints commands
@@ -47,28 +48,37 @@ func Register(parent *cobra.Command, opts *root.Options) {
 }
 
 func newListCmd(opts *root.Options) *cobra.Command {
-	var boardID int
+	var board string
 	var state string
 	var maxResults int
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List sprints for a board",
-		Long:  "List sprints for a specific board.",
+		Long:  "List sprints for a specific board. --board accepts a board ID or name.",
 		Example: `  # List all sprints
   jtk sprints list --board 123
+  jtk sprints list --board "MON board"
 
   # List only active sprints
   jtk sprints list --board 123 --state active`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if boardID == 0 {
+			if board == "" {
 				return fmt.Errorf("--board is required")
 			}
-			return runList(cmd.Context(), opts, boardID, state, maxResults)
+			client, err := opts.APIClient()
+			if err != nil {
+				return err
+			}
+			resolvedBoard, err := resolve.New(client).Board(cmd.Context(), board)
+			if err != nil {
+				return err
+			}
+			return runList(cmd.Context(), opts, resolvedBoard.ID, state, maxResults)
 		},
 	}
 
-	cmd.Flags().IntVarP(&boardID, "board", "b", 0, "Board ID (required)")
+	cmd.Flags().StringVarP(&board, "board", "b", "", "Board ID or name (required)")
 	cmd.Flags().StringVarP(&state, "state", "s", "", "Filter by state (active, closed, future)")
 	cmd.Flags().IntVarP(&maxResults, "max", "m", 50, "Maximum number of results")
 
@@ -110,22 +120,31 @@ func runList(ctx context.Context, opts *root.Options, boardID int, state string,
 }
 
 func newCurrentCmd(opts *root.Options) *cobra.Command {
-	var boardID int
+	var board string
 
 	cmd := &cobra.Command{
-		Use:     "current",
-		Short:   "Show current sprint",
-		Long:    "Show the current active sprint for a board.",
-		Example: `  jtk sprints current --board 123`,
+		Use:   "current",
+		Short: "Show current sprint",
+		Long:  "Show the current active sprint for a board. --board accepts a board ID or name.",
+		Example: `  jtk sprints current --board 123
+  jtk sprints current --board "MON board"`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if boardID == 0 {
+			if board == "" {
 				return fmt.Errorf("--board is required")
 			}
-			return runCurrent(cmd.Context(), opts, boardID)
+			client, err := opts.APIClient()
+			if err != nil {
+				return err
+			}
+			resolvedBoard, err := resolve.New(client).Board(cmd.Context(), board)
+			if err != nil {
+				return err
+			}
+			return runCurrent(cmd.Context(), opts, resolvedBoard.ID)
 		},
 	}
 
-	cmd.Flags().IntVarP(&boardID, "board", "b", 0, "Board ID (required)")
+	cmd.Flags().StringVarP(&board, "board", "b", "", "Board ID or name (required)")
 
 	return cmd
 }
@@ -221,21 +240,28 @@ func runIssues(ctx context.Context, opts *root.Options, sprintID int, maxResults
 
 func newAddCmd(opts *root.Options) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "add <sprint-id> <issue-key>...",
+		Use:   "add <sprint> <issue-key>...",
 		Short: "Move issues to a sprint",
-		Long:  "Move one or more issues to a specific sprint.",
-		Example: `  # Move a single issue
+		Long:  "Move one or more issues to a specific sprint. <sprint> accepts a sprint ID or name.",
+		Example: `  # Move a single issue by sprint ID
   jtk sprints add 123 PROJ-456
+
+  # Move by sprint name (resolved via cache)
+  jtk sprints add "MON Sprint 70" PROJ-456
 
   # Move multiple issues
   jtk sprints add 123 PROJ-456 PROJ-789 PROJ-101`,
 		Args: cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			var sprintID int
-			if _, err := fmt.Sscanf(args[0], "%d", &sprintID); err != nil {
-				return fmt.Errorf("invalid sprint ID: %s", args[0])
+			client, err := opts.APIClient()
+			if err != nil {
+				return err
 			}
-			return runAdd(cmd.Context(), opts, sprintID, args[1:])
+			resolvedSprint, err := resolve.New(client).Sprint(cmd.Context(), args[0], 0)
+			if err != nil {
+				return err
+			}
+			return runAdd(cmd.Context(), opts, resolvedSprint.ID, args[1:])
 		},
 	}
 

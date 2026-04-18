@@ -14,6 +14,7 @@ import (
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cache"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/resolve"
 )
 
 func newCreateCmd(opts *root.Options) *cobra.Command {
@@ -64,11 +65,16 @@ func runCreate(ctx context.Context, opts *root.Options, key, name, projectType, 
 		return err
 	}
 
+	resolvedLead, err := resolve.New(client).User(ctx, lead)
+	if err != nil {
+		return err
+	}
+
 	req := &api.CreateProjectRequest{
 		Key:            key,
 		Name:           name,
 		ProjectTypeKey: projectType,
-		LeadAccountID:  lead,
+		LeadAccountID:  resolvedLead.AccountID,
 		Description:    description,
 	}
 

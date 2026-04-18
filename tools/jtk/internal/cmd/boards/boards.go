@@ -15,6 +15,7 @@ import (
 	jtkartifact "github.com/open-cli-collective/jira-ticket-cli/internal/artifact"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/resolve"
 )
 
 // Register registers the boards commands
@@ -76,7 +77,16 @@ func runList(ctx context.Context, opts *root.Options, project string, maxResults
 		return err
 	}
 
-	result, err := client.ListBoards(ctx, project, 0, maxResults)
+	projectFilter := project
+	if project != "" {
+		resolvedProject, err := resolve.New(client).Project(ctx, project)
+		if err != nil {
+			return err
+		}
+		projectFilter = resolvedProject.Key
+	}
+
+	result, err := client.ListBoards(ctx, projectFilter, 0, maxResults)
 	if err != nil {
 		return err
 	}

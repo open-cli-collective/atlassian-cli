@@ -12,11 +12,12 @@ import (
 	"github.com/open-cli-collective/atlassian-go/testutil"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/cache"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 )
 
 func TestRunCreate_RequestBodyNoDoubleQuoting(t *testing.T) {
-	t.Parallel()
+	seedCacheForIssues(t)
 	var capturedBody []byte
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -81,6 +82,7 @@ func TestRunCreate_RequestBodyNoDoubleQuoting(t *testing.T) {
 }
 
 func TestRunCreate_SummaryWithSpecialCharacters(t *testing.T) {
+	seedCacheForIssues(t)
 	var capturedBody []byte
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -151,6 +153,7 @@ func TestNewCreateCmd(t *testing.T) {
 }
 
 func TestCreateCmd_CobraExecution_NoDoubleQuoting(t *testing.T) {
+	seedCacheForIssues(t)
 	var capturedBody []byte
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -204,6 +207,7 @@ func TestCreateCmd_CobraExecution_NoDoubleQuoting(t *testing.T) {
 }
 
 func TestRunCreate_WithParent(t *testing.T) {
+	seedCacheForIssues(t)
 	var capturedBody []byte
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -248,6 +252,7 @@ func TestRunCreate_WithParent(t *testing.T) {
 }
 
 func TestRunCreate_WithoutParent(t *testing.T) {
+	seedCacheForIssues(t)
 	var capturedBody []byte
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -289,6 +294,7 @@ func TestRunCreate_WithoutParent(t *testing.T) {
 }
 
 func TestCreateCmd_CobraExecution_WithParent(t *testing.T) {
+	seedCacheForIssues(t)
 	var capturedBody []byte
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -339,6 +345,7 @@ func TestCreateCmd_CobraExecution_WithParent(t *testing.T) {
 }
 
 func TestRunCreate_WithAssigneeAccountID(t *testing.T) {
+	seedCacheForIssues(t)
 	var capturedBody []byte
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -381,6 +388,7 @@ func TestRunCreate_WithAssigneeAccountID(t *testing.T) {
 }
 
 func TestRunCreate_WithAssigneeMe(t *testing.T) {
+	seedCacheForIssues(t)
 	var capturedBody []byte
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -430,15 +438,15 @@ func TestRunCreate_WithAssigneeMe(t *testing.T) {
 }
 
 func TestRunCreate_WithAssigneeEmail(t *testing.T) {
+	seedCacheForIssues(t)
+	// Seed a user whose email matches the input so the resolver finds them
+	// in the cache (no live /user/search fallback under the new rules).
+	testutil.RequireNoError(t, cache.WriteResource("users", "24h", []api.User{
+		{AccountID: "found-account-id", DisplayName: "Found User", EmailAddress: "user@example.com"},
+	}))
 	var capturedBody []byte
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/rest/api/3/user/search" && r.Method == "GET" {
-			_ = json.NewEncoder(w).Encode([]api.User{
-				{AccountID: "found-account-id", DisplayName: "Found User"},
-			})
-			return
-		}
 		if r.URL.Path == "/rest/api/3/issue" && r.Method == "POST" {
 			capturedBody, _ = io.ReadAll(r.Body)
 			w.WriteHeader(http.StatusCreated)
@@ -478,6 +486,7 @@ func TestRunCreate_WithAssigneeEmail(t *testing.T) {
 }
 
 func TestRunCreate_DescriptionEscapeSequences(t *testing.T) {
+	seedCacheForIssues(t)
 	var capturedBody []byte
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -527,6 +536,7 @@ func TestRunCreate_DescriptionEscapeSequences(t *testing.T) {
 }
 
 func TestRunCreate_WithoutAssignee(t *testing.T) {
+	seedCacheForIssues(t)
 	var capturedBody []byte
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

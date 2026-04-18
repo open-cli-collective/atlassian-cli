@@ -29,7 +29,7 @@ func TestNewListCmd(t *testing.T) {
 
 	boardFlag := cmd.Flags().Lookup("board")
 	testutil.NotNil(t, boardFlag)
-	testutil.Equal(t, boardFlag.DefValue, "0")
+	testutil.Equal(t, boardFlag.DefValue, "")
 
 	stateFlag := cmd.Flags().Lookup("state")
 	testutil.NotNil(t, stateFlag)
@@ -163,7 +163,7 @@ func TestNewCurrentCmd(t *testing.T) {
 
 	boardFlag := cmd.Flags().Lookup("board")
 	testutil.NotNil(t, boardFlag)
-	testutil.Equal(t, boardFlag.DefValue, "0")
+	testutil.Equal(t, boardFlag.DefValue, "")
 }
 
 func TestRunCurrent_Table(t *testing.T) {
@@ -381,7 +381,7 @@ func TestNewAddCmd(t *testing.T) {
 	opts := &root.Options{}
 	cmd := newAddCmd(opts)
 
-	testutil.Equal(t, cmd.Use, "add <sprint-id> <issue-key>...")
+	testutil.Equal(t, cmd.Use, "add <sprint> <issue-key>...")
 	testutil.NotEmpty(t, cmd.Short)
 }
 

@@ -30,7 +30,7 @@ func TestNewTypesCmd(t *testing.T) {
 }
 
 func TestRunTypes_Success(t *testing.T) {
-	t.Parallel()
+	seedCacheForIssues(t)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testutil.Equal(t, r.URL.Path, "/rest/api/3/project/TEST")
 

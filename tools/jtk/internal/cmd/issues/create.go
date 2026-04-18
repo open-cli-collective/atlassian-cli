@@ -12,6 +12,7 @@ import (
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/resolve"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/text"
 )
 
@@ -116,15 +117,32 @@ func runCreate(ctx context.Context, opts *root.Options, project, issueType, summ
 		extraFields["parent"] = map[string]string{"key": parent}
 	}
 
+	resolver := resolve.New(client)
+
+	resolvedProject, err := resolver.Project(ctx, project)
+	if err != nil {
+		return err
+	}
+	projectKey := resolvedProject.Key
+
+	resolvedType, err := resolver.IssueType(ctx, projectKey, issueType)
+	if err != nil {
+		return err
+	}
+	typeName := resolvedType.Name
+	if typeName == "" {
+		typeName = issueType
+	}
+
 	if assignee != "" {
-		accountID, err := resolveAssignee(ctx, client, assignee)
+		resolvedUser, err := resolver.User(ctx, assignee)
 		if err != nil {
 			return err
 		}
-		extraFields["assignee"] = map[string]string{"accountId": accountID}
+		extraFields["assignee"] = map[string]string{"accountId": resolvedUser.AccountID}
 	}
 
-	req := api.BuildCreateRequest(project, issueType, summary, text.InterpretEscapes(description), extraFields)
+	req := api.BuildCreateRequest(projectKey, typeName, summary, text.InterpretEscapes(description), extraFields)
 
 	issue, err := client.CreateIssue(ctx, req)
 	if err != nil {

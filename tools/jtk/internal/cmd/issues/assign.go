@@ -11,6 +11,7 @@ import (
 
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/resolve"
 )
 
 func newAssignCmd(opts *root.Options) *cobra.Command {
@@ -40,27 +41,31 @@ func newAssignCmd(opts *root.Options) *cobra.Command {
 	return cmd
 }
 
-func runAssign(ctx context.Context, opts *root.Options, issueKey, accountID string, unassign bool) error {
+func runAssign(ctx context.Context, opts *root.Options, issueKey, userInput string, unassign bool) error {
 	client, err := opts.APIClient()
 	if err != nil {
 		return err
 	}
 
-	if unassign {
-		accountID = ""
+	accountID := ""
+	displayName := ""
+
+	if !unassign && userInput != "" {
+		resolvedUser, err := resolve.New(client).User(ctx, userInput)
+		if err != nil {
+			return err
+		}
+		accountID = resolvedUser.AccountID
+		displayName = resolvedUser.DisplayName
+		if displayName == "" {
+			// Pass-through path: resolver returned synthetic api.User with only
+			// AccountID populated. Fall back to the raw ID in the message.
+			displayName = accountID
+		}
 	}
 
 	if err := client.AssignIssue(ctx, issueKey, accountID); err != nil {
 		return err
-	}
-
-	// Resolve display name for a friendlier message
-	displayName := ""
-	if !unassign && accountID != "" {
-		displayName = accountID
-		if user, err := client.GetUser(ctx, accountID); err == nil && user.DisplayName != "" {
-			displayName = user.DisplayName
-		}
 	}
 
 	model := jtkpresent.IssuePresenter{}.PresentAssigned(issueKey, displayName)

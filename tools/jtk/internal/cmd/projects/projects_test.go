@@ -11,6 +11,7 @@ import (
 	"github.com/open-cli-collective/atlassian-go/testutil"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/cache"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 )
 
@@ -165,7 +166,14 @@ func TestNewCreateCmd(t *testing.T) {
 }
 
 func TestRunCreate(t *testing.T) {
-	t.Parallel()
+	// Isolate the cache and seed a user matching the input accountId so the
+	// resolver can return it without hitting the refresh path.
+	t.Cleanup(cache.SetRootForTest(t.TempDir()))
+	t.Cleanup(cache.SetInstanceKeyForTest("test.atlassian.net"))
+	testutil.RequireNoError(t, cache.WriteResource("users", "24h", []api.User{
+		{AccountID: "557058:295fe89c-10c2-4b0c-ba84-a4dd14ea7729", DisplayName: "Lead"},
+	}))
+
 	// Jira's create endpoint returns an empty name, so the success message
 	// should use the input name, not the response name.
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -185,7 +193,7 @@ func TestRunCreate(t *testing.T) {
 	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runCreate(context.Background(), opts, "TST", "Test Project", "software", "abc123", "")
+	err = runCreate(context.Background(), opts, "TST", "Test Project", "software", "557058:295fe89c-10c2-4b0c-ba84-a4dd14ea7729", "")
 	testutil.RequireNoError(t, err)
 	testutil.Contains(t, stdout.String(), "Created project TST")
 	testutil.Contains(t, stdout.String(), "Test Project")

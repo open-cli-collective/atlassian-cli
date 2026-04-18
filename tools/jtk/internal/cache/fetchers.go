@@ -24,6 +24,7 @@ func defaultEntries() []Entry {
 		{Name: "fields", TTL: ttl24h, Fetch: fetchFields},
 		{Name: "projects", TTL: ttl24h, Fetch: fetchProjects},
 		{Name: "boards", TTL: ttl24h, Available: supportsAgile, Fetch: fetchBoards},
+		{Name: "sprints", TTL: ttl24h, DependsOn: []string{"boards"}, Available: supportsAgile, Fetch: fetchSprints},
 		{Name: "linktypes", TTL: ttl24h, Fetch: fetchLinkTypes},
 		{Name: "issuetypes", TTL: ttl24h, DependsOn: []string{"projects"}, Fetch: fetchIssueTypes},
 		{Name: "statuses", TTL: ttl24h, DependsOn: []string{"projects"}, Fetch: fetchStatuses},
@@ -166,4 +167,43 @@ func fetchResolutions(ctx context.Context, c *api.Client) (int, error) {
 
 func fetchUsers(ctx context.Context, c *api.Client) (int, error) {
 	return SeedUsers(ctx, c)
+}
+
+// fetchSprintsMax is the per-board iteration ceiling. A misbehaving server that
+// never returns isLast=true would otherwise spin forever for a single board.
+const fetchSprintsMax = 5000
+
+// fetchSprints assembles a board-keyed sprint map. It reads the boards cache
+// (populated by fetchBoards via the DependsOn edge), then pages ListSprints per
+// board. A per-board error fails the whole fetch — partial maps aren't written.
+func fetchSprints(ctx context.Context, c *api.Client) (int, error) {
+	env, err := ReadResource[[]api.Board]("boards")
+	if err != nil {
+		return 0, fmt.Errorf("reading boards cache (refresh boards first): %w", err)
+	}
+
+	const pageSize = 50
+	byBoard := make(map[int][]api.Sprint, len(env.Data))
+	total := 0
+	for _, b := range env.Data {
+		var all []api.Sprint
+		startAt := 0
+		for startAt < fetchSprintsMax {
+			resp, err := c.ListSprints(ctx, b.ID, "", startAt, pageSize)
+			if err != nil {
+				return 0, fmt.Errorf("fetching sprints for board %d: %w", b.ID, err)
+			}
+			all = append(all, resp.Values...)
+			if resp.IsLast || len(resp.Values) == 0 {
+				break
+			}
+			startAt += len(resp.Values)
+		}
+		byBoard[b.ID] = all
+		total += len(all)
+	}
+	if err := WriteResource("sprints", ttl24h, byBoard); err != nil {
+		return 0, err
+	}
+	return total, nil
 }

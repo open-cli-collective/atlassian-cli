@@ -13,6 +13,7 @@ import (
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/resolve"
 )
 
 func newMoveCmd(opts *root.Options) *cobra.Command {
@@ -78,73 +79,59 @@ func runMove(ctx context.Context, opts *root.Options, issueKeys []string, target
 		return err
 	}
 
-	// Get target project's issue types to validate or default the type
-	issueTypes, err := client.GetProjectIssueTypes(ctx, targetProject)
+	resolver := resolve.New(client)
+
+	resolvedProject, err := resolver.Project(ctx, targetProject)
 	if err != nil {
-		return fmt.Errorf("getting target project issue types: %w", err)
+		return err
 	}
+	projectKey := resolvedProject.Key
 
-	if len(issueTypes) == 0 {
-		return fmt.Errorf("target project %s has no issue types", targetProject)
-	}
-
-	// Find target issue type
 	var targetIssueType *api.IssueType
 	if targetType == "" {
-		// Get the source issue's type to use as default
+		// Default to the source issue's type, matched against the target
+		// project's issue types via the cache.
 		issue, err := client.GetIssue(ctx, issueKeys[0])
 		if err != nil {
 			return fmt.Errorf("getting source issue: %w", err)
 		}
-
-		sourceTypeName := issue.Fields.IssueType.Name
-		for i := range issueTypes {
-			if strings.EqualFold(issueTypes[i].Name, sourceTypeName) {
-				targetIssueType = &issueTypes[i]
-				break
-			}
+		if issue.Fields.IssueType == nil {
+			return fmt.Errorf("source issue %s has no issue type", issueKeys[0])
 		}
-
-		if targetIssueType == nil {
-			// Fall back to first non-subtask type
+		resolved, err := resolver.IssueType(ctx, projectKey, issue.Fields.IssueType.Name)
+		if err != nil {
+			// Fall back to the first non-subtask type in the target project.
+			issueTypes, typesErr := client.GetProjectIssueTypes(ctx, projectKey)
+			if typesErr != nil {
+				return fmt.Errorf("getting target project issue types: %w", typesErr)
+			}
 			for i := range issueTypes {
 				if !issueTypes[i].Subtask {
 					targetIssueType = &issueTypes[i]
 					break
 				}
 			}
+			if targetIssueType == nil {
+				return fmt.Errorf("no non-subtask issue types available in target project %s", projectKey)
+			}
+		} else {
+			targetIssueType = &resolved
 		}
 	} else {
-		// Find by name
-		for i := range issueTypes {
-			if strings.EqualFold(issueTypes[i].Name, targetType) {
-				targetIssueType = &issueTypes[i]
-				break
-			}
+		resolved, err := resolver.IssueType(ctx, projectKey, targetType)
+		if err != nil {
+			return err
 		}
-	}
-
-	if targetIssueType == nil {
-		var availableTypes []string
-		for _, t := range issueTypes {
-			if !t.Subtask {
-				availableTypes = append(availableTypes, t.Name)
-			}
-		}
-		model := ip.PresentTypeNotFound(targetType, targetProject, availableTypes)
-		out := present.Render(model, opts.RenderStyle())
-		_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
-		_, _ = fmt.Fprint(opts.Stderr, out.Stderr)
-		return fmt.Errorf("issue type not found: %s", targetType)
+		targetIssueType = &resolved
 	}
 
 	// Progress message to stderr
-	progressModel := ip.PresentMoveProgress(len(issueKeys), targetProject, targetIssueType.Name)
+	progressModel := ip.PresentMoveProgress(len(issueKeys), projectKey, targetIssueType.Name)
 	progressOut := present.Render(progressModel, opts.RenderStyle())
 	_, _ = fmt.Fprint(opts.Stderr, progressOut.Stderr)
 
 	// Build and execute the move request
-	req := api.BuildMoveRequest(issueKeys, targetProject, targetIssueType.ID, notify)
+	req := api.BuildMoveRequest(issueKeys, projectKey, targetIssueType.ID, notify)
 
 	resp, err := client.MoveIssues(ctx, req)
 	if err != nil {
@@ -183,7 +170,7 @@ func runMove(ctx context.Context, opts *root.Options, issueKeys []string, target
 				_, _ = fmt.Fprint(opts.Stderr, out.Stderr)
 				return fmt.Errorf("some issues failed to move")
 			}
-			model := ip.PresentMoved(len(issueKeys), targetProject)
+			model := ip.PresentMoved(len(issueKeys), projectKey)
 			out := present.Render(model, opts.RenderStyle())
 			_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
 			return nil

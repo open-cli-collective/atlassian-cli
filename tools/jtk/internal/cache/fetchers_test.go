@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -411,6 +412,12 @@ func TestFetchSprints_PerBoardErrorSkipped(t *testing.T) {
 	cleanup := SetRootForTest(t.TempDir())
 	defer cleanup()
 
+	// Capture the warning writer so we can assert the per-board error surface
+	// (not just the count). This also exercises SetWarnWriter, documenting
+	// the warning-text contract.
+	var warnBuf bytes.Buffer
+	defer SetWarnWriter(&warnBuf)()
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/rest/agile/1.0/board/1/sprint":
@@ -435,6 +442,11 @@ func TestFetchSprints_PerBoardErrorSkipped(t *testing.T) {
 	testutil.Equal(t, len(env.Data[1]), 1)
 	if _, present := env.Data[2]; present {
 		t.Fatalf("expected board 2 to be skipped after failure, got entry: %v", env.Data[2])
+	}
+
+	warnText := warnBuf.String()
+	if !strings.Contains(warnText, "board 2") || !strings.Contains(warnText, "skipping") {
+		t.Errorf("expected per-board skip warning for board 2, got: %q", warnText)
 	}
 }
 

@@ -142,6 +142,11 @@ func TestRunList_Empty(t *testing.T) {
 }
 
 func TestRunList_ResolvesProjectByName(t *testing.T) {
+	// NOT t.Parallel(): SetRootForTest / SetInstanceKeyForTest mutate package
+	// globals in the cache package. Running in parallel with the other
+	// TestRunList_* tests in this file that also touch the cache root would
+	// allow one test's cache isolation to bleed into another.
+	//
 	// --project "Platform" must resolve to its cached key before hitting
 	// the boards endpoint; the URL query string should carry the key, not
 	// the display name.
@@ -173,6 +178,7 @@ func TestRunList_ResolvesProjectByName(t *testing.T) {
 }
 
 func TestRunList_ProjectKeyShapePassesThrough(t *testing.T) {
+	// NOT t.Parallel(): see the comment on TestRunList_ResolvesProjectByName.
 	// Project-key-shape input that isn't cached should still reach the API
 	// (cold-start / out-of-cache-horizon projects).
 	t.Cleanup(cache.SetRootForTest(t.TempDir()))

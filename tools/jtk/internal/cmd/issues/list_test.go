@@ -571,7 +571,15 @@ func TestBuildSprintClause_WarnBranches(t *testing.T) {
 		22: {{ID: 200, Name: "Duplicated Sprint", State: "closed"}},
 	}))
 
-	client, err := api.New(api.ClientConfig{URL: "https://example.atlassian.net", Email: "e", APIToken: "t"})
+	// Hermetic httptest server — prevents any accidental resolver refresh from
+	// reaching a real host (CI outbound-blocked envs would otherwise time out).
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("{}"))
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "e", APIToken: "t"})
 	testutil.RequireNoError(t, err)
 
 	t.Run("ambiguous_emits_warning", func(t *testing.T) {

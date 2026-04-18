@@ -234,7 +234,7 @@ func fetchSprints(ctx context.Context, c *api.Client) (int, error) {
 	for _, b := range env.Data {
 		var all []api.Sprint
 		startAt := 0
-		hitCeiling := false
+		finishedNaturally := false
 		var boardErr error
 		for startAt < fetchSprintsMax {
 			resp, err := c.ListSprints(ctx, b.ID, "", startAt, pageSize)
@@ -244,22 +244,21 @@ func fetchSprints(ctx context.Context, c *api.Client) (int, error) {
 			}
 			all = append(all, resp.Values...)
 			if resp.IsLast || len(resp.Values) == 0 {
+				finishedNaturally = true
 				break
 			}
 			startAt += len(resp.Values)
-			if startAt >= fetchSprintsMax {
-				hitCeiling = true
-			}
 		}
 		if boardErr != nil {
 			fmt.Fprintf(getWarnWriter(), "warning: sprints refresh for board %d failed, skipping: %v\n", b.ID, boardErr)
 			errs = append(errs, fmt.Sprintf("board %d: %v", b.ID, boardErr))
 			continue
 		}
-		if hitCeiling {
-			// The ceiling short-circuits pagination; the final page fetched before
-			// the ceiling was reached is kept. The cache is not truncated — it
-			// just stops fetching additional pages after this point.
+		// Only warn if the ceiling is why we stopped — i.e., the loop exited
+		// without the API marking the page IsLast. A board with exactly
+		// fetchSprintsMax sprints where Jira returns IsLast=true on the final
+		// page hits `finishedNaturally` and gets no warning.
+		if !finishedNaturally && startAt >= fetchSprintsMax {
 			fmt.Fprintf(getWarnWriter(), "warning: sprints for board %d reached the %d-entry ceiling — further pages skipped (cached sprints are retained)\n", b.ID, fetchSprintsMax)
 		}
 		byBoard[b.ID] = all

@@ -145,9 +145,13 @@ func TestRunAssign_ResolverNotFoundPropagates(t *testing.T) {
 		{AccountID: "aaa", DisplayName: "Alice"},
 	}))
 
-	// Refresh endpoint returns empty → retry misses too.
+	// The bulk refresh endpoint is /rest/api/3/users (plural). Use an exact
+	// path match so the assertion can't accidentally swallow a call to
+	// /rest/api/3/user/search (singular) — those are distinct endpoints and
+	// a live SearchUsers call for email-shaped input must not silently
+	// resolve when this test claims a clean NotFoundError path.
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasPrefix(r.URL.Path, "/rest/api/3/users") {
+		if r.URL.Path == "/rest/api/3/users" {
 			_ = json.NewEncoder(w).Encode([]api.User{})
 			return
 		}

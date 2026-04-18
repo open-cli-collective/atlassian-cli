@@ -207,23 +207,37 @@ func TestRun_AuthFailure(t *testing.T) {
 	testutil.NotNil(t, err)
 }
 
-func TestRun_ExpandParamSentOnMyselfRequest(t *testing.T) {
+func TestRun_ExpandParamGatedOnExtended(t *testing.T) {
 	t.Parallel()
-	// Verifies that GetCurrentUser carries expand=groups,applicationRoles so
-	// `--extended` can render Groups / Application Roles counts.
-	var capturedQuery string
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		capturedQuery = r.URL.Query().Get("expand")
-		_ = json.NewEncoder(w).Encode(&api.User{AccountID: "a", DisplayName: "x", Active: true})
-	}))
-	defer server.Close()
+	// Verifies the /myself request carries expand=groups,applicationRoles
+	// ONLY when --extended is set. Default-mode callers don't render those
+	// counts, so the wasted payload is skipped.
+	cases := []struct {
+		name     string
+		extended bool
+		wantExp  string
+	}{
+		{"default omits expand", false, ""},
+		{"extended requests groups+roles", true, "groups,applicationRoles"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			var captured string
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				captured = r.URL.Query().Get("expand")
+				_ = json.NewEncoder(w).Encode(&api.User{AccountID: "a", DisplayName: "x", Active: true})
+			}))
+			defer server.Close()
 
-	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
-	opts.SetAPIClient(newClient(t, server.URL))
+			var stdout bytes.Buffer
+			opts := &root.Options{Output: "table", Extended: tc.extended, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+			opts.SetAPIClient(newClient(t, server.URL))
 
-	testutil.RequireNoError(t, run(context.Background(), opts))
-	if capturedQuery != "groups,applicationRoles" {
-		t.Errorf("expand param = %q, want \"groups,applicationRoles\"", capturedQuery)
+			testutil.RequireNoError(t, run(context.Background(), opts))
+			if captured != tc.wantExp {
+				t.Errorf("expand = %q, want %q", captured, tc.wantExp)
+			}
+		})
 	}
 }

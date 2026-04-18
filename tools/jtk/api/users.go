@@ -6,13 +6,21 @@ import (
 	"fmt"
 )
 
-// GetCurrentUser returns the currently authenticated user.
-// ?expand=groups,applicationRoles populates the optional Size blocks used by
-// `jtk me --extended`; fields unsupported by the endpoint are simply dropped.
-func (c *Client) GetCurrentUser(ctx context.Context) (*User, error) {
-	urlStr := buildURL(fmt.Sprintf("%s/myself", c.BaseURL), map[string]string{
-		"expand": "groups,applicationRoles",
-	})
+// UserExtendedExpand is the canonical expand string that populates
+// `--extended` user output (Groups / Application Roles size blocks).
+// Callers pass this to GetCurrentUser / GetUser when they intend to render
+// extended fields; pass "" otherwise to avoid the wasted payload.
+const UserExtendedExpand = "groups,applicationRoles"
+
+// GetCurrentUser returns the currently authenticated user. expand is passed
+// verbatim to ?expand= — callers decide which expansions they need. Use
+// UserExtendedExpand for --extended; "" for default / --id callers.
+func (c *Client) GetCurrentUser(ctx context.Context, expand string) (*User, error) {
+	params := map[string]string{}
+	if expand != "" {
+		params["expand"] = expand
+	}
+	urlStr := buildURL(fmt.Sprintf("%s/myself", c.BaseURL), params)
 	body, err := c.Get(ctx, urlStr)
 	if err != nil {
 		return nil, fmt.Errorf("getting current user: %w", err)
@@ -26,15 +34,16 @@ func (c *Client) GetCurrentUser(ctx context.Context) (*User, error) {
 	return &user, nil
 }
 
-// GetUser returns a user by their account ID.
-// ?expand=groups,applicationRoles populates the optional Size blocks used by
-// `jtk users get --extended`. timeZone / locale on the returned user may be
-// empty on instances that redact other-user personal information — presenters
-// render them as `-` in that case.
-func (c *Client) GetUser(ctx context.Context, accountID string) (*User, error) {
-	params := map[string]string{
-		"accountId": accountID,
-		"expand":    "groups,applicationRoles",
+// GetUser returns a user by their account ID. expand is passed verbatim to
+// ?expand= — callers supply their intent. Use UserExtendedExpand for
+// --extended output; "" for default/--id where the Size blocks would be
+// discarded. timeZone / locale on the returned user may be empty on
+// instances that redact other-user personal information — presenters render
+// them as `-` in that case.
+func (c *Client) GetUser(ctx context.Context, accountID, expand string) (*User, error) {
+	params := map[string]string{"accountId": accountID}
+	if expand != "" {
+		params["expand"] = expand
 	}
 	urlStr := buildURL(fmt.Sprintf("%s/user", c.BaseURL), params)
 	body, err := c.Get(ctx, urlStr)

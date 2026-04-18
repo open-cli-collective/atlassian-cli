@@ -61,7 +61,7 @@ func TestGetUser(t *testing.T) {
 			testutil.RequireNoError(t, err)
 			client.BaseURL = server.URL + "/rest/api/3"
 
-			user, err := client.GetUser(context.Background(), tt.accountID)
+			user, err := client.GetUser(context.Background(), tt.accountID, "")
 			if tt.wantErr {
 				testutil.Error(t, err)
 				return
@@ -95,7 +95,7 @@ func TestGetCurrentUser(t *testing.T) {
 	testutil.RequireNoError(t, err)
 	client.BaseURL = server.URL + "/rest/api/3"
 
-	user, err := client.GetCurrentUser(context.Background())
+	user, err := client.GetCurrentUser(context.Background(), "")
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, user.DisplayName, "Current User")
 	testutil.Equal(t, user.AccountID, "5b10ac8d82e05b22cc7d4ef5")

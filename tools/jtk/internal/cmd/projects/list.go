@@ -2,6 +2,7 @@ package projects
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 
 	"github.com/spf13/cobra"
@@ -94,11 +95,16 @@ func runList(ctx context.Context, opts *root.Options, query string, maxResults i
 		}
 	}
 
-	// Default-mode list renders KEY|TYPE|LEAD|NAME; only LEAD needs expansion.
-	// Extended adds STYLE|ISSUE_TYPES|COMPONENTS and requires the full set.
-	expand := "lead"
-	if opts.IsExtended() {
-		expand = api.ProjectListExpand
+	// --id mode emits just keys, which are on every /project/search response
+	// by default; skip expansion entirely. Default-mode list also only needs
+	// LEAD. Extended adds STYLE|ISSUE_TYPES|COMPONENTS and requires the full
+	// set.
+	expand := ""
+	if !idOnly {
+		expand = "lead"
+		if opts.IsExtended() {
+			expand = api.ProjectListExpand
+		}
 	}
 	result, err := client.SearchProjects(ctx, query, startAt, maxResults, expand)
 	if err != nil {
@@ -106,6 +112,14 @@ func runList(ctx context.Context, opts *root.Options, query string, maxResults i
 	}
 
 	hasMore := !result.IsLast
+	if hasMore && len(result.Values) == 0 {
+		// Jira's /project/search has always paired IsLast=false with a
+		// non-empty page in practice, but guarding against the degenerate
+		// "hasMore + empty Values" response matters: a client that blindly
+		// follows nextToken would loop forever on the same page. Fail loudly
+		// instead of emitting a self-referential continuation token.
+		return fmt.Errorf("unexpected paginated response: IsLast=false with empty values (startAt=%d)", startAt)
+	}
 	nextToken := ""
 	if hasMore {
 		nextToken = strconv.Itoa(startAt + len(result.Values))

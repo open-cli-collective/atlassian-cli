@@ -258,7 +258,7 @@ func runInit(ctx context.Context, opts *root.Options, prefillURL, prefillEmail, 
 			return fmt.Errorf("creating client: %w", err)
 		}
 
-		user, err := client.GetCurrentUser(ctx)
+		user, err := client.GetCurrentUser(ctx, "")
 		if err != nil {
 			v.Error("Connection failed: %v", err)
 			v.Println("")

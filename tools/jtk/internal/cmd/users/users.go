@@ -102,7 +102,11 @@ func runGet(ctx context.Context, opts *root.Options, accountID, fieldsFlag strin
 		return err
 	}
 
-	user, err := client.GetUser(ctx, accountID)
+	expand := ""
+	if opts.IsExtended() {
+		expand = api.UserExtendedExpand
+	}
+	user, err := client.GetUser(ctx, accountID, expand)
 	if err != nil {
 		return err
 	}

@@ -9,6 +9,7 @@ import (
 
 	"github.com/open-cli-collective/atlassian-go/view"
 
+	"github.com/open-cli-collective/jira-ticket-cli/api"
 	jtkartifact "github.com/open-cli-collective/jira-ticket-cli/internal/artifact"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
@@ -44,7 +45,13 @@ func run(ctx context.Context, opts *root.Options) error {
 		return err
 	}
 
-	user, err := client.GetCurrentUser(ctx)
+	// Only fetch groups/applicationRoles when --extended actually renders
+	// them; default, --id, and JSON paths don't care about those blocks.
+	expand := ""
+	if opts.IsExtended() {
+		expand = api.UserExtendedExpand
+	}
+	user, err := client.GetCurrentUser(ctx, expand)
 	if err != nil {
 		return err
 	}

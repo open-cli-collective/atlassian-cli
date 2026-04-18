@@ -195,7 +195,7 @@ pass/fail status and troubleshooting suggestions on failure.`,
 				if err != nil {
 					clientErr = err
 				} else {
-					user, authErr = client.GetCurrentUser(cmd.Context())
+					user, authErr = client.GetCurrentUser(cmd.Context(), "")
 				}
 			}
 

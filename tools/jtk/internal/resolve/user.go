@@ -25,7 +25,7 @@ import (
 // candidates listed.
 func (r *Resolver) User(ctx context.Context, input string) (api.User, error) {
 	if strings.EqualFold(input, "me") {
-		u, err := r.client.GetCurrentUser(ctx)
+		u, err := r.client.GetCurrentUser(ctx, "")
 		if err != nil {
 			return api.User{}, fmt.Errorf("resolving current user: %w", err)
 		}

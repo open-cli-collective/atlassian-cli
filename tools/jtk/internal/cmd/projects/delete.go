@@ -9,6 +9,7 @@ import (
 	"github.com/open-cli-collective/atlassian-go/present"
 	"github.com/open-cli-collective/atlassian-go/prompt"
 
+	"github.com/open-cli-collective/jira-ticket-cli/internal/cache"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
 )
@@ -63,6 +64,8 @@ func runDelete(ctx context.Context, opts *root.Options, keyOrID string, force bo
 	if err := client.DeleteProject(ctx, keyOrID); err != nil {
 		return err
 	}
+
+	_ = cache.Touch(cache.ProjectDependents()...)
 
 	model := jtkpresent.ProjectPresenter{}.PresentDeleted(keyOrID)
 	out := present.Render(model, opts.RenderStyle())

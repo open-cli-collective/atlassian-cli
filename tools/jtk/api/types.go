@@ -223,6 +223,13 @@ type Priority struct {
 	Name string `json:"name"`
 }
 
+// Resolution represents a workflow resolution value
+type Resolution struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+}
+
 // User represents a Jira user
 type User struct {
 	AccountID    string            `json:"accountId"`

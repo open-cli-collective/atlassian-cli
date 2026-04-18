@@ -9,6 +9,7 @@ import (
 	"github.com/open-cli-collective/atlassian-go/present"
 	"github.com/open-cli-collective/atlassian-go/view"
 
+	"github.com/open-cli-collective/jira-ticket-cli/internal/cache"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
 )
@@ -38,6 +39,8 @@ func runRestore(ctx context.Context, opts *root.Options, keyOrID string) error {
 	if err != nil {
 		return err
 	}
+
+	_ = cache.Touch(cache.ProjectDependents()...)
 
 	if v.Format == view.FormatJSON {
 		return v.JSON(project)

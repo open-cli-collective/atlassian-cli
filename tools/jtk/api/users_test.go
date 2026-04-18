@@ -101,6 +101,34 @@ func TestGetCurrentUser(t *testing.T) {
 	testutil.Equal(t, user.AccountID, "5b10ac8d82e05b22cc7d4ef5")
 }
 
+func TestListUsersPage(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		testutil.Equal(t, r.URL.Path, "/rest/api/3/users")
+		testutil.Equal(t, r.URL.Query().Get("startAt"), "50")
+		testutil.Equal(t, r.URL.Query().Get("maxResults"), "50")
+		users := []User{
+			{AccountID: "a1", DisplayName: "User One", Active: true},
+			{AccountID: "a2", DisplayName: "User Two", Active: true},
+		}
+		_ = json.NewEncoder(w).Encode(users)
+	}))
+	defer server.Close()
+
+	client, err := New(ClientConfig{
+		URL:      "https://test.atlassian.net",
+		Email:    "test@example.com",
+		APIToken: "test-token",
+	})
+	testutil.RequireNoError(t, err)
+	client.BaseURL = server.URL + "/rest/api/3"
+
+	users, err := client.ListUsersPage(context.Background(), 50, 50)
+	testutil.RequireNoError(t, err)
+	testutil.Len(t, users, 2)
+	testutil.Equal(t, users[0].AccountID, "a1")
+}
+
 func TestSearchUsers(t *testing.T) {
 	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

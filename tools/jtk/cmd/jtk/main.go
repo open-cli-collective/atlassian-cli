@@ -23,6 +23,7 @@ import (
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/links"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/me"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/projects"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/refresh"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/sprints"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/transitions"
@@ -58,6 +59,7 @@ func run(ctx context.Context) error {
 	sprints.Register(rootCmd, opts)
 	users.Register(rootCmd, opts)
 	me.Register(rootCmd, opts)
+	refresh.Register(rootCmd, opts)
 	completion.Register(rootCmd, opts)
 
 	return rootCmd.ExecuteContext(ctx)

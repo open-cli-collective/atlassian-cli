@@ -12,6 +12,7 @@ import (
 	"github.com/open-cli-collective/atlassian-go/view"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/cache"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
 )
@@ -161,6 +162,8 @@ func runCreate(ctx context.Context, opts *root.Options, name, fieldType, descrip
 		return err
 	}
 
+	_ = cache.AppendOnCreate[api.Field]("fields", *field)
+
 	if v.Format == view.FormatJSON {
 		return v.JSON(field)
 	}
@@ -224,6 +227,8 @@ func runDelete(ctx context.Context, opts *root.Options, fieldID string, force bo
 		return err
 	}
 
+	_ = cache.RemoveOnDelete[api.Field]("fields", func(f api.Field) bool { return f.ID == fieldID })
+
 	model := jtkpresent.FieldPresenter{}.PresentTrashed(fieldID)
 	out := present.Render(model, opts.RenderStyle())
 	fmt.Fprint(opts.Stdout, out.Stdout)
@@ -253,6 +258,8 @@ func runRestore(ctx context.Context, opts *root.Options, fieldID string) error {
 	if err := client.RestoreField(ctx, fieldID); err != nil {
 		return err
 	}
+
+	_ = cache.Touch("fields")
 
 	model := jtkpresent.FieldPresenter{}.PresentRestored(fieldID)
 	out := present.Render(model, opts.RenderStyle())

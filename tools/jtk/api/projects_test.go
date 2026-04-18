@@ -163,6 +163,32 @@ func TestGetProject(t *testing.T) {
 	}
 }
 
+func TestGetProject_SendsExpandForExtendedFields(t *testing.T) {
+	t.Parallel()
+	// `projects get --extended` depends on description, lead, issueTypes,
+	// projectKeys, and versions being populated by the API response. Capture
+	// the outgoing request's expand param so a future refactor can't quietly
+	// drop one of those keys.
+	var capturedExpand string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		capturedExpand = r.URL.Query().Get("expand")
+		_, _ = w.Write([]byte(`{"id":"10001","key":"TST","name":"Test"}`))
+	}))
+	defer server.Close()
+
+	client, err := New(ClientConfig{URL: "https://test.atlassian.net", Email: "t@t.com", APIToken: "x"})
+	testutil.RequireNoError(t, err)
+	client.BaseURL = server.URL + "/rest/api/3"
+
+	_, err = client.GetProject(context.Background(), "TST")
+	testutil.RequireNoError(t, err)
+
+	// Order within the expand string mirrors the call site; if the call site
+	// reorders them this assertion intentionally breaks so the author can
+	// confirm intent.
+	testutil.Equal(t, capturedExpand, "description,lead,issueTypes,url,projectKeys,versions")
+}
+
 func TestCreateProject(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testutil.Equal(t, r.Method, http.MethodPost)

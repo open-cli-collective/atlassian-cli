@@ -147,6 +147,73 @@ func TestRunList_NextPageToken_AdvancesStartAt(t *testing.T) {
 	testutil.Equal(t, captured, "25")
 }
 
+func TestRunList_Fields_JSONReturnsError(t *testing.T) {
+	t.Parallel()
+	// `--fields` + `-o json` is explicitly rejected (parity with users search
+	// / issues list). The guard in runList must fire before hitting the
+	// server so the user gets a predictable error.
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(api.ProjectSearchResponse{Values: []api.ProjectDetail{}, IsLast: true})
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "json", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runList(context.Background(), opts, "", 50, "", "KEY")
+	testutil.NotNil(t, err)
+	testutil.Contains(t, err.Error(), "--fields is not supported")
+}
+
+func TestRunList_NextPageToken_RejectsNegative(t *testing.T) {
+	t.Parallel()
+	// strconv.Atoi parses "-1" successfully; the n < 0 guard must still
+	// reject it. A parallel test lives in users_test.go since the helper is
+	// duplicated per package.
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(api.ProjectSearchResponse{Values: []api.ProjectDetail{}, IsLast: true})
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runList(context.Background(), opts, "", 50, "-5", "")
+	testutil.NotNil(t, err)
+	testutil.Contains(t, err.Error(), "invalid --next-page-token")
+	testutil.Contains(t, err.Error(), "non-negative")
+}
+
+func TestRunGet_Fields_JSONReturnsError(t *testing.T) {
+	t.Parallel()
+	// Mirrors TestRunGet_Fields_JSONReturnsError in users_test.go — the
+	// errFieldsWithJSON guard in runGet was introduced for this migration
+	// and should not silently accept both flags.
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(api.ProjectDetail{Key: "TST", Name: "Test"})
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "json", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runGet(context.Background(), opts, "TST", "NAME")
+	testutil.NotNil(t, err)
+	testutil.Contains(t, err.Error(), "--fields is not supported")
+}
+
 func TestRunList_IDOnly_EmitsKeysOnly(t *testing.T) {
 	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

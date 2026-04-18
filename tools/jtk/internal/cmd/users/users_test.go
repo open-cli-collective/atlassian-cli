@@ -320,6 +320,22 @@ func TestRunSearch_NextPageToken_RejectsNonNumeric(t *testing.T) {
 	testutil.Contains(t, err.Error(), "invalid --next-page-token")
 }
 
+func TestRunSearch_NextPageToken_RejectsNegative(t *testing.T) {
+	t.Parallel()
+	// strconv.Atoi happily parses "-1"; the n < 0 guard must still reject it.
+	server := newTestUsersServer(t, []api.User{})
+	defer server.Close()
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(newClient(t, server.URL))
+
+	err := runSearch(context.Background(), opts, "al", 10, "-1", "")
+	testutil.NotNil(t, err)
+	testutil.Contains(t, err.Error(), "invalid --next-page-token")
+	testutil.Contains(t, err.Error(), "non-negative")
+}
+
 func TestRunSearch_Fields_JSONReturnsError(t *testing.T) {
 	t.Parallel()
 	server := newTestUsersServer(t, []api.User{})

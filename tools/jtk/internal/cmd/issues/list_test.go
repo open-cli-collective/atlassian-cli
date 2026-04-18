@@ -17,6 +17,7 @@ import (
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cache"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/present/projection"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/resolve"
 )
 
 // captureJQLServer captures the JQL from the search request body so tests
@@ -533,4 +534,87 @@ func TestRunList_AllFieldsWithoutFields_UsesDefaultSearchFields(t *testing.T) {
 	if len(got) != len(api.DefaultSearchFields) {
 		t.Errorf("--all-fields should request DefaultSearchFields; got %d fields, want %d", len(got), len(api.DefaultSearchFields))
 	}
+}
+
+func TestJqlEscape(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{"empty", "", ""},
+		{"plain", "Sprint 70", "Sprint 70"},
+		{"quote_escaped", `She said "hi"`, `She said \"hi\"`},
+		{"backslash_escaped_before_quote", `C:\path`, `C:\\path`},
+		// Ordering invariant: backslash is escaped BEFORE quote. If the order
+		// reversed, the input `\"` would become `\\"` (unterminated) instead of
+		// the correct `\\\"`.
+		{"bslash_then_quote_ordering", `\"`, `\\\"`},
+		{"both_chars_mixed", `a\b"c\"d`, `a\\b\"c\\\"d`},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := jqlEscape(tc.in); got != tc.want {
+				t.Errorf("jqlEscape(%q) = %q; want %q", tc.in, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestBuildSprintClause_WarnBranches(t *testing.T) {
+	seedCacheForIssues(t)
+	// Seed two boards with a sprint of the same name on both, so name resolution
+	// is ambiguous.
+	testutil.RequireNoError(t, seedSprints(map[int][]api.Sprint{
+		11: {{ID: 100, Name: "Duplicated Sprint", State: "active"}},
+		22: {{ID: 200, Name: "Duplicated Sprint", State: "closed"}},
+	}))
+
+	client, err := api.New(api.ClientConfig{URL: "https://example.atlassian.net", Email: "e", APIToken: "t"})
+	testutil.RequireNoError(t, err)
+
+	t.Run("ambiguous_emits_warning", func(t *testing.T) {
+		var buf bytes.Buffer
+		clause, err := buildSprintClause(context.Background(), resolve.New(client), "Duplicated Sprint", &buf)
+		testutil.RequireNoError(t, err)
+		if !strings.Contains(clause, `sprint = "Duplicated Sprint"`) {
+			t.Fatalf("want quoted JQL fallback, got %q", clause)
+		}
+		if !strings.Contains(buf.String(), "matched multiple cached boards") {
+			t.Errorf("want ambiguity warning, got: %q", buf.String())
+		}
+	})
+
+	t.Run("unresolvable_name_always_emits_some_warning", func(t *testing.T) {
+		// The resolver's NotFoundError vs "resolver failed" (network) branch
+		// depends on refresh reachability — both are valid in this test setup
+		// (httptest client isn't wired for a sprints refresh). The invariant
+		// the reviewer asked us to pin is that the function never silently
+		// falls through to a JQL quoted-name clause: whichever branch fires,
+		// the user gets a diagnostic.
+		var buf bytes.Buffer
+		clause, err := buildSprintClause(context.Background(), resolve.New(client), "Nonexistent Sprint Name", &buf)
+		testutil.RequireNoError(t, err)
+		if !strings.Contains(clause, `sprint = "Nonexistent Sprint Name"`) {
+			t.Fatalf("want quoted JQL fallback, got %q", clause)
+		}
+		if !strings.Contains(buf.String(), "warning:") {
+			t.Errorf("want some warning, got silence: %q", buf.String())
+		}
+	})
+
+	t.Run("negative_numeric_rejected", func(t *testing.T) {
+		_, err := buildSprintClause(context.Background(), resolve.New(client), "-5", nil)
+		if err == nil || !strings.Contains(err.Error(), "must be positive") {
+			t.Errorf("want positive-only error, got %v", err)
+		}
+	})
+
+	t.Run("zero_numeric_rejected", func(t *testing.T) {
+		_, err := buildSprintClause(context.Background(), resolve.New(client), "0", nil)
+		if err == nil || !strings.Contains(err.Error(), "must be positive") {
+			t.Errorf("want positive-only error, got %v", err)
+		}
+	})
 }

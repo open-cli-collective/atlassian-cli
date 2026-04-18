@@ -228,7 +228,12 @@ func buildSprintClause(ctx context.Context, resolver *resolve.Resolver, sprint s
 			fmt.Fprintf(warn,
 				"warning: sprint %q not found in cache; falling back to JQL name resolution — "+
 					"Jira will resolve the name or return an empty result set. Run `jtk refresh sprints` to update the cache.\n", sprint)
-		case err == nil && resolved.ID == 0:
+		case err != nil:
+			// Network failure, auth error, or other non-cache error during
+			// resolution. Surface it rather than silently falling through.
+			fmt.Fprintf(warn,
+				"warning: sprint resolver failed for %q (%v); falling back to JQL name resolution.\n", sprint, err)
+		case resolved.ID == 0:
 			// Resolver returned a synthetic (shouldn't happen for sprints today, but
 			// future-proofs the warning if sprint pass-through is ever added).
 			fmt.Fprintf(warn,

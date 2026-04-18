@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"strings"
 	"time"
 
@@ -100,17 +101,20 @@ func runMove(ctx context.Context, opts *root.Options, issueKeys []string, target
 		if issue.Fields.IssueType == nil {
 			return fmt.Errorf("source issue %s has no issue type", issueKeys[0])
 		}
-		// Symmetric with the explicit --to-type path: on cache-miss, try
-		// one targeted refresh before giving up. Keeps fresh-install UX
-		// consistent — `jtk issues move PROJ-1 TARGET` and
-		// `jtk issues move PROJ-1 TARGET --to-type Task` behave the same
-		// when the issuetypes envelope hasn't been written yet.
-		match, derr := matchCachedIssueType(projectKey, issue.Fields.IssueType.Name)
+		sourceTypeName := issue.Fields.IssueType.Name
+		// Cache-first with a targeted single-project live fallback on
+		// cold cache. Using the cache avoids N+1 fetches during bulk
+		// moves; the live fallback preserves the pre-cache O(1) cold-
+		// start cost (one GetProjectIssueTypes call for the target
+		// project) instead of pulling the entire multi-project
+		// issuetypes envelope just to answer one lookup.
+		match, derr := matchCachedIssueType(projectKey, sourceTypeName, opts.Stderr)
 		if derr != nil && errors.Is(derr, errIssueTypesCacheUninitialized) {
-			if rerr := refreshIssueTypesOnce(ctx, client); rerr != nil {
-				return fmt.Errorf("%w (refresh attempt failed: %w)", derr, rerr)
+			liveTypes, lerr := client.GetProjectIssueTypes(ctx, projectKey)
+			if lerr != nil {
+				return fmt.Errorf("%w (live fetch also failed: %w)", derr, lerr)
 			}
-			match, derr = matchCachedIssueType(projectKey, issue.Fields.IssueType.Name)
+			match, derr = matchIssueTypeInSlice(liveTypes, projectKey, sourceTypeName, opts.Stderr)
 		}
 		if derr != nil {
 			return derr
@@ -254,26 +258,7 @@ func runMoveStatus(ctx context.Context, opts *root.Options, taskID string) error
 // giving up (matches the resolver.IssueType path for --to-type).
 var errIssueTypesCacheUninitialized = errors.New("issuetypes cache not initialized — run `jtk refresh issuetypes`")
 
-// refreshIssueTypesOnce runs the issuetypes fetcher (plus its dependencies)
-// a single time. Used by the default-type path when the cache is cold, so
-// both move branches converge on the same fresh-install behavior.
-func refreshIssueTypesOnce(ctx context.Context, client *api.Client) error {
-	entries, err := cache.SelectWithDeps([]string{"issuetypes"})
-	if err != nil {
-		return err
-	}
-	for _, e := range entries {
-		if !e.IsAvailable(client) {
-			return fmt.Errorf("%s cache unavailable (scope restriction)", e.Name)
-		}
-		if _, err := e.Fetch(ctx, client); err != nil {
-			return fmt.Errorf("refreshing %s: %w", e.Name, err)
-		}
-	}
-	return nil
-}
-
-func matchCachedIssueType(projectKey, sourceTypeName string) (*api.IssueType, error) {
+func matchCachedIssueType(projectKey, sourceTypeName string, warn io.Writer) (*api.IssueType, error) {
 	env, err := cache.ReadResource[map[string][]api.IssueType]("issuetypes")
 	if err != nil {
 		if errors.Is(err, cache.ErrCacheMiss) {
@@ -285,17 +270,29 @@ func matchCachedIssueType(projectKey, sourceTypeName string) (*api.IssueType, er
 	if !ok || len(types) == 0 {
 		return nil, fmt.Errorf("no cached issue types for project %s (run `jtk refresh issuetypes` or supply --to-type)", projectKey)
 	}
-	// Preferred: source type (case-insensitive) exists in the target.
+	return matchIssueTypeInSlice(types, projectKey, sourceTypeName, warn)
+}
+
+// matchIssueTypeInSlice picks a target issue type from an unordered list.
+// Preferred: exact name match (case-insensitive) with the source type.
+// Fallback: first non-subtask — emits a stderr warning because this can
+// silently change the issue type (e.g. Bug → Task) when the source type
+// doesn't exist in the target project.
+func matchIssueTypeInSlice(types []api.IssueType, projectKey, sourceTypeName string, warn io.Writer) (*api.IssueType, error) {
 	for i := range types {
 		if strings.EqualFold(types[i].Name, sourceTypeName) {
 			return &types[i], nil
 		}
 	}
-	// Fallback: first non-subtask.
 	for i := range types {
 		if !types[i].Subtask {
+			if warn != nil {
+				fmt.Fprintf(warn,
+					"warning: source issue type %q not found in project %s; using %q as the target type (pass --to-type to override).\n",
+					sourceTypeName, projectKey, types[i].Name)
+			}
 			return &types[i], nil
 		}
 	}
-	return nil, fmt.Errorf("no non-subtask issue types cached for project %s", projectKey)
+	return nil, fmt.Errorf("no non-subtask issue types available for project %s", projectKey)
 }

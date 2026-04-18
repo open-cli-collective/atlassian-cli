@@ -257,7 +257,10 @@ func fetchSprints(ctx context.Context, c *api.Client) (int, error) {
 			continue
 		}
 		if hitCeiling {
-			fmt.Fprintf(getWarnWriter(), "warning: sprints for board %d exceeded %d-entry ceiling — cache truncated\n", b.ID, fetchSprintsMax)
+			// The ceiling short-circuits pagination; the final page fetched before
+			// the ceiling was reached is kept. The cache is not truncated — it
+			// just stops fetching additional pages after this point.
+			fmt.Fprintf(getWarnWriter(), "warning: sprints for board %d reached the %d-entry ceiling — further pages skipped (cached sprints are retained)\n", b.ID, fetchSprintsMax)
 		}
 		byBoard[b.ID] = all
 		total += len(all)

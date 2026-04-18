@@ -440,7 +440,9 @@ func TestRunCreate_WithAssigneeMe(t *testing.T) {
 func TestRunCreate_WithAssigneeEmail(t *testing.T) {
 	seedCacheForIssues(t)
 	// Seed a user whose email matches the input so the resolver finds them
-	// in the cache (no live /user/search fallback under the new rules).
+	// in the cache on the fast path. A live /user/search fallback exists for
+	// email-shaped input after cache-miss + refresh, but seeding the cache
+	// here keeps this test hermetic.
 	testutil.RequireNoError(t, cache.WriteResource("users", "24h", []api.User{
 		{AccountID: "found-account-id", DisplayName: "Found User", EmailAddress: "user@example.com"},
 	}))

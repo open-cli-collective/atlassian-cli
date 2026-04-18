@@ -8,10 +8,33 @@ import (
 	"github.com/open-cli-collective/atlassian-go/present"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/present/projection"
 )
 
 // CommentPresenter creates presentation models for comment data.
 type CommentPresenter struct{}
+
+// CommentListSpec declares the columns emitted by PresentList /
+// PresentListWithPagination. Order MUST match the hardcoded Headers in
+// PresentList. None of these have a Jira FieldID — comment fields are
+// not Jira issue fields, so resolve.go's slow path will never find a
+// match and unknown tokens correctly return UnknownFieldError.
+var CommentListSpec = projection.Registry{
+	{Header: "ID", Identity: true},
+	{Header: "AUTHOR"},
+	{Header: "CREATED"},
+	{Header: "BODY"},
+}
+
+// CommentDetailSpec declares the Fields emitted by PresentListFull /
+// PresentListFullWithPagination. Order MUST match the per-comment field
+// order in PresentListFull.
+var CommentDetailSpec = projection.Registry{
+	{Header: "ID", Identity: true},
+	{Header: "Author"},
+	{Header: "Created"},
+	{Header: "Body"},
+}
 
 // PresentList creates a table view for a list of comments.
 func (CommentPresenter) PresentList(comments []api.Comment) *present.OutputModel {

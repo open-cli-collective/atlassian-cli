@@ -230,3 +230,87 @@ func TestRunGet_IDOnly_BypassesJSONFieldsRejection(t *testing.T) {
 		t.Errorf("expected bare key, got %q", stdout.String())
 	}
 }
+
+// fullIssueWithLongDescription returns a TEST-1 fixture whose Description
+// exceeds the 200-char truncation threshold so the body-vs-fulltext
+// interaction is observable.
+func fullIssueWithLongDescription() api.Issue {
+	issue := fullIssue()
+	issue.Fields.Description = &api.Description{Text: strings.Repeat("D", 300)}
+	return issue
+}
+
+// AC1 (issues get): description suppressed by --fields when not selected.
+// Long description text MUST be absent from output.
+func TestRunGet_Fields_SuppressesDescription_WhenNotSelected(t *testing.T) {
+	t.Parallel()
+	cs := newCapturingGetServer(t, fullIssueWithLongDescription(), nil)
+	defer cs.server.Close()
+
+	opts, stdout, _ := newGetOpts(t, cs)
+	err := runGet(context.Background(), opts, "TEST-1", false, "Summary,Status")
+	testutil.RequireNoError(t, err)
+
+	output := stdout.String()
+	testutil.Contains(t, output, "Key: TEST-1")
+	testutil.Contains(t, output, "Status: Open")
+	if strings.Contains(output, "Description") {
+		t.Errorf("Description label should not appear: %q", output)
+	}
+	if strings.Contains(output, "DDDD") {
+		t.Errorf("Description body text leaked into output: %q", output)
+	}
+}
+
+// AC1 (issues get): description selected without --fulltext is truncated.
+func TestRunGet_Fields_Description_TruncatedWithoutFullText(t *testing.T) {
+	t.Parallel()
+	cs := newCapturingGetServer(t, fullIssueWithLongDescription(), nil)
+	defer cs.server.Close()
+
+	opts, stdout, _ := newGetOpts(t, cs)
+	err := runGet(context.Background(), opts, "TEST-1", false, "Description")
+	testutil.RequireNoError(t, err)
+
+	output := stdout.String()
+	testutil.Contains(t, output, "Description:")
+	testutil.Contains(t, output, "[truncated, use --fulltext for complete text]")
+}
+
+// AC1+AC3 (issues get): description selected WITH --fulltext shows full body
+// and no truncation marker.
+func TestRunGet_Fields_Description_FullTextWhenSelected(t *testing.T) {
+	t.Parallel()
+	cs := newCapturingGetServer(t, fullIssueWithLongDescription(), nil)
+	defer cs.server.Close()
+
+	opts, stdout, _ := newGetOpts(t, cs)
+	err := runGet(context.Background(), opts, "TEST-1", true, "Description")
+	testutil.RequireNoError(t, err)
+
+	output := stdout.String()
+	testutil.Contains(t, output, "Description:")
+	testutil.Contains(t, output, strings.Repeat("D", 300))
+	testutil.NotContains(t, output, "[truncated")
+}
+
+// AC3 (issues get): --fulltext is a no-op when Description is not selected.
+// Output must not contain description text even though noTruncate=true.
+func TestRunGet_Fields_FullTextNoOp_WhenDescriptionNotSelected(t *testing.T) {
+	t.Parallel()
+	cs := newCapturingGetServer(t, fullIssueWithLongDescription(), nil)
+	defer cs.server.Close()
+
+	opts, stdout, _ := newGetOpts(t, cs)
+	err := runGet(context.Background(), opts, "TEST-1", true, "Summary")
+	testutil.RequireNoError(t, err)
+
+	output := stdout.String()
+	testutil.Contains(t, output, "Summary:")
+	if strings.Contains(output, "Description") {
+		t.Errorf("Description label should not appear: %q", output)
+	}
+	if strings.Contains(output, "DDDD") {
+		t.Errorf("Description body text leaked even though Description not selected: %q", output)
+	}
+}

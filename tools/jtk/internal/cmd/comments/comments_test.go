@@ -87,7 +87,7 @@ func TestRunList_TruncatesCommentBody(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runList(context.Background(), opts, "TEST-1", 50, false)
+	err = runList(context.Background(), opts, "TEST-1", 50, false, "")
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()
@@ -137,7 +137,7 @@ func TestRunList_FullCommentBody(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runList(context.Background(), opts, "TEST-1", 50, true)
+	err = runList(context.Background(), opts, "TEST-1", 50, true, "")
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()
@@ -297,7 +297,7 @@ func TestRunList_ShortCommentNotTruncated(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runList(context.Background(), opts, "TEST-1", 50, false)
+	err = runList(context.Background(), opts, "TEST-1", 50, false, "")
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()
@@ -325,7 +325,7 @@ func TestRunList_NoComments(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runList(context.Background(), opts, "TEST-1", 50, false)
+	err = runList(context.Background(), opts, "TEST-1", 50, false, "")
 	testutil.RequireNoError(t, err)
 
 	combined := stdout.String() + stderr.String()
@@ -382,7 +382,7 @@ func TestRunList_FullTextBlockSpacing(t *testing.T) {
 	defer server.Close()
 
 	opts, stdout, _ := newCommentsOpts(t, server)
-	err := runList(context.Background(), opts, "TEST-1", 50, true)
+	err := runList(context.Background(), opts, "TEST-1", 50, true, "")
 	testutil.RequireNoError(t, err)
 
 	out := stdout.String()
@@ -401,7 +401,7 @@ func TestRunList_FullTextPaginationOnStdout(t *testing.T) {
 	defer server.Close()
 
 	opts, stdout, stderr := newCommentsOpts(t, server)
-	err := runList(context.Background(), opts, "TEST-1", 1, true)
+	err := runList(context.Background(), opts, "TEST-1", 1, true, "")
 	testutil.RequireNoError(t, err)
 
 	if !strings.Contains(stdout.String(), "More results available") {
@@ -423,7 +423,7 @@ func TestRunList_IDOnlyEmitsIDsOnePerLine(t *testing.T) {
 
 	opts, stdout, stderr := newCommentsOpts(t, server)
 	opts.IDOnly = true
-	err := runList(context.Background(), opts, "TEST-1", 50, false)
+	err := runList(context.Background(), opts, "TEST-1", 50, false, "")
 	testutil.RequireNoError(t, err)
 
 	want := "11\n22\n"
@@ -443,7 +443,7 @@ func TestRunList_IDOnlyWithMoreResultsAppendsContinuation(t *testing.T) {
 
 	opts, stdout, _ := newCommentsOpts(t, server)
 	opts.IDOnly = true
-	err := runList(context.Background(), opts, "TEST-1", 1, false)
+	err := runList(context.Background(), opts, "TEST-1", 1, false, "")
 	testutil.RequireNoError(t, err)
 
 	want := "1\nMore results available (use --next-page-token to fetch next page)\n"
@@ -462,7 +462,7 @@ func TestRunList_EmptyNeverEmitsSpuriousPaginationHint(t *testing.T) {
 	defer server.Close()
 
 	opts, stdout, stderr := newCommentsOpts(t, server)
-	err := runList(context.Background(), opts, "TEST-1", 50, false)
+	err := runList(context.Background(), opts, "TEST-1", 50, false, "")
 	testutil.RequireNoError(t, err)
 
 	if strings.Contains(stdout.String(), "More results available") {
@@ -480,7 +480,7 @@ func TestRunList_EmptyWithIDOnly_EmitsNothing(t *testing.T) {
 
 	opts, stdout, stderr := newCommentsOpts(t, server)
 	opts.IDOnly = true
-	err := runList(context.Background(), opts, "TEST-1", 50, false)
+	err := runList(context.Background(), opts, "TEST-1", 50, false, "")
 	testutil.RequireNoError(t, err)
 
 	if stdout.String() != "" {
@@ -497,7 +497,7 @@ func TestRunList_EmptyDefaultGoesToStdout(t *testing.T) {
 	defer server.Close()
 
 	opts, stdout, stderr := newCommentsOpts(t, server)
-	err := runList(context.Background(), opts, "TEST-1", 50, false)
+	err := runList(context.Background(), opts, "TEST-1", 50, false, "")
 	testutil.RequireNoError(t, err)
 
 	if !strings.Contains(stdout.String(), "No comments on TEST-1") {
@@ -582,7 +582,7 @@ func TestRunList_MultipleCommentsFullMode(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runList(context.Background(), opts, "TEST-1", 50, true)
+	err = runList(context.Background(), opts, "TEST-1", 50, true, "")
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()

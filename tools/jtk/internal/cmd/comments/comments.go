@@ -3,6 +3,7 @@ package comments
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -11,11 +12,23 @@ import (
 	"github.com/open-cli-collective/atlassian-go/present"
 	"github.com/open-cli-collective/atlassian-go/view"
 
+	"github.com/open-cli-collective/jira-ticket-cli/api"
 	jtkartifact "github.com/open-cli-collective/jira-ticket-cli/internal/artifact"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/present/projection"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/text"
 )
+
+// errFieldsWithJSON is returned when --fields is combined with --output json.
+var errFieldsWithJSON = errors.New("--fields is not supported with --output json")
+
+// noFieldFetch is the projection.Resolve fetcher for comments. Comment
+// fields are not Jira issue fields, so there is no metadata to fetch;
+// returning nil routes deferred tokens cleanly to UnknownFieldError
+// rather than UnrenderedFieldError or a real network call against
+// /rest/api/3/field.
+func noFieldFetch(_ context.Context) ([]api.Field, error) { return nil, nil }
 
 // Register registers the comments commands
 func Register(parent *cobra.Command, opts *root.Options) {
@@ -36,27 +49,31 @@ func Register(parent *cobra.Command, opts *root.Options) {
 func newListCmd(opts *root.Options) *cobra.Command {
 	var maxResults int
 	var noTruncate bool
+	var fieldsFlag string
 
 	cmd := &cobra.Command{
 		Use:   "list <issue-key>",
 		Short: "List comments on an issue",
 		Long:  "List all comments on a specific issue.",
 		Example: `  jtk comments list PROJ-123
-  jtk comments list PROJ-123 --fulltext`,
+  jtk comments list PROJ-123 --fulltext
+  jtk comments list PROJ-123 --fields ID,AUTHOR
+  jtk comments list PROJ-123 --fulltext --fields Body`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runList(cmd.Context(), opts, args[0], maxResults, noTruncate || opts.IsFullText())
+			return runList(cmd.Context(), opts, args[0], maxResults, noTruncate || opts.IsFullText(), fieldsFlag)
 		},
 	}
 
 	cmd.Flags().IntVarP(&maxResults, "max", "m", 50, "Maximum number of comments")
 	cmd.Flags().BoolVar(&noTruncate, "no-truncate", false, "Show full comment bodies without truncation")
 	_ = cmd.Flags().MarkDeprecated("no-truncate", "use --fulltext instead")
+	cmd.Flags().StringVar(&fieldsFlag, "fields", "", "Comma-separated display fields (labels)")
 
 	return cmd
 }
 
-func runList(ctx context.Context, opts *root.Options, issueKey string, maxResults int, noTruncate bool) error {
+func runList(ctx context.Context, opts *root.Options, issueKey string, maxResults int, noTruncate bool, fieldsFlag string) error {
 	v := opts.View()
 
 	client, err := opts.APIClient()
@@ -71,12 +88,35 @@ func runList(ctx context.Context, opts *root.Options, issueKey string, maxResult
 
 	hasMore := commentsHasMore(result.Total, result.StartAt, len(result.Comments), maxResults)
 
+	// --id wins: skip projection and JSON-vs-fields gating entirely. A
+	// --fields token that would otherwise trigger metadata work must be a
+	// no-op under --id.
 	if opts.EmitIDOnly() {
 		ids := make([]string, len(result.Comments))
 		for i, c := range result.Comments {
 			ids[i] = c.ID
 		}
 		return jtkpresent.EmitIDsWithPagination(opts, ids, hasMore)
+	}
+
+	if fieldsFlag != "" && v.Format == view.FormatJSON {
+		return errFieldsWithJSON
+	}
+
+	spec := jtkpresent.CommentListSpec
+	if noTruncate {
+		spec = jtkpresent.CommentDetailSpec
+	}
+	selected, projected, err := projection.Resolve(
+		ctx,
+		spec,
+		opts.IsExtended(),
+		fieldsFlag,
+		noFieldFetch,
+		"comments list",
+	)
+	if err != nil {
+		return err
 	}
 
 	if len(result.Comments) == 0 {
@@ -93,10 +133,38 @@ func runList(ctx context.Context, opts *root.Options, issueKey string, maxResult
 	var model *present.OutputModel
 	if noTruncate {
 		model = jtkpresent.CommentPresenter{}.PresentListFullWithPagination(result.Comments, hasMore)
+		if projected {
+			projectAllDetailSectionsInModel(model, selected)
+		}
 	} else {
 		model = jtkpresent.CommentPresenter{}.PresentListWithPagination(result.Comments, hasMore)
+		if projected {
+			projectTableSectionInModel(model, selected)
+		}
 	}
 	return jtkpresent.Emit(opts, model)
+}
+
+// projectAllDetailSectionsInModel rewrites every DetailSection of model
+// to the selected fields, leaving non-Detail sections (e.g. the
+// pagination MessageSection) untouched.
+func projectAllDetailSectionsInModel(model *present.OutputModel, selected []projection.ColumnSpec) {
+	for i, s := range model.Sections {
+		if ds, ok := s.(*present.DetailSection); ok {
+			model.Sections[i] = projection.ProjectDetail(ds, selected)
+		}
+	}
+}
+
+// projectTableSectionInModel rewrites the first TableSection of model to
+// the selected columns.
+func projectTableSectionInModel(model *present.OutputModel, selected []projection.ColumnSpec) {
+	for i, s := range model.Sections {
+		if ts, ok := s.(*present.TableSection); ok {
+			model.Sections[i] = projection.ProjectTable(ts, selected)
+			return
+		}
+	}
 }
 
 // commentsHasMore computes pagination using the authoritative API metadata,

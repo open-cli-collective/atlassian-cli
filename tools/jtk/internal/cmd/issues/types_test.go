@@ -12,6 +12,7 @@ import (
 	"github.com/open-cli-collective/atlassian-go/testutil"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/cache"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 )
 
@@ -75,7 +76,9 @@ func TestRunTypes_Success(t *testing.T) {
 }
 
 func TestRunTypes_ProjectNotFound(t *testing.T) {
-	t.Parallel()
+	// Not t.Parallel(): SetInstanceKeyForTest mutates a cache package global.
+	// See seedCacheForIssues for the serial-execution contract.
+	t.Cleanup(cache.SetInstanceKeyForTest("test.atlassian.net"))
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 		_, _ = w.Write([]byte(`{"errorMessages":["No project could be found with key 'INVALID'."]}`))
@@ -102,7 +105,7 @@ func TestRunTypes_ProjectNotFound(t *testing.T) {
 }
 
 func TestRunTypes_EmptyIssueTypes(t *testing.T) {
-	t.Parallel()
+	t.Cleanup(cache.SetInstanceKeyForTest("test.atlassian.net"))
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		response := api.ProjectDetail{
 			ID:         json.Number("10000"),
@@ -136,7 +139,7 @@ func TestRunTypes_EmptyIssueTypes(t *testing.T) {
 }
 
 func TestRunTypes_JSONOutput(t *testing.T) {
-	t.Parallel()
+	t.Cleanup(cache.SetInstanceKeyForTest("test.atlassian.net"))
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		response := api.ProjectDetail{
 			ID:   json.Number("10000"),
@@ -183,7 +186,7 @@ func TestRunTypes_JSONOutput(t *testing.T) {
 }
 
 func TestRunTypes_DescriptionTruncation(t *testing.T) {
-	t.Parallel()
+	t.Cleanup(cache.SetInstanceKeyForTest("test.atlassian.net"))
 	longDesc := strings.Repeat("A", 100) // 100 character description
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

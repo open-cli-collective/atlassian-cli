@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -111,24 +113,16 @@ func runList(ctx context.Context, opts *root.Options, project, sprint string, ma
 		if err != nil {
 			return err
 		}
-		jql = fmt.Sprintf("project = %s", resolvedProject.Key)
+		// Quote the key so any shape-pass-through value that happens to
+		// include JQL metacharacters can't produce malformed queries.
+		jql = fmt.Sprintf(`project = "%s"`, strings.ReplaceAll(resolvedProject.Key, `"`, `\"`))
 	}
 
 	if sprint != "" {
-		sprintClause := ""
-		if sprint == "current" {
-			sprintClause = "sprint in openSprints()"
-		} else {
-			// Resolve name/ID via cache so JQL always receives a numeric
-			// sprint ID. Matches the cache-backed contract; also sidesteps
-			// the JQL-quoting ambiguity of sprint names with spaces.
-			resolvedSprint, err := resolver.Sprint(ctx, sprint, 0)
-			if err != nil {
-				return err
-			}
-			sprintClause = fmt.Sprintf("sprint = %d", resolvedSprint.ID)
+		sprintClause, err := buildSprintClause(ctx, resolver, sprint)
+		if err != nil {
+			return err
 		}
-
 		if jql != "" {
 			jql += " AND " + sprintClause
 		} else {
@@ -189,6 +183,33 @@ func runList(ctx context.Context, opts *root.Options, project, sprint string, ma
 		projectTableSectionInModel(model, selected)
 	}
 	return jtkpresent.Emit(opts, model)
+}
+
+// buildSprintClause builds the JQL `sprint` clause. Rules:
+//
+//   - "current" → sprint in openSprints()
+//   - numeric input → sprint = <N> (passed straight through, no cache hit
+//     needed to validate; Jira rejects bad IDs)
+//   - name input → try the resolver for a canonical ID; on ambiguity or
+//     not-found, fall through to a quoted name clause so Jira's own JQL
+//     engine can resolve it (the pre-resolver behavior). The resolver's
+//     global unique-match requirement is too strict for JQL — names that
+//     repeat across boards are legal JQL targets and Jira handles them
+//     natively in the project/board context.
+func buildSprintClause(ctx context.Context, resolver *resolve.Resolver, sprint string) (string, error) {
+	if sprint == "current" {
+		return "sprint in openSprints()", nil
+	}
+	if _, err := strconv.Atoi(sprint); err == nil {
+		return fmt.Sprintf("sprint = %s", sprint), nil
+	}
+	if resolved, err := resolver.Sprint(ctx, sprint, 0); err == nil && resolved.ID != 0 {
+		return fmt.Sprintf("sprint = %d", resolved.ID), nil
+	}
+	// Cache miss, ambiguity, or synthetic-without-ID → let Jira's JQL
+	// engine resolve the name. Quote to handle spaces and escape
+	// embedded quotes so names like `Sprint "alpha"` don't break JQL.
+	return fmt.Sprintf(`sprint = "%s"`, strings.ReplaceAll(sprint, `"`, `\"`)), nil
 }
 
 // projectTableSectionInModel rewrites the first TableSection of model to the

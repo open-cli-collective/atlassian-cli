@@ -128,15 +128,16 @@ func runCreate(ctx context.Context, opts *root.Options, outwardKey, inwardKey, l
 		return err
 	}
 
-	// Cold-start synthetic returns Name=input with empty Inward/Outward.
-	// Directional-verb detection relies on comparing against those verbs,
-	// so if the user typed something that looks like a verb (contains a
-	// space) and the resolver couldn't supply verbs, refuse rather than
-	// silently create the link in the wrong direction.
-	if resolvedLinkType.Inward == "" && resolvedLinkType.Outward == "" && strings.Contains(linkType, " ") {
+	// A cold-start synthetic has Name=input and empty Inward/Outward/ID.
+	// Without the verbs, we can't tell whether the user typed a canonical
+	// name or a directional verb — creating the link anyway would either
+	// silently reverse the direction (inward verb typed) or fail at the
+	// API (unknown type). Refuse up front with a concrete remediation.
+	if resolvedLinkType.ID == "" && resolvedLinkType.Inward == "" && resolvedLinkType.Outward == "" {
 		return fmt.Errorf(
-			"--type %q looks like a directional verb but the link-types cache is unavailable — "+
-				"run `jtk refresh linktypes` so verbs can be resolved, or pass the canonical link type name",
+			"cannot resolve link type %q from cache — "+
+				"run `jtk refresh linktypes` to load verbs and IDs, "+
+				"or pass the canonical link type name once refreshed",
 			linkType)
 	}
 

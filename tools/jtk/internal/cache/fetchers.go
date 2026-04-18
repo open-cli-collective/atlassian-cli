@@ -3,11 +3,26 @@ package cache
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 )
+
+// warnWriter is where fetchers emit partial-success / truncation warnings.
+// Swapped by tests to capture warnings without touching the process stderr.
+// Callers outside tests can override via SetWarnWriter; the default mirrors
+// the old behavior of writing to os.Stderr.
+var warnWriter io.Writer = os.Stderr
+
+// SetWarnWriter redirects fetcher warning output. Intended for tests that
+// want to assert on the warning text. Returns a restore function.
+func SetWarnWriter(w io.Writer) func() {
+	old := warnWriter
+	warnWriter = w
+	return func() { warnWriter = old }
+}
 
 const (
 	ttl24h  = "24h"
@@ -220,12 +235,12 @@ func fetchSprints(ctx context.Context, c *api.Client) (int, error) {
 			}
 		}
 		if boardErr != nil {
-			fmt.Fprintf(os.Stderr, "warning: sprints refresh for board %d failed, skipping: %v\n", b.ID, boardErr)
+			fmt.Fprintf(warnWriter, "warning: sprints refresh for board %d failed, skipping: %v\n", b.ID, boardErr)
 			errs = append(errs, fmt.Sprintf("board %d: %v", b.ID, boardErr))
 			continue
 		}
 		if hitCeiling {
-			fmt.Fprintf(os.Stderr, "warning: sprints for board %d exceeded %d-entry ceiling — cache truncated\n", b.ID, fetchSprintsMax)
+			fmt.Fprintf(warnWriter, "warning: sprints for board %d exceeded %d-entry ceiling — cache truncated\n", b.ID, fetchSprintsMax)
 		}
 		byBoard[b.ID] = all
 		total += len(all)

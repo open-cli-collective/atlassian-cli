@@ -74,7 +74,7 @@ func newListCmd(opts *root.Options) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return runList(cmd.Context(), opts, resolvedBoard.ID, state, maxResults)
+			return runList(cmd.Context(), opts, client, resolvedBoard.ID, state, maxResults)
 		},
 	}
 
@@ -85,13 +85,8 @@ func newListCmd(opts *root.Options) *cobra.Command {
 	return cmd
 }
 
-func runList(ctx context.Context, opts *root.Options, boardID int, state string, maxResults int) error {
+func runList(ctx context.Context, opts *root.Options, client *api.Client, boardID int, state string, maxResults int) error {
 	v := opts.View()
-
-	client, err := opts.APIClient()
-	if err != nil {
-		return err
-	}
 
 	result, err := client.ListSprints(ctx, boardID, state, 0, maxResults)
 	if err != nil {
@@ -140,7 +135,7 @@ func newCurrentCmd(opts *root.Options) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return runCurrent(cmd.Context(), opts, resolvedBoard.ID)
+			return runCurrent(cmd.Context(), opts, client, resolvedBoard.ID)
 		},
 	}
 
@@ -149,13 +144,8 @@ func newCurrentCmd(opts *root.Options) *cobra.Command {
 	return cmd
 }
 
-func runCurrent(ctx context.Context, opts *root.Options, boardID int) error {
+func runCurrent(ctx context.Context, opts *root.Options, client *api.Client, boardID int) error {
 	v := opts.View()
-
-	client, err := opts.APIClient()
-	if err != nil {
-		return err
-	}
 
 	sprint, err := client.GetCurrentSprint(ctx, boardID)
 	if err != nil {
@@ -261,19 +251,14 @@ func newAddCmd(opts *root.Options) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return runAdd(cmd.Context(), opts, resolvedSprint.ID, args[1:])
+			return runAdd(cmd.Context(), opts, client, resolvedSprint.ID, args[1:])
 		},
 	}
 
 	return cmd
 }
 
-func runAdd(ctx context.Context, opts *root.Options, sprintID int, issueKeys []string) error {
-	client, err := opts.APIClient()
-	if err != nil {
-		return err
-	}
-
+func runAdd(ctx context.Context, opts *root.Options, client *api.Client, sprintID int, issueKeys []string) error {
 	if err := client.MoveIssuesToSprint(ctx, sprintID, issueKeys); err != nil {
 		return err
 	}

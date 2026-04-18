@@ -18,12 +18,6 @@ import (
 	"github.com/open-cli-collective/jira-ticket-cli/internal/resolve"
 )
 
-// errIssueTypesCacheMissing is returned by matchCachedIssueType when the
-// issuetypes envelope itself doesn't exist (cold cache). Callers distinguish
-// this from "cache present but project absent" so they can apply a
-// cold-start synthetic fallback for the default-type path.
-var errIssueTypesCacheMissing = errors.New("issuetypes cache unavailable")
-
 func newMoveCmd(opts *root.Options) *cobra.Command {
 	var targetProject string
 	var targetType string
@@ -93,18 +87,12 @@ func runMove(ctx context.Context, opts *root.Options, issueKeys []string, target
 	}
 	projectKey := resolvedProject.Key
 
+	// The bulk-move API addresses targets as "PROJECT_KEY,ISSUE_TYPE_ID",
+	// so we need a concrete numeric ID at request time. Both resolution
+	// paths below MUST yield an IssueType with a non-empty ID; a
+	// cold-cache synthetic (Name only) can't satisfy that contract.
 	var targetIssueType *api.IssueType
 	if targetType == "" {
-		// Default to the source issue's type if the target project has a
-		// matching type in the cache; otherwise fall back to the first
-		// cached non-subtask type.
-		//
-		// Cold-cache handling mirrors the resolver's IssueType path (which
-		// --to-type uses): when the issuetypes cache is uninitialized, we
-		// accept the source type name synthetically so fresh installs and
-		// offline use still work. That keeps the two branches of this
-		// command symmetric — no user sees success on --to-type Task but
-		// failure on the default path for the same cold cache.
 		issue, err := client.GetIssue(ctx, issueKeys[0])
 		if err != nil {
 			return fmt.Errorf("getting source issue: %w", err)
@@ -114,24 +102,24 @@ func runMove(ctx context.Context, opts *root.Options, issueKeys []string, target
 		}
 		match, derr := matchCachedIssueType(projectKey, issue.Fields.IssueType.Name)
 		if derr != nil {
-			// When the cache is completely uninitialized for this resource,
-			// accept the source type as-is (cold-start parity with
-			// resolver.IssueType). A populated-but-empty cache gets an
-			// actionable message pointing at --to-type.
-			if errors.Is(derr, errIssueTypesCacheMissing) {
-				targetIssueType = &api.IssueType{Name: issue.Fields.IssueType.Name}
-			} else {
-				return fmt.Errorf("%w — run `jtk refresh issuetypes` or supply --to-type", derr)
-			}
-		} else {
-			targetIssueType = match
+			return derr
 		}
+		targetIssueType = match
 	} else {
 		resolved, err := resolver.IssueType(ctx, projectKey, targetType)
 		if err != nil {
 			return err
 		}
 		targetIssueType = &resolved
+	}
+	if targetIssueType.ID == "" {
+		// The resolver's cold-start fallback yields a Name-only synthetic,
+		// which would produce an invalid "PROJECT_KEY," mapping and an
+		// opaque API rejection. Surface a clear, actionable error instead.
+		return fmt.Errorf(
+			"cannot resolve issue type ID for %q in project %s from cache — "+
+				"run `jtk refresh issuetypes` (requires `jtk refresh projects` first if projects are stale)",
+			targetIssueType.Name, projectKey)
 	}
 
 	// Progress message to stderr
@@ -244,14 +232,23 @@ func runMoveStatus(ctx context.Context, opts *root.Options, taskID string) error
 // issue types and, failing that, returns the first non-subtask type. Cache-
 // authoritative: no refresh, no live fallback. Used by `issues move` when
 // --to-type is omitted.
+//
+// Only cache.ErrCacheMiss maps to the "cold cache" fallback case — any other
+// read error (I/O, permission, corrupt envelope) propagates so the user sees
+// the real problem instead of a misleading "cache missing" message. The
+// refresh hint is left to the caller since the root cause differs between
+// the cold-cache and the "populated but empty" paths.
 func matchCachedIssueType(projectKey, sourceTypeName string) (*api.IssueType, error) {
 	env, err := cache.ReadResource[map[string][]api.IssueType]("issuetypes")
 	if err != nil {
-		return nil, errIssueTypesCacheMissing
+		if errors.Is(err, cache.ErrCacheMiss) {
+			return nil, fmt.Errorf("issuetypes cache not initialized — run `jtk refresh issuetypes`")
+		}
+		return nil, fmt.Errorf("reading issuetypes cache: %w", err)
 	}
 	types, ok := env.Data[projectKey]
 	if !ok || len(types) == 0 {
-		return nil, fmt.Errorf("no cached issue types for project %s (try `jtk refresh issuetypes`)", projectKey)
+		return nil, fmt.Errorf("no cached issue types for project %s (run `jtk refresh issuetypes` or supply --to-type)", projectKey)
 	}
 	// Preferred: source type (case-insensitive) exists in the target.
 	for i := range types {

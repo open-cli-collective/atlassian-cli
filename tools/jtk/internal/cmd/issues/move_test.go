@@ -172,6 +172,49 @@ func TestRunMove_SourceTypeMissingFallsBackToCachedNonSubtask(t *testing.T) {
 	testutil.True(t, ok, "expected default fallback to first cached non-subtask")
 }
 
+func TestRunMove_ColdCacheErrorsInsteadOfEmptyID(t *testing.T) {
+	// Cold cache + explicit --to-type: the resolver's coldFallback returns
+	// IssueType{Name: "Task"} with no ID. The old code would have fed an
+	// empty ID into BuildMoveRequest producing "TARGET,"; move now surfaces
+	// a clear error instead of letting the API reject opaquely.
+	t.Cleanup(cache.SetRootForTest(t.TempDir()))
+	t.Cleanup(cache.SetInstanceKeyForTest("test.atlassian.net"))
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Projects endpoint fails → resolver refresh fails → coldFallback
+		// synthetic is returned.
+		if strings.HasPrefix(r.URL.Path, "/rest/api/3/issue/PROJ-1") {
+			_ = json.NewEncoder(w).Encode(api.Issue{
+				Key: "PROJ-1",
+				Fields: api.IssueFields{
+					Project:   &api.Project{Key: "PROJ"},
+					IssueType: &api.IssueType{ID: "1", Name: "Task"},
+				},
+			})
+			return
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	opts := &root.Options{Output: "table", Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runMove(context.Background(), opts, []string{"PROJ-1"}, "TARGET", "Task", false, true)
+	if err == nil {
+		t.Fatalf("expected cold-cache error when resolved IssueType has no ID")
+	}
+	if !strings.Contains(err.Error(), "cannot resolve issue type ID") {
+		t.Fatalf("expected explicit cold-cache error, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "jtk refresh issuetypes") {
+		t.Fatalf("expected refresh hint in error, got: %v", err)
+	}
+}
+
 func TestRunMove_NoCachedIssueTypesPromptsToSpecifyType(t *testing.T) {
 	// --to-type omitted. Source is Epic, target project has NO cached
 	// issuetypes at all. Resolver should surface an actionable error

@@ -408,6 +408,9 @@ func TestUpdateCmd_CobraExecution_WithParent(t *testing.T) {
 }
 
 func TestRunUpdate_AssigneeOnly(t *testing.T) {
+	// The assignee resolver reads the cache before falling through to
+	// accountId shape pass-through, so InstanceKey() must resolve.
+	t.Cleanup(cache.SetInstanceKeyForTest("test.atlassian.net"))
 	var capturedBody []byte
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -498,6 +501,7 @@ func TestRunUpdate_AssigneeMe(t *testing.T) {
 }
 
 func TestUpdateCmd_CobraExecution_WithAssignee(t *testing.T) {
+	t.Cleanup(cache.SetInstanceKeyForTest("test.atlassian.net"))
 	var capturedBody []byte
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

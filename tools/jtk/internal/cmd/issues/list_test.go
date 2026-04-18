@@ -123,6 +123,14 @@ func listResultServer(t *testing.T, keys []string, isLast bool) *httptest.Server
 
 func newListOpts(t *testing.T, server *httptest.Server) (*root.Options, *bytes.Buffer, *bytes.Buffer) {
 	t.Helper()
+	// runList resolves --project through the cache, which dereferences
+	// cache.InstanceKey(). On CI (no JIRA_URL, no config file) InstanceKey
+	// returns ErrNoInstance and the resolver propagates it. Override the
+	// instance key so the resolver gets a clean "cache miss" path instead.
+	// Only set the instance key here, NOT the cache root — tests that seed
+	// cache data via seedCacheForIssues set their own tempdir root; a second
+	// SetRootForTest here would blow that away.
+	t.Cleanup(cache.SetInstanceKeyForTest("test.atlassian.net"))
 	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "e@x", APIToken: "t"})
 	testutil.RequireNoError(t, err)
 	var stdout, stderr bytes.Buffer

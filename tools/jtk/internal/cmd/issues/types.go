@@ -50,7 +50,9 @@ func runTypes(ctx context.Context, opts *root.Options, project string) error {
 	}
 	projectKey := resolvedProject.Key
 
-	projectDetail, err := client.GetProject(ctx, projectKey)
+	// `issues types` only renders issue type names — the other expansions
+	// (description, versions, etc.) are wasted payload here.
+	projectDetail, err := client.GetProject(ctx, projectKey, "issueTypes")
 	if err != nil {
 		return err
 	}

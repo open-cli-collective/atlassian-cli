@@ -94,7 +94,13 @@ func runList(ctx context.Context, opts *root.Options, query string, maxResults i
 		}
 	}
 
-	result, err := client.SearchProjects(ctx, query, startAt, maxResults, opts.IsExtended())
+	// Default-mode list renders KEY|TYPE|LEAD|NAME; only LEAD needs expansion.
+	// Extended adds STYLE|ISSUE_TYPES|COMPONENTS and requires the full set.
+	expand := "lead"
+	if opts.IsExtended() {
+		expand = api.ProjectListExpand
+	}
+	result, err := client.SearchProjects(ctx, query, startAt, maxResults, expand)
 	if err != nil {
 		return err
 	}

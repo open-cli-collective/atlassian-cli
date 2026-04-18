@@ -73,7 +73,7 @@ func TestSearchProjects(t *testing.T) {
 			testutil.RequireNoError(t, err)
 			client.BaseURL = server.URL + "/rest/api/3"
 
-			result, err := client.SearchProjects(context.Background(), tt.query, 0, 50, false)
+			result, err := client.SearchProjects(context.Background(), tt.query, 0, 50, "")
 			if tt.wantErr {
 				testutil.Error(t, err)
 				return
@@ -130,7 +130,7 @@ func TestGetProject(t *testing.T) {
 					APIToken: "test-token",
 				})
 				testutil.RequireNoError(t, err)
-				_, err = client.GetProject(context.Background(), "")
+				_, err = client.GetProject(context.Background(), "", "")
 				testutil.Error(t, err)
 				return
 			}
@@ -150,7 +150,7 @@ func TestGetProject(t *testing.T) {
 			testutil.RequireNoError(t, err)
 			client.BaseURL = server.URL + "/rest/api/3"
 
-			project, err := client.GetProject(context.Background(), tt.keyOrID)
+			project, err := client.GetProject(context.Background(), tt.keyOrID, "")
 			if tt.wantErr {
 				testutil.Error(t, err)
 				return
@@ -163,72 +163,83 @@ func TestGetProject(t *testing.T) {
 	}
 }
 
-func TestSearchProjects_ExpandIsLeadOnlyInDefaultMode(t *testing.T) {
+func TestSearchProjects_PassesExpandThroughUnmodified(t *testing.T) {
 	t.Parallel()
-	// Default-mode list renders only KEY | TYPE | LEAD | NAME; expanding
-	// description/issueTypes/url/projectKeys wastes payload. Lock the
-	// minimum.
-	var capturedExpand string
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		capturedExpand = r.URL.Query().Get("expand")
-		_, _ = w.Write([]byte(`{"values":[],"isLast":true}`))
-	}))
-	defer server.Close()
+	// The API layer does not know about `--extended`; it takes an expand
+	// string verbatim. Two branches: empty means no expand param on the
+	// URL; non-empty shows up exactly as passed. Callers map their
+	// rendering intent to a concrete expand.
+	cases := []struct {
+		name             string
+		expand           string
+		wantParam        string
+		wantParamPresent bool
+	}{
+		{"empty omits param", "", "", false},
+		{"lead only", "lead", "lead", true},
+		{"full set", ProjectListExpand, ProjectListExpand, true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			var captured string
+			var present bool
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				captured = r.URL.Query().Get("expand")
+				_, present = r.URL.Query()["expand"]
+				_, _ = w.Write([]byte(`{"values":[],"isLast":true}`))
+			}))
+			defer server.Close()
 
-	client, err := New(ClientConfig{URL: "https://test.atlassian.net", Email: "t@t.com", APIToken: "x"})
-	testutil.RequireNoError(t, err)
-	client.BaseURL = server.URL + "/rest/api/3"
+			client, err := New(ClientConfig{URL: "https://test.atlassian.net", Email: "t@t.com", APIToken: "x"})
+			testutil.RequireNoError(t, err)
+			client.BaseURL = server.URL + "/rest/api/3"
 
-	_, err = client.SearchProjects(context.Background(), "", 0, 50, false)
-	testutil.RequireNoError(t, err)
-	testutil.Equal(t, capturedExpand, "lead")
+			_, err = client.SearchProjects(context.Background(), "", 0, 50, tc.expand)
+			testutil.RequireNoError(t, err)
+			testutil.Equal(t, captured, tc.wantParam)
+			testutil.Equal(t, present, tc.wantParamPresent)
+		})
+	}
 }
 
-func TestSearchProjects_ExpandIsFullInExtendedMode(t *testing.T) {
+func TestGetProject_PassesExpandThroughUnmodified(t *testing.T) {
 	t.Parallel()
-	// --extended columns (STYLE / ISSUE_TYPES / COMPONENTS) need the full
-	// expand set. Assert the exact string so a future refactor that drops a
-	// key trips this test.
-	var capturedExpand string
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		capturedExpand = r.URL.Query().Get("expand")
-		_, _ = w.Write([]byte(`{"values":[],"isLast":true}`))
-	}))
-	defer server.Close()
+	// GetProject takes an expand string verbatim: empty string sends no
+	// expand param; non-empty shows up exactly. Callers (e.g. `projects
+	// get` default, `projects get --id`, `issues types`) own the decision.
+	cases := []struct {
+		name             string
+		expand           string
+		wantParam        string
+		wantParamPresent bool
+	}{
+		{"empty omits param (id path)", "", "", false},
+		{"narrow single key (issues types)", "issueTypes", "issueTypes", true},
+		{"full get expansion", ProjectGetExpand, ProjectGetExpand, true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			var captured string
+			var present bool
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				captured = r.URL.Query().Get("expand")
+				_, present = r.URL.Query()["expand"]
+				_, _ = w.Write([]byte(`{"id":"10001","key":"TST","name":"Test"}`))
+			}))
+			defer server.Close()
 
-	client, err := New(ClientConfig{URL: "https://test.atlassian.net", Email: "t@t.com", APIToken: "x"})
-	testutil.RequireNoError(t, err)
-	client.BaseURL = server.URL + "/rest/api/3"
+			client, err := New(ClientConfig{URL: "https://test.atlassian.net", Email: "t@t.com", APIToken: "x"})
+			testutil.RequireNoError(t, err)
+			client.BaseURL = server.URL + "/rest/api/3"
 
-	_, err = client.SearchProjects(context.Background(), "", 0, 50, true)
-	testutil.RequireNoError(t, err)
-	testutil.Equal(t, capturedExpand, "description,lead,issueTypes,url,projectKeys")
-}
-
-func TestGetProject_SendsExpandForExtendedFields(t *testing.T) {
-	t.Parallel()
-	// `projects get --extended` depends on description, lead, issueTypes,
-	// projectKeys, and versions being populated by the API response. Capture
-	// the outgoing request's expand param so a future refactor can't quietly
-	// drop one of those keys.
-	var capturedExpand string
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		capturedExpand = r.URL.Query().Get("expand")
-		_, _ = w.Write([]byte(`{"id":"10001","key":"TST","name":"Test"}`))
-	}))
-	defer server.Close()
-
-	client, err := New(ClientConfig{URL: "https://test.atlassian.net", Email: "t@t.com", APIToken: "x"})
-	testutil.RequireNoError(t, err)
-	client.BaseURL = server.URL + "/rest/api/3"
-
-	_, err = client.GetProject(context.Background(), "TST")
-	testutil.RequireNoError(t, err)
-
-	// Order within the expand string mirrors the call site; if the call site
-	// reorders them this assertion intentionally breaks so the author can
-	// confirm intent.
-	testutil.Equal(t, capturedExpand, "description,lead,issueTypes,url,projectKeys,versions")
+			_, err = client.GetProject(context.Background(), "TST", tc.expand)
+			testutil.RequireNoError(t, err)
+			testutil.Equal(t, captured, tc.wantParam)
+			testutil.Equal(t, present, tc.wantParamPresent)
+		})
+	}
 }
 
 func TestCreateProject(t *testing.T) {

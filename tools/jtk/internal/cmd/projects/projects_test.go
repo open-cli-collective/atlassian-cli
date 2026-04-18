@@ -392,6 +392,58 @@ func TestRunGet_Extended_EnumeratesComponentsAndFlags(t *testing.T) {
 	}
 }
 
+func TestRunGet_Extended_ComponentListTruncatesAtLimit(t *testing.T) {
+	t.Parallel()
+	// The presenter has a unit test for the `... [N more]` truncation;
+	// this locks the same shape at the command layer so rendered output is
+	// covered end-to-end.
+	simplified := false
+	private := false
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(api.ProjectDetail{
+			ID: json.Number("10001"), Key: "TST", Name: "Test",
+			ProjectTypeKey: "software", Style: "classic",
+			Lead:       &api.User{AccountID: "u1", DisplayName: "Lead"},
+			IssueTypes: []api.IssueType{{ID: "1", Name: "Epic"}},
+			Components: []api.Component{
+				{ID: "c1", Name: "A"},
+				{ID: "c2", Name: "B"},
+				{ID: "c3", Name: "C"},
+				{ID: "c4", Name: "D"},
+				{ID: "c5", Name: "E"},
+				{ID: "c6", Name: "F"},
+			},
+			Simplified: &simplified,
+			IsPrivate:  &private,
+		})
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", NoColor: true, Extended: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	testutil.RequireNoError(t, runGet(context.Background(), opts, "TST", ""))
+
+	want := "TST  Test\n" +
+		"Type: software   Lead: Lead (u1)   Style: classic\n" +
+		"Issue Types: Epic (1)\n" +
+		"Components: 6\n" +
+		"  c1 | A\n" +
+		"  c2 | B\n" +
+		"  c3 | C\n" +
+		"  c4 | D\n" +
+		"  ... [2 more]\n" +
+		"Versions: 0\n" +
+		"Simplified: no   Private: no\n"
+	if stdout.String() != want {
+		t.Errorf("projects get --extended (>limit components):\ngot:  %q\nwant: %q", stdout.String(), want)
+	}
+}
+
 func TestRunGet_Default_IssueTypesRowPresentEvenWhenEmpty(t *testing.T) {
 	t.Parallel()
 	// Command-level Fix 2 regression. The reviewer's original finding was a

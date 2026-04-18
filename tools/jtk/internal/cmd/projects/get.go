@@ -7,6 +7,7 @@ import (
 
 	"github.com/open-cli-collective/atlassian-go/view"
 
+	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/present/projection"
@@ -50,7 +51,12 @@ func runGet(ctx context.Context, opts *root.Options, keyOrID, fieldsFlag string)
 	}
 
 	if opts.EmitIDOnly() {
-		project, err := client.GetProject(ctx, keyOrID)
+		// Skip expand in --id mode: the canonical key is in every /project
+		// response by default, and anything else (description, components,
+		// versions) is payload we'd immediately discard. The fetch itself is
+		// still necessary because numeric-ID inputs need to be canonicalized
+		// to a key.
+		project, err := client.GetProject(ctx, keyOrID, "")
 		if err != nil {
 			return err
 		}
@@ -73,7 +79,7 @@ func runGet(ctx context.Context, opts *root.Options, keyOrID, fieldsFlag string)
 		return err
 	}
 
-	project, err := client.GetProject(ctx, keyOrID)
+	project, err := client.GetProject(ctx, keyOrID, api.ProjectGetExpand)
 	if err != nil {
 		return err
 	}

@@ -49,6 +49,12 @@ func ReadResource[T any](name string) (Envelope[T], error) {
 		return Envelope[T]{}, fmt.Errorf("parsing resource file: %w", err)
 	}
 
+	// A version mismatch is treated as a miss — the next write will overwrite
+	// the envelope with the current schema. This makes schema bumps self-healing.
+	if env.Version != Version {
+		return Envelope[T]{}, ErrCacheMiss
+	}
+
 	return env, nil
 }
 
@@ -59,16 +65,6 @@ func ReadResource[T any](name string) (Envelope[T], error) {
 //   - Ensures the instance directory exists with mode 0700.
 //   - Writes the file with mode 0600.
 func WriteResource[T any](name string, ttl string, data T) error {
-	path, err := ResourceFile(name)
-	if err != nil {
-		return err
-	}
-
-	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return fmt.Errorf("creating cache directory: %w", err)
-	}
-
 	instance, err := InstanceKey()
 	if err != nil {
 		return err
@@ -81,6 +77,23 @@ func WriteResource[T any](name string, ttl string, data T) error {
 		TTL:       ttl,
 		Version:   Version,
 		Data:      data,
+	}
+	return atomicWriteEnvelope(name, env)
+}
+
+// atomicWriteEnvelope marshals an envelope and writes it to the cache path for
+// `name` using a temp-file-rename pattern. Shared by WriteResource (which
+// constructs a fresh envelope) and writeRaw (which preserves existing metadata
+// for Touch-style invalidation).
+func atomicWriteEnvelope[T any](name string, env Envelope[T]) error {
+	path, err := ResourceFile(name)
+	if err != nil {
+		return err
+	}
+
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return fmt.Errorf("creating cache directory: %w", err)
 	}
 
 	jsonData, err := json.MarshalIndent(env, "", "  ")

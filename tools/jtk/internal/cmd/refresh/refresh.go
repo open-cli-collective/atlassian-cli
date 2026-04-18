@@ -80,7 +80,13 @@ func run(ctx context.Context, opts *root.Options, names []string, statusOnly boo
 
 // runStatus renders the freshness table.
 func runStatus(opts *root.Options, selected []cache.Entry) error {
-	client, _ := opts.APIClient() // best-effort; Available predicate tolerates nil
+	// Client is only used to evaluate Entry.Available (e.g., the bearer-auth
+	// gate on boards). If construction fails, the config was already validated
+	// at run()'s entry so this is a programming error — surface it.
+	client, err := opts.APIClient()
+	if err != nil {
+		return err
+	}
 	now := time.Now().UTC()
 
 	rows := make([]jtkpresent.StatusRow, 0, len(selected))

@@ -87,6 +87,41 @@ func TestInstanceKey_NoInstance(t *testing.T) {
 	}
 }
 
+// InstanceKey must reject any value that could escape the cache root when
+// composed into a filesystem path — path separators, parent-dir tokens, etc.
+// This guards against a malicious JIRA_URL or JIRA_CLOUD_ID planting cache
+// files outside ~/.jtk/cache.
+func TestInstanceKey_RejectsPathInjection(t *testing.T) {
+	cases := []struct {
+		name    string
+		jiraURL string
+		cloudID string
+	}{
+		// Host with a forward slash would only arrive via a bizarre URL, but
+		// we defend anyway.
+		{"hostname with parent-dir traversal", "https://../evil", ""},
+		{"cloudID with path separator", "https://api.atlassian.com", "../escape"},
+		{"cloudID with forward slash", "https://api.atlassian.com", "foo/bar"},
+		{"cloudID with backslash", "https://api.atlassian.com", `foo\bar`},
+		{"cloudID with space", "https://api.atlassian.com", "foo bar"},
+	}
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("JIRA_URL", tc.jiraURL)
+			t.Setenv("ATLASSIAN_URL", "")
+			t.Setenv("JIRA_CLOUD_ID", tc.cloudID)
+			t.Setenv("ATLASSIAN_CLOUD_ID", "")
+			t.Setenv("JIRA_DOMAIN", "")
+
+			_, err := InstanceKey()
+			if !errors.Is(err, ErrNoInstance) {
+				t.Fatalf("expected ErrNoInstance for %q / %q, got %v", tc.jiraURL, tc.cloudID, err)
+			}
+		})
+	}
+}
+
 func TestResourceFile(t *testing.T) {
 	tempDir := t.TempDir()
 	cleanup := SetRootForTest(tempDir)

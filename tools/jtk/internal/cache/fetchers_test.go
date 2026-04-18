@@ -233,6 +233,38 @@ func TestFetchBoards_Pagination(t *testing.T) {
 	testutil.Equal(t, env.Data[119].ID, 120)
 }
 
+// A misbehaving server that never sets IsLast=true must not spin the fetcher
+// forever. fetchBoardsMax caps iteration.
+func TestFetchBoards_IterationCeiling(t *testing.T) {
+	cleanup := SetRootForTest(t.TempDir())
+	defer cleanup()
+
+	const pageSize = 50
+	calls := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		calls++
+		values := make([]api.Board, pageSize)
+		for i := range values {
+			values[i] = api.Board{ID: calls*1000 + i}
+		}
+		_ = json.NewEncoder(w).Encode(api.BoardsResponse{IsLast: false, Values: values})
+	}))
+	defer server.Close()
+
+	client := newTestClient(t, server)
+
+	_, err := fetchBoards(context.Background(), client)
+	testutil.RequireNoError(t, err)
+
+	// Each page returns pageSize entries and IsLast=false; loop should exit
+	// when startAt reaches fetchBoardsMax. With pageSize=50 and max=5000, that
+	// caps at 100 API calls.
+	maxCalls := fetchBoardsMax / pageSize
+	if calls > maxCalls {
+		t.Fatalf("exceeded iteration ceiling: %d calls (cap is %d)", calls, maxCalls)
+	}
+}
+
 // Short first page (fewer than maxResults) is the alternate termination path.
 // Covered via the `isLast` flag above; this variant explicitly tests the other
 // branch of `if resp.IsLast || len(resp.Values) == 0 { break }`.

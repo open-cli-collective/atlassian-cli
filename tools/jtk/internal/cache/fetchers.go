@@ -62,11 +62,15 @@ func fetchProjects(ctx context.Context, c *api.Client) (int, error) {
 	return len(projects), nil
 }
 
+// fetchBoardsMax is a safety ceiling. A misbehaving server that never sets
+// isLast=true would otherwise cause unbounded pagination.
+const fetchBoardsMax = 5000
+
 func fetchBoards(ctx context.Context, c *api.Client) (int, error) {
 	const pageSize = 50
 	var all []api.Board
 	startAt := 0
-	for {
+	for startAt < fetchBoardsMax {
 		resp, err := c.ListBoards(ctx, "", startAt, pageSize)
 		if err != nil {
 			return 0, err

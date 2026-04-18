@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -119,4 +120,31 @@ func TestEnvelopeVersion(t *testing.T) {
 	if Version != 1 {
 		t.Errorf("expected Version == 1, got %d", Version)
 	}
+}
+
+// A version-mismatched envelope on disk is reported as ErrCacheMiss so the
+// next write can overwrite it with the current schema. This keeps schema
+// bumps self-healing without surfacing cryptic errors to users.
+func TestReadResource_VersionMismatchTreatedAsMiss(t *testing.T) {
+	tmpDir := t.TempDir()
+	cleanup := SetRootForTest(tmpDir)
+	defer cleanup()
+	t.Setenv("JIRA_URL", "https://test.atlassian.net")
+
+	// Write a current-version envelope, then overwrite the on-disk file with a
+	// bumped version to simulate a future schema.
+	testutil.NoError(t, WriteResource("x", "24h", []int{1, 2}))
+
+	path, err := ResourceFile("x")
+	testutil.NoError(t, err)
+	data, err := os.ReadFile(path) //nolint:gosec // path is a test-owned tempdir
+	testutil.NoError(t, err)
+	mutated := strings.Replace(string(data), `"version": 1`, `"version": 99`, 1)
+	testutil.NoError(t, os.WriteFile(path, []byte(mutated), 0o600)) //nolint:gosec // path is a test-owned tempdir
+
+	env, err := ReadResource[[]int]("x")
+	if !errors.Is(err, ErrCacheMiss) {
+		t.Fatalf("expected ErrCacheMiss on version mismatch, got %v", err)
+	}
+	testutil.Equal(t, env, Envelope[[]int]{})
 }

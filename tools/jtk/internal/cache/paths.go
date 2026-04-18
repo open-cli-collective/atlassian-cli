@@ -6,11 +6,33 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strings"
 
 	"github.com/open-cli-collective/jira-ticket-cli/internal/config"
 )
 
 var ErrNoInstance = errors.New("no Jira instance configured — run 'jtk init' first")
+
+// instanceKeySafe bounds the instance-key character set to the subset we
+// emit from hostname (letters, digits, dot, hyphen) and cloud-id (letters,
+// digits, hyphen). Any character outside this set — path separators,
+// whitespace, control chars — causes InstanceKey to return ErrNoInstance
+// rather than compose a path from attacker-controlled input.
+var instanceKeySafe = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9.\-]*$`)
+
+// isSafeInstanceKey validates that the key is safe to use as a filesystem
+// path component: only allowed characters, and no parent-dir traversal.
+func isSafeInstanceKey(k string) bool {
+	if k == "" || !instanceKeySafe.MatchString(k) {
+		return false
+	}
+	// Reject `..` anywhere in the key (subdomains don't have consecutive dots).
+	if strings.Contains(k, "..") {
+		return false
+	}
+	return true
+}
 
 // rootOverride is a package-level override for tests.
 // It is set by SetRootForTest and cleared by its cleanup function.
@@ -53,13 +75,16 @@ func InstanceKey() (string, error) {
 	// Bearer auth path: use CloudID when gateway is detected
 	if parsed.Host == "api.atlassian.com" {
 		cloudID := config.GetCloudID()
-		if cloudID == "" {
+		if !isSafeInstanceKey(cloudID) {
 			return "", ErrNoInstance
 		}
 		return cloudID, nil
 	}
 
 	// Basic auth path: return the hostname
+	if !isSafeInstanceKey(parsed.Host) {
+		return "", ErrNoInstance
+	}
 	return parsed.Host, nil
 }
 

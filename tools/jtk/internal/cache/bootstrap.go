@@ -47,8 +47,21 @@ func SeedUsers(ctx context.Context, c *api.Client) (int, error) {
 		startAt += len(page)
 	}
 
-	if err := WriteResource("users", "24h", all); err != nil {
+	// Look up the TTL from the registry rather than hardcoding it — keeps the
+	// registry as the single source of truth for cache metadata.
+	ttl := usersTTL()
+	if err := WriteResource("users", ttl, all); err != nil {
 		return 0, fmt.Errorf("writing users envelope: %w", err)
 	}
 	return len(all), nil
+}
+
+// usersTTL returns the registered TTL for the "users" cache, falling back to
+// "24h" if the registry hasn't been populated (e.g., during early init in
+// tests that swap the registry).
+func usersTTL() string {
+	if e, err := Lookup("users"); err == nil {
+		return e.TTL
+	}
+	return "24h"
 }

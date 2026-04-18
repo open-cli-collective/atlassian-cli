@@ -3,9 +3,6 @@ package cache
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
-	"os"
-	"path/filepath"
 	"time"
 )
 
@@ -75,50 +72,9 @@ func RemoveOnDelete[T any](name string, match func(T) bool) error {
 	return WriteResource(name, env.TTL, filtered)
 }
 
-// writeRaw atomically writes an envelope while preserving its FetchedAt field.
-// This is used by Touch to mark envelopes stale without re-fetching.
+// writeRaw atomically writes an envelope while preserving its FetchedAt field
+// (Touch zeros it to mark stale; WriteResource would set a fresh timestamp).
+// Delegates to envelope.go's shared atomicWriteEnvelope helper.
 func writeRaw(name string, env Envelope[json.RawMessage]) error {
-	path, err := ResourceFile(name)
-	if err != nil {
-		return err
-	}
-
-	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return fmt.Errorf("creating cache directory: %w", err)
-	}
-
-	jsonData, err := json.MarshalIndent(env, "", "  ")
-	if err != nil {
-		return fmt.Errorf("marshaling envelope: %w", err)
-	}
-
-	tmp, err := os.CreateTemp(dir, name+"-*.json.tmp")
-	if err != nil {
-		return fmt.Errorf("creating temp file: %w", err)
-	}
-	tmpPath := tmp.Name()
-
-	if _, err := tmp.Write(jsonData); err != nil {
-		_ = tmp.Close()
-		_ = os.Remove(tmpPath)
-		return fmt.Errorf("writing temp file: %w", err)
-	}
-
-	if err := tmp.Close(); err != nil {
-		_ = os.Remove(tmpPath)
-		return fmt.Errorf("closing temp file: %w", err)
-	}
-
-	if err := os.Chmod(tmpPath, 0o600); err != nil {
-		_ = os.Remove(tmpPath)
-		return fmt.Errorf("setting file mode: %w", err)
-	}
-
-	if err := os.Rename(tmpPath, path); err != nil {
-		_ = os.Remove(tmpPath)
-		return fmt.Errorf("moving temp file to final path: %w", err)
-	}
-
-	return nil
+	return atomicWriteEnvelope(name, env)
 }

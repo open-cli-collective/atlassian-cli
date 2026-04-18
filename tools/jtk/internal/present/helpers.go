@@ -3,6 +3,8 @@ package present
 import (
 	"fmt"
 	"time"
+
+	"github.com/open-cli-collective/jira-ticket-cli/api"
 )
 
 // FormatDate formats a time.Time as a short date string.
@@ -90,4 +92,25 @@ func FormatTime(t string) string {
 		return t[:10]
 	}
 	return t
+}
+
+// PresentOptionalBool renders a *bool as "yes"/"no"/"-". The dash case is the
+// canonical signal for "the API didn't return this field" — commands use this
+// for fields like ProjectDetail.Simplified / ProjectDetail.IsPrivate where a
+// plain bool zero value would collide with a legitimate `false`.
+func PresentOptionalBool(b *bool) string {
+	if b == nil {
+		return "-"
+	}
+	return BoolString(*b)
+}
+
+// PresentOptionalCount renders a *api.UserCountBlock's Size as a decimal, or
+// "-" when the block is nil. Used for `--extended` user output rows where
+// Groups and ApplicationRoles come back expanded or not at all.
+func PresentOptionalCount(b *api.UserCountBlock) string {
+	if b == nil {
+		return "-"
+	}
+	return fmt.Sprintf("%d", b.Size)
 }

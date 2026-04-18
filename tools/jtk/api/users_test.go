@@ -160,7 +160,7 @@ func TestSearchUsers(t *testing.T) {
 	testutil.RequireNoError(t, err)
 	client.BaseURL = server.URL + "/rest/api/3"
 
-	users, err := client.SearchUsers(context.Background(), "john", 0)
+	users, err := client.SearchUsers(context.Background(), "john", 0, 0)
 	testutil.RequireNoError(t, err)
 	testutil.Len(t, users, 2)
 	testutil.Equal(t, users[0].DisplayName, "John Smith")

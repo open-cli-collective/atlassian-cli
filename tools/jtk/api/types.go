@@ -232,11 +232,23 @@ type Resolution struct {
 
 // User represents a Jira user
 type User struct {
-	AccountID    string            `json:"accountId"`
-	DisplayName  string            `json:"displayName"`
-	EmailAddress string            `json:"emailAddress,omitempty"`
-	Active       bool              `json:"active"`
-	AvatarURLs   map[string]string `json:"avatarUrls,omitempty"`
+	AccountID        string            `json:"accountId"`
+	DisplayName      string            `json:"displayName"`
+	EmailAddress     string            `json:"emailAddress,omitempty"`
+	Active           bool              `json:"active"`
+	AvatarURLs       map[string]string `json:"avatarUrls,omitempty"`
+	TimeZone         string            `json:"timeZone,omitempty"`
+	Locale           string            `json:"locale,omitempty"`
+	Groups           *UserCountBlock   `json:"groups,omitempty"`
+	ApplicationRoles *UserCountBlock   `json:"applicationRoles,omitempty"`
+}
+
+// UserCountBlock is a small envelope Jira uses when returning count-bearing
+// expandable user fields such as groups and applicationRoles. Pointer-nullable
+// on User so presenters can distinguish "API omitted the block" from "present
+// with zero items".
+type UserCountBlock struct {
+	Size int `json:"size"`
 }
 
 // Project represents a Jira project

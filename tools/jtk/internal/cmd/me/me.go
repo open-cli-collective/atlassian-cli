@@ -3,11 +3,9 @@ package me
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/spf13/cobra"
 
-	"github.com/open-cli-collective/atlassian-go/present"
 	"github.com/open-cli-collective/atlassian-go/view"
 
 	jtkartifact "github.com/open-cli-collective/jira-ticket-cli/internal/artifact"
@@ -21,8 +19,11 @@ func Register(parent *cobra.Command, opts *root.Options) {
 		Use:   "me",
 		Short: "Show current user",
 		Long:  "Show information about the currently authenticated Jira user.",
-		Example: `  # Show current user info
+		Example: `  # Show current user info (pipe one-liner)
   jtk me
+
+  # Include timezone, locale, and group/application-role counts
+  jtk me --extended
 
   # Show just the account ID (for scripting)
   jtk me --id`,
@@ -49,8 +50,7 @@ func run(ctx context.Context, opts *root.Options) error {
 
 	// --id: collapse output to the primary identifier.
 	if opts.EmitIDOnly() {
-		_, _ = fmt.Fprintln(opts.Stdout, user.AccountID)
-		return nil
+		return jtkpresent.EmitIDs(opts, []string{user.AccountID})
 	}
 
 	// JSON path: use existing artifact layer (unchanged)
@@ -58,16 +58,10 @@ func run(ctx context.Context, opts *root.Options) error {
 		return v.RenderArtifact(jtkartifact.ProjectUser(user, opts.ArtifactMode()))
 	}
 
-	// Plain path: just the account ID (legacy; --id is the preferred surface)
-	if v.Format == view.FormatPlain {
-		_, _ = fmt.Fprintln(opts.Stdout, user.AccountID)
-		return nil
+	presenter := jtkpresent.UserPresenter{}
+	var model = presenter.PresentUserOneLiner(user)
+	if opts.IsExtended() {
+		model = presenter.PresentUserExtended(user)
 	}
-
-	// Text path: presenter → model → pure render → write to both streams
-	model := jtkpresent.UserPresenter{}.Present(user)
-	out := present.Render(model, opts.RenderStyle())
-	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
-	_, _ = fmt.Fprint(opts.Stderr, out.Stderr)
-	return nil
+	return jtkpresent.Emit(opts, model)
 }

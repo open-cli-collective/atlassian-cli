@@ -6,9 +6,13 @@ import (
 	"fmt"
 )
 
-// GetCurrentUser returns the currently authenticated user
+// GetCurrentUser returns the currently authenticated user.
+// ?expand=groups,applicationRoles populates the optional Size blocks used by
+// `jtk me --extended`; fields unsupported by the endpoint are simply dropped.
 func (c *Client) GetCurrentUser(ctx context.Context) (*User, error) {
-	urlStr := fmt.Sprintf("%s/myself", c.BaseURL)
+	urlStr := buildURL(fmt.Sprintf("%s/myself", c.BaseURL), map[string]string{
+		"expand": "groups,applicationRoles",
+	})
 	body, err := c.Get(ctx, urlStr)
 	if err != nil {
 		return nil, fmt.Errorf("getting current user: %w", err)
@@ -22,10 +26,15 @@ func (c *Client) GetCurrentUser(ctx context.Context) (*User, error) {
 	return &user, nil
 }
 
-// GetUser returns a user by their account ID
+// GetUser returns a user by their account ID.
+// ?expand=groups,applicationRoles populates the optional Size blocks used by
+// `jtk users get --extended`. timeZone / locale on the returned user may be
+// empty on instances that redact other-user personal information — presenters
+// render them as `-` in that case.
 func (c *Client) GetUser(ctx context.Context, accountID string) (*User, error) {
 	params := map[string]string{
 		"accountId": accountID,
+		"expand":    "groups,applicationRoles",
 	}
 	urlStr := buildURL(fmt.Sprintf("%s/user", c.BaseURL), params)
 	body, err := c.Get(ctx, urlStr)
@@ -68,10 +77,16 @@ func (c *Client) ListUsersPage(ctx context.Context, startAt, maxResults int) ([]
 	return users, nil
 }
 
-// SearchUsers searches for users by query string
-func (c *Client) SearchUsers(ctx context.Context, query string, maxResults int) ([]User, error) {
+// SearchUsers searches for users by query string.
+// startAt is the 0-based offset into the result set; callers passing 0 get the
+// first page. /user/search does not return isLast, so callers infer terminal
+// state from `len(users) < maxResults`.
+func (c *Client) SearchUsers(ctx context.Context, query string, startAt, maxResults int) ([]User, error) {
 	params := map[string]string{
 		"query": query,
+	}
+	if startAt > 0 {
+		params["startAt"] = fmt.Sprintf("%d", startAt)
 	}
 	if maxResults > 0 {
 		params["maxResults"] = fmt.Sprintf("%d", maxResults)

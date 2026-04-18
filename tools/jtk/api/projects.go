@@ -18,7 +18,20 @@ type ProjectDetail struct {
 	Lead           *User       `json:"lead,omitempty"`
 	IssueTypes     []IssueType `json:"issueTypes,omitempty"`
 	Components     []Component `json:"components,omitempty"`
+	Versions       []Version   `json:"versions,omitempty"`
+	Style          string      `json:"style,omitempty"`
+	Simplified     *bool       `json:"simplified,omitempty"`
+	IsPrivate      *bool       `json:"isPrivate,omitempty"`
 	URL            string      `json:"url,omitempty"`
+}
+
+// Version represents a Jira project version. Only the fields needed for the
+// `projects get` count-column rendering are decoded here; additional fields
+// (releaseDate, released, archived, etc.) can be added when a version-focused
+// command lands.
+type Version struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
 }
 
 // ProjectSearchResponse represents the paginated response from project search
@@ -71,9 +84,14 @@ func (c *Client) ListProjects(ctx context.Context) ([]Project, error) {
 	return projects, nil
 }
 
-// SearchProjects searches for projects with pagination
+// SearchProjects searches for projects with pagination.
+// ?expand populates issueTypes, url, lead, and the style/simplified/isPrivate
+// scalars that `jtk projects list --extended` depends on; issueTypes also
+// powers the default-mode list table.
 func (c *Client) SearchProjects(ctx context.Context, query string, startAt, maxResults int) (*ProjectSearchResponse, error) {
-	params := map[string]string{}
+	params := map[string]string{
+		"expand": "description,lead,issueTypes,url,projectKeys",
+	}
 
 	if query != "" {
 		params["query"] = query
@@ -99,13 +117,19 @@ func (c *Client) SearchProjects(ctx context.Context, query string, startAt, maxR
 	return &result, nil
 }
 
-// GetProject retrieves a project by key or ID
+// GetProject retrieves a project by key or ID.
+// ?expand=description,lead,issueTypes,url,projectKeys,versions populates the
+// fields needed by `jtk projects get` default and extended output, including
+// the component list, version count, style, simplified, and isPrivate flags.
 func (c *Client) GetProject(ctx context.Context, projectKeyOrID string) (*ProjectDetail, error) {
 	if projectKeyOrID == "" {
 		return nil, ErrProjectKeyRequired
 	}
 
-	urlStr := fmt.Sprintf("%s/project/%s", c.BaseURL, url.PathEscape(projectKeyOrID))
+	urlStr := buildURL(
+		fmt.Sprintf("%s/project/%s", c.BaseURL, url.PathEscape(projectKeyOrID)),
+		map[string]string{"expand": "description,lead,issueTypes,url,projectKeys,versions"},
+	)
 	body, err := c.Get(ctx, urlStr)
 	if err != nil {
 		return nil, fmt.Errorf("fetching project: %w", err)

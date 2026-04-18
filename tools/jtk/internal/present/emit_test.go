@@ -14,6 +14,68 @@ func newTestOpts() (*root.Options, *bytes.Buffer, *bytes.Buffer) {
 	return &root.Options{Stdout: &stdout, Stderr: &stderr}, &stdout, &stderr
 }
 
+func TestAppendPaginationHintWithToken_EmbedsToken(t *testing.T) {
+	t.Parallel()
+	sections := AppendPaginationHintWithToken(nil, true, "eyJzdGFydEF0IjoxMH0")
+	if len(sections) != 1 {
+		t.Fatalf("sections = %d, want 1", len(sections))
+	}
+	msg, ok := sections[0].(*present.MessageSection)
+	if !ok {
+		t.Fatalf("expected MessageSection, got %T", sections[0])
+	}
+	want := "More results available (next: eyJzdGFydEF0IjoxMH0)"
+	if msg.Message != want {
+		t.Errorf("Message = %q, want %q", msg.Message, want)
+	}
+	if msg.Stream != present.StreamStdout {
+		t.Errorf("Stream = %v, want Stdout", msg.Stream)
+	}
+}
+
+func TestAppendPaginationHintWithToken_EmptyTokenFallsBackToLegacyWording(t *testing.T) {
+	t.Parallel()
+	sections := AppendPaginationHintWithToken(nil, true, "")
+	msg := sections[0].(*present.MessageSection)
+	if msg.Message != paginationHint {
+		t.Errorf("empty-token fallback = %q, want legacy wording %q", msg.Message, paginationHint)
+	}
+}
+
+func TestAppendPaginationHintWithToken_NoMoreReturnsUnchanged(t *testing.T) {
+	t.Parallel()
+	base := []present.Section{&present.MessageSection{Kind: present.MessageInfo, Message: "only"}}
+	got := AppendPaginationHintWithToken(base, false, "anything")
+	if len(got) != 1 {
+		t.Errorf("hasMore=false should not append, got len=%d", len(got))
+	}
+}
+
+func TestEmitIDsWithPaginationToken_EmitsTokenInContinuationLine(t *testing.T) {
+	t.Parallel()
+	opts, stdout, _ := newTestOpts()
+	err := EmitIDsWithPaginationToken(opts, []string{"MON-1", "MON-2"}, true, "25")
+	if err != nil {
+		t.Fatalf("EmitIDsWithPaginationToken: %v", err)
+	}
+	want := "MON-1\nMON-2\nMore results available (next: 25)\n"
+	if stdout.String() != want {
+		t.Errorf("stdout = %q, want %q", stdout.String(), want)
+	}
+}
+
+func TestEmitIDsWithPaginationToken_NoMoreOmitsContinuation(t *testing.T) {
+	t.Parallel()
+	opts, stdout, _ := newTestOpts()
+	err := EmitIDsWithPaginationToken(opts, []string{"MON-1"}, false, "unused")
+	if err != nil {
+		t.Fatalf("EmitIDsWithPaginationToken: %v", err)
+	}
+	if stdout.String() != "MON-1\n" {
+		t.Errorf("stdout = %q, want %q", stdout.String(), "MON-1\n")
+	}
+}
+
 func TestEmit_SplitsStreams(t *testing.T) {
 	t.Parallel()
 	opts, stdout, stderr := newTestOpts()

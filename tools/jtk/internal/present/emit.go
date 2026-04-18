@@ -8,17 +8,32 @@ import (
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 )
 
-// paginationHint is the text appended after list output when more pages exist.
-// Kept centralized so default-mode and --id mode share the same wording.
+// paginationHint is the legacy continuation-line wording retained for
+// commands that have not yet migrated to the token-embedding variant.
+// New (#237+) call sites use the *WithToken helpers below.
 const paginationHint = "More results available (use --next-page-token to fetch next page)"
 
-// paginationMessageSection builds the stdout-routed continuation-line section
-// used by every list presenter. Centralizing this ensures the wording, kind,
-// and stream stay in sync across all callers.
+// paginationMessageSection builds the legacy stdout-routed continuation line.
+// Migrated callers use paginationMessageSectionWithToken instead.
 func paginationMessageSection() *present.MessageSection {
 	return &present.MessageSection{
 		Kind:    present.MessageInfo,
 		Message: paginationHint,
+		Stream:  present.StreamStdout,
+	}
+}
+
+// paginationMessageSectionWithToken builds the spec-shaped continuation line
+// that embeds the next-page token, per the JTK Output Specification (#230).
+// When token is empty the helper falls back to the legacy wording so callers
+// don't accidentally surface an empty "next: " fragment.
+func paginationMessageSectionWithToken(token string) *present.MessageSection {
+	if token == "" {
+		return paginationMessageSection()
+	}
+	return &present.MessageSection{
+		Kind:    present.MessageInfo,
+		Message: fmt.Sprintf("More results available (next: %s)", token),
 		Stream:  present.StreamStdout,
 	}
 }
@@ -68,6 +83,32 @@ func EmitIDsWithPagination(opts *root.Options, ids []string, hasMore bool) error
 	}
 	if hasMore {
 		model := &present.OutputModel{Sections: []present.Section{paginationMessageSection()}}
+		return Emit(opts, model)
+	}
+	return nil
+}
+
+// AppendPaginationHintWithToken returns sections with a token-embedded
+// pagination MessageSection appended when hasMore is true, otherwise returns
+// sections unchanged. Follow-up to #230: new migrated list commands emit
+// "More results available (next: <token>)" instead of the legacy wording.
+// Empty token degrades to the legacy phrasing.
+func AppendPaginationHintWithToken(sections []present.Section, hasMore bool, token string) []present.Section {
+	if !hasMore {
+		return sections
+	}
+	return append(sections, paginationMessageSectionWithToken(token))
+}
+
+// EmitIDsWithPaginationToken is EmitIDs plus a token-embedded continuation
+// line on stdout when hasMore is true. Shares paginationMessageSectionWithToken
+// with AppendPaginationHintWithToken so `--id` and default mode stay aligned.
+func EmitIDsWithPaginationToken(opts *root.Options, ids []string, hasMore bool, token string) error {
+	if err := EmitIDs(opts, ids); err != nil {
+		return err
+	}
+	if hasMore {
+		model := &present.OutputModel{Sections: []present.Section{paginationMessageSectionWithToken(token)}}
 		return Emit(opts, model)
 	}
 	return nil

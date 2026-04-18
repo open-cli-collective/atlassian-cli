@@ -3,90 +3,208 @@ package present
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/open-cli-collective/atlassian-go/present"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/present/projection"
 )
+
+// componentPreviewLimit caps the enumerated component list in `projects get
+// --extended` before a "... [N more]" truncation line. 4 mirrors the example
+// in the #230 specification.
+const componentPreviewLimit = 4
 
 // ProjectPresenter creates presentation models for project data.
 type ProjectPresenter struct{}
 
-// Present creates a presentation model for text output.
-// Content normalization (if any) happens here, not in the renderer.
-func (ProjectPresenter) Present(p *api.ProjectDetail) *present.OutputModel {
-	lead := "Unassigned"
-	if p.Lead != nil {
-		lead = p.Lead.DisplayName
-	}
+// ProjectDetailSpec declares the logical fields rendered by
+// PresentProjectDetailProjection. Identity is KEY (projection always retains
+// it on the first line). Extended fields correspond to the admin/schema rows
+// the spec puts behind `--extended`.
+var ProjectDetailSpec = projection.Registry{
+	{Header: "KEY", Identity: true},
+	{Header: "NAME"},
+	{Header: "TYPE"},
+	{Header: "LEAD"},
+	{Header: "STYLE"},
+	{Header: "ISSUE_TYPES"},
+	{Header: "COMPONENTS"},
+	{Header: "VERSIONS"},
+	{Header: "DESCRIPTION", Extended: true},
+	{Header: "LEAD_ID", Extended: true},
+	{Header: "ISSUE_TYPE_IDS", Extended: true},
+	{Header: "COMPONENT_IDS", Extended: true},
+	{Header: "SIMPLIFIED", Extended: true},
+	{Header: "PRIVATE", Extended: true},
+}
 
-	fields := []present.Field{
-		{Label: "Key", Value: p.Key},
-		{Label: "Name", Value: p.Name},
-		{Label: "ID", Value: p.ID.String()},
-		{Label: "Type", Value: p.ProjectTypeKey},
-		{Label: "Lead", Value: lead},
-	}
+// ProjectListSpec declares the columns emitted by PresentProjectList. Order
+// matches the Headers slice inside the presenter; a parity test locks the two.
+// The default column order is KEY|TYPE|LEAD|NAME per the #230 spec, not
+// alphabetical or API order.
+var ProjectListSpec = projection.Registry{
+	{Header: "KEY", Identity: true},
+	{Header: "TYPE"},
+	{Header: "LEAD"},
+	{Header: "NAME"},
+	{Header: "STYLE", Extended: true},
+	{Header: "ISSUE_TYPES", Extended: true},
+	{Header: "COMPONENTS", Extended: true},
+}
 
-	if p.Description != "" {
-		fields = append(fields, present.Field{Label: "Description", Value: p.Description})
-	}
+// ProjectTypeSpec declares the columns for `projects types`. The default NAME
+// column sources from ProjectType.FormattedKey (matches the spec's user-facing
+// wording); extended adds the raw i18n description key.
+var ProjectTypeSpec = projection.Registry{
+	{Header: "KEY", Identity: true},
+	{Header: "NAME"},
+	{Header: "DESCRIPTION_KEY", Extended: true},
+}
 
+// PresentProjectDetail builds the spec-shaped default or extended output for
+// `projects get`. Default output: title line + three compound rows. Extended
+// output: title line + extended compound rows with lead/issue-type IDs, an
+// enumerated component preview with truncation, a Versions line, Simplified
+// / Private flags, and an optional Description block.
+func (ProjectPresenter) PresentProjectDetail(p *api.ProjectDetail, extended bool) *present.OutputModel {
+	sections := []present.Section{
+		msg(fmt.Sprintf("%s  %s", p.Key, p.Name)),
+	}
+	if extended {
+		sections = append(sections, extendedProjectDetailSections(p)...)
+	} else {
+		sections = append(sections, defaultProjectDetailSections(p)...)
+	}
+	return &present.OutputModel{Sections: sections}
+}
+
+// defaultProjectDetailSections returns the compound-KV rows that follow the
+// title line in default-mode output. Types/Lead/Style, Issue Types list,
+// Components / Versions counts.
+func defaultProjectDetailSections(p *api.ProjectDetail) []present.Section {
+	out := []present.Section{
+		msg(fmt.Sprintf("Type: %s   Lead: %s   Style: %s",
+			OrDash(p.ProjectTypeKey), leadDisplayName(p.Lead), OrDash(p.Style))),
+	}
 	if len(p.IssueTypes) > 0 {
-		var names []string
-		for _, it := range p.IssueTypes {
-			names = append(names, it.Name)
+		out = append(out, msg("Issue Types: "+issueTypeNames(p.IssueTypes)))
+	}
+	out = append(out, msg(fmt.Sprintf("Components: %d   Versions: %d", len(p.Components), len(p.Versions))))
+	return out
+}
+
+// extendedProjectDetailSections returns the expanded post-title sections for
+// --extended mode. Components are enumerated with IDs, truncated after
+// componentPreviewLimit entries.
+func extendedProjectDetailSections(p *api.ProjectDetail) []present.Section {
+	out := []present.Section{
+		msg(fmt.Sprintf("Type: %s   Lead: %s   Style: %s",
+			OrDash(p.ProjectTypeKey), leadDisplayNameWithID(p.Lead), OrDash(p.Style))),
+	}
+	if len(p.IssueTypes) > 0 {
+		out = append(out, msg("Issue Types: "+issueTypeNamesWithIDs(p.IssueTypes)))
+	}
+	out = append(out, msg(fmt.Sprintf("Components: %d", len(p.Components))))
+	for i, c := range p.Components {
+		if i >= componentPreviewLimit {
+			remaining := len(p.Components) - componentPreviewLimit
+			out = append(out, msg(fmt.Sprintf("  ... [%d more]", remaining)))
+			break
 		}
-		fields = append(fields, present.Field{Label: "Issue Types", Value: fmt.Sprintf("%s", names)})
+		out = append(out, msg(fmt.Sprintf("  %s | %s", c.ID, c.Name)))
 	}
-
-	if p.URL != "" {
-		fields = append(fields, present.Field{Label: "URL", Value: p.URL})
+	out = append(out, msg(fmt.Sprintf("Versions: %d", len(p.Versions))))
+	out = append(out, msg(fmt.Sprintf("Simplified: %s   Private: %s",
+		PresentOptionalBool(p.Simplified), PresentOptionalBool(p.IsPrivate))))
+	if strings.TrimSpace(p.Description) != "" {
+		out = append(out,
+			msg("Description:"),
+			msg(p.Description),
+		)
 	}
+	return out
+}
 
+// PresentProjectDetailProjection builds a DetailSection view for `projects
+// get --fields`, keyed by the headers declared in ProjectDetailSpec. Output
+// flattens to "Label: Value" lines; projection.ProjectDetail then slices the
+// section to the user-selected subset.
+func (ProjectPresenter) PresentProjectDetailProjection(p *api.ProjectDetail) *present.OutputModel {
+	fields := []present.Field{
+		{Label: "KEY", Value: p.Key},
+		{Label: "NAME", Value: p.Name},
+		{Label: "TYPE", Value: OrDash(p.ProjectTypeKey)},
+		{Label: "LEAD", Value: leadDisplayName(p.Lead)},
+		{Label: "STYLE", Value: OrDash(p.Style)},
+		{Label: "ISSUE_TYPES", Value: OrDash(issueTypeNames(p.IssueTypes))},
+		{Label: "COMPONENTS", Value: fmt.Sprintf("%d", len(p.Components))},
+		{Label: "VERSIONS", Value: fmt.Sprintf("%d", len(p.Versions))},
+		{Label: "DESCRIPTION", Value: OrDash(p.Description)},
+		{Label: "LEAD_ID", Value: leadAccountID(p.Lead)},
+		{Label: "ISSUE_TYPE_IDS", Value: OrDash(issueTypeIDs(p.IssueTypes))},
+		{Label: "COMPONENT_IDS", Value: OrDash(componentIDs(p.Components))},
+		{Label: "SIMPLIFIED", Value: PresentOptionalBool(p.Simplified)},
+		{Label: "PRIVATE", Value: PresentOptionalBool(p.IsPrivate)},
+	}
 	return &present.OutputModel{
 		Sections: []present.Section{&present.DetailSection{Fields: fields}},
 	}
 }
 
-// PresentList creates a table view for a list of projects.
-func (ProjectPresenter) PresentList(projects []api.ProjectDetail) *present.OutputModel {
+// PresentProjectList renders `projects list` output as a table. Column order
+// matches the spec KEY|TYPE|LEAD|NAME; --extended appends STYLE / ISSUE_TYPES
+// / COMPONENTS counts. Pagination is appended by the command via
+// AppendPaginationHintWithToken.
+func (ProjectPresenter) PresentProjectList(projects []api.ProjectDetail, extended bool) *present.OutputModel {
+	headers := []string{"KEY", "TYPE", "LEAD", "NAME"}
+	if extended {
+		headers = append(headers, "STYLE", "ISSUE_TYPES", "COMPONENTS")
+	}
 	rows := make([]present.Row, len(projects))
 	for i, p := range projects {
-		lead := ""
-		if p.Lead != nil {
-			lead = p.Lead.DisplayName
+		cells := []string{
+			p.Key,
+			OrDash(p.ProjectTypeKey),
+			leadDisplayName(p.Lead),
+			p.Name,
 		}
-		rows[i] = present.Row{
-			Cells: []string{p.Key, p.Name, p.ProjectTypeKey, lead},
+		if extended {
+			cells = append(cells,
+				OrDash(p.Style),
+				fmt.Sprintf("%d", len(p.IssueTypes)),
+				fmt.Sprintf("%d", len(p.Components)),
+			)
 		}
+		rows[i] = present.Row{Cells: cells}
 	}
-
 	return &present.OutputModel{
 		Sections: []present.Section{
-			&present.TableSection{
-				Headers: []string{"KEY", "NAME", "TYPE", "LEAD"},
-				Rows:    rows,
-			},
+			&present.TableSection{Headers: headers, Rows: rows},
 		},
 	}
 }
 
-// PresentTypes creates a table view for a list of project types.
-func (ProjectPresenter) PresentTypes(types []api.ProjectType) *present.OutputModel {
+// PresentProjectTypes renders `projects types` output. Header is KEY | NAME
+// (spec #230 names the column NAME even though the API field is FormattedKey);
+// --extended adds DESCRIPTION_KEY from DescriptionI18nKey.
+func (ProjectPresenter) PresentProjectTypes(types []api.ProjectType, extended bool) *present.OutputModel {
+	headers := []string{"KEY", "NAME"}
+	if extended {
+		headers = append(headers, "DESCRIPTION_KEY")
+	}
 	rows := make([]present.Row, len(types))
 	for i, t := range types {
-		rows[i] = present.Row{
-			Cells: []string{t.Key, t.FormattedKey},
+		cells := []string{t.Key, t.FormattedKey}
+		if extended {
+			cells = append(cells, OrDash(t.DescriptionI18nKey))
 		}
+		rows[i] = present.Row{Cells: cells}
 	}
-
 	return &present.OutputModel{
 		Sections: []present.Section{
-			&present.TableSection{
-				Headers: []string{"KEY", "FORMATTED"},
-				Rows:    rows,
-			},
+			&present.TableSection{Headers: headers, Rows: rows},
 		},
 	}
 }
@@ -180,4 +298,79 @@ func (ProjectPresenter) PresentDeleteCancelled() *present.OutputModel {
 			},
 		},
 	}
+}
+
+// msg constructs a stdout-routed info MessageSection from a plaintext body.
+// Used throughout the spec-shaped project presenters to keep each output line
+// as its own addressable section.
+func msg(body string) *present.MessageSection {
+	return &present.MessageSection{
+		Kind:    present.MessageInfo,
+		Message: body,
+		Stream:  present.StreamStdout,
+	}
+}
+
+func leadDisplayName(u *api.User) string {
+	if u == nil || u.DisplayName == "" {
+		return "-"
+	}
+	return u.DisplayName
+}
+
+func leadDisplayNameWithID(u *api.User) string {
+	if u == nil || u.DisplayName == "" {
+		return "-"
+	}
+	if u.AccountID == "" {
+		return u.DisplayName
+	}
+	return fmt.Sprintf("%s (%s)", u.DisplayName, u.AccountID)
+}
+
+func leadAccountID(u *api.User) string {
+	if u == nil || u.AccountID == "" {
+		return "-"
+	}
+	return u.AccountID
+}
+
+func issueTypeNames(types []api.IssueType) string {
+	names := make([]string, 0, len(types))
+	for _, t := range types {
+		names = append(names, t.Name)
+	}
+	return strings.Join(names, ", ")
+}
+
+func issueTypeNamesWithIDs(types []api.IssueType) string {
+	parts := make([]string, 0, len(types))
+	for _, t := range types {
+		if t.ID == "" {
+			parts = append(parts, t.Name)
+			continue
+		}
+		parts = append(parts, fmt.Sprintf("%s (%s)", t.Name, t.ID))
+	}
+	return strings.Join(parts, ", ")
+}
+
+func issueTypeIDs(types []api.IssueType) string {
+	ids := make([]string, 0, len(types))
+	for _, t := range types {
+		if t.ID != "" {
+			ids = append(ids, t.ID)
+		}
+	}
+	return strings.Join(ids, ", ")
+}
+
+func componentIDs(comps []api.Component) string {
+	ids := make([]string, 0, len(comps))
+	for _, c := range comps {
+		if c.ID != "" {
+			ids = append(ids, c.ID)
+		}
+	}
+	return strings.Join(ids, ", ")
 }

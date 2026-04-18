@@ -143,8 +143,10 @@ func TestPresentProjectList_DefaultColumnOrderMatchesSpec(t *testing.T) {
 	}
 }
 
-func TestPresentProjectList_ExtendedAppendsStyleIssueTypesComponents(t *testing.T) {
+func TestPresentProjectList_ExtendedMatchesSpecShape(t *testing.T) {
 	t.Parallel()
+	// Spec (#230): KEY | TYPE | STYLE | LEAD | ISSUE_TYPES | COMPONENTS | NAME.
+	// ISSUE_TYPES is comma-joined issue-type names, COMPONENTS is a count.
 	projects := []api.ProjectDetail{
 		{
 			Key: "MON", Name: "Platform Development", ProjectTypeKey: "software",
@@ -157,12 +159,74 @@ func TestPresentProjectList_ExtendedAppendsStyleIssueTypesComponents(t *testing.
 	model := ProjectPresenter{}.PresentProjectList(projects, true)
 	table := sectionTable(t, model, 0)
 
-	wantHeaders := []string{"KEY", "TYPE", "LEAD", "NAME", "STYLE", "ISSUE_TYPES", "COMPONENTS"}
+	wantHeaders := []string{"KEY", "TYPE", "STYLE", "LEAD", "ISSUE_TYPES", "COMPONENTS", "NAME"}
 	if !equalStringSlices(table.Headers, wantHeaders) {
 		t.Errorf("extended headers = %v, want %v", table.Headers, wantHeaders)
 	}
-	if got := table.Rows[0].Cells; !equalStringSlices(got, []string{"MON", "software", "Rusty Hall", "Platform Development", "classic", "2", "3"}) {
-		t.Errorf("row = %v", got)
+	wantCells := []string{"MON", "software", "classic", "Rusty Hall", "Epic, SDLC", "3", "Platform Development"}
+	if got := table.Rows[0].Cells; !equalStringSlices(got, wantCells) {
+		t.Errorf("row = %v\nwant %v", got, wantCells)
+	}
+}
+
+func TestPresentProjectList_Extended_DashForEmptyIssueTypesAndStyle(t *testing.T) {
+	t.Parallel()
+	projects := []api.ProjectDetail{
+		{Key: "X", Name: "Example", ProjectTypeKey: "software"}, // no lead, no style, no types, no components
+	}
+	model := ProjectPresenter{}.PresentProjectList(projects, true)
+	table := sectionTable(t, model, 0)
+
+	wantCells := []string{"X", "software", "-", "-", "-", "0", "Example"}
+	if got := table.Rows[0].Cells; !equalStringSlices(got, wantCells) {
+		t.Errorf("empty-field row = %v\nwant %v", got, wantCells)
+	}
+}
+
+func TestPresentProjectDetail_Default_IssueTypesRowRendersDashWhenEmpty(t *testing.T) {
+	t.Parallel()
+	// Fix 2 regression: the row must appear unconditionally so callers see a
+	// stable line count. Empty IssueTypes renders as "Issue Types: -".
+	p := &api.ProjectDetail{
+		Key: "X", Name: "Example",
+		ProjectTypeKey: "software",
+		Lead:           &api.User{DisplayName: "Lead"},
+		Style:          "classic",
+	}
+	model := ProjectPresenter{}.PresentProjectDetail(p, false)
+	lines := renderAllMessages(t, model)
+
+	want := []string{
+		"X  Example",
+		"Type: software   Lead: Lead   Style: classic",
+		"Issue Types: -",
+		"Components: 0   Versions: 0",
+	}
+	if len(lines) != len(want) {
+		t.Fatalf("line count = %d, want %d\nlines=%v", len(lines), len(want), lines)
+	}
+	for i := range want {
+		if lines[i] != want[i] {
+			t.Errorf("line %d = %q, want %q", i, lines[i], want[i])
+		}
+	}
+}
+
+func TestPresentProjectDetail_Extended_IssueTypesRowRendersDashWhenEmpty(t *testing.T) {
+	t.Parallel()
+	p := &api.ProjectDetail{
+		Key: "X", Name: "Example",
+		ProjectTypeKey: "software",
+		Lead:           &api.User{AccountID: "u", DisplayName: "Lead"},
+		Style:          "classic",
+	}
+	model := ProjectPresenter{}.PresentProjectDetail(p, true)
+	lines := renderAllMessages(t, model)
+
+	// Specifically verify the Issue Types line is the third section (after
+	// title + compound row) — ordering is part of the contract.
+	if lines[2] != "Issue Types: -" {
+		t.Errorf("line 2 = %q, want \"Issue Types: -\"", lines[2])
 	}
 }
 

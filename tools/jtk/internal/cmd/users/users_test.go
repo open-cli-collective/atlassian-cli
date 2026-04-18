@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"github.com/open-cli-collective/atlassian-go/testutil"
@@ -195,10 +194,12 @@ func TestRunSearch_DefaultTableMatchesSpecColumnOrder(t *testing.T) {
 
 	testutil.RequireNoError(t, runSearch(context.Background(), opts, "al", 10, "", ""))
 
-	out := stdout.String()
-	testutil.Contains(t, out, "ACCOUNT_ID | NAME | EMAIL | ACTIVE")
-	testutil.Contains(t, out, "a1 | Alice | a@x.io | yes")
-	testutil.Contains(t, out, "b2 | Bob | - | no")
+	want := "ACCOUNT_ID | NAME | EMAIL | ACTIVE\n" +
+		"a1 | Alice | a@x.io | yes\n" +
+		"b2 | Bob | - | no\n"
+	if stdout.String() != want {
+		t.Errorf("users search default:\ngot:  %q\nwant: %q", stdout.String(), want)
+	}
 }
 
 func TestRunSearch_Extended_AppendsTimezoneLocale(t *testing.T) {
@@ -215,9 +216,11 @@ func TestRunSearch_Extended_AppendsTimezoneLocale(t *testing.T) {
 
 	testutil.RequireNoError(t, runSearch(context.Background(), opts, "al", 10, "", ""))
 
-	out := stdout.String()
-	testutil.Contains(t, out, "ACCOUNT_ID | NAME | EMAIL | ACTIVE | TIMEZONE | LOCALE")
-	testutil.Contains(t, out, "a1 | Alice | a@x.io | yes | Etc/GMT | en_US")
+	want := "ACCOUNT_ID | NAME | EMAIL | ACTIVE | TIMEZONE | LOCALE\n" +
+		"a1 | Alice | a@x.io | yes | Etc/GMT | en_US\n"
+	if stdout.String() != want {
+		t.Errorf("users search --extended:\ngot:  %q\nwant: %q", stdout.String(), want)
+	}
 }
 
 func TestRunSearch_Extended_DashesForRedactedFields(t *testing.T) {
@@ -233,7 +236,12 @@ func TestRunSearch_Extended_DashesForRedactedFields(t *testing.T) {
 	opts.SetAPIClient(newClient(t, server.URL))
 
 	testutil.RequireNoError(t, runSearch(context.Background(), opts, "al", 10, "", ""))
-	testutil.Contains(t, stdout.String(), "a1 | Alice | - | yes | - | -")
+
+	want := "ACCOUNT_ID | NAME | EMAIL | ACTIVE | TIMEZONE | LOCALE\n" +
+		"a1 | Alice | - | yes | - | -\n"
+	if stdout.String() != want {
+		t.Errorf("users search --extended (redacted):\ngot:  %q\nwant: %q", stdout.String(), want)
+	}
 }
 
 func TestRunSearch_IDOnly_EmitsKeysOnly(t *testing.T) {
@@ -256,7 +264,9 @@ func TestRunSearch_IDOnly_EmitsKeysOnly(t *testing.T) {
 func TestRunSearch_HasMore_AppendsTokenizedContinuation(t *testing.T) {
 	t.Parallel()
 	// len(users) == --max triggers hasMore. Continuation line embeds next
-	// startAt per #230.
+	// startAt per #230. Exact-string golden locks the full output shape
+	// (header + rows + continuation) so accidental drift in any of the three
+	// sections gets caught.
 	users := []api.User{
 		{AccountID: "a1", DisplayName: "Alice"},
 		{AccountID: "b2", DisplayName: "Bob"},
@@ -269,7 +279,14 @@ func TestRunSearch_HasMore_AppendsTokenizedContinuation(t *testing.T) {
 	opts.SetAPIClient(newClient(t, server.URL))
 
 	testutil.RequireNoError(t, runSearch(context.Background(), opts, "al", 2, "", ""))
-	testutil.Contains(t, stdout.String(), "More results available (next: 2)")
+
+	want := "ACCOUNT_ID | NAME | EMAIL | ACTIVE\n" +
+		"a1 | Alice | - | no\n" +
+		"b2 | Bob | - | no\n" +
+		"More results available (next: 2)\n"
+	if stdout.String() != want {
+		t.Errorf("users search with pagination:\ngot:  %q\nwant: %q", stdout.String(), want)
+	}
 }
 
 func TestRunSearch_IDOnly_EmitsTokenizedContinuation(t *testing.T) {
@@ -361,11 +378,11 @@ func TestRunSearch_Fields_ProjectsToSelectedColumns(t *testing.T) {
 	opts.SetAPIClient(newClient(t, server.URL))
 
 	testutil.RequireNoError(t, runSearch(context.Background(), opts, "al", 10, "", "NAME"))
-	out := stdout.String()
+
 	// ACCOUNT_ID is the identity column and is always retained.
-	testutil.Contains(t, out, "ACCOUNT_ID | NAME")
-	if strings.Contains(out, "EMAIL") || strings.Contains(out, "ACTIVE") {
-		t.Errorf("projected output leaked non-selected columns: %q", out)
+	want := "ACCOUNT_ID | NAME\na1 | Alice\n"
+	if stdout.String() != want {
+		t.Errorf("users search --fields NAME:\ngot:  %q\nwant: %q", stdout.String(), want)
 	}
 }
 

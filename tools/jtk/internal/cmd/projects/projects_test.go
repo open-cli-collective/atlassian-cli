@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"github.com/open-cli-collective/atlassian-go/testutil"
@@ -64,15 +63,19 @@ func TestRunList_DefaultColumnOrderMatchesSpec(t *testing.T) {
 	opts := &root.Options{Output: "table", NoColor: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runList(context.Background(), opts, "", 50, "", "")
-	testutil.RequireNoError(t, err)
-	out := stdout.String()
-	testutil.Contains(t, out, "KEY | TYPE | LEAD | NAME")
-	testutil.Contains(t, out, "TST | software | Lead | Test")
+	testutil.RequireNoError(t, runList(context.Background(), opts, "", 50, "", ""))
+
+	want := "KEY | TYPE | LEAD | NAME\nTST | software | Lead | Test\n"
+	if stdout.String() != want {
+		t.Errorf("projects list default:\ngot:  %q\nwant: %q", stdout.String(), want)
+	}
 }
 
-func TestRunList_Extended_AppendsStyleAndCounts(t *testing.T) {
+func TestRunList_Extended_MatchesSpecShape(t *testing.T) {
 	t.Parallel()
+	// Per #230: extended headers are KEY|TYPE|STYLE|LEAD|ISSUE_TYPES|
+	// COMPONENTS|NAME with ISSUE_TYPES rendered as comma-joined names and
+	// COMPONENTS as a count.
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(api.ProjectSearchResponse{
 			Values: []api.ProjectDetail{
@@ -97,9 +100,12 @@ func TestRunList_Extended_AppendsStyleAndCounts(t *testing.T) {
 	opts.SetAPIClient(client)
 
 	testutil.RequireNoError(t, runList(context.Background(), opts, "", 50, "", ""))
-	out := stdout.String()
-	testutil.Contains(t, out, "KEY | TYPE | LEAD | NAME | STYLE | ISSUE_TYPES | COMPONENTS")
-	testutil.Contains(t, out, "TST | software | Lead | Test | classic | 2 | 2")
+
+	want := "KEY | TYPE | STYLE | LEAD | ISSUE_TYPES | COMPONENTS | NAME\n" +
+		"TST | software | classic | Lead | Epic, SDLC | 2 | Test\n"
+	if stdout.String() != want {
+		t.Errorf("projects list --extended:\ngot:  %q\nwant: %q", stdout.String(), want)
+	}
 }
 
 func TestRunList_HasMore_EmbedsTokenInContinuationLine(t *testing.T) {
@@ -257,10 +263,10 @@ func TestRunList_Fields_ProjectsToSelectedColumns(t *testing.T) {
 	opts.SetAPIClient(client)
 
 	testutil.RequireNoError(t, runList(context.Background(), opts, "", 50, "", "KEY,NAME"))
-	out := stdout.String()
-	testutil.Contains(t, out, "KEY | NAME")
-	if strings.Contains(out, "TYPE") || strings.Contains(out, "LEAD") {
-		t.Errorf("projected output leaked non-selected columns: %q", out)
+
+	want := "KEY | NAME\nTST | Test\n"
+	if stdout.String() != want {
+		t.Errorf("projects list --fields KEY,NAME:\ngot:  %q\nwant: %q", stdout.String(), want)
 	}
 }
 
@@ -373,15 +379,50 @@ func TestRunGet_Extended_EnumeratesComponentsAndFlags(t *testing.T) {
 
 	testutil.RequireNoError(t, runGet(context.Background(), opts, "TST", ""))
 
-	out := stdout.String()
-	testutil.Contains(t, out, "TST  Test")
-	testutil.Contains(t, out, "Type: software   Lead: Lead (u1)   Style: classic")
-	testutil.Contains(t, out, "Issue Types: Epic (1)")
-	testutil.Contains(t, out, "Components: 2")
-	testutil.Contains(t, out, "  c1 | A")
-	testutil.Contains(t, out, "  c2 | B")
-	testutil.Contains(t, out, "Versions: 0")
-	testutil.Contains(t, out, "Simplified: no   Private: no")
+	want := "TST  Test\n" +
+		"Type: software   Lead: Lead (u1)   Style: classic\n" +
+		"Issue Types: Epic (1)\n" +
+		"Components: 2\n" +
+		"  c1 | A\n" +
+		"  c2 | B\n" +
+		"Versions: 0\n" +
+		"Simplified: no   Private: no\n"
+	if stdout.String() != want {
+		t.Errorf("projects get --extended:\ngot:  %q\nwant: %q", stdout.String(), want)
+	}
+}
+
+func TestRunGet_Default_IssueTypesRowPresentEvenWhenEmpty(t *testing.T) {
+	t.Parallel()
+	// Command-level Fix 2 regression. The reviewer's original finding was a
+	// rendered-output contract issue, so we lock this at the command layer
+	// alongside the presenter-layer test.
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(api.ProjectDetail{
+			ID: json.Number("10001"), Key: "EMPTY", Name: "Empty",
+			ProjectTypeKey: "software", Style: "classic",
+			Lead: &api.User{DisplayName: "Lead"},
+			// No IssueTypes, no Components, no Versions.
+		})
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", NoColor: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	testutil.RequireNoError(t, runGet(context.Background(), opts, "EMPTY", ""))
+
+	want := "EMPTY  Empty\n" +
+		"Type: software   Lead: Lead   Style: classic\n" +
+		"Issue Types: -\n" +
+		"Components: 0   Versions: 0\n"
+	if stdout.String() != want {
+		t.Errorf("projects get default (no issue types):\ngot:  %q\nwant: %q", stdout.String(), want)
+	}
 }
 
 func TestRunGet_Extended_MissingFlagsRenderDashes(t *testing.T) {
@@ -443,12 +484,11 @@ func TestRunGet_Fields_ProjectsDetailSection(t *testing.T) {
 	opts.SetAPIClient(client)
 
 	testutil.RequireNoError(t, runGet(context.Background(), opts, "TST", "NAME,LEAD"))
-	out := stdout.String()
-	testutil.Contains(t, out, "KEY: TST")
-	testutil.Contains(t, out, "NAME: Test")
-	testutil.Contains(t, out, "LEAD: Lead")
-	if strings.Contains(out, "STYLE:") {
-		t.Errorf("projection leaked unselected field in output: %q", out)
+
+	// KEY is the identity column; projection.Resolve always prepends it.
+	want := "KEY: TST\nNAME: Test\nLEAD: Lead\n"
+	if stdout.String() != want {
+		t.Errorf("projects get --fields NAME,LEAD:\ngot:  %q\nwant: %q", stdout.String(), want)
 	}
 }
 
@@ -641,11 +681,12 @@ func TestRunTypes(t *testing.T) {
 	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runTypes(context.Background(), opts, "")
-	testutil.RequireNoError(t, err)
-	out := stdout.String()
-	testutil.Contains(t, out, "KEY | NAME")
-	testutil.Contains(t, out, "software | Software")
+	testutil.RequireNoError(t, runTypes(context.Background(), opts, ""))
+
+	want := "KEY | NAME\nsoftware | Software\nbusiness | Business\n"
+	if stdout.String() != want {
+		t.Errorf("projects types default:\ngot:  %q\nwant: %q", stdout.String(), want)
+	}
 }
 
 func TestRunTypes_Extended_AddsDescriptionKey(t *testing.T) {
@@ -665,9 +706,11 @@ func TestRunTypes_Extended_AddsDescriptionKey(t *testing.T) {
 	opts.SetAPIClient(client)
 
 	testutil.RequireNoError(t, runTypes(context.Background(), opts, ""))
-	out := stdout.String()
-	testutil.Contains(t, out, "KEY | NAME | DESCRIPTION_KEY")
-	testutil.Contains(t, out, "software | Software | jira.project.type.software.description")
+
+	want := "KEY | NAME | DESCRIPTION_KEY\nsoftware | Software | jira.project.type.software.description\n"
+	if stdout.String() != want {
+		t.Errorf("projects types --extended:\ngot:  %q\nwant: %q", stdout.String(), want)
+	}
 }
 
 func TestRunTypes_IDOnly(t *testing.T) {

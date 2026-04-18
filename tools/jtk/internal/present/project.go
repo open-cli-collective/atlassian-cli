@@ -42,16 +42,19 @@ var ProjectDetailSpec = projection.Registry{
 
 // ProjectListSpec declares the columns emitted by PresentProjectList. Order
 // matches the Headers slice inside the presenter; a parity test locks the two.
-// The default column order is KEY|TYPE|LEAD|NAME per the #230 spec, not
-// alphabetical or API order.
+// Default order per #230 is KEY|TYPE|LEAD|NAME; extended order interleaves
+// STYLE between TYPE and LEAD and ISSUE_TYPES/COMPONENTS before NAME:
+// KEY|TYPE|STYLE|LEAD|ISSUE_TYPES|COMPONENTS|NAME. Registry.ForMode preserves
+// declaration order when expanding, so this file declares the interleaved
+// extended order and marks the three non-default entries Extended:true.
 var ProjectListSpec = projection.Registry{
 	{Header: "KEY", Identity: true},
 	{Header: "TYPE"},
-	{Header: "LEAD"},
-	{Header: "NAME"},
 	{Header: "STYLE", Extended: true},
+	{Header: "LEAD"},
 	{Header: "ISSUE_TYPES", Extended: true},
 	{Header: "COMPONENTS", Extended: true},
+	{Header: "NAME"},
 }
 
 // ProjectTypeSpec declares the columns for `projects types`. The default NAME
@@ -82,29 +85,27 @@ func (ProjectPresenter) PresentProjectDetail(p *api.ProjectDetail, extended bool
 
 // defaultProjectDetailSections returns the compound-KV rows that follow the
 // title line in default-mode output. Types/Lead/Style, Issue Types list,
-// Components / Versions counts.
+// Components / Versions counts. The Issue Types row is always emitted so the
+// line count stays stable across projects — "-" when empty per #230's
+// parseable-text-shape goal.
 func defaultProjectDetailSections(p *api.ProjectDetail) []present.Section {
-	out := []present.Section{
+	return []present.Section{
 		msg(fmt.Sprintf("Type: %s   Lead: %s   Style: %s",
 			OrDash(p.ProjectTypeKey), leadDisplayName(p.Lead), OrDash(p.Style))),
+		msg("Issue Types: " + OrDash(issueTypeNames(p.IssueTypes))),
+		msg(fmt.Sprintf("Components: %d   Versions: %d", len(p.Components), len(p.Versions))),
 	}
-	if len(p.IssueTypes) > 0 {
-		out = append(out, msg("Issue Types: "+issueTypeNames(p.IssueTypes)))
-	}
-	out = append(out, msg(fmt.Sprintf("Components: %d   Versions: %d", len(p.Components), len(p.Versions))))
-	return out
 }
 
 // extendedProjectDetailSections returns the expanded post-title sections for
 // --extended mode. Components are enumerated with IDs, truncated after
-// componentPreviewLimit entries.
+// componentPreviewLimit entries. Issue Types is always emitted (empty →
+// "Issue Types: -") to keep the rendered row count independent of data.
 func extendedProjectDetailSections(p *api.ProjectDetail) []present.Section {
 	out := []present.Section{
 		msg(fmt.Sprintf("Type: %s   Lead: %s   Style: %s",
 			OrDash(p.ProjectTypeKey), leadDisplayNameWithID(p.Lead), OrDash(p.Style))),
-	}
-	if len(p.IssueTypes) > 0 {
-		out = append(out, msg("Issue Types: "+issueTypeNamesWithIDs(p.IssueTypes)))
+		msg("Issue Types: " + OrDash(issueTypeNamesWithIDs(p.IssueTypes))),
 	}
 	out = append(out, msg(fmt.Sprintf("Components: %d", len(p.Components))))
 	for i, c := range p.Components {
@@ -153,29 +154,41 @@ func (ProjectPresenter) PresentProjectDetailProjection(p *api.ProjectDetail) *pr
 	}
 }
 
-// PresentProjectList renders `projects list` output as a table. Column order
-// matches the spec KEY|TYPE|LEAD|NAME; --extended appends STYLE / ISSUE_TYPES
-// / COMPONENTS counts. Pagination is appended by the command via
+// PresentProjectList renders `projects list` output as a table. Default order
+// is KEY | TYPE | LEAD | NAME; --extended interleaves STYLE between TYPE and
+// LEAD and ISSUE_TYPES/COMPONENTS before NAME, producing
+// KEY | TYPE | STYLE | LEAD | ISSUE_TYPES | COMPONENTS | NAME per #230.
+// ISSUE_TYPES renders as the comma-joined issue-type names (not a count);
+// COMPONENTS renders as the count. Pagination is appended by the command via
 // AppendPaginationHintWithToken.
 func (ProjectPresenter) PresentProjectList(projects []api.ProjectDetail, extended bool) *present.OutputModel {
-	headers := []string{"KEY", "TYPE", "LEAD", "NAME"}
+	var headers []string
 	if extended {
-		headers = append(headers, "STYLE", "ISSUE_TYPES", "COMPONENTS")
+		headers = []string{"KEY", "TYPE", "STYLE", "LEAD", "ISSUE_TYPES", "COMPONENTS", "NAME"}
+	} else {
+		headers = []string{"KEY", "TYPE", "LEAD", "NAME"}
 	}
+
 	rows := make([]present.Row, len(projects))
 	for i, p := range projects {
-		cells := []string{
-			p.Key,
-			OrDash(p.ProjectTypeKey),
-			leadDisplayName(p.Lead),
-			p.Name,
-		}
+		var cells []string
 		if extended {
-			cells = append(cells,
+			cells = []string{
+				p.Key,
+				OrDash(p.ProjectTypeKey),
 				OrDash(p.Style),
-				fmt.Sprintf("%d", len(p.IssueTypes)),
+				leadDisplayName(p.Lead),
+				OrDash(issueTypeNames(p.IssueTypes)),
 				fmt.Sprintf("%d", len(p.Components)),
-			)
+				p.Name,
+			}
+		} else {
+			cells = []string{
+				p.Key,
+				OrDash(p.ProjectTypeKey),
+				leadDisplayName(p.Lead),
+				p.Name,
+			}
 		}
 		rows[i] = present.Row{Cells: cells}
 	}

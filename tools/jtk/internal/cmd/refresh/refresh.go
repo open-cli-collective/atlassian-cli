@@ -15,7 +15,13 @@ import (
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cache"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/config"
+	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
 )
+
+// ErrAlreadyReported signals that the command has already rendered its failure
+// output via the modeled path; the process entrypoint should exit non-zero
+// without re-printing the error.
+var ErrAlreadyReported = errors.New("refresh had failures; already reported")
 
 // Register registers the refresh command.
 func Register(parent *cobra.Command, opts *root.Options) {
@@ -28,15 +34,17 @@ func Register(parent *cobra.Command, opts *root.Options) {
 users, issue types, statuses, priorities, resolutions, boards, and link types.
 
 With no arguments, refreshes every cacheable resource. With resource names,
-refreshes only those. With --status, reports freshness without fetching.
+refreshes only those (plus any declared dependencies, auto-bootstrapped in
+dependency order). With --status, reports freshness without fetching.
 
-Requires configuration (jtk init). Some resources (boards) are unavailable
-under bearer authentication and are skipped.`,
+Requires configuration (jtk init). Resources unavailable under the current
+auth (e.g., boards under bearer auth) are silently skipped during a refresh
+and reported as "unavailable" in --status.`,
 		Example: `  # Refresh everything
   jtk refresh
 
-  # Refresh a subset
-  jtk refresh fields users
+  # Refresh a subset (auto-expands to include dependencies)
+  jtk refresh statuses
 
   # Show freshness without fetching
   jtk refresh --status`,
@@ -49,14 +57,12 @@ under bearer authentication and are skipped.`,
 	parent.AddCommand(cmd)
 }
 
-// run is the command entry point. Exported for testing would require package-level
-// plumbing; keeping it unexported and covered via cobra.Command.Execute in tests.
 func run(ctx context.Context, opts *root.Options, names []string, statusOnly bool) error {
 	if !config.IsConfigured() {
 		return errors.New("configuration not found — run 'jtk init' first")
 	}
 
-	selected, err := selectEntries(names)
+	selected, err := cache.SelectWithDeps(names)
 	if err != nil {
 		return err
 	}
@@ -72,128 +78,84 @@ func run(ctx context.Context, opts *root.Options, names []string, statusOnly boo
 	return runRefresh(ctx, opts, client, selected)
 }
 
-// selectEntries resolves the named-resources argument list (empty = all entries
-// in dependency order).
-func selectEntries(names []string) ([]cache.Entry, error) {
-	all := cache.Entries()
-	if len(names) == 0 {
-		return all, nil
-	}
-
-	byName := make(map[string]cache.Entry, len(all))
-	for _, e := range all {
-		byName[e.Name] = e
-	}
-
-	seen := make(map[string]bool, len(names))
-	selected := make([]cache.Entry, 0, len(names))
-	for _, n := range names {
-		if seen[n] {
-			continue
-		}
-		e, ok := byName[n]
-		if !ok {
-			return nil, fmt.Errorf("unknown resource %q — valid names: %v", n, cache.Names())
-		}
-		selected = append(selected, e)
-		seen[n] = true
-	}
-	return selected, nil
-}
-
 // runStatus renders the freshness table.
 func runStatus(opts *root.Options, selected []cache.Entry) error {
-	client, _ := opts.APIClient() // best-effort; availability check tolerates nil
-
+	client, _ := opts.APIClient() // best-effort; Available predicate tolerates nil
 	now := time.Now().UTC()
-	rows := make([]present.Row, 0, len(selected))
+
+	rows := make([]jtkpresent.StatusRow, 0, len(selected))
 	for _, e := range selected {
-		rows = append(rows, present.Row{Cells: statusRow(e, client, now)})
+		rows = append(rows, buildStatusRow(e, client, now))
 	}
 
-	model := &present.OutputModel{
-		Sections: []present.Section{
-			&present.TableSection{
-				Headers: []string{"RESOURCE", "FETCHED_AT", "AGE", "TTL", "STATUS"},
-				Rows:    rows,
-			},
-		},
-	}
+	model := jtkpresent.RefreshPresenter{}.PresentStatus(rows, now)
 	out := present.Render(model, opts.RenderStyle())
 	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
 	_, _ = fmt.Fprint(opts.Stderr, out.Stderr)
 	return nil
 }
 
-// statusRow is the per-entry row in the --status table.
-func statusRow(e cache.Entry, client *api.Client, now time.Time) []string {
+func buildStatusRow(e cache.Entry, client *api.Client, now time.Time) jtkpresent.StatusRow {
 	if !e.IsAvailable(client) {
-		return []string{e.Name, "-", "-", e.TTL, cache.StatusUnavailable.String()}
+		return jtkpresent.StatusRow{Resource: e.Name, TTL: e.TTL, Status: cache.StatusUnavailable}
 	}
 
 	env, err := cache.ReadResource[any](e.Name)
 	if errors.Is(err, cache.ErrCacheMiss) {
-		return []string{e.Name, "-", "-", e.TTL, cache.StatusUninitialized.String()}
+		return jtkpresent.StatusRow{Resource: e.Name, TTL: e.TTL, Status: cache.StatusUninitialized}
 	}
 	if err != nil {
-		return []string{e.Name, "-", "-", e.TTL, "error"}
+		// Corrupt envelope on disk: report as uninitialized rather than a novel status;
+		// a subsequent refresh will overwrite it.
+		return jtkpresent.StatusRow{Resource: e.Name, TTL: e.TTL, Status: cache.StatusUninitialized}
 	}
-
-	fetchedAt := "-"
-	if !env.FetchedAt.IsZero() {
-		fetchedAt = env.FetchedAt.UTC().Format(time.RFC3339)
+	return jtkpresent.StatusRow{
+		Resource:  e.Name,
+		TTL:       e.TTL,
+		FetchedAt: env.FetchedAt,
+		Status:    cache.Classify(env.FetchedAt, e.TTL, now),
 	}
-	status := cache.Classify(env.FetchedAt, e.TTL, now)
-	return []string{e.Name, fetchedAt, cache.Age(env.FetchedAt, now), e.TTL, status.String()}
 }
 
-// runRefresh fetches each selected entry and renders per-resource result lines.
-// Continues on error; overall exit non-zero if any resource failed.
+// runRefresh fetches each selected entry, collects per-resource results, hands
+// them to the presenter, and returns ErrAlreadyReported if any resource failed.
+// Unavailable entries (e.g., boards under bearer auth) are silently skipped.
 func runRefresh(ctx context.Context, opts *root.Options, client *api.Client, selected []cache.Entry) error {
-	sections := make([]present.Section, 0, len(selected))
-	var firstFailure error
+	results := make([]jtkpresent.RefreshResult, 0, len(selected))
+	failed := 0
 
 	for _, e := range selected {
 		if !e.IsAvailable(client) {
-			sections = append(sections, &present.MessageSection{
-				Kind:    present.MessageInfo,
-				Stream:  present.StreamStdout,
-				Message: fmt.Sprintf("Skipping %s — unavailable under current auth", e.Name),
-			})
 			continue
 		}
-
 		prev := previousCount(e.Name)
 		count, err := e.Fetch(ctx, client)
-		if err != nil {
-			if firstFailure == nil {
-				firstFailure = err
-			}
-			sections = append(sections, &present.MessageSection{
-				Kind:    present.MessageError,
-				Stream:  present.StreamStderr,
-				Message: fmt.Sprintf("Refreshing %s failed: %v", e.Name, err),
-			})
-			continue
-		}
-
-		sections = append(sections, &present.MessageSection{
-			Kind:    present.MessageSuccess,
-			Stream:  present.StreamStdout,
-			Message: formatRefreshLine(e.Name, count, prev, time.Now().UTC()),
+		results = append(results, jtkpresent.RefreshResult{
+			Name:     e.Name,
+			Count:    count,
+			Previous: prev,
+			Err:      err,
+			At:       time.Now().UTC(),
 		})
+		if err != nil {
+			failed++
+		}
 	}
 
-	model := &present.OutputModel{Sections: sections}
+	model := jtkpresent.RefreshPresenter{}.PresentRefresh(results)
 	out := present.Render(model, opts.RenderStyle())
 	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
 	_, _ = fmt.Fprint(opts.Stderr, out.Stderr)
-	return firstFailure
+
+	if failed > 0 {
+		return fmt.Errorf("%w (%d resource(s))", ErrAlreadyReported, failed)
+	}
+	return nil
 }
 
 // previousCount reports the prior entry count for a resource, or -1 if unknown.
-// Uses a shallow decode just to count slice/map entries — good enough for a
-// delta indicator.
+// Counts both slice-shaped envelopes (e.g. fields) and map-shaped ones
+// (e.g. issuetypes = map[projectKey][]IssueType).
 func previousCount(name string) int {
 	env, err := cache.ReadResource[any](name)
 	if err != nil {
@@ -213,15 +175,4 @@ func previousCount(name string) int {
 	default:
 		return -1
 	}
-}
-
-// formatRefreshLine produces the per-resource success message.
-// "Refreshing fields... 73 entries (was 72) — Cache updated at 2026-04-18 14:23:00"
-func formatRefreshLine(name string, count, prev int, now time.Time) string {
-	delta := ""
-	if prev >= 0 && prev != count {
-		delta = fmt.Sprintf(" (was %d)", prev)
-	}
-	return fmt.Sprintf("Refreshing %s... %d entries%s — Cache updated at %s",
-		name, count, delta, now.Format("2006-01-02 15:04:05"))
 }

@@ -87,6 +87,56 @@ func Lookup(name string) (Entry, error) {
 	return Entry{}, fmt.Errorf("%w: %s", ErrUnknownResource, name)
 }
 
+// SelectWithDeps returns the entries matching the given names expanded to
+// include transitive DependsOn, sorted in dependency order (deps before
+// dependents). An empty name list returns every registered entry in
+// dependency order. Unknown names return ErrUnknownResource.
+//
+// This is what `jtk refresh <names>` uses so that `refresh statuses` bootstraps
+// the `projects` cache dependency automatically and argument order doesn't
+// matter.
+func SelectWithDeps(names []string) ([]Entry, error) {
+	all := Entries()
+	if len(names) == 0 {
+		return all, nil
+	}
+
+	byName := make(map[string]Entry, len(entries))
+	for _, e := range entries {
+		byName[e.Name] = e
+	}
+
+	wanted := make(map[string]bool, len(names))
+	queue := make([]string, 0, len(names))
+	for _, n := range names {
+		if _, ok := byName[n]; !ok {
+			return nil, fmt.Errorf("%w: %s — valid names: %v", ErrUnknownResource, n, Names())
+		}
+		if !wanted[n] {
+			wanted[n] = true
+			queue = append(queue, n)
+		}
+	}
+	for len(queue) > 0 {
+		curr := queue[0]
+		queue = queue[1:]
+		for _, dep := range byName[curr].DependsOn {
+			if !wanted[dep] {
+				wanted[dep] = true
+				queue = append(queue, dep)
+			}
+		}
+	}
+
+	result := make([]Entry, 0, len(wanted))
+	for _, e := range all {
+		if wanted[e.Name] {
+			result = append(result, e)
+		}
+	}
+	return result, nil
+}
+
 // Names returns the registered entry names in declaration order.
 func Names() []string {
 	names := make([]string, 0, len(entries))

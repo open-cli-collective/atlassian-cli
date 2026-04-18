@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/open-cli-collective/atlassian-go/testutil"
 
@@ -171,10 +170,15 @@ func TestRun_Refresh_ContinuesOnError(t *testing.T) {
 
 	err := run(context.Background(), opts, nil, false)
 	testutil.Error(t, err)
-	testutil.Contains(t, err.Error(), "boom")
+	// Returned error signals "already reported" so main.go won't re-print; the
+	// failure detail lives in the stderr section rendered by the presenter.
+	if !errors.Is(err, ErrAlreadyReported) {
+		t.Fatalf("expected ErrAlreadyReported, got %v", err)
+	}
 	testutil.Contains(t, stdout.String(), "Refreshing ok")
 	testutil.Contains(t, stdout.String(), "Refreshing also_ok")
 	testutil.Contains(t, stderr.String(), "Refreshing broken failed")
+	testutil.Contains(t, stderr.String(), "boom")
 }
 
 func TestRun_Refresh_SkipsUnavailable(t *testing.T) {
@@ -204,8 +208,13 @@ func TestRun_Refresh_SkipsUnavailable(t *testing.T) {
 	if fetchCalled {
 		t.Fatal("expected unavailable entry's fetcher not to be called")
 	}
-	testutil.Contains(t, stdout.String(), "Skipping boards")
-	testutil.Contains(t, stdout.String(), "Refreshing fields")
+	// Unavailable resources are silently skipped during a full refresh: no
+	// "Skipping ..." line, no "Refreshing boards" line — only --status mentions them.
+	out := stdout.String()
+	testutil.Contains(t, out, "Refreshing fields")
+	if strings.Contains(out, "boards") {
+		t.Fatalf("expected boards to be silently skipped during refresh, got: %s", out)
+	}
 }
 
 func TestRun_Status_Unavailable(t *testing.T) {
@@ -242,27 +251,51 @@ func TestRun_Status_DoesNotCallFetch(t *testing.T) {
 	}
 }
 
-// Sanity-check that the formatRefreshLine composes the expected shape.
-func TestFormatRefreshLine(t *testing.T) {
-	now := mustParseTime(t, "2026-04-18T14:23:00Z")
-	testutil.Equal(t,
-		formatRefreshLine("fields", 73, 72, now),
-		"Refreshing fields... 73 entries (was 72) — Cache updated at 2026-04-18 14:23:00")
-	testutil.Equal(t,
-		formatRefreshLine("fields", 73, 73, now),
-		"Refreshing fields... 73 entries — Cache updated at 2026-04-18 14:23:00")
-	testutil.Equal(t,
-		formatRefreshLine("users", 0, -1, now),
-		"Refreshing users... 0 entries — Cache updated at 2026-04-18 14:23:00")
+func TestRun_Refresh_AutoExpandsDependencies(t *testing.T) {
+	opts, stdout, _ := newOpts(t)
+	defer cache.SetRootForTest(t.TempDir())()
+
+	var calls []string
+	fetch := func(name string) func(context.Context, *api.Client) (int, error) {
+		return func(_ context.Context, _ *api.Client) (int, error) {
+			calls = append(calls, name)
+			return 1, cache.WriteResource(name, "24h", []int{1})
+		}
+	}
+	defer cache.SetEntriesForTest([]cache.Entry{
+		{Name: "projects", TTL: "24h", Fetch: fetch("projects")},
+		{Name: "statuses", TTL: "24h", DependsOn: []string{"projects"}, Fetch: fetch("statuses")},
+	})()
+
+	// User asks for "statuses" alone; dependency must auto-bootstrap in order.
+	err := run(context.Background(), opts, []string{"statuses"}, false)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, strings.Join(calls, ","), "projects,statuses")
+	out := stdout.String()
+	testutil.Contains(t, out, "Refreshing projects")
+	testutil.Contains(t, out, "Refreshing statuses")
 }
 
-func mustParseTime(t *testing.T, s string) (out time.Time) {
-	t.Helper()
-	out, err := time.Parse(time.RFC3339, s)
-	if err != nil {
-		t.Fatal(err)
+func TestRun_Refresh_ArgumentOrderDoesNotMatter(t *testing.T) {
+	opts, _, _ := newOpts(t)
+	defer cache.SetRootForTest(t.TempDir())()
+
+	var calls []string
+	fetch := func(name string) func(context.Context, *api.Client) (int, error) {
+		return func(_ context.Context, _ *api.Client) (int, error) {
+			calls = append(calls, name)
+			return 1, cache.WriteResource(name, "24h", []int{1})
+		}
 	}
-	return
+	defer cache.SetEntriesForTest([]cache.Entry{
+		{Name: "projects", TTL: "24h", Fetch: fetch("projects")},
+		{Name: "statuses", TTL: "24h", DependsOn: []string{"projects"}, Fetch: fetch("statuses")},
+	})()
+
+	// User lists the dependent before the dep: command reorders correctly.
+	err := run(context.Background(), opts, []string{"statuses", "projects"}, false)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, strings.Join(calls, ","), "projects,statuses")
 }
 
 // -- smoke test: the default registry compiles into a runnable Entries() list.

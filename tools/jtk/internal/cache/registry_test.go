@@ -80,6 +80,70 @@ func TestIsAvailable_NilPredicate(t *testing.T) {
 	testutil.Equal(t, e.IsAvailable(nil), true)
 }
 
+func TestSelectWithDeps_AutoExpand(t *testing.T) {
+	cleanup := SetEntriesForTest([]Entry{
+		{Name: "projects"},
+		{Name: "fields"},
+		{Name: "statuses", DependsOn: []string{"projects"}},
+		{Name: "issuetypes", DependsOn: []string{"projects"}},
+	})
+	defer cleanup()
+
+	got, err := SelectWithDeps([]string{"statuses"})
+	testutil.RequireNoError(t, err)
+	names := namesOf(got)
+	if names[0] != "projects" || names[1] != "statuses" || len(names) != 2 {
+		t.Fatalf("expected [projects statuses], got %v", names)
+	}
+}
+
+func TestSelectWithDeps_ReordersByDependency(t *testing.T) {
+	cleanup := SetEntriesForTest([]Entry{
+		{Name: "projects"},
+		{Name: "statuses", DependsOn: []string{"projects"}},
+	})
+	defer cleanup()
+
+	// User supplied in wrong order; SelectWithDeps must reorder.
+	got, err := SelectWithDeps([]string{"statuses", "projects"})
+	testutil.RequireNoError(t, err)
+	names := namesOf(got)
+	if names[0] != "projects" || names[1] != "statuses" {
+		t.Fatalf("expected [projects statuses], got %v", names)
+	}
+}
+
+func TestSelectWithDeps_EmptyReturnsAll(t *testing.T) {
+	cleanup := SetEntriesForTest([]Entry{
+		{Name: "a"},
+		{Name: "b", DependsOn: []string{"a"}},
+	})
+	defer cleanup()
+
+	got, err := SelectWithDeps(nil)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, len(got), 2)
+}
+
+func TestSelectWithDeps_UnknownName(t *testing.T) {
+	cleanup := SetEntriesForTest([]Entry{{Name: "fields"}})
+	defer cleanup()
+
+	_, err := SelectWithDeps([]string{"bogus"})
+	testutil.Error(t, err)
+	if !errors.Is(err, ErrUnknownResource) {
+		t.Fatalf("expected ErrUnknownResource, got %v", err)
+	}
+}
+
+func namesOf(es []Entry) []string {
+	out := make([]string, len(es))
+	for i, e := range es {
+		out[i] = e.Name
+	}
+	return out
+}
+
 func TestProjectDependents(t *testing.T) {
 	deps := ProjectDependents()
 	testutil.Equal(t, deps[0], "projects")

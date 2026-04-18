@@ -3,6 +3,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -35,7 +36,9 @@ func main() {
 	defer stop()
 
 	if err := run(ctx); err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		if !errors.Is(err, refresh.ErrAlreadyReported) {
+			fmt.Fprintln(os.Stderr, err)
+		}
 		os.Exit(exitcode.GeneralError)
 	}
 }

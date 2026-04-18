@@ -2,6 +2,7 @@ package issues
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -16,6 +17,12 @@ import (
 	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/resolve"
 )
+
+// errIssueTypesCacheMissing is returned by matchCachedIssueType when the
+// issuetypes envelope itself doesn't exist (cold cache). Callers distinguish
+// this from "cache present but project absent" so they can apply a
+// cold-start synthetic fallback for the default-type path.
+var errIssueTypesCacheMissing = errors.New("issuetypes cache unavailable")
 
 func newMoveCmd(opts *root.Options) *cobra.Command {
 	var targetProject string
@@ -90,10 +97,14 @@ func runMove(ctx context.Context, opts *root.Options, issueKeys []string, target
 	if targetType == "" {
 		// Default to the source issue's type if the target project has a
 		// matching type in the cache; otherwise fall back to the first
-		// cached non-subtask type. No live API fallback — if the cache
-		// can't answer, the user must specify --to-type. This keeps the
-		// default path deterministic and consistent with the rest of the
-		// resolver contract.
+		// cached non-subtask type.
+		//
+		// Cold-cache handling mirrors the resolver's IssueType path (which
+		// --to-type uses): when the issuetypes cache is uninitialized, we
+		// accept the source type name synthetically so fresh installs and
+		// offline use still work. That keeps the two branches of this
+		// command symmetric — no user sees success on --to-type Task but
+		// failure on the default path for the same cold cache.
 		issue, err := client.GetIssue(ctx, issueKeys[0])
 		if err != nil {
 			return fmt.Errorf("getting source issue: %w", err)
@@ -103,9 +114,18 @@ func runMove(ctx context.Context, opts *root.Options, issueKeys []string, target
 		}
 		match, derr := matchCachedIssueType(projectKey, issue.Fields.IssueType.Name)
 		if derr != nil {
-			return fmt.Errorf("%w — supply --to-type to disambiguate", derr)
+			// When the cache is completely uninitialized for this resource,
+			// accept the source type as-is (cold-start parity with
+			// resolver.IssueType). A populated-but-empty cache gets an
+			// actionable message pointing at --to-type.
+			if errors.Is(derr, errIssueTypesCacheMissing) {
+				targetIssueType = &api.IssueType{Name: issue.Fields.IssueType.Name}
+			} else {
+				return fmt.Errorf("%w — run `jtk refresh issuetypes` or supply --to-type", derr)
+			}
+		} else {
+			targetIssueType = match
 		}
-		targetIssueType = match
 	} else {
 		resolved, err := resolver.IssueType(ctx, projectKey, targetType)
 		if err != nil {
@@ -227,7 +247,7 @@ func runMoveStatus(ctx context.Context, opts *root.Options, taskID string) error
 func matchCachedIssueType(projectKey, sourceTypeName string) (*api.IssueType, error) {
 	env, err := cache.ReadResource[map[string][]api.IssueType]("issuetypes")
 	if err != nil {
-		return nil, fmt.Errorf("issuetypes cache unavailable for %s: %w", projectKey, err)
+		return nil, errIssueTypesCacheMissing
 	}
 	types, ok := env.Data[projectKey]
 	if !ok || len(types) == 0 {

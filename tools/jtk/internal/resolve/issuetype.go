@@ -29,8 +29,10 @@ func (r *Resolver) IssueType(ctx context.Context, projectKey, input string) (api
 		func() error {
 			return &NotFoundError{
 				Entity:      "issue type",
-				Input:       fmt.Sprintf("%s in project %s", input, projectKey),
+				Input:       input,
+				Scope:       fmt.Sprintf("in project %s", projectKey),
 				RefreshHint: "jtk refresh issuetypes",
+				Suggestions: cachedIssueTypeNamesForProject(projectKey),
 			}
 		},
 		// Cold-start / offline: without any cache to check against, accept
@@ -41,6 +43,28 @@ func (r *Resolver) IssueType(ctx context.Context, projectKey, input string) (api
 			return api.IssueType{Name: input}, true
 		}),
 	)
+}
+
+// cachedIssueTypeNamesForProject returns the non-subtask type names for
+// projectKey from the issuetypes cache, used to enrich NotFoundError with
+// "Available: ..." so users don't need a separate discovery command. Returns
+// nil if the cache is missing or the project has no entries.
+func cachedIssueTypeNamesForProject(projectKey string) []string {
+	env, err := cache.ReadResource[map[string][]api.IssueType]("issuetypes")
+	if err != nil {
+		return nil
+	}
+	types, ok := env.Data[projectKey]
+	if !ok {
+		return nil
+	}
+	names := make([]string, 0, len(types))
+	for _, t := range types {
+		if !t.Subtask {
+			names = append(names, t.Name)
+		}
+	}
+	return names
 }
 
 func lookupIssueType(projectKey, input string) (api.IssueType, error) {

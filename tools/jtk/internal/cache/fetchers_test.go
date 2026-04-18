@@ -404,14 +404,17 @@ func TestFetchSprints_Pagination(t *testing.T) {
 	testutil.Equal(t, calls, 2)
 }
 
-func TestFetchSprints_PerBoardError(t *testing.T) {
+// Partial-success: one board fails, others succeed. The fetch writes a
+// partial envelope (non-empty map) and returns no error so one stale
+// board doesn't poison the whole sprints cache.
+func TestFetchSprints_PerBoardErrorSkipped(t *testing.T) {
 	cleanup := SetRootForTest(t.TempDir())
 	defer cleanup()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/rest/agile/1.0/board/1/sprint":
-			_ = json.NewEncoder(w).Encode(api.SprintsResponse{IsLast: true, Values: []api.Sprint{{ID: 10}}})
+			_ = json.NewEncoder(w).Encode(api.SprintsResponse{IsLast: true, Values: []api.Sprint{{ID: 10, Name: "Only"}}})
 		case "/rest/agile/1.0/board/2/sprint":
 			w.WriteHeader(http.StatusInternalServerError)
 			_, _ = w.Write([]byte(`{"errorMessages":["boom"]}`))
@@ -423,12 +426,39 @@ func TestFetchSprints_PerBoardError(t *testing.T) {
 
 	testutil.RequireNoError(t, WriteResource("boards", "24h", []api.Board{{ID: 1}, {ID: 2}}))
 
+	count, err := fetchSprints(context.Background(), client)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, count, 1)
+
+	env, err := ReadResource[map[int][]api.Sprint]("sprints")
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, len(env.Data[1]), 1)
+	if _, present := env.Data[2]; present {
+		t.Fatalf("expected board 2 to be skipped after failure, got entry: %v", env.Data[2])
+	}
+}
+
+// When every board errors, the fetch fails overall — there's nothing
+// useful to cache and callers should see a clear error.
+func TestFetchSprints_AllBoardsFailHardError(t *testing.T) {
+	cleanup := SetRootForTest(t.TempDir())
+	defer cleanup()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	client := newTestClient(t, server)
+
+	testutil.RequireNoError(t, WriteResource("boards", "24h", []api.Board{{ID: 1}, {ID: 2}}))
+
 	_, err := fetchSprints(context.Background(), client)
 	testutil.Error(t, err)
-	if !strings.Contains(err.Error(), "board 2") {
-		t.Fatalf("expected error to name the failing board, got: %v", err)
+	if !strings.Contains(err.Error(), "all boards failed") {
+		t.Fatalf("expected 'all boards failed' in error, got: %v", err)
 	}
 	if _, err := ReadResource[map[int][]api.Sprint]("sprints"); !errors.Is(err, ErrCacheMiss) {
-		t.Fatalf("expected no sprints envelope after partial failure, got err=%v", err)
+		t.Fatalf("expected no sprints envelope after total failure, got err=%v", err)
 	}
 }

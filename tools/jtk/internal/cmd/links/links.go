@@ -93,7 +93,7 @@ The first issue is the outward issue and the second is the inward issue.
 For example, "jtk links create A B --type Blocks" means "A blocks B".`,
 		Example: `  # --type accepts the canonical name, the outward verb, or the inward verb.
   # With an inward verb the issue-key ordering is interpreted from the user's
-  # perspective: `+"`"+`A is blocked by B`+"`"+` creates B → blocks → A.
+  # perspective: ` + "`" + `A is blocked by B` + "`" + ` creates B → blocks → A.
   jtk links create PROJ-123 PROJ-456 --type Blocker
   jtk links create PROJ-123 PROJ-456 --type blocks            # A blocks B
   jtk links create PROJ-123 PROJ-456 --type "is blocked by"   # A is blocked by B
@@ -126,6 +126,18 @@ func runCreate(ctx context.Context, opts *root.Options, outwardKey, inwardKey, l
 	resolvedLinkType, err := resolve.New(client).LinkType(ctx, linkType)
 	if err != nil {
 		return err
+	}
+
+	// Cold-start synthetic returns Name=input with empty Inward/Outward.
+	// Directional-verb detection relies on comparing against those verbs,
+	// so if the user typed something that looks like a verb (contains a
+	// space) and the resolver couldn't supply verbs, refuse rather than
+	// silently create the link in the wrong direction.
+	if resolvedLinkType.Inward == "" && resolvedLinkType.Outward == "" && strings.Contains(linkType, " ") {
+		return fmt.Errorf(
+			"--type %q looks like a directional verb but the link-types cache is unavailable — "+
+				"run `jtk refresh linktypes` so verbs can be resolved, or pass the canonical link type name",
+			linkType)
 	}
 
 	// If the user typed the inward verb ("is blocked by"), the positional

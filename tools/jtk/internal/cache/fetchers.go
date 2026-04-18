@@ -3,6 +3,8 @@ package cache
 import (
 	"context"
 	"fmt"
+	"os"
+	"strings"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 )
@@ -174,8 +176,19 @@ func fetchUsers(ctx context.Context, c *api.Client) (int, error) {
 const fetchSprintsMax = 5000
 
 // fetchSprints assembles a board-keyed sprint map. It reads the boards cache
-// (populated by fetchBoards via the DependsOn edge), then pages ListSprints per
-// board. A per-board error fails the whole fetch — partial maps aren't written.
+// (populated by fetchBoards via the DependsOn edge), then pages ListSprints
+// per board.
+//
+// Partial-success strategy: on instances with many boards, a single
+// permission-denied or stale board shouldn't permanently block the whole
+// sprints refresh. Per-board errors are logged (stderr) and the board is
+// skipped; the envelope still gets written with the boards that succeeded.
+// If *every* board errors, the fetch fails with a combined error so the
+// refresh command reports it cleanly.
+//
+// If the fetcher hits the iteration ceiling mid-board, a warning is logged
+// and the partial sprint list for that board is retained — downstream
+// resolvers can still match what was cached.
 func fetchSprints(ctx context.Context, c *api.Client) (int, error) {
 	env, err := ReadResource[[]api.Board]("boards")
 	if err != nil {
@@ -185,22 +198,42 @@ func fetchSprints(ctx context.Context, c *api.Client) (int, error) {
 	const pageSize = 50
 	byBoard := make(map[int][]api.Sprint, len(env.Data))
 	total := 0
+	var errs []string
 	for _, b := range env.Data {
 		var all []api.Sprint
 		startAt := 0
+		hitCeiling := false
+		var boardErr error
 		for startAt < fetchSprintsMax {
 			resp, err := c.ListSprints(ctx, b.ID, "", startAt, pageSize)
 			if err != nil {
-				return 0, fmt.Errorf("fetching sprints for board %d: %w", b.ID, err)
+				boardErr = err
+				break
 			}
 			all = append(all, resp.Values...)
 			if resp.IsLast || len(resp.Values) == 0 {
 				break
 			}
 			startAt += len(resp.Values)
+			if startAt >= fetchSprintsMax {
+				hitCeiling = true
+			}
+		}
+		if boardErr != nil {
+			fmt.Fprintf(os.Stderr, "warning: sprints refresh for board %d failed, skipping: %v\n", b.ID, boardErr)
+			errs = append(errs, fmt.Sprintf("board %d: %v", b.ID, boardErr))
+			continue
+		}
+		if hitCeiling {
+			fmt.Fprintf(os.Stderr, "warning: sprints for board %d exceeded %d-entry ceiling — cache truncated\n", b.ID, fetchSprintsMax)
 		}
 		byBoard[b.ID] = all
 		total += len(all)
+	}
+	// Fail the whole fetch only when no board succeeded — otherwise the
+	// partial map is more useful than nothing.
+	if len(byBoard) == 0 && len(errs) > 0 {
+		return 0, fmt.Errorf("fetching sprints: all boards failed (%s)", strings.Join(errs, "; "))
 	}
 	if err := WriteResource("sprints", ttl24h, byBoard); err != nil {
 		return 0, err

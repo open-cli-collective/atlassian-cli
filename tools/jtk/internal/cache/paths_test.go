@@ -122,6 +122,30 @@ func TestInstanceKey_RejectsPathInjection(t *testing.T) {
 	}
 }
 
+// SetInstanceKeyForTest must refuse unsafe keys so callers can't
+// accidentally bypass the path-sanitization the production InstanceKey()
+// path applies.
+func TestSetInstanceKeyForTest_RejectsUnsafeKeys(t *testing.T) {
+	cases := []string{
+		"../escape",
+		"foo/bar",
+		`foo\bar`,
+		"",
+		"foo bar",
+	}
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc, func(t *testing.T) {
+			defer func() {
+				if r := recover(); r == nil {
+					t.Fatalf("expected panic for unsafe key %q", tc)
+				}
+			}()
+			_ = SetInstanceKeyForTest(tc)
+		})
+	}
+}
+
 func TestResourceFile(t *testing.T) {
 	tempDir := t.TempDir()
 	cleanup := SetRootForTest(tempDir)

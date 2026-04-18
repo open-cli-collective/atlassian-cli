@@ -38,11 +38,9 @@ Limitations:
 - Maximum 1000 issues per request
 - Subtasks must be moved with their parent or separately
 - Some field values may need to be remapped manually`,
-		Example: `  # Move a single issue to another project
+		Example: `  # --to-project accepts a key or name; --to-type accepts a type name
   jtk issues move PROJ-123 --to-project NEWPROJ
-
-  # Move to specific issue type
-  jtk issues move PROJ-123 --to-project NEWPROJ --to-type Task
+  jtk issues move PROJ-123 --to-project "Platform Development" --to-type Task
 
   # Move multiple issues
   jtk issues move PROJ-123 PROJ-124 PROJ-125 --to-project NEWPROJ
@@ -58,8 +56,8 @@ Limitations:
 		},
 	}
 
-	cmd.Flags().StringVar(&targetProject, "to-project", "", "Target project key (required)")
-	cmd.Flags().StringVar(&targetType, "to-type", "", "Target issue type (default: same as source)")
+	cmd.Flags().StringVar(&targetProject, "to-project", "", "Target project key or name (required)")
+	cmd.Flags().StringVar(&targetType, "to-type", "", "Target issue type name (default: same as source, resolved via cache)")
 	cmd.Flags().BoolVar(&notify, "notify", true, "Send notifications for the move")
 	cmd.Flags().BoolVar(&wait, "wait", true, "Wait for the move to complete")
 

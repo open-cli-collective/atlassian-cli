@@ -35,10 +35,9 @@ func newListCmd(opts *root.Options) *cobra.Command {
 		Use:   "list",
 		Short: "List issues",
 		Long:  "List issues, optionally filtered by project and/or sprint.",
-		Example: `  # List issues in a project
+		Example: `  # --project accepts a key or name; --sprint accepts a name, numeric ID, or "current"
   jtk issues list --project MYPROJECT
-
-  # List issues in the current sprint
+  jtk issues list --project "Platform Development" --sprint "MON Sprint 70"
   jtk issues list --project MYPROJECT --sprint current
 
   # Get up to 200 results (auto-paginates)
@@ -58,8 +57,8 @@ func newListCmd(opts *root.Options) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVarP(&project, "project", "p", "", "Filter by project key")
-	cmd.Flags().StringVarP(&sprint, "sprint", "s", "", "Filter by sprint (use 'current' for active sprint)")
+	cmd.Flags().StringVarP(&project, "project", "p", "", "Filter by project key or name")
+	cmd.Flags().StringVarP(&sprint, "sprint", "s", "", "Filter by sprint name, numeric ID, or 'current'")
 	cmd.Flags().IntVarP(&maxResults, "max", "m", 25, "Maximum number of results to return")
 	cmd.Flags().StringVar(&nextPageToken, "next-page-token", "", "Token for next page of results")
 	cmd.Flags().BoolVar(&allFields, "all-fields", false, "Include all fields (e.g. description)")
@@ -104,9 +103,11 @@ func runList(ctx context.Context, opts *root.Options, project, sprint string, ma
 	}
 
 	// Build JQL query
+	resolver := resolve.New(client)
+
 	var jql string
 	if project != "" {
-		resolvedProject, err := resolve.New(client).Project(ctx, project)
+		resolvedProject, err := resolver.Project(ctx, project)
 		if err != nil {
 			return err
 		}
@@ -118,7 +119,14 @@ func runList(ctx context.Context, opts *root.Options, project, sprint string, ma
 		if sprint == "current" {
 			sprintClause = "sprint in openSprints()"
 		} else {
-			sprintClause = fmt.Sprintf("sprint = \"%s\"", sprint)
+			// Resolve name/ID via cache so JQL always receives a numeric
+			// sprint ID. Matches the cache-backed contract; also sidesteps
+			// the JQL-quoting ambiguity of sprint names with spaces.
+			resolvedSprint, err := resolver.Sprint(ctx, sprint, 0)
+			if err != nil {
+				return err
+			}
+			sprintClause = fmt.Sprintf("sprint = %d", resolvedSprint.ID)
 		}
 
 		if jql != "" {

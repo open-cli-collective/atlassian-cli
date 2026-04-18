@@ -18,10 +18,13 @@ func newAssignCmd(opts *root.Options) *cobra.Command {
 	var unassign bool
 
 	cmd := &cobra.Command{
-		Use:   "assign <issue-key> [account-id]",
+		Use:   "assign <issue-key> [user]",
 		Short: "Assign an issue to a user",
-		Long:  "Assign an issue to a user by their account ID, or unassign it.",
-		Example: `  # Assign to a user
+		Long:  `Assign an issue to a user, or unassign it. The <user> argument accepts an accountId, email, display name, or "me" — it is resolved via the instance cache.`,
+		Example: `  # Assign by display name, email, "me", or raw accountId
+  jtk issues assign PROJ-123 "Aaron Wong"
+  jtk issues assign PROJ-123 aaron@example.com
+  jtk issues assign PROJ-123 me
   jtk issues assign PROJ-123 5b10ac8d82e05b22cc7d4ef5
 
   # Unassign an issue

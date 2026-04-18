@@ -56,14 +56,15 @@ func newListCmd(opts *root.Options) *cobra.Command {
 		Example: `  # List all boards
   jtk boards list
 
-  # List boards for a project
-  jtk boards list --project MYPROJECT`,
+  # List boards for a project (accepts key or name)
+  jtk boards list --project MYPROJECT
+  jtk boards list --project "Platform Development"`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runList(cmd.Context(), opts, project, maxResults)
 		},
 	}
 
-	cmd.Flags().StringVarP(&project, "project", "p", "", "Filter by project key")
+	cmd.Flags().StringVarP(&project, "project", "p", "", "Filter by project key or name")
 	cmd.Flags().IntVarP(&maxResults, "max", "m", 50, "Maximum number of results")
 
 	return cmd

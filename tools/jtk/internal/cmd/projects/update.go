@@ -31,8 +31,9 @@ func newUpdateCmd(opts *root.Options) *cobra.Command {
   # Update description
   jtk projects update MYPROJ --description "Updated description"
 
-  # Change project lead
-  jtk projects update MYPROJ --lead <account-id>`,
+  # Change project lead (accepts accountId, email, display name, or "me")
+  jtk projects update MYPROJ --lead "Aaron Wong"
+  jtk projects update MYPROJ --lead aaron@example.com`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runUpdate(cmd.Context(), opts, args[0], name, description, lead)
@@ -41,7 +42,7 @@ func newUpdateCmd(opts *root.Options) *cobra.Command {
 
 	cmd.Flags().StringVarP(&name, "name", "n", "", "New project name")
 	cmd.Flags().StringVarP(&description, "description", "d", "", "New project description")
-	cmd.Flags().StringVarP(&lead, "lead", "l", "", "New lead account ID")
+	cmd.Flags().StringVarP(&lead, "lead", "l", "", "New lead: accountId, email, display name, or \"me\"")
 
 	return cmd
 }

@@ -154,6 +154,13 @@ func SetRootForTest(dir string) func() {
 // fully isolated cache directory without touching JIRA_URL/config state
 // (which would conflict with t.Parallel).
 func SetInstanceKeyForTest(key string) func() {
+	// Defense-in-depth: validate the override with the same character set
+	// the production InstanceKey() path enforces. Prevents a test author
+	// from accidentally escaping the temp-root isolation set up by
+	// SetRootForTest (e.g. "../outside-tmp" would otherwise traverse).
+	if !isSafeInstanceKey(key) {
+		panic("cache.SetInstanceKeyForTest: unsafe instance key: " + key)
+	}
 	overrideMu.Lock()
 	oldInstance := instanceOverride
 	instanceOverride = key

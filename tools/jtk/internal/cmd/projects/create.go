@@ -29,13 +29,16 @@ func newCreateCmd(opts *root.Options) *cobra.Command {
 		Short: "Create a new project",
 		Long: `Create a new Jira project.
 
-The lead account ID is required and must be a valid Jira account ID.
-Use 'jtk users search' to find account IDs, or 'jtk me' to get your own.`,
-		Example: `  # Create a software project
-  jtk projects create --key MYPROJ --name "My Project" --lead <account-id>
+The --lead flag accepts a cached user reference: accountId, email,
+display name, or "me". Use 'jtk users search' for candidates or
+'jtk me' to get your own accountId.`,
+		Example: `  # Create a software project (--lead resolves via the users cache)
+  jtk projects create --key MYPROJ --name "My Project" --lead me
+  jtk projects create --key MYPROJ --name "My Project" --lead "Aaron Wong"
+  jtk projects create --key MYPROJ --name "My Project" --lead aaron@example.com
 
   # Create a business project with description
-  jtk projects create --key BIZ --name "Business" --type business --lead <account-id> --description "Business project"
+  jtk projects create --key BIZ --name "Business" --type business --lead me --description "Business project"
 
   # Project types: software (default), service_desk, business
   jtk projects types`,
@@ -47,7 +50,7 @@ Use 'jtk users search' to find account IDs, or 'jtk me' to get your own.`,
 	cmd.Flags().StringVarP(&key, "key", "k", "", "Project key (required)")
 	cmd.Flags().StringVarP(&name, "name", "n", "", "Project name (required)")
 	cmd.Flags().StringVarP(&projectType, "type", "t", "software", "Project type (software, service_desk, business)")
-	cmd.Flags().StringVarP(&lead, "lead", "l", "", "Lead account ID (required)")
+	cmd.Flags().StringVarP(&lead, "lead", "l", "", "Lead: accountId, email, display name, or \"me\" (required)")
 	cmd.Flags().StringVarP(&description, "description", "d", "", "Project description")
 
 	_ = cmd.MarkFlagRequired("key")

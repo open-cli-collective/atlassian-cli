@@ -91,21 +91,25 @@ func newCreateCmd(opts *root.Options) *cobra.Command {
 
 The first issue is the outward issue and the second is the inward issue.
 For example, "jtk links create A B --type Blocks" means "A blocks B".`,
-		Example: `  # A blocks B
-  jtk links create PROJ-123 PROJ-456 --type Blocks
+		Example: `  # --type accepts the canonical name, the outward verb, or the inward verb.
+  # With an inward verb the issue-key ordering is interpreted from the user's
+  # perspective: `+"`"+`A is blocked by B`+"`"+` creates B → blocks → A.
+  jtk links create PROJ-123 PROJ-456 --type Blocker
+  jtk links create PROJ-123 PROJ-456 --type blocks            # A blocks B
+  jtk links create PROJ-123 PROJ-456 --type "is blocked by"   # A is blocked by B
 
   # A relates to B
   jtk links create PROJ-123 PROJ-456 --type Relates
 
   # A is cloned by B
-  jtk links create PROJ-123 PROJ-456 --type Cloners`,
+  jtk links create PROJ-123 PROJ-456 --type "is cloned by"`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCreate(cmd.Context(), opts, args[0], args[1], linkType)
 		},
 	}
 
-	cmd.Flags().StringVarP(&linkType, "type", "t", "", "Link type name (required)")
+	cmd.Flags().StringVarP(&linkType, "type", "t", "", "Link type: canonical name, outward verb, or inward verb (required)")
 	_ = cmd.MarkFlagRequired("type")
 
 	return cmd

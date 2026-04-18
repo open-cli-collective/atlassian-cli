@@ -29,8 +29,9 @@ func newCreateCmd(opts *root.Options) *cobra.Command {
 		Use:   "create",
 		Short: "Create a new issue",
 		Long:  "Create a new Jira issue with the specified fields.",
-		Example: `  # Create a basic task
+		Example: `  # Project and type accept keys or names; assignee accepts name, email, accountId, or "me"
   jtk issues create --project MYPROJECT --type Task --summary "Fix login bug"
+  jtk issues create --project "Platform Development" --type SDLC --summary "Fix login bug"
 
   # Create with description
   jtk issues create --project MYPROJECT --type Bug --summary "Login fails" --description "Users cannot log in with SSO"
@@ -38,11 +39,10 @@ func newCreateCmd(opts *root.Options) *cobra.Command {
   # Create as child of an epic
   jtk issues create --project MYPROJECT --type Task --summary "Subtask" --parent MYPROJECT-100
 
-  # Assign to yourself
+  # Assign to yourself, by email, or by display name
   jtk issues create --project MYPROJECT --type Task --summary "My task" --assignee me
-
-  # Assign by email
   jtk issues create --project MYPROJECT --type Task --summary "Their task" --assignee user@example.com
+  jtk issues create --project MYPROJECT --type Task --summary "Their task" --assignee "Aaron Wong"
 
   # Create with custom fields
   jtk issues create --project MYPROJECT --type Story --summary "New feature" --field priority=High`,
@@ -51,12 +51,12 @@ func newCreateCmd(opts *root.Options) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVarP(&project, "project", "p", "", "Project key (required)")
-	cmd.Flags().StringVarP(&issueType, "type", "t", "Task", "Issue type (Task, Bug, Story, etc.)")
+	cmd.Flags().StringVarP(&project, "project", "p", "", "Project key or name (required)")
+	cmd.Flags().StringVarP(&issueType, "type", "t", "Task", "Issue type name (resolved via cache)")
 	cmd.Flags().StringVarP(&summary, "summary", "s", "", "Issue summary (required)")
 	cmd.Flags().StringVarP(&description, "description", "d", "", "Issue description")
 	cmd.Flags().StringVar(&parent, "parent", "", "Parent issue key (epic or parent issue)")
-	cmd.Flags().StringVarP(&assignee, "assignee", "a", "", "Assignee (account ID, email, or \"me\")")
+	cmd.Flags().StringVarP(&assignee, "assignee", "a", "", "Assignee: accountId, email, display name, or \"me\"")
 	cmd.Flags().StringArrayVarP(&fields, "field", "f", nil, "Additional fields (key=value)")
 
 	_ = cmd.MarkFlagRequired("project")

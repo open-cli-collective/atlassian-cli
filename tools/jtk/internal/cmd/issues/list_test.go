@@ -14,9 +14,86 @@ import (
 	"github.com/open-cli-collective/atlassian-go/testutil"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/cache"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/present/projection"
 )
+
+// captureJQLServer captures the JQL from the search request body so tests
+// can assert that --sprint resolves to a numeric ID before hitting the API.
+func captureJQLServer(t *testing.T, jqlOut *string) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/search/jql") {
+			body, _ := io.ReadAll(r.Body)
+			var payload map[string]any
+			_ = json.Unmarshal(body, &payload)
+			if v, ok := payload["jql"].(string); ok {
+				*jqlOut = v
+			}
+			_ = json.NewEncoder(w).Encode(api.JQLSearchResult{IsLast: true})
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+}
+
+func TestRunList_SprintNameResolvesToID(t *testing.T) {
+	seedCacheForIssues(t)
+	testutil.RequireNoError(t, seedSprints(map[int][]api.Sprint{
+		23: {{ID: 125, Name: "MON Sprint 70", State: "active"}},
+	}))
+
+	var jql string
+	server := captureJQLServer(t, &jql)
+	defer server.Close()
+
+	opts, _, _ := newListOpts(t, server)
+	err := runList(context.Background(), opts, "PROJ", "MON Sprint 70", 25, "", false, "")
+	testutil.RequireNoError(t, err)
+	if !strings.Contains(jql, "sprint = 125") {
+		t.Fatalf("expected JQL to contain 'sprint = 125', got: %q", jql)
+	}
+}
+
+func TestRunList_SprintNumericPassThrough(t *testing.T) {
+	seedCacheForIssues(t)
+	testutil.RequireNoError(t, seedSprints(map[int][]api.Sprint{
+		23: {{ID: 125, Name: "MON Sprint 70"}},
+	}))
+
+	var jql string
+	server := captureJQLServer(t, &jql)
+	defer server.Close()
+
+	opts, _, _ := newListOpts(t, server)
+	err := runList(context.Background(), opts, "PROJ", "999", 25, "", false, "")
+	testutil.RequireNoError(t, err)
+	if !strings.Contains(jql, "sprint = 999") {
+		t.Fatalf("expected JQL to contain 'sprint = 999', got: %q", jql)
+	}
+}
+
+func TestRunList_SprintCurrentUsesOpenSprints(t *testing.T) {
+	seedCacheForIssues(t)
+
+	var jql string
+	server := captureJQLServer(t, &jql)
+	defer server.Close()
+
+	opts, _, _ := newListOpts(t, server)
+	err := runList(context.Background(), opts, "PROJ", "current", 25, "", false, "")
+	testutil.RequireNoError(t, err)
+	if !strings.Contains(jql, "openSprints()") {
+		t.Fatalf("expected JQL to contain 'openSprints()', got: %q", jql)
+	}
+}
+
+// seedSprints writes a sprints cache envelope. Pairs with the isolated
+// cache set up by seedCacheForIssues.
+func seedSprints(byBoard map[int][]api.Sprint) error {
+	return cache.WriteResource("sprints", "24h", byBoard)
+}
 
 // listResultServer returns a fixed set of issues with configurable IsLast.
 // `keys` drives which issue keys the mock returns.

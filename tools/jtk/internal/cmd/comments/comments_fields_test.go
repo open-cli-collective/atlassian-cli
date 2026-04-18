@@ -1,14 +1,19 @@
 package comments
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
 	"github.com/open-cli-collective/atlassian-go/testutil"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/present/projection"
 )
 
@@ -149,6 +154,37 @@ func TestRunList_Fields_UnknownToken_Errors(t *testing.T) {
 	var ufe *projection.UnknownFieldError
 	if !errors.As(err, &ufe) {
 		t.Fatalf("expected UnknownFieldError, got %v", err)
+	}
+}
+
+// Validation (Resolve) must happen BEFORE the GetComments network call.
+// An invalid --fields token must produce UnknownFieldError without making
+// any API requests — the flag is a display contract validated on the
+// client before any fetch, mirroring the runGet ordering.
+func TestRunList_Fields_InvalidToken_ErrorsBeforeFetch(t *testing.T) {
+	t.Parallel()
+	var commentCalls int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "/comment") {
+			commentCalls++
+		}
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(api.CommentsResponse{})
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "e@x", APIToken: "t"})
+	testutil.RequireNoError(t, err)
+	opts := &root.Options{Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	runErr := runList(context.Background(), opts, "TEST-1", 50, false, "bogus")
+	var ufe *projection.UnknownFieldError
+	if !errors.As(runErr, &ufe) {
+		t.Fatalf("expected UnknownFieldError, got %v", runErr)
+	}
+	if commentCalls != 0 {
+		t.Errorf("GetComments should not be called when --fields is invalid; got %d call(s)", commentCalls)
 	}
 }
 

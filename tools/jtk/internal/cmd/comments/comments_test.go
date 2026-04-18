@@ -31,6 +31,11 @@ func TestNewListCmd(t *testing.T) {
 	maxFlag := cmd.Flags().Lookup("max")
 	testutil.NotNil(t, maxFlag)
 	testutil.Equal(t, maxFlag.DefValue, "50")
+
+	// Check that fields flag exists
+	fieldsFlag := cmd.Flags().Lookup("fields")
+	testutil.NotNil(t, fieldsFlag)
+	testutil.Equal(t, fieldsFlag.DefValue, "")
 }
 
 func newTestCommentsServer(_ *testing.T, comments []api.Comment) *httptest.Server {

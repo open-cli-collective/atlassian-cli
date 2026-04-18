@@ -81,6 +81,33 @@ func runList(ctx context.Context, opts *root.Options, issueKey string, maxResult
 		return err
 	}
 
+	// Validate flag combinations and resolve --fields before any network call,
+	// mirroring runGet ordering. --id suppresses both gates (projection and
+	// JSON-vs-fields) because it collapses output to bare IDs regardless.
+	idOnly := opts.EmitIDOnly()
+	var selected []projection.ColumnSpec
+	var projected bool
+	if !idOnly {
+		if fieldsFlag != "" && v.Format == view.FormatJSON {
+			return errFieldsWithJSON
+		}
+		spec := jtkpresent.CommentListSpec
+		if noTruncate {
+			spec = jtkpresent.CommentDetailSpec
+		}
+		selected, projected, err = projection.Resolve(
+			ctx,
+			spec,
+			opts.IsExtended(),
+			fieldsFlag,
+			noFieldFetch,
+			"comments list",
+		)
+		if err != nil {
+			return err
+		}
+	}
+
 	result, err := client.GetComments(ctx, issueKey, 0, maxResults)
 	if err != nil {
 		return err
@@ -88,35 +115,12 @@ func runList(ctx context.Context, opts *root.Options, issueKey string, maxResult
 
 	hasMore := commentsHasMore(result.Total, result.StartAt, len(result.Comments), maxResults)
 
-	// --id wins: skip projection and JSON-vs-fields gating entirely. A
-	// --fields token that would otherwise trigger metadata work must be a
-	// no-op under --id.
-	if opts.EmitIDOnly() {
+	if idOnly {
 		ids := make([]string, len(result.Comments))
 		for i, c := range result.Comments {
 			ids[i] = c.ID
 		}
 		return jtkpresent.EmitIDsWithPagination(opts, ids, hasMore)
-	}
-
-	if fieldsFlag != "" && v.Format == view.FormatJSON {
-		return errFieldsWithJSON
-	}
-
-	spec := jtkpresent.CommentListSpec
-	if noTruncate {
-		spec = jtkpresent.CommentDetailSpec
-	}
-	selected, projected, err := projection.Resolve(
-		ctx,
-		spec,
-		opts.IsExtended(),
-		fieldsFlag,
-		noFieldFetch,
-		"comments list",
-	)
-	if err != nil {
-		return err
 	}
 
 	if len(result.Comments) == 0 {

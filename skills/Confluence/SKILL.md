@@ -3,15 +3,6 @@ name: Confluence
 description: Confluence wiki and knowledge base management via cfl CLI — search, create, view, edit pages, manage spaces, attachments. USE WHEN confluence, wiki, knowledge base, runbook, documentation, docs page, wiki search, confluence page, create page, edit page, move page, search confluence, confluence space, view page, page attachments, attach to page, CQL, confluence search.
 ---
 
-## Customization
-
-**Before executing, check for user customizations at:**
-`~/.claude/PAI/USER/SKILLCUSTOMIZATIONS/Confluence/`
-
-If this directory exists, load and apply any PREFERENCES.md, configurations, or resources found there. These override default behavior. If the directory does not exist, proceed with skill defaults.
-
-If PREFERENCES.md exists but is malformed, unreadable, or missing referenced values, treat it the same as "no preferences" and proceed with skill defaults — do not abort the workflow on a broken preferences file.
-
 # Confluence
 
 Wiki and knowledge base management via the `cfl` CLI tool ([open-cli-collective/atlassian-cli](https://github.com/open-cli-collective/atlassian-cli)).
@@ -21,10 +12,29 @@ Wiki and knowledge base management via the `cfl` CLI tool ([open-cli-collective/
 All workflows share these prerequisites. Workflows do not repeat them — check these before entering any workflow.
 
 1. **cfl installed** — verify with `cfl --version`
-2. **Auth configured** — config file at `~/.config/cfl/config.yml` (run `cfl init` to set up). Verify with `cfl config test` (reports connection + identity).
-3. **Personal space keys** — in Confluence, space keys that start with `~` are personal spaces (e.g., `~aaron`). The `~` is part of the key, not a shell home-directory shortcut. In shells that expand leading `~` (bash, zsh), quote the key: `cfl space view '~aaron'`.
-4. **Customization** (optional) — `~/.claude/PAI/USER/SKILLCUSTOMIZATIONS/Confluence/PREFERENCES.md` for defaults
-   - If no customization AND the request requires a space key not specified by the user: abort with a message explaining how to create PREFERENCES.md (see template in SearchPages.md)
+2. **Auth configured** — run `cfl init` to set up interactively. Verify with `cfl config test` (reports connection + identity). Run `cfl config show` to see the resolved config file path on your system (typical location: `~/.config/cfl/config.yml` on Linux/macOS; `$XDG_CONFIG_HOME/cfl/config.yml` if set).
+3. **Environment-variable auth** (alternative to config file) — precedence: `CFL_*` env vars → `ATLASSIAN_*` env vars → config file. Use `ATLASSIAN_URL` / `ATLASSIAN_EMAIL` / `ATLASSIAN_API_TOKEN` for credentials shared with `jtk` (Jira CLI); use `CFL_*` to override per-tool. Bearer auth additionally requires `CFL_CLOUD_ID` (or `ATLASSIAN_CLOUD_ID`) — find the Cloud ID at `https://your-site.atlassian.net/_edge/tenant_info`.
+4. **Personal space keys** — in Confluence, space keys that start with `~` are personal spaces (e.g., `~aaron`). The `~` is part of the key, not a shell home-directory shortcut. In shells that expand leading `~` (bash, zsh), quote the key: `cfl space view '~aaron'`.
+5. **Defaults for missing inputs** — see the **Defaults & Missing Inputs** section below.
+
+## Defaults & Missing Inputs
+
+When the user's request doesn't specify a required input (space key, page ID, etc.), consult `cfl`'s own defaulting mechanisms before asking. If the input is still missing, ask the user — and suggest the one-time setup that would persist the default.
+
+### Space key
+
+Resolution order `cfl` uses: `--space` flag → `CFL_DEFAULT_SPACE` env var → `default_space` in config file.
+
+If still missing: ask the user. Then suggest they persist it:
+
+- **Env var (per-shell):** `export CFL_DEFAULT_SPACE=KEY` — add to `.bashrc` / `.zshrc` / equivalent to persist
+- **Config file:** edit the `default_space` field in the file shown by `cfl config show`
+
+Env var wins over config. Once set, space-scoped commands work without `--space`.
+
+### Page ID, attachment ID, etc.
+
+No defaults exist. Ask the user. Do not guess. If the user provides a Confluence URL, extract the page ID directly from the `/pages/` segment — see **Extracting Page IDs from URLs** below.
 
 ## Common Patterns
 

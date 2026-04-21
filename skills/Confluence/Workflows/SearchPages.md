@@ -92,25 +92,11 @@ After returning results:
 3. If no results, suggest broadening or adjusting filters
 4. Offer to view any specific page from the results
 
-## Missing Customization Template
+## Missing Space Key
 
-If a space key is needed but no customization exists, provide this template:
+If a space key is needed but not specified in the request, consult `cfl`'s defaulting order (`--space` flag → `CFL_DEFAULT_SPACE` env var → `default_space` in config file). If still missing, ask the user and suggest persisting it:
 
-```
-Create this file at: ~/.claude/PAI/USER/SKILLCUSTOMIZATIONS/Confluence/PREFERENCES.md
+- **Env var (per-shell):** `export CFL_DEFAULT_SPACE=KEY` — add to `.bashrc` / `.zshrc` / equivalent to persist
+- **Config file:** edit the `default_space` field in the file shown by `cfl config show`
 
----
-Content:
-
-# Confluence Skill Preferences
-
-## Defaults
-- **Default space:** SPACE_KEY
-- **Default content type:** page
-
-## Common Spaces
-| Key | Name | Notes |
-|-----|------|-------|
-| DEV | Development | Engineering docs |
-| TEAM | Team Space | Team wiki |
-```
+Env var wins over config. See the **Defaults & Missing Inputs** section in `SKILL.md` for the full rationale.

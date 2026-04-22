@@ -473,7 +473,9 @@ Show the user a compact overview generated from the workfile. For each ticket, d
 - Source reference (spec section)
 - A note that the full description is available for review on request
 
-Example proposal row (full temp IDs used throughout for consistency with the workfile's reference format):
+**Always use the full `SpecToTicketWorkflowTemp-N` identifiers in the proposal view — never abbreviate to short forms like "Temp-N" or "#N".** The proposal must use the same identifiers as the workfile so the user can cross-reference without ambiguity.
+
+Example proposal row:
 
 ```
 SpecToTicketWorkflowTemp-3 [child of SpecToTicketWorkflowTemp-1]   type=Development
@@ -679,4 +681,5 @@ In all failure-recovery variants, the workfile persists and remains an accurate 
 - **Presenting the compact proposal as if it's the full ticket content** — the proposal is a review artifact; the actual ticket descriptions should be substantial and live inside the `<!-- SPECTOTICKETS_DESCRIPTION_START -->` / `<!-- SPECTOTICKETS_DESCRIPTION_END -->` markers in the workfile
 - **Holding proposed changes in conversation context** rather than persisting them to the workfile immediately. The workfile is the source of truth
 - **Skipping the validation step in stage 4a** — validation catches real problems that would otherwise surface mid-execution in ManageIssueSet
+- **Abbreviating temp IDs in the proposal view** — never shorten `SpecToTicketWorkflowTemp-N` to "Temp-N", "#N", or any other abbreviated form. The proposal must use the same identifiers as the workfile so the user can cross-reference without ambiguity. This applies to ticket headers, relationship descriptions, dependency diagrams, and all other user-facing text in stage 3b.
 - **Broken description markers.** The `<!-- SPECTOTICKETS_DESCRIPTION_START -->` and `<!-- SPECTOTICKETS_DESCRIPTION_END -->` markers must always come in matched pairs — every start gets exactly one end, every end belongs to exactly one start, in the order they appear. Never nest them (no start-start-end-end, no overlap). Never omit the closing marker. Never misspell either marker. Parsers depend on the markers being well-formed; a broken pair corrupts every ticket section after it until the next correctly-paired section recovers. The validation pass at stage 4a catches unpaired markers, but getting them right the first time avoids needing to re-validate.

@@ -85,12 +85,6 @@ func newListCmd(opts *root.Options) *cobra.Command {
 
 func runList(ctx context.Context, opts *root.Options, project string, maxResults int, nextPageToken, fieldsFlag string) error {
 	v := opts.View()
-
-	client, err := opts.APIClient()
-	if err != nil {
-		return err
-	}
-
 	idOnly := opts.EmitIDOnly()
 
 	startAt, err := jtkpresent.ParseStartAtToken(nextPageToken)
@@ -100,6 +94,11 @@ func runList(ctx context.Context, opts *root.Options, project string, maxResults
 
 	if !idOnly && fieldsFlag != "" && v.Format == view.FormatJSON {
 		return jtkpresent.ErrFieldsWithJSON
+	}
+
+	client, err := opts.APIClient()
+	if err != nil {
+		return err
 	}
 
 	var selected []projection.ColumnSpec

@@ -2,6 +2,7 @@ package present
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/open-cli-collective/atlassian-go/present"
 
@@ -11,25 +12,44 @@ import (
 // FieldPresenter creates presentation models for field data.
 type FieldPresenter struct{}
 
-// PresentList creates a table view for a list of fields.
-func (FieldPresenter) PresentList(fields []api.Field) *present.OutputModel {
+// PresentList creates a table view for a list of fields. Default: ID|TYPE|NAME.
+// Extended adds SEARCHABLE, NAVIGABLE, ORDERABLE, CLAUSE_NAMES per #230.
+func (FieldPresenter) PresentList(fields []api.Field, extended bool) *present.OutputModel {
+	var headers []string
+	if extended {
+		headers = []string{"ID", "TYPE", "SEARCHABLE", "NAVIGABLE", "ORDERABLE", "CLAUSE_NAMES", "NAME"}
+	} else {
+		headers = []string{"ID", "TYPE", "NAME"}
+	}
+
 	rows := make([]present.Row, len(fields))
 	for i, f := range fields {
-		custom := "no"
-		if f.Custom {
-			custom = "yes"
-		}
-		rows[i] = present.Row{
-			Cells: []string{f.ID, f.Name, f.Schema.Type, custom},
+		if extended {
+			clauseNames := "-"
+			if len(f.ClauseNames) > 0 {
+				clauseNames = strings.Join(f.ClauseNames, ", ")
+			}
+			rows[i] = present.Row{
+				Cells: []string{
+					f.ID,
+					OrDash(f.Schema.Type),
+					BoolString(f.Searchable),
+					BoolString(f.Navigable),
+					BoolString(f.Orderable),
+					clauseNames,
+					f.Name,
+				},
+			}
+		} else {
+			rows[i] = present.Row{
+				Cells: []string{f.ID, OrDash(f.Schema.Type), f.Name},
+			}
 		}
 	}
 
 	return &present.OutputModel{
 		Sections: []present.Section{
-			&present.TableSection{
-				Headers: []string{"ID", "NAME", "TYPE", "CUSTOM"},
-				Rows:    rows,
-			},
+			&present.TableSection{Headers: headers, Rows: rows},
 		},
 	}
 }

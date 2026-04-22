@@ -104,7 +104,7 @@ func runList(ctx context.Context, opts *root.Options, customOnly bool, nameFilte
 		return v.JSON(fields)
 	}
 
-	model := jtkpresent.FieldPresenter{}.PresentList(fields)
+	model := jtkpresent.FieldPresenter{}.PresentList(fields, opts.IsExtended())
 	out := present.Render(model, opts.RenderStyle())
 	fmt.Fprint(opts.Stdout, out.Stdout)
 	fmt.Fprint(opts.Stderr, out.Stderr)

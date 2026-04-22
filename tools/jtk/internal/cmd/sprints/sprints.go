@@ -339,7 +339,7 @@ func runIssues(ctx context.Context, opts *root.Options, sprintID int, maxResults
 		return v.RenderArtifactList(artifact.NewListResult(arts, hasMore))
 	}
 
-	model := jtkpresent.IssuePresenter{}.PresentList(result.Issues)
+	model := jtkpresent.IssuePresenter{}.PresentList(result.Issues, opts.IsExtended())
 	model.Sections = jtkpresent.AppendPaginationHintWithToken(model.Sections, hasMore, nextToken)
 	return jtkpresent.Emit(opts, model)
 }

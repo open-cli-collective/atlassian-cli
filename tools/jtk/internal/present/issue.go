@@ -13,125 +13,413 @@ import (
 // IssuePresenter creates presentation models for issue data.
 type IssuePresenter struct{}
 
-// IssueListSpec declares the columns emitted by PresentList /
-// PresentListWithPagination and the metadata needed for --fields
-// projection and minimum-fetch derivation. Order MUST match the
-// hardcoded Headers in PresentList (locked by a parity test).
+// IssueListSpec declares the columns emitted by PresentList and the
+// metadata needed for --fields projection and minimum-fetch derivation.
+// Order MUST match the hardcoded Headers in PresentList (locked by a
+// parity test). Default: KEY|STATUS|TYPE|PTS|ASSIGNEE|SUMMARY.
+// Extended adds REPORTER, SPRINT, PARENT, UPDATED, LABELS, COMPONENTS.
 var IssueListSpec = projection.Registry{
 	{Header: "KEY", Identity: true},
-	{Header: "SUMMARY", FieldID: "summary"},
 	{Header: "STATUS", FieldID: "status"},
-	{Header: "ASSIGNEE", FieldID: "assignee"},
 	{Header: "TYPE", FieldID: "issuetype"},
+	{Header: "PTS", FieldID: "customfield_10035", Fetch: []string{"customfield_10035"}},
+	{Header: "ASSIGNEE", FieldID: "assignee"},
+	{Header: "REPORTER", FieldID: "reporter", Extended: true},
+	{Header: "SPRINT", FieldID: "sprint", Extended: true},
+	{Header: "PARENT", FieldID: "parent", Extended: true},
+	{Header: "UPDATED", FieldID: "updated", Extended: true},
+	{Header: "LABELS", FieldID: "labels", Extended: true},
+	{Header: "COMPONENTS", FieldID: "components", Extended: true},
+	{Header: "SUMMARY", FieldID: "summary"},
 }
 
-// IssueDetailSpec declares the Fields emitted by PresentDetail and the
-// metadata for --fields projection. Order MUST match the default Field
-// order in PresentDetail at construction time; Description is optional
-// there (only emitted when non-empty) but is still declared here so
-// --fields Description resolves and projects correctly when present.
+// IssueDetailSpec declares the fields emitted by PresentDetail /
+// PresentDetailProjection and the metadata for --fields projection.
+// Default fields are those an agent needs daily; extended adds
+// admin/schema/audit detail per #230.
 var IssueDetailSpec = projection.Registry{
 	{Header: "Key", Identity: true},
 	{Header: "Summary", FieldID: "summary"},
 	{Header: "Status", FieldID: "status"},
 	{Header: "Type", FieldID: "issuetype"},
 	{Header: "Priority", FieldID: "priority"},
+	{Header: "Points", FieldID: "customfield_10035", Fetch: []string{"customfield_10035"}},
 	{Header: "Assignee", FieldID: "assignee"},
-	{Header: "Project", FieldID: "project"},
+	{Header: "Updated", FieldID: "updated"},
+	{Header: "Sprint", FieldID: "sprint"},
+	{Header: "Parent", FieldID: "parent"},
+	{Header: "Labels", FieldID: "labels"},
+	{Header: "Components", FieldID: "components"},
 	{Header: "Description", FieldID: "description"},
-	{Header: "URL"}, // synthetic; no Jira field ID
+	{Header: "Reporter", FieldID: "reporter", Extended: true},
+	{Header: "Created", FieldID: "created", Extended: true},
+	{Header: "Status_Category", Extended: true},
+	{Header: "Sprint_Dates", Extended: true},
+	{Header: "Component_IDs", Extended: true},
 }
 
-// PresentDetail creates a detail view for a single issue.
-func (IssuePresenter) PresentDetail(issue *api.Issue, issueURL string, noTruncate bool) *present.OutputModel {
-	status := ""
-	if issue.Fields.Status != nil {
-		status = issue.Fields.Status.Name
+// PresentDetail creates a spec-shaped detail view for a single issue.
+// Output uses msg() sections (title line + compound KV rows) matching
+// the boards/sprints/projects pattern. Labels and Components rows
+// appear only when non-empty in default mode; always in extended.
+func (IssuePresenter) PresentDetail(issue *api.Issue, issueURL string, extended bool, fulltext bool) *present.OutputModel {
+	sections := []present.Section{
+		msg(fmt.Sprintf("%s  %s", issue.Key, issue.Fields.Summary)),
 	}
 
-	issueType := ""
-	if issue.Fields.IssueType != nil {
-		issueType = issue.Fields.IssueType.Name
+	if extended {
+		sections = append(sections, issueDetailExtendedSections(issue, fulltext)...)
+	} else {
+		sections = append(sections, issueDetailDefaultSections(issue, fulltext)...)
 	}
+
+	return &present.OutputModel{Sections: sections}
+}
+
+func issueDetailDefaultSections(issue *api.Issue, fulltext bool) []present.Section {
+	status := issueStatusName(issue)
+	issueType := issueTypeName(issue)
+	priority := issuePriorityName(issue)
+	points := formatStoryPoints(issue)
+	assignee := issueAssigneeName(issue)
+	updated := FormatTime(issue.Fields.Updated)
+
+	sections := []present.Section{
+		msg(fmt.Sprintf("Status: %s   Type: %s   Priority: %s   Points: %s",
+			OrDash(status), OrDash(issueType), OrDash(priority), points)),
+		msg(fmt.Sprintf("Assignee: %s   Updated: %s",
+			assignee, OrDash(updated))),
+	}
+
+	if issue.Fields.Sprint != nil {
+		sprintRef := issue.Fields.Sprint.Name
+		if issue.Fields.Sprint.State != "" {
+			sprintRef += " (" + issue.Fields.Sprint.State + ")"
+		}
+		sections = append(sections, msg("Sprint: "+sprintRef))
+	}
+
+	if issue.Fields.Parent != nil {
+		parentRef := issue.Fields.Parent.Key
+		if issue.Fields.Parent.Fields.Summary != "" {
+			parentRef += " — " + issue.Fields.Parent.Fields.Summary
+		}
+		if issue.Fields.Parent.Fields.IssueType != nil {
+			parentRef += " (" + issue.Fields.Parent.Fields.IssueType.Name + ")"
+		}
+		sections = append(sections, msg("Parent: "+parentRef))
+	}
+
+	if len(issue.Fields.Labels) > 0 {
+		sections = append(sections, msg("Labels: "+strings.Join(issue.Fields.Labels, ", ")))
+	}
+
+	if len(issue.Fields.Components) > 0 {
+		names := make([]string, len(issue.Fields.Components))
+		for i, c := range issue.Fields.Components {
+			names[i] = c.Name
+		}
+		sections = append(sections, msg("Components: "+strings.Join(names, ", ")))
+	}
+
+	sections = append(sections, issueDescriptionSection(issue, fulltext)...)
+
+	return sections
+}
+
+func issueDetailExtendedSections(issue *api.Issue, fulltext bool) []present.Section {
+	status := issueStatusName(issue)
+	statusCategory := ""
+	if issue.Fields.Status != nil {
+		statusCategory = issue.Fields.Status.StatusCategory.Name
+	}
+	issueType := issueTypeName(issue)
+	priority := issuePriorityName(issue)
+	points := formatStoryPoints(issue)
 
 	assignee := "Unassigned"
+	assigneeID := ""
 	if issue.Fields.Assignee != nil {
 		assignee = issue.Fields.Assignee.DisplayName
+		assigneeID = issue.Fields.Assignee.AccountID
 	}
 
-	priority := ""
-	if issue.Fields.Priority != nil {
-		priority = issue.Fields.Priority.Name
+	reporter := "-"
+	reporterID := ""
+	if issue.Fields.Reporter != nil {
+		reporter = issue.Fields.Reporter.DisplayName
+		reporterID = issue.Fields.Reporter.AccountID
 	}
 
-	project := ""
-	if issue.Fields.Project != nil {
-		project = issue.Fields.Project.Key
+	statusLine := fmt.Sprintf("Status: %s", OrDash(status))
+	if statusCategory != "" {
+		statusLine += fmt.Sprintf(" (category: %s)", statusCategory)
+	}
+	statusLine += fmt.Sprintf("   Type: %s   Priority: %s   Points: %s",
+		OrDash(issueType), OrDash(priority), points)
+
+	assigneeLine := fmt.Sprintf("Assignee: %s", assignee)
+	if assigneeID != "" {
+		assigneeLine += fmt.Sprintf(" (%s)", assigneeID)
+	}
+	assigneeLine += fmt.Sprintf("   Reporter: %s", reporter)
+	if reporterID != "" {
+		assigneeLine += fmt.Sprintf(" (%s)", reporterID)
 	}
 
-	description := ""
-	if issue.Fields.Description != nil {
-		description = issue.Fields.Description.ToPlainText()
-		if !noTruncate && len(description) > 200 {
-			description = description[:200] + "... [truncated, use --fulltext for complete text]"
+	sections := []present.Section{
+		msg(statusLine),
+		msg(assigneeLine),
+		msg(fmt.Sprintf("Updated: %s   Created: %s",
+			OrDash(issue.Fields.Updated), OrDash(issue.Fields.Created))),
+	}
+
+	if issue.Fields.Sprint != nil {
+		s := issue.Fields.Sprint
+		sprintRef := s.Name
+		sprintMeta := fmt.Sprintf("id: %d, %s", s.ID, OrDash(s.State))
+		if s.StartDate != nil {
+			sprintMeta += ", " + FormatDateOrDash(s.StartDate) + " → " + FormatDateOrDash(s.EndDate)
 		}
+		sections = append(sections, msg(fmt.Sprintf("Sprint: %s (%s)", sprintRef, sprintMeta)))
+	} else {
+		sections = append(sections, msg("Sprint: -"))
 	}
 
+	if issue.Fields.Parent != nil {
+		parentRef := issue.Fields.Parent.Key
+		if issue.Fields.Parent.Fields.Summary != "" {
+			parentRef += " — " + issue.Fields.Parent.Fields.Summary
+		}
+		if issue.Fields.Parent.Fields.IssueType != nil {
+			parentRef += " (" + issue.Fields.Parent.Fields.IssueType.Name + ")"
+		}
+		sections = append(sections, msg("Parent: "+parentRef))
+	} else {
+		sections = append(sections, msg("Parent: -"))
+	}
+
+	labels := "-"
+	if len(issue.Fields.Labels) > 0 {
+		labels = strings.Join(issue.Fields.Labels, ", ")
+	}
+	sections = append(sections, msg("Labels: "+labels))
+
+	if len(issue.Fields.Components) > 0 {
+		names := make([]string, len(issue.Fields.Components))
+		for i, c := range issue.Fields.Components {
+			names[i] = fmt.Sprintf("%s (%s)", c.Name, c.ID)
+		}
+		sections = append(sections, msg("Components: "+strings.Join(names, ", ")))
+	} else {
+		sections = append(sections, msg("Components: -"))
+	}
+
+	sections = append(sections, issueDescriptionSection(issue, fulltext)...)
+
+	return sections
+}
+
+func issueDescriptionSection(issue *api.Issue, fulltext bool) []present.Section {
+	if issue.Fields.Description == nil {
+		return nil
+	}
+	desc := issue.Fields.Description.ToPlainText()
+	if desc == "" {
+		return nil
+	}
+	if !fulltext && len(desc) > 200 {
+		desc = desc[:200] + "...\n[truncated — use --fulltext for complete body]"
+	}
+	return []present.Section{
+		msg(""),
+		msg("Description:"),
+		msg(desc),
+	}
+}
+
+// PresentDetailProjection builds a DetailSection view for `issues get --fields`.
+func (IssuePresenter) PresentDetailProjection(issue *api.Issue, issueURL string, fulltext bool) *present.OutputModel {
 	fields := []present.Field{
 		{Label: "Key", Value: issue.Key},
 		{Label: "Summary", Value: issue.Fields.Summary},
-		{Label: "Status", Value: status},
-		{Label: "Type", Value: issueType},
-		{Label: "Priority", Value: priority},
-		{Label: "Assignee", Value: assignee},
-		{Label: "Project", Value: project},
+		{Label: "Status", Value: issueStatusName(issue)},
+		{Label: "Type", Value: issueTypeName(issue)},
+		{Label: "Priority", Value: issuePriorityName(issue)},
+		{Label: "Points", Value: formatStoryPoints(issue)},
+		{Label: "Assignee", Value: issueAssigneeName(issue)},
+		{Label: "Updated", Value: OrDash(FormatTime(issue.Fields.Updated))},
+		{Label: "Sprint", Value: issueSprintName(issue)},
+		{Label: "Parent", Value: issueParentRef(issue)},
+		{Label: "Labels", Value: OrDash(strings.Join(issue.Fields.Labels, ", "))},
+		{Label: "Components", Value: OrDash(issueComponentNames(issue))},
+		{Label: "Description", Value: issueDescriptionText(issue, fulltext)},
+		{Label: "Reporter", Value: issueReporterName(issue)},
+		{Label: "Created", Value: OrDash(issue.Fields.Created)},
+		{Label: "Status_Category", Value: issueStatusCategory(issue)},
+		{Label: "Sprint_Dates", Value: issueSprintDates(issue)},
+		{Label: "Component_IDs", Value: issueComponentIDs(issue)},
 	}
-	if description != "" {
-		fields = append(fields, present.Field{Label: "Description", Value: description})
-	}
-	fields = append(fields, present.Field{Label: "URL", Value: issueURL})
-
 	return &present.OutputModel{
 		Sections: []present.Section{&present.DetailSection{Fields: fields}},
 	}
 }
 
-// PresentList creates a table view for a list of issues.
-func (IssuePresenter) PresentList(issues []api.Issue) *present.OutputModel {
+func issueStatusName(issue *api.Issue) string {
+	if issue.Fields.Status != nil {
+		return issue.Fields.Status.Name
+	}
+	return ""
+}
+
+func issueTypeName(issue *api.Issue) string {
+	if issue.Fields.IssueType != nil {
+		return issue.Fields.IssueType.Name
+	}
+	return ""
+}
+
+func issuePriorityName(issue *api.Issue) string {
+	if issue.Fields.Priority != nil {
+		return issue.Fields.Priority.Name
+	}
+	return ""
+}
+
+func issueAssigneeName(issue *api.Issue) string {
+	if issue.Fields.Assignee != nil {
+		return issue.Fields.Assignee.DisplayName
+	}
+	return "Unassigned"
+}
+
+func issueReporterName(issue *api.Issue) string {
+	if issue.Fields.Reporter != nil {
+		return issue.Fields.Reporter.DisplayName
+	}
+	return "-"
+}
+
+func issueSprintName(issue *api.Issue) string {
+	if issue.Fields.Sprint != nil {
+		return issue.Fields.Sprint.Name
+	}
+	return "-"
+}
+
+func issueParentRef(issue *api.Issue) string {
+	if issue.Fields.Parent == nil {
+		return "-"
+	}
+	ref := issue.Fields.Parent.Key
+	if issue.Fields.Parent.Fields.Summary != "" {
+		ref += " — " + issue.Fields.Parent.Fields.Summary
+	}
+	return ref
+}
+
+func issueComponentNames(issue *api.Issue) string {
+	if len(issue.Fields.Components) == 0 {
+		return ""
+	}
+	names := make([]string, len(issue.Fields.Components))
+	for i, c := range issue.Fields.Components {
+		names[i] = c.Name
+	}
+	return strings.Join(names, ", ")
+}
+
+func issueComponentIDs(issue *api.Issue) string {
+	if len(issue.Fields.Components) == 0 {
+		return "-"
+	}
+	ids := make([]string, len(issue.Fields.Components))
+	for i, c := range issue.Fields.Components {
+		ids[i] = fmt.Sprintf("%s (%s)", c.Name, c.ID)
+	}
+	return strings.Join(ids, ", ")
+}
+
+func issueStatusCategory(issue *api.Issue) string {
+	if issue.Fields.Status != nil && issue.Fields.Status.StatusCategory.Name != "" {
+		return issue.Fields.Status.StatusCategory.Name
+	}
+	return "-"
+}
+
+func issueSprintDates(issue *api.Issue) string {
+	if issue.Fields.Sprint == nil {
+		return "-"
+	}
+	s := issue.Fields.Sprint
+	return fmt.Sprintf("%s → %s", FormatDateOrDash(s.StartDate), FormatDateOrDash(s.EndDate))
+}
+
+func issueDescriptionText(issue *api.Issue, fulltext bool) string {
+	if issue.Fields.Description == nil {
+		return "-"
+	}
+	desc := issue.Fields.Description.ToPlainText()
+	if desc == "" {
+		return "-"
+	}
+	if !fulltext && len(desc) > 200 {
+		return desc[:200] + "... [truncated]"
+	}
+	return desc
+}
+
+// PresentList creates a table view for a list of issues. Default order
+// is KEY|STATUS|TYPE|PTS|ASSIGNEE|SUMMARY; --extended adds REPORTER,
+// SPRINT, PARENT, UPDATED, LABELS, COMPONENTS. Callers append
+// pagination via AppendPaginationHintWithToken after this returns.
+func (IssuePresenter) PresentList(issues []api.Issue, extended bool) *present.OutputModel {
+	var headers []string
+	if extended {
+		headers = []string{"KEY", "STATUS", "TYPE", "PTS", "ASSIGNEE", "REPORTER", "SPRINT", "PARENT", "UPDATED", "LABELS", "COMPONENTS", "SUMMARY"}
+	} else {
+		headers = []string{"KEY", "STATUS", "TYPE", "PTS", "ASSIGNEE", "SUMMARY"}
+	}
+
 	rows := make([]present.Row, len(issues))
 	for i, issue := range issues {
-		status := ""
-		if issue.Fields.Status != nil {
-			status = issue.Fields.Status.Name
-		}
+		status := issueStatusName(&issue)
+		issueType := issueTypeName(&issue)
+		pts := formatStoryPoints(&issue)
+		assignee := FormatAssignee(issueAssigneeNameRaw(&issue))
 
-		assignee := ""
-		if issue.Fields.Assignee != nil {
-			assignee = issue.Fields.Assignee.DisplayName
-		}
-
-		issueType := ""
-		if issue.Fields.IssueType != nil {
-			issueType = issue.Fields.IssueType.Name
-		}
-
-		rows[i] = present.Row{
-			Cells: []string{
+		var cells []string
+		if extended {
+			cells = []string{
 				issue.Key,
-				TruncateText(issue.Fields.Summary, 50),
 				OrDash(status),
-				FormatAssignee(assignee),
 				OrDash(issueType),
-			},
+				pts,
+				assignee,
+				OrDash(issueReporterNameRaw(&issue)),
+				OrDash(issueSprintName(&issue)),
+				OrDash(issueParentKey(&issue)),
+				OrDash(FormatTime(issue.Fields.Updated)),
+				OrDash(strings.Join(issue.Fields.Labels, ", ")),
+				OrDash(issueComponentNames(&issue)),
+				TruncateText(issue.Fields.Summary, 80),
+			}
+		} else {
+			cells = []string{
+				issue.Key,
+				OrDash(status),
+				OrDash(issueType),
+				pts,
+				assignee,
+				TruncateText(issue.Fields.Summary, 80),
+			}
 		}
+		rows[i] = present.Row{Cells: cells}
 	}
 
 	return &present.OutputModel{
 		Sections: []present.Section{
-			&present.TableSection{
-				Headers: []string{"KEY", "SUMMARY", "STATUS", "ASSIGNEE", "TYPE"},
-				Rows:    rows,
-			},
+			&present.TableSection{Headers: headers, Rows: rows},
 		},
 	}
 }
@@ -481,44 +769,44 @@ func (IssuePresenter) PresentMoved(count int, project string) *present.OutputMod
 	}
 }
 
-// --- List with pagination ---
+// --- Issue field helpers ---
 
-// PresentListWithPagination creates a table with optional pagination hint.
-func (p IssuePresenter) PresentListWithPagination(issues []api.Issue, hasMore bool) *present.OutputModel {
-	rows := make([]present.Row, len(issues))
-	for i, issue := range issues {
-		status := ""
-		if issue.Fields.Status != nil {
-			status = issue.Fields.Status.Name
-		}
-
-		assignee := ""
-		if issue.Fields.Assignee != nil {
-			assignee = issue.Fields.Assignee.DisplayName
-		}
-
-		issueType := ""
-		if issue.Fields.IssueType != nil {
-			issueType = issue.Fields.IssueType.Name
-		}
-
-		rows[i] = present.Row{
-			Cells: []string{
-				issue.Key,
-				TruncateText(issue.Fields.Summary, 50),
-				OrDash(status),
-				FormatAssignee(assignee),
-				OrDash(issueType),
-			},
-		}
+func formatStoryPoints(issue *api.Issue) string {
+	if issue.Fields.CustomFields == nil {
+		return "-"
 	}
-
-	sections := []present.Section{
-		&present.TableSection{
-			Headers: []string{"KEY", "SUMMARY", "STATUS", "ASSIGNEE", "TYPE"},
-			Rows:    rows,
-		},
+	v, ok := issue.Fields.CustomFields["customfield_10035"]
+	if !ok || v == nil {
+		return "-"
 	}
+	switch n := v.(type) {
+	case float64:
+		if n == float64(int(n)) {
+			return fmt.Sprintf("%d", int(n))
+		}
+		return fmt.Sprintf("%.1f", n)
+	default:
+		return fmt.Sprintf("%v", v)
+	}
+}
 
-	return &present.OutputModel{Sections: AppendPaginationHint(sections, hasMore)}
+func issueAssigneeNameRaw(issue *api.Issue) string {
+	if issue.Fields.Assignee != nil {
+		return issue.Fields.Assignee.DisplayName
+	}
+	return ""
+}
+
+func issueReporterNameRaw(issue *api.Issue) string {
+	if issue.Fields.Reporter != nil {
+		return issue.Fields.Reporter.DisplayName
+	}
+	return ""
+}
+
+func issueParentKey(issue *api.Issue) string {
+	if issue.Fields.Parent != nil {
+		return issue.Fields.Parent.Key
+	}
+	return ""
 }

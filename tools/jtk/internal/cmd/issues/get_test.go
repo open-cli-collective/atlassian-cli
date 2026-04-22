@@ -72,7 +72,7 @@ func TestRunGet_TruncatesDescription(t *testing.T) {
 
 	output := stdout.String()
 	testutil.Contains(t, output, "TEST-1")
-	testutil.Contains(t, output, "[truncated, use --fulltext for complete text]")
+	testutil.Contains(t, output, "[truncated — use --fulltext for complete body]")
 	testutil.NotContains(t, output, longText)
 }
 

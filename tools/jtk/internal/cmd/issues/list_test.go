@@ -188,7 +188,7 @@ func TestRunList_IDOnlyWithMoreResultsAppendsContinuation(t *testing.T) {
 	err := runList(context.Background(), opts, "TEST", "", 25, "", false, "")
 	testutil.RequireNoError(t, err)
 
-	want := "TEST-1\nTEST-2\nMore results available (use --next-page-token to fetch next page)\n"
+	want := "TEST-1\nTEST-2\nMore results available (next: next-token)\n"
 	if stdout.String() != want {
 		t.Errorf("stdout:\ngot:  %q\nwant: %q", stdout.String(), want)
 	}
@@ -348,9 +348,7 @@ func TestRunList_Fields_Projection_PreservesPaginationHint(t *testing.T) {
 
 	out := stdout.String()
 	testutil.Contains(t, out, "KEY | SUMMARY | STATUS")
-	// Pagination hint survives projection — AppendPaginationHint emits a
-	// Message section whose body contains "next-page-token" when hasMore.
-	testutil.Contains(t, out, "next-page-token")
+	testutil.Contains(t, out, "next: next-token")
 }
 
 func TestRunList_Fields_JiraFieldIDs_ProjectsTable(t *testing.T) {

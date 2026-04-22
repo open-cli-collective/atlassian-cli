@@ -75,22 +75,22 @@ func runGet(ctx context.Context, opts *root.Options, issueKey string, noTruncate
 		return err
 	}
 
-	// issues get does not minimize fetch — api.GetIssue has no field-selection
-	// parameter, and adding one is out of scope for #233. Projection is
-	// purely a display-time operation here.
 	issue, err := client.GetIssue(ctx, issueKey)
 	if err != nil {
 		return err
 	}
 
-	// For JSON output, return the projected artifact
 	if v.Format == view.FormatJSON {
 		return v.RenderArtifact(jtkartifact.ProjectIssue(issue, opts.ArtifactMode()))
 	}
 
-	model := jtkpresent.IssuePresenter{}.PresentDetail(issue, client.IssueURL(issue.Key), noTruncate)
+	presenter := jtkpresent.IssuePresenter{}
 	if projected {
+		model := presenter.PresentDetailProjection(issue, client.IssueURL(issue.Key), noTruncate)
 		projection.ApplyToDetailInModel(model, selected)
+		return jtkpresent.Emit(opts, model)
 	}
+
+	model := presenter.PresentDetail(issue, client.IssueURL(issue.Key), opts.IsExtended(), noTruncate)
 	return jtkpresent.Emit(opts, model)
 }

@@ -2,11 +2,10 @@ package issues
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/spf13/cobra"
 
-	"github.com/open-cli-collective/atlassian-go/present"
+	"github.com/open-cli-collective/atlassian-go/view"
 
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
@@ -23,8 +22,8 @@ func newTypesCmd(opts *root.Options) *cobra.Command {
 		Example: `  # List issue types for a project
   jtk issues types --project MYPROJ
 
-  # Using short flag
-  jtk issues types -p MYPROJ`,
+  # Emit only type IDs
+  jtk issues types --project MYPROJ --id`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runTypes(cmd.Context(), opts, project)
 		},
@@ -37,8 +36,6 @@ func newTypesCmd(opts *root.Options) *cobra.Command {
 }
 
 func runTypes(ctx context.Context, opts *root.Options, project string) error {
-	v := opts.View()
-
 	client, err := opts.APIClient()
 	if err != nil {
 		return err
@@ -50,28 +47,28 @@ func runTypes(ctx context.Context, opts *root.Options, project string) error {
 	}
 	projectKey := resolvedProject.Key
 
-	// `issues types` only renders issue type names — the other expansions
-	// (description, versions, etc.) are wasted payload here.
 	projectDetail, err := client.GetProject(ctx, projectKey, "issueTypes")
 	if err != nil {
 		return err
 	}
 
-	if opts.Output == "json" {
+	if len(projectDetail.IssueTypes) == 0 {
+		return jtkpresent.Emit(opts, jtkpresent.IssuePresenter{}.PresentNoTypes(projectKey))
+	}
+
+	if opts.EmitIDOnly() {
+		ids := make([]string, len(projectDetail.IssueTypes))
+		for i, t := range projectDetail.IssueTypes {
+			ids[i] = t.ID
+		}
+		return jtkpresent.EmitIDs(opts, ids)
+	}
+
+	v := opts.View()
+	if v.Format == view.FormatJSON {
 		return v.JSON(projectDetail.IssueTypes)
 	}
 
-	if len(projectDetail.IssueTypes) == 0 {
-		model := jtkpresent.IssuePresenter{}.PresentNoTypes(projectKey)
-		out := present.Render(model, opts.RenderStyle())
-		_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
-		return nil
-	}
-
-	// Text path: presenter → render → write
 	model := jtkpresent.IssuePresenter{}.PresentTypes(projectDetail.IssueTypes)
-	out := present.Render(model, opts.RenderStyle())
-	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
-	_, _ = fmt.Fprint(opts.Stderr, out.Stderr)
-	return nil
+	return jtkpresent.Emit(opts, model)
 }

@@ -37,6 +37,7 @@ var DefaultSearchFields = []string{
 	"components",
 	"reporter",
 	"parent",
+	"customfield_10035",
 }
 
 // ListSearchFields are lightweight fields for list/search commands (no description).
@@ -50,6 +51,7 @@ var ListSearchFields = []string{
 	"labels",
 	"created",
 	"updated",
+	"customfield_10035",
 }
 
 // Search searches for issues using JQL (uses /search/jql endpoint).

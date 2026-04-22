@@ -93,18 +93,18 @@ func TestRunGet_Fields_ProjectsDetailToSelected(t *testing.T) {
 	}
 }
 
-func TestRunGet_Fields_URL_SyntheticColumn(t *testing.T) {
+func TestRunGet_Fields_Points_Column(t *testing.T) {
 	t.Parallel()
 	cs := newCapturingGetServer(t, fullIssue(), nil)
 	defer cs.server.Close()
 
 	opts, stdout, _ := newGetOpts(t, cs)
-	err := runGet(context.Background(), opts, "TEST-1", false, "URL")
+	err := runGet(context.Background(), opts, "TEST-1", false, "Points")
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()
 	testutil.Contains(t, output, "Key: TEST-1")
-	testutil.Contains(t, output, "URL:")
+	testutil.Contains(t, output, "Points:")
 }
 
 func TestRunGet_Fields_HumanName_TriggersFieldsFetch(t *testing.T) {
@@ -274,7 +274,7 @@ func TestRunGet_Fields_Description_TruncatedWithoutFullText(t *testing.T) {
 
 	output := stdout.String()
 	testutil.Contains(t, output, "Description:")
-	testutil.Contains(t, output, "[truncated, use --fulltext for complete text]")
+	testutil.Contains(t, output, "truncated")
 }
 
 // AC1+AC3 (issues get): description selected WITH --fulltext shows full body

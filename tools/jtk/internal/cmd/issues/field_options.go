@@ -6,7 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/open-cli-collective/atlassian-go/present"
+	"github.com/open-cli-collective/atlassian-go/view"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
@@ -26,8 +26,8 @@ Without --issue, attempts to show all possible values for the field.`,
 		Example: `  # List options for a field using issue context
   jtk issues field-options "Priority" --issue PROJ-123
 
-  # List options using field ID
-  jtk issues field-options customfield_10001 --issue PROJ-123`,
+  # Emit only option IDs
+  jtk issues field-options "Priority" --issue PROJ-123 --id`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runFieldOptions(cmd.Context(), opts, args[0], issueKey)
@@ -40,7 +40,6 @@ Without --issue, attempts to show all possible values for the field.`,
 }
 
 func runFieldOptions(ctx context.Context, opts *root.Options, fieldNameOrID, issueKey string) error {
-	v := opts.View()
 	fp := jtkpresent.FieldPresenter{}
 
 	client, err := opts.APIClient()
@@ -48,59 +47,55 @@ func runFieldOptions(ctx context.Context, opts *root.Options, fieldNameOrID, iss
 		return err
 	}
 
-	// Get all fields to resolve name to ID
 	fields, err := client.GetFields(ctx)
 	if err != nil {
 		return err
 	}
 
-	// Resolve field name/ID
 	fieldID, err := api.ResolveFieldID(fields, fieldNameOrID)
 	if err != nil {
 		return err
 	}
 
-	// Get field info for display
 	field := api.FindFieldByID(fields, fieldID)
 	fieldName := fieldID
 	if field != nil {
 		fieldName = field.Name
 	}
 
-	// Get options
 	var options []api.FieldOptionValue
 
 	if issueKey != "" {
-		// Use edit metadata for issue-specific context
 		options, err = client.GetFieldOptionsFromEditMeta(ctx, issueKey, fieldID)
 		if err != nil {
 			return fmt.Errorf("getting options for field %s: %w", fieldName, err)
 		}
 	} else {
-		// Try to get options without issue context
 		options, err = client.GetFieldOptions(ctx, fieldID)
 		if err != nil {
 			warnModel := fp.PresentOptionsNoContext()
-			warnOut := present.Render(warnModel, opts.RenderStyle())
-			_, _ = fmt.Fprint(opts.Stderr, warnOut.Stderr)
+			_ = jtkpresent.Emit(opts, warnModel)
 			return fmt.Errorf("getting options for field %s: %w", fieldName, err)
 		}
 	}
 
 	if len(options) == 0 {
-		model := fp.PresentNoOptions(fieldID)
-		out := present.Render(model, opts.RenderStyle())
-		_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
-		return nil
+		return jtkpresent.Emit(opts, fp.PresentNoOptions(fieldID))
 	}
 
-	if opts.Output == "json" {
+	if opts.EmitIDOnly() {
+		ids := make([]string, len(options))
+		for i, opt := range options {
+			ids[i] = opt.ID
+		}
+		return jtkpresent.EmitIDs(opts, ids)
+	}
+
+	v := opts.View()
+	if v.Format == view.FormatJSON {
 		return v.JSON(options)
 	}
 
 	model := fp.PresentFieldOptionsWithHeader(fieldName, options)
-	out := present.Render(model, opts.RenderStyle())
-	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
-	_, _ = fmt.Fprint(opts.Stderr, out.Stderr)
-	return nil
+	return jtkpresent.Emit(opts, model)
 }

@@ -2,12 +2,10 @@ package issues
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/spf13/cobra"
 
 	"github.com/open-cli-collective/atlassian-go/artifact"
-	"github.com/open-cli-collective/atlassian-go/present"
 	"github.com/open-cli-collective/atlassian-go/view"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
@@ -107,20 +105,18 @@ func runSearch(ctx context.Context, opts *root.Options, jql string, maxResults i
 	}
 
 	hasMore := !result.Pagination.IsLast
+	nextToken := result.Pagination.NextPageToken
 
 	if idOnly {
 		ids := make([]string, len(result.Issues))
 		for i, issue := range result.Issues {
 			ids[i] = issue.Key
 		}
-		return jtkpresent.EmitIDsWithPagination(opts, ids, hasMore)
+		return jtkpresent.EmitIDsWithPaginationToken(opts, ids, hasMore, nextToken)
 	}
 
 	if len(result.Issues) == 0 {
-		model := jtkpresent.IssuePresenter{}.PresentEmpty()
-		out := present.Render(model, opts.RenderStyle())
-		_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
-		return nil
+		return jtkpresent.Emit(opts, jtkpresent.IssuePresenter{}.PresentEmpty())
 	}
 
 	if v.Format == view.FormatJSON {
@@ -128,14 +124,10 @@ func runSearch(ctx context.Context, opts *root.Options, jql string, maxResults i
 		return v.RenderArtifactList(artifact.NewListResult(arts, hasMore))
 	}
 
-	// Text path: presenter → render → write
-	model := jtkpresent.IssuePresenter{}.PresentListWithPagination(result.Issues, hasMore)
+	model := jtkpresent.IssuePresenter{}.PresentList(result.Issues, opts.IsExtended())
 	if projected {
 		projection.ApplyToTableInModel(model, selected)
 	}
-	out := present.Render(model, opts.RenderStyle())
-	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
-	_, _ = fmt.Fprint(opts.Stderr, out.Stderr)
-
-	return nil
+	model.Sections = jtkpresent.AppendPaginationHintWithToken(model.Sections, hasMore, nextToken)
+	return jtkpresent.Emit(opts, model)
 }

@@ -303,6 +303,7 @@ func TestRunCurrent_Table(t *testing.T) {
 }
 
 func TestRunCurrent_IDOnly(t *testing.T) {
+	t.Parallel()
 	sprints := []api.Sprint{
 		{ID: 42, Name: "Sprint Active", State: "active"},
 	}
@@ -391,6 +392,7 @@ func TestRunCurrent_NotFound(t *testing.T) {
 }
 
 func TestRunCurrent_SyntheticBoard(t *testing.T) {
+	t.Parallel()
 	sprints := []api.Sprint{
 		{ID: 42, Name: "Sprint Active", State: "active"},
 	}

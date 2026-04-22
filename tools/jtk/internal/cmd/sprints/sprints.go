@@ -218,6 +218,27 @@ func newCurrentCmd(opts *root.Options) *cobra.Command {
 func runCurrent(ctx context.Context, opts *root.Options, client *api.Client, board *api.Board, fieldsFlag string) error {
 	v := opts.View()
 
+	if !opts.EmitIDOnly() && fieldsFlag != "" && v.Format == view.FormatJSON {
+		return jtkpresent.ErrFieldsWithJSON
+	}
+
+	var selected []projection.ColumnSpec
+	var projected bool
+	if !opts.EmitIDOnly() {
+		var err error
+		selected, projected, err = projection.Resolve(
+			ctx,
+			jtkpresent.SprintDetailSpec,
+			opts.IsExtended(),
+			fieldsFlag,
+			noFieldFetch,
+			"sprints current",
+		)
+		if err != nil {
+			return err
+		}
+	}
+
 	sprint, err := client.GetCurrentSprint(ctx, board.ID)
 	if err != nil {
 		return err
@@ -225,22 +246,6 @@ func runCurrent(ctx context.Context, opts *root.Options, client *api.Client, boa
 
 	if opts.EmitIDOnly() {
 		return jtkpresent.EmitIDs(opts, []string{strconv.Itoa(sprint.ID)})
-	}
-
-	if fieldsFlag != "" && v.Format == view.FormatJSON {
-		return jtkpresent.ErrFieldsWithJSON
-	}
-
-	selected, projected, err := projection.Resolve(
-		ctx,
-		jtkpresent.SprintDetailSpec,
-		opts.IsExtended(),
-		fieldsFlag,
-		noFieldFetch,
-		"sprints current",
-	)
-	if err != nil {
-		return err
 	}
 
 	if v.Format == view.FormatJSON {

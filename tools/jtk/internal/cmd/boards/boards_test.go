@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/open-cli-collective/atlassian-go/testutil"
@@ -300,11 +301,21 @@ func TestRunGet_Table(t *testing.T) {
 
 func TestRunGet_IDOnly(t *testing.T) {
 	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		t.Error("API should not be called in --id mode")
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
 	var stdout bytes.Buffer
 	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}, IDOnly: true}
+	opts.SetAPIClient(client)
 
 	resolvedBoard := &api.Board{ID: 42, Name: "Sprint Board"}
-	err := runGet(context.Background(), opts, nil, resolvedBoard, "")
+	err = runGet(context.Background(), opts, client, resolvedBoard, "")
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, stdout.String(), "42\n")
 }
@@ -390,9 +401,12 @@ func TestRunList_Pagination(t *testing.T) {
 
 func TestRunGet_Extended(t *testing.T) {
 	t.Parallel()
+	var mu sync.Mutex
 	requestPaths := make([]string, 0, 2)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
 		requestPaths = append(requestPaths, r.URL.Path)
+		mu.Unlock()
 		if strings.Contains(r.URL.Path, "/configuration") {
 			_ = json.NewEncoder(w).Encode(api.BoardConfiguration{
 				ID:     42,
@@ -426,8 +440,11 @@ func TestRunGet_Extended(t *testing.T) {
 	testutil.Contains(t, output, "Filter: my filter (id: 100)")
 	testutil.Contains(t, output, "Column config: Backlog, Done")
 	// Verify both board and configuration endpoints were hit
-	if len(requestPaths) < 2 {
-		t.Errorf("expected 2 API calls (board + config), got %d", len(requestPaths))
+	mu.Lock()
+	pathCount := len(requestPaths)
+	mu.Unlock()
+	if pathCount < 2 {
+		t.Errorf("expected 2 API calls (board + config), got %d", pathCount)
 	}
 }
 
@@ -509,7 +526,7 @@ func TestRunGet_ResolvesBoardByName(t *testing.T) {
 	testutil.Equal(t, capturedPath, "/rest/agile/1.0/board/42")
 }
 
-func TestRunGet_InvalidID(t *testing.T) {
+func TestRunGet_MissingArg(t *testing.T) {
 	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)

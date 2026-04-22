@@ -229,8 +229,13 @@ func runGet(ctx context.Context, opts *root.Options, client *api.Client, resolve
 	}
 
 	var config *api.BoardConfiguration
-	if opts.IsExtended() {
-		config, _ = client.GetBoardConfiguration(ctx, board.ID)
+	needsConfig := opts.IsExtended() || projection.HasExtendedFields(selected, jtkpresent.BoardDetailSpec)
+	if needsConfig {
+		var configErr error
+		config, configErr = client.GetBoardConfiguration(ctx, board.ID)
+		if configErr != nil {
+			_, _ = fmt.Fprintf(opts.Stderr, "warning: could not fetch board configuration: %v\n", configErr)
+		}
 	}
 
 	if v.Format == view.FormatJSON {

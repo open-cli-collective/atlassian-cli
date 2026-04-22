@@ -395,8 +395,8 @@ func TestRunGet_Extended(t *testing.T) {
 		requestPaths = append(requestPaths, r.URL.Path)
 		if strings.Contains(r.URL.Path, "/configuration") {
 			_ = json.NewEncoder(w).Encode(api.BoardConfiguration{
-				ID:   42,
-				Name: "Sprint Board",
+				ID:     42,
+				Name:   "Sprint Board",
 				Filter: api.BoardFilter{ID: "100", Name: "my filter"},
 				ColumnConfig: api.BoardColumnConfig{
 					Columns: []api.BoardColumn{{Name: "Backlog"}, {Name: "Done"}},

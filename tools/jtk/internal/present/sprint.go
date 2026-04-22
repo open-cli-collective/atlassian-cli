@@ -111,12 +111,12 @@ func (SprintPresenter) PresentDetail(sprint *api.Sprint, board *api.Board, exten
 	sections = append(sections, msg("Board: "+formatBoardRef(board)))
 
 	if extended {
-		if sprint.Goal != "" {
-			sections = append(sections, msg("Goal: "+sprint.Goal))
-		}
+		sections = append(sections, msg("Goal: "+OrDash(sprint.Goal)))
+		originBoard := "-"
 		if sprint.OriginBoardID != 0 {
-			sections = append(sections, msg(fmt.Sprintf("Origin Board: %d", sprint.OriginBoardID)))
+			originBoard = FormatInt(sprint.OriginBoardID)
 		}
+		sections = append(sections, msg("Origin Board: "+originBoard))
 	}
 
 	return &present.OutputModel{Sections: sections}

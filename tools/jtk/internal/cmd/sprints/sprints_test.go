@@ -204,6 +204,57 @@ func TestRunList_NullDates(t *testing.T) {
 	testutil.NotContains(t, output, "0001-01-01")
 }
 
+func TestRunList_FieldsWithJSONError(t *testing.T) {
+	t.Parallel()
+	server := newTestSprintsServer(t, []api.Sprint{{ID: 1}})
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	opts := &root.Options{Output: "json", Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runList(context.Background(), opts, client, 123, "", 50, "", "ID,NAME")
+	testutil.NotNil(t, err)
+	testutil.Contains(t, err.Error(), "--fields is not supported")
+}
+
+func TestRunList_InvalidNextPageToken(t *testing.T) {
+	t.Parallel()
+	client, err := api.New(api.ClientConfig{URL: "http://localhost", Email: "t@t.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	opts := &root.Options{Output: "table", Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runList(context.Background(), opts, client, 123, "", 50, "abc", "")
+	testutil.NotNil(t, err)
+	testutil.Contains(t, err.Error(), "--next-page-token")
+}
+
+func TestRunList_Pagination(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(api.SprintsResponse{
+			Values: []api.Sprint{{ID: 10, Name: "S1", State: "active"}},
+			IsLast: false,
+		})
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runList(context.Background(), opts, client, 123, "", 1, "", "")
+	testutil.RequireNoError(t, err)
+	testutil.Contains(t, stdout.String(), "More results available (next: 1)")
+}
+
 // --- current subcommand ---
 
 func TestNewCurrentCmd(t *testing.T) {

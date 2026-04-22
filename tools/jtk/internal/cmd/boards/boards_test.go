@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/open-cli-collective/atlassian-go/testutil"
@@ -336,6 +337,143 @@ func TestRunGet_JSON(t *testing.T) {
 	output := stdout.String()
 	testutil.Contains(t, output, `"name"`)
 	testutil.Contains(t, output, "Sprint Board")
+}
+
+func TestRunList_FieldsWithJSONError(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(api.BoardsResponse{IsLast: true, Values: []api.Board{{ID: 1}}})
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	opts := &root.Options{Output: "json", Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runList(context.Background(), opts, "", 50, "", "ID,NAME")
+	testutil.NotNil(t, err)
+	testutil.Contains(t, err.Error(), "--fields is not supported")
+}
+
+func TestRunList_InvalidNextPageToken(t *testing.T) {
+	t.Parallel()
+	opts := &root.Options{Output: "table", Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
+
+	err := runList(context.Background(), opts, "", 50, "abc", "")
+	testutil.NotNil(t, err)
+	testutil.Contains(t, err.Error(), "--next-page-token")
+}
+
+func TestRunList_Pagination(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(api.BoardsResponse{
+			Values: []api.Board{{ID: 1, Name: "Board A", Type: "scrum"}},
+			IsLast: false,
+		})
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runList(context.Background(), opts, "", 1, "", "")
+	testutil.RequireNoError(t, err)
+	testutil.Contains(t, stdout.String(), "More results available (next: 1)")
+}
+
+func TestRunGet_Extended(t *testing.T) {
+	t.Parallel()
+	requestPaths := make([]string, 0, 2)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestPaths = append(requestPaths, r.URL.Path)
+		if strings.Contains(r.URL.Path, "/configuration") {
+			_ = json.NewEncoder(w).Encode(api.BoardConfiguration{
+				ID:   42,
+				Name: "Sprint Board",
+				Filter: api.BoardFilter{ID: "100", Name: "my filter"},
+				ColumnConfig: api.BoardColumnConfig{
+					Columns: []api.BoardColumn{{Name: "Backlog"}, {Name: "Done"}},
+				},
+			})
+		} else {
+			_ = json.NewEncoder(w).Encode(api.Board{
+				ID: 42, Name: "Sprint Board", Type: "scrum",
+				Location: api.BoardLocation{ProjectKey: "PROJ", ProjectName: "My Project"},
+			})
+		}
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}, Extended: true}
+	opts.SetAPIClient(client)
+
+	resolvedBoard := &api.Board{ID: 42, Name: "Sprint Board"}
+	err = runGet(context.Background(), opts, client, resolvedBoard, "")
+	testutil.RequireNoError(t, err)
+
+	output := stdout.String()
+	testutil.Contains(t, output, "Filter: my filter (id: 100)")
+	testutil.Contains(t, output, "Column config: Backlog, Done")
+	// Verify both board and configuration endpoints were hit
+	if len(requestPaths) < 2 {
+		t.Errorf("expected 2 API calls (board + config), got %d", len(requestPaths))
+	}
+}
+
+func TestRunGet_NameFallback(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		// API returns board without name
+		_ = json.NewEncoder(w).Encode(api.Board{
+			ID: 42, Type: "scrum",
+			Location: api.BoardLocation{ProjectKey: "PROJ"},
+		})
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	// Resolved board has name from cache, but API response lacks it
+	resolvedBoard := &api.Board{ID: 42, Name: "Cached Name"}
+	err = runGet(context.Background(), opts, client, resolvedBoard, "")
+	testutil.RequireNoError(t, err)
+
+	testutil.Contains(t, stdout.String(), "Cached Name")
+}
+
+func TestRunGet_FieldsWithJSONError(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(api.Board{ID: 42, Name: "B", Type: "scrum"})
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	opts := &root.Options{Output: "json", Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	resolvedBoard := &api.Board{ID: 42}
+	err = runGet(context.Background(), opts, client, resolvedBoard, "ID,NAME")
+	testutil.NotNil(t, err)
+	testutil.Contains(t, err.Error(), "--fields is not supported")
 }
 
 func TestRunGet_ResolvesBoardByName(t *testing.T) {

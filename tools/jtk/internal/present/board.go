@@ -87,15 +87,19 @@ func (BoardPresenter) PresentDetail(board *api.Board, config *api.BoardConfigura
 		msg(fmt.Sprintf("Type: %s   Project: %s", OrDash(board.Type), projectRef)),
 	}
 
-	if extended && config != nil {
-		filterLine := fmt.Sprintf("Filter: %s (id: %s)", config.Filter.Name, config.Filter.ID)
-		sections = append(sections, msg(filterLine))
-
-		colNames := make([]string, len(config.ColumnConfig.Columns))
-		for i, c := range config.ColumnConfig.Columns {
-			colNames[i] = c.Name
+	if extended {
+		filterVal := "-"
+		columnVal := "-"
+		if config != nil {
+			filterVal = fmt.Sprintf("%s (id: %s)", config.Filter.Name, config.Filter.ID)
+			colNames := make([]string, len(config.ColumnConfig.Columns))
+			for i, c := range config.ColumnConfig.Columns {
+				colNames[i] = c.Name
+			}
+			columnVal = OrDash(strings.Join(colNames, ", "))
 		}
-		sections = append(sections, msg("Column config: "+OrDash(strings.Join(colNames, ", "))))
+		sections = append(sections, msg("Filter: "+filterVal))
+		sections = append(sections, msg("Column config: "+columnVal))
 	}
 
 	return &present.OutputModel{Sections: sections}

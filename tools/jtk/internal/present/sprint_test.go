@@ -124,6 +124,33 @@ func TestSprintPresenter_PresentDetail_MinimalFields(t *testing.T) {
 	}
 }
 
+func TestSprintPresenter_PresentDetail_ExtendedStableRows(t *testing.T) {
+	t.Parallel()
+	// Extended output must always have the same row count regardless of data
+	sprint := &api.Sprint{
+		ID:    1,
+		Name:  "Backlog",
+		State: "future",
+	}
+	board := &api.Board{ID: 10}
+
+	p := SprintPresenter{}
+	model := p.PresentDetail(sprint, board, true)
+
+	// Extended: title + state/timestamps + board + goal + origin board = 5 sections
+	if len(model.Sections) != 5 {
+		t.Fatalf("expected 5 sections even with empty goal/origin, got %d", len(model.Sections))
+	}
+	goalMsg := model.Sections[3].(*present.MessageSection)
+	if goalMsg.Message != "Goal: -" {
+		t.Errorf("empty goal should show '-': got %q", goalMsg.Message)
+	}
+	originMsg := model.Sections[4].(*present.MessageSection)
+	if originMsg.Message != "Origin Board: -" {
+		t.Errorf("empty origin board should show '-': got %q", originMsg.Message)
+	}
+}
+
 func TestSprintPresenter_PresentList_Default(t *testing.T) {
 	t.Parallel()
 	startDate := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)

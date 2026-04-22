@@ -114,6 +114,29 @@ func TestPresentBoardDetail_Extended(t *testing.T) {
 	}
 }
 
+func TestPresentBoardDetail_ExtendedStableRows_NilConfig(t *testing.T) {
+	t.Parallel()
+	board := &api.Board{
+		ID: 23, Name: "MON board", Type: "scrum",
+		Location: api.BoardLocation{ProjectKey: "MON", ProjectName: "Platform Development"},
+	}
+	// Extended with nil config should still show Filter and Column config rows with "-"
+	model := BoardPresenter{}.PresentDetail(board, nil, true)
+
+	// title + type + filter + column config = 4 sections
+	if len(model.Sections) != 4 {
+		t.Fatalf("expected 4 sections even with nil config, got %d", len(model.Sections))
+	}
+	filterLine := model.Sections[2].(*present.MessageSection)
+	if filterLine.Message != "Filter: -" {
+		t.Errorf("nil config filter: got %q", filterLine.Message)
+	}
+	colLine := model.Sections[3].(*present.MessageSection)
+	if colLine.Message != "Column config: -" {
+		t.Errorf("nil config columns: got %q", colLine.Message)
+	}
+}
+
 func TestPresentBoardDetailProjection_ContainsAllSpecHeaders(t *testing.T) {
 	t.Parallel()
 	board := &api.Board{

@@ -292,6 +292,31 @@ type BoardLocation struct {
 	ProjectName string `json:"projectName"`
 }
 
+// BoardConfiguration represents the configuration of an agile board,
+// including its filter and column layout.
+type BoardConfiguration struct {
+	ID           int               `json:"id"`
+	Name         string            `json:"name"`
+	Filter       BoardFilter       `json:"filter"`
+	ColumnConfig BoardColumnConfig `json:"columnConfig"`
+}
+
+// BoardFilter identifies the JQL filter backing a board.
+type BoardFilter struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// BoardColumnConfig holds the column layout for a board.
+type BoardColumnConfig struct {
+	Columns []BoardColumn `json:"columns"`
+}
+
+// BoardColumn represents a single column in a board's layout.
+type BoardColumn struct {
+	Name string `json:"name"`
+}
+
 // Transition represents a workflow transition
 type Transition struct {
 	ID     string                     `json:"id"`

@@ -9,15 +9,17 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/open-cli-collective/atlassian-go/artifact"
-	"github.com/open-cli-collective/atlassian-go/present"
 	"github.com/open-cli-collective/atlassian-go/view"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	jtkartifact "github.com/open-cli-collective/jira-ticket-cli/internal/artifact"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/present/projection"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/resolve"
 )
+
+func noFieldFetch(_ context.Context) ([]api.Field, error) { return nil, nil }
 
 // validateBoardRef rejects inputs that would parse as numeric but produce a
 // synthetic Board{ID: n} with n <= 0, which the downstream Agile endpoints
@@ -66,6 +68,8 @@ func newListCmd(opts *root.Options) *cobra.Command {
 	var board string
 	var state string
 	var maxResults int
+	var nextPageToken string
+	var fieldsFlag string
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -76,7 +80,13 @@ func newListCmd(opts *root.Options) *cobra.Command {
   jtk sprints list --board "MON board"
 
   # List only active sprints
-  jtk sprints list --board 123 --state active`,
+  jtk sprints list --board 123 --state active
+
+  # Extended output with completion dates, board, goal
+  jtk sprints list --board 123 --extended
+
+  # Emit only sprint IDs
+  jtk sprints list --board 123 --id`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if err := validateBoardRef(board); err != nil {
 				return err
@@ -89,55 +99,100 @@ func newListCmd(opts *root.Options) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return runList(cmd.Context(), opts, client, resolvedBoard.ID, state, maxResults)
+			return runList(cmd.Context(), opts, client, resolvedBoard.ID, state, maxResults, nextPageToken, fieldsFlag)
 		},
 	}
 
 	cmd.Flags().StringVarP(&board, "board", "b", "", "Board ID or name (required)")
 	cmd.Flags().StringVarP(&state, "state", "s", "", "Filter by state (active, closed, future)")
 	cmd.Flags().IntVarP(&maxResults, "max", "m", 50, "Maximum number of results")
+	cmd.Flags().StringVar(&nextPageToken, "next-page-token", "", "Decimal startAt for the next page")
+	cmd.Flags().StringVar(&fieldsFlag, "fields", "", "Comma-separated display columns")
 
 	return cmd
 }
 
-func runList(ctx context.Context, opts *root.Options, client *api.Client, boardID int, state string, maxResults int) error {
+func runList(ctx context.Context, opts *root.Options, client *api.Client, boardID int, state string, maxResults int, nextPageToken, fieldsFlag string) error {
 	v := opts.View()
 
-	result, err := client.ListSprints(ctx, boardID, state, 0, maxResults)
+	idOnly := opts.EmitIDOnly()
+
+	startAt, err := jtkpresent.ParseStartAtToken(nextPageToken)
 	if err != nil {
 		return err
 	}
 
+	if !idOnly && fieldsFlag != "" && v.Format == view.FormatJSON {
+		return jtkpresent.ErrFieldsWithJSON
+	}
+
+	var selected []projection.ColumnSpec
+	var projected bool
+	if !idOnly {
+		selected, projected, err = projection.Resolve(
+			ctx,
+			jtkpresent.SprintListSpec,
+			opts.IsExtended(),
+			fieldsFlag,
+			noFieldFetch,
+			"sprints list",
+		)
+		if err != nil {
+			return err
+		}
+	}
+
+	result, err := client.ListSprints(ctx, boardID, state, startAt, maxResults)
+	if err != nil {
+		return err
+	}
+
+	hasMore := !result.IsLast
+	if hasMore && len(result.Values) == 0 {
+		return fmt.Errorf("unexpected paginated response: IsLast=false with empty values (startAt=%d)", startAt)
+	}
+	nextToken := ""
+	if hasMore {
+		nextToken = strconv.Itoa(startAt + len(result.Values))
+	}
+
+	if idOnly {
+		ids := make([]string, len(result.Values))
+		for i, s := range result.Values {
+			ids[i] = strconv.Itoa(s.ID)
+		}
+		return jtkpresent.EmitIDsWithPaginationToken(opts, ids, hasMore, nextToken)
+	}
+
 	if len(result.Values) == 0 {
-		model := jtkpresent.SprintPresenter{}.PresentEmpty()
-		out := present.Render(model, opts.RenderStyle())
-		_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
-		return nil
+		return jtkpresent.Emit(opts, jtkpresent.SprintPresenter{}.PresentEmpty())
 	}
 
 	if v.Format == view.FormatJSON {
 		arts := jtkartifact.ProjectSprints(result.Values, opts.ArtifactMode())
-		hasMore := !result.IsLast
 		return v.RenderArtifactList(artifact.NewListResult(arts, hasMore))
 	}
 
-	// Text path: presenter → render → write
-	model := jtkpresent.SprintPresenter{}.PresentList(result.Values)
-	out := present.Render(model, opts.RenderStyle())
-	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
-	_, _ = fmt.Fprint(opts.Stderr, out.Stderr)
-	return nil
+	presenter := jtkpresent.SprintPresenter{}
+	model := presenter.PresentList(result.Values, opts.IsExtended())
+	if projected {
+		projection.ApplyToTableInModel(model, selected)
+	}
+	model.Sections = jtkpresent.AppendPaginationHintWithToken(model.Sections, hasMore, nextToken)
+	return jtkpresent.Emit(opts, model)
 }
 
 func newCurrentCmd(opts *root.Options) *cobra.Command {
 	var board string
+	var fieldsFlag string
 
 	cmd := &cobra.Command{
 		Use:   "current",
 		Short: "Show current sprint",
 		Long:  "Show the current active sprint for a board. --board accepts a board ID or name.",
 		Example: `  jtk sprints current --board 123
-  jtk sprints current --board "MON board"`,
+  jtk sprints current --board "MON board"
+  jtk sprints current --board 123 --extended`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if err := validateBoardRef(board); err != nil {
 				return err
@@ -150,19 +205,40 @@ func newCurrentCmd(opts *root.Options) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return runCurrent(cmd.Context(), opts, client, resolvedBoard.ID)
+			return runCurrent(cmd.Context(), opts, client, &resolvedBoard, fieldsFlag)
 		},
 	}
 
 	cmd.Flags().StringVarP(&board, "board", "b", "", "Board ID or name (required)")
+	cmd.Flags().StringVar(&fieldsFlag, "fields", "", "Comma-separated display fields")
 
 	return cmd
 }
 
-func runCurrent(ctx context.Context, opts *root.Options, client *api.Client, boardID int) error {
+func runCurrent(ctx context.Context, opts *root.Options, client *api.Client, board *api.Board, fieldsFlag string) error {
 	v := opts.View()
 
-	sprint, err := client.GetCurrentSprint(ctx, boardID)
+	sprint, err := client.GetCurrentSprint(ctx, board.ID)
+	if err != nil {
+		return err
+	}
+
+	if opts.EmitIDOnly() {
+		return jtkpresent.EmitIDs(opts, []string{strconv.Itoa(sprint.ID)})
+	}
+
+	if fieldsFlag != "" && v.Format == view.FormatJSON {
+		return jtkpresent.ErrFieldsWithJSON
+	}
+
+	selected, projected, err := projection.Resolve(
+		ctx,
+		jtkpresent.SprintDetailSpec,
+		opts.IsExtended(),
+		fieldsFlag,
+		noFieldFetch,
+		"sprints current",
+	)
 	if err != nil {
 		return err
 	}
@@ -171,38 +247,48 @@ func runCurrent(ctx context.Context, opts *root.Options, client *api.Client, boa
 		return v.RenderArtifact(jtkartifact.ProjectSprint(sprint, opts.ArtifactMode()))
 	}
 
-	// Text path: presenter → render → write
-	model := jtkpresent.SprintPresenter{}.PresentDetail(sprint)
-	out := present.Render(model, opts.RenderStyle())
-	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
-	_, _ = fmt.Fprint(opts.Stderr, out.Stderr)
-	return nil
+	presenter := jtkpresent.SprintPresenter{}
+	if projected {
+		model := presenter.PresentDetailProjection(sprint, board)
+		projection.ApplyToDetailInModel(model, selected)
+		return jtkpresent.Emit(opts, model)
+	}
+
+	model := presenter.PresentDetail(sprint, board, opts.IsExtended())
+	return jtkpresent.Emit(opts, model)
 }
 
 func newIssuesCmd(opts *root.Options) *cobra.Command {
 	var maxResults int
+	var nextPageToken string
 
 	cmd := &cobra.Command{
-		Use:     "issues <sprint-id>",
-		Short:   "List issues in a sprint",
-		Long:    "List all issues in a specific sprint.",
-		Example: `  jtk sprints issues 456`,
-		Args:    cobra.ExactArgs(1),
+		Use:   "issues <sprint>",
+		Short: "List issues in a sprint",
+		Long:  "List all issues in a specific sprint. Accepts a sprint ID or name (resolved via cache).",
+		Example: `  jtk sprints issues 456
+  jtk sprints issues "MON Sprint 70"`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			var sprintID int
-			if _, err := fmt.Sscanf(args[0], "%d", &sprintID); err != nil {
-				return fmt.Errorf("invalid sprint ID: %s", args[0])
+			client, err := opts.APIClient()
+			if err != nil {
+				return err
 			}
-			return runIssues(cmd.Context(), opts, sprintID, maxResults)
+			resolvedSprint, err := resolve.New(client).Sprint(cmd.Context(), args[0], 0)
+			if err != nil {
+				return err
+			}
+			return runIssues(cmd.Context(), opts, resolvedSprint.ID, maxResults, nextPageToken)
 		},
 	}
 
 	cmd.Flags().IntVarP(&maxResults, "max", "m", 50, "Maximum number of results")
+	cmd.Flags().StringVar(&nextPageToken, "next-page-token", "", "Decimal startAt for the next page")
 
 	return cmd
 }
 
-func runIssues(ctx context.Context, opts *root.Options, sprintID int, maxResults int) error {
+func runIssues(ctx context.Context, opts *root.Options, sprintID int, maxResults int, nextPageToken string) error {
 	v := opts.View()
 
 	client, err := opts.APIClient()
@@ -210,37 +296,47 @@ func runIssues(ctx context.Context, opts *root.Options, sprintID int, maxResults
 		return err
 	}
 
-	result, err := client.GetSprintIssues(ctx, sprintID, 0, maxResults)
+	startAt, err := jtkpresent.ParseStartAtToken(nextPageToken)
 	if err != nil {
 		return err
 	}
 
+	result, err := client.GetSprintIssues(ctx, sprintID, startAt, maxResults)
+	if err != nil {
+		return err
+	}
+
+	var hasMore bool
+	if result.Total < 0 {
+		hasMore = len(result.Issues) == maxResults
+	} else {
+		hasMore = result.StartAt+len(result.Issues) < result.Total
+	}
+	nextToken := ""
+	if hasMore {
+		nextToken = strconv.Itoa(startAt + len(result.Issues))
+	}
+
+	if opts.EmitIDOnly() {
+		ids := make([]string, len(result.Issues))
+		for i, issue := range result.Issues {
+			ids[i] = issue.Key
+		}
+		return jtkpresent.EmitIDsWithPaginationToken(opts, ids, hasMore, nextToken)
+	}
+
 	if len(result.Issues) == 0 {
-		model := jtkpresent.SprintPresenter{}.PresentNoIssues()
-		out := present.Render(model, opts.RenderStyle())
-		_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
-		return nil
+		return jtkpresent.Emit(opts, jtkpresent.SprintPresenter{}.PresentNoIssues())
 	}
 
 	if v.Format == view.FormatJSON {
 		arts := jtkartifact.ProjectIssues(result.Issues, opts.ArtifactMode())
-		// Guard against Total < 0 (Jira returns -1 when count is unknown).
-		// When Total is unknown, assume more results if we got a full page.
-		var hasMore bool
-		if result.Total < 0 {
-			hasMore = len(result.Issues) == maxResults
-		} else {
-			hasMore = result.StartAt+len(result.Issues) < result.Total
-		}
 		return v.RenderArtifactList(artifact.NewListResult(arts, hasMore))
 	}
 
-	// Text path: presenter → render → write
 	model := jtkpresent.IssuePresenter{}.PresentList(result.Issues)
-	out := present.Render(model, opts.RenderStyle())
-	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
-	_, _ = fmt.Fprint(opts.Stderr, out.Stderr)
-	return nil
+	model.Sections = jtkpresent.AppendPaginationHintWithToken(model.Sections, hasMore, nextToken)
+	return jtkpresent.Emit(opts, model)
 }
 
 func newAddCmd(opts *root.Options) *cobra.Command {
@@ -279,8 +375,5 @@ func runAdd(ctx context.Context, opts *root.Options, client *api.Client, sprintI
 	}
 
 	model := jtkpresent.SprintPresenter{}.PresentMoved(issueKeys, sprintID)
-	out := present.Render(model, opts.RenderStyle())
-	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
-	_, _ = fmt.Fprint(opts.Stderr, out.Stderr)
-	return nil
+	return jtkpresent.Emit(opts, model)
 }

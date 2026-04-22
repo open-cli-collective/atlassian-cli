@@ -30,6 +30,12 @@ func TestNewListCmd(t *testing.T) {
 	maxFlag := cmd.Flags().Lookup("max")
 	testutil.NotNil(t, maxFlag)
 	testutil.Equal(t, maxFlag.DefValue, "50")
+
+	nextPageTokenFlag := cmd.Flags().Lookup("next-page-token")
+	testutil.NotNil(t, nextPageTokenFlag)
+
+	fieldsFlag := cmd.Flags().Lookup("fields")
+	testutil.NotNil(t, fieldsFlag)
 }
 
 func TestRunList_Table(t *testing.T) {
@@ -69,7 +75,7 @@ func TestRunList_Table(t *testing.T) {
 	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runList(context.Background(), opts, "", 50)
+	err = runList(context.Background(), opts, "", 50, "", "")
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()
@@ -79,6 +85,70 @@ func TestRunList_Table(t *testing.T) {
 	testutil.Contains(t, output, "BETA")
 	testutil.Contains(t, output, "scrum")
 	testutil.Contains(t, output, "kanban")
+}
+
+func TestRunList_Extended(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(api.BoardsResponse{
+			Values: []api.Board{
+				{
+					ID:   23,
+					Name: "MON board",
+					Type: "scrum",
+					Location: api.BoardLocation{
+						ProjectKey:  "MON",
+						ProjectName: "Platform Development",
+					},
+				},
+			},
+			Total:  1,
+			IsLast: true,
+		})
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}, Extended: true}
+	opts.SetAPIClient(client)
+
+	err = runList(context.Background(), opts, "", 50, "", "")
+	testutil.RequireNoError(t, err)
+
+	output := stdout.String()
+	testutil.Contains(t, output, "PROJECT_NAME")
+	testutil.Contains(t, output, "Platform Development")
+}
+
+func TestRunList_IDOnly(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(api.BoardsResponse{
+			Values: []api.Board{
+				{ID: 1, Name: "Board A"},
+				{ID: 2, Name: "Board B"},
+			},
+			Total:  2,
+			IsLast: true,
+		})
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}, IDOnly: true}
+	opts.SetAPIClient(client)
+
+	err = runList(context.Background(), opts, "", 50, "", "")
+	testutil.RequireNoError(t, err)
+
+	output := stdout.String()
+	testutil.Equal(t, output, "1\n2\n")
 }
 
 func TestRunList_JSON(t *testing.T) {
@@ -108,7 +178,7 @@ func TestRunList_JSON(t *testing.T) {
 	opts := &root.Options{Output: "json", Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runList(context.Background(), opts, "", 50)
+	err = runList(context.Background(), opts, "", 50, "", "")
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()
@@ -134,7 +204,7 @@ func TestRunList_Empty(t *testing.T) {
 	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &stderr}
 	opts.SetAPIClient(client)
 
-	err = runList(context.Background(), opts, "", 50)
+	err = runList(context.Background(), opts, "", 50, "", "")
 	testutil.RequireNoError(t, err)
 
 	combined := stdout.String() + stderr.String()
@@ -143,13 +213,7 @@ func TestRunList_Empty(t *testing.T) {
 
 func TestRunList_ResolvesProjectByName(t *testing.T) {
 	// NOT t.Parallel(): SetRootForTest / SetInstanceKeyForTest mutate package
-	// globals in the cache package. Running in parallel with the other
-	// TestRunList_* tests in this file that also touch the cache root would
-	// allow one test's cache isolation to bleed into another.
-	//
-	// --project "Platform" must resolve to its cached key before hitting
-	// the boards endpoint; the URL query string should carry the key, not
-	// the display name.
+	// globals in the cache package.
 	t.Cleanup(cache.SetRootForTest(t.TempDir()))
 	t.Cleanup(cache.SetInstanceKeyForTest("test.atlassian.net"))
 	testutil.RequireNoError(t, cache.WriteResource("projects", "24h", []api.Project{
@@ -172,15 +236,13 @@ func TestRunList_ResolvesProjectByName(t *testing.T) {
 	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runList(context.Background(), opts, "Platform", 50)
+	err = runList(context.Background(), opts, "Platform", 50, "", "")
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, capturedProject, "PLAT")
 }
 
 func TestRunList_ProjectKeyShapePassesThrough(t *testing.T) {
 	// NOT t.Parallel(): see the comment on TestRunList_ResolvesProjectByName.
-	// Project-key-shape input that isn't cached should still reach the API
-	// (cold-start / out-of-cache-horizon projects).
 	t.Cleanup(cache.SetRootForTest(t.TempDir()))
 	t.Cleanup(cache.SetInstanceKeyForTest("test.atlassian.net"))
 
@@ -197,7 +259,7 @@ func TestRunList_ProjectKeyShapePassesThrough(t *testing.T) {
 	opts := &root.Options{Output: "table", Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runList(context.Background(), opts, "UNCACHED", 50)
+	err = runList(context.Background(), opts, "UNCACHED", 50, "", "")
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, capturedProject, "UNCACHED")
 }
@@ -210,7 +272,8 @@ func TestRunGet_Table(t *testing.T) {
 			Name: "Sprint Board",
 			Type: "scrum",
 			Location: api.BoardLocation{
-				ProjectKey: "PROJ",
+				ProjectKey:  "PROJ",
+				ProjectName: "My Project",
 			},
 		})
 	}))
@@ -223,7 +286,8 @@ func TestRunGet_Table(t *testing.T) {
 	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runGet(context.Background(), opts, 42)
+	resolvedBoard := &api.Board{ID: 42, Name: "Sprint Board"}
+	err = runGet(context.Background(), opts, client, resolvedBoard, "")
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()
@@ -231,6 +295,17 @@ func TestRunGet_Table(t *testing.T) {
 	testutil.Contains(t, output, "Sprint Board")
 	testutil.Contains(t, output, "scrum")
 	testutil.Contains(t, output, "PROJ")
+}
+
+func TestRunGet_IDOnly(t *testing.T) {
+	t.Parallel()
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}, IDOnly: true}
+
+	resolvedBoard := &api.Board{ID: 42, Name: "Sprint Board"}
+	err := runGet(context.Background(), opts, nil, resolvedBoard, "")
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, stdout.String(), "42\n")
 }
 
 func TestRunGet_JSON(t *testing.T) {
@@ -254,12 +329,46 @@ func TestRunGet_JSON(t *testing.T) {
 	opts := &root.Options{Output: "json", Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runGet(context.Background(), opts, 42)
+	resolvedBoard := &api.Board{ID: 42, Name: "Sprint Board"}
+	err = runGet(context.Background(), opts, client, resolvedBoard, "")
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()
 	testutil.Contains(t, output, `"name"`)
 	testutil.Contains(t, output, "Sprint Board")
+}
+
+func TestRunGet_ResolvesBoardByName(t *testing.T) {
+	// NOT t.Parallel(): cache globals
+	t.Cleanup(cache.SetRootForTest(t.TempDir()))
+	t.Cleanup(cache.SetInstanceKeyForTest("test.atlassian.net"))
+	testutil.RequireNoError(t, cache.WriteResource("boards", "24h", []api.Board{
+		{ID: 42, Name: "MON board", Type: "scrum"},
+	}))
+
+	var capturedPath string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		capturedPath = r.URL.Path
+		_ = json.NewEncoder(w).Encode(api.Board{
+			ID: 42, Name: "MON board", Type: "scrum",
+			Location: api.BoardLocation{ProjectKey: "MON", ProjectName: "Platform Development"},
+		})
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	rootCmd, opts := root.NewCmd()
+	opts.SetAPIClient(client)
+	opts.Stdout = &bytes.Buffer{}
+	opts.Stderr = &bytes.Buffer{}
+	Register(rootCmd, opts)
+
+	rootCmd.SetArgs([]string{"boards", "get", "MON board"})
+	err = rootCmd.Execute()
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, capturedPath, "/rest/agile/1.0/board/42")
 }
 
 func TestRunGet_InvalidID(t *testing.T) {
@@ -276,8 +385,7 @@ func TestRunGet_InvalidID(t *testing.T) {
 	opts.SetAPIClient(client)
 	Register(rootCmd, opts)
 
-	rootCmd.SetArgs([]string{"boards", "get", "abc"})
+	rootCmd.SetArgs([]string{"boards", "get"})
 	err = rootCmd.Execute()
 	testutil.NotNil(t, err)
-	testutil.Contains(t, err.Error(), "invalid board ID")
 }

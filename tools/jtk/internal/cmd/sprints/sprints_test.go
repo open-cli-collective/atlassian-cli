@@ -33,9 +33,7 @@ func seedBoardsAndSprints(t *testing.T, boards []api.Board, byBoard map[int][]ap
 
 // newAgileClient builds an api.Client pointed at the given server with a
 // URL that triggers SupportsAgile() so the boards/sprints PersistentPreRunE
-// guard passes. The default httptest URL works because SupportsAgile checks
-// for AgileURL being non-empty — AgileURL is populated whenever BaseURL is
-// a non-api.atlassian.com host.
+// guard passes.
 func newAgileClient(t *testing.T, server *httptest.Server) *api.Client {
 	t.Helper()
 	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
@@ -64,6 +62,12 @@ func TestNewListCmd(t *testing.T) {
 	maxFlag := cmd.Flags().Lookup("max")
 	testutil.NotNil(t, maxFlag)
 	testutil.Equal(t, maxFlag.DefValue, "50")
+
+	nextPageTokenFlag := cmd.Flags().Lookup("next-page-token")
+	testutil.NotNil(t, nextPageTokenFlag)
+
+	fieldsFlag := cmd.Flags().Lookup("fields")
+	testutil.NotNil(t, fieldsFlag)
 }
 
 func newTestSprintsServer(_ *testing.T, sprints []api.Sprint) *httptest.Server {
@@ -98,7 +102,7 @@ func TestRunList_Table(t *testing.T) {
 	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runList(context.Background(), opts, client, 123, "", 50)
+	err = runList(context.Background(), opts, client, 123, "", 50, "", "")
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()
@@ -110,6 +114,29 @@ func TestRunList_Table(t *testing.T) {
 	testutil.Contains(t, output, "11")
 	testutil.Contains(t, output, "Sprint 2")
 	testutil.Contains(t, output, "future")
+}
+
+func TestRunList_IDOnly(t *testing.T) {
+	t.Parallel()
+	sprints := []api.Sprint{
+		{ID: 10, Name: "Sprint 1", State: "active"},
+		{ID: 11, Name: "Sprint 2", State: "future"},
+	}
+
+	server := newTestSprintsServer(t, sprints)
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}, IDOnly: true}
+	opts.SetAPIClient(client)
+
+	err = runList(context.Background(), opts, client, 123, "", 50, "", "")
+	testutil.RequireNoError(t, err)
+
+	testutil.Equal(t, stdout.String(), "10\n11\n")
 }
 
 func TestRunList_JSON(t *testing.T) {
@@ -128,7 +155,7 @@ func TestRunList_JSON(t *testing.T) {
 	opts := &root.Options{Output: "json", Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runList(context.Background(), opts, client, 123, "", 50)
+	err = runList(context.Background(), opts, client, 123, "", 50, "", "")
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()
@@ -148,7 +175,7 @@ func TestRunList_Empty(t *testing.T) {
 	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runList(context.Background(), opts, client, 123, "", 50)
+	err = runList(context.Background(), opts, client, 123, "", 50, "", "")
 	testutil.RequireNoError(t, err)
 
 	testutil.Contains(t, stdout.String(), "No sprints found")
@@ -169,12 +196,11 @@ func TestRunList_NullDates(t *testing.T) {
 	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runList(context.Background(), opts, client, 123, "", 50)
+	err = runList(context.Background(), opts, client, 123, "", 50, "", "")
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()
 	testutil.Contains(t, output, "Sprint Future")
-	// Dates should be empty strings (not "N/A") when nil
 	testutil.NotContains(t, output, "0001-01-01")
 }
 
@@ -190,6 +216,9 @@ func TestNewCurrentCmd(t *testing.T) {
 	boardFlag := cmd.Flags().Lookup("board")
 	testutil.NotNil(t, boardFlag)
 	testutil.Equal(t, boardFlag.DefValue, "")
+
+	fieldsFlag := cmd.Flags().Lookup("fields")
+	testutil.NotNil(t, fieldsFlag)
 }
 
 func TestRunCurrent_Table(t *testing.T) {
@@ -209,7 +238,8 @@ func TestRunCurrent_Table(t *testing.T) {
 	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runCurrent(context.Background(), opts, client, 123)
+	board := &api.Board{ID: 123, Name: "Test Board"}
+	err = runCurrent(context.Background(), opts, client, board, "")
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()
@@ -218,6 +248,29 @@ func TestRunCurrent_Table(t *testing.T) {
 	testutil.Contains(t, output, "active")
 	testutil.Contains(t, output, "2025-02-01")
 	testutil.Contains(t, output, "2025-02-14")
+	testutil.Contains(t, output, "Board: 123 (Test Board)")
+}
+
+func TestRunCurrent_IDOnly(t *testing.T) {
+	sprints := []api.Sprint{
+		{ID: 42, Name: "Sprint Active", State: "active"},
+	}
+
+	server := newTestSprintsServer(t, sprints)
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}, IDOnly: true}
+	opts.SetAPIClient(client)
+
+	board := &api.Board{ID: 123}
+	err = runCurrent(context.Background(), opts, client, board, "")
+	testutil.RequireNoError(t, err)
+
+	testutil.Equal(t, stdout.String(), "42\n")
 }
 
 func TestRunCurrent_JSON(t *testing.T) {
@@ -236,7 +289,8 @@ func TestRunCurrent_JSON(t *testing.T) {
 	opts := &root.Options{Output: "json", Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runCurrent(context.Background(), opts, client, 123)
+	board := &api.Board{ID: 123}
+	err = runCurrent(context.Background(), opts, client, board, "")
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()
@@ -258,10 +312,11 @@ func TestRunCurrent_WithGoal(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}, Extended: true}
 	opts.SetAPIClient(client)
 
-	err = runCurrent(context.Background(), opts, client, 123)
+	board := &api.Board{ID: 123, Name: "Test Board"}
+	err = runCurrent(context.Background(), opts, client, board, "")
 	testutil.RequireNoError(t, err)
 
 	testutil.Contains(t, stdout.String(), "Ship feature X")
@@ -278,9 +333,35 @@ func TestRunCurrent_NotFound(t *testing.T) {
 	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runCurrent(context.Background(), opts, client, 123)
+	board := &api.Board{ID: 123}
+	err = runCurrent(context.Background(), opts, client, board, "")
 	testutil.NotNil(t, err)
 	testutil.Contains(t, err.Error(), "no active sprint")
+}
+
+func TestRunCurrent_SyntheticBoard(t *testing.T) {
+	sprints := []api.Sprint{
+		{ID: 42, Name: "Sprint Active", State: "active"},
+	}
+
+	server := newTestSprintsServer(t, sprints)
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	// Synthetic board with no name (cold cache / numeric pass-through)
+	board := &api.Board{ID: 123}
+	err = runCurrent(context.Background(), opts, client, board, "")
+	testutil.RequireNoError(t, err)
+
+	output := stdout.String()
+	testutil.Contains(t, output, "Board: 123")
+	testutil.NotContains(t, output, "Board: 123 (")
 }
 
 // --- issues subcommand ---
@@ -289,12 +370,15 @@ func TestNewIssuesCmd(t *testing.T) {
 	opts := &root.Options{}
 	cmd := newIssuesCmd(opts)
 
-	testutil.Equal(t, cmd.Use, "issues <sprint-id>")
+	testutil.Equal(t, cmd.Use, "issues <sprint>")
 	testutil.NotEmpty(t, cmd.Short)
 
 	maxFlag := cmd.Flags().Lookup("max")
 	testutil.NotNil(t, maxFlag)
 	testutil.Equal(t, maxFlag.DefValue, "50")
+
+	nextPageTokenFlag := cmd.Flags().Lookup("next-page-token")
+	testutil.NotNil(t, nextPageTokenFlag)
 }
 
 func newTestSprintIssuesServer(_ *testing.T, issues []api.Issue) *httptest.Server {
@@ -341,7 +425,7 @@ func TestRunIssues_Table(t *testing.T) {
 	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runIssues(context.Background(), opts, 456, 50)
+	err = runIssues(context.Background(), opts, 456, 50, "")
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()
@@ -353,6 +437,28 @@ func TestRunIssues_Table(t *testing.T) {
 	testutil.Contains(t, output, "PROJ-102")
 	testutil.Contains(t, output, "Add search feature")
 	testutil.Contains(t, output, "Story")
+}
+
+func TestRunIssues_IDOnly(t *testing.T) {
+	issues := []api.Issue{
+		{Key: "PROJ-101", Fields: api.IssueFields{Summary: "Fix login bug"}},
+		{Key: "PROJ-102", Fields: api.IssueFields{Summary: "Add search"}},
+	}
+
+	server := newTestSprintIssuesServer(t, issues)
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}, IDOnly: true}
+	opts.SetAPIClient(client)
+
+	err = runIssues(context.Background(), opts, 456, 50, "")
+	testutil.RequireNoError(t, err)
+
+	testutil.Equal(t, stdout.String(), "PROJ-101\nPROJ-102\n")
 }
 
 func TestRunIssues_JSON(t *testing.T) {
@@ -376,7 +482,7 @@ func TestRunIssues_JSON(t *testing.T) {
 	opts := &root.Options{Output: "json", Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runIssues(context.Background(), opts, 456, 50)
+	err = runIssues(context.Background(), opts, 456, 50, "")
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()
@@ -395,7 +501,7 @@ func TestRunIssues_Empty(t *testing.T) {
 	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runIssues(context.Background(), opts, 456, 50)
+	err = runIssues(context.Background(), opts, 456, 50, "")
 	testutil.RequireNoError(t, err)
 
 	testutil.Contains(t, stdout.String(), "No issues in sprint")
@@ -462,8 +568,6 @@ func TestRunAdd_SingleIssue(t *testing.T) {
 // --- Cobra entry-point tests that exercise the resolver ---
 
 func TestListCmd_ResolvesBoardByName(t *testing.T) {
-	// --board "MON board" must resolve via the cached boards to ID 23
-	// before hitting the sprints endpoint.
 	seedBoardsAndSprints(t,
 		[]api.Board{{ID: 23, Name: "MON board", Type: "scrum"}},
 		nil,
@@ -520,9 +624,39 @@ func TestCurrentCmd_ResolvesBoardByName(t *testing.T) {
 	testutil.Equal(t, capturedPath, "/rest/agile/1.0/board/23/sprint")
 }
 
+func TestIssuesCmd_ResolvesSprintByName(t *testing.T) {
+	seedBoardsAndSprints(t,
+		[]api.Board{{ID: 23, Name: "MON board"}},
+		map[int][]api.Sprint{
+			23: {{ID: 125, Name: "MON Sprint 70", State: "active"}},
+		},
+	)
+
+	var capturedPath string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		capturedPath = r.URL.Path
+		_ = json.NewEncoder(w).Encode(api.SearchResult{
+			Total:  0,
+			Issues: []api.Issue{},
+		})
+	}))
+	defer server.Close()
+
+	client := newAgileClient(t, server)
+
+	rootCmd, opts := root.NewCmd()
+	opts.SetAPIClient(client)
+	opts.Stdout = &bytes.Buffer{}
+	opts.Stderr = &bytes.Buffer{}
+	Register(rootCmd, opts)
+
+	rootCmd.SetArgs([]string{"sprints", "issues", "MON Sprint 70"})
+	err := rootCmd.Execute()
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, capturedPath, "/rest/agile/1.0/sprint/125/issue")
+}
+
 func TestAddCmd_ResolvesSprintByName(t *testing.T) {
-	// `jtk sprints add "MON Sprint 70" PROJ-1` must resolve the name via
-	// cache to sprint ID 125, then POST to /sprint/125/issue.
 	seedBoardsAndSprints(t,
 		[]api.Board{{ID: 23, Name: "MON board"}},
 		map[int][]api.Sprint{
@@ -560,9 +694,6 @@ func TestAddCmd_ResolvesSprintByName(t *testing.T) {
 }
 
 func TestAddCmd_AmbiguousSprintAcrossBoardsErrors(t *testing.T) {
-	// Two boards with a sprint of the same name — `sprints add "Sprint 1"`
-	// with no --board scope must surface AmbiguousMatchError, not silently
-	// pick one.
 	seedBoardsAndSprints(t,
 		[]api.Board{
 			{ID: 23, Name: "MON board"},
@@ -597,14 +728,12 @@ func TestAddCmd_AmbiguousSprintAcrossBoardsErrors(t *testing.T) {
 	if !strings.Contains(err.Error(), "Ambiguous sprint") {
 		t.Fatalf("expected 'Ambiguous sprint' in error, got: %v", err)
 	}
-	// Error should list both candidate boards so the user can disambiguate.
 	if !strings.Contains(err.Error(), "MON board") || !strings.Contains(err.Error(), "ON board") {
 		t.Fatalf("expected both board names in error, got: %v", err)
 	}
 }
 
 func TestAddCmd_NumericSprintPassThrough(t *testing.T) {
-	// Numeric sprint arg bypasses cache lookup and targets the given ID.
 	seedBoardsAndSprints(t,
 		[]api.Board{{ID: 23, Name: "MON"}},
 		map[int][]api.Sprint{23: {{ID: 1, Name: "Other"}}},
@@ -649,12 +778,10 @@ func TestRunAdd_AgentOutput(t *testing.T) {
 	err = runAdd(context.Background(), opts, client, 456, []string{"MON-123"})
 	testutil.RequireNoError(t, err)
 
-	// Agent policy: plain text, no checkmark
 	want := "Moved MON-123 to sprint 456\n"
 	if stdout.String() != want {
 		t.Errorf("mutation output:\ngot: %q\nwant: %q", stdout.String(), want)
 	}
-	// Verify no checkmark
 	if strings.Contains(stdout.String(), "✓") {
 		t.Error("agent policy should not have checkmark")
 	}

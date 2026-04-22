@@ -35,6 +35,22 @@ func (c *Client) ListBoards(ctx context.Context, projectKeyOrID string, startAt,
 	return &result, nil
 }
 
+// GetBoardConfiguration retrieves the configuration (filter, columns) for a board.
+func (c *Client) GetBoardConfiguration(ctx context.Context, boardID int) (*BoardConfiguration, error) {
+	urlStr := fmt.Sprintf("%s/board/%d/configuration", c.AgileURL, boardID)
+	body, err := c.Get(ctx, urlStr)
+	if err != nil {
+		return nil, fmt.Errorf("getting board %d configuration: %w", boardID, err)
+	}
+
+	var config BoardConfiguration
+	if err := json.Unmarshal(body, &config); err != nil {
+		return nil, fmt.Errorf("parsing board configuration: %w", err)
+	}
+
+	return &config, nil
+}
+
 // GetBoard retrieves a board by ID
 func (c *Client) GetBoard(ctx context.Context, boardID int) (*Board, error) {
 	urlStr := fmt.Sprintf("%s/board/%d", c.AgileURL, boardID)

@@ -4,19 +4,22 @@ package boards
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	"github.com/spf13/cobra"
 
 	"github.com/open-cli-collective/atlassian-go/artifact"
-	"github.com/open-cli-collective/atlassian-go/present"
 	"github.com/open-cli-collective/atlassian-go/view"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	jtkartifact "github.com/open-cli-collective/jira-ticket-cli/internal/artifact"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/present/projection"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/resolve"
 )
+
+func noFieldFetch(_ context.Context) ([]api.Field, error) { return nil, nil }
 
 // Register registers the boards commands
 func Register(parent *cobra.Command, opts *root.Options) {
@@ -48,6 +51,8 @@ func Register(parent *cobra.Command, opts *root.Options) {
 func newListCmd(opts *root.Options) *cobra.Command {
 	var project string
 	var maxResults int
+	var nextPageToken string
+	var fieldsFlag string
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -58,99 +63,187 @@ func newListCmd(opts *root.Options) *cobra.Command {
 
   # List boards for a project (accepts key or name)
   jtk boards list --project MYPROJECT
-  jtk boards list --project "Platform Development"`,
+  jtk boards list --project "Platform Development"
+
+  # Extended output with project names
+  jtk boards list --extended
+
+  # Emit only board IDs
+  jtk boards list --id`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runList(cmd.Context(), opts, project, maxResults)
+			return runList(cmd.Context(), opts, project, maxResults, nextPageToken, fieldsFlag)
 		},
 	}
 
 	cmd.Flags().StringVarP(&project, "project", "p", "", "Filter by project key or name")
 	cmd.Flags().IntVarP(&maxResults, "max", "m", 50, "Maximum number of results")
+	cmd.Flags().StringVar(&nextPageToken, "next-page-token", "", "Decimal startAt for the next page")
+	cmd.Flags().StringVar(&fieldsFlag, "fields", "", "Comma-separated display columns")
 
 	return cmd
 }
 
-func runList(ctx context.Context, opts *root.Options, project string, maxResults int) error {
+func runList(ctx context.Context, opts *root.Options, project string, maxResults int, nextPageToken, fieldsFlag string) error {
 	v := opts.View()
 
 	client, err := opts.APIClient()
 	if err != nil {
 		return err
+	}
+
+	idOnly := opts.EmitIDOnly()
+
+	startAt, err := jtkpresent.ParseStartAtToken(nextPageToken)
+	if err != nil {
+		return err
+	}
+
+	if !idOnly && fieldsFlag != "" && v.Format == view.FormatJSON {
+		return jtkpresent.ErrFieldsWithJSON
+	}
+
+	var selected []projection.ColumnSpec
+	var projected bool
+	if !idOnly {
+		selected, projected, err = projection.Resolve(
+			ctx,
+			jtkpresent.BoardListSpec,
+			opts.IsExtended(),
+			fieldsFlag,
+			noFieldFetch,
+			"boards list",
+		)
+		if err != nil {
+			return err
+		}
 	}
 
 	projectFilter := project
 	if project != "" {
-		resolvedProject, err := resolve.New(client).Project(ctx, project)
-		if err != nil {
-			return err
+		resolvedProject, resolveErr := resolve.New(client).Project(ctx, project)
+		if resolveErr != nil {
+			return resolveErr
 		}
 		projectFilter = resolvedProject.Key
 	}
 
-	result, err := client.ListBoards(ctx, projectFilter, 0, maxResults)
+	result, err := client.ListBoards(ctx, projectFilter, startAt, maxResults)
 	if err != nil {
 		return err
 	}
 
+	hasMore := !result.IsLast
+	if hasMore && len(result.Values) == 0 {
+		return fmt.Errorf("unexpected paginated response: IsLast=false with empty values (startAt=%d)", startAt)
+	}
+	nextToken := ""
+	if hasMore {
+		nextToken = strconv.Itoa(startAt + len(result.Values))
+	}
+
+	if idOnly {
+		ids := make([]string, len(result.Values))
+		for i, b := range result.Values {
+			ids[i] = strconv.Itoa(b.ID)
+		}
+		return jtkpresent.EmitIDsWithPaginationToken(opts, ids, hasMore, nextToken)
+	}
+
 	if len(result.Values) == 0 {
-		model := jtkpresent.BoardPresenter{}.PresentEmpty()
-		out := present.Render(model, opts.RenderStyle())
-		_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
-		return nil
+		return jtkpresent.Emit(opts, jtkpresent.BoardPresenter{}.PresentEmpty())
 	}
 
 	if v.Format == view.FormatJSON {
 		arts := jtkartifact.ProjectBoards(result.Values, opts.ArtifactMode())
-		hasMore := !result.IsLast
 		return v.RenderArtifactList(artifact.NewListResult(arts, hasMore))
 	}
 
-	// Text path: presenter → render → write
-	model := jtkpresent.BoardPresenter{}.PresentList(result.Values)
-	out := present.Render(model, opts.RenderStyle())
-	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
-	_, _ = fmt.Fprint(opts.Stderr, out.Stderr)
-	return nil
+	presenter := jtkpresent.BoardPresenter{}
+	model := presenter.PresentList(result.Values, opts.IsExtended())
+	if projected {
+		projection.ApplyToTableInModel(model, selected)
+	}
+	model.Sections = jtkpresent.AppendPaginationHintWithToken(model.Sections, hasMore, nextToken)
+	return jtkpresent.Emit(opts, model)
 }
 
 func newGetCmd(opts *root.Options) *cobra.Command {
-	return &cobra.Command{
-		Use:     "get <board-id>",
-		Short:   "Get board details",
-		Long:    "Get details for a specific board.",
-		Example: `  jtk boards get 123`,
-		Args:    cobra.ExactArgs(1),
+	var fieldsFlag string
+
+	cmd := &cobra.Command{
+		Use:   "get <board>",
+		Short: "Get board details",
+		Long:  "Get details for a specific board. Accepts a board ID or name (resolved via cache).",
+		Example: `  jtk boards get 123
+  jtk boards get "MON board"`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			var boardID int
-			if _, err := fmt.Sscanf(args[0], "%d", &boardID); err != nil {
-				return fmt.Errorf("invalid board ID: %s", args[0])
+			client, err := opts.APIClient()
+			if err != nil {
+				return err
 			}
-			return runGet(cmd.Context(), opts, boardID)
+			resolvedBoard, err := resolve.New(client).Board(cmd.Context(), args[0])
+			if err != nil {
+				return err
+			}
+			return runGet(cmd.Context(), opts, client, &resolvedBoard, fieldsFlag)
 		},
 	}
+
+	cmd.Flags().StringVar(&fieldsFlag, "fields", "", "Comma-separated display fields")
+
+	return cmd
 }
 
-func runGet(ctx context.Context, opts *root.Options, boardID int) error {
+func runGet(ctx context.Context, opts *root.Options, client *api.Client, resolvedBoard *api.Board, fieldsFlag string) error {
 	v := opts.View()
 
-	client, err := opts.APIClient()
+	if opts.EmitIDOnly() {
+		return jtkpresent.EmitIDs(opts, []string{strconv.Itoa(resolvedBoard.ID)})
+	}
+
+	if fieldsFlag != "" && v.Format == view.FormatJSON {
+		return jtkpresent.ErrFieldsWithJSON
+	}
+
+	selected, projected, err := projection.Resolve(
+		ctx,
+		jtkpresent.BoardDetailSpec,
+		opts.IsExtended(),
+		fieldsFlag,
+		noFieldFetch,
+		"boards get",
+	)
 	if err != nil {
 		return err
 	}
 
-	board, err := client.GetBoard(ctx, boardID)
+	board, err := client.GetBoard(ctx, resolvedBoard.ID)
 	if err != nil {
 		return err
+	}
+
+	// Preserve the resolved name if the API response lacks it
+	if board.Name == "" && resolvedBoard.Name != "" {
+		board.Name = resolvedBoard.Name
+	}
+
+	var config *api.BoardConfiguration
+	if opts.IsExtended() {
+		config, _ = client.GetBoardConfiguration(ctx, board.ID)
 	}
 
 	if v.Format == view.FormatJSON {
 		return v.RenderArtifact(jtkartifact.ProjectBoard(board, opts.ArtifactMode()))
 	}
 
-	// Text path: presenter → render → write
-	model := jtkpresent.BoardPresenter{}.PresentDetail(board)
-	out := present.Render(model, opts.RenderStyle())
-	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
-	_, _ = fmt.Fprint(opts.Stderr, out.Stderr)
-	return nil
+	presenter := jtkpresent.BoardPresenter{}
+	if projected {
+		model := presenter.PresentDetailProjection(board, config)
+		projection.ApplyToDetailInModel(model, selected)
+		return jtkpresent.Emit(opts, model)
+	}
+
+	model := presenter.PresentDetail(board, config, opts.IsExtended())
+	return jtkpresent.Emit(opts, model)
 }

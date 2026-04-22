@@ -1,49 +1,130 @@
 package present
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/open-cli-collective/atlassian-go/present"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/present/projection"
 )
 
 // BoardPresenter creates presentation models for board data.
 type BoardPresenter struct{}
 
-// PresentDetail creates a detail view for a single board.
-func (BoardPresenter) PresentDetail(board *api.Board) *present.OutputModel {
-	fields := []present.Field{
-		{Label: "ID", Value: FormatInt(board.ID)},
-		{Label: "Name", Value: board.Name},
-		{Label: "Type", Value: board.Type},
-		{Label: "Project", Value: board.Location.ProjectKey},
-	}
-
-	return &present.OutputModel{
-		Sections: []present.Section{&present.DetailSection{Fields: fields}},
-	}
+// BoardListSpec declares the columns emitted by PresentList. Default order
+// per #230 is ID|TYPE|PROJECT|NAME; extended adds PROJECT_NAME between
+// PROJECT and NAME.
+var BoardListSpec = projection.Registry{
+	{Header: "ID", Identity: true},
+	{Header: "TYPE"},
+	{Header: "PROJECT"},
+	{Header: "PROJECT_NAME", Extended: true},
+	{Header: "NAME"},
 }
 
-// PresentList creates a table view for a list of boards.
-func (BoardPresenter) PresentList(boards []api.Board) *present.OutputModel {
+// BoardDetailSpec declares the fields emitted by PresentDetailProjection.
+var BoardDetailSpec = projection.Registry{
+	{Header: "ID", Identity: true},
+	{Header: "NAME"},
+	{Header: "TYPE"},
+	{Header: "PROJECT"},
+	{Header: "PROJECT_NAME"},
+	{Header: "FILTER", Extended: true},
+	{Header: "COLUMN_CONFIG", Extended: true},
+}
+
+// PresentList renders `boards list` output as a table. Default order is
+// ID|TYPE|PROJECT|NAME; --extended adds PROJECT_NAME.
+func (BoardPresenter) PresentList(boards []api.Board, extended bool) *present.OutputModel {
+	var headers []string
+	if extended {
+		headers = []string{"ID", "TYPE", "PROJECT", "PROJECT_NAME", "NAME"}
+	} else {
+		headers = []string{"ID", "TYPE", "PROJECT", "NAME"}
+	}
+
 	rows := make([]present.Row, len(boards))
 	for i, b := range boards {
-		rows[i] = present.Row{
-			Cells: []string{
+		var cells []string
+		if extended {
+			cells = []string{
 				FormatInt(b.ID),
+				OrDash(b.Type),
+				OrDash(b.Location.ProjectKey),
+				OrDash(b.Location.ProjectName),
 				b.Name,
-				b.Type,
-				b.Location.ProjectKey,
-			},
+			}
+		} else {
+			cells = []string{
+				FormatInt(b.ID),
+				OrDash(b.Type),
+				OrDash(b.Location.ProjectKey),
+				b.Name,
+			}
 		}
+		rows[i] = present.Row{Cells: cells}
 	}
 
 	return &present.OutputModel{
 		Sections: []present.Section{
-			&present.TableSection{
-				Headers: []string{"ID", "NAME", "TYPE", "PROJECT"},
-				Rows:    rows,
-			},
+			&present.TableSection{Headers: headers, Rows: rows},
 		},
+	}
+}
+
+// PresentDetail builds the spec-shaped output for `boards get`. Default:
+// title line + Type/Project row. Extended adds Filter and Column config.
+func (BoardPresenter) PresentDetail(board *api.Board, config *api.BoardConfiguration, extended bool) *present.OutputModel {
+	projectRef := OrDash(board.Location.ProjectKey)
+	if board.Location.ProjectName != "" {
+		projectRef = fmt.Sprintf("%s (%s)", board.Location.ProjectKey, board.Location.ProjectName)
+	}
+
+	sections := []present.Section{
+		msg(fmt.Sprintf("%d  %s", board.ID, board.Name)),
+		msg(fmt.Sprintf("Type: %s   Project: %s", OrDash(board.Type), projectRef)),
+	}
+
+	if extended && config != nil {
+		filterLine := fmt.Sprintf("Filter: %s (id: %s)", config.Filter.Name, config.Filter.ID)
+		sections = append(sections, msg(filterLine))
+
+		colNames := make([]string, len(config.ColumnConfig.Columns))
+		for i, c := range config.ColumnConfig.Columns {
+			colNames[i] = c.Name
+		}
+		sections = append(sections, msg("Column config: "+OrDash(strings.Join(colNames, ", "))))
+	}
+
+	return &present.OutputModel{Sections: sections}
+}
+
+// PresentDetailProjection builds a DetailSection view for `boards get --fields`.
+func (BoardPresenter) PresentDetailProjection(board *api.Board, config *api.BoardConfiguration) *present.OutputModel {
+	filterName := "-"
+	columnConfig := "-"
+	if config != nil {
+		filterName = fmt.Sprintf("%s (id: %s)", config.Filter.Name, config.Filter.ID)
+		colNames := make([]string, len(config.ColumnConfig.Columns))
+		for i, c := range config.ColumnConfig.Columns {
+			colNames[i] = c.Name
+		}
+		columnConfig = OrDash(strings.Join(colNames, ", "))
+	}
+
+	fields := []present.Field{
+		{Label: "ID", Value: FormatInt(board.ID)},
+		{Label: "NAME", Value: board.Name},
+		{Label: "TYPE", Value: OrDash(board.Type)},
+		{Label: "PROJECT", Value: OrDash(board.Location.ProjectKey)},
+		{Label: "PROJECT_NAME", Value: OrDash(board.Location.ProjectName)},
+		{Label: "FILTER", Value: filterName},
+		{Label: "COLUMN_CONFIG", Value: columnConfig},
+	}
+	return &present.OutputModel{
+		Sections: []present.Section{&present.DetailSection{Fields: fields}},
 	}
 }
 

@@ -16,6 +16,22 @@ func FormatDate(t *time.Time) string {
 	return t.Format("2006-01-02")
 }
 
+// FormatDateOrDash formats a time.Time as YYYY-MM-DD, returning "-" for nil/zero.
+func FormatDateOrDash(t *time.Time) string {
+	if t == nil || t.IsZero() {
+		return "-"
+	}
+	return t.Format("2006-01-02")
+}
+
+// FormatTimestampOrDash formats a time.Time as RFC3339, returning "-" for nil/zero.
+func FormatTimestampOrDash(t *time.Time) string {
+	if t == nil || t.IsZero() {
+		return "-"
+	}
+	return t.Format(time.RFC3339)
+}
+
 // FormatDateTime formats a time.Time with date and time.
 // Returns empty string for nil or zero time.
 func FormatDateTime(t *time.Time) string {

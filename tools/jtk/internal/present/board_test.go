@@ -1,0 +1,182 @@
+package present
+
+import (
+	"testing"
+
+	"github.com/open-cli-collective/atlassian-go/present"
+
+	"github.com/open-cli-collective/jira-ticket-cli/api"
+)
+
+func TestBoardListSpec_HeaderParityWithPresenter(t *testing.T) {
+	t.Parallel()
+	for _, extended := range []bool{false, true} {
+		model := BoardPresenter{}.PresentList(nil, extended)
+		table := sectionTable(t, model, 0)
+		want := registryHeadersFor(BoardListSpec, extended)
+		if !equalStringSlices(table.Headers, want) {
+			t.Errorf("extended=%v headers mismatch: presenter %v vs registry %v",
+				extended, table.Headers, want)
+		}
+	}
+}
+
+func TestPresentBoardList_DefaultShape(t *testing.T) {
+	t.Parallel()
+	boards := []api.Board{
+		{ID: 23, Name: "MON board", Type: "scrum", Location: api.BoardLocation{ProjectKey: "MON"}},
+		{ID: 24, Name: "ON board", Type: "kanban", Location: api.BoardLocation{ProjectKey: "ON"}},
+	}
+	model := BoardPresenter{}.PresentList(boards, false)
+	table := sectionTable(t, model, 0)
+
+	wantHeaders := []string{"ID", "TYPE", "PROJECT", "NAME"}
+	if !equalStringSlices(table.Headers, wantHeaders) {
+		t.Errorf("headers = %v, want %v", table.Headers, wantHeaders)
+	}
+	if len(table.Rows) != 2 {
+		t.Fatalf("expected 2 rows, got %d", len(table.Rows))
+	}
+	if table.Rows[0].Cells[0] != "23" {
+		t.Errorf("row 0 ID: got %q", table.Rows[0].Cells[0])
+	}
+}
+
+func TestPresentBoardList_ExtendedShape(t *testing.T) {
+	t.Parallel()
+	boards := []api.Board{
+		{ID: 23, Name: "MON board", Type: "scrum", Location: api.BoardLocation{
+			ProjectKey: "MON", ProjectName: "Platform Development",
+		}},
+	}
+	model := BoardPresenter{}.PresentList(boards, true)
+	table := sectionTable(t, model, 0)
+
+	wantHeaders := []string{"ID", "TYPE", "PROJECT", "PROJECT_NAME", "NAME"}
+	if !equalStringSlices(table.Headers, wantHeaders) {
+		t.Errorf("extended headers = %v, want %v", table.Headers, wantHeaders)
+	}
+	if table.Rows[0].Cells[3] != "Platform Development" {
+		t.Errorf("PROJECT_NAME: got %q", table.Rows[0].Cells[3])
+	}
+}
+
+func TestPresentBoardDetail_Default(t *testing.T) {
+	t.Parallel()
+	board := &api.Board{
+		ID: 23, Name: "MON board", Type: "scrum",
+		Location: api.BoardLocation{ProjectKey: "MON", ProjectName: "Platform Development"},
+	}
+	model := BoardPresenter{}.PresentDetail(board, nil, false)
+
+	if len(model.Sections) != 2 {
+		t.Fatalf("expected 2 sections, got %d", len(model.Sections))
+	}
+	title := model.Sections[0].(*present.MessageSection)
+	if title.Message != "23  MON board" {
+		t.Errorf("title: got %q", title.Message)
+	}
+	typeLine := model.Sections[1].(*present.MessageSection)
+	if typeLine.Message != "Type: scrum   Project: MON (Platform Development)" {
+		t.Errorf("type line: got %q", typeLine.Message)
+	}
+}
+
+func TestPresentBoardDetail_Extended(t *testing.T) {
+	t.Parallel()
+	board := &api.Board{
+		ID: 23, Name: "MON board", Type: "scrum",
+		Location: api.BoardLocation{ProjectKey: "MON", ProjectName: "Platform Development"},
+	}
+	config := &api.BoardConfiguration{
+		Filter: api.BoardFilter{ID: "10084", Name: "board filter for MON board"},
+		ColumnConfig: api.BoardColumnConfig{
+			Columns: []api.BoardColumn{
+				{Name: "Backlog"},
+				{Name: "In Development"},
+				{Name: "Deployed"},
+			},
+		},
+	}
+	model := BoardPresenter{}.PresentDetail(board, config, true)
+
+	// title + type + filter + column config = 4 sections
+	if len(model.Sections) != 4 {
+		t.Fatalf("expected 4 sections, got %d", len(model.Sections))
+	}
+	filterLine := model.Sections[2].(*present.MessageSection)
+	if filterLine.Message != "Filter: board filter for MON board (id: 10084)" {
+		t.Errorf("filter: got %q", filterLine.Message)
+	}
+	colLine := model.Sections[3].(*present.MessageSection)
+	if colLine.Message != "Column config: Backlog, In Development, Deployed" {
+		t.Errorf("columns: got %q", colLine.Message)
+	}
+}
+
+func TestPresentBoardDetailProjection_ContainsAllSpecHeaders(t *testing.T) {
+	t.Parallel()
+	board := &api.Board{
+		ID: 23, Name: "MON board", Type: "scrum",
+		Location: api.BoardLocation{ProjectKey: "MON", ProjectName: "Platform Development"},
+	}
+	config := &api.BoardConfiguration{
+		Filter: api.BoardFilter{ID: "10084", Name: "test filter"},
+		ColumnConfig: api.BoardColumnConfig{
+			Columns: []api.BoardColumn{{Name: "Col1"}},
+		},
+	}
+	model := BoardPresenter{}.PresentDetailProjection(board, config)
+	detail := model.Sections[0].(*present.DetailSection)
+
+	specHeaders := make(map[string]bool)
+	for _, c := range BoardDetailSpec {
+		specHeaders[c.Header] = false
+	}
+	for _, f := range detail.Fields {
+		if _, ok := specHeaders[f.Label]; ok {
+			specHeaders[f.Label] = true
+		}
+	}
+	for h, found := range specHeaders {
+		if !found {
+			t.Errorf("spec header %q not found in projection detail fields", h)
+		}
+	}
+}
+
+func TestSprintListSpec_HeaderParityWithPresenter(t *testing.T) {
+	t.Parallel()
+	for _, extended := range []bool{false, true} {
+		model := SprintPresenter{}.PresentList(nil, extended)
+		table := sectionTable(t, model, 0)
+		want := registryHeadersFor(SprintListSpec, extended)
+		if !equalStringSlices(table.Headers, want) {
+			t.Errorf("extended=%v headers mismatch: presenter %v vs registry %v",
+				extended, table.Headers, want)
+		}
+	}
+}
+
+func TestSprintDetailSpec_ContainsAllProjectionHeaders(t *testing.T) {
+	t.Parallel()
+	sprint := &api.Sprint{ID: 1, Name: "Test", State: "active", OriginBoardID: 23}
+	board := &api.Board{ID: 23, Name: "Test Board"}
+	model := SprintPresenter{}.PresentDetailProjection(sprint, board)
+	detail := model.Sections[0].(*present.DetailSection)
+
+	specHeaders := make(map[string]bool)
+	for _, c := range SprintDetailSpec {
+		specHeaders[c.Header] = false
+	}
+	for _, f := range detail.Fields {
+		if _, ok := specHeaders[f.Label]; ok {
+			specHeaders[f.Label] = true
+		}
+	}
+	for h, found := range specHeaders {
+		if !found {
+			t.Errorf("spec header %q not found in projection detail fields", h)
+		}
+	}
+}

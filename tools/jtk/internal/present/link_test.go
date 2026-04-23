@@ -14,10 +14,10 @@ func TestLinkListSpec_MatchesPresentListHeaders(t *testing.T) {
 		ID:   "1",
 		Type: api.IssueLinkType{ID: "10", Name: "Blocker", Inward: "is blocked by", Outward: "blocks"},
 		OutwardIssue: &api.LinkedIssue{
-			Key:    "PROJ-2",
+			Key: "PROJ-2",
 			Fields: struct {
-				Summary   string      `json:"summary"`
-				Status    *api.Status `json:"status,omitempty"`
+				Summary   string         `json:"summary"`
+				Status    *api.Status    `json:"status,omitempty"`
 				IssueType *api.IssueType `json:"issuetype,omitempty"`
 			}{Summary: "Target", Status: &api.Status{Name: "Open"}},
 		},
@@ -71,8 +71,8 @@ func TestLinkPresenter_PresentList_Extended(t *testing.T) {
 		OutwardIssue: &api.LinkedIssue{
 			Key: "MON-4819",
 			Fields: struct {
-				Summary   string      `json:"summary"`
-				Status    *api.Status `json:"status,omitempty"`
+				Summary   string         `json:"summary"`
+				Status    *api.Status    `json:"status,omitempty"`
 				IssueType *api.IssueType `json:"issuetype,omitempty"`
 			}{Summary: "Linked issue B", Status: &api.Status{Name: "Backlog"}},
 		},

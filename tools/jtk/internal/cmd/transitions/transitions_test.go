@@ -1,11 +1,18 @@
 package transitions
 
 import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/open-cli-collective/atlassian-go/testutil"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 )
 
 func TestFormatFieldValue(t *testing.T) {
@@ -185,14 +192,94 @@ func TestGetRequiredFields(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := getRequiredFields(tt.transition)
-			// For multiple fields, check both are present (order may vary due to map iteration)
-			if tt.name == "multiple required fields" {
-				testutil.Contains(t, got, "Resolution")
-				testutil.Contains(t, got, "Root Cause")
-				testutil.NotContains(t, got, "Comment")
-			} else {
-				testutil.Equal(t, got, tt.want)
-			}
+			testutil.Equal(t, got, tt.want)
 		})
+	}
+}
+
+func transitionsServer(t *testing.T) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		resp := api.TransitionsResponse{
+			Transitions: []api.Transition{
+				{ID: "11", Name: "Backlog", To: api.Status{Name: "Backlog", StatusCategory: api.StatusCategory{Name: "To Do"}}},
+				{ID: "31", Name: "In Development", To: api.Status{Name: "In Development", StatusCategory: api.StatusCategory{Name: "In Progress"}}},
+			},
+		}
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(resp)
+	}))
+}
+
+func TestRunList_Default(t *testing.T) {
+	t.Parallel()
+	server := transitionsServer(t)
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "e@x", APIToken: "t"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runList(context.Background(), opts, "TEST-1", false)
+	testutil.RequireNoError(t, err)
+
+	out := stdout.String()
+	testutil.Contains(t, out, "ID")
+	testutil.Contains(t, out, "Backlog")
+	testutil.Contains(t, out, "In Development")
+}
+
+func TestRunList_Extended(t *testing.T) {
+	t.Parallel()
+	server := transitionsServer(t)
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "e@x", APIToken: "t"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runList(context.Background(), opts, "TEST-1", true)
+	testutil.RequireNoError(t, err)
+
+	out := stdout.String()
+	testutil.Contains(t, out, "STATUS_CATEGORY")
+	testutil.Contains(t, out, "To Do")
+	testutil.Contains(t, out, "In Progress")
+}
+
+func TestRunList_IDOnly(t *testing.T) {
+	t.Parallel()
+	server := transitionsServer(t)
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "e@x", APIToken: "t"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}, IDOnly: true}
+	opts.SetAPIClient(client)
+
+	err = runList(context.Background(), opts, "TEST-1", false)
+	testutil.RequireNoError(t, err)
+
+	out := stdout.String()
+	testutil.Equal(t, out, "11\n31\n")
+}
+
+func TestRunList_DeprecatedFieldsAlias(t *testing.T) {
+	t.Parallel()
+	cmd := newListCmd(&root.Options{})
+	flag := cmd.Flags().Lookup("fields")
+	if flag == nil {
+		t.Fatal("expected --fields flag to exist as deprecated alias")
+	}
+	if !strings.Contains(flag.Deprecated, "extended") {
+		t.Errorf("expected deprecation message to mention --extended, got %q", flag.Deprecated)
 	}
 }

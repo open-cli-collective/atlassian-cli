@@ -2,6 +2,7 @@ package present
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/open-cli-collective/atlassian-go/present"
@@ -72,6 +73,7 @@ func GetRequiredFieldsForTransition(t api.Transition) string {
 	if len(required) == 0 {
 		return "-"
 	}
+	sort.Strings(required)
 	return strings.Join(required, ", ")
 }
 

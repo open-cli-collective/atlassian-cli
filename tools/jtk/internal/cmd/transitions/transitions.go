@@ -61,12 +61,15 @@ func runList(ctx context.Context, opts *root.Options, issueKey string, showField
 		return err
 	}
 
-	transitions, err := client.GetTransitionsWithFields(ctx, issueKey, showFields)
+	idOnly := opts.EmitIDOnly()
+	expandFields := showFields && !idOnly
+
+	transitions, err := client.GetTransitionsWithFields(ctx, issueKey, expandFields)
 	if err != nil {
 		return err
 	}
 
-	if opts.EmitIDOnly() {
+	if idOnly {
 		ids := make([]string, len(transitions))
 		for i, t := range transitions {
 			ids[i] = t.ID

@@ -67,7 +67,7 @@ func TestFieldPresenter_PresentList_Extended(t *testing.T) {
 	model := FieldPresenter{}.PresentList(fields, true)
 
 	table := model.Sections[0].(*present.TableSection)
-	expectedHeaders := []string{"ID", "TYPE", "SEARCHABLE", "NAVIGABLE", "ORDERABLE", "CLAUSE_NAMES", "NAME"}
+	expectedHeaders := []string{"ID", "NAME", "TYPE", "CUSTOM", "SEARCHABLE", "NAVIGABLE", "ORDERABLE", "CLAUSE_NAMES"}
 	if len(table.Headers) != len(expectedHeaders) {
 		t.Fatalf("expected %d headers, got %d", len(expectedHeaders), len(table.Headers))
 	}
@@ -77,13 +77,16 @@ func TestFieldPresenter_PresentList_Extended(t *testing.T) {
 		}
 	}
 
-	if table.Rows[0].Cells[2] != "yes" {
-		t.Errorf("row 0 searchable: expected 'yes', got %q", table.Rows[0].Cells[2])
+	if table.Rows[0].Cells[3] != "no" {
+		t.Errorf("row 0 custom: expected 'no', got %q", table.Rows[0].Cells[3])
 	}
-	if table.Rows[0].Cells[5] != "summary" {
-		t.Errorf("row 0 clause_names: expected 'summary', got %q", table.Rows[0].Cells[5])
+	if table.Rows[0].Cells[4] != "yes" {
+		t.Errorf("row 0 searchable: expected 'yes', got %q", table.Rows[0].Cells[4])
 	}
-	if table.Rows[1].Cells[5] != "-" {
-		t.Errorf("row 1 clause_names: expected '-' for no clauses, got %q", table.Rows[1].Cells[5])
+	if table.Rows[0].Cells[7] != "summary" {
+		t.Errorf("row 0 clause_names: expected 'summary', got %q", table.Rows[0].Cells[7])
+	}
+	if table.Rows[1].Cells[7] != "-" {
+		t.Errorf("row 1 clause_names: expected '-' for no clauses, got %q", table.Rows[1].Cells[7])
 	}
 }

@@ -17,13 +17,17 @@ type FieldPresenter struct{}
 func (FieldPresenter) PresentList(fields []api.Field, extended bool) *present.OutputModel {
 	var headers []string
 	if extended {
-		headers = []string{"ID", "TYPE", "SEARCHABLE", "NAVIGABLE", "ORDERABLE", "CLAUSE_NAMES", "NAME"}
+		headers = []string{"ID", "NAME", "TYPE", "CUSTOM", "SEARCHABLE", "NAVIGABLE", "ORDERABLE", "CLAUSE_NAMES"}
 	} else {
 		headers = []string{"ID", "NAME", "TYPE", "CUSTOM"}
 	}
 
 	rows := make([]present.Row, len(fields))
 	for i, f := range fields {
+		custom := "no"
+		if f.Custom {
+			custom = "yes"
+		}
 		if extended {
 			clauseNames := "-"
 			if len(f.ClauseNames) > 0 {
@@ -32,19 +36,16 @@ func (FieldPresenter) PresentList(fields []api.Field, extended bool) *present.Ou
 			rows[i] = present.Row{
 				Cells: []string{
 					f.ID,
+					f.Name,
 					OrDash(f.Schema.Type),
+					custom,
 					BoolString(f.Searchable),
 					BoolString(f.Navigable),
 					BoolString(f.Orderable),
 					clauseNames,
-					f.Name,
 				},
 			}
 		} else {
-			custom := "no"
-			if f.Custom {
-				custom = "yes"
-			}
 			rows[i] = present.Row{
 				Cells: []string{f.ID, f.Name, OrDash(f.Schema.Type), custom},
 			}

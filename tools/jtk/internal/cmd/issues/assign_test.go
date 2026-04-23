@@ -10,19 +10,24 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/open-cli-collective/atlassian-go/testutil"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cache"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/mutation"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/resolve"
 )
 
+func init() { mutation.BackoffSchedule = []time.Duration{0, 0, 0, 0} }
+
 // stubAssignServer returns a server that accepts the /assignee PUT,
 // captures the accountId body, and serves a GET for the post-write
-// fetch-after-write re-fetch.
-func stubAssignServer(t *testing.T, capture *string) *httptest.Server {
+// fetch-after-write re-fetch.  assigneeNames maps accountId → display
+// name so the GET response returns the name the IsFresh callback expects.
+func stubAssignServer(t *testing.T, capture *string, assigneeNames map[string]string) *httptest.Server {
 	t.Helper()
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasSuffix(r.URL.Path, "/assignee") && r.Method == http.MethodPut {
@@ -47,7 +52,11 @@ func stubAssignServer(t *testing.T, capture *string) *httptest.Server {
 				"updated":   "2026-04-16T00:00:00.000+0000",
 			}
 			if *capture != "" && *capture != "<null>" {
-				fields["assignee"] = map[string]any{"displayName": *capture, "accountId": *capture}
+				name := *capture
+				if n, ok := assigneeNames[*capture]; ok {
+					name = n
+				}
+				fields["assignee"] = map[string]any{"displayName": name, "accountId": *capture}
 			}
 			issue := map[string]any{"key": "PROJ-123", "fields": fields}
 			w.Header().Set("Content-Type", "application/json")
@@ -63,7 +72,7 @@ func TestRunAssign_ResolvesDisplayName(t *testing.T) {
 	seedCacheForIssues(t)
 
 	var captured string
-	server := stubAssignServer(t, &captured)
+	server := stubAssignServer(t, &captured, map[string]string{"abc123": "User One"})
 	defer server.Close()
 
 	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
@@ -79,13 +88,14 @@ func TestRunAssign_ResolvesDisplayName(t *testing.T) {
 	testutil.Equal(t, captured, "abc123")
 	testutil.Contains(t, stdout.String(), "PROJ-123")
 	testutil.Contains(t, stdout.String(), "Test issue")
+	testutil.Contains(t, stdout.String(), "User One")
 }
 
 func TestRunAssign_ResolvesByAccountID(t *testing.T) {
 	seedCacheForIssues(t)
 
 	var captured string
-	server := stubAssignServer(t, &captured)
+	server := stubAssignServer(t, &captured, map[string]string{"61292e4c4f29230069621c5f": "Account User"})
 	defer server.Close()
 
 	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
@@ -110,7 +120,7 @@ func TestRunAssign_SyntheticUserFallsBackToAccountID(t *testing.T) {
 	t.Cleanup(cache.SetInstanceKeyForTest("test.atlassian.net"))
 
 	var captured string
-	server := stubAssignServer(t, &captured)
+	server := stubAssignServer(t, &captured, nil)
 	defer server.Close()
 
 	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
@@ -135,7 +145,7 @@ func TestRunAssign_Unassign(t *testing.T) {
 	t.Cleanup(cache.SetInstanceKeyForTest("test.atlassian.net"))
 
 	var captured string
-	server := stubAssignServer(t, &captured)
+	server := stubAssignServer(t, &captured, nil)
 	defer server.Close()
 
 	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})

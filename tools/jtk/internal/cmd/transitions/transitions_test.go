@@ -8,12 +8,16 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/open-cli-collective/atlassian-go/testutil"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/mutation"
 )
+
+func init() { mutation.BackoffSchedule = []time.Duration{0, 0, 0, 0} }
 
 func TestFormatFieldValue(t *testing.T) {
 	t.Parallel()

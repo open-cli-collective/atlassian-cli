@@ -145,37 +145,30 @@ func runCreate(ctx context.Context, opts *root.Options, project, issueType, summ
 
 	req := api.BuildCreateRequest(projectKey, typeName, summary, text.InterpretEscapes(description), extraFields)
 
+	issue, err := client.CreateIssue(ctx, req)
+	if err != nil {
+		return err
+	}
+
 	if opts.EmitIDOnly() {
-		issue, err := client.CreateIssue(ctx, req)
-		if err != nil {
-			return err
-		}
 		return jtkpresent.EmitIDs(opts, []string{issue.Key})
 	}
 
 	if opts.Output == "json" {
-		issue, err := client.CreateIssue(ctx, req)
-		if err != nil {
-			return err
-		}
 		return v.JSON(issue)
 	}
 
 	return mutation.WriteAndPresent(ctx, opts, mutation.Config{
-		Write: func(ctx context.Context) (string, error) {
-			issue, err := client.CreateIssue(ctx, req)
-			if err != nil {
-				return "", err
-			}
+		Write: func(_ context.Context) (string, error) {
 			return issue.Key, nil
 		},
 		Fetch: func(ctx context.Context, id string) (*present.OutputModel, error) {
-			issue, err := client.GetIssue(ctx, id)
+			fetched, err := client.GetIssue(ctx, id)
 			if err != nil {
 				return nil, err
 			}
 			return jtkpresent.IssuePresenter{}.PresentDetail(
-				issue, client.IssueURL(id), opts.IsExtended(), opts.IsFullText(),
+				fetched, client.IssueURL(id), opts.IsExtended(), opts.IsFullText(),
 			), nil
 		},
 		Fallback: func(id string) *present.OutputModel {

@@ -266,6 +266,28 @@ func TestRunUpdate_SummaryOnly(t *testing.T) {
 	testutil.Nil(t, fields["parent"])
 }
 
+func TestRunUpdate_IDOnly(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "PUT" {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "e@x", APIToken: "t"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}, IDOnly: true}
+	opts.SetAPIClient(client)
+
+	err = runUpdate(context.Background(), opts, "PROJ-123", "New summary", "", "", "", "", nil)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, stdout.String(), "PROJ-123\n")
+}
+
 func TestRunUpdate_NoFieldsError(t *testing.T) {
 	opts := &root.Options{
 		Output: "table",

@@ -283,3 +283,106 @@ func TestRunList_DeprecatedFieldsAlias(t *testing.T) {
 		t.Errorf("expected deprecation message to mention --extended, got %q", flag.Deprecated)
 	}
 }
+
+func doServer(t *testing.T) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/transitions") && r.Method == http.MethodGet:
+			resp := api.TransitionsResponse{
+				Transitions: []api.Transition{
+					{ID: "31", Name: "In Development", To: api.Status{Name: "In Development"}},
+					{ID: "11", Name: "Backlog", To: api.Status{Name: "Backlog"}},
+				},
+			}
+			_ = json.NewEncoder(w).Encode(resp)
+		case strings.HasSuffix(r.URL.Path, "/transitions") && r.Method == http.MethodPost:
+			w.WriteHeader(http.StatusNoContent)
+		case strings.HasPrefix(r.URL.Path, "/rest/api/3/issue/") && r.Method == http.MethodGet:
+			issue := map[string]any{
+				"key": "TEST-1",
+				"fields": map[string]any{
+					"summary":   "Test issue",
+					"status":    map[string]any{"name": "In Development"},
+					"issuetype": map[string]any{"name": "SDLC"},
+					"priority":  map[string]any{"name": "Medium"},
+					"updated":   "2026-04-16T00:00:00.000+0000",
+				},
+			}
+			_ = json.NewEncoder(w).Encode(issue)
+		default:
+			t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+}
+
+func TestRunDo_ShowsPostState(t *testing.T) {
+	t.Parallel()
+	server := doServer(t)
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "e@x", APIToken: "t"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runDo(context.Background(), opts, "TEST-1", "In Development", nil)
+	testutil.RequireNoError(t, err)
+
+	out := stdout.String()
+	testutil.Contains(t, out, "TEST-1")
+	testutil.Contains(t, out, "Test issue")
+	testutil.Contains(t, out, "In Development")
+}
+
+func TestRunDo_IDOnly(t *testing.T) {
+	t.Parallel()
+	server := doServer(t)
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "e@x", APIToken: "t"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}, IDOnly: true}
+	opts.SetAPIClient(client)
+
+	err = runDo(context.Background(), opts, "TEST-1", "In Development", nil)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, stdout.String(), "TEST-1\n")
+}
+
+func TestRunDo_FallbackOnFetchError(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/transitions") && r.Method == http.MethodGet:
+			resp := api.TransitionsResponse{
+				Transitions: []api.Transition{
+					{ID: "31", Name: "In Development", To: api.Status{Name: "In Development"}},
+				},
+			}
+			_ = json.NewEncoder(w).Encode(resp)
+		case strings.HasSuffix(r.URL.Path, "/transitions") && r.Method == http.MethodPost:
+			w.WriteHeader(http.StatusNoContent)
+		default:
+			w.WriteHeader(http.StatusInternalServerError)
+		}
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "e@x", APIToken: "t"})
+	testutil.RequireNoError(t, err)
+
+	var stdout, stderr bytes.Buffer
+	opts := &root.Options{Stdout: &stdout, Stderr: &stderr}
+	opts.SetAPIClient(client)
+
+	err = runDo(context.Background(), opts, "TEST-1", "In Development", nil)
+	testutil.RequireNoError(t, err)
+	testutil.Contains(t, stdout.String(), "TEST-1")
+	testutil.Contains(t, stderr.String(), "post-state unavailable")
+}

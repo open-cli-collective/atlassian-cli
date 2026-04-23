@@ -217,9 +217,12 @@ func TestRunUpdate_TypeAlreadyCorrect(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	// Should succeed without calling move API since it's already the right type
+	// Should succeed without calling move API since it's already the right type.
+	// The silent changeIssueType returns nil (no-op), then WriteAndPresent
+	// re-fetches and shows post-state detail.
 	err = runUpdate(context.Background(), opts, "PROJ-123", "", "", "", "", "Task", nil)
 	testutil.RequireNoError(t, err)
+	testutil.Contains(t, stdout.String(), "PROJ-123")
 }
 
 func TestRunUpdate_SummaryOnly(t *testing.T) {

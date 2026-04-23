@@ -578,3 +578,67 @@ func TestRunCreate_WithoutAssignee(t *testing.T) {
 	fields := reqBody["fields"].(map[string]any)
 	testutil.Nil(t, fields["assignee"])
 }
+
+func createServerWithPostState(t *testing.T) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/rest/api/3/issue" && r.Method == "POST" {
+			w.WriteHeader(http.StatusCreated)
+			_ = json.NewEncoder(w).Encode(api.Issue{Key: "TEST-1", ID: "10001"})
+			return
+		}
+		if r.URL.Path == "/rest/api/3/issue/TEST-1" && r.Method == "GET" {
+			issue := map[string]any{
+				"key": "TEST-1",
+				"fields": map[string]any{
+					"summary":   "New issue",
+					"status":    map[string]any{"name": "Backlog"},
+					"issuetype": map[string]any{"name": "Task"},
+					"priority":  map[string]any{"name": "Medium"},
+					"updated":   "2026-04-16T00:00:00.000+0000",
+				},
+			}
+			_ = json.NewEncoder(w).Encode(issue)
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+}
+
+func TestRunCreate_ShowsPostState(t *testing.T) {
+	seedCacheForIssues(t)
+	server := createServerWithPostState(t)
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "e@x", APIToken: "t"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runCreate(context.Background(), opts, "PROJ", "Task", "New issue", "", "", "", nil)
+	testutil.RequireNoError(t, err)
+
+	out := stdout.String()
+	testutil.Contains(t, out, "TEST-1")
+	testutil.Contains(t, out, "New issue")
+	testutil.Contains(t, out, "Backlog")
+}
+
+func TestRunCreate_IDOnly(t *testing.T) {
+	seedCacheForIssues(t)
+	server := createServerWithPostState(t)
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "e@x", APIToken: "t"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}, IDOnly: true}
+	opts.SetAPIClient(client)
+
+	err = runCreate(context.Background(), opts, "PROJ", "Task", "New issue", "", "", "", nil)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, stdout.String(), "TEST-1\n")
+}

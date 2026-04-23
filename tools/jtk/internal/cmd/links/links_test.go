@@ -427,3 +427,27 @@ func TestRunTypes(t *testing.T) {
 	testutil.Contains(t, stdout.String(), "Blocks")
 	testutil.Contains(t, stdout.String(), "Relates")
 }
+
+func TestRunTypes_IDOnly(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"issueLinkTypes": []map[string]string{
+				{"id": "1", "name": "Blocks", "inward": "is blocked by", "outward": "blocks"},
+				{"id": "2", "name": "Relates", "inward": "relates to", "outward": "relates to"},
+			},
+		})
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}, IDOnly: true}
+	opts.SetAPIClient(client)
+
+	err = runTypes(context.Background(), opts, "")
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, stdout.String(), "1\n2\n")
+}

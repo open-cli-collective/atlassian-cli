@@ -208,6 +208,46 @@ func TestRunList_IDOnly(t *testing.T) {
 	testutil.Equal(t, stdout.String(), "10234\n")
 }
 
+func TestRunList_FieldsProjection(t *testing.T) {
+	t.Parallel()
+	server := attachmentServer(t)
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runList(context.Background(), opts, "TEST-1", "FILENAME,SIZE")
+	testutil.RequireNoError(t, err)
+
+	out := stdout.String()
+	testutil.Contains(t, out, "ID")
+	testutil.Contains(t, out, "FILENAME")
+	testutil.Contains(t, out, "SIZE")
+	testutil.NotContains(t, out, "AUTHOR")
+}
+
+func TestRunList_FieldsWithJSON_Error(t *testing.T) {
+	t.Parallel()
+	server := attachmentServer(t)
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	opts := &root.Options{Output: "json", Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runList(context.Background(), opts, "TEST-1", "FILENAME")
+	if err == nil {
+		t.Fatal("expected error for --fields + --output json")
+	}
+	testutil.Contains(t, err.Error(), "not supported")
+}
+
 // --- add tests ---
 
 func TestNewAddCmd(t *testing.T) {

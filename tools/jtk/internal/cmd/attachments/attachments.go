@@ -9,13 +9,15 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/open-cli-collective/atlassian-go/present"
 	"github.com/open-cli-collective/atlassian-go/view"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/present/projection"
 )
+
+func noFieldFetch(_ context.Context) ([]api.Field, error) { return nil, nil }
 
 // Register registers the attachments commands
 func Register(parent *cobra.Command, opts *root.Options) {
@@ -35,24 +37,52 @@ func Register(parent *cobra.Command, opts *root.Options) {
 }
 
 func newListCmd(opts *root.Options) *cobra.Command {
+	var fieldsFlag string
+
 	cmd := &cobra.Command{
 		Use:     "list <issue-key>",
 		Aliases: []string{"ls"},
 		Short:   "List attachments on an issue",
 		Long:    "List all attachments on a Jira issue.",
 		Example: `  # List attachments
-  jtk attachments list PROJ-123`,
+  jtk attachments list PROJ-123
+  jtk attachments list PROJ-123 --extended
+  jtk attachments list PROJ-123 --id`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runList(cmd.Context(), opts, args[0])
+			return runList(cmd.Context(), opts, args[0], fieldsFlag)
 		},
 	}
+
+	cmd.Flags().StringVar(&fieldsFlag, "fields", "", "Comma-separated display columns")
 
 	return cmd
 }
 
-func runList(ctx context.Context, opts *root.Options, issueKey string) error {
+func runList(ctx context.Context, opts *root.Options, issueKey, fieldsFlag string) error {
 	v := opts.View()
+	idOnly := opts.EmitIDOnly()
+
+	if !idOnly && fieldsFlag != "" && v.Format == view.FormatJSON {
+		return jtkpresent.ErrFieldsWithJSON
+	}
+
+	var selected []projection.ColumnSpec
+	var projected bool
+	if !idOnly {
+		var err error
+		selected, projected, err = projection.Resolve(
+			ctx,
+			jtkpresent.AttachmentListSpec,
+			opts.IsExtended(),
+			fieldsFlag,
+			noFieldFetch,
+			"attachments list",
+		)
+		if err != nil {
+			return err
+		}
+	}
 
 	client, err := opts.APIClient()
 	if err != nil {
@@ -64,36 +94,27 @@ func runList(ctx context.Context, opts *root.Options, issueKey string) error {
 		return err
 	}
 
+	if idOnly {
+		ids := make([]string, len(attachments))
+		for i, a := range attachments {
+			ids[i] = a.ID.String()
+		}
+		return jtkpresent.EmitIDs(opts, ids)
+	}
+
 	if len(attachments) == 0 {
-		model := jtkpresent.AttachmentPresenter{}.PresentEmpty(issueKey)
-		out := present.Render(model, opts.RenderStyle())
-		_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
-		return nil
+		return jtkpresent.Emit(opts, jtkpresent.AttachmentPresenter{}.PresentEmpty(issueKey))
 	}
 
 	if v.Format == view.FormatJSON {
-		data := make([]map[string]any, 0, len(attachments))
-		for _, att := range attachments {
-			data = append(data, map[string]any{
-				"id":       att.ID.String(),
-				"filename": att.Filename,
-				"size":     att.Size,
-				"mimeType": att.MimeType,
-				"created":  att.Created,
-				"author":   att.Author.DisplayName,
-				"content":  att.Content,
-			})
-		}
-
-		return v.JSON(data)
+		return v.JSON(attachments)
 	}
 
-	// Text path: presenter → render → write
-	model := jtkpresent.AttachmentPresenter{}.PresentList(attachments)
-	out := present.Render(model, opts.RenderStyle())
-	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
-	_, _ = fmt.Fprint(opts.Stderr, out.Stderr)
-	return nil
+	model := jtkpresent.AttachmentPresenter{}.PresentList(attachments, opts.IsExtended())
+	if projected {
+		projection.ApplyToTableInModel(model, selected)
+	}
+	return jtkpresent.Emit(opts, model)
 }
 
 func newAddCmd(opts *root.Options) *cobra.Command {
@@ -144,9 +165,7 @@ func runAdd(ctx context.Context, opts *root.Options, issueKey string, files []st
 		}
 
 		for _, att := range attachments {
-			model := jtkpresent.AttachmentPresenter{}.PresentUploaded(att.Filename, att.ID.String(), api.FormatFileSize(att.Size))
-			out := present.Render(model, opts.RenderStyle())
-			_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
+			_ = jtkpresent.Emit(opts, jtkpresent.AttachmentPresenter{}.PresentUploaded(att.Filename, att.ID.String(), api.FormatFileSize(att.Size)))
 		}
 	}
 
@@ -203,10 +222,7 @@ func runGet(ctx context.Context, opts *root.Options, attachmentID, outputPath st
 		actualPath = filepath.Join(outputPath, attachment.Filename)
 	}
 
-	model := jtkpresent.AttachmentPresenter{}.PresentDownloaded(actualPath, api.FormatFileSize(attachment.Size))
-	out := present.Render(model, opts.RenderStyle())
-	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
-	return nil
+	return jtkpresent.Emit(opts, jtkpresent.AttachmentPresenter{}.PresentDownloaded(actualPath, api.FormatFileSize(attachment.Size)))
 }
 
 func newDeleteCmd(opts *root.Options) *cobra.Command {
@@ -236,8 +252,5 @@ func runDelete(ctx context.Context, opts *root.Options, attachmentID string) err
 		return fmt.Errorf("deleting attachment: %w", err)
 	}
 
-	model := jtkpresent.AttachmentPresenter{}.PresentDeleted(attachmentID)
-	out := present.Render(model, opts.RenderStyle())
-	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
-	return nil
+	return jtkpresent.Emit(opts, jtkpresent.AttachmentPresenter{}.PresentDeleted(attachmentID))
 }

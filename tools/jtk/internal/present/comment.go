@@ -23,6 +23,7 @@ var CommentListSpec = projection.Registry{
 	{Header: "ID", Identity: true},
 	{Header: "AUTHOR"},
 	{Header: "CREATED"},
+	{Header: "UPDATED", Extended: true},
 	{Header: "BODY"},
 }
 
@@ -33,42 +34,53 @@ var CommentDetailSpec = projection.Registry{
 	{Header: "ID", Identity: true},
 	{Header: "Author"},
 	{Header: "Created"},
+	{Header: "Updated", Extended: true},
 	{Header: "Body"},
 }
 
-// PresentList creates a table view for a list of comments.
-func (CommentPresenter) PresentList(comments []api.Comment) *present.OutputModel {
+// PresentList creates a table view for a list of comments. Extended
+// adds UPDATED column with full timestamp.
+func (CommentPresenter) PresentList(comments []api.Comment, extended bool) *present.OutputModel {
+	var headers []string
+	if extended {
+		headers = []string{"ID", "AUTHOR", "CREATED", "UPDATED", "BODY"}
+	} else {
+		headers = []string{"ID", "AUTHOR", "CREATED", "BODY"}
+	}
+
 	rows := make([]present.Row, len(comments))
 	for i, c := range comments {
 		author := "Unknown"
 		if c.Author.DisplayName != "" {
 			author = c.Author.DisplayName
 		}
-		// Truncate body for table display
 		body := ""
 		if c.Body != nil {
 			body = c.Body.ToPlainText()
 			if len(body) > 100 {
-				body = body[:100] + "... [truncated, use --fulltext for complete text]"
+				body = body[:100] + "..."
 			}
 		}
-		rows[i] = present.Row{
-			Cells: []string{c.ID, author, FormatTime(c.Created), body},
+		if extended {
+			rows[i] = present.Row{
+				Cells: []string{c.ID, author, OrDash(c.Created), OrDash(c.Updated), body},
+			}
+		} else {
+			rows[i] = present.Row{
+				Cells: []string{c.ID, author, FormatTime(c.Created), body},
+			}
 		}
 	}
 	return &present.OutputModel{
 		Sections: []present.Section{
-			&present.TableSection{
-				Headers: []string{"ID", "AUTHOR", "CREATED", "BODY"},
-				Rows:    rows,
-			},
+			&present.TableSection{Headers: headers, Rows: rows},
 		},
 	}
 }
 
 // PresentListFull creates detail views for comments without truncation.
-// Each comment becomes a DetailSection; the renderer owns spacing between sections.
-func (CommentPresenter) PresentListFull(comments []api.Comment) *present.OutputModel {
+// Each comment becomes a DetailSection. Extended adds Updated field.
+func (CommentPresenter) PresentListFull(comments []api.Comment, extended bool) *present.OutputModel {
 	sections := make([]present.Section, len(comments))
 	for i, c := range comments {
 		author := "Unknown"
@@ -77,35 +89,34 @@ func (CommentPresenter) PresentListFull(comments []api.Comment) *present.OutputM
 		}
 		body := ""
 		if c.Body != nil {
-			// ADF rendering can append a trailing newline; trim it so each
-			// block has consistent termination and the renderer's block
-			// separator produces exactly one blank line between comments.
 			body = strings.TrimRight(c.Body.ToPlainText(), "\n")
 		}
-		sections[i] = &present.DetailSection{
-			Fields: []present.Field{
-				{Label: "ID", Value: c.ID},
-				{Label: "Author", Value: author},
-				{Label: "Created", Value: FormatTime(c.Created)},
-				{Label: "Body", Value: body},
-			},
+		fields := []present.Field{
+			{Label: "ID", Value: c.ID},
+			{Label: "Author", Value: author},
+			{Label: "Created", Value: FormatTime(c.Created)},
 		}
+		if extended {
+			fields = append(fields, present.Field{Label: "Updated", Value: OrDash(c.Updated)})
+		}
+		fields = append(fields, present.Field{Label: "Body", Value: body})
+		sections[i] = &present.DetailSection{Fields: fields}
 	}
 	return &present.OutputModel{Sections: sections}
 }
 
 // PresentListWithPagination wraps PresentList and appends a stdout-bound
 // pagination hint when hasMore is true.
-func (p CommentPresenter) PresentListWithPagination(comments []api.Comment, hasMore bool) *present.OutputModel {
-	model := p.PresentList(comments)
+func (p CommentPresenter) PresentListWithPagination(comments []api.Comment, extended bool, hasMore bool) *present.OutputModel {
+	model := p.PresentList(comments, extended)
 	model.Sections = AppendPaginationHint(model.Sections, hasMore)
 	return model
 }
 
 // PresentListFullWithPagination wraps PresentListFull and appends a
 // stdout-bound pagination hint when hasMore is true.
-func (p CommentPresenter) PresentListFullWithPagination(comments []api.Comment, hasMore bool) *present.OutputModel {
-	model := p.PresentListFull(comments)
+func (p CommentPresenter) PresentListFullWithPagination(comments []api.Comment, extended bool, hasMore bool) *present.OutputModel {
+	model := p.PresentListFull(comments, extended)
 	model.Sections = AppendPaginationHint(model.Sections, hasMore)
 	return model
 }

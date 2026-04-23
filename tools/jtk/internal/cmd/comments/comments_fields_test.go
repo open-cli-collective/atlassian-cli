@@ -61,7 +61,7 @@ func TestRunList_Fields_TableMode_BodyTruncatedWithoutFullText(t *testing.T) {
 
 	output := stdout.String()
 	testutil.Contains(t, output, "BODY")
-	testutil.Contains(t, output, "[truncated, use --fulltext for complete text]")
+	testutil.Contains(t, output, "...")
 	testutil.NotContains(t, output, longBodyText)
 }
 

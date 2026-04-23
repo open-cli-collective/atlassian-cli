@@ -60,7 +60,7 @@ func TestRunList(t *testing.T) {
 	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runList(opts, "PROJ-123")
+	err = runList(context.Background(), opts, "PROJ-123", "")
 	testutil.RequireNoError(t, err)
 	testutil.Contains(t, stdout.String(), "PROJ-456")
 	testutil.Contains(t, stdout.String(), "Blocks")
@@ -85,7 +85,7 @@ func TestRunList_NoLinks(t *testing.T) {
 	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &stderr}
 	opts.SetAPIClient(client)
 
-	err = runList(opts, "PROJ-123")
+	err = runList(context.Background(), opts, "PROJ-123", "")
 	testutil.RequireNoError(t, err)
 }
 
@@ -307,7 +307,7 @@ func TestRunTypes(t *testing.T) {
 	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runTypes(opts)
+	err = runTypes(context.Background(), opts, "")
 	testutil.RequireNoError(t, err)
 	testutil.Contains(t, stdout.String(), "Blocks")
 	testutil.Contains(t, stdout.String(), "Relates")

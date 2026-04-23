@@ -7,39 +7,75 @@ import (
 	"github.com/open-cli-collective/atlassian-go/present"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/present/projection"
 )
 
 // LinkPresenter creates presentation models for issue links.
 type LinkPresenter struct{}
 
-// PresentList creates a table presentation of issue links.
-func (LinkPresenter) PresentList(links []api.IssueLink) *present.OutputModel {
+// LinkListSpec declares the columns emitted by PresentList. Default:
+// LINK_ID|TYPE|DIRECTION|ISSUE|SUMMARY. Extended adds TYPE_ID and STATUS.
+var LinkListSpec = projection.Registry{
+	{Header: "LINK_ID", Identity: true},
+	{Header: "TYPE"},
+	{Header: "DIRECTION"},
+	{Header: "ISSUE"},
+	{Header: "SUMMARY"},
+	{Header: "TYPE_ID", Extended: true},
+	{Header: "STATUS", Extended: true},
+}
+
+// LinkTypesSpec declares the columns for link types. All default.
+var LinkTypesSpec = projection.Registry{
+	{Header: "ID", Identity: true},
+	{Header: "NAME"},
+	{Header: "INWARD"},
+	{Header: "OUTWARD"},
+}
+
+// PresentList creates a table presentation of issue links. Extended
+// adds TYPE_ID and the linked issue's current STATUS.
+func (LinkPresenter) PresentList(links []api.IssueLink, extended bool) *present.OutputModel {
+	var headers []string
+	if extended {
+		headers = []string{"LINK_ID", "TYPE", "DIRECTION", "ISSUE", "SUMMARY", "TYPE_ID", "STATUS"}
+	} else {
+		headers = []string{"LINK_ID", "TYPE", "DIRECTION", "ISSUE", "SUMMARY"}
+	}
+
 	rows := make([]present.Row, len(links))
 	for i, l := range links {
-		var direction, key, summary string
+		var direction, key, summary, status string
 
 		if l.OutwardIssue != nil {
-			// OutwardIssue is set → current issue is the inward side
 			direction = l.Type.Inward
 			key = l.OutwardIssue.Key
 			summary = l.OutwardIssue.Fields.Summary
+			if l.OutwardIssue.Fields.Status != nil {
+				status = l.OutwardIssue.Fields.Status.Name
+			}
 		} else if l.InwardIssue != nil {
-			// InwardIssue is set → current issue is the outward side
 			direction = l.Type.Outward
 			key = l.InwardIssue.Key
 			summary = l.InwardIssue.Fields.Summary
+			if l.InwardIssue.Fields.Status != nil {
+				status = l.InwardIssue.Fields.Status.Name
+			}
 		}
 
-		rows[i] = present.Row{
-			Cells: []string{l.ID, l.Type.Name, direction, key, summary},
+		if extended {
+			rows[i] = present.Row{
+				Cells: []string{l.ID, l.Type.Name, direction, key, summary, OrDash(l.Type.ID), OrDash(status)},
+			}
+		} else {
+			rows[i] = present.Row{
+				Cells: []string{l.ID, l.Type.Name, direction, key, summary},
+			}
 		}
 	}
 	return &present.OutputModel{
 		Sections: []present.Section{
-			&present.TableSection{
-				Headers: []string{"ID", "TYPE", "DIRECTION", "ISSUE", "SUMMARY"},
-				Rows:    rows,
-			},
+			&present.TableSection{Headers: headers, Rows: rows},
 		},
 	}
 }
@@ -49,13 +85,13 @@ func (LinkPresenter) PresentTypes(types []api.IssueLinkType) *present.OutputMode
 	rows := make([]present.Row, len(types))
 	for i, t := range types {
 		rows[i] = present.Row{
-			Cells: []string{t.ID, t.Name, t.Outward, t.Inward},
+			Cells: []string{t.ID, t.Name, t.Inward, t.Outward},
 		}
 	}
 	return &present.OutputModel{
 		Sections: []present.Section{
 			&present.TableSection{
-				Headers: []string{"ID", "NAME", "OUTWARD", "INWARD"},
+				Headers: []string{"ID", "NAME", "INWARD", "OUTWARD"},
 				Rows:    rows,
 			},
 		},

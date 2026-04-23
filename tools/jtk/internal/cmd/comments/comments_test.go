@@ -97,7 +97,7 @@ func TestRunList_TruncatesCommentBody(t *testing.T) {
 
 	output := stdout.String()
 	testutil.Contains(t, output, "Alice")
-	testutil.Contains(t, output, "[truncated, use --fulltext for complete text]")
+	testutil.Contains(t, output, "...")
 	testutil.NotContains(t, output, longText)
 }
 

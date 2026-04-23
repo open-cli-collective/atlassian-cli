@@ -7,25 +7,57 @@ import (
 	"github.com/open-cli-collective/atlassian-go/present"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/present/projection"
 )
 
 // AttachmentPresenter creates presentation models for issue attachments.
 type AttachmentPresenter struct{}
 
-// PresentList creates a table presentation of attachments.
-func (AttachmentPresenter) PresentList(attachments []api.Attachment) *present.OutputModel {
+// AttachmentListSpec declares the columns emitted by PresentList. Default:
+// ID|FILENAME|SIZE|AUTHOR|CREATED. Extended adds BYTES and MIME_TYPE.
+var AttachmentListSpec = projection.Registry{
+	{Header: "ID", Identity: true},
+	{Header: "FILENAME"},
+	{Header: "SIZE"},
+	{Header: "AUTHOR"},
+	{Header: "CREATED"},
+	{Header: "BYTES", Extended: true},
+	{Header: "MIME_TYPE", Extended: true},
+}
+
+// PresentList creates a table presentation of attachments. Extended
+// adds BYTES (raw size) and MIME_TYPE columns, uses full timestamps.
+func (AttachmentPresenter) PresentList(attachments []api.Attachment, extended bool) *present.OutputModel {
+	var headers []string
+	if extended {
+		headers = []string{"ID", "FILENAME", "SIZE", "AUTHOR", "CREATED", "BYTES", "MIME_TYPE"}
+	} else {
+		headers = []string{"ID", "FILENAME", "SIZE", "AUTHOR", "CREATED"}
+	}
+
 	rows := make([]present.Row, len(attachments))
 	for i, a := range attachments {
-		rows[i] = present.Row{
-			Cells: []string{a.ID.String(), a.Filename, FormatSize(a.Size), FormatTime(a.Created), a.Author.DisplayName},
+		if extended {
+			rows[i] = present.Row{
+				Cells: []string{
+					a.ID.String(),
+					a.Filename,
+					FormatSize(a.Size),
+					a.Author.DisplayName,
+					OrDash(a.Created),
+					FormatInt(int(a.Size)),
+					OrDash(a.MimeType),
+				},
+			}
+		} else {
+			rows[i] = present.Row{
+				Cells: []string{a.ID.String(), a.Filename, FormatSize(a.Size), a.Author.DisplayName, FormatTime(a.Created)},
+			}
 		}
 	}
 	return &present.OutputModel{
 		Sections: []present.Section{
-			&present.TableSection{
-				Headers: []string{"ID", "FILENAME", "SIZE", "CREATED", "AUTHOR"},
-				Rows:    rows,
-			},
+			&present.TableSection{Headers: headers, Rows: rows},
 		},
 	}
 }

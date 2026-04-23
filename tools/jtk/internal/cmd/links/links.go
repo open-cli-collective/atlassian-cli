@@ -8,14 +8,16 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/open-cli-collective/atlassian-go/present"
 	"github.com/open-cli-collective/atlassian-go/view"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/present/projection"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/resolve"
 )
+
+func noFieldFetch(_ context.Context) ([]api.Field, error) { return nil, nil }
 
 // Register registers the links commands
 func Register(parent *cobra.Command, opts *root.Options) {
@@ -35,22 +37,51 @@ func Register(parent *cobra.Command, opts *root.Options) {
 }
 
 func newListCmd(opts *root.Options) *cobra.Command {
+	var fieldsFlag string
+
 	cmd := &cobra.Command{
-		Use:     "list <issue-key>",
-		Short:   "List links on an issue",
-		Long:    "List all links on a specific issue.",
-		Example: `  jtk links list PROJ-123`,
-		Args:    cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			return runList(opts, args[0])
+		Use:   "list <issue-key>",
+		Short: "List links on an issue",
+		Long:  "List all links on a specific issue.",
+		Example: `  jtk links list PROJ-123
+  jtk links list PROJ-123 --extended
+  jtk links list PROJ-123 --id
+  jtk links list PROJ-123 --fields TYPE,ISSUE`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runList(cmd.Context(), opts, args[0], fieldsFlag)
 		},
 	}
+
+	cmd.Flags().StringVar(&fieldsFlag, "fields", "", "Comma-separated display columns")
 
 	return cmd
 }
 
-func runList(opts *root.Options, issueKey string) error {
+func runList(ctx context.Context, opts *root.Options, issueKey, fieldsFlag string) error {
 	v := opts.View()
+	idOnly := opts.EmitIDOnly()
+
+	if !idOnly && fieldsFlag != "" && v.Format == view.FormatJSON {
+		return jtkpresent.ErrFieldsWithJSON
+	}
+
+	var selected []projection.ColumnSpec
+	var projected bool
+	if !idOnly {
+		var err error
+		selected, projected, err = projection.Resolve(
+			ctx,
+			jtkpresent.LinkListSpec,
+			opts.IsExtended(),
+			fieldsFlag,
+			noFieldFetch,
+			"links list",
+		)
+		if err != nil {
+			return err
+		}
+	}
 
 	client, err := opts.APIClient()
 	if err != nil {
@@ -62,23 +93,27 @@ func runList(opts *root.Options, issueKey string) error {
 		return err
 	}
 
+	if idOnly {
+		ids := make([]string, len(links))
+		for i, l := range links {
+			ids[i] = l.ID
+		}
+		return jtkpresent.EmitIDs(opts, ids)
+	}
+
 	if len(links) == 0 {
-		model := jtkpresent.LinkPresenter{}.PresentEmpty(issueKey)
-		out := present.Render(model, opts.RenderStyle())
-		_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
-		return nil
+		return jtkpresent.Emit(opts, jtkpresent.LinkPresenter{}.PresentEmpty(issueKey))
 	}
 
 	if v.Format == view.FormatJSON {
 		return v.JSON(links)
 	}
 
-	// Text path: presenter → render → write
-	model := jtkpresent.LinkPresenter{}.PresentList(links)
-	out := present.Render(model, opts.RenderStyle())
-	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
-	_, _ = fmt.Fprint(opts.Stderr, out.Stderr)
-	return nil
+	model := jtkpresent.LinkPresenter{}.PresentList(links, opts.IsExtended())
+	if projected {
+		projection.ApplyToTableInModel(model, selected)
+	}
+	return jtkpresent.Emit(opts, model)
 }
 
 func newCreateCmd(opts *root.Options) *cobra.Command {
@@ -165,10 +200,7 @@ func runCreate(ctx context.Context, opts *root.Options, outwardKey, inwardKey, l
 		})
 	}
 
-	model := jtkpresent.LinkPresenter{}.PresentCreated(linkType, outwardKey, inwardKey)
-	out := present.Render(model, opts.RenderStyle())
-	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
-	return nil
+	return jtkpresent.Emit(opts, jtkpresent.LinkPresenter{}.PresentCreated(linkType, outwardKey, inwardKey))
 }
 
 func newDeleteCmd(opts *root.Options) *cobra.Command {
@@ -203,28 +235,52 @@ func runDelete(opts *root.Options, linkID string) error {
 		return v.JSON(map[string]string{"status": "deleted", "linkId": linkID})
 	}
 
-	model := jtkpresent.LinkPresenter{}.PresentDeleted(linkID)
-	out := present.Render(model, opts.RenderStyle())
-	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
-	return nil
+	return jtkpresent.Emit(opts, jtkpresent.LinkPresenter{}.PresentDeleted(linkID))
 }
 
 func newTypesCmd(opts *root.Options) *cobra.Command {
+	var fieldsFlag string
+
 	cmd := &cobra.Command{
-		Use:     "types",
-		Short:   "List available link types",
-		Long:    "List all available issue link types in the Jira instance.",
-		Example: `  jtk links types`,
-		RunE: func(_ *cobra.Command, _ []string) error {
-			return runTypes(opts)
+		Use:   "types",
+		Short: "List available link types",
+		Long:  "List all available issue link types in the Jira instance.",
+		Example: `  jtk links types
+  jtk links types --id`,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runTypes(cmd.Context(), opts, fieldsFlag)
 		},
 	}
+
+	cmd.Flags().StringVar(&fieldsFlag, "fields", "", "Comma-separated display columns")
 
 	return cmd
 }
 
-func runTypes(opts *root.Options) error {
+func runTypes(ctx context.Context, opts *root.Options, fieldsFlag string) error {
 	v := opts.View()
+	idOnly := opts.EmitIDOnly()
+
+	if !idOnly && fieldsFlag != "" && v.Format == view.FormatJSON {
+		return jtkpresent.ErrFieldsWithJSON
+	}
+
+	var selected []projection.ColumnSpec
+	var projected bool
+	if !idOnly {
+		var err error
+		selected, projected, err = projection.Resolve(
+			ctx,
+			jtkpresent.LinkTypesSpec,
+			opts.IsExtended(),
+			fieldsFlag,
+			noFieldFetch,
+			"links types",
+		)
+		if err != nil {
+			return err
+		}
+	}
 
 	client, err := opts.APIClient()
 	if err != nil {
@@ -237,22 +293,26 @@ func runTypes(opts *root.Options) error {
 	}
 
 	if len(linkTypes) == 0 {
-		model := jtkpresent.LinkPresenter{}.PresentNoTypes()
-		out := present.Render(model, opts.RenderStyle())
-		_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
-		return nil
+		return jtkpresent.Emit(opts, jtkpresent.LinkPresenter{}.PresentNoTypes())
+	}
+
+	if idOnly {
+		ids := make([]string, len(linkTypes))
+		for i, t := range linkTypes {
+			ids[i] = t.ID
+		}
+		return jtkpresent.EmitIDs(opts, ids)
 	}
 
 	if v.Format == view.FormatJSON {
 		return v.JSON(linkTypes)
 	}
 
-	// Text path: presenter → render → write
 	model := jtkpresent.LinkPresenter{}.PresentTypes(linkTypes)
-	out := present.Render(model, opts.RenderStyle())
-	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
-	_, _ = fmt.Fprint(opts.Stderr, out.Stderr)
-	return nil
+	if projected {
+		projection.ApplyToTableInModel(model, selected)
+	}
+	return jtkpresent.Emit(opts, model)
 }
 
 // GetIssueLinkTypes returns all link types (exported for use by other commands)

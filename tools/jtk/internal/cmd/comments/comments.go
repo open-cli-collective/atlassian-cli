@@ -3,7 +3,6 @@ package comments
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/spf13/cobra"
 
@@ -130,14 +129,15 @@ func runList(ctx context.Context, opts *root.Options, issueKey string, maxResult
 		return v.RenderArtifactList(artifact.NewListResult(arts, hasMore))
 	}
 
+	extended := opts.IsExtended()
 	var model *present.OutputModel
 	if noTruncate {
-		model = jtkpresent.CommentPresenter{}.PresentListFullWithPagination(result.Comments, hasMore)
+		model = jtkpresent.CommentPresenter{}.PresentListFullWithPagination(result.Comments, extended, hasMore)
 		if projected {
 			projectAllDetailSectionsInModel(model, selected)
 		}
 	} else {
-		model = jtkpresent.CommentPresenter{}.PresentListWithPagination(result.Comments, hasMore)
+		model = jtkpresent.CommentPresenter{}.PresentListWithPagination(result.Comments, extended, hasMore)
 		if projected {
 			projection.ApplyToTableInModel(model, selected)
 		}
@@ -210,11 +210,7 @@ func runAdd(ctx context.Context, opts *root.Options, issueKey, body string) erro
 		return v.JSON(comment)
 	}
 
-	model := jtkpresent.CommentPresenter{}.PresentAdded(comment.ID, issueKey)
-	out := present.Render(model, opts.RenderStyle())
-	fmt.Fprint(opts.Stdout, out.Stdout)
-	fmt.Fprint(opts.Stderr, out.Stderr)
-	return nil
+	return jtkpresent.Emit(opts, jtkpresent.CommentPresenter{}.PresentAdded(comment.ID, issueKey))
 }
 
 func newDeleteCmd(opts *root.Options) *cobra.Command {
@@ -248,9 +244,5 @@ func runDelete(ctx context.Context, opts *root.Options, issueKey, commentID stri
 		return v.JSON(map[string]string{"status": "deleted", "commentId": commentID})
 	}
 
-	model := jtkpresent.CommentPresenter{}.PresentDeleted(commentID, issueKey)
-	out := present.Render(model, opts.RenderStyle())
-	fmt.Fprint(opts.Stdout, out.Stdout)
-	fmt.Fprint(opts.Stderr, out.Stderr)
-	return nil
+	return jtkpresent.Emit(opts, jtkpresent.CommentPresenter{}.PresentDeleted(commentID, issueKey))
 }

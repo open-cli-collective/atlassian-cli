@@ -68,7 +68,7 @@ func TestRunList_Table(t *testing.T) {
 	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runList(context.Background(), opts, "TEST-1")
+	err = runList(context.Background(), opts, "TEST-1", "")
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()
@@ -111,7 +111,7 @@ func TestRunList_JSON(t *testing.T) {
 	opts := &root.Options{Output: "json", Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runList(context.Background(), opts, "TEST-1")
+	err = runList(context.Background(), opts, "TEST-1", "")
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()
@@ -140,7 +140,7 @@ func TestRunList_Empty(t *testing.T) {
 	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runList(context.Background(), opts, "TEST-1")
+	err = runList(context.Background(), opts, "TEST-1", "")
 	testutil.RequireNoError(t, err)
 
 	testutil.Contains(t, stdout.String(), "No attachments found")

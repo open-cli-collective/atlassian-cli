@@ -129,6 +129,8 @@ func linkServer(t *testing.T) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			t.Errorf("linkServer: expected GET, got %s", r.Method)
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
 		}
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"fields": map[string]any{

@@ -201,10 +201,15 @@ func TestCommentDetailSpec_ExtendedMatchesPresentDetailLabels(t *testing.T) {
 	for _, spec := range extendedSpec {
 		specLabels[spec.Header] = true
 	}
+	mismatch := false
 	for _, f := range detail.Fields {
 		if !specLabels[f.Label] {
 			t.Errorf("rendered field %q has no matching CommentDetailSpec entry in extended mode", f.Label)
+			mismatch = true
 		}
+	}
+	if mismatch {
+		t.Fatal("reverse-direction check failed; skipping order check")
 	}
 
 	specOrder := make([]string, 0, len(extendedSpec))

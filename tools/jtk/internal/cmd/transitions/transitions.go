@@ -8,8 +8,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/open-cli-collective/atlassian-go/present"
-
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
@@ -40,22 +38,24 @@ func newListCmd(opts *root.Options) *cobra.Command {
 		Example: `  # List transitions
   jtk transitions list PROJ-123
 
-  # Show required fields for each transition
-  jtk transitions list PROJ-123 --fields`,
+  # Extended output with status category and required fields
+  jtk transitions list PROJ-123 --extended
+
+  # Emit only transition IDs
+  jtk transitions list PROJ-123 --id`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runList(cmd.Context(), opts, args[0], showFields)
+			return runList(cmd.Context(), opts, args[0], showFields || opts.IsExtended())
 		},
 	}
 
 	cmd.Flags().BoolVar(&showFields, "fields", false, "Show required fields for each transition")
+	_ = cmd.Flags().MarkDeprecated("fields", "use --extended instead")
 
 	return cmd
 }
 
 func runList(ctx context.Context, opts *root.Options, issueKey string, showFields bool) error {
-	v := opts.View()
-
 	client, err := opts.APIClient()
 	if err != nil {
 		return err
@@ -66,32 +66,28 @@ func runList(ctx context.Context, opts *root.Options, issueKey string, showField
 		return err
 	}
 
-	if len(transitions) == 0 {
-		model := jtkpresent.TransitionPresenter{}.PresentEmpty(issueKey)
-		out := present.Render(model, opts.RenderStyle())
-		fmt.Fprint(opts.Stdout, out.Stdout)
-		fmt.Fprint(opts.Stderr, out.Stderr)
-		return nil
+	if opts.EmitIDOnly() {
+		ids := make([]string, len(transitions))
+		for i, t := range transitions {
+			ids[i] = t.ID
+		}
+		return jtkpresent.EmitIDs(opts, ids)
 	}
 
-	if opts.Output == "json" {
+	if len(transitions) == 0 {
+		return jtkpresent.Emit(opts, jtkpresent.TransitionPresenter{}.PresentEmpty(issueKey))
+	}
+
+	v := opts.View()
+	if v.Format == "json" {
 		return v.JSON(transitions)
 	}
 
-	var model *present.OutputModel
-	if showFields {
-		model = jtkpresent.TransitionPresenter{}.PresentListWithFields(transitions)
-	} else {
-		model = jtkpresent.TransitionPresenter{}.PresentList(transitions)
-	}
-	out := present.Render(model, opts.RenderStyle())
-	fmt.Fprint(opts.Stdout, out.Stdout)
-	fmt.Fprint(opts.Stderr, out.Stderr)
-	return nil
+	model := jtkpresent.TransitionPresenter{}.PresentList(transitions, showFields)
+	return jtkpresent.Emit(opts, model)
 }
 
-// getRequiredFields returns a comma-separated list of required field names
-// This is exported for testing and delegates to the presenter implementation
+// getRequiredFields delegates to the presenter implementation (exported for testing).
 func getRequiredFields(t api.Transition) string {
 	return jtkpresent.GetRequiredFieldsForTransition(t)
 }
@@ -131,16 +127,13 @@ func runDo(ctx context.Context, opts *root.Options, issueKey, transitionNameOrID
 		return err
 	}
 
-	// Get available transitions
 	transitions, err := client.GetTransitions(ctx, issueKey)
 	if err != nil {
 		return err
 	}
 
-	// Find the transition
 	var transitionID string
 
-	// First try by ID
 	for _, t := range transitions {
 		if t.ID == transitionNameOrID {
 			transitionID = t.ID
@@ -148,7 +141,6 @@ func runDo(ctx context.Context, opts *root.Options, issueKey, transitionNameOrID
 		}
 	}
 
-	// Then try by name
 	if transitionID == "" {
 		if t := api.FindTransitionByName(transitions, transitionNameOrID); t != nil {
 			transitionID = t.ID
@@ -157,18 +149,14 @@ func runDo(ctx context.Context, opts *root.Options, issueKey, transitionNameOrID
 
 	if transitionID == "" {
 		model := jtkpresent.TransitionPresenter{}.PresentNotFound(transitionNameOrID, transitions)
-		out := present.Render(model, opts.RenderStyle())
-		_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
-		_, _ = fmt.Fprint(opts.Stderr, out.Stderr)
+		_ = jtkpresent.Emit(opts, model)
 		return fmt.Errorf("transition not found: %s", transitionNameOrID)
 	}
 
-	// Parse fields if provided
 	var fields map[string]any
 	if len(fieldArgs) > 0 {
 		fields = make(map[string]any)
 
-		// Get field metadata for name resolution and type detection
 		allFields, err := client.GetFields(ctx)
 		if err != nil {
 			return fmt.Errorf("getting field metadata: %w", err)
@@ -182,7 +170,6 @@ func runDo(ctx context.Context, opts *root.Options, issueKey, transitionNameOrID
 
 			key, value := parts[0], parts[1]
 
-			// Try to resolve field name to ID and get field info
 			var fieldID string
 			var field *api.Field
 			if resolved := api.FindFieldByName(allFields, key); resolved != nil {
@@ -195,7 +182,6 @@ func runDo(ctx context.Context, opts *root.Options, issueKey, transitionNameOrID
 				fieldID = key
 			}
 
-			// Format value based on field type
 			fields[fieldID] = api.FormatFieldValue(field, value)
 		}
 	}
@@ -204,9 +190,5 @@ func runDo(ctx context.Context, opts *root.Options, issueKey, transitionNameOrID
 		return err
 	}
 
-	model := jtkpresent.TransitionPresenter{}.PresentTransitioned(issueKey)
-	out := present.Render(model, opts.RenderStyle())
-	fmt.Fprint(opts.Stdout, out.Stdout)
-	fmt.Fprint(opts.Stderr, out.Stderr)
-	return nil
+	return jtkpresent.Emit(opts, jtkpresent.TransitionPresenter{}.PresentTransitioned(issueKey))
 }

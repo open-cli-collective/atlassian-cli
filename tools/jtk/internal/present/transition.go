@@ -1,4 +1,3 @@
-// Package present provides presenters that map domain types to presentation models.
 package present
 
 import (
@@ -8,58 +7,61 @@ import (
 	"github.com/open-cli-collective/atlassian-go/present"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/present/projection"
 )
 
 // TransitionPresenter creates presentation models for transition data.
 type TransitionPresenter struct{}
 
-// PresentList creates a table view for a list of transitions.
-func (TransitionPresenter) PresentList(transitions []api.Transition) *present.OutputModel {
+// TransitionListSpec declares the columns emitted by PresentList. Default
+// order per #230 is ID|NAME|TO_STATUS; extended adds STATUS_CATEGORY and
+// REQUIRED_FIELDS.
+var TransitionListSpec = projection.Registry{
+	{Header: "ID", Identity: true},
+	{Header: "NAME"},
+	{Header: "TO_STATUS"},
+	{Header: "STATUS_CATEGORY", Extended: true},
+	{Header: "REQUIRED_FIELDS", Extended: true},
+}
+
+// PresentList creates a table view for a list of transitions. Default
+// order is ID|NAME|TO_STATUS; --extended adds STATUS_CATEGORY and
+// REQUIRED_FIELDS.
+func (TransitionPresenter) PresentList(transitions []api.Transition, extended bool) *present.OutputModel {
+	var headers []string
+	if extended {
+		headers = []string{"ID", "NAME", "TO_STATUS", "STATUS_CATEGORY", "REQUIRED_FIELDS"}
+	} else {
+		headers = []string{"ID", "NAME", "TO_STATUS"}
+	}
+
 	rows := make([]present.Row, len(transitions))
 	for i, t := range transitions {
-		toStatus := ""
-		if t.To.Name != "" {
-			toStatus = t.To.Name
-		}
-		rows[i] = present.Row{
-			Cells: []string{t.ID, t.Name, toStatus},
+		toStatus := OrDash(t.To.Name)
+		if extended {
+			rows[i] = present.Row{
+				Cells: []string{
+					t.ID,
+					t.Name,
+					toStatus,
+					OrDash(t.To.StatusCategory.Name),
+					GetRequiredFieldsForTransition(t),
+				},
+			}
+		} else {
+			rows[i] = present.Row{
+				Cells: []string{t.ID, t.Name, toStatus},
+			}
 		}
 	}
 	return &present.OutputModel{
 		Sections: []present.Section{
-			&present.TableSection{
-				Headers: []string{"ID", "NAME", "TO STATUS"},
-				Rows:    rows,
-			},
+			&present.TableSection{Headers: headers, Rows: rows},
 		},
 	}
 }
 
-// PresentListWithFields creates a table view for transitions with required fields.
-func (TransitionPresenter) PresentListWithFields(transitions []api.Transition) *present.OutputModel {
-	rows := make([]present.Row, len(transitions))
-	for i, t := range transitions {
-		toStatus := ""
-		if t.To.Name != "" {
-			toStatus = t.To.Name
-		}
-		required := getRequiredFields(t)
-		rows[i] = present.Row{
-			Cells: []string{t.ID, t.Name, toStatus, required},
-		}
-	}
-	return &present.OutputModel{
-		Sections: []present.Section{
-			&present.TableSection{
-				Headers: []string{"ID", "NAME", "TO STATUS", "REQUIRED FIELDS"},
-				Rows:    rows,
-			},
-		},
-	}
-}
-
-// GetRequiredFieldsForTransition returns a comma-separated list of required field names
-// This is exported for use in transitions command tests
+// GetRequiredFieldsForTransition returns a comma-separated list of required field names.
 func GetRequiredFieldsForTransition(t api.Transition) string {
 	var required []string
 	for _, field := range t.Fields {
@@ -71,11 +73,6 @@ func GetRequiredFieldsForTransition(t api.Transition) string {
 		return "-"
 	}
 	return strings.Join(required, ", ")
-}
-
-// getRequiredFields returns a comma-separated list of required field names (internal use)
-func getRequiredFields(t api.Transition) string {
-	return GetRequiredFieldsForTransition(t)
 }
 
 // PresentTransitioned creates a success message for a completed transition.
@@ -105,7 +102,6 @@ func (TransitionPresenter) PresentEmpty(issueKey string) *present.OutputModel {
 }
 
 // PresentNotFound creates an error with available transitions as context.
-// Both the error and the available options route to stderr.
 func (TransitionPresenter) PresentNotFound(name string, available []api.Transition) *present.OutputModel {
 	sections := []present.Section{
 		&present.MessageSection{

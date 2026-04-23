@@ -196,4 +196,31 @@ func TestCommentDetailSpec_ExtendedMatchesPresentDetailLabels(t *testing.T) {
 			t.Errorf("spec Header %q not emitted in extended mode", spec.Header)
 		}
 	}
+
+	specLabels := make(map[string]bool, len(extendedSpec))
+	for _, spec := range extendedSpec {
+		specLabels[spec.Header] = true
+	}
+	for _, f := range detail.Fields {
+		if !specLabels[f.Label] {
+			t.Errorf("rendered field %q has no matching CommentDetailSpec entry in extended mode", f.Label)
+		}
+	}
+
+	specOrder := make([]string, 0, len(extendedSpec))
+	for _, spec := range extendedSpec {
+		specOrder = append(specOrder, spec.Header)
+	}
+	renderedOrder := make([]string, 0, len(detail.Fields))
+	for _, f := range detail.Fields {
+		renderedOrder = append(renderedOrder, f.Label)
+	}
+	if len(specOrder) != len(renderedOrder) {
+		t.Fatalf("extended spec has %d entries, rendered has %d", len(specOrder), len(renderedOrder))
+	}
+	for i := range specOrder {
+		if specOrder[i] != renderedOrder[i] {
+			t.Errorf("extended order mismatch at index %d: spec=%q rendered=%q", i, specOrder[i], renderedOrder[i])
+		}
+	}
 }

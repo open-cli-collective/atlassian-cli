@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cache"
+	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 )
 
@@ -124,7 +126,10 @@ func TestRunList_IDOnly(t *testing.T) {
 
 func linkServer(t *testing.T) *httptest.Server {
 	t.Helper()
-	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			t.Errorf("linkServer: expected GET, got %s", r.Method)
+		}
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"fields": map[string]any{
 				"issuelinks": []any{
@@ -180,10 +185,12 @@ func TestRunList_FieldsProjection(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	out := stdout.String()
+	// LINK_ID is always present (Identity pin) even though not in --fields
 	testutil.Contains(t, out, "LINK_ID")
 	testutil.Contains(t, out, "TYPE")
 	testutil.Contains(t, out, "ISSUE")
 	testutil.NotContains(t, out, "SUMMARY")
+	testutil.NotContains(t, out, "DIRECTION")
 }
 
 func TestRunList_FieldsWithJSON_Error(t *testing.T) {
@@ -198,10 +205,9 @@ func TestRunList_FieldsWithJSON_Error(t *testing.T) {
 	opts.SetAPIClient(client)
 
 	err = runList(context.Background(), opts, "PROJ-123", "TYPE")
-	if err == nil {
-		t.Fatal("expected error for --fields + --output json")
+	if !errors.Is(err, jtkpresent.ErrFieldsWithJSON) {
+		t.Fatalf("expected ErrFieldsWithJSON, got %v", err)
 	}
-	testutil.Contains(t, err.Error(), "not supported")
 }
 
 func TestRunCreate(t *testing.T) {

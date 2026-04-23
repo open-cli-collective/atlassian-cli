@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
+	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
 )
 
 // --- list tests ---
@@ -148,7 +150,10 @@ func TestRunList_Empty(t *testing.T) {
 
 func attachmentServer(t *testing.T) *httptest.Server {
 	t.Helper()
-	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			t.Errorf("attachmentServer: expected GET, got %s", r.Method)
+		}
 		var response struct {
 			Fields struct {
 				Attachment []api.Attachment `json:"attachment"`
@@ -242,10 +247,9 @@ func TestRunList_FieldsWithJSON_Error(t *testing.T) {
 	opts.SetAPIClient(client)
 
 	err = runList(context.Background(), opts, "TEST-1", "FILENAME")
-	if err == nil {
-		t.Fatal("expected error for --fields + --output json")
+	if !errors.Is(err, jtkpresent.ErrFieldsWithJSON) {
+		t.Fatalf("expected ErrFieldsWithJSON, got %v", err)
 	}
-	testutil.Contains(t, err.Error(), "not supported")
 }
 
 // --- add tests ---

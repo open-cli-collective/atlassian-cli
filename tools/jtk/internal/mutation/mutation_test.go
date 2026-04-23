@@ -224,11 +224,24 @@ func TestModelContainsStatus(t *testing.T) {
 	if ModelContainsStatus(model, "Backlog") {
 		t.Error("expected false for non-matching status")
 	}
+	if ModelContainsStatus(model, "In") {
+		t.Error("expected false for prefix collision: 'In' should not match 'In Development'")
+	}
 }
 
 func TestModelContainsStatus_EmptyModel(t *testing.T) {
 	model := &present.OutputModel{}
 	if ModelContainsStatus(model, "anything") {
 		t.Error("expected false for empty model")
+	}
+}
+
+func TestModelContainsField_EndOfLine(t *testing.T) {
+	model := successModel("Assignee: Aaron Wong")
+	if !ModelContainsField(model, "Assignee: ", "Aaron Wong") {
+		t.Error("expected true for value at end of line")
+	}
+	if ModelContainsField(model, "Assignee: ", "Aaron") {
+		t.Error("expected false for prefix collision at end of line")
 	}
 }

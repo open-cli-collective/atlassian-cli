@@ -108,19 +108,17 @@ func emitBestAvailable(opts *root.Options, lastModel *present.OutputModel, fallb
 }
 
 // ModelContainsStatus checks whether an issue detail OutputModel contains
-// the given status name in its "Status: <name>" line.  Issue detail models
-// are built from MessageSection lines (via msg() in present/issue.go),
-// not KVSection pairs.
-// ModelContainsStatus checks whether an issue detail OutputModel contains
-// the given status name.  The match is anchored: the status must appear as
-// "Status: <name>   " (followed by the triple-space field separator) or at
-// end-of-line, preventing false positives from prefix collisions like
-// "In" matching "In Development".
+// the given status name in a "Status: <name>" field.
 func ModelContainsStatus(model *present.OutputModel, targetStatus string) bool {
-	return modelFieldContains(model, "Status: ", targetStatus)
+	return ModelContainsField(model, "Status: ", targetStatus)
 }
 
-func modelFieldContains(model *present.OutputModel, prefix, value string) bool {
+// ModelContainsField checks whether any MessageSection in the model
+// contains "<prefix><value>" anchored at a field boundary.  The value
+// must be followed by the triple-space field separator ("   "), end of
+// string, or newline — preventing false positives where one value is a
+// prefix of another (e.g. "In" vs "In Development").
+func ModelContainsField(model *present.OutputModel, prefix, value string) bool {
 	needle := prefix + value
 	for _, section := range model.Sections {
 		ms, ok := section.(*present.MessageSection)
@@ -132,7 +130,11 @@ func modelFieldContains(model *present.OutputModel, prefix, value string) bool {
 			continue
 		}
 		after := idx + len(needle)
-		if after >= len(ms.Message) || ms.Message[after] == ' ' {
+		if after >= len(ms.Message) {
+			return true
+		}
+		rest := ms.Message[after:]
+		if strings.HasPrefix(rest, "   ") || rest[0] == '\n' {
 			return true
 		}
 	}

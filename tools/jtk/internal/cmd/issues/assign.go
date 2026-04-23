@@ -3,7 +3,6 @@ package issues
 
 import (
 	"context"
-	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -78,11 +77,11 @@ func runAssign(ctx context.Context, opts *root.Options, issueKey, userInput stri
 	var isFresh func(*present.OutputModel) bool
 	if displayName != "" {
 		isFresh = func(m *present.OutputModel) bool {
-			return modelContainsAssignee(m, displayName)
+			return mutation.ModelContainsField(m, "Assignee: ", displayName)
 		}
 	} else {
 		isFresh = func(m *present.OutputModel) bool {
-			return modelContainsAssignee(m, "-")
+			return mutation.ModelContainsField(m, "Assignee: ", "-")
 		}
 	}
 
@@ -104,23 +103,4 @@ func runAssign(ctx context.Context, opts *root.Options, issueKey, userInput stri
 			return jtkpresent.IssuePresenter{}.PresentAssigned(id, displayName)
 		},
 	})
-}
-
-func modelContainsAssignee(m *present.OutputModel, target string) bool {
-	needle := "Assignee: " + target
-	for _, section := range m.Sections {
-		ms, ok := section.(*present.MessageSection)
-		if !ok {
-			continue
-		}
-		idx := strings.Index(ms.Message, needle)
-		if idx < 0 {
-			continue
-		}
-		after := idx + len(needle)
-		if after >= len(ms.Message) || ms.Message[after] == ' ' {
-			return true
-		}
-	}
-	return false
 }

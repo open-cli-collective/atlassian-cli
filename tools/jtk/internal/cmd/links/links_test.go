@@ -122,6 +122,88 @@ func TestRunList_IDOnly(t *testing.T) {
 	testutil.Equal(t, stdout.String(), "17844\n")
 }
 
+func linkServer(t *testing.T) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"fields": map[string]any{
+				"issuelinks": []any{
+					map[string]any{
+						"id":   "17844",
+						"type": map[string]any{"id": "10100", "name": "Blocker", "inward": "is blocked by", "outward": "blocks"},
+						"outwardIssue": map[string]any{
+							"key":    "PROJ-2",
+							"fields": map[string]any{"summary": "Target", "status": map[string]any{"name": "Open"}},
+						},
+					},
+				},
+			},
+		})
+	}))
+}
+
+func TestRunList_Extended(t *testing.T) {
+	t.Parallel()
+	server := linkServer(t)
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}, Extended: true}
+	opts.SetAPIClient(client)
+
+	err = runList(context.Background(), opts, "PROJ-123", "")
+	testutil.RequireNoError(t, err)
+
+	out := stdout.String()
+	testutil.Contains(t, out, "TYPE_ID")
+	testutil.Contains(t, out, "STATUS")
+	testutil.Contains(t, out, "10100")
+	testutil.Contains(t, out, "Open")
+}
+
+func TestRunList_FieldsProjection(t *testing.T) {
+	t.Parallel()
+	server := linkServer(t)
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runList(context.Background(), opts, "PROJ-123", "TYPE,ISSUE")
+	testutil.RequireNoError(t, err)
+
+	out := stdout.String()
+	testutil.Contains(t, out, "LINK_ID")
+	testutil.Contains(t, out, "TYPE")
+	testutil.Contains(t, out, "ISSUE")
+	testutil.NotContains(t, out, "SUMMARY")
+}
+
+func TestRunList_FieldsWithJSON_Error(t *testing.T) {
+	t.Parallel()
+	server := linkServer(t)
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	opts := &root.Options{Output: "json", Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runList(context.Background(), opts, "PROJ-123", "TYPE")
+	if err == nil {
+		t.Fatal("expected error for --fields + --output json")
+	}
+	testutil.Contains(t, err.Error(), "not supported")
+}
+
 func TestRunCreate(t *testing.T) {
 	var capturedBody []byte
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

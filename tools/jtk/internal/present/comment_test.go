@@ -141,3 +141,59 @@ func TestCommentDetailSpec_MatchesPresentDetailLabels(t *testing.T) {
 		})
 	}
 }
+
+func TestCommentListSpec_ExtendedMatchesPresentListHeaders(t *testing.T) {
+	t.Parallel()
+	comments := singleComment()
+
+	extendedSpec := CommentListSpec.ForMode(true)
+	model := CommentPresenter{}.PresentList(comments, true)
+
+	var table *present.TableSection
+	for _, s := range model.Sections {
+		if ts, ok := s.(*present.TableSection); ok {
+			table = ts
+			break
+		}
+	}
+	if table == nil {
+		t.Fatal("no TableSection in extended PresentList output")
+	}
+	if len(table.Headers) != len(extendedSpec) {
+		t.Fatalf("header count mismatch: spec has %d, table has %d", len(extendedSpec), len(table.Headers))
+	}
+	for i, spec := range extendedSpec {
+		if table.Headers[i] != spec.Header {
+			t.Errorf("index %d: spec Header=%q, table header=%q", i, spec.Header, table.Headers[i])
+		}
+	}
+}
+
+func TestCommentDetailSpec_ExtendedMatchesPresentDetailLabels(t *testing.T) {
+	t.Parallel()
+	comments := singleComment()
+
+	extendedSpec := CommentDetailSpec.ForMode(true)
+	model := CommentPresenter{}.PresentListFull(comments, true)
+
+	var detail *present.DetailSection
+	for _, s := range model.Sections {
+		if ds, ok := s.(*present.DetailSection); ok {
+			detail = ds
+			break
+		}
+	}
+	if detail == nil {
+		t.Fatal("no DetailSection in extended PresentListFull output")
+	}
+
+	renderedLabels := make(map[string]bool, len(detail.Fields))
+	for _, f := range detail.Fields {
+		renderedLabels[f.Label] = true
+	}
+	for _, spec := range extendedSpec {
+		if !renderedLabels[spec.Header] {
+			t.Errorf("spec Header %q not emitted in extended mode", spec.Header)
+		}
+	}
+}

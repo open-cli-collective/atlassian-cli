@@ -12,6 +12,7 @@ import (
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/mutation"
 	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/resolve"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/text"
@@ -151,26 +152,51 @@ func runUpdate(ctx context.Context, opts *root.Options, issueKey, summary, descr
 		}
 	}
 
-	// If only --type was specified, we're already done
-	if len(fields) == 0 {
-		return nil
+	// If only --type was specified with no other field changes, still show
+	// post-state via the fetch-after-write path below.
+	var req *api.UpdateIssueRequest
+	if len(fields) > 0 {
+		req = api.BuildUpdateRequest(fields)
 	}
 
-	req := api.BuildUpdateRequest(fields)
-
-	if err := client.UpdateIssue(ctx, issueKey, req); err != nil {
-		return err
+	if opts.EmitIDOnly() {
+		if req != nil {
+			if err := client.UpdateIssue(ctx, issueKey, req); err != nil {
+				return err
+			}
+		}
+		return jtkpresent.EmitIDs(opts, []string{issueKey})
 	}
 
-	model := jtkpresent.IssuePresenter{}.PresentUpdated(issueKey)
-	out := present.Render(model, opts.RenderStyle())
-	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
-	_, _ = fmt.Fprint(opts.Stderr, out.Stderr)
-	return nil
+	return mutation.WriteAndPresent(ctx, opts, mutation.Config{
+		Write: func(ctx context.Context) (string, error) {
+			if req != nil {
+				if err := client.UpdateIssue(ctx, issueKey, req); err != nil {
+					return "", err
+				}
+			}
+			return issueKey, nil
+		},
+		Fetch: func(ctx context.Context, id string) (*present.OutputModel, error) {
+			issue, err := client.GetIssue(ctx, id)
+			if err != nil {
+				return nil, err
+			}
+			return jtkpresent.IssuePresenter{}.PresentDetail(
+				issue, client.IssueURL(id), opts.IsExtended(), opts.IsFullText(),
+			), nil
+		},
+		Fallback: func(id string) *present.OutputModel {
+			return jtkpresent.IssuePresenter{}.PresentUpdated(id)
+		},
+	})
 }
 
+// changeIssueType performs the type change via the bulk move API.
+// It emits progress advisories on stderr but does NOT emit any success
+// output to stdout — the caller is responsible for showing post-state
+// via the fetch-after-write path.
 func changeIssueType(ctx context.Context, client *api.Client, opts *root.Options, issueKey, targetTypeName string) error {
-	// Get the issue to find its project
 	issue, err := client.GetIssue(ctx, issueKey)
 	if err != nil {
 		return fmt.Errorf("failed to get issue: %w", err)
@@ -181,12 +207,7 @@ func changeIssueType(ctx context.Context, client *api.Client, opts *root.Options
 	}
 	projectKey := issue.Fields.Project.Key
 
-	// Check if the type is already correct
 	if issue.Fields.IssueType != nil && strings.EqualFold(issue.Fields.IssueType.Name, targetTypeName) {
-		model := jtkpresent.IssuePresenter{}.PresentTypeAlreadyCurrent(issueKey, targetTypeName)
-		out := present.Render(model, opts.RenderStyle())
-		_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
-		_, _ = fmt.Fprint(opts.Stderr, out.Stderr)
 		return nil
 	}
 
@@ -196,12 +217,10 @@ func changeIssueType(ctx context.Context, client *api.Client, opts *root.Options
 	}
 	targetIssueType := &resolvedType
 
-	// Progress message to stderr (advisory)
 	advisory := jtkpresent.IssuePresenter{}.PresentTypeChangeProgress(issueKey, targetIssueType.Name)
 	advOut := present.Render(advisory, opts.RenderStyle())
 	_, _ = fmt.Fprint(opts.Stderr, advOut.Stderr)
 
-	// Use the move API to change the type within the same project
 	req := api.BuildMoveRequest([]string{issueKey}, projectKey, targetIssueType.ID, false)
 
 	resp, err := client.MoveIssues(ctx, req)
@@ -212,7 +231,6 @@ func changeIssueType(ctx context.Context, client *api.Client, opts *root.Options
 		return fmt.Errorf("failed to change issue type: %w", err)
 	}
 
-	// Wait for completion
 	for {
 		status, err := client.GetMoveTaskStatus(ctx, resp.TaskID)
 		if err != nil {
@@ -226,9 +244,6 @@ func changeIssueType(ctx context.Context, client *api.Client, opts *root.Options
 					return fmt.Errorf("type change failed for %s: %s", failed.IssueKey, strings.Join(failed.Errors, ", "))
 				}
 			}
-			model := jtkpresent.IssuePresenter{}.PresentTypeChanged(issueKey, targetIssueType.Name)
-			out := present.Render(model, opts.RenderStyle())
-			_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
 			return nil
 
 		case "FAILED":

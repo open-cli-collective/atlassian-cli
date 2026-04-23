@@ -8,8 +8,11 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/open-cli-collective/atlassian-go/present"
+
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/mutation"
 	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
 )
 
@@ -189,9 +192,42 @@ func runDo(ctx context.Context, opts *root.Options, issueKey, transitionNameOrID
 		}
 	}
 
-	if err := client.DoTransition(ctx, issueKey, transitionID, fields); err != nil {
-		return err
+	if opts.EmitIDOnly() {
+		if err := client.DoTransition(ctx, issueKey, transitionID, fields); err != nil {
+			return err
+		}
+		return jtkpresent.EmitIDs(opts, []string{issueKey})
 	}
 
-	return jtkpresent.Emit(opts, jtkpresent.TransitionPresenter{}.PresentTransitioned(issueKey))
+	var targetStatus string
+	for _, t := range transitions {
+		if t.ID == transitionID {
+			targetStatus = t.To.Name
+			break
+		}
+	}
+
+	return mutation.WriteAndPresent(ctx, opts, mutation.Config{
+		Write: func(ctx context.Context) (string, error) {
+			return issueKey, client.DoTransition(ctx, issueKey, transitionID, fields)
+		},
+		Fetch: func(ctx context.Context, id string) (*present.OutputModel, error) {
+			issue, err := client.GetIssue(ctx, id)
+			if err != nil {
+				return nil, err
+			}
+			return jtkpresent.IssuePresenter{}.PresentDetail(
+				issue, client.IssueURL(id), opts.IsExtended(), opts.IsFullText(),
+			), nil
+		},
+		IsFresh: func(m *present.OutputModel) bool {
+			if targetStatus == "" {
+				return true
+			}
+			return mutation.ModelContainsStatus(m, targetStatus)
+		},
+		Fallback: func(id string) *present.OutputModel {
+			return jtkpresent.TransitionPresenter{}.PresentTransitioned(id)
+		},
+	})
 }

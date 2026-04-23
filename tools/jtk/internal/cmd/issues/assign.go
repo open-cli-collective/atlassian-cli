@@ -3,13 +3,14 @@ package issues
 
 import (
 	"context"
-	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/open-cli-collective/atlassian-go/present"
 
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/mutation"
 	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/resolve"
 )
@@ -67,13 +68,52 @@ func runAssign(ctx context.Context, opts *root.Options, issueKey, userInput stri
 		}
 	}
 
-	if err := client.AssignIssue(ctx, issueKey, accountID); err != nil {
-		return err
+	if opts.EmitIDOnly() {
+		if err := client.AssignIssue(ctx, issueKey, accountID); err != nil {
+			return err
+		}
+		return jtkpresent.EmitIDs(opts, []string{issueKey})
 	}
 
-	model := jtkpresent.IssuePresenter{}.PresentAssigned(issueKey, displayName)
-	out := present.Render(model, opts.RenderStyle())
-	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
-	_, _ = fmt.Fprint(opts.Stderr, out.Stderr)
-	return nil
+	var isFresh func(*present.OutputModel) bool
+	if displayName != "" {
+		isFresh = func(m *present.OutputModel) bool {
+			return modelContainsAssignee(m, displayName)
+		}
+	} else {
+		isFresh = func(m *present.OutputModel) bool {
+			return modelContainsAssignee(m, "-")
+		}
+	}
+
+	return mutation.WriteAndPresent(ctx, opts, mutation.Config{
+		Write: func(ctx context.Context) (string, error) {
+			return issueKey, client.AssignIssue(ctx, issueKey, accountID)
+		},
+		Fetch: func(ctx context.Context, id string) (*present.OutputModel, error) {
+			issue, err := client.GetIssue(ctx, id)
+			if err != nil {
+				return nil, err
+			}
+			return jtkpresent.IssuePresenter{}.PresentDetail(
+				issue, client.IssueURL(id), opts.IsExtended(), opts.IsFullText(),
+			), nil
+		},
+		IsFresh: isFresh,
+		Fallback: func(id string) *present.OutputModel {
+			return jtkpresent.IssuePresenter{}.PresentAssigned(id, displayName)
+		},
+	})
+}
+
+func modelContainsAssignee(m *present.OutputModel, target string) bool {
+	prefix := "Assignee: " + target
+	for _, section := range m.Sections {
+		if ms, ok := section.(*present.MessageSection); ok {
+			if strings.Contains(ms.Message, prefix) {
+				return true
+			}
+		}
+	}
+	return false
 }

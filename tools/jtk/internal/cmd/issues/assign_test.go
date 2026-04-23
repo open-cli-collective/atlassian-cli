@@ -19,27 +19,43 @@ import (
 	"github.com/open-cli-collective/jira-ticket-cli/internal/resolve"
 )
 
-// stubAssignServer returns a server that accepts the /assignee PUT and
-// captures the accountId body (or nil body on unassign). Any other request
-// is a test failure.
+// stubAssignServer returns a server that accepts the /assignee PUT,
+// captures the accountId body, and serves a GET for the post-write
+// fetch-after-write re-fetch.
 func stubAssignServer(t *testing.T, capture *string) *httptest.Server {
 	t.Helper()
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !strings.HasSuffix(r.URL.Path, "/assignee") || r.Method != http.MethodPut {
-			t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
-			w.WriteHeader(http.StatusNotFound)
+		if strings.HasSuffix(r.URL.Path, "/assignee") && r.Method == http.MethodPut {
+			body, _ := io.ReadAll(r.Body)
+			var payload map[string]any
+			_ = json.Unmarshal(body, &payload)
+			switch v := payload["accountId"].(type) {
+			case string:
+				*capture = v
+			case nil:
+				*capture = "<null>"
+			}
+			w.WriteHeader(http.StatusNoContent)
 			return
 		}
-		body, _ := io.ReadAll(r.Body)
-		var payload map[string]any
-		_ = json.Unmarshal(body, &payload)
-		switch v := payload["accountId"].(type) {
-		case string:
-			*capture = v
-		case nil:
-			*capture = "<null>"
+		if r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/rest/api/3/issue/") {
+			fields := map[string]any{
+				"summary":   "Test issue",
+				"status":    map[string]any{"name": "Backlog"},
+				"issuetype": map[string]any{"name": "SDLC"},
+				"priority":  map[string]any{"name": "Medium"},
+				"updated":   "2026-04-16T00:00:00.000+0000",
+			}
+			if *capture != "" && *capture != "<null>" {
+				fields["assignee"] = map[string]any{"displayName": *capture, "accountId": *capture}
+			}
+			issue := map[string]any{"key": "PROJ-123", "fields": fields}
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(issue)
+			return
 		}
-		w.WriteHeader(http.StatusNoContent)
+		t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
+		w.WriteHeader(http.StatusNotFound)
 	}))
 }
 
@@ -61,7 +77,8 @@ func TestRunAssign_ResolvesDisplayName(t *testing.T) {
 	err = runAssign(context.Background(), opts, "PROJ-123", "User One", false)
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, captured, "abc123")
-	testutil.Contains(t, stdout.String(), "User One")
+	testutil.Contains(t, stdout.String(), "PROJ-123")
+	testutil.Contains(t, stdout.String(), "Test issue")
 }
 
 func TestRunAssign_ResolvesByAccountID(t *testing.T) {
@@ -82,8 +99,8 @@ func TestRunAssign_ResolvesByAccountID(t *testing.T) {
 	err = runAssign(context.Background(), opts, "PROJ-123", "61292e4c4f29230069621c5f", false)
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, captured, "61292e4c4f29230069621c5f")
-	// Display name resolved from cache for the message.
-	testutil.Contains(t, stdout.String(), "Account User")
+	testutil.Contains(t, stdout.String(), "PROJ-123")
+	testutil.Contains(t, stdout.String(), "Test issue")
 }
 
 func TestRunAssign_SyntheticUserFallsBackToAccountID(t *testing.T) {
@@ -107,8 +124,8 @@ func TestRunAssign_SyntheticUserFallsBackToAccountID(t *testing.T) {
 	err = runAssign(context.Background(), opts, "PROJ-123", rawID, false)
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, captured, rawID)
-	// No cache hit → synthetic user → display name echoes the accountId.
-	testutil.Contains(t, stdout.String(), rawID)
+	testutil.Contains(t, stdout.String(), "PROJ-123")
+	testutil.Contains(t, stdout.String(), "Test issue")
 }
 
 func TestRunAssign_Unassign(t *testing.T) {
@@ -134,6 +151,7 @@ func TestRunAssign_Unassign(t *testing.T) {
 	err = runAssign(context.Background(), opts, "PROJ-123", "some-ignored-id", true)
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, captured, "<null>")
+	testutil.Contains(t, stdout.String(), "PROJ-123")
 }
 
 func TestRunAssign_ResolverNotFoundPropagates(t *testing.T) {

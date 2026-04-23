@@ -11,6 +11,7 @@ import (
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/mutation"
 	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/resolve"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/text"
@@ -144,19 +145,41 @@ func runCreate(ctx context.Context, opts *root.Options, project, issueType, summ
 
 	req := api.BuildCreateRequest(projectKey, typeName, summary, text.InterpretEscapes(description), extraFields)
 
-	issue, err := client.CreateIssue(ctx, req)
-	if err != nil {
-		return err
+	if opts.EmitIDOnly() {
+		issue, err := client.CreateIssue(ctx, req)
+		if err != nil {
+			return err
+		}
+		return jtkpresent.EmitIDs(opts, []string{issue.Key})
 	}
 
 	if opts.Output == "json" {
+		issue, err := client.CreateIssue(ctx, req)
+		if err != nil {
+			return err
+		}
 		return v.JSON(issue)
 	}
 
-	// Success message includes the URL for convenience
-	model := jtkpresent.IssuePresenter{}.PresentCreated(issue.Key, client.IssueURL(issue.Key))
-	out := present.Render(model, opts.RenderStyle())
-	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
-	_, _ = fmt.Fprint(opts.Stderr, out.Stderr)
-	return nil
+	return mutation.WriteAndPresent(ctx, opts, mutation.Config{
+		Write: func(ctx context.Context) (string, error) {
+			issue, err := client.CreateIssue(ctx, req)
+			if err != nil {
+				return "", err
+			}
+			return issue.Key, nil
+		},
+		Fetch: func(ctx context.Context, id string) (*present.OutputModel, error) {
+			issue, err := client.GetIssue(ctx, id)
+			if err != nil {
+				return nil, err
+			}
+			return jtkpresent.IssuePresenter{}.PresentDetail(
+				issue, client.IssueURL(id), opts.IsExtended(), opts.IsFullText(),
+			), nil
+		},
+		Fallback: func(id string) *present.OutputModel {
+			return jtkpresent.IssuePresenter{}.PresentCreated(id, client.IssueURL(id))
+		},
+	})
 }

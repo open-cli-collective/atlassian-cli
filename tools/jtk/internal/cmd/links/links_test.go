@@ -89,6 +89,39 @@ func TestRunList_NoLinks(t *testing.T) {
 	testutil.RequireNoError(t, err)
 }
 
+func TestRunList_IDOnly(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"fields": map[string]any{
+				"issuelinks": []any{
+					map[string]any{
+						"id":   "17844",
+						"type": map[string]any{"id": "10", "name": "Blocker", "inward": "is blocked by", "outward": "blocks"},
+						"outwardIssue": map[string]any{
+							"key":    "PROJ-2",
+							"fields": map[string]any{"summary": "Target"},
+						},
+					},
+				},
+			},
+		})
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}, IDOnly: true}
+	opts.SetAPIClient(client)
+
+	err = runList(context.Background(), opts, "PROJ-123", "")
+	testutil.RequireNoError(t, err)
+
+	testutil.Equal(t, stdout.String(), "17844\n")
+}
+
 func TestRunCreate(t *testing.T) {
 	var capturedBody []byte
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

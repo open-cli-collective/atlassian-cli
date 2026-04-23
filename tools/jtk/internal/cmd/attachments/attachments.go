@@ -107,7 +107,19 @@ func runList(ctx context.Context, opts *root.Options, issueKey, fieldsFlag strin
 	}
 
 	if v.Format == view.FormatJSON {
-		return v.JSON(attachments)
+		data := make([]map[string]any, 0, len(attachments))
+		for _, att := range attachments {
+			data = append(data, map[string]any{
+				"id":       att.ID.String(),
+				"filename": att.Filename,
+				"size":     att.Size,
+				"mimeType": att.MimeType,
+				"created":  att.Created,
+				"author":   att.Author.DisplayName,
+				"content":  att.Content,
+			})
+		}
+		return v.JSON(data)
 	}
 
 	model := jtkpresent.AttachmentPresenter{}.PresentList(attachments, opts.IsExtended())

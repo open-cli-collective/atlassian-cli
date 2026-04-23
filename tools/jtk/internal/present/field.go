@@ -19,7 +19,7 @@ func (FieldPresenter) PresentList(fields []api.Field, extended bool) *present.Ou
 	if extended {
 		headers = []string{"ID", "TYPE", "SEARCHABLE", "NAVIGABLE", "ORDERABLE", "CLAUSE_NAMES", "NAME"}
 	} else {
-		headers = []string{"ID", "TYPE", "NAME"}
+		headers = []string{"ID", "NAME", "TYPE", "CUSTOM"}
 	}
 
 	rows := make([]present.Row, len(fields))
@@ -41,8 +41,12 @@ func (FieldPresenter) PresentList(fields []api.Field, extended bool) *present.Ou
 				},
 			}
 		} else {
+			custom := "no"
+			if f.Custom {
+				custom = "yes"
+			}
 			rows[i] = present.Row{
-				Cells: []string{f.ID, OrDash(f.Schema.Type), f.Name},
+				Cells: []string{f.ID, f.Name, OrDash(f.Schema.Type), custom},
 			}
 		}
 	}

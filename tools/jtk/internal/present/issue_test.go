@@ -390,6 +390,7 @@ func TestStoryPoints_Formatting(t *testing.T) {
 		{"null value", map[string]any{"customfield_10035": nil}, "-"},
 		{"integer 5", map[string]any{"customfield_10035": float64(5)}, "5"},
 		{"float 3.5", map[string]any{"customfield_10035": float64(3.5)}, "3.5"},
+		{"string value", map[string]any{"customfield_10035": "five"}, "five"},
 	}
 
 	for _, tc := range cases {

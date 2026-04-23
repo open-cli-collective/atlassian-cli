@@ -226,3 +226,42 @@ func TestRunTypes_DescriptionTruncation(t *testing.T) {
 	testutil.NotContains(t, output, longDesc)
 	testutil.Contains(t, output, "...")
 }
+
+func TestRunTypes_IDOnly(t *testing.T) {
+	seedCacheForIssues(t)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		response := api.ProjectDetail{
+			ID:   json.Number("10000"),
+			Key:  "TEST",
+			Name: "Test Project",
+			IssueTypes: []api.IssueType{
+				{ID: "10001", Name: "Bug"},
+				{ID: "10002", Name: "Task"},
+			},
+		}
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{
+		URL:      server.URL,
+		Email:    "test@example.com",
+		APIToken: "token",
+	})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{
+		Stdout: &stdout,
+		Stderr: &bytes.Buffer{},
+		IDOnly: true,
+	}
+	opts.SetAPIClient(client)
+
+	err = runTypes(context.Background(), opts, "TEST")
+	testutil.RequireNoError(t, err)
+
+	output := stdout.String()
+	testutil.Equal(t, output, "10001\n10002\n")
+}

@@ -36,6 +36,7 @@ type Config struct {
 	// Fallback builds the model emitted when every fetch attempt fails.
 	// Receives the entity ID from Write.  Must preserve the full
 	// semantic context of the mutation (assign vs unassign, create URL, …).
+	// Required — panics if nil and all fetches fail.
 	Fallback func(id string) *present.OutputModel
 }
 
@@ -100,6 +101,9 @@ func emitBestAvailable(opts *root.Options, lastModel *present.OutputModel, fallb
 	advisory := jtkpresent.MutationPresenter{}.Advisory("post-state unavailable; showing confirmation only")
 	_ = jtkpresent.Emit(opts, advisory)
 
+	if fallback == nil {
+		return jtkpresent.Emit(opts, jtkpresent.MutationPresenter{}.Success("Completed %s", id))
+	}
 	return jtkpresent.Emit(opts, fallback(id))
 }
 
@@ -107,13 +111,29 @@ func emitBestAvailable(opts *root.Options, lastModel *present.OutputModel, fallb
 // the given status name in its "Status: <name>" line.  Issue detail models
 // are built from MessageSection lines (via msg() in present/issue.go),
 // not KVSection pairs.
+// ModelContainsStatus checks whether an issue detail OutputModel contains
+// the given status name.  The match is anchored: the status must appear as
+// "Status: <name>   " (followed by the triple-space field separator) or at
+// end-of-line, preventing false positives from prefix collisions like
+// "In" matching "In Development".
 func ModelContainsStatus(model *present.OutputModel, targetStatus string) bool {
-	prefix := "Status: " + targetStatus
+	return modelFieldContains(model, "Status: ", targetStatus)
+}
+
+func modelFieldContains(model *present.OutputModel, prefix, value string) bool {
+	needle := prefix + value
 	for _, section := range model.Sections {
-		if ms, ok := section.(*present.MessageSection); ok {
-			if strings.Contains(ms.Message, prefix) {
-				return true
-			}
+		ms, ok := section.(*present.MessageSection)
+		if !ok {
+			continue
+		}
+		idx := strings.Index(ms.Message, needle)
+		if idx < 0 {
+			continue
+		}
+		after := idx + len(needle)
+		if after >= len(ms.Message) || ms.Message[after] == ' ' {
+			return true
 		}
 	}
 	return false

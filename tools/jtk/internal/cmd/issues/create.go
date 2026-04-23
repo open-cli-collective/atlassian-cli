@@ -158,6 +158,7 @@ func runCreate(ctx context.Context, opts *root.Options, project, issueType, summ
 		return v.JSON(issue)
 	}
 
+	// Write already executed above; the closure just provides the key.
 	return mutation.WriteAndPresent(ctx, opts, mutation.Config{
 		Write: func(_ context.Context) (string, error) {
 			return issue.Key, nil

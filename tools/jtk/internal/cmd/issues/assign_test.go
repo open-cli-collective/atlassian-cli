@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -29,21 +30,27 @@ func init() { mutation.BackoffSchedule = []time.Duration{0, 0, 0, 0} }
 // name so the GET response returns the name the IsFresh callback expects.
 func stubAssignServer(t *testing.T, capture *string, assigneeNames map[string]string) *httptest.Server {
 	t.Helper()
+	var mu sync.Mutex
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasSuffix(r.URL.Path, "/assignee") && r.Method == http.MethodPut {
 			body, _ := io.ReadAll(r.Body)
 			var payload map[string]any
 			_ = json.Unmarshal(body, &payload)
+			mu.Lock()
 			switch v := payload["accountId"].(type) {
 			case string:
 				*capture = v
 			case nil:
 				*capture = "<null>"
 			}
+			mu.Unlock()
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
 		if r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/rest/api/3/issue/") {
+			mu.Lock()
+			cur := *capture
+			mu.Unlock()
 			fields := map[string]any{
 				"summary":   "Test issue",
 				"status":    map[string]any{"name": "Backlog"},
@@ -51,12 +58,12 @@ func stubAssignServer(t *testing.T, capture *string, assigneeNames map[string]st
 				"priority":  map[string]any{"name": "Medium"},
 				"updated":   "2026-04-16T00:00:00.000+0000",
 			}
-			if *capture != "" && *capture != "<null>" {
-				name := *capture
-				if n, ok := assigneeNames[*capture]; ok {
+			if cur != "" && cur != "<null>" {
+				name := cur
+				if n, ok := assigneeNames[cur]; ok {
 					name = n
 				}
-				fields["assignee"] = map[string]any{"displayName": name, "accountId": *capture}
+				fields["assignee"] = map[string]any{"displayName": name, "accountId": cur}
 			}
 			issue := map[string]any{"key": "PROJ-123", "fields": fields}
 			w.Header().Set("Content-Type", "application/json")

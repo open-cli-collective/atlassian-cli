@@ -107,12 +107,19 @@ func runAssign(ctx context.Context, opts *root.Options, issueKey, userInput stri
 }
 
 func modelContainsAssignee(m *present.OutputModel, target string) bool {
-	prefix := "Assignee: " + target
+	needle := "Assignee: " + target
 	for _, section := range m.Sections {
-		if ms, ok := section.(*present.MessageSection); ok {
-			if strings.Contains(ms.Message, prefix) {
-				return true
-			}
+		ms, ok := section.(*present.MessageSection)
+		if !ok {
+			continue
+		}
+		idx := strings.Index(ms.Message, needle)
+		if idx < 0 {
+			continue
+		}
+		after := idx + len(needle)
+		if after >= len(ms.Message) || ms.Message[after] == ' ' {
+			return true
 		}
 	}
 	return false

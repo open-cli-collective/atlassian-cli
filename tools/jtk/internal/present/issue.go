@@ -62,7 +62,7 @@ var IssueDetailSpec = projection.Registry{
 // Output uses msg() sections (title line + compound KV rows) matching
 // the boards/sprints/projects pattern. Labels and Components rows
 // appear only when non-empty in default mode; always in extended.
-func (IssuePresenter) PresentDetail(issue *api.Issue, issueURL string, extended bool, fulltext bool) *present.OutputModel {
+func (IssuePresenter) PresentDetail(issue *api.Issue, _ string, extended bool, fulltext bool) *present.OutputModel {
 	sections := []present.Section{
 		msg(fmt.Sprintf("%s  %s", issue.Key, issue.Fields.Summary)),
 	}
@@ -239,7 +239,7 @@ func issueDescriptionSection(issue *api.Issue, fulltext bool) []present.Section 
 }
 
 // PresentDetailProjection builds a DetailSection view for `issues get --fields`.
-func (IssuePresenter) PresentDetailProjection(issue *api.Issue, issueURL string, fulltext bool) *present.OutputModel {
+func (IssuePresenter) PresentDetailProjection(issue *api.Issue, _ string, fulltext bool) *present.OutputModel {
 	fields := []present.Field{
 		{Label: "Key", Value: issue.Key},
 		{Label: "Summary", Value: issue.Fields.Summary},

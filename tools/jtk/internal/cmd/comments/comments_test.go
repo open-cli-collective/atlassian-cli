@@ -654,7 +654,7 @@ func TestRunAdd_PostState(t *testing.T) {
 
 func TestRunDelete_TextConfirmation(t *testing.T) {
 	t.Parallel()
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 	}))
 	defer server.Close()
@@ -674,7 +674,7 @@ func TestRunDelete_TextConfirmation(t *testing.T) {
 
 func TestRunDelete_JSONOutputEmitsText(t *testing.T) {
 	t.Parallel()
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 	}))
 	defer server.Close()

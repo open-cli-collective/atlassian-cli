@@ -36,7 +36,7 @@ func main() {
 	defer stop()
 
 	if err := run(ctx); err != nil {
-		if !errors.Is(err, refresh.ErrAlreadyReported) {
+		if !errors.Is(err, root.ErrAlreadyReported) {
 			fmt.Fprintln(os.Stderr, err)
 		}
 		os.Exit(exitcode.GeneralError)

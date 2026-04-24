@@ -230,8 +230,6 @@ func newDeleteCmd(opts *root.Options) *cobra.Command {
 }
 
 func runDelete(opts *root.Options, dashboardID string) error {
-	v := opts.View()
-
 	client, err := opts.APIClient()
 	if err != nil {
 		return err
@@ -239,10 +237,6 @@ func runDelete(opts *root.Options, dashboardID string) error {
 
 	if err := client.DeleteDashboard(dashboardID); err != nil {
 		return err
-	}
-
-	if v.Format == view.FormatJSON {
-		return v.JSON(map[string]string{"status": "deleted", "dashboardId": dashboardID})
 	}
 
 	model := jtkpresent.DashboardPresenter{}.PresentDeleted(dashboardID)
@@ -409,8 +403,6 @@ func newGadgetsRemoveCmd(opts *root.Options) *cobra.Command {
 }
 
 func runGadgetsRemove(opts *root.Options, dashboardID string, gadgetID int) error {
-	v := opts.View()
-
 	client, err := opts.APIClient()
 	if err != nil {
 		return err
@@ -418,14 +410,6 @@ func runGadgetsRemove(opts *root.Options, dashboardID string, gadgetID int) erro
 
 	if err := client.RemoveDashboardGadget(dashboardID, gadgetID); err != nil {
 		return err
-	}
-
-	if v.Format == view.FormatJSON {
-		return v.JSON(map[string]interface{}{
-			"status":      "removed",
-			"dashboardId": dashboardID,
-			"gadgetId":    gadgetID,
-		})
 	}
 
 	model := jtkpresent.DashboardPresenter{}.PresentGadgetRemoved(gadgetID, dashboardID)

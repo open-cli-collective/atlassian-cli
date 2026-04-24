@@ -254,7 +254,7 @@ func (ProjectPresenter) PresentDeleted(key string) *present.OutputModel {
 		Sections: []present.Section{
 			&present.MessageSection{
 				Kind:    present.MessageSuccess,
-				Message: fmt.Sprintf("Deleted project %s (moved to trash)", key),
+				Message: fmt.Sprintf("Deleted project %s (moved to trash — recoverable for 60 days via projects restore)", key),
 				Stream:  present.StreamStdout,
 			},
 		},

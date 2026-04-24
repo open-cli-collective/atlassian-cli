@@ -172,7 +172,7 @@ func TestRun_Refresh_ContinuesOnError(t *testing.T) {
 	testutil.Error(t, err)
 	// Returned error signals "already reported" so main.go won't re-print; the
 	// failure detail lives in the stderr section rendered by the presenter.
-	if !errors.Is(err, ErrAlreadyReported) {
+	if !errors.Is(err, root.ErrAlreadyReported) {
 		t.Fatalf("expected ErrAlreadyReported, got %v", err)
 	}
 	testutil.Contains(t, stdout.String(), "Refreshing ok")

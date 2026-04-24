@@ -2,6 +2,7 @@
 package root
 
 import (
+	"errors"
 	"io"
 	"os"
 
@@ -15,6 +16,10 @@ import (
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/config"
 )
+
+// ErrAlreadyReported signals that the command has already rendered its failure
+// output to stderr. main.go checks for this to avoid double-printing.
+var ErrAlreadyReported = errors.New("already reported")
 
 // Options contains global options for commands
 type Options struct {

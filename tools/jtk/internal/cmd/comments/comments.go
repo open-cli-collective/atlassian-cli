@@ -233,8 +233,6 @@ func newDeleteCmd(opts *root.Options) *cobra.Command {
 }
 
 func runDelete(ctx context.Context, opts *root.Options, issueKey, commentID string) error {
-	v := opts.View()
-
 	client, err := opts.APIClient()
 	if err != nil {
 		return err
@@ -242,10 +240,6 @@ func runDelete(ctx context.Context, opts *root.Options, issueKey, commentID stri
 
 	if err := client.DeleteComment(ctx, issueKey, commentID); err != nil {
 		return err
-	}
-
-	if opts.Output == "json" {
-		return v.JSON(map[string]string{"status": "deleted", "commentId": commentID})
 	}
 
 	return jtkpresent.Emit(opts, jtkpresent.CommentPresenter{}.PresentDeleted(commentID, issueKey))

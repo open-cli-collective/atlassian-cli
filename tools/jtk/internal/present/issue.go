@@ -531,7 +531,7 @@ func (IssuePresenter) PresentDeleted(key string) *present.OutputModel {
 		Sections: []present.Section{
 			&present.MessageSection{
 				Kind:    present.MessageSuccess,
-				Message: fmt.Sprintf("Deleted issue %s", key),
+				Message: fmt.Sprintf("Deleted %s", key),
 				Stream:  present.StreamStdout,
 			},
 		},

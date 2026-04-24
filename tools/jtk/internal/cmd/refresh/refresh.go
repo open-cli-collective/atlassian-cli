@@ -18,11 +18,6 @@ import (
 	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
 )
 
-// ErrAlreadyReported signals that the command has already rendered its failure
-// output via the modeled path; the process entrypoint should exit non-zero
-// without re-printing the error.
-var ErrAlreadyReported = errors.New("refresh had failures; already reported")
-
 // Register registers the refresh command.
 func Register(parent *cobra.Command, opts *root.Options) {
 	var statusOnly bool
@@ -154,7 +149,7 @@ func runRefresh(ctx context.Context, opts *root.Options, client *api.Client, sel
 	_, _ = fmt.Fprint(opts.Stderr, out.Stderr)
 
 	if failed > 0 {
-		return fmt.Errorf("%w (%d resource(s))", ErrAlreadyReported, failed)
+		return fmt.Errorf("%w (%d resource(s))", root.ErrAlreadyReported, failed)
 	}
 	return nil
 }

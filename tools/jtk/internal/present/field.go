@@ -177,7 +177,7 @@ func (FieldPresenter) PresentTrashed(fieldID string) *present.OutputModel {
 		Sections: []present.Section{
 			&present.MessageSection{
 				Kind:    present.MessageSuccess,
-				Message: fmt.Sprintf("Trashed field %s", fieldID),
+				Message: fmt.Sprintf("Deleted field %s (moved to trash — use fields restore to recover)", fieldID),
 				Stream:  present.StreamStdout,
 			},
 		},
@@ -307,12 +307,12 @@ func (FieldPresenter) PresentOptionUpdated(optionID string) *present.OutputModel
 }
 
 // PresentOptionDeleted creates a success message for option deletion.
-func (FieldPresenter) PresentOptionDeleted(optionID, fieldID string) *present.OutputModel {
+func (FieldPresenter) PresentOptionDeleted(optionID, contextID string) *present.OutputModel {
 	return &present.OutputModel{
 		Sections: []present.Section{
 			&present.MessageSection{
 				Kind:    present.MessageSuccess,
-				Message: fmt.Sprintf("Deleted option %s from field %s", optionID, fieldID),
+				Message: fmt.Sprintf("Deleted option %s from context %s", optionID, contextID),
 				Stream:  present.StreamStdout,
 			},
 		},

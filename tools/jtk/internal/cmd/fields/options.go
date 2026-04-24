@@ -290,7 +290,7 @@ func runOptionsDelete(ctx context.Context, opts *root.Options, fieldID, optionID
 		return err
 	}
 
-	model := jtkpresent.FieldPresenter{}.PresentOptionDeleted(optionID, fieldID)
+	model := jtkpresent.FieldPresenter{}.PresentOptionDeleted(optionID, ctxID)
 	out := present.Render(model, opts.RenderStyle())
 	fmt.Fprint(opts.Stdout, out.Stdout)
 	return nil

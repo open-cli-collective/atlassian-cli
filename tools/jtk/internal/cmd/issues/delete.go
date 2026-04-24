@@ -3,6 +3,7 @@ package issues
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -17,17 +18,20 @@ func newDeleteCmd(opts *root.Options) *cobra.Command {
 	var force bool
 
 	cmd := &cobra.Command{
-		Use:   "delete <issue-key>",
-		Short: "Delete an issue",
-		Long:  "Permanently delete a Jira issue. This action cannot be undone.",
+		Use:   "delete <issue-key> [<issue-key>...]",
+		Short: "Delete one or more issues",
+		Long:  "Permanently delete one or more Jira issues. This action cannot be undone.",
 		Example: `  # Delete an issue (will prompt for confirmation)
   jtk issues delete PROJ-123
 
+  # Delete multiple issues
+  jtk issues delete PROJ-123 PROJ-124 PROJ-125
+
   # Delete without confirmation
   jtk issues delete PROJ-123 --force`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runDelete(cmd.Context(), opts, args[0], force)
+			return runDelete(cmd.Context(), opts, args, force)
 		},
 	}
 
@@ -36,10 +40,15 @@ func newDeleteCmd(opts *root.Options) *cobra.Command {
 	return cmd
 }
 
-func runDelete(ctx context.Context, opts *root.Options, issueKey string, force bool) error {
+func runDelete(ctx context.Context, opts *root.Options, issueKeys []string, force bool) error {
 	if !force {
-		// Interactive prompt goes directly to stderr
-		fmt.Fprintf(opts.Stderr, "This will permanently delete issue %s. This action cannot be undone.\n", issueKey)
+		var msg string
+		if len(issueKeys) == 1 {
+			msg = fmt.Sprintf("This will permanently delete issue %s. This action cannot be undone.", issueKeys[0])
+		} else {
+			msg = fmt.Sprintf("This will permanently delete %d issues: %s. This action cannot be undone.", len(issueKeys), strings.Join(issueKeys, ", "))
+		}
+		fmt.Fprintln(opts.Stderr, msg)
 		fmt.Fprint(opts.Stderr, "Are you sure? [y/N]: ")
 
 		confirmed, err := prompt.Confirm(opts.Stdin)
@@ -59,13 +68,21 @@ func runDelete(ctx context.Context, opts *root.Options, issueKey string, force b
 		return err
 	}
 
-	if err := client.DeleteIssue(ctx, issueKey); err != nil {
-		return err
+	var failed int
+	for _, key := range issueKeys {
+		if err := client.DeleteIssue(ctx, key); err != nil {
+			fmt.Fprintf(opts.Stderr, "Failed to delete %s: %s\n", key, err)
+			failed++
+			continue
+		}
+
+		model := jtkpresent.IssuePresenter{}.PresentDeleted(key)
+		out := present.Render(model, opts.RenderStyle())
+		_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
 	}
 
-	model := jtkpresent.IssuePresenter{}.PresentDeleted(issueKey)
-	out := present.Render(model, opts.RenderStyle())
-	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
-	_, _ = fmt.Fprint(opts.Stderr, out.Stderr)
+	if failed > 0 {
+		return fmt.Errorf("%w (%d of %d issue(s) failed)", root.ErrAlreadyReported, failed, len(issueKeys))
+	}
 	return nil
 }

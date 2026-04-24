@@ -180,12 +180,12 @@ func (AutomationPresenter) PresentUpdateComplete(name, uuid, state, ruleID strin
 }
 
 // PresentDeleted creates a success message for rule deletion.
-func (AutomationPresenter) PresentDeleted(name, ruleID string) *present.OutputModel {
+func (AutomationPresenter) PresentDeleted(ruleID string) *present.OutputModel {
 	return &present.OutputModel{
 		Sections: []present.Section{
 			&present.MessageSection{
 				Kind:    present.MessageSuccess,
-				Message: fmt.Sprintf("Deleted automation rule %q (%s)", name, ruleID),
+				Message: fmt.Sprintf("Deleted automation %s", ruleID),
 				Stream:  present.StreamStdout,
 			},
 		},

@@ -56,8 +56,8 @@ func TestRunDelete_DisabledRule(t *testing.T) {
 
 	err = runDelete(context.Background(), opts, "42", true)
 	testutil.RequireNoError(t, err)
-	testutil.Contains(t, stdout.String(), "Deleted")
-	testutil.Contains(t, stdout.String(), "Test Rule")
+	testutil.Equal(t, stdout.String(), "Deleted automation 42\n")
+	testutil.Equal(t, stderr.String(), "")
 	// Should be GET + DELETE (no disable needed)
 	testutil.Len(t, methods, 2)
 	testutil.Equal(t, methods[0], http.MethodGet)
@@ -106,7 +106,8 @@ func TestRunDelete_EnabledRule_DisablesFirst(t *testing.T) {
 
 	err = runDelete(context.Background(), opts, "42", true)
 	testutil.RequireNoError(t, err)
-	testutil.Contains(t, stdout.String(), "Deleted")
+	testutil.Equal(t, stdout.String(), "Deleted automation 42\n")
+	testutil.Equal(t, stderr.String(), "")
 	// Should be GET + PUT (disable) + DELETE
 	testutil.Len(t, methods, 3)
 	testutil.Equal(t, methods[0], http.MethodGet)
@@ -155,10 +156,10 @@ func TestRunDelete_PromptDeclined(t *testing.T) {
 	err = runDelete(context.Background(), opts, "42", false)
 	testutil.RequireNoError(t, err)
 	testutil.Contains(t, stderr.String(), "permanently delete")
-	testutil.Contains(t, stdout.String(), "cancelled")
+	testutil.Equal(t, stdout.String(), "Deletion cancelled.\n")
 }
 
-func TestRunDelete_JSONOutput(t *testing.T) {
+func TestRunDelete_JSONOutputIgnored(t *testing.T) {
 	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -197,9 +198,6 @@ func TestRunDelete_JSONOutput(t *testing.T) {
 
 	err = runDelete(context.Background(), opts, "42", true)
 	testutil.RequireNoError(t, err)
-
-	var result map[string]string
-	testutil.RequireNoError(t, json.Unmarshal(stdout.Bytes(), &result))
-	testutil.Equal(t, result["status"], "deleted")
-	testutil.Equal(t, result["name"], "JSON Rule")
+	testutil.Equal(t, stdout.String(), "Deleted automation 42\n")
+	testutil.Equal(t, stderr.String(), "")
 }

@@ -418,7 +418,7 @@ func runAdd(ctx context.Context, opts *root.Options, client *api.Client, sprintI
 			if len(found) == len(issueKeys) {
 				break
 			}
-			if startAt+len(result.Issues) >= result.Total {
+			if len(result.Issues) == 0 || startAt+len(result.Issues) >= result.Total {
 				break
 			}
 			startAt += len(result.Issues)

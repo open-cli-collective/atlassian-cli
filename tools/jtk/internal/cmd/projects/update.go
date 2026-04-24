@@ -83,6 +83,7 @@ func runUpdate(ctx context.Context, opts *root.Options, keyOrID, name, descripti
 		return v.JSON(project)
 	}
 
+	var lastFetched *api.ProjectDetail
 	return mutation.WriteAndPresent(ctx, opts, mutation.Config{
 		Write: func(_ context.Context) (string, error) {
 			return project.Key, nil
@@ -92,13 +93,20 @@ func runUpdate(ctx context.Context, opts *root.Options, keyOrID, name, descripti
 			if err != nil {
 				return nil, err
 			}
+			lastFetched = fetched
 			return jtkpresent.ProjectPresenter{}.PresentProjectDetail(fetched, opts.IsExtended()), nil
 		},
-		IsFresh: func(model *present.OutputModel) bool {
-			if name != "" && !mutation.ModelContainsField(model, "", name) {
+		IsFresh: func(_ *present.OutputModel) bool {
+			if lastFetched == nil {
 				return false
 			}
-			if description != "" && !mutation.ModelContainsField(model, "", description) {
+			if name != "" && lastFetched.Name != name {
+				return false
+			}
+			if description != "" && lastFetched.Description != description {
+				return false
+			}
+			if req.LeadAccountID != "" && lastFetched.Lead != nil && lastFetched.Lead.AccountID != req.LeadAccountID {
 				return false
 			}
 			return true

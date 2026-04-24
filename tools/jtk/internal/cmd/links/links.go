@@ -193,7 +193,7 @@ func runCreate(ctx context.Context, opts *root.Options, outwardKey, inwardKey, l
 		return err
 	}
 
-	if v.Format == view.FormatJSON {
+	if !opts.EmitIDOnly() && v.Format == view.FormatJSON {
 		return v.JSON(map[string]string{
 			"status":       "created",
 			"outwardIssue": outwardKey,

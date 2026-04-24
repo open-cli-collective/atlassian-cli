@@ -167,6 +167,7 @@ func TestRunDelete(t *testing.T) {
 }
 
 func TestRunDelete_JSONOutputEmitsText(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 	}))
@@ -230,6 +231,7 @@ func TestRunGadgetsRemove(t *testing.T) {
 }
 
 func TestRunGadgetsRemove_JSONOutputEmitsText(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 	}))

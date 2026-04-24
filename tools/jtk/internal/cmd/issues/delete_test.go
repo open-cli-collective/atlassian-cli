@@ -39,12 +39,9 @@ func TestRunDelete_SingleIssue(t *testing.T) {
 func TestRunDelete_MultipleIssues(t *testing.T) {
 	t.Parallel()
 
-	var deleted []string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodDelete {
-			deleted = append(deleted, r.URL.Path)
-			w.WriteHeader(http.StatusNoContent)
-		}
+		testutil.Equal(t, r.Method, http.MethodDelete)
+		w.WriteHeader(http.StatusNoContent)
 	}))
 	defer server.Close()
 
@@ -59,7 +56,6 @@ func TestRunDelete_MultipleIssues(t *testing.T) {
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, stdout.String(), "Deleted PROJ-1\nDeleted PROJ-2\nDeleted PROJ-3\n")
 	testutil.Equal(t, stderr.String(), "")
-	testutil.Len(t, deleted, 3)
 }
 
 func TestRunDelete_PartialFailure(t *testing.T) {

@@ -131,3 +131,79 @@ func TestRunDelete_BatchPromptDeclined(t *testing.T) {
 	testutil.Contains(t, stderr.String(), "3 issues")
 	testutil.Equal(t, stdout.String(), "Deletion cancelled.\n")
 }
+
+func TestRunDelete_PromptAccepted(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@example.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout, stderr bytes.Buffer
+	opts := &root.Options{
+		Output: "table",
+		Stdout: &stdout,
+		Stderr: &stderr,
+		Stdin:  bytes.NewBufferString("y\n"),
+	}
+	opts.SetAPIClient(client)
+
+	err = runDelete(context.Background(), opts, []string{"PROJ-123"}, false)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, stdout.String(), "Deleted PROJ-123\n")
+}
+
+func TestRunDelete_BatchPromptAccepted(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@example.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout, stderr bytes.Buffer
+	opts := &root.Options{
+		Output: "table",
+		Stdout: &stdout,
+		Stderr: &stderr,
+		Stdin:  bytes.NewBufferString("y\n"),
+	}
+	opts.SetAPIClient(client)
+
+	err = runDelete(context.Background(), opts, []string{"PROJ-1", "PROJ-2"}, false)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, stdout.String(), "Deleted PROJ-1\nDeleted PROJ-2\n")
+}
+
+func TestRunDelete_AllFailures(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`{"errorMessages":["Issue does not exist"]}`))
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@example.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout, stderr bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &stderr}
+	opts.SetAPIClient(client)
+
+	err = runDelete(context.Background(), opts, []string{"PROJ-1", "PROJ-2"}, true)
+	testutil.Error(t, err)
+	if !errors.Is(err, root.ErrAlreadyReported) {
+		t.Fatalf("expected ErrAlreadyReported, got %v", err)
+	}
+	testutil.Equal(t, stdout.String(), "")
+	testutil.Contains(t, stderr.String(), "Failed to delete PROJ-1")
+	testutil.Contains(t, stderr.String(), "Failed to delete PROJ-2")
+}

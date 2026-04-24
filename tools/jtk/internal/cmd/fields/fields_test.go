@@ -893,5 +893,54 @@ func TestRunOptionsDelete_NoForce_Declined(t *testing.T) {
 
 	err = runOptionsDelete(context.Background(), opts, "customfield_10100", "3", "", false)
 	testutil.RequireNoError(t, err)
-	testutil.Contains(t, stdout.String(), "Deletion cancelled")
+	testutil.Equal(t, stdout.String(), "Deletion cancelled.\n")
+}
+
+func TestRunDelete_JSONOutputEmitsText(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout, stderr bytes.Buffer
+	opts := &root.Options{Output: "json", Stdout: &stdout, Stderr: &stderr}
+	opts.SetAPIClient(client)
+
+	err = runDelete(context.Background(), opts, "customfield_10100", true)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, stdout.String(), "Deleted field customfield_10100 (moved to trash — use fields restore to recover)\n")
+	testutil.Equal(t, stderr.String(), "")
+}
+
+func TestRunOptionsDelete_JSONOutputEmitsText(t *testing.T) {
+	t.Parallel()
+	callCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		callCount++
+		if callCount == 1 {
+			_ = json.NewEncoder(w).Encode(api.FieldContextsResponse{
+				Values: []api.FieldContext{{ID: "10001", Name: "Default"}},
+			})
+			return
+		}
+		testutil.Equal(t, r.Method, http.MethodDelete)
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout, stderr bytes.Buffer
+	opts := &root.Options{Output: "json", Stdout: &stdout, Stderr: &stderr}
+	opts.SetAPIClient(client)
+
+	err = runOptionsDelete(context.Background(), opts, "customfield_10100", "3", "", true)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, stdout.String(), "Deleted option 3 from context 10001\n")
+	testutil.Equal(t, stderr.String(), "")
 }

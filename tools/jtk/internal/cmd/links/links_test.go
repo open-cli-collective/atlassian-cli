@@ -403,6 +403,14 @@ func createServerWithRefetch(t *testing.T) *httptest.Server {
 	}))
 }
 
+func seedLinkTypesForTest(t *testing.T) {
+	t.Helper()
+	isolateCache(t)
+	testutil.RequireNoError(t, cache.WriteResource("linktypes", "24h", []api.IssueLinkType{
+		{ID: "10100", Name: "Blocker", Inward: "is blocked by", Outward: "blocks"},
+	}))
+}
+
 func TestRunCreate_CanonicalRow(t *testing.T) {
 	t.Parallel()
 	server := createServerWithRefetch(t)
@@ -411,7 +419,7 @@ func TestRunCreate_CanonicalRow(t *testing.T) {
 	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
 	testutil.RequireNoError(t, err)
 
-	isolateCache(t)
+	seedLinkTypesForTest(t)
 	var stdout bytes.Buffer
 	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
@@ -440,7 +448,7 @@ func TestRunCreate_IDOnly(t *testing.T) {
 	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
 	testutil.RequireNoError(t, err)
 
-	isolateCache(t)
+	seedLinkTypesForTest(t)
 	var stdout bytes.Buffer
 	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}, IDOnly: true}
 	opts.SetAPIClient(client)

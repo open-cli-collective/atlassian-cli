@@ -163,7 +163,26 @@ func TestRunDelete(t *testing.T) {
 
 	err = runDelete(opts, "10001")
 	testutil.RequireNoError(t, err)
-	testutil.Contains(t, stdout.String(), "Deleted")
+	testutil.Equal(t, stdout.String(), "Deleted dashboard 10001\n")
+}
+
+func TestRunDelete_JSONOutputEmitsText(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	var stdout, stderr bytes.Buffer
+	opts := &root.Options{Output: "json", Stdout: &stdout, Stderr: &stderr}
+	opts.SetAPIClient(client)
+
+	err = runDelete(opts, "10001")
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, stdout.String(), "Deleted dashboard 10001\n")
+	testutil.Equal(t, stderr.String(), "")
 }
 
 func TestRunGadgetsList(t *testing.T) {
@@ -207,7 +226,26 @@ func TestRunGadgetsRemove(t *testing.T) {
 
 	err = runGadgetsRemove(opts, "10001", 42)
 	testutil.RequireNoError(t, err)
-	testutil.Contains(t, stdout.String(), "Removed")
+	testutil.Equal(t, stdout.String(), "Removed gadget 42 from dashboard 10001\n")
+}
+
+func TestRunGadgetsRemove_JSONOutputEmitsText(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	var stdout, stderr bytes.Buffer
+	opts := &root.Options{Output: "json", Stdout: &stdout, Stderr: &stderr}
+	opts.SetAPIClient(client)
+
+	err = runGadgetsRemove(opts, "10001", 42)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, stdout.String(), "Removed gadget 42 from dashboard 10001\n")
+	testutil.Equal(t, stderr.String(), "")
 }
 
 func TestRunGadgetsAdd(t *testing.T) {

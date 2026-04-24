@@ -352,7 +352,7 @@ func TestRunDelete_Force(t *testing.T) {
 
 	err = runDelete(context.Background(), opts, "customfield_10100", true)
 	testutil.RequireNoError(t, err)
-	testutil.Contains(t, stdout.String(), "Deleted field customfield_10100 (moved to trash")
+	testutil.Equal(t, stdout.String(), "Deleted field customfield_10100 (moved to trash — use fields restore to recover)\n")
 }
 
 func TestRunDelete_NoForce_Declined(t *testing.T) {
@@ -371,7 +371,7 @@ func TestRunDelete_NoForce_Declined(t *testing.T) {
 
 	err = runDelete(context.Background(), opts, "customfield_10100", false)
 	testutil.RequireNoError(t, err)
-	testutil.Contains(t, stdout.String(), "Deletion cancelled")
+	testutil.Equal(t, stdout.String(), "Deletion cancelled.\n")
 }
 
 func TestRunDelete_NoForce_Accepted(t *testing.T) {
@@ -396,7 +396,7 @@ func TestRunDelete_NoForce_Accepted(t *testing.T) {
 
 	err = runDelete(context.Background(), opts, "customfield_10100", false)
 	testutil.RequireNoError(t, err)
-	testutil.Contains(t, stdout.String(), "Deleted field customfield_10100 (moved to trash")
+	testutil.Equal(t, stdout.String(), "Deleted field customfield_10100 (moved to trash — use fields restore to recover)\n")
 }
 
 func TestRunRestore(t *testing.T) {

@@ -87,8 +87,7 @@ func TestRunDelete_PartialFailure(t *testing.T) {
 	if !errors.Is(err, root.ErrAlreadyReported) {
 		t.Fatalf("expected ErrAlreadyReported, got %v", err)
 	}
-	testutil.Contains(t, stdout.String(), "Deleted PROJ-1")
-	testutil.Contains(t, stdout.String(), "Deleted PROJ-3")
+	testutil.Equal(t, stdout.String(), "Deleted PROJ-1\nDeleted PROJ-3\n")
 	testutil.Contains(t, stderr.String(), "Failed to delete PROJ-2")
 }
 

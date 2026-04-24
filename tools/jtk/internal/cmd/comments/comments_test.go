@@ -651,3 +651,43 @@ func TestRunAdd_PostState(t *testing.T) {
 	testutil.Contains(t, stdout.String(), "TEST-1 #21276")
 	testutil.Contains(t, stdout.String(), "Alice")
 }
+
+func TestRunDelete_TextConfirmation(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout, stderr bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &stderr}
+	opts.SetAPIClient(client)
+
+	err = runDelete(context.Background(), opts, "PROJ-1", "12345")
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, stdout.String(), "Deleted comment 12345 from PROJ-1\n")
+	testutil.Equal(t, stderr.String(), "")
+}
+
+func TestRunDelete_JSONOutputEmitsText(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout, stderr bytes.Buffer
+	opts := &root.Options{Output: "json", Stdout: &stdout, Stderr: &stderr}
+	opts.SetAPIClient(client)
+
+	err = runDelete(context.Background(), opts, "PROJ-1", "12345")
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, stdout.String(), "Deleted comment 12345 from PROJ-1\n")
+	testutil.Equal(t, stderr.String(), "")
+}

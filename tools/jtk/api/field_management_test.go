@@ -274,8 +274,8 @@ func TestCreateFieldContextOptions(t *testing.T) {
 		testutil.Len(t, req.Options, 1)
 		testutil.Equal(t, req.Options[0].Value, "Option A")
 
-		_ = json.NewEncoder(w).Encode(FieldContextOptionsResponse{
-			Values: []FieldContextOption{
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"options": []FieldContextOption{
 				{ID: "3", Value: "Option A"},
 			},
 		})
@@ -313,8 +313,8 @@ func TestUpdateFieldContextOptions(t *testing.T) {
 		testutil.Equal(t, req.Options[0].ID, "3")
 		testutil.Equal(t, req.Options[0].Value, "Option A (updated)")
 
-		_ = json.NewEncoder(w).Encode(FieldContextOptionsResponse{
-			Values: []FieldContextOption{
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"options": []FieldContextOption{
 				{ID: "3", Value: "Option A (updated)"},
 			},
 		})

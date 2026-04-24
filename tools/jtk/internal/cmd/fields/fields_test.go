@@ -640,7 +640,7 @@ func TestRunOptionsList_Table(t *testing.T) {
 			})
 			return
 		}
-		// GetFieldContextOptions
+		// GetFieldContextOptions (GET uses "values" key)
 		_ = json.NewEncoder(w).Encode(api.FieldContextOptionsResponse{
 			Values: []api.FieldContextOption{
 				{ID: "1", Value: "Production", Disabled: false},
@@ -702,8 +702,8 @@ func TestRunOptionsAdd(t *testing.T) {
 			return
 		}
 		testutil.Equal(t, r.Method, http.MethodPost)
-		_ = json.NewEncoder(w).Encode(api.FieldContextOptionsResponse{
-			Values: []api.FieldContextOption{
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"options": []api.FieldContextOption{
 				{ID: "3", Value: "Option A"},
 			},
 		})
@@ -734,8 +734,8 @@ func TestRunOptionsAdd_IDOnly(t *testing.T) {
 			})
 			return
 		}
-		_ = json.NewEncoder(w).Encode(api.FieldContextOptionsResponse{
-			Values: []api.FieldContextOption{
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"options": []api.FieldContextOption{
 				{ID: "3", Value: "Option A"},
 			},
 		})
@@ -766,8 +766,8 @@ func TestRunOptionsUpdate(t *testing.T) {
 			return
 		}
 		testutil.Equal(t, r.Method, http.MethodPut)
-		_ = json.NewEncoder(w).Encode(api.FieldContextOptionsResponse{
-			Values: []api.FieldContextOption{
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"options": []api.FieldContextOption{
 				{ID: "3", Value: "Option A (updated)"},
 			},
 		})
@@ -797,8 +797,8 @@ func TestRunOptionsUpdate_IDOnly(t *testing.T) {
 			})
 			return
 		}
-		_ = json.NewEncoder(w).Encode(api.FieldContextOptionsResponse{
-			Values: []api.FieldContextOption{
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"options": []api.FieldContextOption{
 				{ID: "3", Value: "Option A (updated)"},
 			},
 		})

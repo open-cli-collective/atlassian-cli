@@ -68,6 +68,13 @@ type CreateFieldContextOptionEntry struct {
 	Disabled bool   `json:"disabled,omitempty"`
 }
 
+// fieldContextOptionsMutationResponse is the response shape for create/update
+// operations. The Jira API returns {"options":[...]} for POST/PUT, unlike the
+// GET endpoint which returns {"values":[...]}.
+type fieldContextOptionsMutationResponse struct {
+	Options []FieldContextOption `json:"options"`
+}
+
 // UpdateFieldContextOptionsRequest represents a request to update options
 type UpdateFieldContextOptionsRequest struct {
 	Options []UpdateFieldContextOptionEntry `json:"options"`
@@ -225,12 +232,12 @@ func (c *Client) CreateFieldContextOptions(ctx context.Context, fieldID, context
 		return nil, fmt.Errorf("creating field context options: %w", err)
 	}
 
-	var result FieldContextOptionsResponse
+	var result fieldContextOptionsMutationResponse
 	if err := json.Unmarshal(body, &result); err != nil {
 		return nil, fmt.Errorf("parsing created field context options: %w", err)
 	}
 
-	return result.Values, nil
+	return result.Options, nil
 }
 
 // UpdateFieldContextOptions updates existing options in a field context
@@ -245,12 +252,12 @@ func (c *Client) UpdateFieldContextOptions(ctx context.Context, fieldID, context
 		return nil, fmt.Errorf("updating field context options: %w", err)
 	}
 
-	var result FieldContextOptionsResponse
+	var result fieldContextOptionsMutationResponse
 	if err := json.Unmarshal(body, &result); err != nil {
 		return nil, fmt.Errorf("parsing updated field context options: %w", err)
 	}
 
-	return result.Values, nil
+	return result.Options, nil
 }
 
 // DeleteFieldContextOption deletes an option from a field context

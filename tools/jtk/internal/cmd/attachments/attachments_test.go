@@ -309,6 +309,68 @@ func TestRunAdd_Success(t *testing.T) {
 	testutil.Contains(t, output, "10001")
 }
 
+func TestRunAdd_PartialFailure(t *testing.T) {
+	t.Parallel()
+	callCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		callCount++
+		if callCount == 1 {
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode([]api.Attachment{
+				{ID: "10001", Filename: "good.txt", Size: 42, Author: api.User{DisplayName: "Alice"}, Created: "2024-06-15T10:00:00Z"},
+			})
+			return
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(`{"errorMessages":["upload failed"]}`))
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	tmpDir := t.TempDir()
+	good := filepath.Join(tmpDir, "good.txt")
+	bad := filepath.Join(tmpDir, "bad.txt")
+	_ = os.WriteFile(good, []byte("ok"), 0600)
+	_ = os.WriteFile(bad, []byte("fail"), 0600)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", NoColor: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runAdd(context.Background(), opts, "TEST-1", []string{good, bad})
+	testutil.RequireError(t, err)
+	testutil.Contains(t, stdout.String(), "good.txt")
+	testutil.Contains(t, stdout.String(), "10001")
+}
+
+func TestRunAdd_IDOnly(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode([]api.Attachment{
+			{ID: "10001", Filename: "file.txt", Size: 42},
+		})
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	tmpDir := t.TempDir()
+	f := filepath.Join(tmpDir, "file.txt")
+	_ = os.WriteFile(f, []byte("data"), 0600)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}, IDOnly: true}
+	opts.SetAPIClient(client)
+
+	err = runAdd(context.Background(), opts, "TEST-1", []string{f})
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, stdout.String(), "10001\n")
+}
+
 // --- get/download tests ---
 
 func TestNewGetCmd(t *testing.T) {

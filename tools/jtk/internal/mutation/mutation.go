@@ -113,6 +113,25 @@ func ModelContainsStatus(model *present.OutputModel, targetStatus string) bool {
 	return ModelContainsField(model, "Status: ", targetStatus)
 }
 
+// DetailFieldEquals checks whether any DetailSection in the model has a
+// field with the given label whose value equals the expected string.
+// Used for IsFresh checks on presenters that emit DetailSection (e.g.,
+// AutomationPresenter.PresentDetail) rather than MessageSection.
+func DetailFieldEquals(model *present.OutputModel, label, expected string) bool {
+	for _, section := range model.Sections {
+		ds, ok := section.(*present.DetailSection)
+		if !ok {
+			continue
+		}
+		for _, f := range ds.Fields {
+			if f.Label == label && f.Value == expected {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // ModelContainsField checks whether any MessageSection in the model
 // contains "<prefix><value>" anchored at a field boundary.  The value
 // must be followed by the triple-space field separator ("   "), end of

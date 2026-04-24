@@ -95,8 +95,11 @@ func runUpdate(ctx context.Context, opts *root.Options, keyOrID, name, descripti
 			return jtkpresent.ProjectPresenter{}.PresentProjectDetail(fetched, opts.IsExtended()), nil
 		},
 		IsFresh: func(model *present.OutputModel) bool {
-			if name != "" {
-				return mutation.ModelContainsField(model, "", name)
+			if name != "" && !mutation.ModelContainsField(model, "", name) {
+				return false
+			}
+			if description != "" && !mutation.ModelContainsField(model, "", description) {
+				return false
 			}
 			return true
 		},

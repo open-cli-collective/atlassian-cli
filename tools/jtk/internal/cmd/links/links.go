@@ -238,25 +238,30 @@ fallback:
 	return jtkpresent.Emit(opts, jtkpresent.LinkPresenter{}.PresentCreated(linkType, outwardKey, inwardKey))
 }
 
+// findCreatedLink searches the outward issue's link list for the newly
+// created link. After the inward-verb swap in runCreate, outwardKey is
+// always the outward issue and inwardKey is always the inward issue.
+// When querying the outward issue's links, the created link appears with
+// InwardIssue set (the other side). We match on type (ID when available,
+// name as fallback) and the inward issue key.
 func findCreatedLink(links []api.IssueLink, resolvedType api.IssueLinkType, inwardKey string) *api.IssueLink {
 	for i := range links {
 		l := &links[i]
-		if !strings.EqualFold(l.Type.Name, resolvedType.Name) {
-			if resolvedType.ID != "" && l.Type.ID != resolvedType.ID {
-				continue
-			}
-			if resolvedType.ID == "" {
-				continue
-			}
+		if !linkTypeMatches(l.Type, resolvedType) {
+			continue
 		}
 		if l.InwardIssue != nil && strings.EqualFold(l.InwardIssue.Key, inwardKey) {
 			return l
 		}
-		if l.OutwardIssue != nil && strings.EqualFold(l.OutwardIssue.Key, inwardKey) {
-			return l
-		}
 	}
 	return nil
+}
+
+func linkTypeMatches(actual, expected api.IssueLinkType) bool {
+	if expected.ID != "" && actual.ID == expected.ID {
+		return true
+	}
+	return strings.EqualFold(actual.Name, expected.Name)
 }
 
 func newDeleteCmd(opts *root.Options) *cobra.Command {

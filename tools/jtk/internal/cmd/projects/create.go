@@ -107,6 +107,9 @@ func runCreate(ctx context.Context, opts *root.Options, key, name, projectType, 
 			}
 			return jtkpresent.ProjectPresenter{}.PresentProjectDetail(fetched, opts.IsExtended()), nil
 		},
+		IsFresh: func(model *present.OutputModel) bool {
+			return mutation.ModelContainsField(model, "", name)
+		},
 		Fallback: func(id string) *present.OutputModel {
 			return jtkpresent.ProjectPresenter{}.PresentCreated(id, name)
 		},

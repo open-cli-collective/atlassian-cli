@@ -459,3 +459,56 @@ func TestRunTypes_IDOnly(t *testing.T) {
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, stdout.String(), "1\n2\n")
 }
+
+func TestFindCreatedLink_MatchByName(t *testing.T) {
+	t.Parallel()
+	links := []api.IssueLink{
+		{ID: "100", Type: api.IssueLinkType{ID: "1", Name: "Blocks"}, InwardIssue: &api.LinkedIssue{Key: "PROJ-456"}},
+		{ID: "200", Type: api.IssueLinkType{ID: "2", Name: "Relates"}, InwardIssue: &api.LinkedIssue{Key: "PROJ-789"}},
+	}
+	resolved := api.IssueLinkType{ID: "1", Name: "Blocks"}
+	got := findCreatedLink(links, resolved, "PROJ-456")
+	testutil.NotNil(t, got)
+	testutil.Equal(t, got.ID, "100")
+}
+
+func TestFindCreatedLink_MatchByID(t *testing.T) {
+	t.Parallel()
+	links := []api.IssueLink{
+		{ID: "100", Type: api.IssueLinkType{ID: "1", Name: "DifferentName"}, InwardIssue: &api.LinkedIssue{Key: "PROJ-456"}},
+	}
+	resolved := api.IssueLinkType{ID: "1", Name: "Blocks"}
+	got := findCreatedLink(links, resolved, "PROJ-456")
+	testutil.NotNil(t, got)
+	testutil.Equal(t, got.ID, "100")
+}
+
+func TestFindCreatedLink_DirectionAware(t *testing.T) {
+	t.Parallel()
+	links := []api.IssueLink{
+		{ID: "100", Type: api.IssueLinkType{ID: "1", Name: "Blocks"}, OutwardIssue: &api.LinkedIssue{Key: "PROJ-456"}},
+	}
+	resolved := api.IssueLinkType{ID: "1", Name: "Blocks"}
+	got := findCreatedLink(links, resolved, "PROJ-456")
+	testutil.Nil(t, got)
+}
+
+func TestFindCreatedLink_NoMatch(t *testing.T) {
+	t.Parallel()
+	links := []api.IssueLink{
+		{ID: "100", Type: api.IssueLinkType{ID: "1", Name: "Blocks"}, InwardIssue: &api.LinkedIssue{Key: "PROJ-999"}},
+	}
+	resolved := api.IssueLinkType{ID: "1", Name: "Blocks"}
+	got := findCreatedLink(links, resolved, "PROJ-456")
+	testutil.Nil(t, got)
+}
+
+func TestFindCreatedLink_CaseInsensitive(t *testing.T) {
+	t.Parallel()
+	links := []api.IssueLink{
+		{ID: "100", Type: api.IssueLinkType{ID: "1", Name: "blocks"}, InwardIssue: &api.LinkedIssue{Key: "proj-456"}},
+	}
+	resolved := api.IssueLinkType{Name: "Blocks"}
+	got := findCreatedLink(links, resolved, "PROJ-456")
+	testutil.NotNil(t, got)
+}

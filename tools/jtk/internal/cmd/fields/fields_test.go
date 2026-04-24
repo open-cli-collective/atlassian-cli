@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/open-cli-collective/atlassian-go/testutil"
@@ -262,8 +263,15 @@ func TestRunCreate(t *testing.T) {
 
 	err = runCreate(context.Background(), opts, "Environment", "com.atlassian.jira.plugin.system.customfieldtypes:select", "")
 	testutil.RequireNoError(t, err)
-	testutil.Contains(t, stdout.String(), "customfield_10100")
-	testutil.Contains(t, stdout.String(), "Environment")
+
+	out := stdout.String()
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	testutil.True(t, len(lines) >= 2, "expected header + data row")
+	testutil.Contains(t, lines[0], "ID")
+	testutil.Contains(t, lines[0], "NAME")
+	testutil.Contains(t, lines[0], "TYPE")
+	testutil.Contains(t, out, "customfield_10100")
+	testutil.Contains(t, out, "Environment")
 }
 
 func TestRunCreate_IDOnly(t *testing.T) {
@@ -719,8 +727,14 @@ func TestRunOptionsAdd(t *testing.T) {
 
 	err = runOptionsAdd(context.Background(), opts, "customfield_10100", "Option A", "")
 	testutil.RequireNoError(t, err)
-	testutil.Contains(t, stdout.String(), "3")
-	testutil.Contains(t, stdout.String(), "Option A")
+
+	out := stdout.String()
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	testutil.True(t, len(lines) >= 2, "expected header + data row")
+	testutil.Contains(t, lines[0], "ID")
+	testutil.Contains(t, lines[0], "VALUE")
+	testutil.Contains(t, out, "3")
+	testutil.Contains(t, out, "Option A")
 }
 
 func TestRunOptionsAdd_IDOnly(t *testing.T) {
@@ -783,7 +797,13 @@ func TestRunOptionsUpdate(t *testing.T) {
 
 	err = runOptionsUpdate(context.Background(), opts, "customfield_10100", "3", "Option A (updated)", "")
 	testutil.RequireNoError(t, err)
-	testutil.Contains(t, stdout.String(), "Option A (updated)")
+
+	out := stdout.String()
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	testutil.True(t, len(lines) >= 2, "expected header + data row")
+	testutil.Contains(t, lines[0], "ID")
+	testutil.Contains(t, lines[0], "VALUE")
+	testutil.Contains(t, out, "Option A (updated)")
 }
 
 func TestRunOptionsUpdate_IDOnly(t *testing.T) {

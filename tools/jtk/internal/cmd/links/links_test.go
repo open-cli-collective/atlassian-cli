@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/open-cli-collective/atlassian-go/testutil"
@@ -419,6 +420,12 @@ func TestRunCreate_CanonicalRow(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	out := stdout.String()
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	testutil.True(t, len(lines) >= 2, "expected header + data row")
+	testutil.Contains(t, lines[0], "LINK_ID")
+	testutil.Contains(t, lines[0], "TYPE")
+	testutil.Contains(t, lines[0], "DIRECTION")
+	testutil.Contains(t, lines[0], "ISSUE")
 	testutil.Contains(t, out, "17844")
 	testutil.Contains(t, out, "Blocker")
 	testutil.Contains(t, out, "PROJ-456")

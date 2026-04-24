@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/open-cli-collective/atlassian-go/testutil"
@@ -112,7 +113,13 @@ func TestRunCreate(t *testing.T) {
 
 	err = runCreate(opts, "New Board", "Description")
 	testutil.RequireNoError(t, err)
-	testutil.Contains(t, stdout.String(), "New Board")
+
+	out := stdout.String()
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	testutil.True(t, len(lines) >= 2, "expected header + data row")
+	testutil.Contains(t, lines[0], "ID")
+	testutil.Contains(t, lines[0], "NAME")
+	testutil.Contains(t, out, "New Board")
 
 	var req api.CreateDashboardRequest
 	err = json.Unmarshal(capturedBody, &req)
@@ -229,6 +236,11 @@ func TestRunGadgetsAdd(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	out := stdout.String()
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	testutil.True(t, len(lines) >= 2, "expected header + data row")
+	testutil.Contains(t, lines[0], "ID")
+	testutil.Contains(t, lines[0], "TITLE")
+	testutil.Contains(t, lines[0], "MODULE")
 	testutil.Contains(t, out, "10124")
 	testutil.Contains(t, out, "Sprint Burndown")
 	testutil.Contains(t, out, "sprint-burndown-gadget")

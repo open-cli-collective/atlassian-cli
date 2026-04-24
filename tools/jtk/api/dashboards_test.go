@@ -158,3 +158,42 @@ func TestRemoveDashboardGadget(t *testing.T) {
 	err = client.RemoveDashboardGadget("10001", 42)
 	testutil.RequireNoError(t, err)
 }
+
+func TestAddDashboardGadget(t *testing.T) {
+	var capturedBody []byte
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		testutil.Equal(t, r.URL.Path, "/rest/api/3/dashboard/10001/gadget")
+		testutil.Equal(t, r.Method, "POST")
+		capturedBody, _ = io.ReadAll(r.Body)
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(DashboardGadget{
+			ID:       10124,
+			Title:    "Sprint Burndown",
+			ModuleID: "sprint-burndown-gadget",
+			Position: DashboardGadgetPos{Row: 1, Column: 0},
+		})
+	}))
+	defer server.Close()
+
+	client, err := New(ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	gadget, err := client.AddDashboardGadget("10001", AddDashboardGadgetRequest{
+		ModuleKey: "sprint-burndown-gadget",
+		Position:  &DashboardGadgetPos{Row: 1, Column: 0},
+	})
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, gadget.ID, 10124)
+	testutil.Equal(t, gadget.Title, "Sprint Burndown")
+	testutil.Equal(t, gadget.ModuleID, "sprint-burndown-gadget")
+
+	var req AddDashboardGadgetRequest
+	err = json.Unmarshal(capturedBody, &req)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, req.ModuleKey, "sprint-burndown-gadget")
+}
+
+func TestAddDashboardGadget_EmptyID(t *testing.T) {
+	_, err := (&Client{}).AddDashboardGadget("", AddDashboardGadgetRequest{})
+	testutil.Error(t, err)
+}

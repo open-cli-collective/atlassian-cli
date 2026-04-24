@@ -301,6 +301,16 @@ jtk fields list --custom
 | 1 | `jtk dashboards gadgets list $DASHBOARD_ID` | Table with columns: ID, TITLE, MODULE, POSITION |
 | 2 | `jtk dashboards gadgets list $DASHBOARD_ID -o json` | Valid JSON array |
 
+### dashboards gadgets add
+
+| # | Command | Expected Output |
+|---|---------|-----------------|
+| 1 | `jtk dashboards gadgets add $DASHBOARD_ID --type com.atlassian.jira.gadgets:filter-results-gadget` | Single table row with ID, TITLE, MODULE, POSITION |
+| 2 | `jtk dashboards gadgets add $DASHBOARD_ID --type com.atlassian.jira.gadgets:filter-results-gadget --id` | Gadget ID only |
+| 3 | `jtk dashboards gadgets add $DASHBOARD_ID --type com.atlassian.jira.gadgets:filter-results-gadget -o json` | Valid JSON object |
+| 4 | `jtk dashboards gadgets add $DASHBOARD_ID --type com.atlassian.jira.gadgets:filter-results-gadget --position 1,0` | Table row with position 1,0 |
+| 5 | `jtk dashboards gadgets add 99999 --type foo` | Error: 404 |
+
 ---
 
 ## 7. Users (Read-Only)
@@ -675,13 +685,25 @@ Run these steps in order.
    ```
    Expected: `No gadgets on dashboard $TEST_DASH_ID`
 
-5. **Delete:**
+5. **Add gadget:**
+   ```bash
+   jtk dashboards gadgets add $TEST_DASH_ID --type com.atlassian.jira.gadgets:filter-results-gadget
+   ```
+   Expected: Single table row with gadget ID, title, module, position
+
+6. **List gadgets (populated):**
+   ```bash
+   jtk dashboards gadgets list $TEST_DASH_ID
+   ```
+   Expected: Table with the added gadget
+
+7. **Delete:**
    ```bash
    jtk dashboards delete $TEST_DASH_ID
    ```
    Expected: `Deleted dashboard $TEST_DASH_ID`
 
-6. **Verify deletion:**
+8. **Verify deletion:**
    ```bash
    jtk dashboards get $TEST_DASH_ID
    ```
@@ -1022,7 +1044,8 @@ Verify each alias produces the same output as the full command:
 | 15 | `jtk dashboards create --name "x"` | Same Dashboard error |
 | 16 | `jtk dashboards delete 1` | Same Dashboard error |
 | 17 | `jtk dashboards gadgets list 1` | Same Dashboard error |
-| 18 | `jtk dashboards gadgets remove 1 1` | Same Dashboard error |
+| 18 | `jtk dashboards gadgets add 1 --type foo` | Same Dashboard error |
+| 19 | `jtk dashboards gadgets remove 1 1` | Same Dashboard error |
 
 ---
 
@@ -1071,6 +1094,7 @@ Verify each alias produces the same output as the full command:
 - [ ] `dashboards list` (table, search, JSON, no results)
 - [ ] `dashboards get` (table, JSON, 404)
 - [ ] `dashboards gadgets list` (table, JSON)
+- [ ] `dashboards gadgets add` (table, --id, JSON, 404)
 
 #### Users Read-Only (Section 7)
 - [ ] `users search` (results, JSON, no results)
@@ -1101,7 +1125,7 @@ Verify each alias produces the same output as the full command:
 - [ ] Error cases
 
 #### Dashboard Mutations (Section 13)
-- [ ] Create → verify → list+search → gadgets list → delete → verify 404
+- [ ] Create → verify → list+search → gadgets add → gadgets list → delete → verify 404
 - [ ] Error cases (missing flags, 404)
 
 #### Automation Mutations (Section 14)

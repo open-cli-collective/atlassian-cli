@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -254,10 +255,11 @@ func newGadgetsCmd(opts *root.Options) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "gadgets",
 		Short: "Manage dashboard gadgets",
-		Long:  "Commands for listing and removing gadgets on dashboards.",
+		Long:  "Commands for listing, adding, and removing gadgets on dashboards.",
 	}
 
 	cmd.AddCommand(newGadgetsListCmd(opts))
+	cmd.AddCommand(newGadgetsAddCmd(opts))
 	cmd.AddCommand(newGadgetsRemoveCmd(opts))
 
 	return cmd
@@ -308,6 +310,80 @@ func runGadgetsList(_ context.Context, opts *root.Options, dashboardID string) e
 	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
 	_, _ = fmt.Fprint(opts.Stderr, out.Stderr)
 	return nil
+}
+
+func newGadgetsAddCmd(opts *root.Options) *cobra.Command {
+	var moduleKey, title, color, position string
+
+	cmd := &cobra.Command{
+		Use:   "add <dashboard-id>",
+		Short: "Add a gadget to a dashboard",
+		Long:  "Add a gadget to a dashboard by its module key.",
+		Example: `  # Add a sprint burndown gadget
+  jtk dashboards gadgets add 10001 --type com.atlassian.jira.gadgets:sprint-burndown-gadget
+
+  # Add with position and title
+  jtk dashboards gadgets add 10001 --type com.atlassian.jira.gadgets:filter-results-gadget --position 1,0 --title "My Filter"`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(_ *cobra.Command, args []string) error {
+			return runGadgetsAdd(opts, args[0], moduleKey, title, color, position)
+		},
+	}
+
+	cmd.Flags().StringVarP(&moduleKey, "type", "t", "", "Gadget module key (required)")
+	cmd.Flags().StringVar(&title, "title", "", "Gadget title")
+	cmd.Flags().StringVar(&color, "color", "", "Gadget color")
+	cmd.Flags().StringVarP(&position, "position", "p", "", "Position as row,column (e.g. 1,0)")
+
+	_ = cmd.MarkFlagRequired("type")
+
+	return cmd
+}
+
+func runGadgetsAdd(opts *root.Options, dashboardID, moduleKey, title, color, positionStr string) error {
+	v := opts.View()
+
+	client, err := opts.APIClient()
+	if err != nil {
+		return err
+	}
+
+	req := api.AddDashboardGadgetRequest{
+		ModuleKey: moduleKey,
+		Title:     title,
+		Color:     color,
+	}
+
+	if positionStr != "" {
+		parts := strings.SplitN(positionStr, ",", 2)
+		if len(parts) != 2 {
+			return fmt.Errorf("invalid position %q: expected row,column (e.g. 1,0)", positionStr)
+		}
+		row, err := strconv.Atoi(strings.TrimSpace(parts[0]))
+		if err != nil {
+			return fmt.Errorf("invalid position row %q: %w", parts[0], err)
+		}
+		col, err := strconv.Atoi(strings.TrimSpace(parts[1]))
+		if err != nil {
+			return fmt.Errorf("invalid position column %q: %w", parts[1], err)
+		}
+		req.Position = &api.DashboardGadgetPos{Row: row, Column: col}
+	}
+
+	gadget, err := client.AddDashboardGadget(dashboardID, req)
+	if err != nil {
+		return err
+	}
+
+	if opts.EmitIDOnly() {
+		return jtkpresent.EmitIDs(opts, []string{strconv.Itoa(gadget.ID)})
+	}
+
+	if v.Format == view.FormatJSON {
+		return v.JSON(gadget)
+	}
+
+	return jtkpresent.Emit(opts, jtkpresent.DashboardPresenter{}.PresentGadgets([]api.DashboardGadget{*gadget}))
 }
 
 func newGadgetsRemoveCmd(opts *root.Options) *cobra.Command {

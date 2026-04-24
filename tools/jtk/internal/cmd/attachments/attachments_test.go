@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/open-cli-collective/atlassian-go/testutil"
@@ -305,6 +306,11 @@ func TestRunAdd_Success(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()
+	lines := strings.Split(strings.TrimSpace(output), "\n")
+	testutil.True(t, len(lines) >= 2, "expected header + data row")
+	testutil.Contains(t, lines[0], "ID")
+	testutil.Contains(t, lines[0], "FILENAME")
+	testutil.Contains(t, lines[0], "SIZE")
 	testutil.Contains(t, output, "testfile.txt")
 	testutil.Contains(t, output, "10001")
 }

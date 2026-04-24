@@ -426,7 +426,13 @@ func TestRunRestore(t *testing.T) {
 
 	err = runRestore(context.Background(), opts, "customfield_10100")
 	testutil.RequireNoError(t, err)
-	testutil.Contains(t, stdout.String(), "customfield_10100")
+
+	out := stdout.String()
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	testutil.True(t, len(lines) >= 2, "expected header + data row")
+	testutil.Contains(t, lines[0], "ID")
+	testutil.Contains(t, lines[0], "NAME")
+	testutil.Contains(t, out, "customfield_10100")
 }
 
 func TestRunRestore_IDOnly(t *testing.T) {
@@ -530,8 +536,14 @@ func TestRunContextsCreate(t *testing.T) {
 
 	err = runContextsCreate(context.Background(), opts, "customfield_10100", "Bug Context", "")
 	testutil.RequireNoError(t, err)
-	testutil.Contains(t, stdout.String(), "10003")
-	testutil.Contains(t, stdout.String(), "Bug Context")
+
+	out := stdout.String()
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	testutil.True(t, len(lines) >= 2, "expected header + data row")
+	testutil.Contains(t, lines[0], "ID")
+	testutil.Contains(t, lines[0], "NAME")
+	testutil.Contains(t, out, "10003")
+	testutil.Contains(t, out, "Bug Context")
 }
 
 func TestRunContextsCreate_IDOnly(t *testing.T) {

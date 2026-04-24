@@ -191,6 +191,9 @@ func TestAddDashboardGadget(t *testing.T) {
 	err = json.Unmarshal(capturedBody, &req)
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, req.ModuleKey, "sprint-burndown-gadget")
+	testutil.NotNil(t, req.Position)
+	testutil.Equal(t, req.Position.Row, 1)
+	testutil.Equal(t, req.Position.Column, 0)
 }
 
 func TestAddDashboardGadget_EmptyID(t *testing.T) {

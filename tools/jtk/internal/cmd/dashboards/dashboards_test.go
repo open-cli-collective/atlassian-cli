@@ -232,7 +232,7 @@ func TestRunGadgetsAdd(t *testing.T) {
 	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runGadgetsAdd(opts, "10001", "sprint-burndown-gadget", "Sprint Burndown", "", "1,0")
+	err = runGadgetsAdd(context.Background(), opts,"10001", "sprint-burndown-gadget", "Sprint Burndown", "", "1,0")
 	testutil.RequireNoError(t, err)
 
 	out := stdout.String()
@@ -250,6 +250,10 @@ func TestRunGadgetsAdd(t *testing.T) {
 	err = json.Unmarshal(capturedBody, &req)
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, req.ModuleKey, "sprint-burndown-gadget")
+	testutil.Equal(t, req.Title, "Sprint Burndown")
+	testutil.NotNil(t, req.Position)
+	testutil.Equal(t, req.Position.Row, 1)
+	testutil.Equal(t, req.Position.Column, 0)
 }
 
 func TestRunGadgetsAdd_IDOnly(t *testing.T) {
@@ -269,7 +273,7 @@ func TestRunGadgetsAdd_IDOnly(t *testing.T) {
 	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}, IDOnly: true}
 	opts.SetAPIClient(client)
 
-	err = runGadgetsAdd(opts, "10001", "sprint-burndown-gadget", "", "", "")
+	err = runGadgetsAdd(context.Background(), opts,"10001", "sprint-burndown-gadget", "", "", "")
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, stdout.String(), "10124\n")
 }
@@ -291,7 +295,7 @@ func TestRunGadgetsAdd_JSON(t *testing.T) {
 	opts := &root.Options{Output: "json", Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runGadgetsAdd(opts, "10001", "sprint-burndown-gadget", "", "", "")
+	err = runGadgetsAdd(context.Background(), opts,"10001", "sprint-burndown-gadget", "", "", "")
 	testutil.RequireNoError(t, err)
 	testutil.Contains(t, stdout.String(), `"id"`)
 	testutil.Contains(t, stdout.String(), "10124")
@@ -314,11 +318,23 @@ func TestRunGadgetsAdd_InvalidPosition(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			opts := &root.Options{Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
 			opts.SetAPIClient(client)
-			err := runGadgetsAdd(opts, "10001", "gadget", "", "", tt.position)
+			err := runGadgetsAdd(context.Background(), opts,"10001", "gadget", "", "", tt.position)
 			testutil.RequireError(t, err)
 			testutil.Contains(t, err.Error(), tt.errMsg)
 		})
 	}
+}
+
+func TestRunGadgetsAdd_NegativePosition(t *testing.T) {
+	client, err := api.New(api.ClientConfig{URL: "https://test.atlassian.net", Email: "t@t.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	opts := &root.Options{Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runGadgetsAdd(context.Background(), opts, "10001", "gadget", "", "", "-1,0")
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "non-negative")
 }
 
 func TestRunGadgetsAdd_ZeroPosition(t *testing.T) {
@@ -341,7 +357,7 @@ func TestRunGadgetsAdd_ZeroPosition(t *testing.T) {
 	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runGadgetsAdd(opts, "10001", "test-gadget", "", "", "0,0")
+	err = runGadgetsAdd(context.Background(), opts,"10001", "test-gadget", "", "", "0,0")
 	testutil.RequireNoError(t, err)
 
 	var req api.AddDashboardGadgetRequest

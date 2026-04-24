@@ -325,8 +325,8 @@ func newGadgetsAddCmd(opts *root.Options) *cobra.Command {
   # Add with position and title
   jtk dashboards gadgets add 10001 --type com.atlassian.jira.gadgets:filter-results-gadget --position 1,0 --title "My Filter"`,
 		Args: cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			return runGadgetsAdd(opts, args[0], moduleKey, title, color, position)
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runGadgetsAdd(cmd.Context(), opts, args[0], moduleKey, title, color, position)
 		},
 	}
 
@@ -340,7 +340,7 @@ func newGadgetsAddCmd(opts *root.Options) *cobra.Command {
 	return cmd
 }
 
-func runGadgetsAdd(opts *root.Options, dashboardID, moduleKey, title, color, positionStr string) error {
+func runGadgetsAdd(_ context.Context, opts *root.Options, dashboardID, moduleKey, title, color, positionStr string) error {
 	v := opts.View()
 
 	client, err := opts.APIClient()
@@ -366,6 +366,9 @@ func runGadgetsAdd(opts *root.Options, dashboardID, moduleKey, title, color, pos
 		col, err := strconv.Atoi(strings.TrimSpace(parts[1]))
 		if err != nil {
 			return fmt.Errorf("invalid position column %q: %w", parts[1], err)
+		}
+		if row < 0 || col < 0 {
+			return fmt.Errorf("invalid position %q: row and column must be non-negative", positionStr)
 		}
 		req.Position = &api.DashboardGadgetPos{Row: row, Column: col}
 	}

@@ -70,6 +70,10 @@ func runDelete(ctx context.Context, opts *root.Options, issueKeys []string, forc
 
 	var failed int
 	for _, key := range issueKeys {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+
 		if err := client.DeleteIssue(ctx, key); err != nil {
 			fmt.Fprintf(opts.Stderr, "Failed to delete %s: %s\n", key, err)
 			failed++
@@ -79,6 +83,7 @@ func runDelete(ctx context.Context, opts *root.Options, issueKeys []string, forc
 		model := jtkpresent.IssuePresenter{}.PresentDeleted(key)
 		out := present.Render(model, opts.RenderStyle())
 		_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
+		_, _ = fmt.Fprint(opts.Stderr, out.Stderr)
 	}
 
 	if failed > 0 {

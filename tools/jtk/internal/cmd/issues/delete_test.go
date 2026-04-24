@@ -105,6 +105,7 @@ func TestRunDelete_PromptDeclined(t *testing.T) {
 	err = runDelete(context.Background(), opts, []string{"PROJ-123"}, false)
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, stdout.String(), "Deletion cancelled.\n")
+	testutil.Contains(t, stderr.String(), "permanently delete issue PROJ-123")
 }
 
 func TestRunDelete_BatchPromptDeclined(t *testing.T) {

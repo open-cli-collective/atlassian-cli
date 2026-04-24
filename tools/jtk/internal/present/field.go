@@ -171,8 +171,8 @@ func (FieldPresenter) PresentCreated(id, name string) *present.OutputModel {
 	}
 }
 
-// PresentTrashed creates a success message for field trashing.
-func (FieldPresenter) PresentTrashed(fieldID string) *present.OutputModel {
+// PresentDeleted creates a success message for field deletion (soft-delete to trash).
+func (FieldPresenter) PresentDeleted(fieldID string) *present.OutputModel {
 	return &present.OutputModel{
 		Sections: []present.Section{
 			&present.MessageSection{

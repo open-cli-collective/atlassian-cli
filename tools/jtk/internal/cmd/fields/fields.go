@@ -231,7 +231,7 @@ func runDelete(ctx context.Context, opts *root.Options, fieldID string, force bo
 
 	_ = cache.RemoveOnDelete[api.Field]("fields", func(f api.Field) bool { return f.ID == fieldID })
 
-	model := jtkpresent.FieldPresenter{}.PresentTrashed(fieldID)
+	model := jtkpresent.FieldPresenter{}.PresentDeleted(fieldID)
 	out := present.Render(model, opts.RenderStyle())
 	fmt.Fprint(opts.Stdout, out.Stdout)
 	return nil

@@ -72,7 +72,7 @@ func runSetState(ctx context.Context, opts *root.Options, ruleID string, enabled
 		IsFresh: func(model *present.OutputModel) bool {
 			return mutation.DetailFieldEquals(model, "State", newState)
 		},
-		Fallback: func(id string) *present.OutputModel {
+		Fallback: func(_ string) *present.OutputModel {
 			return jtkpresent.AutomationPresenter{}.PresentStateChanged(savedName, savedState, newState)
 		},
 	})

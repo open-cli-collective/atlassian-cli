@@ -675,7 +675,7 @@ func TestRunDelete_NoForce_Accepted(t *testing.T) {
 
 func TestRunUpdate(t *testing.T) {
 	t.Parallel()
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(api.ProjectDetail{
 			ID:   json.Number("10001"),
 			Key:  "TST",

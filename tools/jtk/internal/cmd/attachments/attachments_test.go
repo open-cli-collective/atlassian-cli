@@ -312,7 +312,7 @@ func TestRunAdd_Success(t *testing.T) {
 func TestRunAdd_PartialFailure(t *testing.T) {
 	t.Parallel()
 	callCount := 0
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		callCount++
 		if callCount == 1 {
 			w.WriteHeader(http.StatusOK)

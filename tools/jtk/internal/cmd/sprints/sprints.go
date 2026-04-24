@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	jtkartifact "github.com/open-cli-collective/jira-ticket-cli/internal/artifact"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/mutation"
 	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/present/projection"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/resolve"
@@ -379,6 +381,58 @@ func runAdd(ctx context.Context, opts *root.Options, client *api.Client, sprintI
 		return err
 	}
 
-	model := jtkpresent.SprintPresenter{}.PresentMoved(issueKeys, sprintID)
-	return jtkpresent.Emit(opts, model)
+	if opts.EmitIDOnly() {
+		return jtkpresent.EmitIDs(opts, issueKeys)
+	}
+
+	// Verify membership via GetSprintIssues and present matched issues.
+	keySet := make(map[string]bool, len(issueKeys))
+	for _, k := range issueKeys {
+		keySet[k] = true
+	}
+
+	var matched []api.Issue
+	for i, delay := range mutation.BackoffSchedule {
+		if i > 0 && delay > 0 {
+			select {
+			case <-ctx.Done():
+				goto fallback
+			case <-time.After(delay):
+			}
+		}
+
+		matched = nil
+		found := make(map[string]bool)
+		startAt := 0
+		for {
+			result, err := client.GetSprintIssues(ctx, sprintID, startAt, 50)
+			if err != nil {
+				break
+			}
+			for _, issue := range result.Issues {
+				if keySet[issue.Key] {
+					matched = append(matched, issue)
+					found[issue.Key] = true
+				}
+			}
+			if len(found) == len(issueKeys) {
+				break
+			}
+			if startAt+len(result.Issues) >= result.Total {
+				break
+			}
+			startAt += len(result.Issues)
+		}
+		if len(found) == len(issueKeys) {
+			break
+		}
+	}
+
+	if len(matched) == len(issueKeys) {
+		return jtkpresent.Emit(opts, jtkpresent.IssuePresenter{}.PresentList(matched, opts.IsExtended()))
+	}
+
+fallback:
+	_ = jtkpresent.Emit(opts, jtkpresent.MutationPresenter{}.Advisory("post-state unavailable; showing confirmation only"))
+	return jtkpresent.Emit(opts, jtkpresent.SprintPresenter{}.PresentMoved(issueKeys, sprintID))
 }

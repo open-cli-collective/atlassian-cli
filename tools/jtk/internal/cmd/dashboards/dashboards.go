@@ -202,20 +202,15 @@ func runCreate(opts *root.Options, name, description string) error {
 		return err
 	}
 
+	if opts.EmitIDOnly() {
+		return jtkpresent.EmitIDs(opts, []string{dash.ID})
+	}
+
 	if v.Format == view.FormatJSON {
 		return v.JSON(dash)
 	}
 
-	var model *present.OutputModel
-	if dash.View != "" {
-		model = jtkpresent.DashboardPresenter{}.PresentCreatedWithURL(dash.Name, dash.ID, dash.View)
-	} else {
-		model = jtkpresent.DashboardPresenter{}.PresentCreated(dash.Name, dash.ID)
-	}
-	out := present.Render(model, opts.RenderStyle())
-	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
-
-	return nil
+	return jtkpresent.Emit(opts, jtkpresent.DashboardPresenter{}.PresentList([]api.Dashboard{*dash}))
 }
 
 func newDeleteCmd(opts *root.Options) *cobra.Command {

@@ -206,11 +206,15 @@ func runAdd(ctx context.Context, opts *root.Options, issueKey, body string) erro
 		return err
 	}
 
+	if opts.EmitIDOnly() {
+		return jtkpresent.EmitIDs(opts, []string{comment.ID})
+	}
+
 	if opts.Output == "json" {
 		return v.JSON(comment)
 	}
 
-	return jtkpresent.Emit(opts, jtkpresent.CommentPresenter{}.PresentAdded(comment.ID, issueKey))
+	return jtkpresent.Emit(opts, jtkpresent.CommentPresenter{}.PresentAddedDetail(issueKey, comment))
 }
 
 func newDeleteCmd(opts *root.Options) *cobra.Command {

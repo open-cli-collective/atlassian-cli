@@ -53,7 +53,7 @@ type IssueRef struct {
 }
 
 // GetIssueLinks returns the links on an issue by fetching the issue and extracting the issuelinks field
-func (c *Client) GetIssueLinks(issueKey string) ([]IssueLink, error) {
+func (c *Client) GetIssueLinks(ctx context.Context, issueKey string) ([]IssueLink, error) {
 	if issueKey == "" {
 		return nil, ErrIssueKeyRequired
 	}
@@ -63,7 +63,7 @@ func (c *Client) GetIssueLinks(issueKey string) ([]IssueLink, error) {
 		map[string]string{"fields": "issuelinks"},
 	)
 
-	body, err := c.Get(context.Background(), urlStr)
+	body, err := c.Get(ctx, urlStr)
 	if err != nil {
 		return nil, err
 	}
@@ -81,7 +81,7 @@ func (c *Client) GetIssueLinks(issueKey string) ([]IssueLink, error) {
 }
 
 // CreateIssueLink creates a link between two issues
-func (c *Client) CreateIssueLink(outwardKey, inwardKey, linkTypeName string) error {
+func (c *Client) CreateIssueLink(ctx context.Context, outwardKey, inwardKey, linkTypeName string) error {
 	if outwardKey == "" || inwardKey == "" {
 		return ErrIssueKeyRequired
 	}
@@ -96,26 +96,26 @@ func (c *Client) CreateIssueLink(outwardKey, inwardKey, linkTypeName string) err
 		InwardIssue:  IssueRef{Key: inwardKey},
 	}
 
-	_, err := c.Post(context.Background(), urlStr, req)
+	_, err := c.Post(ctx, urlStr, req)
 	return err
 }
 
 // DeleteIssueLink deletes an issue link by its ID
-func (c *Client) DeleteIssueLink(linkID string) error {
+func (c *Client) DeleteIssueLink(ctx context.Context, linkID string) error {
 	if linkID == "" {
 		return fmt.Errorf("link ID is required")
 	}
 
 	urlStr := fmt.Sprintf("%s/issueLink/%s", c.BaseURL, url.PathEscape(linkID))
-	_, err := c.Delete(context.Background(), urlStr)
+	_, err := c.Delete(ctx, urlStr)
 	return err
 }
 
 // GetIssueLinkTypes returns all available issue link types
-func (c *Client) GetIssueLinkTypes() ([]IssueLinkType, error) {
+func (c *Client) GetIssueLinkTypes(ctx context.Context) ([]IssueLinkType, error) {
 	urlStr := fmt.Sprintf("%s/issueLinkType", c.BaseURL)
 
-	body, err := c.Get(context.Background(), urlStr)
+	body, err := c.Get(ctx, urlStr)
 	if err != nil {
 		return nil, err
 	}

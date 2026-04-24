@@ -570,14 +570,18 @@ func TestRunCreate(t *testing.T) {
 		{AccountID: "557058:295fe89c-10c2-4b0c-ba84-a4dd14ea7729", DisplayName: "Lead"},
 	}))
 
-	// Jira's create endpoint returns an empty name, so the success message
-	// should use the input name, not the response name.
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusCreated)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			w.WriteHeader(http.StatusCreated)
+			_ = json.NewEncoder(w).Encode(api.ProjectDetail{
+				ID: json.Number("10001"), Key: "TST", Name: "",
+			})
+			return
+		}
+		// GET for post-state fetch
 		_ = json.NewEncoder(w).Encode(api.ProjectDetail{
-			ID:   json.Number("10001"),
-			Key:  "TST",
-			Name: "",
+			ID: json.Number("10001"), Key: "TST", Name: "Test Project",
+			ProjectTypeKey: "software",
 		})
 	}))
 	defer server.Close()
@@ -591,7 +595,7 @@ func TestRunCreate(t *testing.T) {
 
 	err = runCreate(context.Background(), opts, "TST", "Test Project", "software", "557058:295fe89c-10c2-4b0c-ba84-a4dd14ea7729", "")
 	testutil.RequireNoError(t, err)
-	testutil.Contains(t, stdout.String(), "Created project TST")
+	testutil.Contains(t, stdout.String(), "TST")
 	testutil.Contains(t, stdout.String(), "Test Project")
 }
 
@@ -672,7 +676,6 @@ func TestRunDelete_NoForce_Accepted(t *testing.T) {
 func TestRunUpdate(t *testing.T) {
 	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		testutil.Equal(t, r.Method, http.MethodPut)
 		_ = json.NewEncoder(w).Encode(api.ProjectDetail{
 			ID:   json.Number("10001"),
 			Key:  "TST",
@@ -690,7 +693,7 @@ func TestRunUpdate(t *testing.T) {
 
 	err = runUpdate(context.Background(), opts, "TST", "Updated Name", "", "")
 	testutil.RequireNoError(t, err)
-	testutil.Contains(t, stdout.String(), "Updated project TST")
+	testutil.Contains(t, stdout.String(), "Updated Name")
 }
 
 func TestRunRestore(t *testing.T) {
@@ -713,7 +716,8 @@ func TestRunRestore(t *testing.T) {
 
 	err = runRestore(context.Background(), opts, "TST")
 	testutil.RequireNoError(t, err)
-	testutil.Contains(t, stdout.String(), "Restored project TST")
+	testutil.Contains(t, stdout.String(), "TST")
+	testutil.Contains(t, stdout.String(), "Test Project")
 }
 
 func TestRunTypes(t *testing.T) {

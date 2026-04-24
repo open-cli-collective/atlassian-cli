@@ -11,6 +11,7 @@ import (
 	"github.com/open-cli-collective/atlassian-go/present"
 
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/mutation"
 	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
 )
 
@@ -83,22 +84,15 @@ func runCreate(ctx context.Context, opts *root.Options, filePath string) error {
 		return err
 	}
 
-	// Parse the response to extract the new rule's identifier.
 	var created struct {
-		// Legacy/documented response fields.
-		ID      json.Number `json:"id"`
-		RuleKey string      `json:"ruleKey"`
-		// Observed Cloud response fields.
-		UUID     string `json:"uuid"`
-		RuleUUID string `json:"ruleUuid"`
-		Name     string `json:"name"`
+		ID       json.Number `json:"id"`
+		RuleKey  string      `json:"ruleKey"`
+		UUID     string      `json:"uuid"`
+		RuleUUID string      `json:"ruleUuid"`
+		Name     string      `json:"name"`
 	}
 	if err := json.Unmarshal(respBody, &created); err != nil {
-		// Even if we can't parse the response, the rule was created.
-		model := jtkpresent.AutomationPresenter{}.PresentCreatedUnparsed()
-		out := present.Render(model, opts.RenderStyle())
-		fmt.Fprint(opts.Stdout, out.Stdout)
-		return nil
+		return jtkpresent.Emit(opts, jtkpresent.AutomationPresenter{}.PresentCreatedUnparsed())
 	}
 
 	identifier := created.UUID
@@ -112,14 +106,23 @@ func runCreate(ctx context.Context, opts *root.Options, filePath string) error {
 		identifier = created.ID.String()
 	}
 
-	var model *present.OutputModel
-	if created.Name != "" {
-		model = jtkpresent.AutomationPresenter{}.PresentCreated(created.Name, identifier)
-	} else {
-		model = jtkpresent.AutomationPresenter{}.PresentCreatedMinimal(identifier)
+	if opts.EmitIDOnly() {
+		return jtkpresent.EmitIDs(opts, []string{identifier})
 	}
-	out := present.Render(model, opts.RenderStyle())
-	fmt.Fprint(opts.Stdout, out.Stdout)
 
-	return nil
+	return mutation.WriteAndPresent(ctx, opts, mutation.Config{
+		Write: func(_ context.Context) (string, error) {
+			return identifier, nil
+		},
+		Fetch: func(ctx context.Context, id string) (*present.OutputModel, error) {
+			rule, err := client.GetAutomationRule(ctx, id)
+			if err != nil {
+				return nil, err
+			}
+			return jtkpresent.AutomationPresenter{}.PresentDetail(rule, false), nil
+		},
+		Fallback: func(id string) *present.OutputModel {
+			return jtkpresent.AutomationPresenter{}.PresentCreatedMinimal(id)
+		},
+	})
 }

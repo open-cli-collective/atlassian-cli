@@ -159,29 +159,46 @@ func runAdd(ctx context.Context, opts *root.Options, issueKey string, files []st
 		return err
 	}
 
+	var allAttachments []api.Attachment
 	for _, filePath := range files {
-		// Expand path
 		absPath, err := filepath.Abs(filePath)
 		if err != nil {
 			return fmt.Errorf("invalid file path %s: %w", filePath, err)
 		}
 
-		// Check file exists
 		if _, err := os.Stat(absPath); os.IsNotExist(err) {
 			return fmt.Errorf("file not found: %s", filePath)
 		}
 
 		attachments, err := client.AddAttachment(ctx, issueKey, absPath)
 		if err != nil {
+			// Emit results for files that succeeded before returning the error
+			if len(allAttachments) > 0 {
+				if opts.EmitIDOnly() {
+					ids := make([]string, len(allAttachments))
+					for i, a := range allAttachments {
+						ids[i] = a.ID.String()
+					}
+					_ = jtkpresent.EmitIDs(opts, ids)
+				} else {
+					_ = jtkpresent.Emit(opts, jtkpresent.AttachmentPresenter{}.PresentList(allAttachments, opts.IsExtended()))
+				}
+			}
 			return fmt.Errorf("uploading %s: %w", filepath.Base(filePath), err)
 		}
 
-		for _, att := range attachments {
-			_ = jtkpresent.Emit(opts, jtkpresent.AttachmentPresenter{}.PresentUploaded(att.Filename, att.ID.String(), api.FormatFileSize(att.Size)))
-		}
+		allAttachments = append(allAttachments, attachments...)
 	}
 
-	return nil
+	if opts.EmitIDOnly() {
+		ids := make([]string, len(allAttachments))
+		for i, a := range allAttachments {
+			ids[i] = a.ID.String()
+		}
+		return jtkpresent.EmitIDs(opts, ids)
+	}
+
+	return jtkpresent.Emit(opts, jtkpresent.AttachmentPresenter{}.PresentList(allAttachments, opts.IsExtended()))
 }
 
 func newGetCmd(opts *root.Options) *cobra.Command {

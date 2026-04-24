@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -37,7 +38,7 @@ func TestGetIssueLinks(t *testing.T) {
 	client, err := New(ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
 	testutil.RequireNoError(t, err)
 
-	links, err := client.GetIssueLinks("PROJ-123")
+	links, err := client.GetIssueLinks(context.Background(), "PROJ-123")
 	testutil.RequireNoError(t, err)
 	testutil.Len(t, links, 1)
 	testutil.Equal(t, links[0].ID, "10001")
@@ -47,7 +48,7 @@ func TestGetIssueLinks(t *testing.T) {
 }
 
 func TestGetIssueLinks_EmptyKey(t *testing.T) {
-	_, err := (&Client{}).GetIssueLinks("")
+	_, err := (&Client{}).GetIssueLinks(context.Background(), "")
 	testutil.Equal(t, err, ErrIssueKeyRequired)
 }
 
@@ -64,7 +65,7 @@ func TestCreateIssueLink(t *testing.T) {
 	client, err := New(ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
 	testutil.RequireNoError(t, err)
 
-	err = client.CreateIssueLink("PROJ-123", "PROJ-456", "Blocks")
+	err = client.CreateIssueLink(context.Background(), "PROJ-123", "PROJ-456", "Blocks")
 	testutil.RequireNoError(t, err)
 
 	var req CreateIssueLinkRequest
@@ -76,9 +77,9 @@ func TestCreateIssueLink(t *testing.T) {
 }
 
 func TestCreateIssueLink_EmptyKeys(t *testing.T) {
-	testutil.Error(t, (&Client{}).CreateIssueLink("", "B", "t"))
-	testutil.Error(t, (&Client{}).CreateIssueLink("A", "", "t"))
-	testutil.Error(t, (&Client{}).CreateIssueLink("A", "B", ""))
+	testutil.Error(t, (&Client{}).CreateIssueLink(context.Background(), "", "B", "t"))
+	testutil.Error(t, (&Client{}).CreateIssueLink(context.Background(), "A", "", "t"))
+	testutil.Error(t, (&Client{}).CreateIssueLink(context.Background(), "A", "B", ""))
 }
 
 func TestDeleteIssueLink(t *testing.T) {
@@ -92,12 +93,12 @@ func TestDeleteIssueLink(t *testing.T) {
 	client, err := New(ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
 	testutil.RequireNoError(t, err)
 
-	err = client.DeleteIssueLink("10001")
+	err = client.DeleteIssueLink(context.Background(), "10001")
 	testutil.RequireNoError(t, err)
 }
 
 func TestDeleteIssueLink_EmptyID(t *testing.T) {
-	testutil.Error(t, (&Client{}).DeleteIssueLink(""))
+	testutil.Error(t, (&Client{}).DeleteIssueLink(context.Background(), ""))
 }
 
 func TestGetIssueLinkTypes(t *testing.T) {
@@ -115,7 +116,7 @@ func TestGetIssueLinkTypes(t *testing.T) {
 	client, err := New(ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
 	testutil.RequireNoError(t, err)
 
-	types, err := client.GetIssueLinkTypes()
+	types, err := client.GetIssueLinkTypes(context.Background())
 	testutil.RequireNoError(t, err)
 	testutil.Len(t, types, 2)
 	testutil.Equal(t, types[0].Name, "Blocks")

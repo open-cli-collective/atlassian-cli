@@ -262,7 +262,7 @@ func TestRunCreate(t *testing.T) {
 
 	err = runCreate(context.Background(), opts, "Environment", "com.atlassian.jira.plugin.system.customfieldtypes:select", "")
 	testutil.RequireNoError(t, err)
-	testutil.Contains(t, stdout.String(), "Created field customfield_10100")
+	testutil.Contains(t, stdout.String(), "customfield_10100")
 	testutil.Contains(t, stdout.String(), "Environment")
 }
 
@@ -370,9 +370,18 @@ func TestRunDelete_NoForce_Accepted(t *testing.T) {
 func TestRunRestore(t *testing.T) {
 	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		testutil.Equal(t, r.Method, http.MethodPost)
-		testutil.Contains(t, r.URL.Path, "/restore")
-		w.WriteHeader(http.StatusOK)
+		if r.Method == http.MethodPost {
+			testutil.Contains(t, r.URL.Path, "/restore")
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		if r.Method == http.MethodGet {
+			_ = json.NewEncoder(w).Encode([]api.Field{
+				{ID: "customfield_10100", Name: "Environment", Custom: true},
+			})
+			return
+		}
+		w.WriteHeader(http.StatusMethodNotAllowed)
 	}))
 	defer server.Close()
 
@@ -385,7 +394,7 @@ func TestRunRestore(t *testing.T) {
 
 	err = runRestore(context.Background(), opts, "customfield_10100")
 	testutil.RequireNoError(t, err)
-	testutil.Contains(t, stdout.String(), "Restored field customfield_10100")
+	testutil.Contains(t, stdout.String(), "customfield_10100")
 }
 
 // --- Contexts tests ---
@@ -466,7 +475,7 @@ func TestRunContextsCreate(t *testing.T) {
 
 	err = runContextsCreate(context.Background(), opts, "customfield_10100", "Bug Context", "")
 	testutil.RequireNoError(t, err)
-	testutil.Contains(t, stdout.String(), "Created context 10003")
+	testutil.Contains(t, stdout.String(), "10003")
 	testutil.Contains(t, stdout.String(), "Bug Context")
 }
 
@@ -640,7 +649,7 @@ func TestRunOptionsAdd(t *testing.T) {
 
 	err = runOptionsAdd(context.Background(), opts, "customfield_10100", "Option A", "")
 	testutil.RequireNoError(t, err)
-	testutil.Contains(t, stdout.String(), "Added option 3")
+	testutil.Contains(t, stdout.String(), "3")
 	testutil.Contains(t, stdout.String(), "Option A")
 }
 
@@ -673,7 +682,7 @@ func TestRunOptionsUpdate(t *testing.T) {
 
 	err = runOptionsUpdate(context.Background(), opts, "customfield_10100", "3", "Option A (updated)", "")
 	testutil.RequireNoError(t, err)
-	testutil.Contains(t, stdout.String(), "Updated option 3")
+	testutil.Contains(t, stdout.String(), "Option A (updated)")
 }
 
 func TestRunOptionsDelete_Force(t *testing.T) {

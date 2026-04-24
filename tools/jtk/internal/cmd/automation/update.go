@@ -11,6 +11,7 @@ import (
 	"github.com/open-cli-collective/atlassian-go/present"
 
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/mutation"
 	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
 )
 
@@ -51,11 +52,9 @@ field mappings and workflow configuration.`,
 }
 
 func runUpdate(ctx context.Context, opts *root.Options, ruleID, filePath string) error {
-	// Read and validate file before creating the API client so we fail
-	// fast on bad input without needing network access.
 	data, err := os.ReadFile(filePath) //nolint:gosec // CLI tool reads user-provided file paths
 	if err != nil {
-		return fmt.Errorf("reading file %s: %w", filePath, err)
+		return err
 	}
 
 	if !json.Valid(data) {
@@ -67,19 +66,27 @@ func runUpdate(ctx context.Context, opts *root.Options, ruleID, filePath string)
 		return err
 	}
 
-	// Fetch current rule to show what we're updating
-	current, err := client.GetAutomationRule(ctx, ruleID)
-	if err != nil {
-		return fmt.Errorf("fetching current rule: %w", err)
-	}
-
 	if err := client.UpdateAutomationRule(ctx, ruleID, json.RawMessage(data)); err != nil {
 		return err
 	}
 
-	model := jtkpresent.AutomationPresenter{}.PresentUpdateComplete(current.Name, current.Identifier(), current.State, ruleID)
-	out := present.Render(model, opts.RenderStyle())
-	fmt.Fprint(opts.Stdout, out.Stdout)
-	fmt.Fprint(opts.Stderr, out.Stderr)
-	return nil
+	if opts.EmitIDOnly() {
+		return jtkpresent.EmitIDs(opts, []string{ruleID})
+	}
+
+	return mutation.WriteAndPresent(ctx, opts, mutation.Config{
+		Write: func(_ context.Context) (string, error) {
+			return ruleID, nil
+		},
+		Fetch: func(ctx context.Context, id string) (*present.OutputModel, error) {
+			rule, err := client.GetAutomationRule(ctx, id)
+			if err != nil {
+				return nil, err
+			}
+			return jtkpresent.AutomationPresenter{}.PresentDetail(rule, false), nil
+		},
+		Fallback: func(id string) *present.OutputModel {
+			return jtkpresent.AutomationPresenter{}.PresentUpdated(id)
+		},
+	})
 }

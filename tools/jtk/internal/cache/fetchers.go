@@ -122,8 +122,8 @@ func fetchBoards(ctx context.Context, c *api.Client) (int, error) {
 	return len(all), nil
 }
 
-func fetchLinkTypes(_ context.Context, c *api.Client) (int, error) {
-	types, err := c.GetIssueLinkTypes()
+func fetchLinkTypes(ctx context.Context, c *api.Client) (int, error) {
+	types, err := c.GetIssueLinkTypes(ctx)
 	if err != nil {
 		return 0, err
 	}

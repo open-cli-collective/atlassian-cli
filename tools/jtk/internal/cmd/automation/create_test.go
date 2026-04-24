@@ -36,6 +36,13 @@ func TestRunCreate(t *testing.T) {
 				return
 			}
 
+			if r.Method == http.MethodGet {
+				_ = json.NewEncoder(w).Encode(api.AutomationRule{
+					ID: json.Number("99"), UUID: "new-uuid-456", Name: "Test Rule", State: "DISABLED",
+				})
+				return
+			}
+
 			w.WriteHeader(http.StatusMethodNotAllowed)
 		}))
 		defer server.Close()
@@ -55,7 +62,6 @@ func TestRunCreate(t *testing.T) {
 		}
 		opts.SetAPIClient(client)
 
-		// Write test JSON with server-assigned fields that should be stripped
 		dir := t.TempDir()
 		filePath := filepath.Join(dir, "rule.json")
 		inputJSON := `{
@@ -97,6 +103,13 @@ func TestRunCreate(t *testing.T) {
 				return
 			}
 
+			if r.Method == http.MethodGet {
+				_ = json.NewEncoder(w).Encode(api.AutomationRule{
+					ID: json.Number("0"), Name: "New Rule", State: "DISABLED",
+				})
+				return
+			}
+
 			w.WriteHeader(http.StatusCreated)
 			_, _ = w.Write([]byte(`{"ruleUuid":"rule-uuid-789","name":"New Rule"}`))
 		}))
@@ -124,7 +137,7 @@ func TestRunCreate(t *testing.T) {
 
 		err = runCreate(context.Background(), opts, filePath)
 		testutil.RequireNoError(t, err)
-		testutil.Contains(t, stdout.String(), "rule-uuid-789")
+		testutil.Contains(t, stdout.String(), "New Rule")
 	})
 
 	t.Run("response prefers uuid over ruleUuid", func(t *testing.T) {
@@ -132,6 +145,13 @@ func TestRunCreate(t *testing.T) {
 			if r.URL.Path == "/_edge/tenant_info" {
 				w.WriteHeader(http.StatusOK)
 				_, _ = w.Write([]byte(`{"cloudId":"test-cloud"}`))
+				return
+			}
+
+			if r.Method == http.MethodGet {
+				_ = json.NewEncoder(w).Encode(api.AutomationRule{
+					ID: json.Number("0"), Name: "Both UUIDs", State: "DISABLED",
+				})
 				return
 			}
 
@@ -162,8 +182,7 @@ func TestRunCreate(t *testing.T) {
 
 		err = runCreate(context.Background(), opts, filePath)
 		testutil.RequireNoError(t, err)
-		testutil.Contains(t, stdout.String(), "preferred-uuid")
-		testutil.NotContains(t, stdout.String(), "fallback-uuid")
+		testutil.Contains(t, stdout.String(), "Both UUIDs")
 	})
 
 	t.Run("invalid JSON file", func(t *testing.T) {

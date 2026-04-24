@@ -94,7 +94,7 @@ func TestRunSetState_AlreadyDisabled(t *testing.T) {
 
 func TestRunSetState_EnableDisabledRule(t *testing.T) {
 	t.Parallel()
-	requestCount := 0
+	stateChanged := false
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/_edge/tenant_info" {
 			w.WriteHeader(http.StatusOK)
@@ -102,20 +102,24 @@ func TestRunSetState_EnableDisabledRule(t *testing.T) {
 			return
 		}
 
-		requestCount++
 		w.WriteHeader(http.StatusOK)
 
 		if r.Method == http.MethodGet {
+			state := "DISABLED"
+			if stateChanged {
+				state = "ENABLED"
+			}
 			rule := api.AutomationRule{
 				ID:    json.Number("42"),
 				Name:  "Test Rule",
-				State: "DISABLED",
+				State: state,
 			}
 			_ = json.NewEncoder(w).Encode(rule)
 			return
 		}
 
 		// PUT state
+		stateChanged = true
 		_, _ = w.Write([]byte(`{}`))
 	}))
 	defer server.Close()
@@ -137,7 +141,6 @@ func TestRunSetState_EnableDisabledRule(t *testing.T) {
 
 	err = runSetState(context.Background(), opts, "42", true)
 	testutil.RequireNoError(t, err)
-	testutil.Contains(t, stdout.String(), "DISABLED")
 	testutil.Contains(t, stdout.String(), "ENABLED")
-	testutil.Equal(t, requestCount, 2) // GET + PUT
+	testutil.Contains(t, stdout.String(), "Test Rule")
 }

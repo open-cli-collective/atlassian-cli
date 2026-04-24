@@ -14,6 +14,7 @@ import (
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cache"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/mutation"
 	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
 )
 
@@ -164,14 +165,15 @@ func runCreate(ctx context.Context, opts *root.Options, name, fieldType, descrip
 
 	_ = cache.AppendOnCreate[api.Field]("fields", *field)
 
+	if opts.EmitIDOnly() {
+		return jtkpresent.EmitIDs(opts, []string{field.ID})
+	}
+
 	if v.Format == view.FormatJSON {
 		return v.JSON(field)
 	}
 
-	model := jtkpresent.FieldPresenter{}.PresentCreated(field.ID, field.Name)
-	out := present.Render(model, opts.RenderStyle())
-	fmt.Fprint(opts.Stdout, out.Stdout)
-	return nil
+	return jtkpresent.Emit(opts, jtkpresent.FieldPresenter{}.PresentList([]api.Field{*field}, opts.IsExtended()))
 }
 
 func newDeleteCmd(opts *root.Options) *cobra.Command {
@@ -261,8 +263,28 @@ func runRestore(ctx context.Context, opts *root.Options, fieldID string) error {
 
 	_ = cache.Touch("fields")
 
-	model := jtkpresent.FieldPresenter{}.PresentRestored(fieldID)
-	out := present.Render(model, opts.RenderStyle())
-	fmt.Fprint(opts.Stdout, out.Stdout)
-	return nil
+	if opts.EmitIDOnly() {
+		return jtkpresent.EmitIDs(opts, []string{fieldID})
+	}
+
+	return mutation.WriteAndPresent(ctx, opts, mutation.Config{
+		Write: func(_ context.Context) (string, error) {
+			return fieldID, nil
+		},
+		Fetch: func(ctx context.Context, id string) (*present.OutputModel, error) {
+			fields, err := client.GetFields(ctx)
+			if err != nil {
+				return nil, err
+			}
+			for _, f := range fields {
+				if f.ID == id {
+					return jtkpresent.FieldPresenter{}.PresentList([]api.Field{f}, opts.IsExtended()), nil
+				}
+			}
+			return nil, fmt.Errorf("field %s not found after restore", id)
+		},
+		Fallback: func(id string) *present.OutputModel {
+			return jtkpresent.FieldPresenter{}.PresentRestored(id)
+		},
+	})
 }

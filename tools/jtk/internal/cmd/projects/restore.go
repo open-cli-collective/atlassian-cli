@@ -2,15 +2,16 @@ package projects
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/spf13/cobra"
 
 	"github.com/open-cli-collective/atlassian-go/present"
 	"github.com/open-cli-collective/atlassian-go/view"
 
+	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cache"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/mutation"
 	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
 )
 
@@ -42,12 +43,28 @@ func runRestore(ctx context.Context, opts *root.Options, keyOrID string) error {
 
 	_ = cache.Touch(cache.ProjectDependents()...)
 
+	if opts.EmitIDOnly() {
+		return jtkpresent.EmitIDs(opts, []string{project.Key})
+	}
+
 	if v.Format == view.FormatJSON {
 		return v.JSON(project)
 	}
 
-	model := jtkpresent.ProjectPresenter{}.PresentRestored(project.Key, project.Name)
-	out := present.Render(model, opts.RenderStyle())
-	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
-	return nil
+	restoredName := project.Name
+	return mutation.WriteAndPresent(ctx, opts, mutation.Config{
+		Write: func(_ context.Context) (string, error) {
+			return project.Key, nil
+		},
+		Fetch: func(ctx context.Context, id string) (*present.OutputModel, error) {
+			fetched, err := client.GetProject(ctx, id, api.ProjectGetExpand)
+			if err != nil {
+				return nil, err
+			}
+			return jtkpresent.ProjectPresenter{}.PresentProjectDetail(fetched, opts.IsExtended()), nil
+		},
+		Fallback: func(id string) *present.OutputModel {
+			return jtkpresent.ProjectPresenter{}.PresentRestored(id, restoredName)
+		},
+	})
 }

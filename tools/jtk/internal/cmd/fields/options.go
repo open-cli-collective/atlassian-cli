@@ -153,20 +153,19 @@ func runOptionsAdd(ctx context.Context, opts *root.Options, fieldID, value, cont
 		return err
 	}
 
+	if opts.EmitIDOnly() {
+		ids := make([]string, len(options))
+		for i, o := range options {
+			ids[i] = o.ID
+		}
+		return jtkpresent.EmitIDs(opts, ids)
+	}
+
 	if v.Format == view.FormatJSON {
 		return v.JSON(options)
 	}
 
-	optionID := ""
-	optionValue := value
-	if len(options) > 0 {
-		optionID = options[0].ID
-		optionValue = options[0].Value
-	}
-	model := jtkpresent.FieldPresenter{}.PresentOptionAdded(optionID, optionValue)
-	out := present.Render(model, opts.RenderStyle())
-	fmt.Fprint(opts.Stdout, out.Stdout)
-	return nil
+	return jtkpresent.Emit(opts, jtkpresent.FieldPresenter{}.PresentContextOptions(options))
 }
 
 func newOptionsUpdateCmd(opts *root.Options) *cobra.Command {
@@ -216,14 +215,19 @@ func runOptionsUpdate(ctx context.Context, opts *root.Options, fieldID, optionID
 		return err
 	}
 
+	if opts.EmitIDOnly() {
+		ids := make([]string, len(options))
+		for i, o := range options {
+			ids[i] = o.ID
+		}
+		return jtkpresent.EmitIDs(opts, ids)
+	}
+
 	if v.Format == view.FormatJSON {
 		return v.JSON(options)
 	}
 
-	model := jtkpresent.FieldPresenter{}.PresentOptionUpdated(optionID)
-	out := present.Render(model, opts.RenderStyle())
-	fmt.Fprint(opts.Stdout, out.Stdout)
-	return nil
+	return jtkpresent.Emit(opts, jtkpresent.FieldPresenter{}.PresentContextOptions(options))
 }
 
 func newOptionsDeleteCmd(opts *root.Options) *cobra.Command {

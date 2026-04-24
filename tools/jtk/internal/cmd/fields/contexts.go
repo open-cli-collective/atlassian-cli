@@ -121,14 +121,15 @@ func runContextsCreate(ctx context.Context, opts *root.Options, fieldID, name, p
 		return err
 	}
 
+	if opts.EmitIDOnly() {
+		return jtkpresent.EmitIDs(opts, []string{fc.ID})
+	}
+
 	if v.Format == view.FormatJSON {
 		return v.JSON(fc)
 	}
 
-	model := jtkpresent.FieldPresenter{}.PresentContextCreated(fc.ID, fc.Name)
-	out := present.Render(model, opts.RenderStyle())
-	fmt.Fprint(opts.Stdout, out.Stdout)
-	return nil
+	return jtkpresent.Emit(opts, jtkpresent.FieldPresenter{}.PresentContexts([]api.FieldContext{*fc}))
 }
 
 func newContextsDeleteCmd(opts *root.Options) *cobra.Command {

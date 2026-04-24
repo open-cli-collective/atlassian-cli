@@ -2,13 +2,13 @@ package automation
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/spf13/cobra"
 
 	"github.com/open-cli-collective/atlassian-go/present"
 
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/mutation"
 	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
 )
 
@@ -34,7 +34,6 @@ func runSetState(ctx context.Context, opts *root.Options, ruleID string, enabled
 		return err
 	}
 
-	// Fetch current rule to show context
 	current, err := client.GetAutomationRule(ctx, ruleID)
 	if err != nil {
 		return err
@@ -46,20 +45,35 @@ func runSetState(ctx context.Context, opts *root.Options, ruleID string, enabled
 	}
 
 	if current.State == newState {
-		model := jtkpresent.AutomationPresenter{}.PresentNoChange(current.Name, newState)
-		out := present.Render(model, opts.RenderStyle())
-		fmt.Fprint(opts.Stdout, out.Stdout)
-		fmt.Fprint(opts.Stderr, out.Stderr)
-		return nil
+		return jtkpresent.Emit(opts, jtkpresent.AutomationPresenter{}.PresentNoChange(current.Name, newState))
 	}
 
 	if err := client.SetAutomationRuleState(ctx, ruleID, enabled); err != nil {
 		return err
 	}
 
-	model := jtkpresent.AutomationPresenter{}.PresentStateChanged(current.Name, current.State, newState)
-	out := present.Render(model, opts.RenderStyle())
-	fmt.Fprint(opts.Stdout, out.Stdout)
-	fmt.Fprint(opts.Stderr, out.Stderr)
-	return nil
+	if opts.EmitIDOnly() {
+		return jtkpresent.EmitIDs(opts, []string{ruleID})
+	}
+
+	savedName := current.Name
+	savedState := current.State
+	return mutation.WriteAndPresent(ctx, opts, mutation.Config{
+		Write: func(_ context.Context) (string, error) {
+			return ruleID, nil
+		},
+		Fetch: func(ctx context.Context, id string) (*present.OutputModel, error) {
+			rule, err := client.GetAutomationRule(ctx, id)
+			if err != nil {
+				return nil, err
+			}
+			return jtkpresent.AutomationPresenter{}.PresentDetail(rule, false), nil
+		},
+		IsFresh: func(model *present.OutputModel) bool {
+			return mutation.ModelContainsField(model, "State: ", newState)
+		},
+		Fallback: func(id string) *present.OutputModel {
+			return jtkpresent.AutomationPresenter{}.PresentStateChanged(savedName, savedState, newState)
+		},
+	})
 }

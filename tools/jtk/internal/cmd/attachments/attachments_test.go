@@ -305,7 +305,7 @@ func TestRunAdd_Success(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()
-	testutil.Contains(t, output, "Uploaded testfile.txt")
+	testutil.Contains(t, output, "testfile.txt")
 	testutil.Contains(t, output, "10001")
 }
 

@@ -571,18 +571,34 @@ func TestNewAddCmd(t *testing.T) {
 }
 
 func TestRunAdd_Success(t *testing.T) {
+	postDone := false
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		testutil.Equal(t, r.Method, http.MethodPost)
+		if r.Method == http.MethodPost {
+			postDone = true
+			var body map[string]any
+			err := json.NewDecoder(r.Body).Decode(&body)
+			testutil.RequireNoError(t, err)
 
-		var body map[string]any
-		err := json.NewDecoder(r.Body).Decode(&body)
-		testutil.RequireNoError(t, err)
+			issues, ok := body["issues"].([]any)
+			testutil.True(t, ok)
+			testutil.Len(t, issues, 2)
 
-		issues, ok := body["issues"].([]any)
-		testutil.True(t, ok)
-		testutil.Len(t, issues, 2)
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
 
-		w.WriteHeader(http.StatusNoContent)
+		if r.Method == http.MethodGet && postDone {
+			_ = json.NewEncoder(w).Encode(api.SearchResult{
+				Total: 2,
+				Issues: []api.Issue{
+					{Key: "PROJ-101", Fields: api.IssueFields{Summary: "Issue 1"}},
+					{Key: "PROJ-102", Fields: api.IssueFields{Summary: "Issue 2"}},
+				},
+			})
+			return
+		}
+
+		w.WriteHeader(http.StatusMethodNotAllowed)
 	}))
 	defer server.Close()
 
@@ -596,12 +612,26 @@ func TestRunAdd_Success(t *testing.T) {
 	err = runAdd(context.Background(), opts, client, 123, []string{"PROJ-101", "PROJ-102"})
 	testutil.RequireNoError(t, err)
 
-	testutil.Contains(t, stdout.String(), fmt.Sprintf("Moved 2 issues to sprint %d", 123))
+	testutil.Contains(t, stdout.String(), "PROJ-101")
+	testutil.Contains(t, stdout.String(), "PROJ-102")
 }
 
 func TestRunAdd_SingleIssue(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusNoContent)
+	postDone := false
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			postDone = true
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		if r.Method == http.MethodGet && postDone {
+			_ = json.NewEncoder(w).Encode(api.SearchResult{
+				Total:  1,
+				Issues: []api.Issue{{Key: "PROJ-101", Fields: api.IssueFields{Summary: "Issue 1"}}},
+			})
+			return
+		}
+		w.WriteHeader(http.StatusMethodNotAllowed)
 	}))
 	defer server.Close()
 
@@ -615,7 +645,7 @@ func TestRunAdd_SingleIssue(t *testing.T) {
 	err = runAdd(context.Background(), opts, client, 123, []string{"PROJ-101"})
 	testutil.RequireNoError(t, err)
 
-	testutil.Contains(t, stdout.String(), "Moved PROJ-101 to sprint 123")
+	testutil.Contains(t, stdout.String(), "PROJ-101")
 }
 
 // --- Cobra entry-point tests that exercise the resolver ---

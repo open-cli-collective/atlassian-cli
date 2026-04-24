@@ -121,6 +121,35 @@ func (p CommentPresenter) PresentListFullWithPagination(comments []api.Comment, 
 	return model
 }
 
+// PresentAddedDetail creates a post-state detail block for a newly added comment.
+// Matches the spec shape: "ISSUE-KEY #ID — Author, Date\nBody text"
+func (CommentPresenter) PresentAddedDetail(issueKey string, c *api.Comment) *present.OutputModel {
+	author := "Unknown"
+	if c.Author.DisplayName != "" {
+		author = c.Author.DisplayName
+	}
+	body := ""
+	if c.Body != nil {
+		body = strings.TrimRight(c.Body.ToPlainText(), "\n")
+	}
+	header := fmt.Sprintf("%s #%s — %s, %s", issueKey, c.ID, author, FormatTime(c.Created))
+	sections := []present.Section{
+		&present.MessageSection{
+			Kind:    present.MessageSuccess,
+			Message: header,
+			Stream:  present.StreamStdout,
+		},
+	}
+	if body != "" {
+		sections = append(sections, &present.MessageSection{
+			Kind:    present.MessageInfo,
+			Message: body,
+			Stream:  present.StreamStdout,
+		})
+	}
+	return &present.OutputModel{Sections: sections}
+}
+
 // PresentAdded creates a success message for comment addition.
 func (CommentPresenter) PresentAdded(commentID, issueKey string) *present.OutputModel {
 	return &present.OutputModel{

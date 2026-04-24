@@ -407,7 +407,7 @@ func TestRunDelete(t *testing.T) {
 	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runDelete(opts, "10001")
+	err = runDelete(context.Background(), opts, "10001")
 	testutil.RequireNoError(t, err)
 	testutil.Contains(t, stdout.String(), "Deleted")
 }

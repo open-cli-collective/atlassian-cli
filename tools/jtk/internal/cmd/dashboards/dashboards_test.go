@@ -112,7 +112,7 @@ func TestRunCreate(t *testing.T) {
 
 	err = runCreate(opts, "New Board", "Description")
 	testutil.RequireNoError(t, err)
-	testutil.Contains(t, stdout.String(), "Created")
+	testutil.Contains(t, stdout.String(), "New Board")
 
 	var req api.CreateDashboardRequest
 	err = json.Unmarshal(capturedBody, &req)

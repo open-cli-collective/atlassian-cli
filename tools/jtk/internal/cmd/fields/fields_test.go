@@ -224,6 +224,7 @@ func TestRunList_NameFilter_WithCustom(t *testing.T) {
 	testutil.RequireNoError(t, err)
 	testutil.Contains(t, stdout.String(), "Story Points")
 	testutil.NotContains(t, stdout.String(), "Sprint")
+	testutil.NotContains(t, stdout.String(), "Summary")
 }
 
 func TestNewCreateCmd(t *testing.T) {

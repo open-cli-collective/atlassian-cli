@@ -68,6 +68,41 @@ func TestGetFieldsCacheFirst_ManualRegistryTTL_SkipsLive(t *testing.T) {
 	testutil.Equal(t, len(got), len(testFields))
 }
 
+func TestGetFieldsCacheFirst_UninitializedEnvelopeFallsBackToLive(t *testing.T) {
+	// StatusUninitialized is returned by Classify when FetchedAt.IsZero() —
+	// e.g. an envelope written by a placeholder write before population.
+	t.Cleanup(SetRootForTest(t.TempDir()))
+	t.Cleanup(SetInstanceKeyForTest("test.atlassian.net"))
+
+	uninitEnv := Envelope[[]api.Field]{
+		Resource:  "fields",
+		Instance:  "test.atlassian.net",
+		FetchedAt: time.Time{}, // zero → StatusUninitialized
+		TTL:       "24h",
+		Version:   Version,
+		Data:      testFields,
+	}
+	testutil.RequireNoError(t, atomicWriteEnvelope("fields", uninitEnv))
+
+	liveCalled := false
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/rest/api/3/field" {
+			liveCalled = true
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`[{"id":"summary","name":"Summary"}]`))
+		}
+	}))
+	defer server.Close()
+
+	client := newFieldsTestClient(t, server.URL)
+	got, err := GetFieldsCacheFirst(context.Background(), client)
+	testutil.RequireNoError(t, err)
+	if !liveCalled {
+		t.Fatal("expected live API call for uninitialized (zero FetchedAt) envelope")
+	}
+	testutil.Equal(t, got[0].ID, "summary")
+}
+
 func TestGetFieldsCacheFirst_StaleCacheFallsBackToLive(t *testing.T) {
 	t.Cleanup(SetRootForTest(t.TempDir()))
 	t.Cleanup(SetInstanceKeyForTest("test.atlassian.net"))

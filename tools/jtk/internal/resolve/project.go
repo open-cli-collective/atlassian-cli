@@ -37,7 +37,7 @@ func (r *Resolver) Project(ctx context.Context, input string) (api.Project, erro
 
 func lookupProject(input string) (api.Project, error) {
 	env, err := cache.ReadResource[[]api.Project]("projects")
-	if errors.Is(err, cache.ErrCacheMiss) {
+	if errors.Is(err, cache.ErrCacheMiss) || errors.Is(err, cache.ErrNoInstance) {
 		return api.Project{}, errCacheEmpty
 	}
 	if err != nil {

@@ -69,7 +69,7 @@ func cachedIssueTypeNamesForProject(projectKey string) []string {
 
 func lookupIssueType(projectKey, input string) (api.IssueType, error) {
 	env, err := cache.ReadResource[map[string][]api.IssueType]("issuetypes")
-	if errors.Is(err, cache.ErrCacheMiss) {
+	if errors.Is(err, cache.ErrCacheMiss) || errors.Is(err, cache.ErrNoInstance) {
 		return api.IssueType{}, errCacheEmpty
 	}
 	if err != nil {

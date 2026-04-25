@@ -70,7 +70,7 @@ func (r *Resolver) User(ctx context.Context, input string) (api.User, error) {
 
 func lookupUser(input string) (api.User, error) {
 	env, err := cache.ReadResource[[]api.User]("users")
-	if errors.Is(err, cache.ErrCacheMiss) {
+	if errors.Is(err, cache.ErrCacheMiss) || errors.Is(err, cache.ErrNoInstance) {
 		return api.User{}, errCacheEmpty
 	}
 	if err != nil {

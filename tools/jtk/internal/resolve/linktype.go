@@ -38,7 +38,7 @@ func (r *Resolver) LinkType(ctx context.Context, input string) (api.IssueLinkTyp
 
 func lookupLinkType(input string) (api.IssueLinkType, error) {
 	env, err := cache.ReadResource[[]api.IssueLinkType]("linktypes")
-	if errors.Is(err, cache.ErrCacheMiss) {
+	if errors.Is(err, cache.ErrCacheMiss) || errors.Is(err, cache.ErrNoInstance) {
 		return api.IssueLinkType{}, errCacheEmpty
 	}
 	if err != nil {

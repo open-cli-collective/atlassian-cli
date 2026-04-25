@@ -41,7 +41,7 @@ func (r *Resolver) Sprint(ctx context.Context, input string, boardID int) (api.S
 
 func lookupSprint(input string, boardID int) (api.Sprint, error) {
 	env, err := cache.ReadResource[map[int][]api.Sprint]("sprints")
-	if errors.Is(err, cache.ErrCacheMiss) {
+	if errors.Is(err, cache.ErrCacheMiss) || errors.Is(err, cache.ErrNoInstance) {
 		return api.Sprint{}, errCacheEmpty
 	}
 	if err != nil {

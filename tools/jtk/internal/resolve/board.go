@@ -34,7 +34,7 @@ func (r *Resolver) Board(ctx context.Context, input string) (api.Board, error) {
 
 func lookupBoard(input string) (api.Board, error) {
 	env, err := cache.ReadResource[[]api.Board]("boards")
-	if errors.Is(err, cache.ErrCacheMiss) {
+	if errors.Is(err, cache.ErrCacheMiss) || errors.Is(err, cache.ErrNoInstance) {
 		return api.Board{}, errCacheEmpty
 	}
 	if err != nil {

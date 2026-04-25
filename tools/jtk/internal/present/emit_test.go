@@ -260,6 +260,24 @@ func TestAppendPaginationHint(t *testing.T) {
 	}
 }
 
+func TestPaginationOnlyModel(t *testing.T) {
+	t.Parallel()
+	model := PaginationOnlyModel("tok123")
+	if len(model.Sections) != 1 {
+		t.Fatalf("want 1 section, got %d", len(model.Sections))
+	}
+	msg, ok := model.Sections[0].(*present.MessageSection)
+	if !ok {
+		t.Fatalf("want *MessageSection, got %T", model.Sections[0])
+	}
+	if msg.Stream != present.StreamStdout {
+		t.Errorf("want StreamStdout, got %v", msg.Stream)
+	}
+	if !strings.Contains(msg.Message, "tok123") {
+		t.Errorf("want token in message, got %q", msg.Message)
+	}
+}
+
 func TestEmitIDsWithPagination_EmptyButHasMore(t *testing.T) {
 	t.Parallel()
 	// Edge case: zero results on this page but more pages exist. Emit only

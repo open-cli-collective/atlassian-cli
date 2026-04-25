@@ -141,11 +141,9 @@ func runList(ctx context.Context, opts *root.Options, query string, maxResults i
 		return v.JSON(result.Values)
 	}
 
-	presenter := jtkpresent.ProjectPresenter{}
-	model := presenter.PresentProjectList(result.Values, opts.IsExtended())
+	model := jtkpresent.ProjectPresenter{}.PresentProjectListWithPagination(result.Values, opts.IsExtended(), hasMore, nextToken)
 	if projected {
 		projection.ApplyToTableInModel(model, selected)
 	}
-	model.Sections = jtkpresent.AppendPaginationHintWithToken(model.Sections, hasMore, nextToken)
 	return jtkpresent.Emit(opts, model)
 }

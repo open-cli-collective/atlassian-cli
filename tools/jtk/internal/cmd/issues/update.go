@@ -208,10 +208,7 @@ func changeIssueType(ctx context.Context, client *api.Client, opts *root.Options
 	projectKey := issue.Fields.Project.Key
 
 	if issue.Fields.IssueType != nil && strings.EqualFold(issue.Fields.IssueType.Name, targetTypeName) {
-		advisory := jtkpresent.MutationPresenter{}.Advisory("type is already %s", targetTypeName)
-		advOut := present.Render(advisory, opts.RenderStyle())
-		_, _ = fmt.Fprint(opts.Stderr, advOut.Stderr)
-		return nil
+		return jtkpresent.Emit(opts, jtkpresent.IssuePresenter{}.PresentTypeAlreadyCurrent(issueKey, targetTypeName))
 	}
 
 	resolvedType, err := resolve.New(client).IssueType(ctx, projectKey, targetTypeName)

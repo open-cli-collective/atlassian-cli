@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"strconv"
 	"strings"
 
@@ -116,9 +115,12 @@ func runList(ctx context.Context, opts *root.Options, project, sprint string, ma
 	}
 
 	if sprint != "" {
-		sprintClause, err := buildSprintClause(ctx, resolver, sprint, opts.Stderr)
+		sprintClause, warning, err := buildSprintClause(ctx, resolver, sprint)
 		if err != nil {
 			return err
+		}
+		if warning != nil {
+			_ = jtkpresent.Emit(opts, emitSprintWarning(warning))
 		}
 		if jql != "" {
 			jql += " AND " + sprintClause
@@ -158,9 +160,7 @@ func runList(ctx context.Context, opts *root.Options, project, sprint string, ma
 
 	if len(result.Issues) == 0 {
 		if hasMore {
-			return jtkpresent.Emit(opts, &present.OutputModel{
-				Sections: jtkpresent.AppendPaginationHintWithToken(nil, true, nextToken),
-			})
+			return jtkpresent.Emit(opts, jtkpresent.PaginationOnlyModel(nextToken))
 		}
 		return jtkpresent.Emit(opts, jtkpresent.IssuePresenter{}.PresentEmpty())
 	}
@@ -170,12 +170,43 @@ func runList(ctx context.Context, opts *root.Options, project, sprint string, ma
 		return v.RenderArtifactList(artifact.NewListResult(arts, hasMore))
 	}
 
-	model := jtkpresent.IssuePresenter{}.PresentList(result.Issues, opts.IsExtended())
+	model := jtkpresent.IssuePresenter{}.PresentListWithPagination(result.Issues, opts.IsExtended(), hasMore, nextToken)
 	if projected {
 		projection.ApplyToTableInModel(model, selected)
 	}
-	model.Sections = jtkpresent.AppendPaginationHintWithToken(model.Sections, hasMore, nextToken)
 	return jtkpresent.Emit(opts, model)
+}
+
+type sprintWarningKind int
+
+const (
+	sprintWarningAmbiguity sprintWarningKind = iota
+	sprintWarningCacheMiss
+	sprintWarningResolverError
+	sprintWarningSynthetic
+)
+
+type sprintWarning struct {
+	Kind       sprintWarningKind
+	SprintName string
+	Err        error
+}
+
+// emitSprintWarning maps a sprintWarning to the appropriate presenter method.
+func emitSprintWarning(w *sprintWarning) *present.OutputModel {
+	p := jtkpresent.SprintPresenter{}
+	switch w.Kind {
+	case sprintWarningAmbiguity:
+		return p.PresentResolutionAmbiguity(w.SprintName)
+	case sprintWarningCacheMiss:
+		return p.PresentResolutionCacheMiss(w.SprintName)
+	case sprintWarningResolverError:
+		return p.PresentResolutionError(w.SprintName, w.Err)
+	case sprintWarningSynthetic:
+		return p.PresentResolutionSynthetic(w.SprintName)
+	default:
+		return p.PresentResolutionSynthetic(w.SprintName)
+	}
 }
 
 // buildSprintClause builds the JQL `sprint` clause. Rules:
@@ -190,52 +221,36 @@ func runList(ctx context.Context, opts *root.Options, project, sprint string, ma
 //     repeat across boards are legal JQL targets and Jira handles them
 //     natively in the project/board context.
 //
-// When the fallback fires because of genuine ambiguity, a warning is
-// written to stderr so the user knows Jira's engine may return more than
-// they expected. `warn` is the caller's stderr (opts.Stderr) so command
-// tests can capture it without touching the process stderr.
-func buildSprintClause(ctx context.Context, resolver *resolve.Resolver, sprint string, warn io.Writer) (string, error) {
+// Returns structured warning metadata when a fallback fires; the caller
+// maps it to the appropriate presenter method.
+func buildSprintClause(ctx context.Context, resolver *resolve.Resolver, sprint string) (string, *sprintWarning, error) {
 	if sprint == "current" {
-		return "sprint in openSprints()", nil
+		return "sprint in openSprints()", nil, nil
 	}
 	if n, err := strconv.Atoi(sprint); err == nil {
 		if n <= 0 {
-			return "", fmt.Errorf("--sprint numeric ID must be positive (got %s)", sprint)
+			return "", nil, fmt.Errorf("--sprint numeric ID must be positive (got %s)", sprint)
 		}
-		return fmt.Sprintf("sprint = %d", n), nil
+		return fmt.Sprintf("sprint = %d", n), nil, nil
 	}
 	resolved, err := resolver.Sprint(ctx, sprint, 0)
 	if err == nil && resolved.ID != 0 {
-		return fmt.Sprintf("sprint = %d", resolved.ID), nil
+		return fmt.Sprintf("sprint = %d", resolved.ID), nil, nil
 	}
-	if warn != nil {
-		var amb *resolve.AmbiguousMatchError
-		var nf *resolve.NotFoundError
-		switch {
-		case errors.As(err, &amb):
-			fmt.Fprintf(warn,
-				"warning: sprint name %q matched multiple cached boards; falling back to JQL name resolution — "+
-					"results may span sprints on different boards.\n", sprint)
-		case errors.As(err, &nf):
-			fmt.Fprintf(warn,
-				"warning: sprint %q not found in cache; falling back to JQL name resolution — "+
-					"Jira will resolve the name or return an empty result set. Run `jtk refresh sprints` to update the cache.\n", sprint)
-		case err != nil:
-			// Network failure, auth error, or other non-cache error during
-			// resolution. Surface it rather than silently falling through.
-			fmt.Fprintf(warn,
-				"warning: sprint resolver failed for %q (%v); falling back to JQL name resolution.\n", sprint, err)
-		case resolved.ID == 0:
-			// Resolver returned a synthetic (shouldn't happen for sprints today, but
-			// future-proofs the warning if sprint pass-through is ever added).
-			fmt.Fprintf(warn,
-				"warning: sprint %q not resolved to a cached ID; falling back to JQL name resolution.\n", sprint)
-		}
+	var w *sprintWarning
+	var amb *resolve.AmbiguousMatchError
+	var nf *resolve.NotFoundError
+	switch {
+	case errors.As(err, &amb):
+		w = &sprintWarning{Kind: sprintWarningAmbiguity, SprintName: sprint}
+	case errors.As(err, &nf):
+		w = &sprintWarning{Kind: sprintWarningCacheMiss, SprintName: sprint}
+	case err != nil:
+		w = &sprintWarning{Kind: sprintWarningResolverError, SprintName: sprint, Err: err}
+	case resolved.ID == 0:
+		w = &sprintWarning{Kind: sprintWarningSynthetic, SprintName: sprint}
 	}
-	// Cache miss, ambiguity, or synthetic-without-ID → let Jira's JQL
-	// engine resolve the name. Quote to handle spaces and escape any
-	// JQL metacharacters.
-	return fmt.Sprintf(`sprint = "%s"`, jqlEscape(sprint)), nil
+	return fmt.Sprintf(`sprint = "%s"`, jqlEscape(sprint)), w, nil
 }
 
 // jqlEscape makes a string safe to embed between JQL double quotes. JQL

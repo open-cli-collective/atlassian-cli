@@ -106,11 +106,17 @@ func (UserPresenter) PresentUserDetailProjection(u *api.User) *present.OutputMod
 	}
 }
 
+// PresentUserListWithPagination wraps PresentUserList and appends a
+// pagination hint when hasMore is true.
+func (p UserPresenter) PresentUserListWithPagination(users []api.User, extended, hasMore bool, nextToken string) *present.OutputModel {
+	model := p.PresentUserList(users, extended)
+	model.Sections = AppendPaginationHintWithToken(model.Sections, hasMore, nextToken)
+	return model
+}
+
 // PresentUserList builds a TableSection for `users search`. When extended is
 // true, TIMEZONE/LOCALE columns are appended so the Registry and the rendered
 // headers stay aligned in both modes.
-// The command is responsible for appending any pagination hint via
-// AppendPaginationHintWithToken; this presenter returns the plain model.
 func (UserPresenter) PresentUserList(users []api.User, extended bool) *present.OutputModel {
 	headers := []string{"ACCOUNT_ID", "NAME", "EMAIL", "ACTIVE"}
 	if extended {

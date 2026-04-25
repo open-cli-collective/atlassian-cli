@@ -62,3 +62,18 @@ func TestAttachmentPresenter_PresentList_Extended(t *testing.T) {
 		t.Errorf("MIME_TYPE: expected 'text/markdown', got %q", table.Rows[0].Cells[6])
 	}
 }
+
+func TestAttachmentPresenter_PresentDownloaded(t *testing.T) {
+	t.Parallel()
+	model := AttachmentPresenter{}.PresentDownloaded("./audit.md", 4301)
+	msg := model.Sections[0].(*present.MessageSection)
+	if msg.Kind != present.MessageSuccess {
+		t.Errorf("want MessageSuccess, got %v", msg.Kind)
+	}
+	if msg.Stream != present.StreamStdout {
+		t.Errorf("want StreamStdout, got %v", msg.Stream)
+	}
+	if msg.Message != "Downloaded ./audit.md (4.2 KB)" {
+		t.Errorf("unexpected message: %q", msg.Message)
+	}
+}

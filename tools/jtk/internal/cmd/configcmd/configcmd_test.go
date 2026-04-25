@@ -16,6 +16,7 @@ import (
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/config"
+	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
 )
 
 func newTestRootOptions() *root.Options {
@@ -203,7 +204,7 @@ func TestMaskToken(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got := maskToken(tt.token)
+			got := jtkpresent.MaskToken(tt.token)
 			testutil.Equal(t, got, tt.want)
 		})
 	}

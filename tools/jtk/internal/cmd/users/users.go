@@ -238,11 +238,9 @@ func runSearch(ctx context.Context, opts *root.Options, query string, maxResults
 		return v.RenderArtifactList(artifact.NewListResult(arts, hasMore))
 	}
 
-	presenter := jtkpresent.UserPresenter{}
-	model := presenter.PresentUserList(users, opts.IsExtended())
+	model := jtkpresent.UserPresenter{}.PresentUserListWithPagination(users, opts.IsExtended(), hasMore, nextToken)
 	if projected {
 		projection.ApplyToTableInModel(model, selected)
 	}
-	model.Sections = jtkpresent.AppendPaginationHintWithToken(model.Sections, hasMore, nextToken)
 	return jtkpresent.Emit(opts, model)
 }

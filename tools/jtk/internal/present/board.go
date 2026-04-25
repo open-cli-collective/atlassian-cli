@@ -35,6 +35,14 @@ var BoardDetailSpec = projection.Registry{
 	{Header: "COLUMN_CONFIG", Extended: true},
 }
 
+// PresentListWithPagination wraps PresentList and appends a pagination
+// hint when hasMore is true.
+func (p BoardPresenter) PresentListWithPagination(boards []api.Board, extended, hasMore bool, nextToken string) *present.OutputModel {
+	model := p.PresentList(boards, extended)
+	model.Sections = AppendPaginationHintWithToken(model.Sections, hasMore, nextToken)
+	return model
+}
+
 // PresentList renders `boards list` output as a table. Default order is
 // ID|TYPE|PROJECT|NAME; --extended adds PROJECT_NAME.
 func (BoardPresenter) PresentList(boards []api.Board, extended bool) *present.OutputModel {
@@ -129,6 +137,20 @@ func (BoardPresenter) PresentDetailProjection(board *api.Board, config *api.Boar
 	}
 	return &present.OutputModel{
 		Sections: []present.Section{&present.DetailSection{Fields: fields}},
+	}
+}
+
+// PresentConfigFetchWarning creates a warning when board configuration
+// could not be fetched (non-fatal; extended fields degrade gracefully).
+func (BoardPresenter) PresentConfigFetchWarning(err error) *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageWarning,
+				Message: fmt.Sprintf("could not fetch board configuration: %v", err),
+				Stream:  present.StreamStderr,
+			},
+		},
 	}
 }
 

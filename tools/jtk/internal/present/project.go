@@ -154,13 +154,20 @@ func (ProjectPresenter) PresentProjectDetailProjection(p *api.ProjectDetail) *pr
 	}
 }
 
+// PresentProjectListWithPagination wraps PresentProjectList and appends a
+// pagination hint when hasMore is true.
+func (p ProjectPresenter) PresentProjectListWithPagination(projects []api.ProjectDetail, extended, hasMore bool, nextToken string) *present.OutputModel {
+	model := p.PresentProjectList(projects, extended)
+	model.Sections = AppendPaginationHintWithToken(model.Sections, hasMore, nextToken)
+	return model
+}
+
 // PresentProjectList renders `projects list` output as a table. Default order
 // is KEY | TYPE | LEAD | NAME; --extended interleaves STYLE between TYPE and
 // LEAD and ISSUE_TYPES/COMPONENTS before NAME, producing
 // KEY | TYPE | STYLE | LEAD | ISSUE_TYPES | COMPONENTS | NAME per #230.
 // ISSUE_TYPES renders as the comma-joined issue-type names (not a count);
-// COMPONENTS renders as the count. Pagination is appended by the command via
-// AppendPaginationHintWithToken.
+// COMPONENTS renders as the count.
 func (ProjectPresenter) PresentProjectList(projects []api.ProjectDetail, extended bool) *present.OutputModel {
 	var headers []string
 	if extended {

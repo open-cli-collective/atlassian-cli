@@ -157,12 +157,10 @@ func runList(ctx context.Context, opts *root.Options, project string, maxResults
 		return v.RenderArtifactList(artifact.NewListResult(arts, hasMore))
 	}
 
-	presenter := jtkpresent.BoardPresenter{}
-	model := presenter.PresentList(result.Values, opts.IsExtended())
+	model := jtkpresent.BoardPresenter{}.PresentListWithPagination(result.Values, opts.IsExtended(), hasMore, nextToken)
 	if projected {
 		projection.ApplyToTableInModel(model, selected)
 	}
-	model.Sections = jtkpresent.AppendPaginationHintWithToken(model.Sections, hasMore, nextToken)
 	return jtkpresent.Emit(opts, model)
 }
 
@@ -233,7 +231,7 @@ func runGet(ctx context.Context, opts *root.Options, client *api.Client, resolve
 		var configErr error
 		config, configErr = client.GetBoardConfiguration(ctx, board.ID)
 		if configErr != nil {
-			_, _ = fmt.Fprintf(opts.Stderr, "warning: could not fetch board configuration: %v\n", configErr)
+			_ = jtkpresent.Emit(opts, jtkpresent.BoardPresenter{}.PresentConfigFetchWarning(configErr))
 		}
 	}
 

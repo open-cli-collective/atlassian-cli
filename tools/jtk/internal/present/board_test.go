@@ -1,6 +1,7 @@
 package present
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/open-cli-collective/atlassian-go/present"
@@ -203,3 +204,36 @@ func TestSprintDetailSpec_ContainsAllProjectionHeaders(t *testing.T) {
 		}
 	}
 }
+
+func TestBoardPresenter_PresentListWithPagination(t *testing.T) {
+	t.Parallel()
+	boards := []api.Board{{ID: 1, Name: "B", Type: "scrum"}}
+
+	t.Run("appends_hint", func(t *testing.T) {
+		model := BoardPresenter{}.PresentListWithPagination(boards, false, true, "tok")
+		if len(model.Sections) != 2 {
+			t.Fatalf("want 2 sections, got %d", len(model.Sections))
+		}
+	})
+
+	t.Run("no_hint", func(t *testing.T) {
+		model := BoardPresenter{}.PresentListWithPagination(boards, false, false, "")
+		if len(model.Sections) != 1 {
+			t.Errorf("want 1 section, got %d", len(model.Sections))
+		}
+	})
+}
+
+func TestBoardPresenter_PresentConfigFetchWarning(t *testing.T) {
+	t.Parallel()
+	model := BoardPresenter{}.PresentConfigFetchWarning(errTest)
+	msg := model.Sections[0].(*present.MessageSection)
+	if msg.Kind != present.MessageWarning {
+		t.Errorf("want MessageWarning, got %v", msg.Kind)
+	}
+	if msg.Stream != present.StreamStderr {
+		t.Errorf("want StreamStderr, got %v", msg.Stream)
+	}
+}
+
+var errTest = fmt.Errorf("test error")

@@ -6,7 +6,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/open-cli-collective/atlassian-go/artifact"
-	"github.com/open-cli-collective/atlassian-go/present"
 	"github.com/open-cli-collective/atlassian-go/view"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
@@ -118,9 +117,7 @@ func runSearch(ctx context.Context, opts *root.Options, jql string, maxResults i
 
 	if len(result.Issues) == 0 {
 		if hasMore {
-			return jtkpresent.Emit(opts, &present.OutputModel{
-				Sections: jtkpresent.AppendPaginationHintWithToken(nil, true, nextToken),
-			})
+			return jtkpresent.Emit(opts, jtkpresent.PaginationOnlyModel(nextToken))
 		}
 		return jtkpresent.Emit(opts, jtkpresent.IssuePresenter{}.PresentEmpty())
 	}
@@ -130,10 +127,9 @@ func runSearch(ctx context.Context, opts *root.Options, jql string, maxResults i
 		return v.RenderArtifactList(artifact.NewListResult(arts, hasMore))
 	}
 
-	model := jtkpresent.IssuePresenter{}.PresentList(result.Issues, opts.IsExtended())
+	model := jtkpresent.IssuePresenter{}.PresentListWithPagination(result.Issues, opts.IsExtended(), hasMore, nextToken)
 	if projected {
 		projection.ApplyToTableInModel(model, selected)
 	}
-	model.Sections = jtkpresent.AppendPaginationHintWithToken(model.Sections, hasMore, nextToken)
 	return jtkpresent.Emit(opts, model)
 }

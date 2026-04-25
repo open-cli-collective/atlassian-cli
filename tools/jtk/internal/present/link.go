@@ -111,6 +111,34 @@ func (LinkPresenter) PresentCreated(linkType, outwardKey, inwardKey string) *pre
 	}
 }
 
+// PresentIDUnavailable creates an advisory when the link ID cannot be
+// recovered after creation (re-query failed).
+func (LinkPresenter) PresentIDUnavailable() *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageInfo,
+				Message: "link ID unavailable — re-query failed",
+				Stream:  present.StreamStderr,
+			},
+		},
+	}
+}
+
+// PresentPostStateUnavailable creates an advisory when post-state cannot be
+// fetched after a mutation, falling back to a confirmation-only output.
+func (LinkPresenter) PresentPostStateUnavailable() *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageInfo,
+				Message: "post-state unavailable; showing confirmation only",
+				Stream:  present.StreamStderr,
+			},
+		},
+	}
+}
+
 // PresentDeleted creates a success message for link deletion.
 func (LinkPresenter) PresentDeleted(linkID string) *present.OutputModel {
 	return &present.OutputModel{

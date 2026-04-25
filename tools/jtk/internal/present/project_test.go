@@ -312,3 +312,22 @@ func renderAllMessages(t *testing.T, model *present.OutputModel) []string {
 	}
 	return out
 }
+
+func TestProjectPresenter_PresentProjectListWithPagination(t *testing.T) {
+	t.Parallel()
+	projects := []api.ProjectDetail{{Key: "P", Name: "Proj"}}
+
+	t.Run("appends_hint", func(t *testing.T) {
+		model := ProjectPresenter{}.PresentProjectListWithPagination(projects, false, true, "tok")
+		if len(model.Sections) != 2 {
+			t.Fatalf("want 2 sections, got %d", len(model.Sections))
+		}
+	})
+
+	t.Run("no_hint", func(t *testing.T) {
+		model := ProjectPresenter{}.PresentProjectListWithPagination(projects, false, false, "")
+		if len(model.Sections) != 1 {
+			t.Errorf("want 1 section, got %d", len(model.Sections))
+		}
+	})
+}

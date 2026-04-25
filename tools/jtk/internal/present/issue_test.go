@@ -410,3 +410,41 @@ func renderMsgSections(model *present.OutputModel) string {
 	out := present.Render(model, present.StyleAgent)
 	return out.Stdout + out.Stderr
 }
+
+func TestIssuePresenter_PresentListWithPagination(t *testing.T) {
+	t.Parallel()
+	issues := []api.Issue{{Key: "T-1", Fields: api.IssueFields{Summary: "s"}}}
+
+	t.Run("appends_hint_when_hasMore", func(t *testing.T) {
+		model := IssuePresenter{}.PresentListWithPagination(issues, false, true, "tok")
+		if len(model.Sections) != 2 {
+			t.Fatalf("want 2 sections, got %d", len(model.Sections))
+		}
+		msg := model.Sections[1].(*present.MessageSection)
+		if !strings.Contains(msg.Message, "tok") {
+			t.Errorf("want token in message, got %q", msg.Message)
+		}
+	})
+
+	t.Run("no_hint_when_not_hasMore", func(t *testing.T) {
+		model := IssuePresenter{}.PresentListWithPagination(issues, false, false, "")
+		if len(model.Sections) != 1 {
+			t.Errorf("want 1 section, got %d", len(model.Sections))
+		}
+	})
+}
+
+func TestIssuePresenter_PresentTypeFallbackWarning(t *testing.T) {
+	t.Parallel()
+	model := IssuePresenter{}.PresentTypeFallbackWarning("Bug", "MON", "Task")
+	msg := model.Sections[0].(*present.MessageSection)
+	if msg.Kind != present.MessageWarning {
+		t.Errorf("want MessageWarning, got %v", msg.Kind)
+	}
+	if msg.Stream != present.StreamStderr {
+		t.Errorf("want StreamStderr, got %v", msg.Stream)
+	}
+	if !strings.Contains(msg.Message, "Bug") || !strings.Contains(msg.Message, "MON") || !strings.Contains(msg.Message, "Task") {
+		t.Errorf("want source, project, and fallback in message, got %q", msg.Message)
+	}
+}

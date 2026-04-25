@@ -175,12 +175,10 @@ func runList(ctx context.Context, opts *root.Options, client *api.Client, boardI
 		return v.RenderArtifactList(artifact.NewListResult(arts, hasMore))
 	}
 
-	presenter := jtkpresent.SprintPresenter{}
-	model := presenter.PresentList(result.Values, opts.IsExtended())
+	model := jtkpresent.SprintPresenter{}.PresentListWithPagination(result.Values, opts.IsExtended(), hasMore, nextToken)
 	if projected {
 		projection.ApplyToTableInModel(model, selected)
 	}
-	model.Sections = jtkpresent.AppendPaginationHintWithToken(model.Sections, hasMore, nextToken)
 	return jtkpresent.Emit(opts, model)
 }
 
@@ -341,8 +339,7 @@ func runIssues(ctx context.Context, opts *root.Options, sprintID int, maxResults
 		return v.RenderArtifactList(artifact.NewListResult(arts, hasMore))
 	}
 
-	model := jtkpresent.IssuePresenter{}.PresentList(result.Issues, opts.IsExtended())
-	model.Sections = jtkpresent.AppendPaginationHintWithToken(model.Sections, hasMore, nextToken)
+	model := jtkpresent.IssuePresenter{}.PresentListWithPagination(result.Issues, opts.IsExtended(), hasMore, nextToken)
 	return jtkpresent.Emit(opts, model)
 }
 
@@ -433,6 +430,6 @@ func runAdd(ctx context.Context, opts *root.Options, client *api.Client, sprintI
 	}
 
 fallback:
-	_ = jtkpresent.Emit(opts, jtkpresent.MutationPresenter{}.Advisory("post-state unavailable; showing confirmation only"))
+	_ = jtkpresent.Emit(opts, jtkpresent.SprintPresenter{}.PresentPostStateUnavailable())
 	return jtkpresent.Emit(opts, jtkpresent.SprintPresenter{}.PresentMoved(issueKeys, sprintID))
 }

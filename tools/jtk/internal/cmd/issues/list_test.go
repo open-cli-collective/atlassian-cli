@@ -588,45 +588,37 @@ func TestBuildSprintClause_WarnBranches(t *testing.T) {
 	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "e", APIToken: "t"})
 	testutil.RequireNoError(t, err)
 
-	t.Run("ambiguous_emits_warning", func(t *testing.T) {
-		var buf bytes.Buffer
-		clause, err := buildSprintClause(context.Background(), resolve.New(client), "Duplicated Sprint", &buf)
+	t.Run("ambiguous_returns_warning", func(t *testing.T) {
+		clause, warning, err := buildSprintClause(context.Background(), resolve.New(client), "Duplicated Sprint")
 		testutil.RequireNoError(t, err)
 		if !strings.Contains(clause, `sprint = "Duplicated Sprint"`) {
 			t.Fatalf("want quoted JQL fallback, got %q", clause)
 		}
-		if !strings.Contains(buf.String(), "matched multiple cached boards") {
-			t.Errorf("want ambiguity warning, got: %q", buf.String())
+		if warning == nil || warning.Kind != sprintWarningAmbiguity {
+			t.Errorf("want ambiguity warning, got: %v", warning)
 		}
 	})
 
-	t.Run("unresolvable_name_always_emits_some_warning", func(t *testing.T) {
-		// The resolver's NotFoundError vs "resolver failed" (network) branch
-		// depends on refresh reachability — both are valid in this test setup
-		// (httptest client isn't wired for a sprints refresh). The invariant
-		// the reviewer asked us to pin is that the function never silently
-		// falls through to a JQL quoted-name clause: whichever branch fires,
-		// the user gets a diagnostic.
-		var buf bytes.Buffer
-		clause, err := buildSprintClause(context.Background(), resolve.New(client), "Nonexistent Sprint Name", &buf)
+	t.Run("unresolvable_name_always_returns_some_warning", func(t *testing.T) {
+		clause, warning, err := buildSprintClause(context.Background(), resolve.New(client), "Nonexistent Sprint Name")
 		testutil.RequireNoError(t, err)
 		if !strings.Contains(clause, `sprint = "Nonexistent Sprint Name"`) {
 			t.Fatalf("want quoted JQL fallback, got %q", clause)
 		}
-		if !strings.Contains(buf.String(), "warning:") {
-			t.Errorf("want some warning, got silence: %q", buf.String())
+		if warning == nil {
+			t.Error("want some warning, got nil")
 		}
 	})
 
 	t.Run("negative_numeric_rejected", func(t *testing.T) {
-		_, err := buildSprintClause(context.Background(), resolve.New(client), "-5", nil)
+		_, _, err := buildSprintClause(context.Background(), resolve.New(client), "-5")
 		if err == nil || !strings.Contains(err.Error(), "must be positive") {
 			t.Errorf("want positive-only error, got %v", err)
 		}
 	})
 
 	t.Run("zero_numeric_rejected", func(t *testing.T) {
-		_, err := buildSprintClause(context.Background(), resolve.New(client), "0", nil)
+		_, _, err := buildSprintClause(context.Background(), resolve.New(client), "0")
 		if err == nil || !strings.Contains(err.Error(), "must be positive") {
 			t.Errorf("want positive-only error, got %v", err)
 		}

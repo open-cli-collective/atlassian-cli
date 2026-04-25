@@ -231,10 +231,10 @@ func runCreate(ctx context.Context, opts *root.Options, outwardKey, inwardKey, l
 
 fallback:
 	if opts.EmitIDOnly() {
-		_ = jtkpresent.Emit(opts, jtkpresent.MutationPresenter{}.Advisory("link ID unavailable — re-query failed"))
+		_ = jtkpresent.Emit(opts, jtkpresent.LinkPresenter{}.PresentIDUnavailable())
 		return nil
 	}
-	_ = jtkpresent.Emit(opts, jtkpresent.MutationPresenter{}.Advisory("post-state unavailable; showing confirmation only"))
+	_ = jtkpresent.Emit(opts, jtkpresent.LinkPresenter{}.PresentPostStateUnavailable())
 	return jtkpresent.Emit(opts, jtkpresent.LinkPresenter{}.PresentCreated(linkType, outwardKey, inwardKey))
 }
 

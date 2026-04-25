@@ -241,3 +241,22 @@ func registryHeadersFor(r projection.Registry, extended bool) []string {
 	}
 	return out
 }
+
+func TestUserPresenter_PresentUserListWithPagination(t *testing.T) {
+	t.Parallel()
+	users := []api.User{{AccountID: "a", DisplayName: "U"}}
+
+	t.Run("appends_hint", func(t *testing.T) {
+		model := UserPresenter{}.PresentUserListWithPagination(users, false, true, "tok")
+		if len(model.Sections) != 2 {
+			t.Fatalf("want 2 sections, got %d", len(model.Sections))
+		}
+	})
+
+	t.Run("no_hint", func(t *testing.T) {
+		model := UserPresenter{}.PresentUserListWithPagination(users, false, false, "")
+		if len(model.Sections) != 1 {
+			t.Errorf("want 1 section, got %d", len(model.Sections))
+		}
+	})
+}

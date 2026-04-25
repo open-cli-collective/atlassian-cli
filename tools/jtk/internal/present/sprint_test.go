@@ -270,3 +270,70 @@ func TestFormatBoardRef(t *testing.T) {
 		})
 	}
 }
+
+func TestSprintPresenter_PresentListWithPagination(t *testing.T) {
+	t.Parallel()
+	sprints := []api.Sprint{{ID: 1, Name: "S1", State: "active"}}
+
+	t.Run("appends_hint", func(t *testing.T) {
+		model := SprintPresenter{}.PresentListWithPagination(sprints, false, true, "tok")
+		if len(model.Sections) != 2 {
+			t.Fatalf("want 2 sections, got %d", len(model.Sections))
+		}
+	})
+
+	t.Run("no_hint", func(t *testing.T) {
+		model := SprintPresenter{}.PresentListWithPagination(sprints, false, false, "")
+		if len(model.Sections) != 1 {
+			t.Errorf("want 1 section, got %d", len(model.Sections))
+		}
+	})
+}
+
+func TestSprintPresenter_PresentPostStateUnavailable(t *testing.T) {
+	t.Parallel()
+	model := SprintPresenter{}.PresentPostStateUnavailable()
+	msg := model.Sections[0].(*present.MessageSection)
+	if msg.Stream != present.StreamStderr {
+		t.Errorf("want StreamStderr, got %v", msg.Stream)
+	}
+}
+
+func TestSprintPresenter_PresentResolutionAmbiguity(t *testing.T) {
+	t.Parallel()
+	model := SprintPresenter{}.PresentResolutionAmbiguity("Sprint X")
+	msg := model.Sections[0].(*present.MessageSection)
+	if msg.Kind != present.MessageWarning {
+		t.Errorf("want MessageWarning, got %v", msg.Kind)
+	}
+	if msg.Stream != present.StreamStderr {
+		t.Errorf("want StreamStderr, got %v", msg.Stream)
+	}
+}
+
+func TestSprintPresenter_PresentResolutionCacheMiss(t *testing.T) {
+	t.Parallel()
+	model := SprintPresenter{}.PresentResolutionCacheMiss("Sprint X")
+	msg := model.Sections[0].(*present.MessageSection)
+	if msg.Kind != present.MessageWarning {
+		t.Errorf("want MessageWarning, got %v", msg.Kind)
+	}
+}
+
+func TestSprintPresenter_PresentResolutionError(t *testing.T) {
+	t.Parallel()
+	model := SprintPresenter{}.PresentResolutionError("Sprint X", nil)
+	msg := model.Sections[0].(*present.MessageSection)
+	if msg.Kind != present.MessageWarning {
+		t.Errorf("want MessageWarning, got %v", msg.Kind)
+	}
+}
+
+func TestSprintPresenter_PresentResolutionSynthetic(t *testing.T) {
+	t.Parallel()
+	model := SprintPresenter{}.PresentResolutionSynthetic("Sprint X")
+	msg := model.Sections[0].(*present.MessageSection)
+	if msg.Kind != present.MessageWarning {
+		t.Errorf("want MessageWarning, got %v", msg.Kind)
+	}
+}

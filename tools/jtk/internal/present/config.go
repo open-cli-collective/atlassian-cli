@@ -80,12 +80,24 @@ type configEntry struct {
 	source string
 }
 
+// MaskToken masks a token for display, showing only the first and last 4 chars.
+func MaskToken(token string) string {
+	if token == "" {
+		return ""
+	}
+	if len(token) <= 8 {
+		return "********"
+	}
+	return token[:4] + "********" + token[len(token)-4:]
+}
+
 // PresentConfigShow creates config table + path info as single output.
 // Accepts pre-computed (value, source) pairs for each config field.
+// The raw token is masked internally.
 func (ConfigPresenter) PresentConfigShow(
 	url, urlSrc,
 	email, emailSrc,
-	maskedToken, tokenSrc,
+	rawToken, tokenSrc,
 	defaultProject, projectSrc,
 	authMethod, authMethodSrc,
 	cloudID, cloudIDSrc,
@@ -94,7 +106,7 @@ func (ConfigPresenter) PresentConfigShow(
 	entries := []configEntry{
 		{key: "url", value: url, source: urlSrc},
 		{key: "email", value: email, source: emailSrc},
-		{key: "api_token", value: maskedToken, source: tokenSrc},
+		{key: "api_token", value: MaskToken(rawToken), source: tokenSrc},
 		{key: "default_project", value: defaultProject, source: projectSrc},
 		{key: "auth_method", value: authMethod, source: authMethodSrc},
 		{key: "cloud_id", value: cloudID, source: cloudIDSrc},

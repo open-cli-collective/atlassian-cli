@@ -37,6 +37,14 @@ var SprintDetailSpec = projection.Registry{
 	{Header: "ORIGIN_BOARD", Extended: true},
 }
 
+// PresentListWithPagination wraps PresentList and appends a pagination
+// hint when hasMore is true.
+func (p SprintPresenter) PresentListWithPagination(sprints []api.Sprint, extended, hasMore bool, nextToken string) *present.OutputModel {
+	model := p.PresentList(sprints, extended)
+	model.Sections = AppendPaginationHintWithToken(model.Sections, hasMore, nextToken)
+	return model
+}
+
 // PresentList renders `sprints list` output as a table. BOARD column uses
 // each sprint's OriginBoardID (per-row), not the request boardID.
 func (SprintPresenter) PresentList(sprints []api.Sprint, extended bool) *present.OutputModel {
@@ -158,6 +166,76 @@ func (SprintPresenter) PresentMoved(issueKeys []string, sprintID int) *present.O
 				Kind:    present.MessageSuccess,
 				Message: msg,
 				Stream:  present.StreamStdout,
+			},
+		},
+	}
+}
+
+// PresentPostStateUnavailable creates an advisory when post-state cannot be
+// fetched after a mutation, falling back to a confirmation-only output.
+func (SprintPresenter) PresentPostStateUnavailable() *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageInfo,
+				Message: "post-state unavailable; showing confirmation only",
+				Stream:  present.StreamStderr,
+			},
+		},
+	}
+}
+
+// PresentResolutionAmbiguity creates a warning when a sprint name matches
+// multiple cached boards during JQL resolution.
+func (SprintPresenter) PresentResolutionAmbiguity(sprintName string) *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageWarning,
+				Message: fmt.Sprintf("sprint name %q matched multiple cached boards; falling back to JQL name resolution — results may span sprints on different boards.", sprintName),
+				Stream:  present.StreamStderr,
+			},
+		},
+	}
+}
+
+// PresentResolutionCacheMiss creates a warning when a sprint name is not found
+// in the local cache during JQL resolution.
+func (SprintPresenter) PresentResolutionCacheMiss(sprintName string) *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageWarning,
+				Message: fmt.Sprintf("sprint %q not found in cache; falling back to JQL name resolution — Jira will resolve the name or return an empty result set. Run `jtk refresh sprints` to update the cache.", sprintName),
+				Stream:  present.StreamStderr,
+			},
+		},
+	}
+}
+
+// PresentResolutionError creates a warning when the sprint resolver fails
+// due to a non-cache error (network, auth, etc.).
+func (SprintPresenter) PresentResolutionError(sprintName string, err error) *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageWarning,
+				Message: fmt.Sprintf("sprint resolver failed for %q (%v); falling back to JQL name resolution.", sprintName, err),
+				Stream:  present.StreamStderr,
+			},
+		},
+	}
+}
+
+// PresentResolutionSynthetic creates a warning when the sprint resolver returns
+// a synthetic result (no cached ID).
+func (SprintPresenter) PresentResolutionSynthetic(sprintName string) *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageWarning,
+				Message: fmt.Sprintf("sprint %q not resolved to a cached ID; falling back to JQL name resolution.", sprintName),
+				Stream:  present.StreamStderr,
 			},
 		},
 	}

@@ -76,12 +76,13 @@ func (AttachmentPresenter) PresentUploaded(filename, id, size string) *present.O
 }
 
 // PresentDownloaded creates a success message for attachment download.
-func (AttachmentPresenter) PresentDownloaded(filename, size string) *present.OutputModel {
+// Size formatting is handled internally.
+func (AttachmentPresenter) PresentDownloaded(filename string, sizeBytes int64) *present.OutputModel {
 	return &present.OutputModel{
 		Sections: []present.Section{
 			&present.MessageSection{
 				Kind:    present.MessageSuccess,
-				Message: fmt.Sprintf("Downloaded %s (%s)", filename, size),
+				Message: fmt.Sprintf("Downloaded %s (%s)", filename, FormatSize(sizeBytes)),
 				Stream:  present.StreamStdout,
 			},
 		},

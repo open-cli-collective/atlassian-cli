@@ -88,3 +88,27 @@ func TestLinkPresenter_PresentList_Extended(t *testing.T) {
 		t.Errorf("STATUS: expected 'Backlog', got %q", table.Rows[0].Cells[6])
 	}
 }
+
+func TestLinkPresenter_PresentIDUnavailable(t *testing.T) {
+	t.Parallel()
+	model := LinkPresenter{}.PresentIDUnavailable()
+	msg := model.Sections[0].(*present.MessageSection)
+	if msg.Stream != present.StreamStderr {
+		t.Errorf("want StreamStderr, got %v", msg.Stream)
+	}
+	if msg.Message != "link ID unavailable — re-query failed" {
+		t.Errorf("unexpected message: %q", msg.Message)
+	}
+}
+
+func TestLinkPresenter_PresentPostStateUnavailable(t *testing.T) {
+	t.Parallel()
+	model := LinkPresenter{}.PresentPostStateUnavailable()
+	msg := model.Sections[0].(*present.MessageSection)
+	if msg.Stream != present.StreamStderr {
+		t.Errorf("want StreamStderr, got %v", msg.Stream)
+	}
+	if msg.Message != "post-state unavailable; showing confirmation only" {
+		t.Errorf("unexpected message: %q", msg.Message)
+	}
+}

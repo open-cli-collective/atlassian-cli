@@ -33,16 +33,6 @@ func Register(parent *cobra.Command, opts *root.Options) {
 	parent.AddCommand(cmd)
 }
 
-func maskToken(token string) string {
-	if token == "" {
-		return ""
-	}
-	if len(token) <= 8 {
-		return "********"
-	}
-	return token[:4] + "********" + token[len(token)-4:]
-}
-
 func newShowCmd(opts *root.Options) *cobra.Command {
 	return &cobra.Command{
 		Use:   "show",
@@ -50,14 +40,13 @@ func newShowCmd(opts *root.Options) *cobra.Command {
 		Long:  "Display the current configuration values (token is masked).",
 		RunE: func(_ *cobra.Command, _ []string) error {
 			cfg := config.GetValuesWithSources()
-			maskedToken := maskToken(cfg.APIToken)
 
 			// JSON output
 			if opts.Output == "json" {
 				data := map[string]string{
 					"url":             cfg.URL,
 					"email":           cfg.Email,
-					"api_token":       maskedToken,
+					"api_token":       jtkpresent.MaskToken(cfg.APIToken),
 					"default_project": cfg.DefaultProject,
 					"auth_method":     cfg.AuthMethod,
 					"cloud_id":        cfg.CloudID,
@@ -70,7 +59,7 @@ func newShowCmd(opts *root.Options) *cobra.Command {
 			model := jtkpresent.ConfigPresenter{}.PresentConfigShow(
 				cfg.URL, cfg.URLSource,
 				cfg.Email, cfg.EmailSource,
-				maskedToken, cfg.TokenSource,
+				cfg.APIToken, cfg.TokenSource,
 				cfg.DefaultProject, cfg.ProjectSource,
 				cfg.AuthMethod, cfg.AuthMethodSrc,
 				cfg.CloudID, cfg.CloudIDSrc,

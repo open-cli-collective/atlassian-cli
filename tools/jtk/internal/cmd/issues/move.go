@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"strings"
 	"time"
 
@@ -108,16 +107,19 @@ func runMove(ctx context.Context, opts *root.Options, issueKeys []string, target
 		// start cost (one GetProjectIssueTypes call for the target
 		// project) instead of pulling the entire multi-project
 		// issuetypes envelope just to answer one lookup.
-		match, derr := matchCachedIssueType(projectKey, sourceTypeName, opts.Stderr)
+		match, fallback, derr := matchCachedIssueType(projectKey, sourceTypeName)
 		if derr != nil && errors.Is(derr, errIssueTypesCacheUninitialized) {
 			liveTypes, lerr := client.GetProjectIssueTypes(ctx, projectKey)
 			if lerr != nil {
 				return fmt.Errorf("%w (live fetch also failed: %w)", derr, lerr)
 			}
-			match, derr = matchIssueTypeInSlice(liveTypes, projectKey, sourceTypeName, opts.Stderr)
+			match, fallback, derr = matchIssueTypeInSlice(liveTypes, projectKey, sourceTypeName)
 		}
 		if derr != nil {
 			return derr
+		}
+		if fallback && match != nil {
+			_ = jtkpresent.Emit(opts, jtkpresent.IssuePresenter{}.PresentTypeFallbackWarning(sourceTypeName, projectKey, match.Name))
 		}
 		targetIssueType = match
 	} else {
@@ -258,41 +260,35 @@ func runMoveStatus(ctx context.Context, opts *root.Options, taskID string) error
 // giving up (matches the resolver.IssueType path for --to-type).
 var errIssueTypesCacheUninitialized = errors.New("issuetypes cache not initialized — run `jtk refresh issuetypes`")
 
-func matchCachedIssueType(projectKey, sourceTypeName string, warn io.Writer) (*api.IssueType, error) {
+func matchCachedIssueType(projectKey, sourceTypeName string) (*api.IssueType, bool, error) {
 	env, err := cache.ReadResource[map[string][]api.IssueType]("issuetypes")
 	if err != nil {
 		if errors.Is(err, cache.ErrCacheMiss) {
-			return nil, errIssueTypesCacheUninitialized
+			return nil, false, errIssueTypesCacheUninitialized
 		}
-		return nil, fmt.Errorf("reading issuetypes cache: %w", err)
+		return nil, false, fmt.Errorf("reading issuetypes cache: %w", err)
 	}
 	types, ok := env.Data[projectKey]
 	if !ok || len(types) == 0 {
-		return nil, fmt.Errorf("no cached issue types for project %s (run `jtk refresh issuetypes` or supply --to-type)", projectKey)
+		return nil, false, fmt.Errorf("no cached issue types for project %s (run `jtk refresh issuetypes` or supply --to-type)", projectKey)
 	}
-	return matchIssueTypeInSlice(types, projectKey, sourceTypeName, warn)
+	return matchIssueTypeInSlice(types, projectKey, sourceTypeName)
 }
 
 // matchIssueTypeInSlice picks a target issue type from an unordered list.
 // Preferred: exact name match (case-insensitive) with the source type.
-// Fallback: first non-subtask — emits a stderr warning because this can
-// silently change the issue type (e.g. Bug → Task) when the source type
-// doesn't exist in the target project.
-func matchIssueTypeInSlice(types []api.IssueType, projectKey, sourceTypeName string, warn io.Writer) (*api.IssueType, error) {
+// Fallback: first non-subtask — returns usedFallback=true so the caller
+// can emit a warning via the presenter.
+func matchIssueTypeInSlice(types []api.IssueType, projectKey, sourceTypeName string) (*api.IssueType, bool, error) {
 	for i := range types {
 		if strings.EqualFold(types[i].Name, sourceTypeName) {
-			return &types[i], nil
+			return &types[i], false, nil
 		}
 	}
 	for i := range types {
 		if !types[i].Subtask {
-			if warn != nil {
-				fmt.Fprintf(warn,
-					"warning: source issue type %q not found in project %s; using %q as the target type (pass --to-type to override).\n",
-					sourceTypeName, projectKey, types[i].Name)
-			}
-			return &types[i], nil
+			return &types[i], true, nil
 		}
 	}
-	return nil, fmt.Errorf("no non-subtask issue types available for project %s", projectKey)
+	return nil, false, fmt.Errorf("no non-subtask issue types available for project %s", projectKey)
 }

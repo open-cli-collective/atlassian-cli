@@ -77,6 +77,15 @@ func AppendPaginationHint(sections []present.Section, hasMore bool) []present.Se
 	return append(sections, paginationMessageSection())
 }
 
+// PaginationOnlyModel creates an OutputModel containing only a pagination
+// hint. Used when a paginated query returns zero results for the current
+// page but more pages exist.
+func PaginationOnlyModel(nextToken string) *present.OutputModel {
+	return &present.OutputModel{
+		Sections: AppendPaginationHintWithToken(nil, true, nextToken),
+	}
+}
+
 // Emit applies jtk output policy: renders the model and writes the split
 // streams to opts.Stdout / opts.Stderr. Returns nil so commands can
 // `return Emit(...)` at the end of RunE.

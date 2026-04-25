@@ -627,3 +627,28 @@ func TestBuildSprintClause_WarnBranches(t *testing.T) {
 		}
 	})
 }
+
+// TestRunList_Fields_HumanName_CacheHit_SkipsFieldsFetch verifies that a fresh
+// fields cache suppresses the live /field call during human-name resolution.
+// Non-parallel: cache isolation uses process-global SetRootForTest.
+func TestRunList_Fields_HumanName_CacheHit_SkipsFieldsFetch(t *testing.T) {
+	seedCacheForIssues(t)
+	testutil.RequireNoError(t, cache.WriteResource("fields", "24h", []api.Field{
+		{ID: "issuetype", Name: "Issue Type"},
+	}))
+
+	cs := newCapturingServer(t, []string{"TEST-1"}, true, nil)
+	defer cs.server.Close()
+
+	opts, stdout, _ := newOptsFor(t, cs)
+	err := runList(context.Background(), opts, "TEST", "", 25, "", false, "Issue Type")
+	testutil.RequireNoError(t, err)
+
+	lines := strings.Split(strings.TrimRight(stdout.String(), "\n"), "\n")
+	if lines[0] != "KEY | TYPE" {
+		t.Errorf("header mismatch: got %q", lines[0])
+	}
+	if cs.fieldsCalls != 0 {
+		t.Errorf("fresh cache must suppress live GetFields; got %d call(s)", cs.fieldsCalls)
+	}
+}

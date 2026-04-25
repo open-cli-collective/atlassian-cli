@@ -367,7 +367,8 @@ func TestRunList_Fields_JiraFieldIDs_ProjectsTable(t *testing.T) {
 }
 
 func TestRunList_Fields_HumanName_TriggersFieldsFetch(t *testing.T) {
-	t.Parallel()
+	// Non-parallel: cache isolation uses process-global SetRootForTest.
+	t.Cleanup(cache.SetRootForTest(t.TempDir()))
 	cs := newCapturingServer(t, []string{"TEST-1"}, true, []api.Field{
 		{ID: "issuetype", Name: "Issue Type"},
 	})
@@ -400,7 +401,8 @@ func TestRunList_Fields_UnknownToken_Errors(t *testing.T) {
 }
 
 func TestRunList_Fields_UnrenderedField_ByHumanName_Errors(t *testing.T) {
-	t.Parallel()
+	// Non-parallel: cache isolation uses process-global SetRootForTest.
+	t.Cleanup(cache.SetRootForTest(t.TempDir()))
 	cs := newCapturingServer(t, []string{"TEST-1"}, true, []api.Field{
 		{ID: "customfield_99999", Name: "Phantom"},
 	})
@@ -417,7 +419,8 @@ func TestRunList_Fields_UnrenderedField_ByHumanName_Errors(t *testing.T) {
 }
 
 func TestRunList_Fields_UnrenderedField_ByFieldID_Errors(t *testing.T) {
-	t.Parallel()
+	// Non-parallel: cache isolation uses process-global SetRootForTest.
+	t.Cleanup(cache.SetRootForTest(t.TempDir()))
 	cs := newCapturingServer(t, []string{"TEST-1"}, true, []api.Field{
 		{ID: "customfield_99999", Name: "Phantom"},
 	})

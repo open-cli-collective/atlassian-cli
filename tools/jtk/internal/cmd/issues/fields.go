@@ -8,6 +8,7 @@ import (
 	"github.com/open-cli-collective/atlassian-go/view"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/cache"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
 )
@@ -63,15 +64,18 @@ func runFields(ctx context.Context, opts *root.Options, issueKey string, customO
 }
 
 func runGlobalFields(ctx context.Context, opts *root.Options, client *api.Client, customOnly bool) error {
-	var fields []api.Field
-	var err error
-	if customOnly {
-		fields, err = client.GetCustomFields(ctx)
-	} else {
-		fields, err = client.GetFields(ctx)
-	}
+	fields, err := cache.GetFieldsCacheFirst(ctx, client)
 	if err != nil {
 		return err
+	}
+	if customOnly {
+		var custom []api.Field
+		for _, f := range fields {
+			if f.Custom {
+				custom = append(custom, f)
+			}
+		}
+		fields = custom
 	}
 
 	if opts.EmitIDOnly() {

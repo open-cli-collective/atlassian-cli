@@ -13,6 +13,7 @@ import (
 	"github.com/open-cli-collective/atlassian-go/testutil"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/cache"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/present/projection"
 )
@@ -108,7 +109,8 @@ func TestRunGet_Fields_Points_Column(t *testing.T) {
 }
 
 func TestRunGet_Fields_HumanName_TriggersFieldsFetch(t *testing.T) {
-	t.Parallel()
+	// Non-parallel: cache isolation uses process-global SetRootForTest.
+	t.Cleanup(cache.SetRootForTest(t.TempDir()))
 	cs := newCapturingGetServer(t, fullIssue(), []api.Field{
 		{ID: "issuetype", Name: "Issue Type"},
 	})
@@ -140,7 +142,8 @@ func TestRunGet_Fields_UnknownToken_Errors(t *testing.T) {
 }
 
 func TestRunGet_Fields_UnrenderedField_ByFieldID_Errors(t *testing.T) {
-	t.Parallel()
+	// Non-parallel: cache isolation uses process-global SetRootForTest.
+	t.Cleanup(cache.SetRootForTest(t.TempDir()))
 	cs := newCapturingGetServer(t, fullIssue(), []api.Field{
 		{ID: "customfield_99999", Name: "Phantom"},
 	})
@@ -312,5 +315,30 @@ func TestRunGet_Fields_FullTextNoOp_WhenDescriptionNotSelected(t *testing.T) {
 	}
 	if strings.Contains(output, "DDDD") {
 		t.Errorf("Description body text leaked even though Description not selected: %q", output)
+	}
+}
+
+// TestRunGet_Fields_HumanName_CacheHit_SkipsFieldsFetch verifies that when the
+// fields cache is fresh, a human-name --fields token is resolved from the cache
+// and the live /field endpoint is not called.
+// Non-parallel: SetRootForTest / SetInstanceKeyForTest are process-globals.
+func TestRunGet_Fields_HumanName_CacheHit_SkipsFieldsFetch(t *testing.T) {
+	seedCacheForIssues(t)
+	testutil.RequireNoError(t, cache.WriteResource("fields", "24h", []api.Field{
+		{ID: "issuetype", Name: "Issue Type"},
+	}))
+
+	cs := newCapturingGetServer(t, fullIssue(), nil)
+	defer cs.server.Close()
+
+	opts, stdout, _ := newGetOpts(t, cs)
+	err := runGet(context.Background(), opts, "TEST-1", false, "Issue Type")
+	testutil.RequireNoError(t, err)
+
+	output := stdout.String()
+	testutil.Contains(t, output, "Key: TEST-1")
+	testutil.Contains(t, output, "Type: Task")
+	if cs.fieldsCalls != 0 {
+		t.Errorf("fresh cache must suppress live GetFields; got %d call(s)", cs.fieldsCalls)
 	}
 }

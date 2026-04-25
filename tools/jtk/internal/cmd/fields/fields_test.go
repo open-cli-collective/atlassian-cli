@@ -12,6 +12,7 @@ import (
 	"github.com/open-cli-collective/atlassian-go/testutil"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/cache"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 )
 
@@ -44,7 +45,7 @@ func TestNewListCmd(t *testing.T) {
 }
 
 func TestRunList_Table(t *testing.T) {
-	t.Parallel()
+	t.Cleanup(cache.SetRootForTest(t.TempDir()))
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode([]api.Field{
 			{ID: "summary", Name: "Summary", Schema: api.FieldSchema{Type: "string"}},
@@ -68,7 +69,7 @@ func TestRunList_Table(t *testing.T) {
 }
 
 func TestRunList_JSON(t *testing.T) {
-	t.Parallel()
+	t.Cleanup(cache.SetRootForTest(t.TempDir()))
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode([]api.Field{
 			{ID: "customfield_10100", Name: "Environment", Custom: true},
@@ -90,7 +91,7 @@ func TestRunList_JSON(t *testing.T) {
 }
 
 func TestRunList_Empty(t *testing.T) {
-	t.Parallel()
+	t.Cleanup(cache.SetRootForTest(t.TempDir()))
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode([]api.Field{})
 	}))
@@ -109,7 +110,7 @@ func TestRunList_Empty(t *testing.T) {
 }
 
 func TestRunList_NameFilter(t *testing.T) {
-	t.Parallel()
+	t.Cleanup(cache.SetRootForTest(t.TempDir()))
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode([]api.Field{
 			{ID: "summary", Name: "Summary", Schema: api.FieldSchema{Type: "string"}},
@@ -134,7 +135,7 @@ func TestRunList_NameFilter(t *testing.T) {
 }
 
 func TestRunList_NameFilter_CaseInsensitive(t *testing.T) {
-	t.Parallel()
+	t.Cleanup(cache.SetRootForTest(t.TempDir()))
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode([]api.Field{
 			{ID: "summary", Name: "Summary", Schema: api.FieldSchema{Type: "string"}},
@@ -157,7 +158,7 @@ func TestRunList_NameFilter_CaseInsensitive(t *testing.T) {
 }
 
 func TestRunList_NameFilter_NoMatch(t *testing.T) {
-	t.Parallel()
+	t.Cleanup(cache.SetRootForTest(t.TempDir()))
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode([]api.Field{
 			{ID: "summary", Name: "Summary", Schema: api.FieldSchema{Type: "string"}},
@@ -178,7 +179,7 @@ func TestRunList_NameFilter_NoMatch(t *testing.T) {
 }
 
 func TestRunList_NameFilter_JSON(t *testing.T) {
-	t.Parallel()
+	t.Cleanup(cache.SetRootForTest(t.TempDir()))
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode([]api.Field{
 			{ID: "summary", Name: "Summary", Schema: api.FieldSchema{Type: "string"}},
@@ -201,10 +202,11 @@ func TestRunList_NameFilter_JSON(t *testing.T) {
 }
 
 func TestRunList_NameFilter_WithCustom(t *testing.T) {
-	t.Parallel()
+	t.Cleanup(cache.SetRootForTest(t.TempDir()))
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		// GetCustomFields returns only custom fields
+		// Server returns a mix; the custom-only filter is applied locally after fetching all fields.
 		_ = json.NewEncoder(w).Encode([]api.Field{
+			{ID: "summary", Name: "Summary", Custom: false, Schema: api.FieldSchema{Type: "string"}},
 			{ID: "customfield_10016", Name: "Story Points", Custom: true, Schema: api.FieldSchema{Type: "number"}},
 			{ID: "customfield_10020", Name: "Sprint", Custom: true, Schema: api.FieldSchema{Type: "array"}},
 		})
@@ -943,4 +945,62 @@ func TestRunOptionsDelete_JSONOutputEmitsText(t *testing.T) {
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, stdout.String(), "Deleted option 3 from context 10001\n")
 	testutil.Equal(t, stderr.String(), "")
+}
+
+// --- Cache-hit tests ---
+// These tests are non-parallel: SetRootForTest / SetInstanceKeyForTest are
+// process-globals that races with t.Parallel() tests writing them.
+
+func TestRunList_CacheHit_SkipsLiveCall(t *testing.T) {
+	t.Cleanup(cache.SetRootForTest(t.TempDir()))
+	t.Cleanup(cache.SetInstanceKeyForTest("test.atlassian.net"))
+	testutil.RequireNoError(t, cache.WriteResource("fields", "24h", []api.Field{
+		{ID: "summary", Name: "Summary", Schema: api.FieldSchema{Type: "string"}},
+		{ID: "customfield_10016", Name: "Story Points", Custom: true, Schema: api.FieldSchema{Type: "number"}},
+	}))
+
+	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
+		t.Fatal("live API must not be called when fields cache is fresh")
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runList(context.Background(), opts, false, "")
+	testutil.RequireNoError(t, err)
+	testutil.Contains(t, stdout.String(), "Summary")
+	testutil.Contains(t, stdout.String(), "Story Points")
+}
+
+func TestRunList_CacheHit_CustomFilter_SkipsLiveCall(t *testing.T) {
+	t.Cleanup(cache.SetRootForTest(t.TempDir()))
+	t.Cleanup(cache.SetInstanceKeyForTest("test.atlassian.net"))
+	testutil.RequireNoError(t, cache.WriteResource("fields", "24h", []api.Field{
+		{ID: "summary", Name: "Summary", Custom: false, Schema: api.FieldSchema{Type: "string"}},
+		{ID: "customfield_10016", Name: "Story Points", Custom: true, Schema: api.FieldSchema{Type: "number"}},
+		{ID: "customfield_10020", Name: "Sprint", Custom: true, Schema: api.FieldSchema{Type: "array"}},
+	}))
+
+	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
+		t.Fatal("live API must not be called when fields cache is fresh")
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runList(context.Background(), opts, true, "")
+	testutil.RequireNoError(t, err)
+	testutil.Contains(t, stdout.String(), "Story Points")
+	testutil.Contains(t, stdout.String(), "Sprint")
+	testutil.NotContains(t, stdout.String(), "Summary")
 }

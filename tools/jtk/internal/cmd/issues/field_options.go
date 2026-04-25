@@ -9,6 +9,7 @@ import (
 	"github.com/open-cli-collective/atlassian-go/view"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/cache"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
 )
@@ -47,7 +48,7 @@ func runFieldOptions(ctx context.Context, opts *root.Options, fieldNameOrID, iss
 		return err
 	}
 
-	fields, err := client.GetFields(ctx)
+	fields, err := cache.GetFieldsCacheFirst(ctx, client)
 	if err != nil {
 		return err
 	}

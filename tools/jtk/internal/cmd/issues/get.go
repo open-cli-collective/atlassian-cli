@@ -7,7 +7,9 @@ import (
 
 	"github.com/open-cli-collective/atlassian-go/view"
 
+	"github.com/open-cli-collective/jira-ticket-cli/api"
 	jtkartifact "github.com/open-cli-collective/jira-ticket-cli/internal/artifact"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/cache"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/present/projection"
@@ -68,7 +70,7 @@ func runGet(ctx context.Context, opts *root.Options, issueKey string, noTruncate
 		jtkpresent.IssueDetailSpec,
 		opts.IsExtended(),
 		fieldsFlag,
-		client.GetFields,
+		func(ctx context.Context) ([]api.Field, error) { return cache.GetFieldsCacheFirst(ctx, client) },
 		"issues get",
 	)
 	if err != nil {

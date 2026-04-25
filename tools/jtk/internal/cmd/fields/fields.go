@@ -72,14 +72,18 @@ func runList(ctx context.Context, opts *root.Options, customOnly bool, nameFilte
 		return err
 	}
 
-	var fields []api.Field
-	if customOnly {
-		fields, err = client.GetCustomFields(ctx)
-	} else {
-		fields, err = client.GetFields(ctx)
-	}
+	fields, err := cache.GetFieldsCacheFirst(ctx, client)
 	if err != nil {
 		return err
+	}
+	if customOnly {
+		var custom []api.Field
+		for _, f := range fields {
+			if f.Custom {
+				custom = append(custom, f)
+			}
+		}
+		fields = custom
 	}
 
 	if nameFilter != "" {

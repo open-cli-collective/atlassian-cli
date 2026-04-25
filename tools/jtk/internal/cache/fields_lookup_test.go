@@ -46,14 +46,19 @@ func TestGetFieldsCacheFirst_FreshCacheSkipsLive(t *testing.T) {
 	testutil.Equal(t, got[0].ID, testFields[0].ID)
 }
 
-func TestGetFieldsCacheFirst_ManualCacheSkipsLive(t *testing.T) {
+func TestGetFieldsCacheFirst_ManualRegistryTTL_SkipsLive(t *testing.T) {
+	// GetFieldsCacheFirst uses registry TTL (not env.TTL) for Classify. Override
+	// the "fields" entry to TTL "manual" so this test exercises StatusManual.
+	t.Cleanup(SetEntriesForTest([]Entry{
+		{Name: "fields", TTL: "manual"},
+	}))
 	t.Cleanup(SetRootForTest(t.TempDir()))
 	t.Cleanup(SetInstanceKeyForTest("test.atlassian.net"))
 
-	testutil.RequireNoError(t, WriteResource("fields", "manual", testFields))
+	testutil.RequireNoError(t, WriteResource("fields", "24h", testFields))
 
 	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
-		t.Fatal("live API must not be called when cache TTL is manual")
+		t.Fatal("live API must not be called when registry TTL is manual")
 	}))
 	defer server.Close()
 

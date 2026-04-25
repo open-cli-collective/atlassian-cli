@@ -9,6 +9,7 @@ import (
 	"github.com/open-cli-collective/atlassian-go/testutil"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/cache"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/present/projection"
 )
 
@@ -35,7 +36,8 @@ func TestRunSearch_Fields_HeaderAliases_ProjectsTable(t *testing.T) {
 }
 
 func TestRunSearch_Fields_HumanName_TriggersFieldsFetch(t *testing.T) {
-	t.Parallel()
+	// Non-parallel: cache isolation uses process-global SetRootForTest.
+	t.Cleanup(cache.SetRootForTest(t.TempDir()))
 	cs := newCapturingServer(t, []string{"TEST-1"}, true, []api.Field{
 		{ID: "issuetype", Name: "Issue Type"},
 	})
@@ -196,5 +198,31 @@ func TestRunSearch_IDOnly_BypassesJSONFieldsRejection(t *testing.T) {
 	testutil.RequireNoError(t, err)
 	if stdout.String() != "TEST-1\n" {
 		t.Errorf("expected bare key, got %q", stdout.String())
+	}
+}
+
+// TestRunSearch_Fields_HumanName_CacheHit_SkipsFieldsFetch verifies that a
+// fresh fields cache suppresses the live /field call during human-name
+// resolution.
+// Non-parallel: cache isolation uses process-global SetRootForTest.
+func TestRunSearch_Fields_HumanName_CacheHit_SkipsFieldsFetch(t *testing.T) {
+	seedCacheForIssues(t)
+	testutil.RequireNoError(t, cache.WriteResource("fields", "24h", []api.Field{
+		{ID: "issuetype", Name: "Issue Type"},
+	}))
+
+	cs := newCapturingServer(t, []string{"TEST-1"}, true, nil)
+	defer cs.server.Close()
+
+	opts, stdout, _ := newOptsFor(t, cs)
+	err := runSearch(context.Background(), opts, "project = TEST", 25, "", false, "Issue Type")
+	testutil.RequireNoError(t, err)
+
+	lines := strings.Split(strings.TrimRight(stdout.String(), "\n"), "\n")
+	if lines[0] != "KEY | TYPE" {
+		t.Errorf("header mismatch: got %q", lines[0])
+	}
+	if cs.fieldsCalls != 0 {
+		t.Errorf("fresh cache must suppress live GetFields; got %d call(s)", cs.fieldsCalls)
 	}
 }

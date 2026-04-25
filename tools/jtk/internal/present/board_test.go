@@ -2,6 +2,7 @@ package present
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/open-cli-collective/atlassian-go/present"
@@ -233,6 +234,9 @@ func TestBoardPresenter_PresentConfigFetchWarning(t *testing.T) {
 	}
 	if msg.Stream != present.StreamStderr {
 		t.Errorf("want StreamStderr, got %v", msg.Stream)
+	}
+	if !strings.HasPrefix(msg.Message, "warning: ") {
+		t.Errorf("want warning: prefix, got %q", msg.Message)
 	}
 }
 

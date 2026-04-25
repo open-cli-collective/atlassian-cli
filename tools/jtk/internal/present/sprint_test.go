@@ -1,6 +1,7 @@
 package present
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -309,6 +310,9 @@ func TestSprintPresenter_PresentResolutionAmbiguity(t *testing.T) {
 	if msg.Stream != present.StreamStderr {
 		t.Errorf("want StreamStderr, got %v", msg.Stream)
 	}
+	if !strings.HasPrefix(msg.Message, "warning: ") {
+		t.Errorf("want warning: prefix, got %q", msg.Message)
+	}
 }
 
 func TestSprintPresenter_PresentResolutionCacheMiss(t *testing.T) {
@@ -317,6 +321,9 @@ func TestSprintPresenter_PresentResolutionCacheMiss(t *testing.T) {
 	msg := model.Sections[0].(*present.MessageSection)
 	if msg.Kind != present.MessageWarning {
 		t.Errorf("want MessageWarning, got %v", msg.Kind)
+	}
+	if !strings.HasPrefix(msg.Message, "warning: ") {
+		t.Errorf("want warning: prefix, got %q", msg.Message)
 	}
 }
 
@@ -327,6 +334,9 @@ func TestSprintPresenter_PresentResolutionError(t *testing.T) {
 	if msg.Kind != present.MessageWarning {
 		t.Errorf("want MessageWarning, got %v", msg.Kind)
 	}
+	if !strings.HasPrefix(msg.Message, "warning: ") {
+		t.Errorf("want warning: prefix, got %q", msg.Message)
+	}
 }
 
 func TestSprintPresenter_PresentResolutionSynthetic(t *testing.T) {
@@ -335,5 +345,8 @@ func TestSprintPresenter_PresentResolutionSynthetic(t *testing.T) {
 	msg := model.Sections[0].(*present.MessageSection)
 	if msg.Kind != present.MessageWarning {
 		t.Errorf("want MessageWarning, got %v", msg.Kind)
+	}
+	if !strings.HasPrefix(msg.Message, "warning: ") {
+		t.Errorf("want warning: prefix, got %q", msg.Message)
 	}
 }

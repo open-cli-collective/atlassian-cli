@@ -434,6 +434,21 @@ func TestIssuePresenter_PresentListWithPagination(t *testing.T) {
 	})
 }
 
+func TestIssuePresenter_PresentTypeAlreadyCurrent(t *testing.T) {
+	t.Parallel()
+	model := IssuePresenter{}.PresentTypeAlreadyCurrent("SDLC")
+	msg := model.Sections[0].(*present.MessageSection)
+	if msg.Kind != present.MessageInfo {
+		t.Errorf("want MessageInfo, got %v", msg.Kind)
+	}
+	if msg.Stream != present.StreamStderr {
+		t.Errorf("want StreamStderr, got %v", msg.Stream)
+	}
+	if msg.Message != "type is already SDLC" {
+		t.Errorf("want exact original wording, got %q", msg.Message)
+	}
+}
+
 func TestIssuePresenter_PresentTypeFallbackWarning(t *testing.T) {
 	t.Parallel()
 	model := IssuePresenter{}.PresentTypeFallbackWarning("Bug", "MON", "Task")
@@ -443,6 +458,9 @@ func TestIssuePresenter_PresentTypeFallbackWarning(t *testing.T) {
 	}
 	if msg.Stream != present.StreamStderr {
 		t.Errorf("want StreamStderr, got %v", msg.Stream)
+	}
+	if !strings.HasPrefix(msg.Message, "warning: ") {
+		t.Errorf("want warning: prefix, got %q", msg.Message)
 	}
 	if !strings.Contains(msg.Message, "Bug") || !strings.Contains(msg.Message, "MON") || !strings.Contains(msg.Message, "Task") {
 		t.Errorf("want source, project, and fallback in message, got %q", msg.Message)

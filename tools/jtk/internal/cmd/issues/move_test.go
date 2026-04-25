@@ -170,6 +170,14 @@ func TestRunMove_SourceTypeMissingFallsBackToCachedNonSubtask(t *testing.T) {
 	// First non-subtask in cached order = Task (10071).
 	_, ok := req.TargetToSourcesMapping["TARGET,10071"]
 	testutil.True(t, ok, "expected default fallback to first cached non-subtask")
+
+	stderrOut := opts.Stderr.(*bytes.Buffer).String()
+	if !strings.Contains(stderrOut, "warning:") {
+		t.Errorf("want fallback warning on stderr, got %q", stderrOut)
+	}
+	if !strings.Contains(stderrOut, "Epic") || !strings.Contains(stderrOut, "Task") {
+		t.Errorf("want source and fallback type in warning, got %q", stderrOut)
+	}
 }
 
 func TestRunMove_DefaultTypePathAttemptsRefreshOnErrCacheMiss(t *testing.T) {

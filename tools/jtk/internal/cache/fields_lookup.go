@@ -34,12 +34,16 @@ func GetFieldsCacheFirst(ctx context.Context, client *api.Client) ([]api.Field, 
 		return client.GetFields(ctx)
 	}
 
-	// Classify never returns StatusUnavailable (that is only set by refresh
-	// via Entry.IsAvailable); list the remaining cases explicitly so the
-	// exhaustive linter is satisfied.
-	switch Classify(env.FetchedAt, entry.TTL, time.Now()) { //nolint:exhaustive
+	switch Classify(env.FetchedAt, entry.TTL, time.Now()) {
 	case StatusFresh, StatusManual:
 		return env.Data, nil
+	case StatusStale, StatusUninitialized:
+		return client.GetFields(ctx)
+	case StatusUnavailable:
+		// Classify never emits StatusUnavailable (that status is set by refresh
+		// via Entry.IsAvailable, not by Classify). Listed explicitly so the
+		// exhaustive linter is satisfied and future callers see the intent.
+		return client.GetFields(ctx)
 	}
 	return client.GetFields(ctx)
 }

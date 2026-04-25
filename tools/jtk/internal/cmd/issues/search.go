@@ -10,7 +10,6 @@ import (
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	jtkartifact "github.com/open-cli-collective/jira-ticket-cli/internal/artifact"
-	"github.com/open-cli-collective/jira-ticket-cli/internal/cache"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/present/projection"
@@ -85,7 +84,7 @@ func runSearch(ctx context.Context, opts *root.Options, jql string, maxResults i
 			jtkpresent.IssueListSpec,
 			opts.IsExtended(),
 			fieldsFlag,
-			func(ctx context.Context) ([]api.Field, error) { return cache.GetFieldsCacheFirst(ctx, client) },
+			fieldsFetcher(client),
 			"issues search",
 		)
 		if err != nil {

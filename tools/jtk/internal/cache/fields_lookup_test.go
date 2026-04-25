@@ -127,7 +127,12 @@ func TestGetFieldsCacheFirst_MissFallsBackToLive(t *testing.T) {
 
 func TestGetFieldsCacheFirst_NoInstanceFallsBackToLive(t *testing.T) {
 	t.Cleanup(SetRootForTest(t.TempDir()))
-	// No SetInstanceKeyForTest and no JIRA_URL → ErrNoInstance from ReadResource.
+	// Explicitly unset JIRA_URL and related env vars so InstanceKey() reliably
+	// returns ErrNoInstance regardless of the developer's shell environment.
+	t.Setenv("JIRA_URL", "")
+	t.Setenv("ATLASSIAN_URL", "")
+	t.Setenv("JIRA_CLOUD_ID", "")
+	t.Setenv("ATLASSIAN_CLOUD_ID", "")
 
 	liveCalled := false
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

@@ -192,7 +192,7 @@ func (SprintPresenter) PresentResolutionAmbiguity(sprintName string) *present.Ou
 		Sections: []present.Section{
 			&present.MessageSection{
 				Kind:    present.MessageWarning,
-				Message: fmt.Sprintf("sprint name %q matched multiple cached boards; falling back to JQL name resolution — results may span sprints on different boards.", sprintName),
+				Message: fmt.Sprintf("warning: sprint name %q matched multiple cached boards; falling back to JQL name resolution — results may span sprints on different boards.", sprintName),
 				Stream:  present.StreamStderr,
 			},
 		},
@@ -206,7 +206,7 @@ func (SprintPresenter) PresentResolutionCacheMiss(sprintName string) *present.Ou
 		Sections: []present.Section{
 			&present.MessageSection{
 				Kind:    present.MessageWarning,
-				Message: fmt.Sprintf("sprint %q not found in cache; falling back to JQL name resolution — Jira will resolve the name or return an empty result set. Run `jtk refresh sprints` to update the cache.", sprintName),
+				Message: fmt.Sprintf("warning: sprint %q not found in cache; falling back to JQL name resolution — Jira will resolve the name or return an empty result set. Run `jtk refresh sprints` to update the cache.", sprintName),
 				Stream:  present.StreamStderr,
 			},
 		},
@@ -220,7 +220,7 @@ func (SprintPresenter) PresentResolutionError(sprintName string, err error) *pre
 		Sections: []present.Section{
 			&present.MessageSection{
 				Kind:    present.MessageWarning,
-				Message: fmt.Sprintf("sprint resolver failed for %q (%v); falling back to JQL name resolution.", sprintName, err),
+				Message: fmt.Sprintf("warning: sprint resolver failed for %q (%v); falling back to JQL name resolution.", sprintName, err),
 				Stream:  present.StreamStderr,
 			},
 		},
@@ -234,7 +234,7 @@ func (SprintPresenter) PresentResolutionSynthetic(sprintName string) *present.Ou
 		Sections: []present.Section{
 			&present.MessageSection{
 				Kind:    present.MessageWarning,
-				Message: fmt.Sprintf("sprint %q not resolved to a cached ID; falling back to JQL name resolution.", sprintName),
+				Message: fmt.Sprintf("warning: sprint %q not resolved to a cached ID; falling back to JQL name resolution.", sprintName),
 				Stream:  present.StreamStderr,
 			},
 		},

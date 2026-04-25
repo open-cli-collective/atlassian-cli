@@ -147,7 +147,7 @@ func (BoardPresenter) PresentConfigFetchWarning(err error) *present.OutputModel 
 		Sections: []present.Section{
 			&present.MessageSection{
 				Kind:    present.MessageWarning,
-				Message: fmt.Sprintf("could not fetch board configuration: %v", err),
+				Message: fmt.Sprintf("warning: could not fetch board configuration: %v", err),
 				Stream:  present.StreamStderr,
 			},
 		},

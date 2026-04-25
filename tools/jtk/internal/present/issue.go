@@ -579,12 +579,12 @@ func (IssuePresenter) PresentTypeChanged(key, newType string) *present.OutputMod
 // --- No-change/idempotent methods (route to stderr) ---
 
 // PresentTypeAlreadyCurrent creates an advisory when type is already current.
-func (IssuePresenter) PresentTypeAlreadyCurrent(key, typeName string) *present.OutputModel {
+func (IssuePresenter) PresentTypeAlreadyCurrent(typeName string) *present.OutputModel {
 	return &present.OutputModel{
 		Sections: []present.Section{
 			&present.MessageSection{
 				Kind:    present.MessageInfo,
-				Message: fmt.Sprintf("Issue %s is already type %s", key, typeName),
+				Message: fmt.Sprintf("type is already %s", typeName),
 				Stream:  present.StreamStderr,
 			},
 		},
@@ -656,7 +656,7 @@ func (IssuePresenter) PresentTypeFallbackWarning(sourceType, projectKey, fallbac
 		Sections: []present.Section{
 			&present.MessageSection{
 				Kind:    present.MessageWarning,
-				Message: fmt.Sprintf("source issue type %q not found in project %s; using %q as the target type (pass --to-type to override).", sourceType, projectKey, fallbackType),
+				Message: fmt.Sprintf("warning: source issue type %q not found in project %s; using %q as the target type (pass --to-type to override).", sourceType, projectKey, fallbackType),
 				Stream:  present.StreamStderr,
 			},
 		},

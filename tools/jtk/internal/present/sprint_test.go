@@ -1,6 +1,7 @@
 package present
 
 import (
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -329,13 +330,17 @@ func TestSprintPresenter_PresentResolutionCacheMiss(t *testing.T) {
 
 func TestSprintPresenter_PresentResolutionError(t *testing.T) {
 	t.Parallel()
-	model := SprintPresenter{}.PresentResolutionError("Sprint X", nil)
+	sentinel := errors.New("dial tcp: connection refused")
+	model := SprintPresenter{}.PresentResolutionError("Sprint X", sentinel)
 	msg := model.Sections[0].(*present.MessageSection)
 	if msg.Kind != present.MessageWarning {
 		t.Errorf("want MessageWarning, got %v", msg.Kind)
 	}
 	if !strings.HasPrefix(msg.Message, "warning: ") {
 		t.Errorf("want warning: prefix, got %q", msg.Message)
+	}
+	if !strings.Contains(msg.Message, sentinel.Error()) {
+		t.Errorf("want error detail in message, got %q", msg.Message)
 	}
 }
 

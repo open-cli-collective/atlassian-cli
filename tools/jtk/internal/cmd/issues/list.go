@@ -205,7 +205,7 @@ func emitSprintWarning(w *sprintWarning) *present.OutputModel {
 	case sprintWarningSynthetic:
 		return p.PresentResolutionSynthetic(w.SprintName)
 	default:
-		return p.PresentResolutionSynthetic(w.SprintName)
+		panic(fmt.Sprintf("unhandled sprintWarningKind %d", w.Kind))
 	}
 }
 

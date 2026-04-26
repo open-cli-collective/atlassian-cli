@@ -270,7 +270,10 @@ func ResolveFieldOptions(ctx context.Context, c *Client, issueKey, fieldID strin
 	ctxResult, ctxErr := c.GetDefaultFieldContext(ctx, fieldID)
 	if ctxErr == nil {
 		allOpts, pageErr := getAllContextOptions(ctx, c, fieldID, ctxResult.ID)
-		if pageErr == nil && len(allOpts) > 0 {
+		if pageErr != nil {
+			return nil, fmt.Errorf("fetching context options for %s: %w", fieldID, pageErr)
+		}
+		if len(allOpts) > 0 {
 			return allOpts, nil
 		}
 	}

@@ -3,6 +3,7 @@ package issues
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -39,14 +40,24 @@ func runArchive(ctx context.Context, opts *root.Options, keys []string) error {
 	}
 
 	hasErrors := len(result.Errors) > 0
-	for _, ae := range result.Errors {
+
+	errorCategories := make([]string, 0, len(result.Errors))
+	for cat := range result.Errors {
+		errorCategories = append(errorCategories, cat)
+	}
+	sort.Strings(errorCategories)
+	for _, cat := range errorCategories {
+		ae := result.Errors[cat]
 		fmt.Fprintf(opts.Stderr, "Archive error: %s (%s)\n", ae.Message, strings.Join(ae.IssueIdsOrKeys, ", "))
 	}
 
 	var successKeys []string
-	if result.NumberUpdated > 0 && !hasErrors {
+	switch {
+	case result.NumberUpdated == 0 && !hasErrors:
+		fmt.Fprintln(opts.Stderr, "No issues were archived (already archived or no effect)")
+	case result.NumberUpdated > 0 && !hasErrors && result.NumberUpdated >= len(keys):
 		successKeys = keys
-	} else if result.NumberUpdated > 0 {
+	case result.NumberUpdated > 0:
 		failedIDs := make(map[string]bool)
 		for _, ae := range result.Errors {
 			for _, k := range ae.IssueIdsOrKeys {

@@ -38,18 +38,25 @@ func runArchive(ctx context.Context, opts *root.Options, keys []string) error {
 		return err
 	}
 
-	failedKeys := make(map[string]bool)
+	hasErrors := len(result.Errors) > 0
 	for _, ae := range result.Errors {
-		for _, k := range ae.IssueIdsOrKeys {
-			failedKeys[k] = true
-		}
 		fmt.Fprintf(opts.Stderr, "Archive error: %s (%s)\n", ae.Message, strings.Join(ae.IssueIdsOrKeys, ", "))
 	}
 
 	var successKeys []string
-	for _, key := range keys {
-		if !failedKeys[key] {
-			successKeys = append(successKeys, key)
+	if result.NumberUpdated > 0 && !hasErrors {
+		successKeys = keys
+	} else if result.NumberUpdated > 0 {
+		failedIDs := make(map[string]bool)
+		for _, ae := range result.Errors {
+			for _, k := range ae.IssueIdsOrKeys {
+				failedIDs[k] = true
+			}
+		}
+		for _, key := range keys {
+			if !failedIDs[key] {
+				successKeys = append(successKeys, key)
+			}
 		}
 	}
 
@@ -65,8 +72,9 @@ func runArchive(ctx context.Context, opts *root.Options, keys []string) error {
 		}
 	}
 
-	if len(failedKeys) > 0 {
-		return fmt.Errorf("%w (%d of %d issue(s) failed)", root.ErrAlreadyReported, len(failedKeys), len(keys))
+	if hasErrors {
+		failedCount := len(keys) - len(successKeys)
+		return fmt.Errorf("%w (%d of %d issue(s) failed)", root.ErrAlreadyReported, failedCount, len(keys))
 	}
 	return nil
 }

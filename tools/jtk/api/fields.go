@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"strconv"
 	"strings"
 )
@@ -259,11 +260,10 @@ func (c *Client) GetFieldOptionsFromEditMeta(ctx context.Context, issueKey, fiel
 //  3. Global field options (last resort)
 func ResolveFieldOptions(ctx context.Context, c *Client, issueKey, fieldID string) ([]FieldOptionValue, error) {
 	opts, editErr := c.GetFieldOptionsFromEditMeta(ctx, issueKey, fieldID)
-	if editErr == nil && len(opts) > 0 {
+	if editErr == nil {
 		return opts, nil
 	}
-	fieldAbsent := editErr != nil && errors.Is(editErr, ErrFieldNotInEditMeta)
-	if editErr != nil && !fieldAbsent {
+	if !errors.Is(editErr, ErrFieldNotInEditMeta) {
 		return nil, fmt.Errorf("resolving field options for %s on %s: %w", fieldID, issueKey, editErr)
 	}
 
@@ -292,7 +292,7 @@ func getAllContextOptions(ctx context.Context, c *Client, fieldID, contextID str
 	startAt := 0
 	for {
 		urlStr := fmt.Sprintf("%s/field/%s/context/%s/option?startAt=%d",
-			c.BaseURL, fieldID, contextID, startAt)
+			c.BaseURL, url.PathEscape(fieldID), url.PathEscape(contextID), startAt)
 		body, err := c.Get(ctx, urlStr)
 		if err != nil {
 			return nil, err

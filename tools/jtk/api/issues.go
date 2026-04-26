@@ -302,8 +302,9 @@ var knownFieldExtractors = map[string]func(*Issue) string{
 			return ""
 		}
 		t := i.Fields.Description.ToPlainText()
-		if len(t) > 80 {
-			return t[:80] + "..."
+		runes := []rune(t)
+		if len(runes) > 80 {
+			return string(runes[:80]) + "..."
 		}
 		return t
 	},
@@ -398,8 +399,8 @@ func FormatCustomFieldValue(v any) string {
 	case string:
 		return val
 	case float64:
-		if val == float64(int(val)) {
-			return fmt.Sprintf("%d", int(val))
+		if val == float64(int64(val)) {
+			return fmt.Sprintf("%d", int64(val))
 		}
 		return fmt.Sprintf("%g", val)
 	case map[string]any:

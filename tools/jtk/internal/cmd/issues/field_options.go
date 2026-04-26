@@ -52,8 +52,8 @@ metadata, the default field context is used.`,
 		},
 	}
 
-	cmd.Flags().StringVar(&issueFlag, "issue", "", "Issue key for context-specific options (deprecated: use positional arg)")
-	_ = cmd.Flags().MarkHidden("issue")
+	cmd.Flags().StringVar(&issueFlag, "issue", "", "Issue key for context-specific options")
+	_ = cmd.Flags().MarkDeprecated("issue", "use positional arg: jtk issues field-options <issue-key> <field>")
 
 	return cmd
 }

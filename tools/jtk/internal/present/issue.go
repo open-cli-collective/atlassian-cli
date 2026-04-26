@@ -13,9 +13,10 @@ import (
 
 // DetailContext carries extended-only data fetched by the command layer.
 type DetailContext struct {
-	Transitions []api.Transition
-	Watchers    *api.WatchersInfo // nil = unavailable
-	Fields      []api.Field       // nil = degrade to raw field IDs
+	Transitions       []api.Transition
+	TransitionsFailed bool              // true when the API call failed
+	Watchers          *api.WatchersInfo // nil = unavailable
+	Fields            []api.Field       // nil = degrade to raw field IDs
 }
 
 // IssuePresenter creates presentation models for issue data.
@@ -377,7 +378,9 @@ func (IssuePresenter) PresentDetailExtended(issue *api.Issue, _ string, dctx *De
 	sections = append(sections, issueDescriptionSection(issue, true)...)
 
 	sections = append(sections, msg(""), msg("Transitions:"))
-	if dctx != nil && len(dctx.Transitions) > 0 {
+	if dctx != nil && dctx.TransitionsFailed {
+		sections = append(sections, msg("  (unavailable)"))
+	} else if dctx != nil && len(dctx.Transitions) > 0 {
 		rows := make([]present.Row, len(dctx.Transitions))
 		for i, t := range dctx.Transitions {
 			rows[i] = present.Row{Cells: []string{t.ID, t.Name}}
@@ -387,7 +390,7 @@ func (IssuePresenter) PresentDetailExtended(issue *api.Issue, _ string, dctx *De
 			Rows:    rows,
 		})
 	} else {
-		sections = append(sections, msg("  (none available)"))
+		sections = append(sections, msg("  (none)"))
 	}
 
 	return &present.OutputModel{Sections: sections}

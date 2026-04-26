@@ -3,6 +3,7 @@ package api //nolint:revive // package name is intentional
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -220,7 +221,7 @@ func (c *Client) GetFieldOptionsFromEditMeta(ctx context.Context, issueKey, fiel
 
 	fieldData, ok := fieldsData[fieldID].(map[string]any)
 	if !ok {
-		return nil, fmt.Errorf("field %s not found in edit metadata", fieldID)
+		return nil, fmt.Errorf("%w: %s", ErrFieldNotInEditMeta, fieldID)
 	}
 
 	allowedValues, ok := fieldData["allowedValues"].([]any)
@@ -261,19 +262,15 @@ func ResolveFieldOptions(ctx context.Context, c *Client, issueKey, fieldID strin
 	if editErr == nil && len(opts) > 0 {
 		return opts, nil
 	}
-	fieldAbsent := editErr != nil && strings.Contains(editErr.Error(), "not found in edit metadata")
+	fieldAbsent := editErr != nil && errors.Is(editErr, ErrFieldNotInEditMeta)
 	if editErr != nil && !fieldAbsent {
 		return nil, fmt.Errorf("resolving field options for %s on %s: %w", fieldID, issueKey, editErr)
 	}
 
 	ctxResult, ctxErr := c.GetDefaultFieldContext(ctx, fieldID)
 	if ctxErr == nil {
-		page, pageErr := c.GetFieldContextOptions(ctx, fieldID, ctxResult.ID)
-		if pageErr == nil && len(page.Values) > 0 {
-			allOpts := make([]FieldOptionValue, len(page.Values))
-			for i, o := range page.Values {
-				allOpts[i] = FieldOptionValue{ID: o.ID, Value: o.Value, Disabled: o.Disabled}
-			}
+		allOpts, pageErr := getAllContextOptions(ctx, c, fieldID, ctxResult.ID)
+		if pageErr == nil && len(allOpts) > 0 {
 			return allOpts, nil
 		}
 	}
@@ -284,4 +281,33 @@ func ResolveFieldOptions(ctx context.Context, c *Client, issueKey, fieldID strin
 	}
 
 	return nil, fmt.Errorf("no options found for field %s on %s", fieldID, issueKey)
+}
+
+// ErrFieldNotInEditMeta is returned when a field is not present in the issue's
+// edit metadata (i.e., it is not editable for that issue).
+var ErrFieldNotInEditMeta = fmt.Errorf("field not found in edit metadata")
+
+func getAllContextOptions(ctx context.Context, c *Client, fieldID, contextID string) ([]FieldOptionValue, error) {
+	var all []FieldOptionValue
+	startAt := 0
+	for {
+		urlStr := fmt.Sprintf("%s/field/%s/context/%s/option?startAt=%d",
+			c.BaseURL, fieldID, contextID, startAt)
+		body, err := c.Get(ctx, urlStr)
+		if err != nil {
+			return nil, err
+		}
+		var page FieldContextOptionsResponse
+		if err := json.Unmarshal(body, &page); err != nil {
+			return nil, err
+		}
+		for _, o := range page.Values {
+			all = append(all, FieldOptionValue{ID: o.ID, Value: o.Value, Disabled: o.Disabled})
+		}
+		if page.IsLast || len(page.Values) == 0 {
+			break
+		}
+		startAt += len(page.Values)
+	}
+	return all, nil
 }

@@ -85,13 +85,14 @@ func runGet(ctx context.Context, opts *root.Options, issueKey string, noTruncate
 
 	if opts.IsExtended() {
 		noTruncate = true
-		transitions, _ := client.GetTransitions(ctx, issueKey)
+		transitions, transErr := client.GetTransitions(ctx, issueKey)
 		watchers, _ := client.GetWatchers(ctx, issueKey)
 		fields, _ := cache.GetFieldsCacheFirst(ctx, client)
 		dctx := &jtkpresent.DetailContext{
-			Transitions: transitions,
-			Watchers:    watchers,
-			Fields:      fields,
+			Transitions:       transitions,
+			TransitionsFailed: transErr != nil,
+			Watchers:          watchers,
+			Fields:            fields,
 		}
 
 		if projected {

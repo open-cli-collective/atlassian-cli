@@ -387,3 +387,52 @@ func TestRunGet_Extended_ShowsNewSections(t *testing.T) {
 	// Extended implies fulltext — full description present
 	testutil.NotContains(t, output, "[truncated")
 }
+
+func TestRunGet_ExtendedFields_ProjectionUsesDetailContext(t *testing.T) {
+	t.Parallel()
+	longDesc := strings.Repeat("B", 300)
+	issue := api.Issue{
+		Key: "TEST-1",
+		Fields: api.IssueFields{
+			Summary:     "Test issue",
+			Status:      &api.Status{Name: "Open"},
+			IssueType:   &api.IssueType{Name: "Task"},
+			Description: &api.Description{Text: longDesc},
+		},
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/transitions"):
+			_ = json.NewEncoder(w).Encode(api.TransitionsResponse{
+				Transitions: []api.Transition{
+					{ID: "11", Name: "Backlog"},
+				},
+			})
+		case strings.HasSuffix(r.URL.Path, "/watchers"):
+			_ = json.NewEncoder(w).Encode(api.WatchersInfo{WatchCount: 5, IsWatching: false})
+		case strings.HasSuffix(r.URL.Path, "/field"):
+			_ = json.NewEncoder(w).Encode([]api.Field{})
+		default:
+			_ = json.NewEncoder(w).Encode(issue)
+		}
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Extended: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runGet(context.Background(), opts, "TEST-1", false, "Watchers,Transitions,Description")
+	testutil.RequireNoError(t, err)
+
+	output := stdout.String()
+	testutil.Contains(t, output, "5 (watching: no)")
+	testutil.Contains(t, output, "11:Backlog")
+	testutil.Contains(t, output, longDesc)
+	testutil.NotContains(t, output, "[truncated")
+}

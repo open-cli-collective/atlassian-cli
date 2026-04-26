@@ -391,6 +391,9 @@ func versionNames(vs []Version) string {
 
 // FormatCustomFieldValue formats an arbitrary custom field value as a display string.
 func FormatCustomFieldValue(v any) string {
+	if v == nil {
+		return ""
+	}
 	switch val := v.(type) {
 	case string:
 		return val

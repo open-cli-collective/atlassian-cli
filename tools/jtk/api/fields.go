@@ -285,7 +285,7 @@ func ResolveFieldOptions(ctx context.Context, c *Client, issueKey, fieldID strin
 
 // ErrFieldNotInEditMeta is returned when a field is not present in the issue's
 // edit metadata (i.e., it is not editable for that issue).
-var ErrFieldNotInEditMeta = fmt.Errorf("field not found in edit metadata")
+var ErrFieldNotInEditMeta = errors.New("field not found in edit metadata")
 
 func getAllContextOptions(ctx context.Context, c *Client, fieldID, contextID string) ([]FieldOptionValue, error) {
 	var all []FieldOptionValue

@@ -354,7 +354,7 @@ func (FieldPresenter) PresentOptionsNoContext() *present.OutputModel {
 }
 
 // PresentFieldOptionsWithHeader creates a header + table for field options.
-func (FieldPresenter) PresentFieldOptionsWithHeader(fieldName string, options []api.FieldOptionValue) *present.OutputModel {
+func (FieldPresenter) PresentFieldOptionsWithHeader(_ string, options []api.FieldOptionValue) *present.OutputModel {
 	rows := make([]present.Row, len(options))
 	for i, opt := range options {
 		value := opt.Value

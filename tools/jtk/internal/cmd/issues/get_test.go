@@ -338,10 +338,10 @@ func TestRunGet_Extended_ShowsNewSections(t *testing.T) {
 	issue := api.Issue{
 		Key: "TEST-1",
 		Fields: api.IssueFields{
-			Summary:   "Test issue",
-			Status:    &api.Status{Name: "Open", StatusCategory: api.StatusCategory{Name: "To Do"}},
-			IssueType: &api.IssueType{Name: "Task"},
-			Resolution: &api.Resolution{Name: "Done"},
+			Summary:     "Test issue",
+			Status:      &api.Status{Name: "Open", StatusCategory: api.StatusCategory{Name: "To Do"}},
+			IssueType:   &api.IssueType{Name: "Task"},
+			Resolution:  &api.Resolution{Name: "Done"},
 			FixVersions: []api.Version{{ID: "1", Name: "v1.0"}},
 			Description: &api.Description{Text: strings.Repeat("A", 300)},
 		},

@@ -319,18 +319,16 @@ func componentTable(components []api.RuleComponent) *present.TableSection {
 }
 
 func automationScope(rule *api.AutomationRule) string {
-	if len(rule.Projects) > 0 {
-		keys := make([]string, 0, len(rule.Projects))
-		for _, p := range rule.Projects {
-			if p.ProjectKey != "" {
-				keys = append(keys, p.ProjectKey)
-			} else if p.ProjectName != "" {
-				keys = append(keys, p.ProjectName)
-			}
+	keys := make([]string, 0, len(rule.Projects))
+	for _, p := range rule.Projects {
+		if p.ProjectKey != "" {
+			keys = append(keys, p.ProjectKey)
+		} else if p.ProjectName != "" {
+			keys = append(keys, p.ProjectName)
 		}
-		if len(keys) > 0 {
-			return fmt.Sprintf("project (%s)", strings.Join(keys, ", "))
-		}
+	}
+	if len(keys) > 0 {
+		return fmt.Sprintf("project (%s)", strings.Join(keys, ", "))
 	}
 	if len(rule.RuleScopeARIs) > 0 {
 		return "scoped"

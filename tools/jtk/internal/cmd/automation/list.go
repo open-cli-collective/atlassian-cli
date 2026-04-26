@@ -6,6 +6,8 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/open-cli-collective/atlassian-go/view"
+
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
@@ -56,7 +58,7 @@ func runList(ctx context.Context, opts *root.Options, state string) error {
 	}
 
 	v := opts.View()
-	if v.Format == "json" {
+	if v.Format == view.FormatJSON {
 		return v.JSON(rules)
 	}
 

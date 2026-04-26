@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/open-cli-collective/atlassian-go/testutil"
@@ -75,12 +76,15 @@ func TestSummarizeComponents(t *testing.T) {
 func newGetTestServer(t *testing.T, rule api.AutomationRule) *httptest.Server {
 	t.Helper()
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/_edge/tenant_info" {
+		switch {
+		case r.URL.Path == "/_edge/tenant_info":
 			_, _ = w.Write([]byte(`{"cloudId":"test-cloud"}`))
-			return
+		case strings.HasPrefix(r.URL.Path, "/gateway/api/automation/"):
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(rule)
+		default:
+			w.WriteHeader(http.StatusNotFound)
 		}
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(rule)
 	}))
 }
 
@@ -188,6 +192,45 @@ func TestRunGet_Extended(t *testing.T) {
 	testutil.Contains(t, out, "Scope: project (MON, ON)")
 	testutil.Contains(t, out, "Created: 2023-12-04")
 	testutil.Contains(t, out, "Updated: 2026-03-15")
+}
+
+func TestRunGet_Extended_AuthorLookupFails(t *testing.T) {
+	rule := api.AutomationRule{
+		UUID:            "uuid-123",
+		Name:            "My Rule",
+		State:           "ENABLED",
+		AuthorAccountID: "acct-unknown",
+		Components: []api.RuleComponent{
+			{Component: "TRIGGER", Type: "issue.created"},
+		},
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/_edge/tenant_info" {
+			_, _ = w.Write([]byte(`{"cloudId":"test-cloud"}`))
+			return
+		}
+		if r.URL.Path == "/rest/api/3/user" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(rule)
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@x.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}, Extended: true}
+	opts.SetAPIClient(client)
+
+	err = runGet(context.Background(), opts, "uuid-123", false)
+	testutil.RequireNoError(t, err)
+
+	out := stdout.String()
+	testutil.Contains(t, out, "Author: acct-unknown")
 }
 
 func TestRunGet_Extended_NoAuthor(t *testing.T) {

@@ -190,6 +190,33 @@ func TestRunGet_Extended(t *testing.T) {
 	testutil.Contains(t, out, "Updated: 2026-03-15")
 }
 
+func TestRunGet_Extended_NoAuthor(t *testing.T) {
+	rule := api.AutomationRule{
+		UUID:  "uuid-123",
+		Name:  "My Rule",
+		State: "ENABLED",
+		Components: []api.RuleComponent{
+			{Component: "TRIGGER", Type: "issue.created"},
+		},
+	}
+
+	server := newGetTestServer(t, rule)
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@x.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}, Extended: true}
+	opts.SetAPIClient(client)
+
+	err = runGet(context.Background(), opts, "uuid-123", false)
+	testutil.RequireNoError(t, err)
+
+	out := stdout.String()
+	testutil.Contains(t, out, "Author: -")
+}
+
 func TestRunGet_ShowComponents(t *testing.T) {
 	rule := api.AutomationRule{
 		UUID:  "uuid-123",

@@ -126,6 +126,44 @@ func TestRunList_Extended(t *testing.T) {
 	testutil.Contains(t, out, "auto-create")
 }
 
+func TestRunList_Extended_AuthorFallback(t *testing.T) {
+	rules := []api.AutomationRuleSummary{
+		{
+			UUID:            "uuid-1",
+			Name:            "Rule A",
+			State:           "ENABLED",
+			AuthorAccountID: "acct-unknown",
+		},
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/_edge/tenant_info" {
+			_, _ = w.Write([]byte(`{"cloudId":"test-cloud"}`))
+			return
+		}
+		if r.URL.Path == "/rest/api/3/user" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(api.AutomationRuleSummaryResponse{Data: rules})
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@x.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}, Extended: true}
+	opts.SetAPIClient(client)
+
+	err = runList(context.Background(), opts, "")
+	testutil.RequireNoError(t, err)
+
+	out := stdout.String()
+	testutil.Contains(t, out, "acct-unknown")
+}
+
 func TestRunList_IDOnly_Empty(t *testing.T) {
 	server := newListTestServer(t, nil)
 	defer server.Close()

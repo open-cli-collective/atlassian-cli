@@ -54,13 +54,15 @@ func runArchive(ctx context.Context, opts *root.Options, keys []string) error {
 	}
 
 	if opts.EmitIDOnly() {
-		return jtkpresent.EmitIDs(opts, successKeys)
-	}
-
-	for _, key := range successKeys {
-		model := jtkpresent.IssuePresenter{}.PresentArchived(key)
-		out := present.Render(model, opts.RenderStyle())
-		_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
+		if err := jtkpresent.EmitIDs(opts, successKeys); err != nil {
+			return err
+		}
+	} else {
+		for _, key := range successKeys {
+			model := jtkpresent.IssuePresenter{}.PresentArchived(key)
+			out := present.Render(model, opts.RenderStyle())
+			_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
+		}
 	}
 
 	if len(failedKeys) > 0 {

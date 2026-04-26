@@ -376,8 +376,8 @@ func (IssuePresenter) PresentDetailExtended(issue *api.Issue, _ string, dctx *De
 
 	sections = append(sections, issueDescriptionSection(issue, true)...)
 
+	sections = append(sections, msg(""), msg("Transitions:"))
 	if dctx != nil && len(dctx.Transitions) > 0 {
-		sections = append(sections, msg(""), msg("Transitions:"))
 		rows := make([]present.Row, len(dctx.Transitions))
 		for i, t := range dctx.Transitions {
 			rows[i] = present.Row{Cells: []string{t.ID, t.Name}}
@@ -386,6 +386,8 @@ func (IssuePresenter) PresentDetailExtended(issue *api.Issue, _ string, dctx *De
 			Headers: []string{"ID", "NAME"},
 			Rows:    rows,
 		})
+	} else {
+		sections = append(sections, msg("  (none available)"))
 	}
 
 	return &present.OutputModel{Sections: sections}
@@ -437,7 +439,45 @@ func issueExtendedCustomFields(issue *api.Issue, dctx *DetailContext) []present.
 }
 
 // PresentDetailProjection builds a DetailSection view for `issues get --fields`.
-func (IssuePresenter) PresentDetailProjection(issue *api.Issue, _ string, fulltext bool) *present.OutputModel {
+// When dctx is non-nil, extended fields (Watchers, Custom_Fields, Transitions)
+// are populated from it; otherwise they render as "-".
+func (IssuePresenter) PresentDetailProjection(issue *api.Issue, _ string, fulltext bool, dctx *DetailContext) *present.OutputModel {
+	watchersVal := "-"
+	if dctx != nil && dctx.Watchers != nil {
+		watching := "no"
+		if dctx.Watchers.IsWatching {
+			watching = "yes"
+		}
+		watchersVal = fmt.Sprintf("%d (watching: %s)", dctx.Watchers.WatchCount, watching)
+	}
+
+	customFieldsVal := "-"
+	if dctx != nil && issue.Fields.CustomFields != nil {
+		var parts []string
+		for id, raw := range issue.Fields.CustomFields {
+			if !strings.HasPrefix(id, "customfield_") || raw == nil {
+				continue
+			}
+			val := api.FormatCustomFieldValue(raw)
+			if val != "" {
+				parts = append(parts, fmt.Sprintf("%s=%s", id, val))
+			}
+		}
+		if len(parts) > 0 {
+			sort.Strings(parts)
+			customFieldsVal = strings.Join(parts, "; ")
+		}
+	}
+
+	transitionsVal := "-"
+	if dctx != nil && len(dctx.Transitions) > 0 {
+		var parts []string
+		for _, t := range dctx.Transitions {
+			parts = append(parts, fmt.Sprintf("%s:%s", t.ID, t.Name))
+		}
+		transitionsVal = strings.Join(parts, ", ")
+	}
+
 	fields := []present.Field{
 		{Label: "Key", Value: issue.Key},
 		{Label: "Summary", Value: issue.Fields.Summary},
@@ -458,10 +498,10 @@ func (IssuePresenter) PresentDetailProjection(issue *api.Issue, _ string, fullte
 		{Label: "Sprint_Dates", Value: issueSprintDates(issue)},
 		{Label: "Component_IDs", Value: issueComponentIDs(issue)},
 		{Label: "Fix_Versions", Value: issueFixVersions(issue)},
-		{Label: "Watchers", Value: "-"},
+		{Label: "Watchers", Value: watchersVal},
 		{Label: "Resolution", Value: issueResolution(issue)},
-		{Label: "Custom_Fields", Value: "-"},
-		{Label: "Transitions", Value: "-"},
+		{Label: "Custom_Fields", Value: customFieldsVal},
+		{Label: "Transitions", Value: transitionsVal},
 	}
 	return &present.OutputModel{
 		Sections: []present.Section{&present.DetailSection{Fields: fields}},

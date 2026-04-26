@@ -95,7 +95,7 @@ func runGet(ctx context.Context, opts *root.Options, issueKey string, noTruncate
 		}
 
 		if projected {
-			model := presenter.PresentDetailProjection(issue, client.IssueURL(issue.Key), noTruncate)
+			model := presenter.PresentDetailProjection(issue, client.IssueURL(issue.Key), noTruncate, dctx)
 			projection.ApplyToDetailInModel(model, selected)
 			return jtkpresent.Emit(opts, model)
 		}
@@ -104,7 +104,7 @@ func runGet(ctx context.Context, opts *root.Options, issueKey string, noTruncate
 	}
 
 	if projected {
-		model := presenter.PresentDetailProjection(issue, client.IssueURL(issue.Key), noTruncate)
+		model := presenter.PresentDetailProjection(issue, client.IssueURL(issue.Key), noTruncate, nil)
 		projection.ApplyToDetailInModel(model, selected)
 		return jtkpresent.Emit(opts, model)
 	}

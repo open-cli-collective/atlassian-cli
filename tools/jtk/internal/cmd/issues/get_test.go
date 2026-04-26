@@ -332,3 +332,58 @@ func TestRunGet_JSONOutputIgnoresFullFlag(t *testing.T) {
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, result.Key, "TEST-1")
 }
+
+func TestRunGet_Extended_ShowsNewSections(t *testing.T) {
+	t.Parallel()
+	issue := api.Issue{
+		Key: "TEST-1",
+		Fields: api.IssueFields{
+			Summary:   "Test issue",
+			Status:    &api.Status{Name: "Open", StatusCategory: api.StatusCategory{Name: "To Do"}},
+			IssueType: &api.IssueType{Name: "Task"},
+			Resolution: &api.Resolution{Name: "Done"},
+			FixVersions: []api.Version{{ID: "1", Name: "v1.0"}},
+			Description: &api.Description{Text: strings.Repeat("A", 300)},
+		},
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/transitions"):
+			_ = json.NewEncoder(w).Encode(api.TransitionsResponse{
+				Transitions: []api.Transition{
+					{ID: "11", Name: "Backlog"},
+					{ID: "21", Name: "In Progress"},
+				},
+			})
+		case strings.HasSuffix(r.URL.Path, "/watchers"):
+			_ = json.NewEncoder(w).Encode(api.WatchersInfo{WatchCount: 3, IsWatching: true})
+		case strings.Contains(r.URL.Path, "/field"):
+			_ = json.NewEncoder(w).Encode([]api.Field{})
+		default:
+			_ = json.NewEncoder(w).Encode(issue)
+		}
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Extended: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runGet(context.Background(), opts, "TEST-1", false, "")
+	testutil.RequireNoError(t, err)
+
+	output := stdout.String()
+	testutil.Contains(t, output, "Fix Versions: v1.0")
+	testutil.Contains(t, output, "Watchers: 3 (watching: yes)")
+	testutil.Contains(t, output, "Resolution: Done")
+	testutil.Contains(t, output, "Transitions:")
+	testutil.Contains(t, output, "Backlog")
+	testutil.Contains(t, output, "In Progress")
+	// Extended implies fulltext — full description present
+	testutil.NotContains(t, output, "[truncated")
+}

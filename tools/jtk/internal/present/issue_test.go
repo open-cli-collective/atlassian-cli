@@ -285,7 +285,7 @@ func TestIssueDetailSpec_MatchesPresentDetailProjectionLabels(t *testing.T) {
 			Description: &api.Description{},
 		},
 	}
-	model := IssuePresenter{}.PresentDetailProjection(issue, "https://example.com/PROJ-1", true)
+	model := IssuePresenter{}.PresentDetailProjection(issue, "https://example.com/PROJ-1", true, nil)
 	detail := model.Sections[0].(*present.DetailSection)
 
 	renderedLabels := make(map[string]bool, len(detail.Fields))

@@ -338,6 +338,13 @@ func automationScope(rule *api.AutomationRule) string {
 	return "global"
 }
 
+func pluralize(word string, count int) string {
+	if count == 1 {
+		return word
+	}
+	return word + "s"
+}
+
 func resolveAuthor(accountID string, authorNames map[string]string) string {
 	if accountID == "" {
 		return "-"
@@ -369,13 +376,13 @@ func SummarizeComponents(components []api.RuleComponent) string {
 
 	parts := make([]string, 0, 3)
 	if triggers > 0 {
-		parts = append(parts, fmt.Sprintf("%d triggers", triggers))
+		parts = append(parts, fmt.Sprintf("%d %s", triggers, pluralize("trigger", triggers)))
 	}
 	if conditions > 0 {
-		parts = append(parts, fmt.Sprintf("%d conditions", conditions))
+		parts = append(parts, fmt.Sprintf("%d %s", conditions, pluralize("condition", conditions)))
 	}
 	if actions > 0 {
-		parts = append(parts, fmt.Sprintf("%d actions", actions))
+		parts = append(parts, fmt.Sprintf("%d %s", actions, pluralize("action", actions)))
 	}
 
 	return fmt.Sprintf("%d total — %s", len(components), strings.Join(parts, ", "))

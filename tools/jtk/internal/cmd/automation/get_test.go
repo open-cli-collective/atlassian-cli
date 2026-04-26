@@ -32,7 +32,7 @@ func TestSummarizeComponents(t *testing.T) {
 			components: []api.RuleComponent{
 				{Component: "TRIGGER", Type: "jira.issue.create"},
 			},
-			want: "1 total — 1 triggers",
+			want: "1 total — 1 trigger",
 		},
 		{
 			name: "all types",
@@ -41,7 +41,7 @@ func TestSummarizeComponents(t *testing.T) {
 				{Component: "CONDITION", Type: "jira.jql.condition"},
 				{Component: "ACTION", Type: "jira.issue.assign"},
 			},
-			want: "3 total — 1 triggers, 1 conditions, 1 actions",
+			want: "3 total — 1 trigger, 1 condition, 1 action",
 		},
 		{
 			name: "multiple actions",
@@ -51,7 +51,7 @@ func TestSummarizeComponents(t *testing.T) {
 				{Component: "ACTION", Type: "jira.issue.transition"},
 				{Component: "ACTION", Type: "jira.issue.comment"},
 			},
-			want: "4 total — 1 triggers, 3 actions",
+			want: "4 total — 1 trigger, 3 actions",
 		},
 		{
 			name: "unknown component types ignored in breakdown",
@@ -59,7 +59,7 @@ func TestSummarizeComponents(t *testing.T) {
 				{Component: "TRIGGER", Type: "jira.issue.create"},
 				{Component: "BRANCH", Type: "jira.issue.branch"},
 			},
-			want: "2 total — 1 triggers",
+			want: "2 total — 1 trigger",
 		},
 	}
 

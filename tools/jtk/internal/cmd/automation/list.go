@@ -43,16 +43,16 @@ func runList(ctx context.Context, opts *root.Options, state string) error {
 		return err
 	}
 
-	if len(rules) == 0 {
-		return jtkpresent.Emit(opts, jtkpresent.AutomationPresenter{}.PresentEmpty())
-	}
-
 	if opts.EmitIDOnly() {
 		ids := make([]string, len(rules))
 		for i, r := range rules {
 			ids[i] = r.Identifier()
 		}
 		return jtkpresent.EmitIDs(opts, ids)
+	}
+
+	if len(rules) == 0 {
+		return jtkpresent.Emit(opts, jtkpresent.AutomationPresenter{}.PresentEmpty())
 	}
 
 	v := opts.View()

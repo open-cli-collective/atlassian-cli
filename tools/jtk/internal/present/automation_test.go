@@ -158,7 +158,7 @@ func TestSummarizeComponents(t *testing.T) {
 				{Component: "ACTION"},
 				{Component: "ACTION"},
 			},
-			want: "6 total — 1 triggers, 2 conditions, 3 actions",
+			want: "6 total — 1 trigger, 2 conditions, 3 actions",
 		},
 	}
 

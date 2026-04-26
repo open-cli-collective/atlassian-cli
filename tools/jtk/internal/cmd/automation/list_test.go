@@ -126,6 +126,24 @@ func TestRunList_Extended(t *testing.T) {
 	testutil.Contains(t, out, "auto-create")
 }
 
+func TestRunList_IDOnly_Empty(t *testing.T) {
+	server := newListTestServer(t, nil)
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@x.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}, IDOnly: true}
+	opts.SetAPIClient(client)
+
+	err = runList(context.Background(), opts, "")
+	testutil.RequireNoError(t, err)
+	if stdout.String() != "" {
+		t.Errorf("--id with empty results should emit nothing, got %q", stdout.String())
+	}
+}
+
 func TestRunList_Empty(t *testing.T) {
 	server := newListTestServer(t, nil)
 	defer server.Close()

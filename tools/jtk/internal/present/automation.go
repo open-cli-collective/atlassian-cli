@@ -218,23 +218,134 @@ func (AutomationPresenter) PresentEmpty() *present.OutputModel {
 	}
 }
 
-// PresentList creates a table view of automation rules.
+// PresentList creates a table view of automation rules: ID | STATE | NAME.
 func (AutomationPresenter) PresentList(rules []api.AutomationRuleSummary) *present.OutputModel {
 	rows := make([]present.Row, len(rules))
 	for i, r := range rules {
 		rows[i] = present.Row{
-			Cells: []string{r.Identifier(), r.Name, r.State},
+			Cells: []string{r.Identifier(), r.State, r.Name},
 		}
 	}
 
 	return &present.OutputModel{
 		Sections: []present.Section{
 			&present.TableSection{
-				Headers: []string{"UUID", "NAME", "STATE"},
+				Headers: []string{"ID", "STATE", "NAME"},
 				Rows:    rows,
 			},
 		},
 	}
+}
+
+// PresentListExtended creates an extended table: ID | STATE | LABELS | TAGS | AUTHOR | NAME.
+// authorNames maps AuthorAccountID → display name; missing entries render as the raw account ID.
+func (AutomationPresenter) PresentListExtended(rules []api.AutomationRuleSummary, authorNames map[string]string) *present.OutputModel {
+	rows := make([]present.Row, len(rules))
+	for i, r := range rules {
+		labels := OrDash(strings.Join(r.Labels, ", "))
+		tags := OrDash(strings.Join(r.Tags, ", "))
+		author := resolveAuthor(r.AuthorAccountID, authorNames)
+		rows[i] = present.Row{
+			Cells: []string{r.Identifier(), r.State, labels, tags, author, r.Name},
+		}
+	}
+
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.TableSection{
+				Headers: []string{"ID", "STATE", "LABELS", "TAGS", "AUTHOR", "NAME"},
+				Rows:    rows,
+			},
+		},
+	}
+}
+
+// PresentGetDetail creates the get-specific detail view with header line + KV rows.
+func (AutomationPresenter) PresentGetDetail(rule *api.AutomationRule, showComponents bool) *present.OutputModel {
+	sections := []present.Section{
+		msg(fmt.Sprintf("%s  %s", rule.Identifier(), rule.Name)),
+		msg(fmt.Sprintf("State: %s", rule.State)),
+		msg(fmt.Sprintf("Components: %s", SummarizeComponents(rule.Components))),
+	}
+
+	if rule.Description != "" {
+		sections = append(sections, msg(fmt.Sprintf("Description: %s", rule.Description)))
+	}
+
+	if showComponents && len(rule.Components) > 0 {
+		sections = append(sections, componentTable(rule.Components))
+	}
+
+	return &present.OutputModel{Sections: sections}
+}
+
+// PresentGetDetailExtended creates the extended detail view, adding Labels, Tags,
+// Author, Scope, Created, Updated on top of the default get layout.
+func (AutomationPresenter) PresentGetDetailExtended(rule *api.AutomationRule, showComponents bool, authorName string) *present.OutputModel {
+	sections := []present.Section{
+		msg(fmt.Sprintf("%s  %s", rule.Identifier(), rule.Name)),
+		msg(fmt.Sprintf("State: %s", rule.State)),
+		msg(fmt.Sprintf("Components: %s", SummarizeComponents(rule.Components))),
+	}
+
+	if rule.Description != "" {
+		sections = append(sections, msg(fmt.Sprintf("Description: %s", rule.Description)))
+	}
+
+	sections = append(sections, msg(fmt.Sprintf("Labels: %s", OrDash(strings.Join(rule.Labels, ", ")))))
+	sections = append(sections, msg(fmt.Sprintf("Tags: %s", OrDash(strings.Join(rule.Tags, ", ")))))
+	sections = append(sections, msg(fmt.Sprintf("Author: %s", OrDash(authorName))))
+	sections = append(sections, msg(fmt.Sprintf("Scope: %s", automationScope(rule))))
+	sections = append(sections, msg(fmt.Sprintf("Created: %s   Updated: %s", OrDash(FormatTime(rule.Created)), OrDash(FormatTime(rule.Updated)))))
+
+	if showComponents && len(rule.Components) > 0 {
+		sections = append(sections, componentTable(rule.Components))
+	}
+
+	return &present.OutputModel{Sections: sections}
+}
+
+func componentTable(components []api.RuleComponent) *present.TableSection {
+	rows := make([]present.Row, len(components))
+	for i, c := range components {
+		rows[i] = present.Row{
+			Cells: []string{fmt.Sprintf("%d", i+1), c.Component, c.Type},
+		}
+	}
+	return &present.TableSection{
+		Headers: []string{"#", "COMPONENT", "TYPE"},
+		Rows:    rows,
+	}
+}
+
+func automationScope(rule *api.AutomationRule) string {
+	if len(rule.Projects) > 0 {
+		keys := make([]string, 0, len(rule.Projects))
+		for _, p := range rule.Projects {
+			if p.ProjectKey != "" {
+				keys = append(keys, p.ProjectKey)
+			} else if p.ProjectName != "" {
+				keys = append(keys, p.ProjectName)
+			}
+		}
+		if len(keys) > 0 {
+			return fmt.Sprintf("project (%s)", strings.Join(keys, ", "))
+		}
+	}
+	if len(rule.RuleScopeARIs) > 0 {
+		return "scoped"
+	}
+	return "global"
+}
+
+func resolveAuthor(accountID string, authorNames map[string]string) string {
+	if accountID == "" {
+		return "-"
+	}
+	if name, ok := authorNames[accountID]; ok {
+		return name
+	}
+	return accountID
 }
 
 // SummarizeComponents creates a compact summary of rule components.
@@ -258,13 +369,13 @@ func SummarizeComponents(components []api.RuleComponent) string {
 
 	parts := make([]string, 0, 3)
 	if triggers > 0 {
-		parts = append(parts, fmt.Sprintf("%d trigger(s)", triggers))
+		parts = append(parts, fmt.Sprintf("%d triggers", triggers))
 	}
 	if conditions > 0 {
-		parts = append(parts, fmt.Sprintf("%d condition(s)", conditions))
+		parts = append(parts, fmt.Sprintf("%d conditions", conditions))
 	}
 	if actions > 0 {
-		parts = append(parts, fmt.Sprintf("%d action(s)", actions))
+		parts = append(parts, fmt.Sprintf("%d actions", actions))
 	}
 
 	return fmt.Sprintf("%d total — %s", len(components), strings.Join(parts, ", "))

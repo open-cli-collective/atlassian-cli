@@ -25,6 +25,8 @@ type AutomationRule struct {
 	Labels          []string        `json:"labels,omitempty"`
 	Tags            []string        `json:"tags,omitempty"`
 	Projects        []RuleProject   `json:"projects,omitempty"`
+	Created         string          `json:"created,omitempty"`
+	Updated         string          `json:"updated,omitempty"`
 	Trigger         *RuleComponent  `json:"trigger,omitempty"`
 	Components      []RuleComponent `json:"components,omitempty"`
 
@@ -89,6 +91,8 @@ type AutomationRuleSummary struct {
 	Labels          []string      `json:"labels,omitempty"`
 	Tags            []string      `json:"tags,omitempty"`
 	Projects        []RuleProject `json:"projects,omitempty"`
+	Created         string        `json:"created,omitempty"`
+	Updated         string        `json:"updated,omitempty"`
 	RuleScopeARIs   []string      `json:"ruleScopeARIs,omitempty"`
 }
 

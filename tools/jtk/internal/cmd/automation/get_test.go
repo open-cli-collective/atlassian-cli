@@ -1,11 +1,17 @@
 package automation
 
 import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/open-cli-collective/atlassian-go/testutil"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
 )
 
@@ -26,7 +32,7 @@ func TestSummarizeComponents(t *testing.T) {
 			components: []api.RuleComponent{
 				{Component: "TRIGGER", Type: "jira.issue.create"},
 			},
-			want: "1 total — 1 trigger(s)",
+			want: "1 total — 1 triggers",
 		},
 		{
 			name: "all types",
@@ -35,7 +41,7 @@ func TestSummarizeComponents(t *testing.T) {
 				{Component: "CONDITION", Type: "jira.jql.condition"},
 				{Component: "ACTION", Type: "jira.issue.assign"},
 			},
-			want: "3 total — 1 trigger(s), 1 condition(s), 1 action(s)",
+			want: "3 total — 1 triggers, 1 conditions, 1 actions",
 		},
 		{
 			name: "multiple actions",
@@ -45,7 +51,7 @@ func TestSummarizeComponents(t *testing.T) {
 				{Component: "ACTION", Type: "jira.issue.transition"},
 				{Component: "ACTION", Type: "jira.issue.comment"},
 			},
-			want: "4 total — 1 trigger(s), 3 action(s)",
+			want: "4 total — 1 triggers, 3 actions",
 		},
 		{
 			name: "unknown component types ignored in breakdown",
@@ -53,7 +59,7 @@ func TestSummarizeComponents(t *testing.T) {
 				{Component: "TRIGGER", Type: "jira.issue.create"},
 				{Component: "BRANCH", Type: "jira.issue.branch"},
 			},
-			want: "2 total — 1 trigger(s)",
+			want: "2 total — 1 triggers",
 		},
 	}
 
@@ -64,4 +70,152 @@ func TestSummarizeComponents(t *testing.T) {
 			testutil.Equal(t, got, tt.want)
 		})
 	}
+}
+
+func newGetTestServer(t *testing.T, rule api.AutomationRule) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/_edge/tenant_info" {
+			_, _ = w.Write([]byte(`{"cloudId":"test-cloud"}`))
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(rule)
+	}))
+}
+
+func TestRunGet_Default(t *testing.T) {
+	rule := api.AutomationRule{
+		UUID:        "uuid-123",
+		Name:        "My Rule",
+		State:       "ENABLED",
+		Description: "Does stuff",
+		Components: []api.RuleComponent{
+			{Component: "TRIGGER", Type: "issue.created"},
+			{Component: "ACTION", Type: "assign.issue"},
+		},
+	}
+
+	server := newGetTestServer(t, rule)
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@x.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runGet(context.Background(), opts, "uuid-123", false)
+	testutil.RequireNoError(t, err)
+
+	out := stdout.String()
+	testutil.Contains(t, out, "uuid-123  My Rule")
+	testutil.Contains(t, out, "State: ENABLED")
+	testutil.Contains(t, out, "Components:")
+	testutil.Contains(t, out, "Description: Does stuff")
+}
+
+func TestRunGet_IDOnly(t *testing.T) {
+	rule := api.AutomationRule{UUID: "uuid-123", Name: "My Rule", State: "ENABLED"}
+
+	server := newGetTestServer(t, rule)
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@x.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}, IDOnly: true}
+	opts.SetAPIClient(client)
+
+	err = runGet(context.Background(), opts, "uuid-123", false)
+	testutil.RequireNoError(t, err)
+
+	out := stdout.String()
+	testutil.Contains(t, out, "uuid-123")
+	testutil.NotContains(t, out, "My Rule")
+	testutil.NotContains(t, out, "State")
+}
+
+func TestRunGet_Extended(t *testing.T) {
+	rule := api.AutomationRule{
+		UUID:            "uuid-123",
+		Name:            "My Rule",
+		State:           "ENABLED",
+		Description:     "Does stuff",
+		Labels:          []string{"onboarding"},
+		Tags:            []string{"auto-create"},
+		AuthorAccountID: "acct-1",
+		Created:         "2023-12-04T10:00:00.000+0000",
+		Updated:         "2026-03-15T14:30:00.000+0000",
+		Projects:        []api.RuleProject{{ProjectKey: "MON"}, {ProjectKey: "ON"}},
+		Components: []api.RuleComponent{
+			{Component: "TRIGGER", Type: "issue.created"},
+		},
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/_edge/tenant_info" {
+			_, _ = w.Write([]byte(`{"cloudId":"test-cloud"}`))
+			return
+		}
+		if r.URL.Path == "/rest/api/3/user" {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"accountId":"acct-1","displayName":"Rian Stockbower"}`))
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(rule)
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@x.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}, Extended: true}
+	opts.SetAPIClient(client)
+
+	err = runGet(context.Background(), opts, "uuid-123", false)
+	testutil.RequireNoError(t, err)
+
+	out := stdout.String()
+	testutil.Contains(t, out, "uuid-123  My Rule")
+	testutil.Contains(t, out, "Labels: onboarding")
+	testutil.Contains(t, out, "Tags: auto-create")
+	testutil.Contains(t, out, "Author: Rian Stockbower")
+	testutil.Contains(t, out, "Scope: project (MON, ON)")
+	testutil.Contains(t, out, "Created: 2023-12-04")
+	testutil.Contains(t, out, "Updated: 2026-03-15")
+}
+
+func TestRunGet_ShowComponents(t *testing.T) {
+	rule := api.AutomationRule{
+		UUID:  "uuid-123",
+		Name:  "My Rule",
+		State: "ENABLED",
+		Components: []api.RuleComponent{
+			{Component: "TRIGGER", Type: "issue.created"},
+			{Component: "ACTION", Type: "assign.issue"},
+		},
+	}
+
+	server := newGetTestServer(t, rule)
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@x.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runGet(context.Background(), opts, "uuid-123", true)
+	testutil.RequireNoError(t, err)
+
+	out := stdout.String()
+	testutil.Contains(t, out, "COMPONENT")
+	testutil.Contains(t, out, "TRIGGER")
+	testutil.Contains(t, out, "ACTION")
 }

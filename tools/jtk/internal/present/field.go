@@ -59,6 +59,25 @@ func (FieldPresenter) PresentList(fields []api.Field, extended bool) *present.Ou
 	}
 }
 
+// PresentIssueFields creates a table view for an issue's field values.
+// Output: FIELD_ID|NAME|TYPE|VALUE per #230 spec.
+func (FieldPresenter) PresentIssueFields(entries []api.IssueFieldEntry) *present.OutputModel {
+	rows := make([]present.Row, len(entries))
+	for i, e := range entries {
+		rows[i] = present.Row{
+			Cells: []string{e.ID, e.Name, OrDash(e.Type), e.Value},
+		}
+	}
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.TableSection{
+				Headers: []string{"FIELD_ID", "NAME", "TYPE", "VALUE"},
+				Rows:    rows,
+			},
+		},
+	}
+}
+
 // PresentEditableFields creates a table view for editable fields.
 func (FieldPresenter) PresentEditableFields(fields []api.EditFieldMeta) *present.OutputModel {
 	rows := make([]present.Row, len(fields))
@@ -342,23 +361,19 @@ func (FieldPresenter) PresentFieldOptionsWithHeader(fieldName string, options []
 		if value == "" {
 			value = opt.Name
 		}
+		disabled := "no"
 		if opt.Disabled {
-			value = value + " (disabled)"
+			disabled = "yes"
 		}
 		rows[i] = present.Row{
-			Cells: []string{opt.ID, value},
+			Cells: []string{opt.ID, value, disabled},
 		}
 	}
 
 	return &present.OutputModel{
 		Sections: []present.Section{
-			&present.MessageSection{
-				Kind:    present.MessageInfo,
-				Message: fmt.Sprintf("Allowed values for field '%s':", fieldName),
-				Stream:  present.StreamStdout,
-			},
 			&present.TableSection{
-				Headers: []string{"ID", "VALUE"},
+				Headers: []string{"ID", "VALUE", "DISABLED"},
 				Rows:    rows,
 			},
 		},

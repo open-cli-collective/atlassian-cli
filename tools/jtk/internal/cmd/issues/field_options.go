@@ -15,27 +15,45 @@ import (
 )
 
 func newFieldOptionsCmd(opts *root.Options) *cobra.Command {
-	var issueKey string
+	var issueFlag string
 
 	cmd := &cobra.Command{
-		Use:   "field-options <field-name-or-id>",
+		Use:   "field-options <issue-key> <field-name-or-id>",
 		Short: "List allowed values for a field",
 		Long: `List the allowed values for an option/select field.
 
-When used with --issue, shows the allowed values in the context of that specific issue.
-Without --issue, attempts to show all possible values for the field.`,
-		Example: `  # List options for a field using issue context
-  jtk issues field-options "Priority" --issue PROJ-123
+Provide an issue key and a field name or ID to see allowed values in that
+issue's project context. For read-only fields that don't appear in edit
+metadata, the default field context is used.`,
+		Example: `  # List options using issue context (recommended)
+  jtk issues field-options PROJ-123 "Priority"
+
+  # List options for a custom field
+  jtk issues field-options PROJ-123 customfield_10050
+
+  # List options without issue context (global)
+  jtk issues field-options "Priority"
 
   # Emit only option IDs
-  jtk issues field-options "Priority" --issue PROJ-123 --id`,
-		Args: cobra.ExactArgs(1),
+  jtk issues field-options PROJ-123 "Priority" --id`,
+		Args: cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runFieldOptions(cmd.Context(), opts, args[0], issueKey)
+			var issueKey, fieldNameOrID string
+			if len(args) == 2 {
+				issueKey = args[0]
+				fieldNameOrID = args[1]
+			} else {
+				fieldNameOrID = args[0]
+				if issueFlag != "" {
+					issueKey = issueFlag
+				}
+			}
+			return runFieldOptions(cmd.Context(), opts, fieldNameOrID, issueKey)
 		},
 	}
 
-	cmd.Flags().StringVar(&issueKey, "issue", "", "Issue key for context-specific options (recommended)")
+	cmd.Flags().StringVar(&issueFlag, "issue", "", "Issue key for context-specific options (deprecated: use positional arg)")
+	_ = cmd.Flags().MarkHidden("issue")
 
 	return cmd
 }
@@ -67,7 +85,7 @@ func runFieldOptions(ctx context.Context, opts *root.Options, fieldNameOrID, iss
 	var options []api.FieldOptionValue
 
 	if issueKey != "" {
-		options, err = client.GetFieldOptionsFromEditMeta(ctx, issueKey, fieldID)
+		options, err = api.ResolveFieldOptions(ctx, client, issueKey, fieldID)
 		if err != nil {
 			return fmt.Errorf("getting options for field %s: %w", fieldName, err)
 		}

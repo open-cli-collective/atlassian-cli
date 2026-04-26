@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"sort"
+	"strings"
 )
 
 // GetIssue retrieves an issue by key
@@ -177,6 +179,260 @@ func ParseEditMeta(fieldsData map[string]any) []EditFieldMeta {
 	}
 
 	return result
+}
+
+// ArchiveError represents a single error category from the archive response.
+type ArchiveError struct {
+	Count          int      `json:"count"`
+	IssueIdsOrKeys []string `json:"issueIdsOrKeys"`
+	Message        string   `json:"message"`
+}
+
+// ArchiveResult represents the response from archiving issues.
+type ArchiveResult struct {
+	NumberUpdated int                     `json:"numberOfIssuesUpdated"`
+	Errors        map[string]ArchiveError `json:"errors,omitempty"`
+}
+
+// ArchiveIssues archives one or more issues by key.
+func (c *Client) ArchiveIssues(ctx context.Context, keys []string) (*ArchiveResult, error) {
+	if len(keys) == 0 {
+		return nil, ErrIssueKeyRequired
+	}
+
+	urlStr := fmt.Sprintf("%s/issue/archive", c.BaseURL)
+	body, err := c.Put(ctx, urlStr, map[string]any{
+		"issueIdsOrKeys": keys,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("archiving issues: %w", err)
+	}
+
+	var result ArchiveResult
+	if err := json.Unmarshal(body, &result); err != nil {
+		return &ArchiveResult{NumberUpdated: len(keys)}, nil
+	}
+	return &result, nil
+}
+
+// WatchersInfo represents the watchers summary for an issue.
+type WatchersInfo struct {
+	WatchCount int  `json:"watchCount"`
+	IsWatching bool `json:"isWatching"`
+}
+
+// GetWatchers returns watchers info for an issue.
+func (c *Client) GetWatchers(ctx context.Context, issueKey string) (*WatchersInfo, error) {
+	if issueKey == "" {
+		return nil, ErrIssueKeyRequired
+	}
+
+	urlStr := fmt.Sprintf("%s/issue/%s/watchers", c.BaseURL, url.PathEscape(issueKey))
+	body, err := c.Get(ctx, urlStr)
+	if err != nil {
+		return nil, fmt.Errorf("fetching watchers: %w", err)
+	}
+
+	var info WatchersInfo
+	if err := json.Unmarshal(body, &info); err != nil {
+		return nil, fmt.Errorf("parsing watchers: %w", err)
+	}
+	return &info, nil
+}
+
+// IssueFieldEntry represents a single field's current value on an issue,
+// used by `issues fields <key>` to display FIELD_ID|NAME|TYPE|VALUE.
+type IssueFieldEntry struct {
+	ID    string
+	Name  string
+	Type  string
+	Value string
+}
+
+// ExtractIssueFieldValues builds a sorted slice of IssueFieldEntry from an
+// issue's typed struct fields and its CustomFields map. Field metadata (name,
+// type) comes from the fields cache.
+func ExtractIssueFieldValues(issue *Issue, fields []Field) []IssueFieldEntry {
+	fieldIndex := make(map[string]*Field, len(fields))
+	for i := range fields {
+		fieldIndex[fields[i].ID] = &fields[i]
+	}
+
+	var entries []IssueFieldEntry
+
+	for id, extract := range knownFieldExtractors {
+		val := extract(issue)
+		if val == "" {
+			continue
+		}
+		name, typ := id, ""
+		if f := fieldIndex[id]; f != nil {
+			name = f.Name
+			typ = f.Schema.Type
+		}
+		entries = append(entries, IssueFieldEntry{ID: id, Name: name, Type: typ, Value: val})
+	}
+
+	for id, raw := range issue.Fields.CustomFields {
+		if raw == nil {
+			continue
+		}
+		val := FormatCustomFieldValue(raw)
+		if val == "" {
+			continue
+		}
+		name, typ := id, ""
+		if f := fieldIndex[id]; f != nil {
+			name = f.Name
+			typ = f.Schema.Type
+		}
+		entries = append(entries, IssueFieldEntry{ID: id, Name: name, Type: typ, Value: val})
+	}
+
+	sort.Slice(entries, func(i, j int) bool { return entries[i].ID < entries[j].ID })
+	return entries
+}
+
+// knownFieldExtractors maps typed IssueFields struct field IDs to value
+// extractors. Must stay in sync with knownFieldKeys (enforced by test).
+var knownFieldExtractors = map[string]func(*Issue) string{
+	"summary": func(i *Issue) string { return i.Fields.Summary },
+	"description": func(i *Issue) string {
+		if i.Fields.Description == nil {
+			return ""
+		}
+		t := i.Fields.Description.ToPlainText()
+		if len(t) > 80 {
+			return t[:80] + "..."
+		}
+		return t
+	},
+	"status": func(i *Issue) string {
+		if i.Fields.Status == nil {
+			return ""
+		}
+		return i.Fields.Status.Name
+	},
+	"issuetype": func(i *Issue) string {
+		if i.Fields.IssueType == nil {
+			return ""
+		}
+		return i.Fields.IssueType.Name
+	},
+	"priority": func(i *Issue) string {
+		if i.Fields.Priority == nil {
+			return ""
+		}
+		return i.Fields.Priority.Name
+	},
+	"assignee":   func(i *Issue) string { return displayNameOrEmpty(i.Fields.Assignee) },
+	"reporter":   func(i *Issue) string { return displayNameOrEmpty(i.Fields.Reporter) },
+	"project":    func(i *Issue) string { return projectKeyOrEmpty(i.Fields.Project) },
+	"created":    func(i *Issue) string { return i.Fields.Created },
+	"updated":    func(i *Issue) string { return i.Fields.Updated },
+	"labels":     func(i *Issue) string { return strings.Join(i.Fields.Labels, ", ") },
+	"components": func(i *Issue) string { return componentNames(i.Fields.Components) },
+	"sprint": func(i *Issue) string {
+		if i.Fields.Sprint == nil {
+			return ""
+		}
+		return i.Fields.Sprint.Name
+	},
+	"parent": func(i *Issue) string {
+		if i.Fields.Parent == nil {
+			return ""
+		}
+		return i.Fields.Parent.Key
+	},
+	"resolution": func(i *Issue) string {
+		if i.Fields.Resolution == nil {
+			return ""
+		}
+		return i.Fields.Resolution.Name
+	},
+	"fixVersions": func(i *Issue) string { return versionNames(i.Fields.FixVersions) },
+}
+
+func displayNameOrEmpty(u *User) string {
+	if u == nil {
+		return ""
+	}
+	return u.DisplayName
+}
+
+func projectKeyOrEmpty(p *Project) string {
+	if p == nil {
+		return ""
+	}
+	return p.Key
+}
+
+func componentNames(cs []Component) string {
+	if len(cs) == 0 {
+		return ""
+	}
+	names := make([]string, len(cs))
+	for i, c := range cs {
+		names[i] = c.Name
+	}
+	return strings.Join(names, ", ")
+}
+
+func versionNames(vs []Version) string {
+	if len(vs) == 0 {
+		return ""
+	}
+	names := make([]string, len(vs))
+	for i, v := range vs {
+		names[i] = v.Name
+	}
+	return strings.Join(names, ", ")
+}
+
+// FormatCustomFieldValue formats an arbitrary custom field value as a display string.
+func FormatCustomFieldValue(v any) string {
+	switch val := v.(type) {
+	case string:
+		return val
+	case float64:
+		if val == float64(int(val)) {
+			return fmt.Sprintf("%d", int(val))
+		}
+		return fmt.Sprintf("%g", val)
+	case map[string]any:
+		if s, ok := val["value"].(string); ok {
+			return s
+		}
+		if s, ok := val["name"].(string); ok {
+			return s
+		}
+		if s, ok := val["displayName"].(string); ok {
+			return s
+		}
+		return fmt.Sprintf("%v", val)
+	case []any:
+		parts := make([]string, 0, len(val))
+		for _, item := range val {
+			switch elem := item.(type) {
+			case string:
+				parts = append(parts, elem)
+			case map[string]any:
+				if s, ok := elem["value"].(string); ok {
+					parts = append(parts, s)
+				} else if s, ok := elem["name"].(string); ok {
+					parts = append(parts, s)
+				}
+			}
+		}
+		return strings.Join(parts, ", ")
+	case bool:
+		if val {
+			return "yes"
+		}
+		return "no"
+	default:
+		return fmt.Sprintf("%v", v)
+	}
 }
 
 // safeString extracts a string from an interface value.

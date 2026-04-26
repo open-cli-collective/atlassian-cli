@@ -32,6 +32,8 @@ type IssueFields struct {
 	Components  []Component  `json:"components,omitempty"`
 	Sprint      *Sprint      `json:"sprint,omitempty"`
 	Parent      *Issue       `json:"parent,omitempty"`
+	Resolution  *Resolution  `json:"resolution,omitempty"`
+	FixVersions []Version    `json:"fixVersions,omitempty"`
 
 	// CustomFields holds any fields not mapped to struct fields (e.g., customfield_10001)
 	CustomFields map[string]any `json:"-"`
@@ -43,7 +45,8 @@ var knownFieldKeys = map[string]bool{
 	"issuetype": true, "priority": true, "assignee": true,
 	"reporter": true, "project": true, "created": true,
 	"updated": true, "labels": true, "components": true,
-	"sprint": true, "parent": true,
+	"sprint": true, "parent": true, "resolution": true,
+	"fixVersions": true,
 }
 
 // UnmarshalJSON custom unmarshaler to capture custom fields
@@ -123,6 +126,12 @@ func (f IssueFields) MarshalJSON() ([]byte, error) {
 	}
 	if f.Parent != nil {
 		result["parent"] = f.Parent
+	}
+	if f.Resolution != nil {
+		result["resolution"] = f.Resolution
+	}
+	if len(f.FixVersions) > 0 {
+		result["fixVersions"] = f.FixVersions
 	}
 
 	// Add custom fields

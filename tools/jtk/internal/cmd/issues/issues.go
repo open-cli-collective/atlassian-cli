@@ -15,6 +15,7 @@ func Register(parent *cobra.Command, opts *root.Options) {
 		Long:    "Commands for creating, viewing, updating, and searching Jira issues.",
 	}
 
+	cmd.AddCommand(newArchiveCmd(opts))
 	cmd.AddCommand(newGetCmd(opts))
 	cmd.AddCommand(newListCmd(opts))
 	cmd.AddCommand(newSearchCmd(opts))

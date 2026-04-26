@@ -250,3 +250,49 @@ func (c *Client) GetFieldOptionsFromEditMeta(ctx context.Context, issueKey, fiel
 
 	return options, nil
 }
+
+// ResolveFieldOptions returns allowed values for a field in the context of a
+// specific issue. It uses a three-tier resolution strategy:
+//  1. Edit metadata (reliable for editable fields, already project-scoped)
+//  2. Default field context + context options (handles read-only custom fields)
+//  3. Global field options (last resort)
+func ResolveFieldOptions(ctx context.Context, c *Client, issueKey, fieldID string) ([]FieldOptionValue, error) {
+	opts, err := c.GetFieldOptionsFromEditMeta(ctx, issueKey, fieldID)
+	if err == nil && len(opts) > 0 {
+		return opts, nil
+	}
+
+	ctxResult, ctxErr := c.GetDefaultFieldContext(ctx, fieldID)
+	if ctxErr == nil {
+		var allOpts []FieldOptionValue
+		for {
+			page, pageErr := c.GetFieldContextOptions(ctx, fieldID, ctxResult.ID)
+			if pageErr != nil {
+				break
+			}
+			for _, o := range page.Values {
+				allOpts = append(allOpts, FieldOptionValue{
+					ID:       o.ID,
+					Value:    o.Value,
+					Disabled: o.Disabled,
+				})
+			}
+			if page.IsLast || len(page.Values) == 0 {
+				break
+			}
+		}
+		if len(allOpts) > 0 {
+			return allOpts, nil
+		}
+	}
+
+	globalOpts, globalErr := c.GetFieldOptions(ctx, fieldID)
+	if globalErr == nil && len(globalOpts) > 0 {
+		return globalOpts, nil
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("resolving field options for %s on %s: %w", fieldID, issueKey, err)
+	}
+	return nil, fmt.Errorf("no options found for field %s on %s", fieldID, issueKey)
+}

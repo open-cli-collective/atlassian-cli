@@ -46,10 +46,18 @@ func runArchive(ctx context.Context, opts *root.Options, keys []string) error {
 		fmt.Fprintf(opts.Stderr, "Archive error: %s (%s)\n", ae.Message, strings.Join(ae.IssueIdsOrKeys, ", "))
 	}
 
+	var successKeys []string
 	for _, key := range keys {
-		if failedKeys[key] {
-			continue
+		if !failedKeys[key] {
+			successKeys = append(successKeys, key)
 		}
+	}
+
+	if opts.EmitIDOnly() {
+		return jtkpresent.EmitIDs(opts, successKeys)
+	}
+
+	for _, key := range successKeys {
 		model := jtkpresent.IssuePresenter{}.PresentArchived(key)
 		out := present.Render(model, opts.RenderStyle())
 		_, _ = fmt.Fprint(opts.Stdout, out.Stdout)

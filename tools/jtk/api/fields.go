@@ -257,31 +257,23 @@ func (c *Client) GetFieldOptionsFromEditMeta(ctx context.Context, issueKey, fiel
 //  2. Default field context + context options (handles read-only custom fields)
 //  3. Global field options (last resort)
 func ResolveFieldOptions(ctx context.Context, c *Client, issueKey, fieldID string) ([]FieldOptionValue, error) {
-	opts, err := c.GetFieldOptionsFromEditMeta(ctx, issueKey, fieldID)
-	if err == nil && len(opts) > 0 {
+	opts, editErr := c.GetFieldOptionsFromEditMeta(ctx, issueKey, fieldID)
+	if editErr == nil && len(opts) > 0 {
 		return opts, nil
+	}
+	fieldAbsent := editErr != nil && strings.Contains(editErr.Error(), "not found in edit metadata")
+	if editErr != nil && !fieldAbsent {
+		return nil, fmt.Errorf("resolving field options for %s on %s: %w", fieldID, issueKey, editErr)
 	}
 
 	ctxResult, ctxErr := c.GetDefaultFieldContext(ctx, fieldID)
 	if ctxErr == nil {
-		var allOpts []FieldOptionValue
-		for {
-			page, pageErr := c.GetFieldContextOptions(ctx, fieldID, ctxResult.ID)
-			if pageErr != nil {
-				break
+		page, pageErr := c.GetFieldContextOptions(ctx, fieldID, ctxResult.ID)
+		if pageErr == nil && len(page.Values) > 0 {
+			allOpts := make([]FieldOptionValue, len(page.Values))
+			for i, o := range page.Values {
+				allOpts[i] = FieldOptionValue{ID: o.ID, Value: o.Value, Disabled: o.Disabled}
 			}
-			for _, o := range page.Values {
-				allOpts = append(allOpts, FieldOptionValue{
-					ID:       o.ID,
-					Value:    o.Value,
-					Disabled: o.Disabled,
-				})
-			}
-			if page.IsLast || len(page.Values) == 0 {
-				break
-			}
-		}
-		if len(allOpts) > 0 {
 			return allOpts, nil
 		}
 	}
@@ -291,8 +283,5 @@ func ResolveFieldOptions(ctx context.Context, c *Client, issueKey, fieldID strin
 		return globalOpts, nil
 	}
 
-	if err != nil {
-		return nil, fmt.Errorf("resolving field options for %s on %s: %w", fieldID, issueKey, err)
-	}
 	return nil, fmt.Errorf("no options found for field %s on %s", fieldID, issueKey)
 }

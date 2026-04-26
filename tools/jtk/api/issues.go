@@ -210,7 +210,7 @@ func (c *Client) ArchiveIssues(ctx context.Context, keys []string) (*ArchiveResu
 
 	var result ArchiveResult
 	if err := json.Unmarshal(body, &result); err != nil {
-		return &ArchiveResult{NumberUpdated: len(keys)}, nil
+		return nil, fmt.Errorf("parsing archive response: %w", err)
 	}
 	return &result, nil
 }

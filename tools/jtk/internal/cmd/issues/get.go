@@ -83,27 +83,29 @@ func runGet(ctx context.Context, opts *root.Options, issueKey string, noTruncate
 
 	presenter := jtkpresent.IssuePresenter{}
 
-	// projected takes precedence over full extended rendering
-	if projected {
-		model := presenter.PresentDetailProjection(issue, client.IssueURL(issue.Key), noTruncate)
-		projection.ApplyToDetailInModel(model, selected)
-		return jtkpresent.Emit(opts, model)
-	}
-
 	if opts.IsExtended() {
+		noTruncate = true
 		transitions, _ := client.GetTransitions(ctx, issueKey)
-
 		watchers, _ := client.GetWatchers(ctx, issueKey)
-
 		fields, _ := cache.GetFieldsCacheFirst(ctx, client)
-
 		dctx := &jtkpresent.DetailContext{
 			Transitions: transitions,
 			Watchers:    watchers,
 			Fields:      fields,
 		}
 
+		if projected {
+			model := presenter.PresentDetailProjection(issue, client.IssueURL(issue.Key), noTruncate)
+			projection.ApplyToDetailInModel(model, selected)
+			return jtkpresent.Emit(opts, model)
+		}
 		model := presenter.PresentDetailExtended(issue, client.IssueURL(issue.Key), dctx)
+		return jtkpresent.Emit(opts, model)
+	}
+
+	if projected {
+		model := presenter.PresentDetailProjection(issue, client.IssueURL(issue.Key), noTruncate)
+		projection.ApplyToDetailInModel(model, selected)
 		return jtkpresent.Emit(opts, model)
 	}
 

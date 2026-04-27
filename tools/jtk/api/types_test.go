@@ -743,6 +743,22 @@ func TestIssueFields_SprintFromCustomField10020_Array(t *testing.T) {
 	testutil.Equal(t, f.Sprint.State, "active")
 }
 
+func TestIssueFields_SprintFromCustomField10020_SingleObject(t *testing.T) {
+	t.Parallel()
+	input := `{
+		"summary": "Test",
+		"customfield_10020": {"id": 125, "name": "Single Sprint", "state": "active"}
+	}`
+	var f IssueFields
+	err := json.Unmarshal([]byte(input), &f)
+	testutil.RequireNoError(t, err)
+	if f.Sprint == nil {
+		t.Fatal("Sprint should be resolved from single-object customfield_10020")
+	}
+	testutil.Equal(t, f.Sprint.ID, 125)
+	testutil.Equal(t, f.Sprint.Name, "Single Sprint")
+}
+
 func TestIssueFields_SprintFromCustomField10020_TypedFieldWins(t *testing.T) {
 	t.Parallel()
 	input := `{
@@ -765,6 +781,17 @@ func TestIssueFields_SprintFromCustomField10020_EmptyArray(t *testing.T) {
 	testutil.RequireNoError(t, err)
 	if f.Sprint != nil {
 		t.Error("Sprint should be nil for empty array")
+	}
+}
+
+func TestIssueFields_SprintFromCustomField10020_BareString(t *testing.T) {
+	t.Parallel()
+	input := `{"summary": "Test", "customfield_10020": "not a sprint"}`
+	var f IssueFields
+	err := json.Unmarshal([]byte(input), &f)
+	testutil.RequireNoError(t, err)
+	if f.Sprint != nil {
+		t.Error("Sprint should be nil for bare string value")
 	}
 }
 

@@ -537,6 +537,38 @@ func TestIssuePresenter_PresentDetailProjection_TransitionsIncludeToStatus(t *te
 	t.Error("Transitions field not found")
 }
 
+func TestIssuePresenter_PresentDetailProjection_CustomFieldSuppression(t *testing.T) {
+	t.Parallel()
+	issue := &api.Issue{
+		Key: "MON-123",
+		Fields: api.IssueFields{
+			Summary: "Test",
+			Sprint:  &api.Sprint{ID: 125, Name: "MON Sprint 70", State: "active"},
+			CustomFields: map[string]any{
+				"customfield_10020": "MON Sprint 70",
+				"customfield_10035": float64(5),
+			},
+		},
+	}
+	dctx := &DetailContext{}
+
+	model := IssuePresenter{}.PresentDetailProjection(issue, "", false, dctx)
+	detail := model.Sections[0].(*present.DetailSection)
+
+	for _, f := range detail.Fields {
+		if f.Label == "Custom_Fields" {
+			if strings.Contains(f.Value, "customfield_10020") {
+				t.Error("customfield_10020 should be suppressed in projection when Sprint is populated")
+			}
+			if !strings.Contains(f.Value, "customfield_10035") {
+				t.Error("other custom fields should be present")
+			}
+			return
+		}
+	}
+	t.Error("Custom_Fields field not found")
+}
+
 func TestIssuePresenter_PresentTypeFallbackWarning(t *testing.T) {
 	t.Parallel()
 	model := IssuePresenter{}.PresentTypeFallbackWarning("Bug", "MON", "Task")

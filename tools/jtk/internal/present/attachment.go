@@ -14,23 +14,24 @@ import (
 type AttachmentPresenter struct{}
 
 // AttachmentListSpec declares the columns emitted by PresentList. Default:
-// ID|FILENAME|SIZE|AUTHOR|CREATED. Extended adds BYTES and MIME_TYPE.
+// ID|FILENAME|SIZE|AUTHOR|CREATED. Extended:
+// ID|FILENAME|SIZE|BYTES|MIME_TYPE|AUTHOR|CREATED.
 var AttachmentListSpec = projection.Registry{
 	{Header: "ID", Identity: true},
 	{Header: "FILENAME"},
 	{Header: "SIZE"},
-	{Header: "AUTHOR"},
-	{Header: "CREATED"},
 	{Header: "BYTES", Extended: true},
 	{Header: "MIME_TYPE", Extended: true},
+	{Header: "AUTHOR"},
+	{Header: "CREATED"},
 }
 
-// PresentList creates a table presentation of attachments. Extended
-// adds BYTES (raw size) and MIME_TYPE columns, uses full timestamps.
+// PresentList creates a table presentation of attachments. Extended:
+// ID|FILENAME|SIZE|BYTES|MIME_TYPE|AUTHOR|CREATED.
 func (AttachmentPresenter) PresentList(attachments []api.Attachment, extended bool) *present.OutputModel {
 	var headers []string
 	if extended {
-		headers = []string{"ID", "FILENAME", "SIZE", "AUTHOR", "CREATED", "BYTES", "MIME_TYPE"}
+		headers = []string{"ID", "FILENAME", "SIZE", "BYTES", "MIME_TYPE", "AUTHOR", "CREATED"}
 	} else {
 		headers = []string{"ID", "FILENAME", "SIZE", "AUTHOR", "CREATED"}
 	}
@@ -43,10 +44,10 @@ func (AttachmentPresenter) PresentList(attachments []api.Attachment, extended bo
 					a.ID.String(),
 					a.Filename,
 					FormatSize(a.Size),
-					a.Author.DisplayName,
-					OrDash(a.Created),
 					FormatInt(int(a.Size)),
 					OrDash(a.MimeType),
+					a.Author.DisplayName,
+					OrDash(a.Created),
 				},
 			}
 		} else {
@@ -76,13 +77,12 @@ func (AttachmentPresenter) PresentUploaded(filename, id, size string) *present.O
 }
 
 // PresentDownloaded creates a success message for attachment download.
-// Size formatting is handled internally.
-func (AttachmentPresenter) PresentDownloaded(filename string, sizeBytes int64) *present.OutputModel {
+func (AttachmentPresenter) PresentDownloaded(attachmentID, filename string, sizeBytes int64) *present.OutputModel {
 	return &present.OutputModel{
 		Sections: []present.Section{
 			&present.MessageSection{
 				Kind:    present.MessageSuccess,
-				Message: fmt.Sprintf("Downloaded %s (%s)", filename, FormatSize(sizeBytes)),
+				Message: fmt.Sprintf("Downloaded %s → %s (%s)", attachmentID, filename, FormatSize(sizeBytes)),
 				Stream:  present.StreamStdout,
 			},
 		},

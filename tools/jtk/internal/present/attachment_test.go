@@ -55,17 +55,31 @@ func TestAttachmentPresenter_PresentList_Extended(t *testing.T) {
 	model := AttachmentPresenter{}.PresentList(attachments, true)
 	table := model.Sections[0].(*present.TableSection)
 
-	if table.Rows[0].Cells[5] != "4301" {
-		t.Errorf("BYTES: expected '4301', got %q", table.Rows[0].Cells[5])
+	expectedHeaders := []string{"ID", "FILENAME", "SIZE", "BYTES", "MIME_TYPE", "AUTHOR", "CREATED"}
+	if len(table.Headers) != len(expectedHeaders) {
+		t.Fatalf("expected %d headers, got %d", len(expectedHeaders), len(table.Headers))
 	}
-	if table.Rows[0].Cells[6] != "text/markdown" {
-		t.Errorf("MIME_TYPE: expected 'text/markdown', got %q", table.Rows[0].Cells[6])
+	for i, h := range expectedHeaders {
+		if table.Headers[i] != h {
+			t.Errorf("header[%d]: expected %q, got %q", i, h, table.Headers[i])
+		}
+	}
+
+	row := table.Rows[0]
+	if len(row.Cells) != len(expectedHeaders) {
+		t.Fatalf("expected %d cells, got %d", len(expectedHeaders), len(row.Cells))
+	}
+	want := []string{"10234", "audit-notes.md", "4.2 KB", "4301", "text/markdown", "Alice", "2026-04-16T09:00:00+0000"}
+	for i, w := range want {
+		if row.Cells[i] != w {
+			t.Errorf("cell[%d] (%s): expected %q, got %q", i, expectedHeaders[i], w, row.Cells[i])
+		}
 	}
 }
 
 func TestAttachmentPresenter_PresentDownloaded(t *testing.T) {
 	t.Parallel()
-	model := AttachmentPresenter{}.PresentDownloaded("./audit.md", 4301)
+	model := AttachmentPresenter{}.PresentDownloaded("10234", "./audit.md", 4301)
 	msg := model.Sections[0].(*present.MessageSection)
 	if msg.Kind != present.MessageSuccess {
 		t.Errorf("want MessageSuccess, got %v", msg.Kind)
@@ -73,7 +87,7 @@ func TestAttachmentPresenter_PresentDownloaded(t *testing.T) {
 	if msg.Stream != present.StreamStdout {
 		t.Errorf("want StreamStdout, got %v", msg.Stream)
 	}
-	if msg.Message != "Downloaded ./audit.md (4.2 KB)" {
+	if msg.Message != "Downloaded 10234 → ./audit.md (4.2 KB)" {
 		t.Errorf("unexpected message: %q", msg.Message)
 	}
 }

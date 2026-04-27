@@ -251,7 +251,7 @@ func runGet(ctx context.Context, opts *root.Options, attachmentID, outputPath st
 		actualPath = filepath.Join(outputPath, attachment.Filename)
 	}
 
-	return jtkpresent.Emit(opts, jtkpresent.AttachmentPresenter{}.PresentDownloaded(actualPath, attachment.Size))
+	return jtkpresent.Emit(opts, jtkpresent.AttachmentPresenter{}.PresentDownloaded(attachment.ID.String(), actualPath, attachment.Size))
 }
 
 func newDeleteCmd(opts *root.Options) *cobra.Command {

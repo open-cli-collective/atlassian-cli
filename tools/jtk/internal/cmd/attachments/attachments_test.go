@@ -438,9 +438,10 @@ func TestRunGet_Success(t *testing.T) {
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, string(content), fileContent)
 
-	// Verify success message
+	// Verify success message includes ID, arrow, path, and size
 	output := stdout.String()
-	testutil.Contains(t, output, "Downloaded")
+	testutil.Contains(t, output, "Downloaded 10001")
+	testutil.Contains(t, output, "→")
 	testutil.Contains(t, output, "downloaded.txt")
 }
 

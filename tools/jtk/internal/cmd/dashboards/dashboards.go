@@ -70,7 +70,7 @@ Use --extended for additional fields (rank, permissions).`,
 	return cmd
 }
 
-func runList(ctx context.Context, opts *root.Options, search string, maxResults int) error {
+func runList(_ context.Context, opts *root.Options, search string, maxResults int) error {
 	v := opts.View()
 
 	client, err := opts.APIClient()
@@ -110,8 +110,7 @@ func runList(ctx context.Context, opts *root.Options, search string, maxResults 
 		return v.JSON(dashboards)
 	}
 
-	// Fetch gadget counts — sequential because dashboard API methods use internal context.
-	gadgetCounts := fetchGadgetCounts(ctx, client, dashboards)
+	gadgetCounts := fetchGadgetCounts(client, dashboards)
 
 	presenter := jtkpresent.DashboardPresenter{}
 	if opts.IsExtended() {
@@ -121,9 +120,11 @@ func runList(ctx context.Context, opts *root.Options, search string, maxResults 
 	return jtkpresent.Emit(opts, presenter.PresentList(dashboards, gadgetCounts))
 }
 
-// fetchGadgetCounts fetches gadget counts for each dashboard. Errors on individual
-// fetches are silently skipped (missing key renders as "-" in the presenter).
-func fetchGadgetCounts(_ context.Context, client *api.Client, dashboards []api.Dashboard) map[string]int {
+// fetchGadgetCounts fetches gadget counts for each dashboard sequentially.
+// Dashboard API methods use internal context.Background(); cancellation support
+// deferred until those methods accept context.Context.
+// Errors on individual fetches are silently skipped (missing key renders as "-").
+func fetchGadgetCounts(client *api.Client, dashboards []api.Dashboard) map[string]int {
 	counts := make(map[string]int, len(dashboards))
 	for _, d := range dashboards {
 		resp, err := client.GetDashboardGadgets(d.ID)

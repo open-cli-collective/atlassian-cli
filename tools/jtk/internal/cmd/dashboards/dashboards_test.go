@@ -86,11 +86,20 @@ func TestRunList_ColumnOrder(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	out := stdout.String()
-	testutil.Contains(t, out, "ID")
-	testutil.Contains(t, out, "GADGETS")
-	testutil.Contains(t, out, "OWNER")
-	testutil.Contains(t, out, "FAVOURITE")
-	testutil.Contains(t, out, "NAME")
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	testutil.True(t, len(lines) >= 2, "expected header + data row")
+
+	header := lines[0]
+	idIdx := strings.Index(header, "ID")
+	gadgetsIdx := strings.Index(header, "GADGETS")
+	ownerIdx := strings.Index(header, "OWNER")
+	favIdx := strings.Index(header, "FAVOURITE")
+	nameIdx := strings.Index(header, "NAME")
+	testutil.True(t, idIdx < gadgetsIdx, "ID before GADGETS")
+	testutil.True(t, gadgetsIdx < ownerIdx, "GADGETS before OWNER")
+	testutil.True(t, ownerIdx < favIdx, "OWNER before FAVOURITE")
+	testutil.True(t, favIdx < nameIdx, "FAVOURITE before NAME")
+
 	testutil.Contains(t, out, "10001")
 	testutil.Contains(t, out, "2")
 	testutil.Contains(t, out, "Alice")
@@ -115,11 +124,7 @@ func TestRunList_IDOnly(t *testing.T) {
 	err = runList(context.Background(), opts, "", 50)
 	testutil.RequireNoError(t, err)
 
-	out := stdout.String()
-	testutil.Contains(t, out, "10001")
-	testutil.Contains(t, out, "10002")
-	testutil.NotContains(t, out, "Sprint Board")
-	testutil.NotContains(t, out, "GADGETS")
+	testutil.Equal(t, stdout.String(), "10001\n10002\n")
 }
 
 func TestRunList_IDOnly_Empty(t *testing.T) {
@@ -433,12 +438,17 @@ func TestRunGadgetsList_ColumnOrder(t *testing.T) {
 
 	out := stdout.String()
 	lines := strings.Split(strings.TrimSpace(out), "\n")
-	testutil.True(t, len(lines) >= 1, "expected at least header")
-	testutil.Contains(t, lines[0], "ID")
-	testutil.Contains(t, lines[0], "POSITION")
-	testutil.Contains(t, lines[0], "TITLE")
-	testutil.Contains(t, lines[0], "TYPE")
-	testutil.NotContains(t, lines[0], "MODULE")
+	testutil.True(t, len(lines) >= 2, "expected header + data row")
+
+	header := lines[0]
+	idIdx := strings.Index(header, "ID")
+	posIdx := strings.Index(header, "POSITION")
+	titleIdx := strings.Index(header, "TITLE")
+	typeIdx := strings.Index(header, "TYPE")
+	testutil.True(t, idIdx < posIdx, "ID before POSITION")
+	testutil.True(t, posIdx < titleIdx, "POSITION before TITLE")
+	testutil.True(t, titleIdx < typeIdx, "TITLE before TYPE")
+	testutil.NotContains(t, header, "MODULE")
 	testutil.Contains(t, out, "0,0")
 }
 
@@ -463,11 +473,7 @@ func TestRunGadgetsList_IDOnly(t *testing.T) {
 	err = runGadgetsList(context.Background(), opts, "10001")
 	testutil.RequireNoError(t, err)
 
-	out := stdout.String()
-	testutil.Contains(t, out, "1")
-	testutil.Contains(t, out, "2")
-	testutil.NotContains(t, out, "Gadget A")
-	testutil.NotContains(t, out, "TITLE")
+	testutil.Equal(t, stdout.String(), "1\n2\n")
 }
 
 func TestRunGadgetsList_IDOnly_Empty(t *testing.T) {

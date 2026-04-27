@@ -660,6 +660,7 @@ func TestListAutomationRules_NumericTimestamp(t *testing.T) {
 	if rules[0].Created == nil {
 		t.Fatal("Created should not be nil")
 	}
+	testutil.Equal(t, rules[0].Created.UTC().Format(time.RFC3339), "2023-12-04T09:00:00Z")
 }
 
 func TestGetAutomationRule_LegacyWithNumericTimestamp(t *testing.T) {
@@ -682,6 +683,7 @@ func TestGetAutomationRule_LegacyWithNumericTimestamp(t *testing.T) {
 	if rule.Created == nil {
 		t.Fatal("Created should not be nil")
 	}
+	testutil.Equal(t, rule.Created.UTC().Format(time.RFC3339), "2023-12-04T09:00:00Z")
 }
 
 func TestGetAutomationRule_EnvelopeWithNullRule(t *testing.T) {

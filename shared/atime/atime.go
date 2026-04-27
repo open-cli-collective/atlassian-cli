@@ -23,7 +23,6 @@ var isoLayouts = []string{
 	time.RFC3339Nano,
 	time.RFC3339,
 	"2006-01-02T15:04:05.000Z",
-	"2006-01-02T15:04:05.000+0000",
 	"2006-01-02T15:04:05.000-0700",
 }
 
@@ -66,6 +65,7 @@ func (t *AtlassianTime) UnmarshalJSON(data []byte) error {
 	if err != nil {
 		return fmt.Errorf("AtlassianTime: cannot unmarshal %q: %w", s, err)
 	}
+	// Epoch seconds are ≤10 digits through 2286; epoch millis are 13+ digits for dates after 2001.
 	if len(s) <= 10 {
 		t.Time = time.Unix(n, 0).UTC()
 	} else {

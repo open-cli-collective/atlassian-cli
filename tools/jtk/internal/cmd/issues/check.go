@@ -75,14 +75,22 @@ Fields not present on the issue's project schema are silently skipped.`,
 	return cmd
 }
 
-// checkResult is one row in the check output.
+// Levels and statuses used in checkResult and surfaced verbatim in the
+// LEVEL / STATUS columns of the command output.
+const (
+	levelRequired = "REQUIRED"
+	levelWarn     = "WARN"
+	statusOK      = "OK"
+	statusMissing = "MISSING"
+)
+
 type checkResult struct {
 	requested string // user's spelling of the field name
 	resolved  string // field ID after resolution (e.g. "customfield_10035")
 	display   string // human-friendly name (e.g. "Story Points")
-	level     string // "REQUIRED" or "WARN"
-	status    string // "OK" or "MISSING"
-	value     string // populated value (truncated for display)
+	level     string
+	status    string
+	value     string
 }
 
 func runCheck(ctx context.Context, opts *root.Options, issueKey string, required, warn []string) error {
@@ -133,7 +141,11 @@ func buildCheckResults(required, warn []string, fields []api.Field, populated ma
 	var results []checkResult
 	missingRequired := 0
 
-	evaluateField := func(requested, level string, hardFail bool) {
+	evaluateField := func(requested string, isRequired bool) {
+		level := levelWarn
+		if isRequired {
+			level = levelRequired
+		}
 		id, display, ok := resolver.resolve(requested)
 		if !ok {
 			if useDefaults {
@@ -144,10 +156,10 @@ func buildCheckResults(required, warn []string, fields []api.Field, populated ma
 				resolved:  "",
 				display:   requested,
 				level:     level,
-				status:    "MISSING",
+				status:    statusMissing,
 				value:     "(unknown field on this instance)",
 			})
-			if hardFail {
+			if isRequired {
 				missingRequired++
 			}
 			return
@@ -159,7 +171,7 @@ func buildCheckResults(required, warn []string, fields []api.Field, populated ma
 				resolved:  id,
 				display:   display,
 				level:     level,
-				status:    "OK",
+				status:    statusOK,
 				value:     entry.Value,
 			})
 			return
@@ -169,24 +181,24 @@ func buildCheckResults(required, warn []string, fields []api.Field, populated ma
 			resolved:  id,
 			display:   display,
 			level:     level,
-			status:    "MISSING",
+			status:    statusMissing,
 			value:     "",
 		})
-		if hardFail {
+		if isRequired {
 			missingRequired++
 		}
 	}
 
 	for _, f := range required {
-		evaluateField(f, "REQUIRED", true)
+		evaluateField(f, true)
 	}
 	for _, f := range warn {
-		evaluateField(f, "WARN", false)
+		evaluateField(f, false)
 	}
 
 	sort.SliceStable(results, func(i, j int) bool {
 		if results[i].level != results[j].level {
-			return results[i].level == "REQUIRED"
+			return results[i].level == levelRequired
 		}
 		return results[i].display < results[j].display
 	})
@@ -198,7 +210,7 @@ func emitCheckResults(opts *root.Options, results []checkResult) error {
 	if opts.EmitIDOnly() {
 		var ids []string
 		for _, r := range results {
-			if r.status == "MISSING" {
+			if r.status == statusMissing {
 				ids = append(ids, idForEmit(r))
 			}
 		}

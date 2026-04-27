@@ -433,7 +433,9 @@ jtk issues check PROJ-123 --require Sprint --id
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--require` | (none) | Field must be populated; missing → non-zero exit (repeatable) |
-| `--warn` | (default list) | Field flagged if missing; never fails the check (repeatable) |
+| `--warn` | (curated list, only when neither flag is provided) | Field flagged if missing; never fails the check (repeatable) |
+
+When `--require` is provided alone, the curated default warn-list is **not** applied — only the explicitly-named fields are checked.
 
 Output respects the standard global flags: `--output table\|json\|plain`, and `--id` to emit only the IDs of fields whose status is `MISSING`.
 

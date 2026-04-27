@@ -107,9 +107,9 @@ func TestBuildCheckResults_RequiredMissingTriggersFailure(t *testing.T) {
 	for _, r := range results {
 		byField[r.display] = r
 	}
-	testutil.Equal(t, byField["Summary"].status, "OK")
-	testutil.Equal(t, byField["Story Points"].status, "MISSING")
-	testutil.Equal(t, byField["Story Points"].level, "REQUIRED")
+	testutil.Equal(t, byField["Summary"].status, statusOK)
+	testutil.Equal(t, byField["Story Points"].status, statusMissing)
+	testutil.Equal(t, byField["Story Points"].level, levelRequired)
 }
 
 func TestBuildCheckResults_WarnMissingDoesNotFail(t *testing.T) {
@@ -124,8 +124,8 @@ func TestBuildCheckResults_WarnMissingDoesNotFail(t *testing.T) {
 	)
 	testutil.Equal(t, missing, 0) // warn-only never fails
 	testutil.Equal(t, len(results), 1)
-	testutil.Equal(t, results[0].level, "WARN")
-	testutil.Equal(t, results[0].status, "MISSING")
+	testutil.Equal(t, results[0].level, levelWarn)
+	testutil.Equal(t, results[0].status, statusMissing)
 }
 
 func TestBuildCheckResults_DefaultsSilentlySkipUnknownFields(t *testing.T) {
@@ -171,7 +171,7 @@ func TestBuildCheckResults_ExplicitUnknownFieldSurfacesAsMissing(t *testing.T) {
 	)
 	testutil.Equal(t, missing, 1)
 	testutil.Equal(t, len(results), 1)
-	testutil.Equal(t, results[0].status, "MISSING")
+	testutil.Equal(t, results[0].status, statusMissing)
 	testutil.Contains(t, results[0].value, "unknown field")
 }
 
@@ -188,7 +188,7 @@ func TestBuildCheckResults_OrdersRequiredFirstThenAlphabetical(t *testing.T) {
 	// Expected order: REQUIRED Summary, WARN Assignee, WARN Story Points.
 	testutil.Equal(t, len(results), 3)
 	testutil.Equal(t, results[0].display, "Summary")
-	testutil.Equal(t, results[0].level, "REQUIRED")
+	testutil.Equal(t, results[0].level, levelRequired)
 	testutil.Equal(t, results[1].display, "Assignee")
 	testutil.Equal(t, results[2].display, "Story Points")
 }
@@ -240,7 +240,7 @@ func TestRunCheck_RequiredMissingReturnsError(t *testing.T) {
 		t.Fatalf("error should describe missing required field count, got: %v", err)
 	}
 	testutil.Contains(t, stdout.String(), "Story Points")
-	testutil.Contains(t, stdout.String(), "MISSING")
+	testutil.Contains(t, stdout.String(), statusMissing)
 }
 
 func TestRunCheck_DefaultWarnListNeverErrors(t *testing.T) {
@@ -268,5 +268,5 @@ func TestRunCheck_DefaultWarnListNeverErrors(t *testing.T) {
 	testutil.RequireNoError(t, err) // default-mode is warn-only; no required → no error
 	testutil.Contains(t, stdout.String(), "Story Points")
 	testutil.Contains(t, stdout.String(), "Sprint")
-	testutil.Contains(t, stdout.String(), "WARN")
+	testutil.Contains(t, stdout.String(), levelWarn)
 }

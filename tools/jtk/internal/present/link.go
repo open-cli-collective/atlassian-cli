@@ -14,15 +14,16 @@ import (
 type LinkPresenter struct{}
 
 // LinkListSpec declares the columns emitted by PresentList. Default:
-// LINK_ID|TYPE|DIRECTION|ISSUE|SUMMARY. Extended adds TYPE_ID and STATUS.
+// LINK_ID|TYPE|DIRECTION|ISSUE|SUMMARY. Extended:
+// LINK_ID|TYPE_ID|TYPE|DIRECTION|ISSUE|STATUS|SUMMARY.
 var LinkListSpec = projection.Registry{
 	{Header: "LINK_ID", Identity: true},
+	{Header: "TYPE_ID", Extended: true},
 	{Header: "TYPE"},
 	{Header: "DIRECTION"},
 	{Header: "ISSUE"},
-	{Header: "SUMMARY"},
-	{Header: "TYPE_ID", Extended: true},
 	{Header: "STATUS", Extended: true},
+	{Header: "SUMMARY"},
 }
 
 // LinkTypesSpec declares the columns for link types. All default.
@@ -33,12 +34,12 @@ var LinkTypesSpec = projection.Registry{
 	{Header: "OUTWARD"},
 }
 
-// PresentList creates a table presentation of issue links. Extended
-// adds TYPE_ID and the linked issue's current STATUS.
+// PresentList creates a table presentation of issue links. Extended:
+// LINK_ID|TYPE_ID|TYPE|DIRECTION|ISSUE|STATUS|SUMMARY.
 func (LinkPresenter) PresentList(links []api.IssueLink, extended bool) *present.OutputModel {
 	var headers []string
 	if extended {
-		headers = []string{"LINK_ID", "TYPE", "DIRECTION", "ISSUE", "SUMMARY", "TYPE_ID", "STATUS"}
+		headers = []string{"LINK_ID", "TYPE_ID", "TYPE", "DIRECTION", "ISSUE", "STATUS", "SUMMARY"}
 	} else {
 		headers = []string{"LINK_ID", "TYPE", "DIRECTION", "ISSUE", "SUMMARY"}
 	}
@@ -65,7 +66,7 @@ func (LinkPresenter) PresentList(links []api.IssueLink, extended bool) *present.
 
 		if extended {
 			rows[i] = present.Row{
-				Cells: []string{l.ID, l.Type.Name, direction, key, summary, OrDash(l.Type.ID), OrDash(status)},
+				Cells: []string{l.ID, OrDash(l.Type.ID), l.Type.Name, direction, key, OrDash(status), summary},
 			}
 		} else {
 			rows[i] = present.Row{

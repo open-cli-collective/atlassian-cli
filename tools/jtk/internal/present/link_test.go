@@ -81,11 +81,31 @@ func TestLinkPresenter_PresentList_Extended(t *testing.T) {
 	model := LinkPresenter{}.PresentList(links, true)
 	table := model.Sections[0].(*present.TableSection)
 
-	if table.Rows[0].Cells[5] != "10100" {
-		t.Errorf("TYPE_ID: expected '10100', got %q", table.Rows[0].Cells[5])
+	expectedHeaders := []string{"LINK_ID", "TYPE_ID", "TYPE", "DIRECTION", "ISSUE", "STATUS", "SUMMARY"}
+	if len(table.Headers) != len(expectedHeaders) {
+		t.Fatalf("expected %d headers, got %d", len(expectedHeaders), len(table.Headers))
 	}
-	if table.Rows[0].Cells[6] != "Backlog" {
-		t.Errorf("STATUS: expected 'Backlog', got %q", table.Rows[0].Cells[6])
+	for i, h := range expectedHeaders {
+		if table.Headers[i] != h {
+			t.Errorf("header[%d]: expected %q, got %q", i, h, table.Headers[i])
+		}
+	}
+
+	row := table.Rows[0]
+	if len(row.Cells) != len(expectedHeaders) {
+		t.Fatalf("expected %d cells, got %d", len(expectedHeaders), len(row.Cells))
+	}
+	if row.Cells[0] != "17844" {
+		t.Errorf("LINK_ID: expected '17844', got %q", row.Cells[0])
+	}
+	if row.Cells[1] != "10100" {
+		t.Errorf("TYPE_ID: expected '10100', got %q", row.Cells[1])
+	}
+	if row.Cells[5] != "Backlog" {
+		t.Errorf("STATUS: expected 'Backlog', got %q", row.Cells[5])
+	}
+	if row.Cells[6] != "Linked issue B" {
+		t.Errorf("SUMMARY: expected 'Linked issue B', got %q", row.Cells[6])
 	}
 }
 

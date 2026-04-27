@@ -16,9 +16,6 @@ import (
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 )
 
-// Tests are non-parallel: cache.SetRootForTest / SetInstanceKeyForTest are
-// process-globals (same as fields_test.go).
-
 func TestNewCheckCmd(t *testing.T) {
 	t.Parallel()
 	opts := &root.Options{}
@@ -197,6 +194,10 @@ func TestBuildCheckResults_OrdersRequiredFirstThenAlphabetical(t *testing.T) {
 }
 
 // --- end-to-end runCheck tests through an httptest server ---
+// These tests are non-parallel: cache.SetRootForTest /
+// SetInstanceKeyForTest (called via seedCacheForIssues) are process-globals
+// that race with t.Parallel() tests writing them. Same convention as
+// fields_test.go.
 
 func newCheckTestServer(t *testing.T, issue api.Issue) *httptest.Server {
 	t.Helper()

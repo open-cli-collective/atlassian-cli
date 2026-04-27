@@ -424,12 +424,18 @@ jtk issues check PROJ-123 --require "Story Points" --require Sprint
 
 # Mix required and warning fields, comma-separated.
 jtk issues check PROJ-123 --require "Story Points,Sprint" --warn "Description,Assignee"
+
+# JSON output, or emit only the IDs of MISSING fields.
+jtk issues check PROJ-123 --output json
+jtk issues check PROJ-123 --require Sprint --id
 ```
 
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--require` | (none) | Field must be populated; missing → non-zero exit (repeatable) |
 | `--warn` | (default list) | Field flagged if missing; never fails the check (repeatable) |
+
+Output respects the standard global flags: `--output table\|json\|plain`, and `--id` to emit only the IDs of fields whose status is `MISSING`.
 
 **Exit codes:** `0` if all `--require` fields populated; `1` if any are missing.
 

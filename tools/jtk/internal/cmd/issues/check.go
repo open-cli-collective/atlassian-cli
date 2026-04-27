@@ -133,7 +133,7 @@ func buildCheckResults(required, warn []string, fields []api.Field, populated ma
 	var results []checkResult
 	missingRequired := 0
 
-	add := func(requested, level string, hardFail bool) {
+	evaluateField := func(requested, level string, hardFail bool) {
 		id, display, ok := resolver.resolve(requested)
 		if !ok {
 			if useDefaults {
@@ -178,10 +178,10 @@ func buildCheckResults(required, warn []string, fields []api.Field, populated ma
 	}
 
 	for _, f := range required {
-		add(f, "REQUIRED", true)
+		evaluateField(f, "REQUIRED", true)
 	}
 	for _, f := range warn {
-		add(f, "WARN", false)
+		evaluateField(f, "WARN", false)
 	}
 
 	sort.SliceStable(results, func(i, j int) bool {

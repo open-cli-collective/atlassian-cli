@@ -206,6 +206,54 @@ func TestCommentPresenter_PresentList_ExtendedVisibility(t *testing.T) {
 	}
 }
 
+func TestCommentPresenter_PresentListFull_ExtendedVisibility(t *testing.T) {
+	t.Parallel()
+	comments := []api.Comment{
+		{
+			ID:     "100",
+			Author: api.User{DisplayName: "Alice"},
+			Body: &api.ADFDocument{
+				Type: "doc", Version: 1,
+				Content: []*api.ADFNode{{Type: "paragraph", Content: []*api.ADFNode{{Type: "text", Text: "public"}}}},
+			},
+			Created: "2024-01-15T10:00:00.000Z",
+		},
+		{
+			ID:     "101",
+			Author: api.User{DisplayName: "Bob"},
+			Body: &api.ADFDocument{
+				Type: "doc", Version: 1,
+				Content: []*api.ADFNode{{Type: "paragraph", Content: []*api.ADFNode{{Type: "text", Text: "restricted"}}}},
+			},
+			Created:    "2024-01-15T11:00:00.000Z",
+			Visibility: &api.CommentVisibility{Type: "role", Value: "Administrators"},
+		},
+	}
+
+	model := CommentPresenter{}.PresentListFull(comments, true)
+
+	ds0 := model.Sections[0].(*present.DetailSection)
+	ds1 := model.Sections[1].(*present.DetailSection)
+
+	var vis0, vis1 string
+	for _, f := range ds0.Fields {
+		if f.Label == "Visibility" {
+			vis0 = f.Value
+		}
+	}
+	for _, f := range ds1.Fields {
+		if f.Label == "Visibility" {
+			vis1 = f.Value
+		}
+	}
+	if vis0 != "-" {
+		t.Errorf("comment 0 Visibility: expected '-', got %q", vis0)
+	}
+	if vis1 != "Administrators" {
+		t.Errorf("comment 1 Visibility: expected 'Administrators', got %q", vis1)
+	}
+}
+
 func TestCommentListSpec_ExtendedMatchesPresentListHeaders(t *testing.T) {
 	t.Parallel()
 	comments := singleComment()

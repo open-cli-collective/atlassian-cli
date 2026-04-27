@@ -142,9 +142,8 @@ func TestRunList_Fields_BlockMode_PreservesPaginationHint(t *testing.T) {
 	testutil.Contains(t, output, "More results available")
 }
 
-// --fields VISIBILITY selects the extended-only column without requiring
-// --extended on the command. Guards that projection handles extended columns
-// requested explicitly via --fields.
+// --fields VISIBILITY with --extended selects the visibility column and
+// drops unselected columns. Guards that projection handles extended columns.
 func TestRunList_Fields_TableMode_VisibilityColumn(t *testing.T) {
 	t.Parallel()
 	comments := []api.Comment{

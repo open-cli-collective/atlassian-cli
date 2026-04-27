@@ -152,6 +152,9 @@ func runList(ctx context.Context, opts *root.Options, client *api.Client, boardI
 	jtkpresent.SortSprintsForDisplay(allSprints)
 
 	// Client-side pagination window over the sorted slice.
+	if maxResults <= 0 {
+		maxResults = 50
+	}
 	total := len(allSprints)
 	if startAt > total {
 		startAt = total
@@ -201,14 +204,14 @@ func fetchAllSprints(ctx context.Context, client *api.Client, boardID int, state
 		if err != nil {
 			return nil, err
 		}
+		if !result.IsLast && len(result.Values) == 0 {
+			return nil, fmt.Errorf("unexpected paginated response: IsLast=false with empty values (startAt=%d)", startAt)
+		}
 		all = append(all, result.Values...)
-		if result.IsLast || len(result.Values) == 0 {
+		if result.IsLast {
 			break
 		}
 		startAt += len(result.Values)
-		if len(all) > 10000 {
-			break
-		}
 	}
 	return all, nil
 }

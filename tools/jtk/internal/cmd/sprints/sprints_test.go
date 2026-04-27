@@ -1114,6 +1114,113 @@ func TestRunCurrent_BoardEnrichmentFailsGracefully(t *testing.T) {
 	testutil.NotContains(t, output, "Board: 23 (")
 }
 
+func TestFetchAllSprints_Error(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	_, err = fetchAllSprints(context.Background(), client, 123, "")
+	testutil.NotNil(t, err)
+}
+
+func TestFetchAllSprints_EmptyWithNotLast(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(api.SprintsResponse{
+			Values: []api.Sprint{},
+			IsLast: false,
+		})
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	_, err = fetchAllSprints(context.Background(), client, 123, "")
+	testutil.NotNil(t, err)
+	testutil.Contains(t, err.Error(), "unexpected paginated response")
+}
+
+func TestFetchAllSprints_StatePassthrough(t *testing.T) {
+	t.Parallel()
+	var capturedStates []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		capturedStates = append(capturedStates, r.URL.Query().Get("state"))
+		_ = json.NewEncoder(w).Encode(api.SprintsResponse{
+			Values: []api.Sprint{{ID: 1, State: "active"}},
+			IsLast: true,
+		})
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	_, err = fetchAllSprints(context.Background(), client, 123, "active")
+	testutil.RequireNoError(t, err)
+	if len(capturedStates) != 1 || capturedStates[0] != "active" {
+		t.Errorf("expected state=active to be passed through, got %v", capturedStates)
+	}
+}
+
+func TestRunList_StartAtBeyondTotal(t *testing.T) {
+	t.Parallel()
+	sprints := []api.Sprint{{ID: 1, Name: "S1", State: "active"}}
+
+	server := newTestSprintsServer(t, sprints)
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}, IDOnly: true}
+	opts.SetAPIClient(client)
+
+	// startAt=100 is beyond the 1-sprint total
+	err = runList(context.Background(), opts, client, 123, "", 50, "100", "")
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, stdout.String(), "")
+}
+
+func TestCurrentCmd_BoardEnrichmentCobraLevel(t *testing.T) {
+	seedBoardsAndSprints(t, nil, nil) // empty cache — numeric board resolves synthetic
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.Contains(r.URL.Path, "/board/23/sprint"):
+			_ = json.NewEncoder(w).Encode(api.SprintsResponse{
+				IsLast: true,
+				Values: []api.Sprint{{ID: 125, Name: "MON Sprint 70", State: "active"}},
+			})
+		case r.URL.Path == "/rest/agile/1.0/board/23":
+			_ = json.NewEncoder(w).Encode(api.Board{ID: 23, Name: "MON board", Type: "scrum"})
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	client := newAgileClient(t, server)
+
+	rootCmd, opts := root.NewCmd()
+	opts.SetAPIClient(client)
+	var stdout bytes.Buffer
+	opts.Stdout = &stdout
+	opts.Stderr = &bytes.Buffer{}
+	Register(rootCmd, opts)
+
+	rootCmd.SetArgs([]string{"sprints", "current", "--board", "23"})
+	err := rootCmd.Execute()
+	testutil.RequireNoError(t, err)
+	testutil.Contains(t, stdout.String(), "Board: 23 (MON board)")
+}
+
 func TestRunAdd_AgentOutput(t *testing.T) {
 	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

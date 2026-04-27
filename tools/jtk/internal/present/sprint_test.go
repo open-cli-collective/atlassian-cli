@@ -428,6 +428,79 @@ func TestSortSprintsForDisplay_DeterministicTieBreaker(t *testing.T) {
 	}
 }
 
+func TestSortSprintsForDisplay_ClosedFallbackToEndDate(t *testing.T) {
+	t.Parallel()
+
+	d := func(year, month, day int) *time.Time {
+		t := time.Date(year, time.Month(month), day, 0, 0, 0, 0, time.UTC)
+		return &t
+	}
+
+	sprints := []api.Sprint{
+		{ID: 1, State: "closed", EndDate: d(2025, 1, 14)},
+		{ID: 2, State: "closed", EndDate: d(2025, 3, 14)},
+		{ID: 3, State: "closed", EndDate: d(2025, 2, 14)},
+	}
+
+	SortSprintsForDisplay(sprints)
+
+	wantIDs := []int{2, 3, 1}
+	for i, want := range wantIDs {
+		if sprints[i].ID != want {
+			t.Errorf("position %d: got ID=%d, want ID=%d", i, sprints[i].ID, want)
+		}
+	}
+}
+
+func TestSortSprintsForDisplay_ClosedFallbackToStartDate(t *testing.T) {
+	t.Parallel()
+
+	d := func(year, month, day int) *time.Time {
+		t := time.Date(year, time.Month(month), day, 0, 0, 0, 0, time.UTC)
+		return &t
+	}
+
+	sprints := []api.Sprint{
+		{ID: 1, State: "closed", StartDate: d(2025, 1, 1)},
+		{ID: 2, State: "closed", StartDate: d(2025, 3, 1)},
+	}
+
+	SortSprintsForDisplay(sprints)
+
+	wantIDs := []int{2, 1}
+	for i, want := range wantIDs {
+		if sprints[i].ID != want {
+			t.Errorf("position %d: got ID=%d, want ID=%d", i, sprints[i].ID, want)
+		}
+	}
+}
+
+func TestSortSprintsForDisplay_MultipleActiveFuture(t *testing.T) {
+	t.Parallel()
+
+	d := func(year, month, day int) *time.Time {
+		t := time.Date(year, time.Month(month), day, 0, 0, 0, 0, time.UTC)
+		return &t
+	}
+
+	sprints := []api.Sprint{
+		{ID: 1, State: "active", StartDate: d(2025, 3, 1)},
+		{ID: 2, State: "active", StartDate: d(2025, 4, 1)},
+		{ID: 3, State: "future", StartDate: d(2025, 5, 1)},
+		{ID: 4, State: "future", StartDate: d(2025, 6, 1)},
+		{ID: 5, State: "future"},
+	}
+
+	SortSprintsForDisplay(sprints)
+
+	wantIDs := []int{2, 1, 4, 3, 5}
+	for i, want := range wantIDs {
+		if sprints[i].ID != want {
+			t.Errorf("position %d: got ID=%d, want ID=%d", i, sprints[i].ID, want)
+		}
+	}
+}
+
 func TestSprintPresenter_PresentDetailProjection(t *testing.T) {
 	t.Parallel()
 

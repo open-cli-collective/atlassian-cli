@@ -183,6 +183,7 @@ func TestRunList_IDOnly_Empty(t *testing.T) {
 }
 
 func TestRunList_NumericTimestamps(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/_edge/tenant_info" {
 			_, _ = w.Write([]byte(`{"cloudId":"test-cloud"}`))

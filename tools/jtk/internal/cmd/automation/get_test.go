@@ -261,6 +261,7 @@ func TestRunGet_Extended_NoAuthor(t *testing.T) {
 }
 
 func TestRunGet_EnvelopeWithNumericTimestamps(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/_edge/tenant_info" {
 			_, _ = w.Write([]byte(`{"cloudId":"test-cloud"}`))

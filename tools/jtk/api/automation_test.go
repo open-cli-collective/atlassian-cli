@@ -681,6 +681,44 @@ func TestListAutomationRules_NumericTimestamp(t *testing.T) {
 	testutil.Equal(t, string(rules[0].Created), "2023-12-04T09:00:00Z")
 }
 
+func TestGetAutomationRule_LegacyWithNumericTimestamp(t *testing.T) {
+	t.Parallel()
+	client, server := newTestClientWithServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/_edge/tenant_info" {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"cloudId":"cloud-1"}`))
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"id":42,"name":"Legacy TS","state":"ENABLED","created":1701680400000}`))
+	}))
+	defer server.Close()
+
+	rule, err := client.GetAutomationRule(context.Background(), "42")
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, rule.Name, "Legacy TS")
+	testutil.Equal(t, rule.State, "ENABLED")
+	testutil.Equal(t, string(rule.Created), "2023-12-04T09:00:00Z")
+}
+
+func TestGetAutomationRule_EnvelopeWithNullRule(t *testing.T) {
+	t.Parallel()
+	client, server := newTestClientWithServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/_edge/tenant_info" {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"cloudId":"cloud-1"}`))
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"rule":null}`))
+	}))
+	defer server.Close()
+
+	rule, err := client.GetAutomationRule(context.Background(), "null-rule")
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, rule.Identifier(), "")
+}
+
 func TestGetAutomationRule_MalformedJSON(t *testing.T) {
 	t.Parallel()
 	client, server := newTestClientWithServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

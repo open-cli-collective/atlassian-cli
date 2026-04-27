@@ -83,7 +83,7 @@ func (c *Client) GetAutomationRule(ctx context.Context, ruleID string) (*Automat
 	}
 
 	var rule AutomationRule
-	if ruleJSON, ok := probe["rule"]; ok {
+	if ruleJSON, ok := probe["rule"]; ok && string(ruleJSON) != "null" {
 		if err := json.Unmarshal(ruleJSON, &rule); err != nil {
 			return nil, fmt.Errorf("parsing automation rule: %w", err)
 		}

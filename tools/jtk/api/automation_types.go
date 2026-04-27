@@ -25,7 +25,7 @@ func (t *Timestamp) UnmarshalJSON(data []byte) error {
 	}
 	var n int64
 	if err := json.Unmarshal(data, &n); err != nil {
-		return fmt.Errorf("Timestamp: cannot unmarshal %s", string(data))
+		return fmt.Errorf("Timestamp: cannot unmarshal %q: %w", data, err)
 	}
 	*t = Timestamp(time.UnixMilli(n).UTC().Format(time.RFC3339))
 	return nil

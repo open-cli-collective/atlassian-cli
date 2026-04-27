@@ -73,7 +73,7 @@ func TestVerifyConnection_Forbidden(t *testing.T) {
 	}))
 	defer server.Close()
 
-	cfg := &config.Config{
+	cfg := &config.Config{ //nolint:gosec // test credentials
 		URL:      server.URL,
 		Email:    "test@example.com",
 		APIToken: "token-no-perms",

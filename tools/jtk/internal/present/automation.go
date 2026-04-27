@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/open-cli-collective/atlassian-go/atime"
 	"github.com/open-cli-collective/atlassian-go/present"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
@@ -296,7 +297,7 @@ func (AutomationPresenter) PresentGetDetailExtended(rule *api.AutomationRule, sh
 	sections = append(sections, msg(fmt.Sprintf("Tags: %s", OrDash(strings.Join(rule.Tags, ", ")))))
 	sections = append(sections, msg(fmt.Sprintf("Author: %s", OrDash(authorName))))
 	sections = append(sections, msg(fmt.Sprintf("Scope: %s", automationScope(rule))))
-	sections = append(sections, msg(fmt.Sprintf("Created: %s   Updated: %s", OrDash(FormatTime(string(rule.Created))), OrDash(FormatTime(string(rule.Updated))))))
+	sections = append(sections, msg(fmt.Sprintf("Created: %s   Updated: %s", formatAtlassianTimeOrDash(rule.Created), formatAtlassianTimeOrDash(rule.Updated))))
 
 	if showComponents && len(rule.Components) > 0 {
 		sections = append(sections, componentTable(rule.Components))
@@ -384,4 +385,11 @@ func SummarizeComponents(components []api.RuleComponent) string {
 	}
 
 	return fmt.Sprintf("%d total — %s", len(components), strings.Join(parts, ", "))
+}
+
+func formatAtlassianTimeOrDash(t *atime.AtlassianTime) string {
+	if t == nil || t.IsZero() {
+		return "-"
+	}
+	return FormatDate(&t.Time)
 }

@@ -116,7 +116,7 @@ func (c *Config) Save(path string) error {
 		return fmt.Errorf("creating config directory: %w", err)
 	}
 
-	data, err := yaml.Marshal(c)
+	data, err := yaml.Marshal(c) //nolint:gosec // config file intentionally stores API token
 	if err != nil {
 		return fmt.Errorf("marshaling config: %w", err)
 	}

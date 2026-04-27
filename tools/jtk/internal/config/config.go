@@ -74,7 +74,7 @@ func Save(cfg *Config) error {
 		return fmt.Errorf("creating config directory: %w", err)
 	}
 
-	data, err := json.MarshalIndent(cfg, "", "  ")
+	data, err := json.MarshalIndent(cfg, "", "  ") //nolint:gosec // config file intentionally stores API token
 	if err != nil {
 		return fmt.Errorf("marshaling config: %w", err)
 	}

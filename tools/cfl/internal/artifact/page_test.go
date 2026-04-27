@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/open-cli-collective/atlassian-go/artifact"
+	"github.com/open-cli-collective/atlassian-go/atime"
 	"github.com/open-cli-collective/atlassian-go/testutil"
 
 	"github.com/open-cli-collective/confluence-cli/api"
@@ -22,7 +23,7 @@ func TestProjectPage(t *testing.T) {
 		Version: &api.Version{
 			Number:    5,
 			AuthorID:  "user123",
-			CreatedAt: api.Time{Time: createdAt},
+			CreatedAt: &atime.AtlassianTime{Time: createdAt},
 		},
 	}
 

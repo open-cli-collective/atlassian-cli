@@ -8,7 +8,9 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/open-cli-collective/atlassian-go/atime"
 	"github.com/open-cli-collective/atlassian-go/testutil"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
@@ -151,8 +153,8 @@ func TestRunGet_Extended(t *testing.T) {
 		Labels:          []string{"onboarding"},
 		Tags:            []string{"auto-create"},
 		AuthorAccountID: "acct-1",
-		Created:         "2023-12-04T10:00:00.000+0000",
-		Updated:         "2026-03-15T14:30:00.000+0000",
+		Created:         &atime.AtlassianTime{Time: time.Date(2023, 12, 4, 10, 0, 0, 0, time.UTC)},
+		Updated:         &atime.AtlassianTime{Time: time.Date(2026, 3, 15, 14, 30, 0, 0, time.UTC)},
 		Projects:        []api.RuleProject{{ProjectKey: "MON"}, {ProjectKey: "ON"}},
 		Components: []api.RuleComponent{
 			{Component: "TRIGGER", Type: "issue.created"},
@@ -273,7 +275,7 @@ func TestRunGet_EnvelopeWithNumericTimestamps(t *testing.T) {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"rule":{"uuid":"uuid-env","name":"Envelope Rule","state":"ENABLED","authorAccountId":"acct-1","created":1701680400000,"updated":1701766800000,"components":[{"component":"TRIGGER","type":"issue.created"},{"component":"ACTION","type":"assign.issue"}]}}`))
+		_, _ = w.Write([]byte(`{"rule":{"uuid":"uuid-env","name":"Envelope Rule","state":"ENABLED","authorAccountId":"acct-1","created":1701482354.625000000,"updated":1701568754.000000000,"components":[{"component":"TRIGGER","type":"issue.created"},{"component":"ACTION","type":"assign.issue"}]}}`))
 	}))
 	defer server.Close()
 
@@ -291,8 +293,8 @@ func TestRunGet_EnvelopeWithNumericTimestamps(t *testing.T) {
 	testutil.Contains(t, out, "uuid-env  Envelope Rule")
 	testutil.Contains(t, out, "State: ENABLED")
 	testutil.Contains(t, out, "2 total")
-	testutil.Contains(t, out, "Created: 2023-12-04")
-	testutil.Contains(t, out, "Updated: 2023-12-05")
+	testutil.Contains(t, out, "Created: 2023-12-02")
+	testutil.Contains(t, out, "Updated: 2023-12-03")
 	testutil.Contains(t, out, "Author: Test Author")
 }
 

@@ -3,7 +3,9 @@ package present
 import (
 	"encoding/json"
 	"testing"
+	"time"
 
+	"github.com/open-cli-collective/atlassian-go/atime"
 	"github.com/open-cli-collective/atlassian-go/present"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
@@ -305,8 +307,8 @@ func TestAutomationPresenter_PresentGetDetailExtended(t *testing.T) {
 		Description: "Does stuff",
 		Labels:      []string{"onboarding"},
 		Tags:        []string{"auto-create"},
-		Created:     "2023-12-04T10:00:00.000+0000",
-		Updated:     "2026-03-15T14:30:00.000+0000",
+		Created:     &atime.AtlassianTime{Time: time.Date(2023, 12, 4, 10, 0, 0, 0, time.UTC)},
+		Updated:     &atime.AtlassianTime{Time: time.Date(2026, 3, 15, 14, 30, 0, 0, time.UTC)},
 		Projects: []api.RuleProject{
 			{ProjectKey: "MON"},
 			{ProjectKey: "ON"},

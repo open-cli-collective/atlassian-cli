@@ -71,9 +71,9 @@ func TestRunUpload_WithComment(t *testing.T) {
 
 	var receivedComment string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		err := r.ParseMultipartForm(10 << 20)
+		err := r.ParseMultipartForm(10 << 20) //nolint:gosec // test server
 		testutil.RequireNoError(t, err)
-		receivedComment = r.FormValue("comment")
+		receivedComment = r.FormValue("comment") //nolint:gosec // test server
 
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{

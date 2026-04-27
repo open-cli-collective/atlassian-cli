@@ -296,7 +296,7 @@ func (AutomationPresenter) PresentGetDetailExtended(rule *api.AutomationRule, sh
 	sections = append(sections, msg(fmt.Sprintf("Tags: %s", OrDash(strings.Join(rule.Tags, ", ")))))
 	sections = append(sections, msg(fmt.Sprintf("Author: %s", OrDash(authorName))))
 	sections = append(sections, msg(fmt.Sprintf("Scope: %s", automationScope(rule))))
-	sections = append(sections, msg(fmt.Sprintf("Created: %s   Updated: %s", OrDash(FormatTime(rule.Created)), OrDash(FormatTime(rule.Updated)))))
+	sections = append(sections, msg(fmt.Sprintf("Created: %s   Updated: %s", OrDash(FormatTime(string(rule.Created))), OrDash(FormatTime(string(rule.Updated))))))
 
 	if showComponents && len(rule.Components) > 0 {
 		sections = append(sections, componentTable(rule.Components))

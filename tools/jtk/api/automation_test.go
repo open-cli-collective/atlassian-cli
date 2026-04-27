@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync/atomic"
 	"testing"
 
@@ -678,6 +679,53 @@ func TestListAutomationRules_NumericTimestamp(t *testing.T) {
 	testutil.Len(t, rules, 1)
 	testutil.Equal(t, rules[0].Name, "Rule One")
 	testutil.Equal(t, string(rules[0].Created), "2023-12-04T09:00:00Z")
+}
+
+func TestGetAutomationRule_MalformedJSON(t *testing.T) {
+	t.Parallel()
+	client, server := newTestClientWithServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/_edge/tenant_info" {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"cloudId":"cloud-1"}`))
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`not json`))
+	}))
+	defer server.Close()
+
+	_, err := client.GetAutomationRule(context.Background(), "bad")
+	testutil.Error(t, err)
+	testutil.Contains(t, err.Error(), "parsing automation rule")
+}
+
+func TestGetAutomationRule_EnvelopeWithInvalidRule(t *testing.T) {
+	t.Parallel()
+	client, server := newTestClientWithServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/_edge/tenant_info" {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"cloudId":"cloud-1"}`))
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"rule":"not-an-object"}`))
+	}))
+	defer server.Close()
+
+	_, err := client.GetAutomationRule(context.Background(), "bad")
+	testutil.Error(t, err)
+	testutil.Contains(t, err.Error(), "parsing automation rule")
+}
+
+func TestTimestamp_OmitEmpty(t *testing.T) {
+	t.Parallel()
+	rule := AutomationRuleSummary{UUID: "uuid-1", Name: "Test", State: "ENABLED"}
+	data, err := json.Marshal(rule)
+	testutil.RequireNoError(t, err)
+	s := string(data)
+	if strings.Contains(s, `"created"`) {
+		t.Errorf("empty Timestamp should be omitted, got: %s", s)
+	}
 }
 
 func TestDeleteAutomationRule(t *testing.T) {

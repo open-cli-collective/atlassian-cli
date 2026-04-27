@@ -292,6 +292,7 @@ func TestRunGet_EnvelopeWithNumericTimestamps(t *testing.T) {
 	testutil.Contains(t, out, "2 total")
 	testutil.Contains(t, out, "Created: 2023-12-04")
 	testutil.Contains(t, out, "Updated: 2023-12-05")
+	testutil.Contains(t, out, "Author: Test Author")
 }
 
 func TestRunGet_ShowComponents(t *testing.T) {

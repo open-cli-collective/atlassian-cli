@@ -116,6 +116,28 @@ func TestPresentBoardDetail_Extended(t *testing.T) {
 	}
 }
 
+func TestFormatFilterRef(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name   string
+		filter api.BoardFilter
+		want   string
+	}{
+		{"name and id", api.BoardFilter{ID: "100", Name: "my filter"}, "my filter (id: 100)"},
+		{"empty name", api.BoardFilter{ID: "10084", Name: ""}, "id: 10084"},
+		{"empty id", api.BoardFilter{ID: "", Name: "orphan"}, "-"},
+		{"both empty", api.BoardFilter{ID: "", Name: ""}, "-"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := formatFilterRef(tt.filter)
+			if got != tt.want {
+				t.Errorf("formatFilterRef(%+v) = %q, want %q", tt.filter, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestPresentBoardDetail_Extended_EmptyFilterName(t *testing.T) {
 	t.Parallel()
 	board := &api.Board{
@@ -196,6 +218,32 @@ func TestPresentBoardDetailProjection_ContainsAllSpecHeaders(t *testing.T) {
 			t.Errorf("spec header %q not found in projection detail fields", h)
 		}
 	}
+}
+
+func TestPresentBoardDetailProjection_EmptyFilterName(t *testing.T) {
+	t.Parallel()
+	board := &api.Board{
+		ID: 23, Name: "MON board", Type: "scrum",
+		Location: api.BoardLocation{ProjectKey: "MON", ProjectName: "Platform Development"},
+	}
+	config := &api.BoardConfiguration{
+		Filter: api.BoardFilter{ID: "10084", Name: ""},
+		ColumnConfig: api.BoardColumnConfig{
+			Columns: []api.BoardColumn{{Name: "Backlog"}},
+		},
+	}
+	model := BoardPresenter{}.PresentDetailProjection(board, config)
+	detail := model.Sections[0].(*present.DetailSection)
+
+	for _, f := range detail.Fields {
+		if f.Label == "FILTER" {
+			if f.Value != "id: 10084" {
+				t.Errorf("FILTER: expected 'id: 10084', got %q", f.Value)
+			}
+			return
+		}
+	}
+	t.Error("FILTER field not found in projection output")
 }
 
 func TestSprintListSpec_HeaderParityWithPresenter(t *testing.T) {

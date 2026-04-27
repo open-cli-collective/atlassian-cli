@@ -2,6 +2,7 @@ package present
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/open-cli-collective/atlassian-go/present"
 
@@ -45,45 +46,72 @@ func (DashboardPresenter) PresentDetail(d *api.Dashboard, gadgets []api.Dashboar
 	return &present.OutputModel{Sections: sections}
 }
 
-// PresentList creates a table view for a list of dashboards.
-func (DashboardPresenter) PresentList(dashboards []api.Dashboard) *present.OutputModel {
+// PresentList creates a table view: ID | GADGETS | OWNER | FAVOURITE | NAME.
+// gadgetCounts maps dashboard ID → gadget count; nil map or missing key renders "-".
+func (DashboardPresenter) PresentList(dashboards []api.Dashboard, gadgetCounts map[string]int) *present.OutputModel {
 	rows := make([]present.Row, len(dashboards))
 	for i, d := range dashboards {
 		owner := ""
 		if d.Owner != nil {
 			owner = d.Owner.DisplayName
 		}
-		fav := BoolString(d.IsFavourite)
 		rows[i] = present.Row{
-			Cells: []string{d.ID, d.Name, owner, fav},
+			Cells: []string{d.ID, formatGadgetCount(d.ID, gadgetCounts), owner, BoolString(d.IsFavourite), d.Name},
 		}
 	}
 	return &present.OutputModel{
 		Sections: []present.Section{
 			&present.TableSection{
-				Headers: []string{"ID", "NAME", "OWNER", "FAVOURITE"},
+				Headers: []string{"ID", "GADGETS", "OWNER", "FAVOURITE", "NAME"},
 				Rows:    rows,
 			},
 		},
 	}
 }
 
-// PresentGadgets creates a table view for a list of gadgets.
-func (DashboardPresenter) PresentGadgets(gadgets []api.DashboardGadget) *present.OutputModel {
-	rows := make([]present.Row, len(gadgets))
-	for i, g := range gadgets {
-		pos := ""
-		if g.Position.Row > 0 || g.Position.Column > 0 {
-			pos = FormatInt(g.Position.Row) + "," + FormatInt(g.Position.Column)
+// PresentListExtended creates an extended table: ID | GADGETS | OWNER | FAVOURITE | RANK | PERMISSIONS | NAME.
+func (DashboardPresenter) PresentListExtended(dashboards []api.Dashboard, gadgetCounts map[string]int) *present.OutputModel {
+	rows := make([]present.Row, len(dashboards))
+	for i, d := range dashboards {
+		owner := ""
+		if d.Owner != nil {
+			owner = d.Owner.DisplayName
 		}
 		rows[i] = present.Row{
-			Cells: []string{FormatInt(g.ID), g.Title, g.ModuleID, pos},
+			Cells: []string{
+				d.ID,
+				formatGadgetCount(d.ID, gadgetCounts),
+				owner,
+				BoolString(d.IsFavourite),
+				FormatInt(d.Popularity),
+				formatPermissions(d.SharePerm),
+				d.Name,
+			},
 		}
 	}
 	return &present.OutputModel{
 		Sections: []present.Section{
 			&present.TableSection{
-				Headers: []string{"ID", "TITLE", "MODULE", "POSITION"},
+				Headers: []string{"ID", "GADGETS", "OWNER", "FAVOURITE", "RANK", "PERMISSIONS", "NAME"},
+				Rows:    rows,
+			},
+		},
+	}
+}
+
+// PresentGadgets creates a table view: ID | POSITION | TITLE | TYPE.
+func (DashboardPresenter) PresentGadgets(gadgets []api.DashboardGadget) *present.OutputModel {
+	rows := make([]present.Row, len(gadgets))
+	for i, g := range gadgets {
+		pos := fmt.Sprintf("%d,%d", g.Position.Row, g.Position.Column)
+		rows[i] = present.Row{
+			Cells: []string{FormatInt(g.ID), pos, g.Title, g.ModuleID},
+		}
+	}
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.TableSection{
+				Headers: []string{"ID", "POSITION", "TITLE", "TYPE"},
 				Rows:    rows,
 			},
 		},
@@ -171,4 +199,43 @@ func (DashboardPresenter) PresentNoGadgets(dashboardID string) *present.OutputMo
 			},
 		},
 	}
+}
+
+func formatGadgetCount(id string, counts map[string]int) string {
+	if counts == nil {
+		return "-"
+	}
+	n, ok := counts[id]
+	if !ok {
+		return "-"
+	}
+	return FormatInt(n)
+}
+
+func formatPermissions(perms []api.SharePerm) string {
+	if len(perms) == 0 {
+		return "private"
+	}
+	parts := make([]string, len(perms))
+	for i, p := range perms {
+		switch p.Type {
+		case "group":
+			if p.Group != nil && p.Group.Name != "" {
+				parts[i] = "group:" + p.Group.Name
+			} else {
+				parts[i] = "group"
+			}
+		case "project":
+			if p.Project != nil && p.Project.Key != "" {
+				parts[i] = "project:" + p.Project.Key
+			} else {
+				parts[i] = "project"
+			}
+		case "loggedin":
+			parts[i] = "logged-in"
+		default:
+			parts[i] = p.Type
+		}
+	}
+	return strings.Join(parts, ", ")
 }

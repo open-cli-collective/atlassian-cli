@@ -16,15 +16,41 @@ import (
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 )
 
-func TestRunList(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_ = json.NewEncoder(w).Encode(api.DashboardsResponse{
-			Total: 1,
-			Dashboards: []api.Dashboard{
-				{ID: "10001", Name: "Sprint Board", Owner: &api.User{DisplayName: "Alice"}},
-			},
-		})
+func newListTestServer(t *testing.T, dashboards []api.Dashboard, gadgets map[string][]api.DashboardGadget) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		if r.URL.Path == "/rest/api/3/dashboard" && r.URL.Query().Get("dashboardName") == "" {
+			_ = json.NewEncoder(w).Encode(api.DashboardsResponse{
+				Total:      len(dashboards),
+				Dashboards: dashboards,
+			})
+			return
+		}
+
+		for id, gs := range gadgets {
+			if r.URL.Path == "/rest/api/3/dashboard/"+id+"/gadget" {
+				_ = json.NewEncoder(w).Encode(api.DashboardGadgetsResponse{Gadgets: gs})
+				return
+			}
+		}
+
+		// Default: empty gadgets for any dashboard gadget request
+		if strings.Contains(r.URL.Path, "/gadget") {
+			_ = json.NewEncoder(w).Encode(api.DashboardGadgetsResponse{})
+			return
+		}
+
+		w.WriteHeader(http.StatusNotFound)
 	}))
+}
+
+func TestRunList(t *testing.T) {
+	dashboards := []api.Dashboard{
+		{ID: "10001", Name: "Sprint Board", Owner: &api.User{DisplayName: "Alice"}},
+	}
+	server := newListTestServer(t, dashboards, nil)
 	defer server.Close()
 
 	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
@@ -39,15 +65,187 @@ func TestRunList(t *testing.T) {
 	testutil.Contains(t, stdout.String(), "Sprint Board")
 }
 
+func TestRunList_ColumnOrder(t *testing.T) {
+	dashboards := []api.Dashboard{
+		{ID: "10001", Name: "Sprint Board", Owner: &api.User{DisplayName: "Alice"}, IsFavourite: true},
+	}
+	gadgets := map[string][]api.DashboardGadget{
+		"10001": {{ID: 1, Title: "G1"}, {ID: 2, Title: "G2"}},
+	}
+	server := newListTestServer(t, dashboards, gadgets)
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runList(context.Background(), opts, "", 50)
+	testutil.RequireNoError(t, err)
+
+	out := stdout.String()
+	testutil.Contains(t, out, "ID")
+	testutil.Contains(t, out, "GADGETS")
+	testutil.Contains(t, out, "OWNER")
+	testutil.Contains(t, out, "FAVOURITE")
+	testutil.Contains(t, out, "NAME")
+	testutil.Contains(t, out, "10001")
+	testutil.Contains(t, out, "2")
+	testutil.Contains(t, out, "Alice")
+	testutil.Contains(t, out, "Sprint Board")
+}
+
+func TestRunList_IDOnly(t *testing.T) {
+	dashboards := []api.Dashboard{
+		{ID: "10001", Name: "Sprint Board"},
+		{ID: "10002", Name: "Incidents"},
+	}
+	server := newListTestServer(t, dashboards, nil)
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}, IDOnly: true}
+	opts.SetAPIClient(client)
+
+	err = runList(context.Background(), opts, "", 50)
+	testutil.RequireNoError(t, err)
+
+	out := stdout.String()
+	testutil.Contains(t, out, "10001")
+	testutil.Contains(t, out, "10002")
+	testutil.NotContains(t, out, "Sprint Board")
+	testutil.NotContains(t, out, "GADGETS")
+}
+
+func TestRunList_IDOnly_Empty(t *testing.T) {
+	server := newListTestServer(t, nil, nil)
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}, IDOnly: true}
+	opts.SetAPIClient(client)
+
+	err = runList(context.Background(), opts, "", 50)
+	testutil.RequireNoError(t, err)
+	if stdout.String() != "" {
+		t.Errorf("--id with empty results should emit nothing, got %q", stdout.String())
+	}
+}
+
+func TestRunList_Empty(t *testing.T) {
+	server := newListTestServer(t, nil, nil)
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runList(context.Background(), opts, "", 50)
+	testutil.RequireNoError(t, err)
+	testutil.Contains(t, stdout.String(), "No dashboards found")
+}
+
+func TestRunList_Extended(t *testing.T) {
+	dashboards := []api.Dashboard{
+		{
+			ID:          "10001",
+			Name:        "Sprint Board",
+			Owner:       &api.User{DisplayName: "Alice"},
+			IsFavourite: true,
+			Popularity:  3,
+			SharePerm:   []api.SharePerm{{Type: "group", Group: &api.SharePermGroup{Name: "developers"}}},
+		},
+	}
+	gadgets := map[string][]api.DashboardGadget{
+		"10001": {{ID: 1}, {ID: 2}, {ID: 3}},
+	}
+	server := newListTestServer(t, dashboards, gadgets)
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}, Extended: true}
+	opts.SetAPIClient(client)
+
+	err = runList(context.Background(), opts, "", 50)
+	testutil.RequireNoError(t, err)
+
+	out := stdout.String()
+	testutil.Contains(t, out, "RANK")
+	testutil.Contains(t, out, "PERMISSIONS")
+	testutil.Contains(t, out, "group:developers")
+	testutil.Contains(t, out, "3")
+}
+
+func TestRunList_GadgetFetchFails(t *testing.T) {
+	dashboards := []api.Dashboard{
+		{ID: "10001", Name: "Board"},
+	}
+	// Server that returns dashboards but 500s on gadget requests
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/rest/api/3/dashboard" {
+			_ = json.NewEncoder(w).Encode(api.DashboardsResponse{Total: 1, Dashboards: dashboards})
+			return
+		}
+		if strings.Contains(r.URL.Path, "/gadget") {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runList(context.Background(), opts, "", 50)
+	testutil.RequireNoError(t, err)
+
+	out := stdout.String()
+	testutil.Contains(t, out, "Board")
+	// Gadget fetch failed → should show "-" not "0"
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	if len(lines) >= 2 {
+		testutil.NotContains(t, lines[1], " 0 ")
+	}
+}
+
 func TestRunList_Search(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		testutil.Equal(t, r.URL.Query().Get("dashboardName"), "Sprint")
-		_ = json.NewEncoder(w).Encode(api.DashboardSearchResponse{
-			Total: 1,
-			Values: []api.Dashboard{
-				{ID: "10002", Name: "Sprint Board"},
-			},
-		})
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/rest/api/3/dashboard/search" {
+			testutil.Equal(t, r.URL.Query().Get("dashboardName"), "Sprint")
+			_ = json.NewEncoder(w).Encode(api.DashboardSearchResponse{
+				Total: 1,
+				Values: []api.Dashboard{
+					{ID: "10002", Name: "Sprint Board"},
+				},
+			})
+			return
+		}
+		if strings.Contains(r.URL.Path, "/gadget") {
+			_ = json.NewEncoder(w).Encode(api.DashboardGadgetsResponse{})
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
 	}))
 	defer server.Close()
 
@@ -65,6 +263,7 @@ func TestRunList_Search(t *testing.T) {
 
 func TestRunGet(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 		switch r.URL.Path {
 		case "/rest/api/3/dashboard/10001":
 			_ = json.NewEncoder(w).Encode(api.Dashboard{
@@ -119,7 +318,9 @@ func TestRunCreate(t *testing.T) {
 	testutil.True(t, len(lines) >= 2, "expected header + data row")
 	testutil.Contains(t, lines[0], "ID")
 	testutil.Contains(t, lines[0], "NAME")
+	testutil.Contains(t, lines[0], "GADGETS")
 	testutil.Contains(t, out, "New Board")
+	testutil.Contains(t, out, "0")
 
 	var req api.CreateDashboardRequest
 	err = json.Unmarshal(capturedBody, &req)
@@ -190,8 +391,8 @@ func TestRunGadgetsList(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(api.DashboardGadgetsResponse{
 			Gadgets: []api.DashboardGadget{
-				{ID: 1, Title: "Filter Results", ModuleID: "com.atlassian.jira.gadgets:filter-results-gadget"},
-				{ID: 2, Title: "Pie Chart", ModuleID: "com.atlassian.jira.gadgets:pie-chart-gadget"},
+				{ID: 1, Title: "Filter Results", ModuleID: "filter-results-gadget", Position: api.DashboardGadgetPos{Row: 0, Column: 0}},
+				{ID: 2, Title: "Pie Chart", ModuleID: "pie-chart-gadget", Position: api.DashboardGadgetPos{Row: 1, Column: 0}},
 			},
 		})
 	}))
@@ -208,6 +409,103 @@ func TestRunGadgetsList(t *testing.T) {
 	testutil.RequireNoError(t, err)
 	testutil.Contains(t, stdout.String(), "Filter Results")
 	testutil.Contains(t, stdout.String(), "Pie Chart")
+}
+
+func TestRunGadgetsList_ColumnOrder(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(api.DashboardGadgetsResponse{
+			Gadgets: []api.DashboardGadget{
+				{ID: 1, Title: "Burndown", ModuleID: "sprint-burndown-gadget", Position: api.DashboardGadgetPos{Row: 0, Column: 0}},
+			},
+		})
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runGadgetsList(context.Background(), opts, "10001")
+	testutil.RequireNoError(t, err)
+
+	out := stdout.String()
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	testutil.True(t, len(lines) >= 1, "expected at least header")
+	testutil.Contains(t, lines[0], "ID")
+	testutil.Contains(t, lines[0], "POSITION")
+	testutil.Contains(t, lines[0], "TITLE")
+	testutil.Contains(t, lines[0], "TYPE")
+	testutil.NotContains(t, lines[0], "MODULE")
+	testutil.Contains(t, out, "0,0")
+}
+
+func TestRunGadgetsList_IDOnly(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(api.DashboardGadgetsResponse{
+			Gadgets: []api.DashboardGadget{
+				{ID: 1, Title: "Gadget A"},
+				{ID: 2, Title: "Gadget B"},
+			},
+		})
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}, IDOnly: true}
+	opts.SetAPIClient(client)
+
+	err = runGadgetsList(context.Background(), opts, "10001")
+	testutil.RequireNoError(t, err)
+
+	out := stdout.String()
+	testutil.Contains(t, out, "1")
+	testutil.Contains(t, out, "2")
+	testutil.NotContains(t, out, "Gadget A")
+	testutil.NotContains(t, out, "TITLE")
+}
+
+func TestRunGadgetsList_IDOnly_Empty(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(api.DashboardGadgetsResponse{})
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}, IDOnly: true}
+	opts.SetAPIClient(client)
+
+	err = runGadgetsList(context.Background(), opts, "10001")
+	testutil.RequireNoError(t, err)
+	if stdout.String() != "" {
+		t.Errorf("--id with empty results should emit nothing, got %q", stdout.String())
+	}
+}
+
+func TestRunGadgetsList_Empty(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(api.DashboardGadgetsResponse{})
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runGadgetsList(context.Background(), opts, "10001")
+	testutil.RequireNoError(t, err)
+	testutil.Contains(t, stdout.String(), "No gadgets on dashboard 10001")
 }
 
 func TestRunGadgetsRemove(t *testing.T) {
@@ -279,8 +577,9 @@ func TestRunGadgetsAdd(t *testing.T) {
 	lines := strings.Split(strings.TrimSpace(out), "\n")
 	testutil.True(t, len(lines) >= 2, "expected header + data row")
 	testutil.Contains(t, lines[0], "ID")
+	testutil.Contains(t, lines[0], "POSITION")
 	testutil.Contains(t, lines[0], "TITLE")
-	testutil.Contains(t, lines[0], "MODULE")
+	testutil.Contains(t, lines[0], "TYPE")
 	testutil.Contains(t, out, "10124")
 	testutil.Contains(t, out, "Sprint Burndown")
 	testutil.Contains(t, out, "sprint-burndown-gadget")

@@ -9,7 +9,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/open-cli-collective/atlassian-go/present"
 	"github.com/open-cli-collective/atlassian-go/view"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
@@ -54,10 +53,12 @@ func newListCmd(opts *root.Options) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List dashboards",
-		Long:  "List accessible dashboards. Use --search to filter by name.",
+		Long: `List accessible dashboards. Use --search to filter by name.
+Use --extended for additional fields (rank, permissions).`,
 		Example: `  jtk dashboards list
   jtk dashboards list --search "Sprint"
-  jtk dashboards list --max 10`,
+  jtk dashboards list --max 10
+  jtk dashboards list --extended`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runList(cmd.Context(), opts, search, maxResults)
 		},
@@ -69,7 +70,7 @@ func newListCmd(opts *root.Options) *cobra.Command {
 	return cmd
 }
 
-func runList(_ context.Context, opts *root.Options, search string, maxResults int) error {
+func runList(ctx context.Context, opts *root.Options, search string, maxResults int) error {
 	v := opts.View()
 
 	client, err := opts.APIClient()
@@ -93,23 +94,45 @@ func runList(_ context.Context, opts *root.Options, search string, maxResults in
 		dashboards = result.Dashboards
 	}
 
+	if opts.EmitIDOnly() {
+		ids := make([]string, len(dashboards))
+		for i, d := range dashboards {
+			ids[i] = d.ID
+		}
+		return jtkpresent.EmitIDs(opts, ids)
+	}
+
 	if len(dashboards) == 0 {
-		model := jtkpresent.DashboardPresenter{}.PresentEmpty()
-		out := present.Render(model, opts.RenderStyle())
-		_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
-		return nil
+		return jtkpresent.Emit(opts, jtkpresent.DashboardPresenter{}.PresentEmpty())
 	}
 
 	if v.Format == view.FormatJSON {
 		return v.JSON(dashboards)
 	}
 
-	// Text path: presenter → render → write
-	model := jtkpresent.DashboardPresenter{}.PresentList(dashboards)
-	out := present.Render(model, opts.RenderStyle())
-	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
-	_, _ = fmt.Fprint(opts.Stderr, out.Stderr)
-	return nil
+	// Fetch gadget counts — sequential because dashboard API methods use internal context.
+	gadgetCounts := fetchGadgetCounts(ctx, client, dashboards)
+
+	presenter := jtkpresent.DashboardPresenter{}
+	if opts.IsExtended() {
+		return jtkpresent.Emit(opts, presenter.PresentListExtended(dashboards, gadgetCounts))
+	}
+
+	return jtkpresent.Emit(opts, presenter.PresentList(dashboards, gadgetCounts))
+}
+
+// fetchGadgetCounts fetches gadget counts for each dashboard. Errors on individual
+// fetches are silently skipped (missing key renders as "-" in the presenter).
+func fetchGadgetCounts(_ context.Context, client *api.Client, dashboards []api.Dashboard) map[string]int {
+	counts := make(map[string]int, len(dashboards))
+	for _, d := range dashboards {
+		resp, err := client.GetDashboardGadgets(d.ID)
+		if err != nil {
+			continue
+		}
+		counts[d.ID] = len(resp.Gadgets)
+	}
+	return counts
 }
 
 func newGetCmd(opts *root.Options) *cobra.Command {
@@ -140,7 +163,6 @@ func runGet(_ context.Context, opts *root.Options, dashboardID string) error {
 		return err
 	}
 
-	// Also get gadgets
 	gadgetsResp, err := client.GetDashboardGadgets(dashboardID)
 	if err != nil {
 		return fmt.Errorf("failed to get gadgets: %w", err)
@@ -153,12 +175,8 @@ func runGet(_ context.Context, opts *root.Options, dashboardID string) error {
 		})
 	}
 
-	// Text path: presenter → render → write
 	model := jtkpresent.DashboardPresenter{}.PresentDetail(dash, gadgetsResp.Gadgets)
-	out := present.Render(model, opts.RenderStyle())
-	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
-	_, _ = fmt.Fprint(opts.Stderr, out.Stderr)
-	return nil
+	return jtkpresent.Emit(opts, model)
 }
 
 func newCreateCmd(opts *root.Options) *cobra.Command {
@@ -211,7 +229,8 @@ func runCreate(opts *root.Options, name, description string) error {
 		return v.JSON(dash)
 	}
 
-	return jtkpresent.Emit(opts, jtkpresent.DashboardPresenter{}.PresentList([]api.Dashboard{*dash}))
+	counts := map[string]int{dash.ID: 0}
+	return jtkpresent.Emit(opts, jtkpresent.DashboardPresenter{}.PresentList([]api.Dashboard{*dash}, counts))
 }
 
 func newDeleteCmd(opts *root.Options) *cobra.Command {
@@ -239,10 +258,7 @@ func runDelete(opts *root.Options, dashboardID string) error {
 		return err
 	}
 
-	model := jtkpresent.DashboardPresenter{}.PresentDeleted(dashboardID)
-	out := present.Render(model, opts.RenderStyle())
-	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
-	return nil
+	return jtkpresent.Emit(opts, jtkpresent.DashboardPresenter{}.PresentDeleted(dashboardID))
 }
 
 func newGadgetsCmd(opts *root.Options) *cobra.Command {
@@ -287,23 +303,23 @@ func runGadgetsList(_ context.Context, opts *root.Options, dashboardID string) e
 		return err
 	}
 
+	if opts.EmitIDOnly() {
+		ids := make([]string, len(result.Gadgets))
+		for i, g := range result.Gadgets {
+			ids[i] = strconv.Itoa(g.ID)
+		}
+		return jtkpresent.EmitIDs(opts, ids)
+	}
+
 	if len(result.Gadgets) == 0 {
-		model := jtkpresent.DashboardPresenter{}.PresentNoGadgets(dashboardID)
-		out := present.Render(model, opts.RenderStyle())
-		_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
-		return nil
+		return jtkpresent.Emit(opts, jtkpresent.DashboardPresenter{}.PresentNoGadgets(dashboardID))
 	}
 
 	if v.Format == view.FormatJSON {
 		return v.JSON(result.Gadgets)
 	}
 
-	// Text path: presenter → render → write
-	model := jtkpresent.DashboardPresenter{}.PresentGadgets(result.Gadgets)
-	out := present.Render(model, opts.RenderStyle())
-	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
-	_, _ = fmt.Fprint(opts.Stderr, out.Stderr)
-	return nil
+	return jtkpresent.Emit(opts, jtkpresent.DashboardPresenter{}.PresentGadgets(result.Gadgets))
 }
 
 func newGadgetsAddCmd(opts *root.Options) *cobra.Command {
@@ -412,8 +428,5 @@ func runGadgetsRemove(opts *root.Options, dashboardID string, gadgetID int) erro
 		return err
 	}
 
-	model := jtkpresent.DashboardPresenter{}.PresentGadgetRemoved(gadgetID, dashboardID)
-	out := present.Render(model, opts.RenderStyle())
-	_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
-	return nil
+	return jtkpresent.Emit(opts, jtkpresent.DashboardPresenter{}.PresentGadgetRemoved(gadgetID, dashboardID))
 }

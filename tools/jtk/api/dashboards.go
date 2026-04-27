@@ -23,7 +23,19 @@ type Dashboard struct {
 
 // SharePerm represents a dashboard sharing permission
 type SharePerm struct {
-	Type string `json:"type"` // "global", "project", "group", etc.
+	Type    string            `json:"type"`
+	Group   *SharePermGroup   `json:"group,omitempty"`
+	Project *SharePermProject `json:"project,omitempty"`
+}
+
+// SharePermGroup identifies a group in a sharing permission.
+type SharePermGroup struct {
+	Name string `json:"name"`
+}
+
+// SharePermProject identifies a project in a sharing permission.
+type SharePermProject struct {
+	Key string `json:"key"`
 }
 
 // DashboardGadget represents a gadget on a dashboard

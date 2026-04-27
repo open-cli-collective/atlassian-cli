@@ -363,6 +363,40 @@ func TestRunList_Extended_VisibilityColumn(t *testing.T) {
 	output := stdout.String()
 	testutil.Contains(t, output, "VISIBILITY")
 	testutil.Contains(t, output, "Administrators")
+	// Nil visibility should render as "-"
+	lines := strings.Split(strings.TrimSpace(output), "\n")
+	if len(lines) >= 2 && !strings.Contains(lines[1], "-") {
+		t.Errorf("expected nil visibility to render as '-' in first data row, got %q", lines[1])
+	}
+}
+
+func TestRunList_FullTextExtended_VisibilityField(t *testing.T) {
+	t.Parallel()
+	comments := []api.Comment{
+		plainComment("1", "Alice", "public comment"),
+		{
+			ID:     "2",
+			Author: api.User{DisplayName: "Bob"},
+			Body: &api.ADFDocument{
+				Type: "doc", Version: 1,
+				Content: []*api.ADFNode{{Type: "paragraph", Content: []*api.ADFNode{{Type: "text", Text: "restricted"}}}},
+			},
+			Created:    "2024-01-15T11:00:00.000Z",
+			Visibility: &api.CommentVisibility{Type: "role", Value: "Administrators"},
+		},
+	}
+	server := newTestCommentsServer(t, comments)
+	defer server.Close()
+
+	opts, stdout, _ := newCommentsOpts(t, server)
+	opts.Extended = true
+	err := runList(context.Background(), opts, "TEST-1", 50, true, "")
+	testutil.RequireNoError(t, err)
+
+	output := stdout.String()
+	testutil.Contains(t, output, "Visibility:")
+	testutil.Contains(t, output, "Administrators")
+	testutil.Contains(t, output, "-")
 }
 
 // commentsServerWithTotal is like newTestCommentsServer but lets the caller

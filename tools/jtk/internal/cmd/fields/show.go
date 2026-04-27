@@ -44,10 +44,6 @@ func runShow(ctx context.Context, opts *root.Options, fieldID string) error {
 		return err
 	}
 
-	if len(contexts) == 0 {
-		return jtkpresent.Emit(opts, jtkpresent.FieldPresenter{}.PresentFieldShowEmpty(fieldID))
-	}
-
 	if opts.EmitIDOnly() {
 		seen := make(map[string]bool, len(contexts))
 		var ids []string
@@ -58,6 +54,14 @@ func runShow(ctx context.Context, opts *root.Options, fieldID string) error {
 			}
 		}
 		return jtkpresent.EmitIDs(opts, ids)
+	}
+
+	if len(contexts) == 0 {
+		v := opts.View()
+		if v.Format == view.FormatJSON {
+			return v.JSON([]jtkpresent.FieldShowRow{})
+		}
+		return jtkpresent.Emit(opts, jtkpresent.FieldPresenter{}.PresentFieldShowEmpty(fieldID))
 	}
 
 	mappings, err := client.GetAllFieldContextProjectMappings(ctx, fieldID)

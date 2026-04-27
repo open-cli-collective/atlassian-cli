@@ -1310,6 +1310,141 @@ func TestRunShow_OptionFetchError4xx(t *testing.T) {
 	testutil.Equal(t, cols[4], "-")
 }
 
+func TestRunShow_OptionFetchError5xx(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.Contains(r.URL.Path, "/context/projectmapping"):
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"values": []map[string]any{
+					{"contextId": "10100", "isGlobalContext": true},
+				},
+				"isLast": true,
+			})
+		case strings.Contains(r.URL.Path, "/context/10100/option"):
+			w.WriteHeader(http.StatusInternalServerError)
+			_ = json.NewEncoder(w).Encode(map[string]string{"errorMessage": "server error"})
+		case strings.Contains(r.URL.Path, "/context"):
+			_ = json.NewEncoder(w).Encode(api.FieldContextsResponse{
+				Values: []api.FieldContext{
+					{ID: "10100", Name: "Default Context", IsGlobalContext: true},
+				},
+				IsLast: true,
+			})
+		}
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runShow(context.Background(), opts, "customfield_10100")
+	testutil.True(t, err != nil, "expected 5xx error to propagate")
+	testutil.Contains(t, err.Error(), "server error")
+}
+
+func TestRunShow_EmptyJSON(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(api.FieldContextsResponse{
+			Values: []api.FieldContext{},
+			IsLast: true,
+		})
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "json", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runShow(context.Background(), opts, "customfield_10100")
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, strings.TrimSpace(stdout.String()), "[]")
+}
+
+func TestRunShow_EmptyIDOnly(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(api.FieldContextsResponse{
+			Values: []api.FieldContext{},
+			IsLast: true,
+		})
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}, IDOnly: true}
+	opts.SetAPIClient(client)
+
+	err = runShow(context.Background(), opts, "customfield_10100")
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, stdout.String(), "")
+}
+
+func TestRunShow_MultiPageContexts(t *testing.T) {
+	t.Parallel()
+	contextCallCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.Contains(r.URL.Path, "/context/projectmapping"):
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"values": []map[string]any{
+					{"contextId": "10100", "isGlobalContext": true},
+					{"contextId": "10101", "isGlobalContext": true},
+				},
+				"isLast": true,
+			})
+		case strings.Contains(r.URL.Path, "/option"):
+			_ = json.NewEncoder(w).Encode(api.FieldContextOptionsResponse{
+				Values: []api.FieldContextOption{},
+				IsLast: true,
+			})
+		case strings.Contains(r.URL.Path, "/context"):
+			contextCallCount++
+			if contextCallCount == 1 {
+				_ = json.NewEncoder(w).Encode(api.FieldContextsResponse{
+					Values: []api.FieldContext{
+						{ID: "10100", Name: "Page 1 Context", IsGlobalContext: true},
+					},
+					IsLast: false,
+				})
+			} else {
+				_ = json.NewEncoder(w).Encode(api.FieldContextsResponse{
+					Values: []api.FieldContext{
+						{ID: "10101", Name: "Page 2 Context", IsGlobalContext: true},
+					},
+					IsLast: true,
+				})
+			}
+		}
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runShow(context.Background(), opts, "customfield_10100")
+	testutil.RequireNoError(t, err)
+
+	out := stdout.String()
+	testutil.Contains(t, out, "Page 1 Context")
+	testutil.Contains(t, out, "Page 2 Context")
+}
+
 func TestNewShowCmd(t *testing.T) {
 	t.Parallel()
 	rootCmd, opts := root.NewCmd()

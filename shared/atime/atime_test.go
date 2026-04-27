@@ -30,6 +30,11 @@ func TestUnmarshalJSON(t *testing.T) {
 			want:  time.Date(2023, 12, 4, 10, 0, 0, 0, time.UTC),
 		},
 		{
+			name:  "ISO 8601 -0700 variant",
+			input: `"2023-12-04T03:00:00.000-0700"`,
+			want:  time.Date(2023, 12, 4, 3, 0, 0, 0, time.FixedZone("-0700", -7*60*60)),
+		},
+		{
 			name:  "fractional epoch seconds.nanos",
 			input: `1701482354.625000000`,
 			want:  time.Unix(1701482354, 625000000).UTC(),

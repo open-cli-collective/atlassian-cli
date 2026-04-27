@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/open-cli-collective/atlassian-go/testutil"
 )
@@ -631,7 +632,11 @@ func TestGetAutomationRule_EnvelopeWithFractionalTimestamp(t *testing.T) {
 	if rule.Created == nil {
 		t.Fatal("Created should not be nil")
 	}
-	testutil.Equal(t, rule.Created.UTC().Format("2006-01-02"), "2023-12-02")
+	testutil.Equal(t, rule.Created.UTC().Format(time.RFC3339Nano), "2023-12-02T01:59:14.625Z")
+	if rule.Updated == nil {
+		t.Fatal("Updated should not be nil")
+	}
+	testutil.Equal(t, rule.Updated.UTC().Format(time.RFC3339Nano), "2023-12-03T01:59:14Z")
 	testutil.Len(t, rule.Components, 1)
 }
 

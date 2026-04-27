@@ -77,27 +77,25 @@ func (c *Client) GetAutomationRule(ctx context.Context, ruleID string) (*Automat
 		return nil, fmt.Errorf("getting automation rule %s: %w", ruleID, err)
 	}
 
-	// Newer Cloud response shape is an envelope: {"rule": {...}, "connections": [...]}
-	var env struct {
-		Rule *AutomationRule `json:"rule"`
-	}
-	if err := json.Unmarshal(body, &env); err == nil && env.Rule != nil {
-		// Normalize legacy identifier field name for callers.
-		if env.Rule.UUID == "" && env.Rule.RuleKey != "" {
-			env.Rule.UUID = env.Rule.RuleKey
-		}
-		return env.Rule, nil
-	}
-
-	// Fallback to legacy/plain shape where the rule is the top-level object.
-	var rule AutomationRule
-	if err := json.Unmarshal(body, &rule); err != nil {
+	var probe map[string]json.RawMessage
+	if err := json.Unmarshal(body, &probe); err != nil {
 		return nil, fmt.Errorf("parsing automation rule: %w", err)
 	}
+
+	var rule AutomationRule
+	if ruleJSON, ok := probe["rule"]; ok && string(ruleJSON) != "null" {
+		if err := json.Unmarshal(ruleJSON, &rule); err != nil {
+			return nil, fmt.Errorf("parsing automation rule: %w", err)
+		}
+	} else {
+		if err := json.Unmarshal(body, &rule); err != nil {
+			return nil, fmt.Errorf("parsing automation rule: %w", err)
+		}
+	}
+
 	if rule.UUID == "" && rule.RuleKey != "" {
 		rule.UUID = rule.RuleKey
 	}
-
 	return &rule, nil
 }
 

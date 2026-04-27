@@ -381,14 +381,9 @@ func (IssuePresenter) PresentDetailExtended(issue *api.Issue, _ string, dctx *De
 	if dctx != nil && dctx.TransitionsFailed {
 		sections = append(sections, msg("  (unavailable)"))
 	} else if dctx != nil && len(dctx.Transitions) > 0 {
-		rows := make([]present.Row, len(dctx.Transitions))
-		for i, t := range dctx.Transitions {
-			rows[i] = present.Row{Cells: []string{t.ID, t.Name}}
+		for _, t := range dctx.Transitions {
+			sections = append(sections, msg(fmt.Sprintf("  %s | %s | %s", t.ID, t.Name, OrDash(t.To.Name))))
 		}
-		sections = append(sections, &present.TableSection{
-			Headers: []string{"ID", "NAME"},
-			Rows:    rows,
-		})
 	} else {
 		sections = append(sections, msg("  (none)"))
 	}
@@ -414,6 +409,9 @@ func issueExtendedCustomFields(issue *api.Issue, dctx *DetailContext) []present.
 	var entries []entry
 	for id, raw := range issue.Fields.CustomFields {
 		if !strings.HasPrefix(id, "customfield_") || raw == nil {
+			continue
+		}
+		if id == "customfield_10020" && issue.Fields.Sprint != nil {
 			continue
 		}
 		val := api.FormatCustomFieldValue(raw)
@@ -461,6 +459,9 @@ func (IssuePresenter) PresentDetailProjection(issue *api.Issue, _ string, fullte
 			if !strings.HasPrefix(id, "customfield_") || raw == nil {
 				continue
 			}
+			if id == "customfield_10020" && issue.Fields.Sprint != nil {
+				continue
+			}
 			val := api.FormatCustomFieldValue(raw)
 			if val != "" {
 				parts = append(parts, fmt.Sprintf("%s=%s", id, val))
@@ -476,7 +477,7 @@ func (IssuePresenter) PresentDetailProjection(issue *api.Issue, _ string, fullte
 	if dctx != nil && len(dctx.Transitions) > 0 {
 		var parts []string
 		for _, t := range dctx.Transitions {
-			parts = append(parts, fmt.Sprintf("%s:%s", t.ID, t.Name))
+			parts = append(parts, fmt.Sprintf("%s:%s:%s", t.ID, t.Name, OrDash(t.To.Name)))
 		}
 		transitionsVal = strings.Join(parts, ", ")
 	}

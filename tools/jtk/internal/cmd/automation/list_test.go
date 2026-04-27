@@ -182,6 +182,34 @@ func TestRunList_IDOnly_Empty(t *testing.T) {
 	}
 }
 
+func TestRunList_NumericTimestamps(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/_edge/tenant_info" {
+			_, _ = w.Write([]byte(`{"cloudId":"test-cloud"}`))
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"data":[{"uuid":"uuid-ts","name":"Timestamp Rule","state":"ENABLED","created":1701680400000,"updated":1701766800000}]}`))
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@x.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runList(context.Background(), opts, "")
+	testutil.RequireNoError(t, err)
+
+	out := stdout.String()
+	testutil.Contains(t, out, "uuid-ts")
+	testutil.Contains(t, out, "ENABLED")
+	testutil.Contains(t, out, "Timestamp Rule")
+}
+
 func TestRunList_Empty(t *testing.T) {
 	server := newListTestServer(t, nil)
 	defer server.Close()

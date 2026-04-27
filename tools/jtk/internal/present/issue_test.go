@@ -449,6 +449,126 @@ func TestIssuePresenter_PresentTypeAlreadyCurrent(t *testing.T) {
 	}
 }
 
+func TestIssuePresenter_PresentDetailExtended_TransitionsFormat(t *testing.T) {
+	t.Parallel()
+	issue := &api.Issue{
+		Key: "MON-123",
+		Fields: api.IssueFields{
+			Summary:   "Test",
+			Status:    &api.Status{Name: "Open"},
+			IssueType: &api.IssueType{Name: "Task"},
+		},
+	}
+	dctx := &DetailContext{
+		Transitions: []api.Transition{
+			{ID: "11", Name: "Backlog", To: api.Status{Name: "Backlog"}},
+			{ID: "21", Name: "Ready for Development", To: api.Status{Name: "Ready for Development"}},
+		},
+	}
+
+	model := IssuePresenter{}.PresentDetailExtended(issue, "", dctx)
+	rendered := renderMsgSections(model)
+
+	if strings.Contains(rendered, "ID | NAME\n") {
+		t.Error("transitions should not have a header row")
+	}
+	if !strings.Contains(rendered, "  11 | Backlog | Backlog") {
+		t.Errorf("expected indented transition line, got:\n%s", rendered)
+	}
+	if !strings.Contains(rendered, "  21 | Ready for Development | Ready for Development") {
+		t.Errorf("expected second transition line, got:\n%s", rendered)
+	}
+}
+
+func TestIssuePresenter_PresentDetailExtended_SprintResolved(t *testing.T) {
+	t.Parallel()
+	issue := &api.Issue{
+		Key: "MON-123",
+		Fields: api.IssueFields{
+			Summary:   "Test",
+			Status:    &api.Status{Name: "Open"},
+			IssueType: &api.IssueType{Name: "Task"},
+			Sprint:    &api.Sprint{ID: 125, Name: "MON Sprint 70", State: "active"},
+			CustomFields: map[string]any{
+				"customfield_10020": "MON Sprint 70",
+				"customfield_10035": float64(5),
+			},
+		},
+	}
+	dctx := &DetailContext{}
+
+	model := IssuePresenter{}.PresentDetailExtended(issue, "", dctx)
+	rendered := renderMsgSections(model)
+
+	if !strings.Contains(rendered, "Sprint: MON Sprint 70 (id: 125, active)") {
+		t.Errorf("expected sprint line, got:\n%s", rendered)
+	}
+	if strings.Contains(rendered, "customfield_10020") {
+		t.Error("customfield_10020 should be suppressed when Sprint is populated")
+	}
+	if !strings.Contains(rendered, "customfield_10035") {
+		t.Error("other custom fields should still appear")
+	}
+}
+
+func TestIssuePresenter_PresentDetailProjection_TransitionsIncludeToStatus(t *testing.T) {
+	t.Parallel()
+	issue := &api.Issue{
+		Key:    "MON-123",
+		Fields: api.IssueFields{Summary: "Test"},
+	}
+	dctx := &DetailContext{
+		Transitions: []api.Transition{
+			{ID: "11", Name: "Backlog", To: api.Status{Name: "Backlog"}},
+		},
+	}
+
+	model := IssuePresenter{}.PresentDetailProjection(issue, "", false, dctx)
+	detail := model.Sections[0].(*present.DetailSection)
+
+	for _, f := range detail.Fields {
+		if f.Label == "Transitions" {
+			if !strings.Contains(f.Value, "11:Backlog:Backlog") {
+				t.Errorf("expected transitions to include To.Name, got %q", f.Value)
+			}
+			return
+		}
+	}
+	t.Error("Transitions field not found")
+}
+
+func TestIssuePresenter_PresentDetailProjection_CustomFieldSuppression(t *testing.T) {
+	t.Parallel()
+	issue := &api.Issue{
+		Key: "MON-123",
+		Fields: api.IssueFields{
+			Summary: "Test",
+			Sprint:  &api.Sprint{ID: 125, Name: "MON Sprint 70", State: "active"},
+			CustomFields: map[string]any{
+				"customfield_10020": "MON Sprint 70",
+				"customfield_10035": float64(5),
+			},
+		},
+	}
+	dctx := &DetailContext{}
+
+	model := IssuePresenter{}.PresentDetailProjection(issue, "", false, dctx)
+	detail := model.Sections[0].(*present.DetailSection)
+
+	for _, f := range detail.Fields {
+		if f.Label == "Custom_Fields" {
+			if strings.Contains(f.Value, "customfield_10020") {
+				t.Error("customfield_10020 should be suppressed in projection when Sprint is populated")
+			}
+			if !strings.Contains(f.Value, "customfield_10035") {
+				t.Error("other custom fields should be present")
+			}
+			return
+		}
+	}
+	t.Error("Custom_Fields field not found")
+}
+
 func TestIssuePresenter_PresentTypeFallbackWarning(t *testing.T) {
 	t.Parallel()
 	model := IssuePresenter{}.PresentTypeFallbackWarning("Bug", "MON", "Task")

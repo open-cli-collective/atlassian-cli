@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"strconv"
 )
 
@@ -49,6 +50,28 @@ func (c *Client) GetBoardConfiguration(ctx context.Context, boardID int) (*Board
 	}
 
 	return &config, nil
+}
+
+// Filter represents a Jira saved filter.
+type Filter struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// GetFilter retrieves a saved filter by ID.
+func (c *Client) GetFilter(ctx context.Context, filterID string) (*Filter, error) {
+	urlStr := fmt.Sprintf("%s/filter/%s", c.BaseURL, url.PathEscape(filterID))
+	body, err := c.Get(ctx, urlStr)
+	if err != nil {
+		return nil, fmt.Errorf("getting filter %s: %w", filterID, err)
+	}
+
+	var f Filter
+	if err := json.Unmarshal(body, &f); err != nil {
+		return nil, fmt.Errorf("parsing filter: %w", err)
+	}
+
+	return &f, nil
 }
 
 // GetBoard retrieves a board by ID

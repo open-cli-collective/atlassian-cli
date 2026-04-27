@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync/atomic"
 	"testing"
 
@@ -607,6 +608,162 @@ func TestListAutomationRulesPagination(t *testing.T) {
 	testutil.Equal(t, rules[1].Name, "Rule 2")
 	testutil.Equal(t, rules[2].Name, "Rule 3")
 	testutil.Equal(t, atomic.LoadInt32(&page), int32(2)) // Verify two pages were fetched
+}
+
+func TestTimestamp_UnmarshalJSON(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name    string
+		input   string
+		want    Timestamp
+		wantErr bool
+	}{
+		{"string ISO", `"2023-12-04T10:00:00.000+0000"`, Timestamp("2023-12-04T10:00:00.000+0000"), false},
+		{"epoch millis", `1701680400000`, Timestamp("2023-12-04T09:00:00Z"), false},
+		{"null", `null`, Timestamp(""), false},
+		{"invalid", `true`, Timestamp(""), true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			var ts Timestamp
+			err := ts.UnmarshalJSON([]byte(tt.input))
+			if tt.wantErr {
+				testutil.Error(t, err)
+				return
+			}
+			testutil.RequireNoError(t, err)
+			testutil.Equal(t, string(ts), string(tt.want))
+		})
+	}
+}
+
+func TestGetAutomationRule_EnvelopeWithNumericTimestamp(t *testing.T) {
+	t.Parallel()
+	client, server := newTestClientWithServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/_edge/tenant_info" {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"cloudId":"cloud-1"}`))
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"rule":{"uuid":"uuid-99","name":"Numeric TS","state":"ENABLED","created":1701680400000,"updated":1701766800000,"components":[{"component":"ACTION","type":"assign"}]}}`))
+	}))
+	defer server.Close()
+
+	rule, err := client.GetAutomationRule(context.Background(), "uuid-99")
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, rule.UUID, "uuid-99")
+	testutil.Equal(t, rule.Name, "Numeric TS")
+	testutil.Equal(t, rule.State, "ENABLED")
+	testutil.Equal(t, string(rule.Created), "2023-12-04T09:00:00Z")
+	testutil.Equal(t, string(rule.Updated), "2023-12-05T09:00:00Z")
+	testutil.Len(t, rule.Components, 1)
+}
+
+func TestListAutomationRules_NumericTimestamp(t *testing.T) {
+	t.Parallel()
+	client, server := newTestClientWithServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/_edge/tenant_info" {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"cloudId":"cloud-1"}`))
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"data":[{"uuid":"uuid-1","name":"Rule One","state":"ENABLED","created":1701680400000}]}`))
+	}))
+	defer server.Close()
+
+	rules, err := client.ListAutomationRules(context.Background())
+	testutil.RequireNoError(t, err)
+	testutil.Len(t, rules, 1)
+	testutil.Equal(t, rules[0].Name, "Rule One")
+	testutil.Equal(t, string(rules[0].Created), "2023-12-04T09:00:00Z")
+}
+
+func TestGetAutomationRule_LegacyWithNumericTimestamp(t *testing.T) {
+	t.Parallel()
+	client, server := newTestClientWithServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/_edge/tenant_info" {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"cloudId":"cloud-1"}`))
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"id":42,"name":"Legacy TS","state":"ENABLED","created":1701680400000}`))
+	}))
+	defer server.Close()
+
+	rule, err := client.GetAutomationRule(context.Background(), "42")
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, rule.Name, "Legacy TS")
+	testutil.Equal(t, rule.State, "ENABLED")
+	testutil.Equal(t, string(rule.Created), "2023-12-04T09:00:00Z")
+}
+
+func TestGetAutomationRule_EnvelopeWithNullRule(t *testing.T) {
+	t.Parallel()
+	client, server := newTestClientWithServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/_edge/tenant_info" {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"cloudId":"cloud-1"}`))
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"rule":null}`))
+	}))
+	defer server.Close()
+
+	rule, err := client.GetAutomationRule(context.Background(), "null-rule")
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, rule.Identifier(), "")
+}
+
+func TestGetAutomationRule_MalformedJSON(t *testing.T) {
+	t.Parallel()
+	client, server := newTestClientWithServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/_edge/tenant_info" {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"cloudId":"cloud-1"}`))
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`not json`))
+	}))
+	defer server.Close()
+
+	_, err := client.GetAutomationRule(context.Background(), "bad")
+	testutil.Error(t, err)
+	testutil.Contains(t, err.Error(), "parsing automation rule")
+}
+
+func TestGetAutomationRule_EnvelopeWithInvalidRule(t *testing.T) {
+	t.Parallel()
+	client, server := newTestClientWithServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/_edge/tenant_info" {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"cloudId":"cloud-1"}`))
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"rule":"not-an-object"}`))
+	}))
+	defer server.Close()
+
+	_, err := client.GetAutomationRule(context.Background(), "bad")
+	testutil.Error(t, err)
+	testutil.Contains(t, err.Error(), "parsing automation rule")
+}
+
+func TestTimestamp_OmitEmpty(t *testing.T) {
+	t.Parallel()
+	rule := AutomationRuleSummary{UUID: "uuid-1", Name: "Test", State: "ENABLED"}
+	data, err := json.Marshal(rule)
+	testutil.RequireNoError(t, err)
+	s := string(data)
+	if strings.Contains(s, `"created"`) {
+		t.Errorf("empty Timestamp should be omitted, got: %s", s)
+	}
 }
 
 func TestDeleteAutomationRule(t *testing.T) {

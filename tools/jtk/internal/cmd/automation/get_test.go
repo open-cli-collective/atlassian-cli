@@ -260,6 +260,42 @@ func TestRunGet_Extended_NoAuthor(t *testing.T) {
 	testutil.Contains(t, out, "Author: -")
 }
 
+func TestRunGet_EnvelopeWithNumericTimestamps(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/_edge/tenant_info" {
+			_, _ = w.Write([]byte(`{"cloudId":"test-cloud"}`))
+			return
+		}
+		if r.URL.Path == "/rest/api/3/user" {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"accountId":"acct-1","displayName":"Test Author"}`))
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"rule":{"uuid":"uuid-env","name":"Envelope Rule","state":"ENABLED","authorAccountId":"acct-1","created":1701680400000,"updated":1701766800000,"components":[{"component":"TRIGGER","type":"issue.created"},{"component":"ACTION","type":"assign.issue"}]}}`))
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@x.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}, Extended: true}
+	opts.SetAPIClient(client)
+
+	err = runGet(context.Background(), opts, "uuid-env", false)
+	testutil.RequireNoError(t, err)
+
+	out := stdout.String()
+	testutil.Contains(t, out, "uuid-env  Envelope Rule")
+	testutil.Contains(t, out, "State: ENABLED")
+	testutil.Contains(t, out, "2 total")
+	testutil.Contains(t, out, "Created: 2023-12-04")
+	testutil.Contains(t, out, "Updated: 2023-12-05")
+	testutil.Contains(t, out, "Author: Test Author")
+}
+
 func TestRunGet_ShowComponents(t *testing.T) {
 	rule := api.AutomationRule{
 		UUID:  "uuid-123",

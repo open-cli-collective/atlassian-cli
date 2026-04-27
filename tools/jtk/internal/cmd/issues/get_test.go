@@ -353,8 +353,8 @@ func TestRunGet_Extended_ShowsNewSections(t *testing.T) {
 		case strings.HasSuffix(r.URL.Path, "/transitions"):
 			_ = json.NewEncoder(w).Encode(api.TransitionsResponse{
 				Transitions: []api.Transition{
-					{ID: "11", Name: "Backlog"},
-					{ID: "21", Name: "In Progress"},
+					{ID: "11", Name: "Backlog", To: api.Status{Name: "Backlog"}},
+					{ID: "21", Name: "In Progress", To: api.Status{Name: "In Development"}},
 				},
 			})
 		case strings.HasSuffix(r.URL.Path, "/watchers"):
@@ -382,8 +382,9 @@ func TestRunGet_Extended_ShowsNewSections(t *testing.T) {
 	testutil.Contains(t, output, "Watchers: 3 (watching: yes)")
 	testutil.Contains(t, output, "Resolution: Done")
 	testutil.Contains(t, output, "Transitions:")
-	testutil.Contains(t, output, "Backlog")
-	testutil.Contains(t, output, "In Progress")
+	testutil.Contains(t, output, "  11 | Backlog | Backlog")
+	testutil.Contains(t, output, "  21 | In Progress | In Development")
+	testutil.NotContains(t, output, "ID | NAME")
 	// Extended implies fulltext — full description present
 	testutil.NotContains(t, output, "[truncated")
 }
@@ -432,7 +433,62 @@ func TestRunGet_ExtendedFields_ProjectionUsesDetailContext(t *testing.T) {
 
 	output := stdout.String()
 	testutil.Contains(t, output, "5 (watching: no)")
-	testutil.Contains(t, output, "11:Backlog")
+	testutil.Contains(t, output, "11:Backlog:-")
 	testutil.Contains(t, output, longDesc)
 	testutil.NotContains(t, output, "[truncated")
+}
+
+func TestRunGet_Extended_SprintFromCustomField(t *testing.T) {
+	t.Parallel()
+	issueJSON := `{
+		"key": "MON-4970",
+		"fields": {
+			"summary": "Sprint test issue",
+			"status": {"name": "In Development", "statusCategory": {"name": "In Progress"}},
+			"issuetype": {"name": "Task"},
+			"customfield_10020": [
+				{"id": 100, "name": "Sprint 69", "state": "closed"},
+				{"id": 125, "name": "MON Sprint 70", "state": "active", "startDate": "2026-04-10T00:00:00.000Z", "endDate": "2026-04-24T00:00:00.000Z"}
+			],
+			"customfield_10035": 5
+		}
+	}`
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/transitions"):
+			_ = json.NewEncoder(w).Encode(api.TransitionsResponse{
+				Transitions: []api.Transition{
+					{ID: "91", Name: "Ready", To: api.Status{Name: "Ready for Development"}},
+				},
+			})
+		case strings.HasSuffix(r.URL.Path, "/watchers"):
+			_ = json.NewEncoder(w).Encode(api.WatchersInfo{WatchCount: 1, IsWatching: false})
+		case strings.Contains(r.URL.Path, "/field"):
+			_ = json.NewEncoder(w).Encode([]api.Field{
+				{ID: "customfield_10020", Name: "Sprint"},
+				{ID: "customfield_10035", Name: "Story Points"},
+			})
+		default:
+			_, _ = w.Write([]byte(issueJSON))
+		}
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Extended: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runGet(context.Background(), opts, "MON-4970", false, "")
+	testutil.RequireNoError(t, err)
+
+	output := stdout.String()
+	testutil.Contains(t, output, "Sprint: MON Sprint 70 (id: 125, active, 2026-04-10 → 2026-04-24)")
+	testutil.NotContains(t, output, "customfield_10020")
+	testutil.Contains(t, output, "customfield_10035")
+	testutil.Contains(t, output, "  91 | Ready | Ready for Development")
 }

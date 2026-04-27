@@ -1,6 +1,37 @@
 package api //nolint:revive // package name is intentional
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"fmt"
+	"time"
+)
+
+// Timestamp accepts both JSON strings (ISO 8601) and numbers (epoch millis).
+// The Jira Automation API returns timestamps as epoch-millisecond numbers in
+// some endpoints and ISO 8601 strings in others.
+type Timestamp string
+
+func (t *Timestamp) UnmarshalJSON(data []byte) error {
+	if len(data) == 0 || string(data) == "null" {
+		return nil
+	}
+	if data[0] == '"' {
+		var s string
+		if err := json.Unmarshal(data, &s); err != nil {
+			return err
+		}
+		*t = Timestamp(s)
+		return nil
+	}
+	var n int64
+	if err := json.Unmarshal(data, &n); err != nil {
+		return fmt.Errorf("Timestamp: cannot unmarshal %q: %w", data, err)
+	}
+	*t = Timestamp(time.UnixMilli(n).UTC().Format(time.RFC3339))
+	return nil
+}
+
+func (t Timestamp) String() string { return string(t) }
 
 // AutomationRule represents a full automation rule.
 //
@@ -25,8 +56,8 @@ type AutomationRule struct {
 	Labels          []string        `json:"labels,omitempty"`
 	Tags            []string        `json:"tags,omitempty"`
 	Projects        []RuleProject   `json:"projects,omitempty"`
-	Created         string          `json:"created,omitempty"`
-	Updated         string          `json:"updated,omitempty"`
+	Created         Timestamp       `json:"created,omitempty"`
+	Updated         Timestamp       `json:"updated,omitempty"`
 	Trigger         *RuleComponent  `json:"trigger,omitempty"`
 	Components      []RuleComponent `json:"components,omitempty"`
 
@@ -91,8 +122,8 @@ type AutomationRuleSummary struct {
 	Labels          []string      `json:"labels,omitempty"`
 	Tags            []string      `json:"tags,omitempty"`
 	Projects        []RuleProject `json:"projects,omitempty"`
-	Created         string        `json:"created,omitempty"`
-	Updated         string        `json:"updated,omitempty"`
+	Created         Timestamp     `json:"created,omitempty"`
+	Updated         Timestamp     `json:"updated,omitempty"`
 	RuleScopeARIs   []string      `json:"ruleScopeARIs,omitempty"`
 }
 

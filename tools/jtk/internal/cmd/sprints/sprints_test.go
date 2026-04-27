@@ -1048,6 +1048,36 @@ func TestRunList_ClientSidePagination(t *testing.T) {
 	testutil.Equal(t, output, "1\n")
 }
 
+func TestRunList_ClientSidePagination_Table(t *testing.T) {
+	t.Parallel()
+
+	d := func(year, month, day int) *time.Time {
+		tt := time.Date(year, time.Month(month), day, 0, 0, 0, 0, time.UTC)
+		return &tt
+	}
+
+	sprints := []api.Sprint{
+		{ID: 1, Name: "Closed", State: "closed", CompleteDate: d(2025, 1, 14)},
+		{ID: 2, Name: "Future", State: "future"},
+		{ID: 3, Name: "Active", State: "active", StartDate: d(2025, 4, 1)},
+	}
+
+	server := newTestSprintsServer(t, sprints)
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runList(context.Background(), opts, client, 123, "", 2, "", "")
+	testutil.RequireNoError(t, err)
+
+	testutil.Contains(t, stdout.String(), "More results available (next: 2)")
+}
+
 func TestRunCurrent_BoardEnrichment(t *testing.T) {
 	t.Parallel()
 
@@ -1189,6 +1219,7 @@ func TestRunList_StartAtBeyondTotal(t *testing.T) {
 }
 
 func TestCurrentCmd_BoardEnrichmentCobraLevel(t *testing.T) {
+	t.Parallel()
 	seedBoardsAndSprints(t, nil, nil) // empty cache — numeric board resolves synthetic
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

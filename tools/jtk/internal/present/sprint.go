@@ -20,9 +20,13 @@ func SortSprintsForDisplay(sprints []api.Sprint) {
 		if pi != pj {
 			return pi < pj
 		}
-		if pi == 2 { // closed
+		if pi == 2 { // closed: most recently completed first
 			return closedLess(sprints[i], sprints[j])
 		}
+		if pi == 1 { // future: nearest upcoming first (ascending)
+			return dateAscThenID(sprints[i].StartDate, sprints[j].StartDate, sprints[i].ID, sprints[j].ID)
+		}
+		// active: most recent first (descending)
 		return dateDescThenID(sprints[i].StartDate, sprints[j].StartDate, sprints[i].ID, sprints[j].ID)
 	})
 }
@@ -53,6 +57,36 @@ func dateDescThenID(a, b *time.Time, idA, idB int) bool {
 		return cmp < 0
 	}
 	return idA > idB
+}
+
+func dateAscThenID(a, b *time.Time, idA, idB int) bool {
+	if cmp := compareDatesAsc(a, b); cmp != 0 {
+		return cmp < 0
+	}
+	return idA < idB
+}
+
+// compareDatesAsc returns -1 if a should sort before b (ascending),
+// +1 if after, 0 if equal. Nil sorts after non-nil (unknown = last).
+func compareDatesAsc(a, b *time.Time) int {
+	aNil := a == nil || a.IsZero()
+	bNil := b == nil || b.IsZero()
+	if aNil && bNil {
+		return 0
+	}
+	if aNil {
+		return 1
+	}
+	if bNil {
+		return -1
+	}
+	if a.Before(*b) {
+		return -1
+	}
+	if a.After(*b) {
+		return 1
+	}
+	return 0
 }
 
 // compareDatesDesc returns -1 if a should sort before b (descending),

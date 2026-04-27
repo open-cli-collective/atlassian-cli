@@ -493,7 +493,8 @@ func TestSortSprintsForDisplay_MultipleActiveFuture(t *testing.T) {
 
 	SortSprintsForDisplay(sprints)
 
-	wantIDs := []int{2, 1, 4, 3, 5}
+	// Active: descending (most recent first). Future: ascending (nearest first), nil last.
+	wantIDs := []int{2, 1, 3, 4, 5}
 	for i, want := range wantIDs {
 		if sprints[i].ID != want {
 			t.Errorf("position %d: got ID=%d, want ID=%d", i, sprints[i].ID, want)

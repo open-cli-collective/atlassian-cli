@@ -51,6 +51,36 @@ func TestNewListCmd(t *testing.T) {
 	testutil.Equal(t, nameFlag.DefValue, "")
 }
 
+func TestRunList_CustomFieldsFlag_CobraExecute(t *testing.T) {
+	t.Cleanup(cache.SetRootForTest(t.TempDir()))
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode([]api.Field{
+			{ID: "summary", Name: "Summary", Custom: false, Schema: api.FieldSchema{Type: "string"}},
+			{ID: "customfield_10100", Name: "Environment", Custom: true, Schema: api.FieldSchema{Type: "option"}},
+		})
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	rootCmd, opts := root.NewCmd()
+	opts.Output = "table"
+	opts.Stdout = &stdout
+	opts.Stderr = &bytes.Buffer{}
+	opts.SetAPIClient(client)
+	Register(rootCmd, opts)
+
+	rootCmd.SetArgs([]string{"fields", "list", "--custom-fields"})
+	err = rootCmd.Execute()
+	testutil.RequireNoError(t, err)
+
+	out := stdout.String()
+	testutil.Contains(t, out, "customfield_10100")
+	testutil.NotContains(t, out, "summary")
+}
+
 func TestRunList_Table(t *testing.T) {
 	t.Cleanup(cache.SetRootForTest(t.TempDir()))
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -1282,6 +1312,48 @@ func TestRunShow_OptionFetchError4xx(t *testing.T) {
 		case strings.Contains(r.URL.Path, "/context/10100/option"):
 			w.WriteHeader(http.StatusBadRequest)
 			_ = json.NewEncoder(w).Encode(map[string]string{"errorMessage": "not a select field"})
+		case strings.Contains(r.URL.Path, "/context"):
+			_ = json.NewEncoder(w).Encode(api.FieldContextsResponse{
+				Values: []api.FieldContext{
+					{ID: "10100", Name: "Default Context", IsGlobalContext: true},
+				},
+				IsLast: true,
+			})
+		}
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runShow(context.Background(), opts, "customfield_10100")
+	testutil.RequireNoError(t, err)
+
+	lines := strings.Split(strings.TrimSpace(stdout.String()), "\n")
+	testutil.True(t, len(lines) >= 2, "expected header + data row")
+	cols := strings.Split(lines[1], " | ")
+	testutil.Equal(t, cols[3], "-")
+	testutil.Equal(t, cols[4], "-")
+}
+
+func TestRunShow_OptionFetchError404(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.Contains(r.URL.Path, "/context/projectmapping"):
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"values": []map[string]any{
+					{"contextId": "10100", "isGlobalContext": true},
+				},
+				"isLast": true,
+			})
+		case strings.Contains(r.URL.Path, "/context/10100/option"):
+			w.WriteHeader(http.StatusNotFound)
+			_ = json.NewEncoder(w).Encode(map[string]string{"errorMessage": "not found"})
 		case strings.Contains(r.URL.Path, "/context"):
 			_ = json.NewEncoder(w).Encode(api.FieldContextsResponse{
 				Values: []api.FieldContext{

@@ -79,6 +79,30 @@ func (f *IssueFields) UnmarshalJSON(data []byte) error {
 		}
 	}
 
+	if f.Sprint == nil {
+		if sprintRaw, ok := raw["customfield_10020"]; ok {
+			f.Sprint = resolveSprintFromCustomField(sprintRaw)
+		}
+	}
+
+	return nil
+}
+
+func resolveSprintFromCustomField(raw json.RawMessage) *Sprint {
+	if len(raw) == 0 || string(raw) == "null" {
+		return nil
+	}
+	var arr []Sprint
+	if err := json.Unmarshal(raw, &arr); err == nil {
+		if len(arr) == 0 {
+			return nil
+		}
+		return &arr[len(arr)-1]
+	}
+	var s Sprint
+	if err := json.Unmarshal(raw, &s); err == nil {
+		return &s
+	}
 	return nil
 }
 

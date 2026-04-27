@@ -35,9 +35,16 @@ func TestNewListCmd(t *testing.T) {
 	testutil.Equal(t, cmd.Use, "list")
 	testutil.NotEmpty(t, cmd.Short)
 
+	customFieldsFlag := cmd.Flags().Lookup("custom-fields")
+	testutil.NotNil(t, customFieldsFlag)
+	testutil.Equal(t, customFieldsFlag.DefValue, "false")
+
 	customFlag := cmd.Flags().Lookup("custom")
 	testutil.NotNil(t, customFlag)
 	testutil.Equal(t, customFlag.DefValue, "false")
+	if customFlag.Hidden != true {
+		t.Error("--custom flag should be hidden")
+	}
 
 	nameFlag := cmd.Flags().Lookup("name")
 	testutil.NotNil(t, nameFlag)
@@ -66,6 +73,113 @@ func TestRunList_Table(t *testing.T) {
 	testutil.Contains(t, stdout.String(), "summary")
 	testutil.Contains(t, stdout.String(), "customfield_10100")
 	testutil.Contains(t, stdout.String(), "Environment")
+}
+
+func TestRunList_ColumnOrder(t *testing.T) {
+	t.Cleanup(cache.SetRootForTest(t.TempDir()))
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode([]api.Field{
+			{ID: "summary", Name: "Summary", Schema: api.FieldSchema{Type: "string"}},
+		})
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runList(context.Background(), opts, false, "")
+	testutil.RequireNoError(t, err)
+
+	lines := strings.Split(strings.TrimSpace(stdout.String()), "\n")
+	testutil.True(t, len(lines) >= 2, "expected header + data row")
+	cols := strings.Split(lines[1], " | ")
+	testutil.Equal(t, cols[0], "summary")
+	testutil.Equal(t, cols[1], "string")
+	testutil.Equal(t, cols[2], "Summary")
+}
+
+func TestRunList_IDOnly(t *testing.T) {
+	t.Cleanup(cache.SetRootForTest(t.TempDir()))
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode([]api.Field{
+			{ID: "summary", Name: "Summary", Schema: api.FieldSchema{Type: "string"}},
+			{ID: "customfield_10100", Name: "Environment", Custom: true, Schema: api.FieldSchema{Type: "option"}},
+		})
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}, IDOnly: true}
+	opts.SetAPIClient(client)
+
+	err = runList(context.Background(), opts, false, "")
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, stdout.String(), "summary\ncustomfield_10100\n")
+}
+
+func TestRunList_IDOnly_Empty(t *testing.T) {
+	t.Cleanup(cache.SetRootForTest(t.TempDir()))
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode([]api.Field{})
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}, IDOnly: true}
+	opts.SetAPIClient(client)
+
+	err = runList(context.Background(), opts, false, "")
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, stdout.String(), "")
+}
+
+func TestRunList_Extended_ColumnOrder(t *testing.T) {
+	t.Cleanup(cache.SetRootForTest(t.TempDir()))
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode([]api.Field{
+			{
+				ID:          "summary",
+				Name:        "Summary",
+				Schema:      api.FieldSchema{Type: "string"},
+				Searchable:  true,
+				Navigable:   true,
+				Orderable:   true,
+				ClauseNames: []string{"summary"},
+			},
+		})
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}, Extended: true}
+	opts.SetAPIClient(client)
+
+	err = runList(context.Background(), opts, false, "")
+	testutil.RequireNoError(t, err)
+
+	lines := strings.Split(strings.TrimSpace(stdout.String()), "\n")
+	testutil.True(t, len(lines) >= 2, "expected header + data row")
+	cols := strings.Split(lines[1], " | ")
+	testutil.Equal(t, cols[0], "summary")
+	testutil.Equal(t, cols[1], "string")
+	testutil.Equal(t, cols[2], "yes")
+	testutil.Equal(t, cols[3], "yes")
+	testutil.Equal(t, cols[4], "yes")
+	testutil.Equal(t, cols[5], "summary")
+	testutil.Equal(t, cols[6], "Summary")
 }
 
 func TestRunList_JSON(t *testing.T) {
@@ -1004,4 +1118,204 @@ func TestRunList_CacheHit_CustomFilter_SkipsLiveCall(t *testing.T) {
 	testutil.Contains(t, stdout.String(), "Story Points")
 	testutil.Contains(t, stdout.String(), "Sprint")
 	testutil.NotContains(t, stdout.String(), "Summary")
+}
+
+// --- Show command tests ---
+
+func newShowTestServer(t *testing.T) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.Contains(r.URL.Path, "/context/projectmapping"):
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"values": []map[string]any{
+					{"contextId": "10100", "isGlobalContext": true},
+					{"contextId": "10101", "projectId": "10001", "isGlobalContext": false},
+					{"contextId": "10102", "projectId": "10002", "isGlobalContext": false},
+				},
+				"isLast": true,
+			})
+		case strings.Contains(r.URL.Path, "/context/10100/option"):
+			_ = json.NewEncoder(w).Encode(api.FieldContextOptionsResponse{
+				Values: []api.FieldContextOption{
+					{ID: "20001", Value: "Platform"},
+					{ID: "20002", Value: "Integration"},
+				},
+				IsLast: true,
+			})
+		case strings.Contains(r.URL.Path, "/context/10101/option"):
+			_ = json.NewEncoder(w).Encode(api.FieldContextOptionsResponse{
+				Values: []api.FieldContextOption{
+					{ID: "20010", Value: "CapOne"},
+				},
+				IsLast: true,
+			})
+		case strings.Contains(r.URL.Path, "/context/10102/option"):
+			_ = json.NewEncoder(w).Encode(api.FieldContextOptionsResponse{
+				Values: []api.FieldContextOption{},
+				IsLast: true,
+			})
+		case strings.Contains(r.URL.Path, "/context"):
+			_ = json.NewEncoder(w).Encode(api.FieldContextsResponse{
+				Values: []api.FieldContext{
+					{ID: "10100", Name: "Default Context", IsGlobalContext: true},
+					{ID: "10101", Name: "MON Project Context"},
+					{ID: "10102", Name: "ON Project Context"},
+				},
+				IsLast: true,
+			})
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+}
+
+func TestRunShow_Table(t *testing.T) {
+	t.Parallel()
+	server := newShowTestServer(t)
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runShow(context.Background(), opts, "customfield_10100")
+	testutil.RequireNoError(t, err)
+
+	out := stdout.String()
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	testutil.True(t, len(lines) >= 5, "expected header + 4 data rows")
+
+	// Header
+	testutil.Contains(t, lines[0], "CONTEXT_ID")
+	testutil.Contains(t, lines[0], "OPTION_VALUE")
+
+	// Global context with options
+	testutil.Contains(t, out, "(global)")
+	testutil.Contains(t, out, "Platform")
+	testutil.Contains(t, out, "Integration")
+
+	// Project context with options
+	testutil.Contains(t, out, "CapOne")
+
+	// Empty context renders - | -
+	cols := strings.Split(lines[4], " | ")
+	testutil.Equal(t, cols[0], "10102")
+	testutil.Equal(t, cols[3], "-")
+	testutil.Equal(t, cols[4], "-")
+}
+
+func TestRunShow_IDOnly(t *testing.T) {
+	t.Parallel()
+	server := newShowTestServer(t)
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}, IDOnly: true}
+	opts.SetAPIClient(client)
+
+	err = runShow(context.Background(), opts, "customfield_10100")
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, stdout.String(), "10100\n10101\n10102\n")
+}
+
+func TestRunShow_JSON(t *testing.T) {
+	t.Parallel()
+	server := newShowTestServer(t)
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "json", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runShow(context.Background(), opts, "customfield_10100")
+	testutil.RequireNoError(t, err)
+
+	out := stdout.String()
+	testutil.Contains(t, out, `"context_id"`)
+	testutil.Contains(t, out, `"option_value"`)
+	testutil.Contains(t, out, "Platform")
+}
+
+func TestRunShow_Empty(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(api.FieldContextsResponse{
+			Values: []api.FieldContext{},
+			IsLast: true,
+		})
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runShow(context.Background(), opts, "customfield_10100")
+	testutil.RequireNoError(t, err)
+	testutil.Contains(t, stdout.String(), "No contexts found")
+}
+
+func TestRunShow_OptionFetchError4xx(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.Contains(r.URL.Path, "/context/projectmapping"):
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"values": []map[string]any{
+					{"contextId": "10100", "isGlobalContext": true},
+				},
+				"isLast": true,
+			})
+		case strings.Contains(r.URL.Path, "/context/10100/option"):
+			w.WriteHeader(http.StatusBadRequest)
+			_ = json.NewEncoder(w).Encode(map[string]string{"errorMessage": "not a select field"})
+		case strings.Contains(r.URL.Path, "/context"):
+			_ = json.NewEncoder(w).Encode(api.FieldContextsResponse{
+				Values: []api.FieldContext{
+					{ID: "10100", Name: "Default Context", IsGlobalContext: true},
+				},
+				IsLast: true,
+			})
+		}
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runShow(context.Background(), opts, "customfield_10100")
+	testutil.RequireNoError(t, err)
+
+	lines := strings.Split(strings.TrimSpace(stdout.String()), "\n")
+	testutil.True(t, len(lines) >= 2, "expected header + data row")
+	cols := strings.Split(lines[1], " | ")
+	testutil.Equal(t, cols[3], "-")
+	testutil.Equal(t, cols[4], "-")
+}
+
+func TestNewShowCmd(t *testing.T) {
+	t.Parallel()
+	rootCmd, opts := root.NewCmd()
+	Register(rootCmd, opts)
+
+	cmd, _, err := rootCmd.Find([]string{"fields", "show"})
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, cmd.Name(), "show")
 }

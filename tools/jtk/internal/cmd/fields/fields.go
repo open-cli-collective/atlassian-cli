@@ -28,6 +28,7 @@ func Register(parent *cobra.Command, opts *root.Options) {
 	}
 
 	cmd.AddCommand(newListCmd(opts))
+	cmd.AddCommand(newShowCmd(opts))
 	cmd.AddCommand(newCreateCmd(opts))
 	cmd.AddCommand(newDeleteCmd(opts))
 	cmd.AddCommand(newRestoreCmd(opts))
@@ -49,24 +50,27 @@ func newListCmd(opts *root.Options) *cobra.Command {
   jtk fields list
 
   # List only custom fields
-  jtk fields list --custom
+  jtk fields list --custom-fields
 
   # Search for fields by name
-  jtk fields list --name "story point"`,
+  jtk fields list --name "story point"
+
+  # Emit only field IDs
+  jtk fields list --id`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runList(cmd.Context(), opts, customOnly, nameFilter)
 		},
 	}
 
+	cmd.Flags().BoolVar(&customOnly, "custom-fields", false, "Show only custom fields")
 	cmd.Flags().BoolVar(&customOnly, "custom", false, "Show only custom fields")
+	_ = cmd.Flags().MarkHidden("custom")
 	cmd.Flags().StringVar(&nameFilter, "name", "", "Filter fields by name (case-insensitive substring match)")
 
 	return cmd
 }
 
 func runList(ctx context.Context, opts *root.Options, customOnly bool, nameFilter string) error {
-	v := opts.View()
-
 	client, err := opts.APIClient()
 	if err != nil {
 		return err
@@ -97,23 +101,24 @@ func runList(ctx context.Context, opts *root.Options, customOnly bool, nameFilte
 		fields = filtered
 	}
 
-	if len(fields) == 0 {
-		model := jtkpresent.FieldPresenter{}.PresentEmpty()
-		out := present.Render(model, opts.RenderStyle())
-		fmt.Fprint(opts.Stdout, out.Stdout)
-		fmt.Fprint(opts.Stderr, out.Stderr)
-		return nil
+	if opts.EmitIDOnly() {
+		ids := make([]string, len(fields))
+		for i, f := range fields {
+			ids[i] = f.ID
+		}
+		return jtkpresent.EmitIDs(opts, ids)
 	}
 
+	if len(fields) == 0 {
+		return jtkpresent.Emit(opts, jtkpresent.FieldPresenter{}.PresentEmpty())
+	}
+
+	v := opts.View()
 	if v.Format == view.FormatJSON {
 		return v.JSON(fields)
 	}
 
-	model := jtkpresent.FieldPresenter{}.PresentList(fields, opts.IsExtended())
-	out := present.Render(model, opts.RenderStyle())
-	fmt.Fprint(opts.Stdout, out.Stdout)
-	fmt.Fprint(opts.Stderr, out.Stderr)
-	return nil
+	return jtkpresent.Emit(opts, jtkpresent.FieldPresenter{}.PresentList(fields, opts.IsExtended()))
 }
 
 func newCreateCmd(opts *root.Options) *cobra.Command {

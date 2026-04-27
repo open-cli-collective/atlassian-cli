@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/url"
 	"strconv"
 	"strings"
 )
@@ -291,26 +290,13 @@ func ResolveFieldOptions(ctx context.Context, c *Client, issueKey, fieldID strin
 var ErrFieldNotInEditMeta = errors.New("field not found in edit metadata")
 
 func getAllContextOptions(ctx context.Context, c *Client, fieldID, contextID string) ([]FieldOptionValue, error) {
-	var all []FieldOptionValue
-	startAt := 0
-	for {
-		urlStr := fmt.Sprintf("%s/field/%s/context/%s/option?startAt=%d",
-			c.BaseURL, url.PathEscape(fieldID), url.PathEscape(contextID), startAt)
-		body, err := c.Get(ctx, urlStr)
-		if err != nil {
-			return nil, err
-		}
-		var page FieldContextOptionsResponse
-		if err := json.Unmarshal(body, &page); err != nil {
-			return nil, err
-		}
-		for _, o := range page.Values {
-			all = append(all, FieldOptionValue{ID: o.ID, Value: o.Value, Disabled: o.Disabled})
-		}
-		if page.IsLast || len(page.Values) == 0 {
-			break
-		}
-		startAt += len(page.Values)
+	opts, err := c.GetAllFieldContextOptions(ctx, fieldID, contextID)
+	if err != nil {
+		return nil, err
 	}
-	return all, nil
+	result := make([]FieldOptionValue, len(opts))
+	for i, o := range opts {
+		result[i] = FieldOptionValue{ID: o.ID, Value: o.Value, Disabled: o.Disabled}
+	}
+	return result, nil
 }

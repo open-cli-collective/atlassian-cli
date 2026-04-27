@@ -13,21 +13,17 @@ import (
 type FieldPresenter struct{}
 
 // PresentList creates a table view for a list of fields. Default: ID|TYPE|NAME.
-// Extended adds SEARCHABLE, NAVIGABLE, ORDERABLE, CLAUSE_NAMES per #230.
+// Extended: ID|TYPE|SEARCHABLE|NAVIGABLE|ORDERABLE|CLAUSE_NAMES|NAME per #230.
 func (FieldPresenter) PresentList(fields []api.Field, extended bool) *present.OutputModel {
 	var headers []string
 	if extended {
-		headers = []string{"ID", "NAME", "TYPE", "CUSTOM", "SEARCHABLE", "NAVIGABLE", "ORDERABLE", "CLAUSE_NAMES"}
+		headers = []string{"ID", "TYPE", "SEARCHABLE", "NAVIGABLE", "ORDERABLE", "CLAUSE_NAMES", "NAME"}
 	} else {
-		headers = []string{"ID", "NAME", "TYPE", "CUSTOM"}
+		headers = []string{"ID", "TYPE", "NAME"}
 	}
 
 	rows := make([]present.Row, len(fields))
 	for i, f := range fields {
-		custom := "no"
-		if f.Custom {
-			custom = "yes"
-		}
 		if extended {
 			clauseNames := "-"
 			if len(f.ClauseNames) > 0 {
@@ -36,18 +32,17 @@ func (FieldPresenter) PresentList(fields []api.Field, extended bool) *present.Ou
 			rows[i] = present.Row{
 				Cells: []string{
 					f.ID,
-					f.Name,
 					OrDash(f.Schema.Type),
-					custom,
 					BoolString(f.Searchable),
 					BoolString(f.Navigable),
 					BoolString(f.Orderable),
 					clauseNames,
+					f.Name,
 				},
 			}
 		} else {
 			rows[i] = present.Row{
-				Cells: []string{f.ID, f.Name, OrDash(f.Schema.Type), custom},
+				Cells: []string{f.ID, OrDash(f.Schema.Type), f.Name},
 			}
 		}
 	}
@@ -332,6 +327,46 @@ func (FieldPresenter) PresentOptionDeleted(optionID, contextID string) *present.
 			&present.MessageSection{
 				Kind:    present.MessageSuccess,
 				Message: fmt.Sprintf("Deleted option %s from context %s", optionID, contextID),
+				Stream:  present.StreamStdout,
+			},
+		},
+	}
+}
+
+// FieldShowRow represents a single row in the fields show denormalized view.
+type FieldShowRow struct {
+	ContextID   string `json:"context_id"`
+	Context     string `json:"context"`
+	Projects    string `json:"projects"`
+	OptionID    string `json:"option_id"`
+	OptionValue string `json:"option_value"`
+}
+
+// PresentFieldShow creates a table view for a field's denormalized context/option data.
+func (FieldPresenter) PresentFieldShow(rows []FieldShowRow) *present.OutputModel {
+	tableRows := make([]present.Row, len(rows))
+	for i, r := range rows {
+		tableRows[i] = present.Row{
+			Cells: []string{r.ContextID, r.Context, r.Projects, r.OptionID, r.OptionValue},
+		}
+	}
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.TableSection{
+				Headers: []string{"CONTEXT_ID", "CONTEXT", "PROJECTS", "OPTION_ID", "OPTION_VALUE"},
+				Rows:    tableRows,
+			},
+		},
+	}
+}
+
+// PresentFieldShowEmpty creates an info message when a field has no contexts.
+func (FieldPresenter) PresentFieldShowEmpty(fieldID string) *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageInfo,
+				Message: fmt.Sprintf("No contexts found for field %s", fieldID),
 				Stream:  present.StreamStdout,
 			},
 		},

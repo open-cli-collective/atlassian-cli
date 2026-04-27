@@ -260,6 +260,101 @@ func (c *Client) UpdateFieldContextOptions(ctx context.Context, fieldID, context
 	return result.Options, nil
 }
 
+// FieldContextProjectMapping represents a mapping from a context to a project.
+type FieldContextProjectMapping struct {
+	ContextID string `json:"contextId"`
+	ProjectID string `json:"projectId,omitempty"`
+	IsGlobal  bool   `json:"isGlobalContext"`
+}
+
+// fieldContextProjectMappingsResponse is the paginated response from the project mapping endpoint.
+type fieldContextProjectMappingsResponse struct {
+	MaxResults int                          `json:"maxResults"`
+	StartAt    int                          `json:"startAt"`
+	Total      int                          `json:"total"`
+	IsLast     bool                         `json:"isLast"`
+	Values     []FieldContextProjectMapping `json:"values"`
+}
+
+// GetAllFieldContexts returns all contexts for a field, paginating through all pages.
+func (c *Client) GetAllFieldContexts(ctx context.Context, fieldID string) ([]FieldContext, error) {
+	if fieldID == "" {
+		return nil, ErrFieldIDRequired
+	}
+	var all []FieldContext
+	startAt := 0
+	for {
+		urlStr := fmt.Sprintf("%s/field/%s/context?startAt=%d", c.BaseURL, url.PathEscape(fieldID), startAt)
+		body, err := c.Get(ctx, urlStr)
+		if err != nil {
+			return nil, fmt.Errorf("fetching field contexts: %w", err)
+		}
+		var page FieldContextsResponse
+		if err := json.Unmarshal(body, &page); err != nil {
+			return nil, fmt.Errorf("parsing field contexts: %w", err)
+		}
+		all = append(all, page.Values...)
+		if page.IsLast || len(page.Values) == 0 {
+			break
+		}
+		startAt += len(page.Values)
+	}
+	return all, nil
+}
+
+// GetAllFieldContextProjectMappings returns all context-to-project mappings for a field.
+func (c *Client) GetAllFieldContextProjectMappings(ctx context.Context, fieldID string) ([]FieldContextProjectMapping, error) {
+	if fieldID == "" {
+		return nil, ErrFieldIDRequired
+	}
+	var all []FieldContextProjectMapping
+	startAt := 0
+	for {
+		urlStr := fmt.Sprintf("%s/field/%s/context/projectmapping?startAt=%d", c.BaseURL, url.PathEscape(fieldID), startAt)
+		body, err := c.Get(ctx, urlStr)
+		if err != nil {
+			return nil, fmt.Errorf("fetching field context project mappings: %w", err)
+		}
+		var page fieldContextProjectMappingsResponse
+		if err := json.Unmarshal(body, &page); err != nil {
+			return nil, fmt.Errorf("parsing field context project mappings: %w", err)
+		}
+		all = append(all, page.Values...)
+		if page.IsLast || len(page.Values) == 0 {
+			break
+		}
+		startAt += len(page.Values)
+	}
+	return all, nil
+}
+
+// GetAllFieldContextOptions returns all options for a field context, paginating through all pages.
+func (c *Client) GetAllFieldContextOptions(ctx context.Context, fieldID, contextID string) ([]FieldContextOption, error) {
+	if fieldID == "" {
+		return nil, ErrFieldIDRequired
+	}
+	var all []FieldContextOption
+	startAt := 0
+	for {
+		urlStr := fmt.Sprintf("%s/field/%s/context/%s/option?startAt=%d",
+			c.BaseURL, url.PathEscape(fieldID), url.PathEscape(contextID), startAt)
+		body, err := c.Get(ctx, urlStr)
+		if err != nil {
+			return nil, err
+		}
+		var page FieldContextOptionsResponse
+		if err := json.Unmarshal(body, &page); err != nil {
+			return nil, err
+		}
+		all = append(all, page.Values...)
+		if page.IsLast || len(page.Values) == 0 {
+			break
+		}
+		startAt += len(page.Values)
+	}
+	return all, nil
+}
+
 // DeleteFieldContextOption deletes an option from a field context
 func (c *Client) DeleteFieldContextOption(ctx context.Context, fieldID, contextID, optionID string) error {
 	if fieldID == "" {

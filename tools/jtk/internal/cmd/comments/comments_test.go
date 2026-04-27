@@ -337,6 +337,34 @@ func TestRunList_NoComments(t *testing.T) {
 	testutil.Contains(t, combined, "No comments")
 }
 
+func TestRunList_Extended_VisibilityColumn(t *testing.T) {
+	t.Parallel()
+	comments := []api.Comment{
+		plainComment("1", "Alice", "public comment"),
+		{
+			ID:     "2",
+			Author: api.User{DisplayName: "Bob"},
+			Body: &api.ADFDocument{
+				Type: "doc", Version: 1,
+				Content: []*api.ADFNode{{Type: "paragraph", Content: []*api.ADFNode{{Type: "text", Text: "restricted"}}}},
+			},
+			Created:    "2024-01-15T11:00:00.000Z",
+			Visibility: &api.CommentVisibility{Type: "role", Value: "Administrators"},
+		},
+	}
+	server := newTestCommentsServer(t, comments)
+	defer server.Close()
+
+	opts, stdout, _ := newCommentsOpts(t, server)
+	opts.Extended = true
+	err := runList(context.Background(), opts, "TEST-1", 50, false, "")
+	testutil.RequireNoError(t, err)
+
+	output := stdout.String()
+	testutil.Contains(t, output, "VISIBILITY")
+	testutil.Contains(t, output, "Administrators")
+}
+
 // commentsServerWithTotal is like newTestCommentsServer but lets the caller
 // set Total independently from len(comments), so pagination hasMore can be
 // exercised explicitly.

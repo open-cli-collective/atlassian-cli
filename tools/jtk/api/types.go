@@ -351,13 +351,20 @@ type FieldOption struct {
 	Value string `json:"value,omitempty"`
 }
 
+// CommentVisibility represents the visibility restriction on a comment.
+type CommentVisibility struct {
+	Type  string `json:"type"`
+	Value string `json:"value"`
+}
+
 // Comment represents an issue comment
 type Comment struct {
-	ID      string       `json:"id"`
-	Author  User         `json:"author"`
-	Body    *ADFDocument `json:"body"`
-	Created string       `json:"created"`
-	Updated string       `json:"updated"`
+	ID         string             `json:"id"`
+	Author     User               `json:"author"`
+	Body       *ADFDocument       `json:"body"`
+	Created    string             `json:"created"`
+	Updated    string             `json:"updated"`
+	Visibility *CommentVisibility `json:"visibility,omitempty"`
 }
 
 // Field represents a Jira field definition

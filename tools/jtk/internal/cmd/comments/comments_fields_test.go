@@ -142,6 +142,40 @@ func TestRunList_Fields_BlockMode_PreservesPaginationHint(t *testing.T) {
 	testutil.Contains(t, output, "More results available")
 }
 
+// --fields VISIBILITY selects the extended-only column without requiring
+// --extended on the command. Guards that projection handles extended columns
+// requested explicitly via --fields.
+func TestRunList_Fields_TableMode_VisibilityColumn(t *testing.T) {
+	t.Parallel()
+	comments := []api.Comment{
+		plainComment("1", "Alice", "public"),
+		{
+			ID:     "2",
+			Author: api.User{DisplayName: "Bob"},
+			Body: &api.ADFDocument{
+				Type: "doc", Version: 1,
+				Content: []*api.ADFNode{{Type: "paragraph", Content: []*api.ADFNode{{Type: "text", Text: "restricted"}}}},
+			},
+			Created:    "2024-01-15T11:00:00.000Z",
+			Visibility: &api.CommentVisibility{Type: "role", Value: "Administrators"},
+		},
+	}
+	server := newTestCommentsServer(t, comments)
+	defer server.Close()
+
+	opts, stdout, _ := newCommentsOpts(t, server)
+	opts.Extended = true
+	err := runList(context.Background(), opts, "TEST-1", 50, false, "ID,VISIBILITY")
+	testutil.RequireNoError(t, err)
+
+	output := stdout.String()
+	testutil.Contains(t, output, "VISIBILITY")
+	testutil.Contains(t, output, "Administrators")
+	if strings.Contains(output, "BODY") {
+		t.Errorf("BODY header should be absent when not selected: %q", output)
+	}
+}
+
 // Unknown --fields token must surface as UnknownFieldError. The no-op
 // fetcher prevents UnrenderedFieldError or a real /field call.
 func TestRunList_Fields_UnknownToken_Errors(t *testing.T) {

@@ -24,6 +24,7 @@ var CommentListSpec = projection.Registry{
 	{Header: "AUTHOR"},
 	{Header: "CREATED"},
 	{Header: "UPDATED", Extended: true},
+	{Header: "VISIBILITY", Extended: true},
 	{Header: "BODY"},
 }
 
@@ -35,6 +36,7 @@ var CommentDetailSpec = projection.Registry{
 	{Header: "Author"},
 	{Header: "Created"},
 	{Header: "Updated", Extended: true},
+	{Header: "Visibility", Extended: true},
 	{Header: "Body"},
 }
 
@@ -43,7 +45,7 @@ var CommentDetailSpec = projection.Registry{
 func (CommentPresenter) PresentList(comments []api.Comment, extended bool) *present.OutputModel {
 	var headers []string
 	if extended {
-		headers = []string{"ID", "AUTHOR", "CREATED", "UPDATED", "BODY"}
+		headers = []string{"ID", "AUTHOR", "CREATED", "UPDATED", "VISIBILITY", "BODY"}
 	} else {
 		headers = []string{"ID", "AUTHOR", "CREATED", "BODY"}
 	}
@@ -63,7 +65,7 @@ func (CommentPresenter) PresentList(comments []api.Comment, extended bool) *pres
 		}
 		if extended {
 			rows[i] = present.Row{
-				Cells: []string{c.ID, author, OrDash(c.Created), OrDash(c.Updated), body},
+				Cells: []string{c.ID, author, OrDash(c.Created), OrDash(c.Updated), formatVisibility(c.Visibility), body},
 			}
 		} else {
 			rows[i] = present.Row{
@@ -97,7 +99,10 @@ func (CommentPresenter) PresentListFull(comments []api.Comment, extended bool) *
 			{Label: "Created", Value: FormatTime(c.Created)},
 		}
 		if extended {
-			fields = append(fields, present.Field{Label: "Updated", Value: OrDash(c.Updated)})
+			fields = append(fields,
+				present.Field{Label: "Updated", Value: OrDash(c.Updated)},
+				present.Field{Label: "Visibility", Value: formatVisibility(c.Visibility)},
+			)
 		}
 		fields = append(fields, present.Field{Label: "Body", Value: body})
 		sections[i] = &present.DetailSection{Fields: fields}
@@ -174,6 +179,13 @@ func (CommentPresenter) PresentDeleted(commentID, issueKey string) *present.Outp
 			},
 		},
 	}
+}
+
+func formatVisibility(v *api.CommentVisibility) string {
+	if v == nil {
+		return "-"
+	}
+	return OrDash(v.Value)
 }
 
 // PresentEmpty creates an info message when no comments are found.

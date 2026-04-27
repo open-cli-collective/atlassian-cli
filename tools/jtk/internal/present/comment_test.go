@@ -142,6 +142,70 @@ func TestCommentDetailSpec_MatchesPresentDetailLabels(t *testing.T) {
 	}
 }
 
+func TestCommentPresenter_PresentList_ExtendedVisibility(t *testing.T) {
+	t.Parallel()
+	comments := []api.Comment{
+		{
+			ID:     "100",
+			Author: api.User{DisplayName: "Alice"},
+			Body: &api.ADFDocument{
+				Type: "doc", Version: 1,
+				Content: []*api.ADFNode{{Type: "paragraph", Content: []*api.ADFNode{{Type: "text", Text: "public"}}}},
+			},
+			Created: "2024-01-15T10:00:00.000Z",
+		},
+		{
+			ID:     "101",
+			Author: api.User{DisplayName: "Bob"},
+			Body: &api.ADFDocument{
+				Type: "doc", Version: 1,
+				Content: []*api.ADFNode{{Type: "paragraph", Content: []*api.ADFNode{{Type: "text", Text: "restricted"}}}},
+			},
+			Created:    "2024-01-15T11:00:00.000Z",
+			Visibility: &api.CommentVisibility{Type: "role", Value: "Administrators"},
+		},
+		{
+			ID:     "102",
+			Author: api.User{DisplayName: "Carol"},
+			Body: &api.ADFDocument{
+				Type: "doc", Version: 1,
+				Content: []*api.ADFNode{{Type: "paragraph", Content: []*api.ADFNode{{Type: "text", Text: "empty vis"}}}},
+			},
+			Created:    "2024-01-15T12:00:00.000Z",
+			Visibility: &api.CommentVisibility{Type: "role", Value: ""},
+		},
+	}
+
+	model := CommentPresenter{}.PresentList(comments, true)
+	table := model.Sections[0].(*present.TableSection)
+
+	expectedHeaders := []string{"ID", "AUTHOR", "CREATED", "UPDATED", "VISIBILITY", "BODY"}
+	if len(table.Headers) != len(expectedHeaders) {
+		t.Fatalf("expected %d headers, got %d", len(expectedHeaders), len(table.Headers))
+	}
+	for i, h := range expectedHeaders {
+		if table.Headers[i] != h {
+			t.Errorf("header[%d]: expected %q, got %q", i, h, table.Headers[i])
+		}
+	}
+
+	for i, row := range table.Rows {
+		if len(row.Cells) != len(expectedHeaders) {
+			t.Fatalf("row %d: expected %d cells, got %d", i, len(expectedHeaders), len(row.Cells))
+		}
+	}
+
+	if table.Rows[0].Cells[4] != "-" {
+		t.Errorf("row 0 VISIBILITY: expected '-' (nil), got %q", table.Rows[0].Cells[4])
+	}
+	if table.Rows[1].Cells[4] != "Administrators" {
+		t.Errorf("row 1 VISIBILITY: expected 'Administrators', got %q", table.Rows[1].Cells[4])
+	}
+	if table.Rows[2].Cells[4] != "-" {
+		t.Errorf("row 2 VISIBILITY: expected '-' (empty value), got %q", table.Rows[2].Cells[4])
+	}
+}
+
 func TestCommentListSpec_ExtendedMatchesPresentListHeaders(t *testing.T) {
 	t.Parallel()
 	comments := singleComment()

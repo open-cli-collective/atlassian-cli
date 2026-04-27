@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `issues check <issue-key>` subcommand to audit an issue for populated/missing field values, with `--require` (hard-fail) and `--warn` (advisory) flags. A curated default warn-list (Summary, Description, Assignee, Priority, Labels, Story Points, Sprint, Components, Fix Version/s) applies when no flags are passed. Useful as a transition guardrail or CI step.
 - `users get <account-id>` subcommand to look up a user by account ID ([#189](https://github.com/open-cli-collective/atlassian-cli/pull/189))
 - `--assignee none` on `issues update` and `--field assignee=null` to unassign issues ([#187](https://github.com/open-cli-collective/atlassian-cli/pull/187))
 - `--field` flag accumulates repeated values for the same key, enabling multi-checkbox and multi-select custom fields ([#186](https://github.com/open-cli-collective/atlassian-cli/pull/186))

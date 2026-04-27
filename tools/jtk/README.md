@@ -406,6 +406,38 @@ jtk issues delete PROJ-123 --force
 
 ---
 
+### `jtk issues check <issue-key>`
+
+Check whether an issue has values for expected fields. Useful as a guardrail
+before transitions or as a CI step. Each field can be named by its display name
+(e.g. `Story Points`), Jira field ID (e.g. `customfield_10035`), or property
+key (e.g. `assignee`).
+
+```bash
+# Default warn list (Summary, Description, Assignee, Priority, Labels,
+# Story Points, Sprint, Components, Fix Version/s) — fields not on the
+# project's schema are silently skipped.
+jtk issues check PROJ-123
+
+# Hard-fail (non-zero exit) if Story Points or Sprint are missing.
+jtk issues check PROJ-123 --require "Story Points" --require Sprint
+
+# Mix required and warning fields, comma-separated.
+jtk issues check PROJ-123 --require "Story Points,Sprint" --warn "Description,Assignee"
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--require` | (none) | Field must be populated; missing → non-zero exit (repeatable) |
+| `--warn` | (default list) | Field flagged if missing; never fails the check (repeatable) |
+
+**Exit codes:** `0` if all `--require` fields populated; `1` if any are missing.
+
+**Arguments:**
+- `<issue-key>` - The issue key (**required**)
+
+---
+
 ### `jtk issues fields [issue-key]`
 
 List available fields for issues.

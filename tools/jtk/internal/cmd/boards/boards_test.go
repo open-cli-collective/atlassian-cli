@@ -589,6 +589,46 @@ func TestRunGet_MissingArg(t *testing.T) {
 	testutil.NotNil(t, err)
 }
 
+func TestRunGet_Extended_FilterNameAlreadyPresent_NoExtraFetch(t *testing.T) {
+	t.Parallel()
+	var filterFetched bool
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case strings.Contains(r.URL.Path, "/filter/"):
+			filterFetched = true
+			w.WriteHeader(http.StatusInternalServerError)
+		case strings.Contains(r.URL.Path, "/configuration"):
+			_ = json.NewEncoder(w).Encode(api.BoardConfiguration{
+				Filter: api.BoardFilter{ID: "100", Name: "already set"},
+				ColumnConfig: api.BoardColumnConfig{
+					Columns: []api.BoardColumn{{Name: "Done"}},
+				},
+			})
+		default:
+			_ = json.NewEncoder(w).Encode(api.Board{
+				ID: 23, Name: "B", Type: "scrum",
+				Location: api.BoardLocation{ProjectKey: "MON"},
+			})
+		}
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}, Extended: true}
+	opts.SetAPIClient(client)
+
+	err = runGet(context.Background(), opts, client, &api.Board{ID: 23, Name: "B"}, "")
+	testutil.RequireNoError(t, err)
+	testutil.Contains(t, stdout.String(), "Filter: already set (id: 100)")
+	if filterFetched {
+		t.Error("filter endpoint should not be called when name is already present")
+	}
+}
+
 func TestRunGet_Extended_FilterNameResolved(t *testing.T) {
 	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

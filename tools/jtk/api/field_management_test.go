@@ -359,3 +359,97 @@ func TestDeleteFieldContextOption_EmptyID(t *testing.T) {
 	err := client.DeleteFieldContextOption(context.Background(), "", "10001", "3")
 	testutil.True(t, errors.Is(err, ErrFieldIDRequired))
 }
+
+func TestGetAllFieldContexts_MultiPage(t *testing.T) {
+	t.Parallel()
+	callCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		callCount++
+		if callCount == 1 {
+			testutil.Contains(t, r.URL.RawQuery, "startAt=0")
+			_ = json.NewEncoder(w).Encode(FieldContextsResponse{
+				Values: []FieldContext{{ID: "10100", Name: "Context A"}},
+				IsLast: false,
+			})
+		} else {
+			testutil.Contains(t, r.URL.RawQuery, "startAt=1")
+			_ = json.NewEncoder(w).Encode(FieldContextsResponse{
+				Values: []FieldContext{{ID: "10101", Name: "Context B"}},
+				IsLast: true,
+			})
+		}
+	}))
+	defer server.Close()
+
+	client := newTestClient(t, server)
+	contexts, err := client.GetAllFieldContexts(context.Background(), "customfield_10100")
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, len(contexts), 2)
+	testutil.Equal(t, contexts[0].ID, "10100")
+	testutil.Equal(t, contexts[1].ID, "10101")
+	testutil.Equal(t, callCount, 2)
+}
+
+func TestGetAllFieldContextProjectMappings_MultiPage(t *testing.T) {
+	t.Parallel()
+	callCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		callCount++
+		if callCount == 1 {
+			testutil.Contains(t, r.URL.RawQuery, "startAt=0")
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"values": []map[string]any{
+					{"contextId": "10100", "projectId": "1001", "isGlobalContext": false},
+				},
+				"isLast": false,
+			})
+		} else {
+			testutil.Contains(t, r.URL.RawQuery, "startAt=1")
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"values": []map[string]any{
+					{"contextId": "10101", "isGlobalContext": true},
+				},
+				"isLast": true,
+			})
+		}
+	}))
+	defer server.Close()
+
+	client := newTestClient(t, server)
+	mappings, err := client.GetAllFieldContextProjectMappings(context.Background(), "customfield_10100")
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, len(mappings), 2)
+	testutil.Equal(t, mappings[0].ProjectID, "1001")
+	testutil.Equal(t, mappings[1].IsGlobal, true)
+	testutil.Equal(t, callCount, 2)
+}
+
+func TestGetAllFieldContextOptions_MultiPage(t *testing.T) {
+	t.Parallel()
+	callCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		callCount++
+		if callCount == 1 {
+			testutil.Contains(t, r.URL.RawQuery, "startAt=0")
+			_ = json.NewEncoder(w).Encode(FieldContextOptionsResponse{
+				Values: []FieldContextOption{{ID: "20001", Value: "Option A"}},
+				IsLast: false,
+			})
+		} else {
+			testutil.Contains(t, r.URL.RawQuery, "startAt=1")
+			_ = json.NewEncoder(w).Encode(FieldContextOptionsResponse{
+				Values: []FieldContextOption{{ID: "20002", Value: "Option B"}},
+				IsLast: true,
+			})
+		}
+	}))
+	defer server.Close()
+
+	client := newTestClient(t, server)
+	options, err := client.GetAllFieldContextOptions(context.Background(), "customfield_10100", "10001")
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, len(options), 2)
+	testutil.Equal(t, options[0].Value, "Option A")
+	testutil.Equal(t, options[1].Value, "Option B")
+	testutil.Equal(t, callCount, 2)
+}

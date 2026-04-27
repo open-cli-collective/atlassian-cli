@@ -206,8 +206,8 @@ func transitionsServer(t *testing.T) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		resp := api.TransitionsResponse{
 			Transitions: []api.Transition{
-				{ID: "11", Name: "Backlog", To: api.Status{Name: "Backlog", StatusCategory: api.StatusCategory{Name: "To Do"}}},
-				{ID: "31", Name: "In Development", To: api.Status{Name: "In Development", StatusCategory: api.StatusCategory{Name: "In Progress"}}},
+				{ID: "11", Name: "Backlog", HasScreen: true, IsConditional: false, To: api.Status{Name: "Backlog", StatusCategory: api.StatusCategory{Name: "To Do"}}},
+				{ID: "31", Name: "In Development", HasScreen: false, IsConditional: true, To: api.Status{Name: "In Development", StatusCategory: api.StatusCategory{Name: "In Progress"}}},
 			},
 		}
 		w.WriteHeader(http.StatusOK)
@@ -253,8 +253,12 @@ func TestRunList_Extended(t *testing.T) {
 
 	out := stdout.String()
 	testutil.Contains(t, out, "STATUS_CATEGORY")
+	testutil.Contains(t, out, "HAS_SCREEN")
+	testutil.Contains(t, out, "CONDITIONAL")
 	testutil.Contains(t, out, "To Do")
 	testutil.Contains(t, out, "In Progress")
+	testutil.Contains(t, out, "yes")
+	testutil.Contains(t, out, "no")
 }
 
 func TestRunList_IDOnly(t *testing.T) {

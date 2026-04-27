@@ -43,8 +43,9 @@ func TestTransitionPresenter_PresentList_Extended(t *testing.T) {
 	t.Parallel()
 	transitions := []api.Transition{
 		{
-			ID:   "71",
-			Name: "Deployed",
+			ID:        "71",
+			Name:      "Deployed",
+			HasScreen: true,
 			To: api.Status{
 				Name:           "Deployed",
 				StatusCategory: api.StatusCategory{Name: "Done"},
@@ -54,8 +55,9 @@ func TestTransitionPresenter_PresentList_Extended(t *testing.T) {
 			},
 		},
 		{
-			ID:   "11",
-			Name: "Backlog",
+			ID:            "11",
+			Name:          "Backlog",
+			IsConditional: true,
 			To: api.Status{
 				Name:           "Backlog",
 				StatusCategory: api.StatusCategory{Name: "To Do"},
@@ -66,7 +68,7 @@ func TestTransitionPresenter_PresentList_Extended(t *testing.T) {
 	model := TransitionPresenter{}.PresentList(transitions, true)
 	table := model.Sections[0].(*present.TableSection)
 
-	expectedHeaders := []string{"ID", "NAME", "TO_STATUS", "STATUS_CATEGORY", "REQUIRED_FIELDS"}
+	expectedHeaders := []string{"ID", "NAME", "TO_STATUS", "STATUS_CATEGORY", "HAS_SCREEN", "CONDITIONAL", "REQUIRED_FIELDS"}
 	if len(table.Headers) != len(expectedHeaders) {
 		t.Fatalf("expected %d headers, got %d", len(expectedHeaders), len(table.Headers))
 	}
@@ -79,11 +81,23 @@ func TestTransitionPresenter_PresentList_Extended(t *testing.T) {
 	if table.Rows[0].Cells[3] != "Done" {
 		t.Errorf("row 0 STATUS_CATEGORY: expected 'Done', got %q", table.Rows[0].Cells[3])
 	}
-	if table.Rows[0].Cells[4] != "Resolution" {
-		t.Errorf("row 0 REQUIRED_FIELDS: expected 'Resolution', got %q", table.Rows[0].Cells[4])
+	if table.Rows[0].Cells[4] != "yes" {
+		t.Errorf("row 0 HAS_SCREEN: expected 'yes', got %q", table.Rows[0].Cells[4])
 	}
-	if table.Rows[1].Cells[4] != "-" {
-		t.Errorf("row 1 REQUIRED_FIELDS: expected '-', got %q", table.Rows[1].Cells[4])
+	if table.Rows[0].Cells[5] != "no" {
+		t.Errorf("row 0 CONDITIONAL: expected 'no', got %q", table.Rows[0].Cells[5])
+	}
+	if table.Rows[0].Cells[6] != "Resolution" {
+		t.Errorf("row 0 REQUIRED_FIELDS: expected 'Resolution', got %q", table.Rows[0].Cells[6])
+	}
+	if table.Rows[1].Cells[4] != "no" {
+		t.Errorf("row 1 HAS_SCREEN: expected 'no', got %q", table.Rows[1].Cells[4])
+	}
+	if table.Rows[1].Cells[5] != "yes" {
+		t.Errorf("row 1 CONDITIONAL: expected 'yes', got %q", table.Rows[1].Cells[5])
+	}
+	if table.Rows[1].Cells[6] != "-" {
+		t.Errorf("row 1 REQUIRED_FIELDS: expected '-', got %q", table.Rows[1].Cells[6])
 	}
 }
 

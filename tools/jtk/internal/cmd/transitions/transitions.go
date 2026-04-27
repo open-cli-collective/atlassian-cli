@@ -41,7 +41,7 @@ func newListCmd(opts *root.Options) *cobra.Command {
 		Example: `  # List transitions
   jtk transitions list PROJ-123
 
-  # Extended output with status category and required fields
+  # Extended output with status category, screen/conditional info, and required fields
   jtk transitions list PROJ-123 --extended
 
   # Emit only transition IDs

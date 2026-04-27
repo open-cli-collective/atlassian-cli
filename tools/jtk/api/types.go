@@ -328,10 +328,12 @@ type BoardColumn struct {
 
 // Transition represents a workflow transition
 type Transition struct {
-	ID     string                     `json:"id"`
-	Name   string                     `json:"name"`
-	To     Status                     `json:"to"`
-	Fields map[string]TransitionField `json:"fields,omitempty"`
+	ID            string                     `json:"id"`
+	Name          string                     `json:"name"`
+	HasScreen     bool                       `json:"hasScreen"`
+	IsConditional bool                       `json:"isConditional"`
+	To            Status                     `json:"to"`
+	Fields        map[string]TransitionField `json:"fields,omitempty"`
 }
 
 // TransitionField represents field metadata for a transition

@@ -82,8 +82,8 @@ func TestClient_GetTransitions(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{
 			"transitions": [
-				{"id": "11", "name": "To Do", "to": {"id": "1", "name": "To Do"}},
-				{"id": "21", "name": "In Progress", "to": {"id": "2", "name": "In Progress"}}
+				{"id": "11", "name": "To Do", "hasScreen": true, "isConditional": false, "to": {"id": "1", "name": "To Do"}},
+				{"id": "21", "name": "In Progress", "hasScreen": false, "isConditional": true, "to": {"id": "2", "name": "In Progress"}}
 			]
 		}`))
 	}))
@@ -101,6 +101,10 @@ func TestClient_GetTransitions(t *testing.T) {
 	testutil.Len(t, transitions, 2)
 	testutil.Equal(t, transitions[0].ID, "11")
 	testutil.Equal(t, transitions[0].Name, "To Do")
+	testutil.True(t, transitions[0].HasScreen)
+	testutil.False(t, transitions[0].IsConditional)
+	testutil.False(t, transitions[1].HasScreen)
+	testutil.True(t, transitions[1].IsConditional)
 }
 
 func TestClient_GetTransitionsWithFields(t *testing.T) {

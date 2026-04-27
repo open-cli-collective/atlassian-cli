@@ -15,23 +15,25 @@ import (
 type TransitionPresenter struct{}
 
 // TransitionListSpec declares the columns emitted by PresentList. Default
-// order per #230 is ID|NAME|TO_STATUS; extended adds STATUS_CATEGORY and
-// REQUIRED_FIELDS.
+// order per #230 is ID|NAME|TO_STATUS; extended adds STATUS_CATEGORY,
+// HAS_SCREEN, CONDITIONAL, and REQUIRED_FIELDS.
 var TransitionListSpec = projection.Registry{
 	{Header: "ID", Identity: true},
 	{Header: "NAME"},
 	{Header: "TO_STATUS"},
 	{Header: "STATUS_CATEGORY", Extended: true},
+	{Header: "HAS_SCREEN", Extended: true},
+	{Header: "CONDITIONAL", Extended: true},
 	{Header: "REQUIRED_FIELDS", Extended: true},
 }
 
 // PresentList creates a table view for a list of transitions. Default
-// order is ID|NAME|TO_STATUS; --extended adds STATUS_CATEGORY and
-// REQUIRED_FIELDS.
+// order is ID|NAME|TO_STATUS; --extended adds STATUS_CATEGORY, HAS_SCREEN,
+// CONDITIONAL, and REQUIRED_FIELDS.
 func (TransitionPresenter) PresentList(transitions []api.Transition, extended bool) *present.OutputModel {
 	var headers []string
 	if extended {
-		headers = []string{"ID", "NAME", "TO_STATUS", "STATUS_CATEGORY", "REQUIRED_FIELDS"}
+		headers = []string{"ID", "NAME", "TO_STATUS", "STATUS_CATEGORY", "HAS_SCREEN", "CONDITIONAL", "REQUIRED_FIELDS"}
 	} else {
 		headers = []string{"ID", "NAME", "TO_STATUS"}
 	}
@@ -46,6 +48,8 @@ func (TransitionPresenter) PresentList(transitions []api.Transition, extended bo
 					t.Name,
 					toStatus,
 					OrDash(t.To.StatusCategory.Name),
+					BoolString(t.HasScreen),
+					BoolString(t.IsConditional),
 					GetRequiredFieldsForTransition(t),
 				},
 			}

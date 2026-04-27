@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -234,10 +235,26 @@ func TestRunList_InvalidNextPageToken(t *testing.T) {
 
 func TestRunList_Pagination(t *testing.T) {
 	t.Parallel()
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+
+	// Server returns 3 sprints across 2 pages.
+	allSprints := []api.Sprint{
+		{ID: 10, Name: "S1", State: "active"},
+		{ID: 11, Name: "S2", State: "future"},
+		{ID: 12, Name: "S3", State: "closed"},
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		startAt := 0
+		if v := r.URL.Query().Get("startAt"); v != "" {
+			startAt, _ = strconv.Atoi(v)
+		}
+		end := startAt + 2
+		if end > len(allSprints) {
+			end = len(allSprints)
+		}
+		page := allSprints[startAt:end]
 		_ = json.NewEncoder(w).Encode(api.SprintsResponse{
-			Values: []api.Sprint{{ID: 10, Name: "S1", State: "active"}},
-			IsLast: false,
+			Values: page,
+			IsLast: end >= len(allSprints),
 		})
 	}))
 	defer server.Close()
@@ -245,13 +262,14 @@ func TestRunList_Pagination(t *testing.T) {
 	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
 	testutil.RequireNoError(t, err)
 
+	// Request max=2: client-side pagination over 3 sorted sprints.
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}, IDOnly: true}
 	opts.SetAPIClient(client)
 
-	err = runList(context.Background(), opts, client, 123, "", 1, "", "")
+	err = runList(context.Background(), opts, client, 123, "", 2, "", "")
 	testutil.RequireNoError(t, err)
-	testutil.Contains(t, stdout.String(), "More results available (next: 1)")
+	testutil.Contains(t, stdout.String(), "More results available (next: 2)")
 }
 
 // --- current subcommand ---
@@ -841,6 +859,259 @@ func TestAddCmd_NumericSprintPassThrough(t *testing.T) {
 	err := rootCmd.Execute()
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, capturedPath, "/rest/agile/1.0/sprint/999/issue")
+}
+
+func TestRunList_SortOrder(t *testing.T) {
+	t.Parallel()
+
+	d := func(year, month, day int) *time.Time {
+		tt := time.Date(year, time.Month(month), day, 0, 0, 0, 0, time.UTC)
+		return &tt
+	}
+
+	sprints := []api.Sprint{
+		{ID: 1, Name: "Old Closed", State: "closed", StartDate: d(2025, 1, 1), EndDate: d(2025, 1, 14), CompleteDate: d(2025, 1, 14)},
+		{ID: 2, Name: "Future", State: "future"},
+		{ID: 3, Name: "Active", State: "active", StartDate: d(2025, 4, 1), EndDate: d(2025, 4, 14)},
+		{ID: 4, Name: "Recent Closed", State: "closed", StartDate: d(2025, 3, 1), EndDate: d(2025, 3, 14), CompleteDate: d(2025, 3, 14)},
+	}
+
+	server := newTestSprintsServer(t, sprints)
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runList(context.Background(), opts, client, 123, "", 50, "", "")
+	testutil.RequireNoError(t, err)
+
+	output := stdout.String()
+	lines := strings.Split(strings.TrimSpace(output), "\n")
+	// lines[0] is the header; data rows start at lines[1]
+	if len(lines) < 5 {
+		t.Fatalf("expected header + 4 data rows, got %d lines:\n%s", len(lines), output)
+	}
+	testutil.True(t, strings.Contains(lines[1], "Active"))
+	testutil.True(t, strings.Contains(lines[2], "Future"))
+	testutil.True(t, strings.Contains(lines[3], "Recent Closed"))
+	testutil.True(t, strings.Contains(lines[4], "Old Closed"))
+}
+
+func TestRunList_SortOrder_IDOnly(t *testing.T) {
+	t.Parallel()
+
+	d := func(year, month, day int) *time.Time {
+		tt := time.Date(year, time.Month(month), day, 0, 0, 0, 0, time.UTC)
+		return &tt
+	}
+
+	sprints := []api.Sprint{
+		{ID: 1, Name: "Closed", State: "closed", CompleteDate: d(2025, 1, 14)},
+		{ID: 2, Name: "Future", State: "future"},
+		{ID: 3, Name: "Active", State: "active", StartDate: d(2025, 4, 1)},
+	}
+
+	server := newTestSprintsServer(t, sprints)
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}, IDOnly: true}
+	opts.SetAPIClient(client)
+
+	err = runList(context.Background(), opts, client, 123, "", 50, "", "")
+	testutil.RequireNoError(t, err)
+
+	testutil.Equal(t, stdout.String(), "3\n2\n1\n")
+}
+
+func TestRunList_SortOrder_JSON(t *testing.T) {
+	t.Parallel()
+
+	d := func(year, month, day int) *time.Time {
+		tt := time.Date(year, time.Month(month), day, 0, 0, 0, 0, time.UTC)
+		return &tt
+	}
+
+	sprints := []api.Sprint{
+		{ID: 1, Name: "Closed", State: "closed", CompleteDate: d(2025, 1, 14)},
+		{ID: 2, Name: "Future", State: "future"},
+		{ID: 3, Name: "Active", State: "active", StartDate: d(2025, 4, 1)},
+	}
+
+	server := newTestSprintsServer(t, sprints)
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "json", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runList(context.Background(), opts, client, 123, "", 50, "", "")
+	testutil.RequireNoError(t, err)
+
+	// Verify sort order: Active (ID=3) before Future (ID=2) before Closed (ID=1)
+	output := stdout.String()
+	posActive := strings.Index(output, "Active")
+	posFuture := strings.Index(output, "Future")
+	posClosed := strings.Index(output, "Closed")
+	if posActive < 0 || posFuture < 0 || posClosed < 0 {
+		t.Fatalf("expected all three sprints in JSON output:\n%s", output)
+	}
+	if posActive >= posFuture || posFuture >= posClosed {
+		t.Errorf("expected Active before Future before Closed in JSON, got positions %d, %d, %d", posActive, posFuture, posClosed)
+	}
+}
+
+func TestRunList_Extended_GoalColumn(t *testing.T) {
+	t.Parallel()
+
+	d := func(year, month, day int) *time.Time {
+		tt := time.Date(year, time.Month(month), day, 0, 0, 0, 0, time.UTC)
+		return &tt
+	}
+
+	sprints := []api.Sprint{
+		{ID: 1, Name: "Closed Sprint", State: "closed", StartDate: d(2025, 1, 1), EndDate: d(2025, 1, 14), CompleteDate: d(2025, 1, 14), Goal: "Complete Q1 milestone"},
+		{ID: 2, Name: "Active Sprint", State: "active", StartDate: d(2025, 4, 1), EndDate: d(2025, 4, 14), Goal: "Ship CapOne a11y fixes", OriginBoardID: 23},
+	}
+
+	server := newTestSprintsServer(t, sprints)
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}, Extended: true}
+	opts.SetAPIClient(client)
+
+	err = runList(context.Background(), opts, client, 123, "", 50, "", "")
+	testutil.RequireNoError(t, err)
+
+	output := stdout.String()
+	lines := strings.Split(strings.TrimSpace(output), "\n")
+	// lines[0] is the header; data rows start at lines[1]
+	if len(lines) < 3 {
+		t.Fatalf("expected header + 2 data rows, got %d lines:\n%s", len(lines), output)
+	}
+	testutil.True(t, strings.Contains(lines[1], "Ship CapOne a11y fixes"))
+	testutil.True(t, strings.Contains(lines[2], "Complete Q1 milestone"))
+}
+
+func TestRunList_ClientSidePagination(t *testing.T) {
+	t.Parallel()
+
+	d := func(year, month, day int) *time.Time {
+		tt := time.Date(year, time.Month(month), day, 0, 0, 0, 0, time.UTC)
+		return &tt
+	}
+
+	sprints := []api.Sprint{
+		{ID: 1, Name: "Closed A", State: "closed", CompleteDate: d(2025, 1, 14)},
+		{ID: 2, Name: "Closed B", State: "closed", CompleteDate: d(2025, 2, 14)},
+		{ID: 3, Name: "Active", State: "active", StartDate: d(2025, 4, 1)},
+	}
+
+	server := newTestSprintsServer(t, sprints)
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	// Page 1: max=2, sorted order is Active(3), Closed B(2), Closed A(1)
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}, IDOnly: true}
+	opts.SetAPIClient(client)
+
+	err = runList(context.Background(), opts, client, 123, "", 2, "", "")
+	testutil.RequireNoError(t, err)
+
+	output := stdout.String()
+	testutil.Contains(t, output, "3\n2\n")
+	testutil.Contains(t, output, "More results available (next: 2)")
+
+	// Page 2: startAt=2, max=2
+	stdout.Reset()
+	err = runList(context.Background(), opts, client, 123, "", 2, "2", "")
+	testutil.RequireNoError(t, err)
+
+	output = stdout.String()
+	testutil.Equal(t, output, "1\n")
+}
+
+func TestRunCurrent_BoardEnrichment(t *testing.T) {
+	t.Parallel()
+
+	seedBoardsAndSprints(t, nil, nil) // empty cache — board resolves synthetic
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.Contains(r.URL.Path, "/board/23/sprint"):
+			_ = json.NewEncoder(w).Encode(api.SprintsResponse{
+				IsLast: true,
+				Values: []api.Sprint{{ID: 125, Name: "MON Sprint 70", State: "active"}},
+			})
+		case strings.Contains(r.URL.Path, "/board/23"):
+			_ = json.NewEncoder(w).Encode(api.Board{ID: 23, Name: "MON board", Type: "scrum"})
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	client := newAgileClient(t, server)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	board := &api.Board{ID: 23} // synthetic — no name
+	err := runCurrent(context.Background(), opts, client, board, "")
+	testutil.RequireNoError(t, err)
+
+	testutil.Contains(t, stdout.String(), "Board: 23 (MON board)")
+}
+
+func TestRunCurrent_BoardEnrichmentFailsGracefully(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.Contains(r.URL.Path, "/board/23/sprint"):
+			_ = json.NewEncoder(w).Encode(api.SprintsResponse{
+				IsLast: true,
+				Values: []api.Sprint{{ID: 125, Name: "MON Sprint 70", State: "active"}},
+			})
+		case strings.Contains(r.URL.Path, "/board/23"):
+			w.WriteHeader(http.StatusNotFound)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	client := newAgileClient(t, server)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	board := &api.Board{ID: 23} // synthetic — no name
+	err := runCurrent(context.Background(), opts, client, board, "")
+	testutil.RequireNoError(t, err)
+
+	output := stdout.String()
+	testutil.Contains(t, output, "Board: 23")
+	testutil.NotContains(t, output, "Board: 23 (")
 }
 
 func TestRunAdd_AgentOutput(t *testing.T) {

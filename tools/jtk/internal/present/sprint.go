@@ -2,12 +2,81 @@ package present
 
 import (
 	"fmt"
+	"sort"
+	"time"
 
 	"github.com/open-cli-collective/atlassian-go/present"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/present/projection"
 )
+
+// SortSprintsForDisplay sorts sprints for display: active first, then future,
+// then closed by recency. Within closed, sort by CompleteDate → EndDate →
+// StartDate descending. Deterministic tie-breaker: ID descending.
+func SortSprintsForDisplay(sprints []api.Sprint) {
+	sort.SliceStable(sprints, func(i, j int) bool {
+		pi, pj := statePriority(sprints[i].State), statePriority(sprints[j].State)
+		if pi != pj {
+			return pi < pj
+		}
+		if pi == 2 { // closed
+			return closedLess(sprints[i], sprints[j])
+		}
+		return dateDescThenID(sprints[i].StartDate, sprints[j].StartDate, sprints[i].ID, sprints[j].ID)
+	})
+}
+
+func statePriority(state string) int {
+	switch state {
+	case "active":
+		return 0
+	case "future":
+		return 1
+	default:
+		return 2
+	}
+}
+
+func closedLess(a, b api.Sprint) bool {
+	if cmp := compareDatesDesc(a.CompleteDate, b.CompleteDate); cmp != 0 {
+		return cmp < 0
+	}
+	if cmp := compareDatesDesc(a.EndDate, b.EndDate); cmp != 0 {
+		return cmp < 0
+	}
+	return dateDescThenID(a.StartDate, b.StartDate, a.ID, b.ID)
+}
+
+func dateDescThenID(a, b *time.Time, idA, idB int) bool {
+	if cmp := compareDatesDesc(a, b); cmp != 0 {
+		return cmp < 0
+	}
+	return idA > idB
+}
+
+// compareDatesDesc returns -1 if a should sort before b (descending),
+// +1 if after, 0 if equal. Nil sorts after non-nil.
+func compareDatesDesc(a, b *time.Time) int {
+	aNil := a == nil || a.IsZero()
+	bNil := b == nil || b.IsZero()
+	if aNil && bNil {
+		return 0
+	}
+	if aNil {
+		return 1
+	}
+	if bNil {
+		return -1
+	}
+	if a.After(*b) {
+		return -1
+	}
+	if a.Before(*b) {
+		return 1
+	}
+	return 0
+}
 
 // SprintPresenter creates presentation models for sprint data.
 type SprintPresenter struct{}

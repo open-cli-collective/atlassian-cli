@@ -144,42 +144,73 @@ func runList(ctx context.Context, opts *root.Options, client *api.Client, boardI
 		}
 	}
 
-	result, err := client.ListSprints(ctx, boardID, state, startAt, maxResults)
+	allSprints, err := fetchAllSprints(ctx, client, boardID, state)
 	if err != nil {
 		return err
 	}
 
-	hasMore := !result.IsLast
-	if hasMore && len(result.Values) == 0 {
-		return fmt.Errorf("unexpected paginated response: IsLast=false with empty values (startAt=%d)", startAt)
+	jtkpresent.SortSprintsForDisplay(allSprints)
+
+	// Client-side pagination window over the sorted slice.
+	total := len(allSprints)
+	if startAt > total {
+		startAt = total
 	}
+	end := startAt + maxResults
+	if end > total {
+		end = total
+	}
+	page := allSprints[startAt:end]
+	hasMore := end < total
 	nextToken := ""
 	if hasMore {
-		nextToken = strconv.Itoa(startAt + len(result.Values))
+		nextToken = strconv.Itoa(end)
 	}
 
 	if idOnly {
-		ids := make([]string, len(result.Values))
-		for i, s := range result.Values {
+		ids := make([]string, len(page))
+		for i, s := range page {
 			ids[i] = strconv.Itoa(s.ID)
 		}
 		return jtkpresent.EmitIDsWithPaginationToken(opts, ids, hasMore, nextToken)
 	}
 
-	if len(result.Values) == 0 {
+	if len(page) == 0 {
 		return jtkpresent.Emit(opts, jtkpresent.SprintPresenter{}.PresentEmpty())
 	}
 
 	if v.Format == view.FormatJSON {
-		arts := jtkartifact.ProjectSprints(result.Values, opts.ArtifactMode())
+		arts := jtkartifact.ProjectSprints(page, opts.ArtifactMode())
 		return v.RenderArtifactList(artifact.NewListResult(arts, hasMore))
 	}
 
-	model := jtkpresent.SprintPresenter{}.PresentListWithPagination(result.Values, opts.IsExtended(), hasMore, nextToken)
+	model := jtkpresent.SprintPresenter{}.PresentListWithPagination(page, opts.IsExtended(), hasMore, nextToken)
 	if projected {
 		projection.ApplyToTableInModel(model, selected)
 	}
 	return jtkpresent.Emit(opts, model)
+}
+
+const fetchPageSize = 50
+
+func fetchAllSprints(ctx context.Context, client *api.Client, boardID int, state string) ([]api.Sprint, error) {
+	var all []api.Sprint
+	startAt := 0
+	for {
+		result, err := client.ListSprints(ctx, boardID, state, startAt, fetchPageSize)
+		if err != nil {
+			return nil, err
+		}
+		all = append(all, result.Values...)
+		if result.IsLast || len(result.Values) == 0 {
+			break
+		}
+		startAt += len(result.Values)
+		if len(all) > 10000 {
+			break
+		}
+	}
+	return all, nil
 }
 
 func newCurrentCmd(opts *root.Options) *cobra.Command {
@@ -250,6 +281,13 @@ func runCurrent(ctx context.Context, opts *root.Options, client *api.Client, boa
 
 	if v.Format == view.FormatJSON {
 		return v.RenderArtifact(jtkartifact.ProjectSprint(sprint, opts.ArtifactMode()))
+	}
+
+	// Enrich synthetic board (no name) for table output paths.
+	if board.Name == "" {
+		if enriched, err := client.GetBoard(ctx, board.ID); err == nil && enriched.ID == board.ID && enriched.Name != "" {
+			board = enriched
+		}
 	}
 
 	presenter := jtkpresent.SprintPresenter{}

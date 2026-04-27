@@ -168,7 +168,7 @@ func TestRunList_Extended(t *testing.T) {
 			Name:        "Sprint Board",
 			Owner:       &api.User{DisplayName: "Alice"},
 			IsFavourite: true,
-			Popularity:  3,
+			Popularity:  7,
 			SharePerm:   []api.SharePerm{{Type: "group", Group: &api.SharePermGroup{Name: "developers"}}},
 		},
 	}
@@ -192,7 +192,7 @@ func TestRunList_Extended(t *testing.T) {
 	testutil.Contains(t, out, "RANK")
 	testutil.Contains(t, out, "PERMISSIONS")
 	testutil.Contains(t, out, "group:developers")
-	testutil.Contains(t, out, "3")
+	testutil.Contains(t, out, "7")
 }
 
 func TestRunList_GadgetFetchFails(t *testing.T) {
@@ -226,8 +226,13 @@ func TestRunList_GadgetFetchFails(t *testing.T) {
 
 	out := stdout.String()
 	testutil.Contains(t, out, "Board")
-	// Gadget fetch failed → GADGETS column should show "-" (unknown), not "0" (empty)
-	testutil.Contains(t, out, "-")
+	// Gadget fetch failed → GADGETS column (index 1) should show "-" (unknown), not "0".
+	// Agent-style table uses " | " as column separator.
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	testutil.True(t, len(lines) >= 2, "expected header + data row")
+	cols := strings.Split(lines[1], " | ")
+	testutil.True(t, len(cols) >= 2, "expected at least 2 columns in data row")
+	testutil.Equal(t, cols[1], "-")
 }
 
 func TestRunList_IDTakesPrecedenceOverExtended(t *testing.T) {

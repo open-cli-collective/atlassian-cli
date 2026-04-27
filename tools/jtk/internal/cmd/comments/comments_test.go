@@ -363,10 +363,11 @@ func TestRunList_Extended_VisibilityColumn(t *testing.T) {
 	output := stdout.String()
 	testutil.Contains(t, output, "VISIBILITY")
 	testutil.Contains(t, output, "Administrators")
-	// Nil visibility should render as "-"
+	// Table mode: verify the VISIBILITY column contains "-" for the nil-visibility row.
+	// We check for "| - |" which only matches a dash cell, not date hyphens.
 	lines := strings.Split(strings.TrimSpace(output), "\n")
-	if len(lines) >= 2 && !strings.Contains(lines[1], "-") {
-		t.Errorf("expected nil visibility to render as '-' in first data row, got %q", lines[1])
+	if len(lines) >= 2 && !strings.Contains(lines[1], "| - |") {
+		t.Errorf("expected nil visibility to render as '- ' cell in first data row, got %q", lines[1])
 	}
 }
 
@@ -396,7 +397,7 @@ func TestRunList_FullTextExtended_VisibilityField(t *testing.T) {
 	output := stdout.String()
 	testutil.Contains(t, output, "Visibility:")
 	testutil.Contains(t, output, "Administrators")
-	testutil.Contains(t, output, "-")
+	testutil.Contains(t, output, "Visibility: -")
 }
 
 // commentsServerWithTotal is like newTestCommentsServer but lets the caller

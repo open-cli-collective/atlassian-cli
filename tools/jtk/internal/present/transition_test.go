@@ -63,6 +63,16 @@ func TestTransitionPresenter_PresentList_Extended(t *testing.T) {
 				StatusCategory: api.StatusCategory{Name: "To Do"},
 			},
 		},
+		{
+			ID:            "41",
+			Name:          "In Review",
+			HasScreen:     true,
+			IsConditional: true,
+			To: api.Status{
+				Name:           "In Review",
+				StatusCategory: api.StatusCategory{Name: "In Progress"},
+			},
+		},
 	}
 
 	model := TransitionPresenter{}.PresentList(transitions, true)
@@ -75,6 +85,12 @@ func TestTransitionPresenter_PresentList_Extended(t *testing.T) {
 	for i, h := range expectedHeaders {
 		if table.Headers[i] != h {
 			t.Errorf("header[%d]: expected %q, got %q", i, h, table.Headers[i])
+		}
+	}
+
+	for i, row := range table.Rows {
+		if len(row.Cells) != len(expectedHeaders) {
+			t.Fatalf("row %d: expected %d cells, got %d", i, len(expectedHeaders), len(row.Cells))
 		}
 	}
 
@@ -98,6 +114,12 @@ func TestTransitionPresenter_PresentList_Extended(t *testing.T) {
 	}
 	if table.Rows[1].Cells[6] != "-" {
 		t.Errorf("row 1 REQUIRED_FIELDS: expected '-', got %q", table.Rows[1].Cells[6])
+	}
+	if table.Rows[2].Cells[4] != "yes" {
+		t.Errorf("row 2 HAS_SCREEN: expected 'yes', got %q", table.Rows[2].Cells[4])
+	}
+	if table.Rows[2].Cells[5] != "yes" {
+		t.Errorf("row 2 CONDITIONAL: expected 'yes', got %q", table.Rows[2].Cells[5])
 	}
 }
 

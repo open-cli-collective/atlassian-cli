@@ -119,6 +119,20 @@ func TestDashboardPresenter_PresentListExtended_ColumnOrder(t *testing.T) {
 	}
 }
 
+func TestDashboardPresenter_PresentListExtended_NilCounts(t *testing.T) {
+	t.Parallel()
+	dashboards := []api.Dashboard{
+		{ID: "10001", Name: "Board", Popularity: 3},
+	}
+
+	model := DashboardPresenter{}.PresentListExtended(dashboards, nil)
+	table := model.Sections[0].(*present.TableSection)
+
+	if table.Rows[0].Cells[1] != "-" {
+		t.Errorf("nil counts should render '-', got %q", table.Rows[0].Cells[1])
+	}
+}
+
 func TestDashboardPresenter_PresentGadgets_ColumnOrder(t *testing.T) {
 	t.Parallel()
 	gadgets := []api.DashboardGadget{
@@ -160,6 +174,7 @@ func TestFormatPermissions(t *testing.T) {
 		{name: "group without name", perms: []api.SharePerm{{Type: "group"}}, want: "group"},
 		{name: "project with key", perms: []api.SharePerm{{Type: "project", Project: &api.SharePermProject{Key: "MON"}}}, want: "project:MON"},
 		{name: "project without key", perms: []api.SharePerm{{Type: "project"}}, want: "project"},
+		{name: "project with empty key", perms: []api.SharePerm{{Type: "project", Project: &api.SharePermProject{Key: ""}}}, want: "project"},
 		{name: "loggedin", perms: []api.SharePerm{{Type: "loggedin"}}, want: "logged-in"},
 		{name: "unknown type", perms: []api.SharePerm{{Type: "projectRole"}}, want: "projectRole"},
 		{

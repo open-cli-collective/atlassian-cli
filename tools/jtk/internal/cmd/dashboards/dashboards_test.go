@@ -226,11 +226,49 @@ func TestRunList_GadgetFetchFails(t *testing.T) {
 
 	out := stdout.String()
 	testutil.Contains(t, out, "Board")
-	// Gadget fetch failed → should show "-" not "0"
-	lines := strings.Split(strings.TrimSpace(out), "\n")
-	if len(lines) >= 2 {
-		testutil.NotContains(t, lines[1], " 0 ")
+	// Gadget fetch failed → GADGETS column should show "-" (unknown), not "0" (empty)
+	testutil.Contains(t, out, "-")
+}
+
+func TestRunList_IDTakesPrecedenceOverExtended(t *testing.T) {
+	dashboards := []api.Dashboard{
+		{ID: "10001", Name: "Board", Popularity: 5},
 	}
+	server := newListTestServer(t, dashboards, nil)
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}, IDOnly: true, Extended: true}
+	opts.SetAPIClient(client)
+
+	err = runList(context.Background(), opts, "", 50)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, stdout.String(), "10001\n")
+}
+
+func TestRunList_ExtendedJSON(t *testing.T) {
+	dashboards := []api.Dashboard{
+		{ID: "10001", Name: "Board", Popularity: 5},
+	}
+	server := newListTestServer(t, dashboards, nil)
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "json", Stdout: &stdout, Stderr: &bytes.Buffer{}, Extended: true}
+	opts.SetAPIClient(client)
+
+	err = runList(context.Background(), opts, "", 50)
+	testutil.RequireNoError(t, err)
+
+	// JSON mode returns raw data regardless of --extended
+	testutil.Contains(t, stdout.String(), `"id"`)
+	testutil.NotContains(t, stdout.String(), "RANK")
 }
 
 func TestRunList_Search(t *testing.T) {

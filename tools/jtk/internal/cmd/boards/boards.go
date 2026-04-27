@@ -233,6 +233,11 @@ func runGet(ctx context.Context, opts *root.Options, client *api.Client, resolve
 		if configErr != nil {
 			_ = jtkpresent.Emit(opts, jtkpresent.BoardPresenter{}.PresentConfigFetchWarning(configErr))
 		}
+		if config != nil && config.Filter.ID != "" && config.Filter.Name == "" {
+			if f, err := client.GetFilter(ctx, config.Filter.ID); err == nil && f.Name != "" {
+				config.Filter.Name = f.Name
+			}
+		}
 	}
 
 	if v.Format == view.FormatJSON {

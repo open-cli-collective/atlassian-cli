@@ -116,6 +116,34 @@ func TestPresentBoardDetail_Extended(t *testing.T) {
 	}
 }
 
+func TestPresentBoardDetail_Extended_EmptyFilterName(t *testing.T) {
+	t.Parallel()
+	board := &api.Board{
+		ID: 23, Name: "MON board", Type: "scrum",
+		Location: api.BoardLocation{ProjectKey: "MON", ProjectName: "Platform Development"},
+	}
+	config := &api.BoardConfiguration{
+		Filter: api.BoardFilter{ID: "10084", Name: ""},
+		ColumnConfig: api.BoardColumnConfig{
+			Columns: []api.BoardColumn{
+				{Name: "Backlog"},
+				{Name: "Ready for Development"},
+				{Name: "In Development"},
+			},
+		},
+	}
+	model := BoardPresenter{}.PresentDetail(board, config, true)
+
+	filterLine := model.Sections[2].(*present.MessageSection)
+	if filterLine.Message != "Filter: id: 10084" {
+		t.Errorf("empty filter name: expected 'Filter: id: 10084', got %q", filterLine.Message)
+	}
+	colLine := model.Sections[3].(*present.MessageSection)
+	if colLine.Message != "Column config: Backlog, Ready for Development, In Development" {
+		t.Errorf("columns: got %q", colLine.Message)
+	}
+}
+
 func TestPresentBoardDetail_ExtendedStableRows_NilConfig(t *testing.T) {
 	t.Parallel()
 	board := &api.Board{

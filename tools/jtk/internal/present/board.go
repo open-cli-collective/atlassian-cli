@@ -99,7 +99,7 @@ func (BoardPresenter) PresentDetail(board *api.Board, config *api.BoardConfigura
 		filterVal := "-"
 		columnVal := "-"
 		if config != nil {
-			filterVal = fmt.Sprintf("%s (id: %s)", config.Filter.Name, config.Filter.ID)
+			filterVal = formatFilterRef(config.Filter)
 			colNames := make([]string, len(config.ColumnConfig.Columns))
 			for i, c := range config.ColumnConfig.Columns {
 				colNames[i] = c.Name
@@ -118,7 +118,7 @@ func (BoardPresenter) PresentDetailProjection(board *api.Board, config *api.Boar
 	filterName := "-"
 	columnConfig := "-"
 	if config != nil {
-		filterName = fmt.Sprintf("%s (id: %s)", config.Filter.Name, config.Filter.ID)
+		filterName = formatFilterRef(config.Filter)
 		colNames := make([]string, len(config.ColumnConfig.Columns))
 		for i, c := range config.ColumnConfig.Columns {
 			colNames[i] = c.Name
@@ -138,6 +138,16 @@ func (BoardPresenter) PresentDetailProjection(board *api.Board, config *api.Boar
 	return &present.OutputModel{
 		Sections: []present.Section{&present.DetailSection{Fields: fields}},
 	}
+}
+
+func formatFilterRef(f api.BoardFilter) string {
+	if f.ID == "" {
+		return "-"
+	}
+	if f.Name != "" {
+		return fmt.Sprintf("%s (id: %s)", f.Name, f.ID)
+	}
+	return fmt.Sprintf("id: %s", f.ID)
 }
 
 // PresentConfigFetchWarning creates a warning when board configuration

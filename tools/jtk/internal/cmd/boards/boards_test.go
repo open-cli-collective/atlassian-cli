@@ -448,6 +448,50 @@ func TestRunGet_Extended(t *testing.T) {
 	}
 }
 
+func TestRunGet_Extended_EmptyFilterName(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "/configuration") {
+			_ = json.NewEncoder(w).Encode(api.BoardConfiguration{
+				ID:     42,
+				Name:   "Sprint Board",
+				Filter: api.BoardFilter{ID: "10084", Name: ""},
+				ColumnConfig: api.BoardColumnConfig{
+					Columns: []api.BoardColumn{
+						{Name: "Backlog"},
+						{Name: "Ready for Development"},
+						{Name: "In Development"},
+					},
+				},
+			})
+		} else {
+			_ = json.NewEncoder(w).Encode(api.Board{
+				ID: 42, Name: "Sprint Board", Type: "scrum",
+				Location: api.BoardLocation{ProjectKey: "PROJ", ProjectName: "My Project"},
+			})
+		}
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}, Extended: true}
+	opts.SetAPIClient(client)
+
+	resolvedBoard := &api.Board{ID: 42, Name: "Sprint Board"}
+	err = runGet(context.Background(), opts, client, resolvedBoard, "")
+	testutil.RequireNoError(t, err)
+
+	output := stdout.String()
+	testutil.Contains(t, output, "Filter: id: 10084")
+	if strings.Contains(output, "Filter:  (id:") {
+		t.Errorf("filter should not have leading space before (id:): %q", output)
+	}
+	testutil.Contains(t, output, "Column config: Backlog, Ready for Development, In Development")
+}
+
 func TestRunGet_NameFallback(t *testing.T) {
 	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

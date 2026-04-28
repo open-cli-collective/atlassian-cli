@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -315,23 +314,31 @@ func newCapturingServerWithCustomFields(t *testing.T, keys []string, isLast bool
 		if strings.Contains(r.URL.Path, "/search") {
 			body, _ := io.ReadAll(r.Body)
 			_ = json.Unmarshal(body, cs.searchCaptured)
-			// Build raw JSON with custom fields embedded so UnmarshalJSON captures them
-			var issueJSONs []string
-			for _, k := range keys {
-				parts := []string{
-					fmt.Sprintf(`"key":%q`, k),
-					fmt.Sprintf(`"fields":{"summary":"summary for %s","status":{"name":"Open"},"issuetype":{"name":"Task"},"assignee":{"displayName":"Alice"}`, k),
-				}
-				for fid, fv := range customFields {
-					fvJSON, _ := json.Marshal(fv)
-					parts[1] += fmt.Sprintf(`,%q:%s`, fid, string(fvJSON))
-				}
-				parts[1] += "}"
-				issueJSONs = append(issueJSONs, "{"+strings.Join(parts, ",")+","+fmt.Sprintf(`"id":%q`, k)+"}")
+
+			issueFields := map[string]any{
+				"summary":   "summary for fixture",
+				"status":    map[string]any{"name": "Open"},
+				"issuetype": map[string]any{"name": "Task"},
+				"assignee":  map[string]any{"displayName": "Alice"},
 			}
-			resp := fmt.Sprintf(`{"issues":[%s],"isLast":%t}`, strings.Join(issueJSONs, ","), isLast)
+			for fid, fv := range customFields {
+				issueFields[fid] = fv
+			}
+
+			var issues []map[string]any
+			for _, k := range keys {
+				issues = append(issues, map[string]any{
+					"id":     k,
+					"key":    k,
+					"fields": issueFields,
+				})
+			}
+			resp := map[string]any{"issues": issues, "isLast": isLast}
+			if !isLast {
+				resp["nextPageToken"] = "next-token"
+			}
 			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte(resp))
+			_ = json.NewEncoder(w).Encode(resp)
 			return
 		}
 		w.WriteHeader(http.StatusNotFound)
@@ -469,6 +476,7 @@ func TestRunList_Fields_DynamicField_ByFieldID_Succeeds(t *testing.T) {
 	testutil.RequireNoError(t, err)
 	testutil.Contains(t, stdout.String(), "Phantom")
 	testutil.Contains(t, stdout.String(), "phantom-val")
+	testutil.Contains(t, strings.Join(cs.searchCaptured.Fields, ","), "customfield_99999")
 }
 
 func TestRunList_Fields_WithJSON_Errors(t *testing.T) {

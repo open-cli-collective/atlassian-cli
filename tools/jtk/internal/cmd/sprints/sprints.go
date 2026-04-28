@@ -325,7 +325,7 @@ func newIssuesCmd(opts *root.Options) *cobra.Command {
   jtk sprints issues 456 --fields KEY,STATUS,customfield_10005`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if fieldsFlag != "" && opts.View().Format == view.FormatJSON {
+			if !opts.EmitIDOnly() && fieldsFlag != "" && opts.View().Format == view.FormatJSON {
 				return jtkpresent.ErrFieldsWithJSON
 			}
 			client, err := opts.APIClient()
@@ -356,10 +356,6 @@ func runIssues(ctx context.Context, opts *root.Options, sprintID int, maxResults
 	}
 
 	idOnly := opts.EmitIDOnly()
-
-	if !idOnly && fieldsFlag != "" && v.Format == view.FormatJSON {
-		return jtkpresent.ErrFieldsWithJSON
-	}
 
 	var selected []projection.ColumnSpec
 	var projected bool

@@ -577,6 +577,57 @@ func TestRunIssues_Empty(t *testing.T) {
 	testutil.Contains(t, stdout.String(), "No issues in sprint")
 }
 
+func TestRunIssues_Fields_DynamicCustomField(t *testing.T) {
+	t.Cleanup(cache.SetRootForTest(t.TempDir()))
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/field") {
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode([]api.Field{
+				{ID: "customfield_99999", Name: "Phantom"},
+			})
+			return
+		}
+		if strings.Contains(r.URL.Path, "/sprint/") && strings.Contains(r.URL.Path, "/issue") {
+			resp := map[string]any{
+				"startAt":    0,
+				"maxResults": 50,
+				"total":      1,
+				"issues": []map[string]any{{
+					"id":  "1",
+					"key": "PROJ-101",
+					"fields": map[string]any{
+						"summary":           "Fix bug",
+						"status":            map[string]any{"name": "Open"},
+						"issuetype":         map[string]any{"name": "Task"},
+						"customfield_99999": "phantom-val",
+					},
+				}},
+			}
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(resp)
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runIssues(context.Background(), opts, 456, 50, "", "KEY,STATUS,customfield_99999")
+	testutil.RequireNoError(t, err)
+
+	output := stdout.String()
+	testutil.Contains(t, output, "PROJ-101")
+	testutil.Contains(t, output, "Phantom")
+	testutil.Contains(t, output, "phantom-val")
+}
+
 // --- add subcommand ---
 
 func TestNewAddCmd(t *testing.T) {

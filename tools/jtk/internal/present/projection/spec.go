@@ -105,8 +105,10 @@ func (r Registry) Match(token string, fields []api.Field) (ColumnSpec, bool) {
 	if len(fields) == 0 {
 		return ColumnSpec{}, false
 	}
-	// Human-name fallback: find the Jira field whose Name matches the token,
-	// then map its ID back to a ColumnSpec via FieldID.
+	// Human-name fallback: scan ALL Jira fields whose Name matches the token
+	// and return the first whose ID maps to a ColumnSpec. This avoids
+	// cache-order dependency when multiple fields share a name but only
+	// one is registered.
 	for i := range fields {
 		if strings.EqualFold(fields[i].Name, token) {
 			fieldID := fields[i].ID
@@ -115,9 +117,6 @@ func (r Registry) Match(token string, fields []api.Field) (ColumnSpec, bool) {
 					return c, true
 				}
 			}
-			// Found in Jira but not in the registry — caller distinguishes
-			// this case via findJiraField in resolve.go.
-			return ColumnSpec{}, false
 		}
 	}
 	return ColumnSpec{}, false

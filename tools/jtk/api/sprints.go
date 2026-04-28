@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 )
 
 // ListSprints returns sprints for a board
@@ -51,8 +52,10 @@ func (c *Client) GetSprint(ctx context.Context, sprintID int) (*Sprint, error) {
 	return &sprint, nil
 }
 
-// GetSprintIssues returns issues in a sprint
-func (c *Client) GetSprintIssues(ctx context.Context, sprintID int, startAt, maxResults int) (*SearchResult, error) {
+// GetSprintIssues returns issues in a sprint. When fields is non-empty,
+// only those Jira field IDs are returned; otherwise the Agile default
+// (navigable + Agile fields) is used.
+func (c *Client) GetSprintIssues(ctx context.Context, sprintID int, startAt, maxResults int, fields []string) (*SearchResult, error) {
 	params := map[string]string{}
 
 	if startAt > 0 {
@@ -60,6 +63,9 @@ func (c *Client) GetSprintIssues(ctx context.Context, sprintID int, startAt, max
 	}
 	if maxResults > 0 {
 		params["maxResults"] = strconv.Itoa(maxResults)
+	}
+	if len(fields) > 0 {
+		params["fields"] = strings.Join(fields, ",")
 	}
 
 	urlStr := buildURL(fmt.Sprintf("%s/sprint/%d/issue", c.AgileURL, sprintID), params)

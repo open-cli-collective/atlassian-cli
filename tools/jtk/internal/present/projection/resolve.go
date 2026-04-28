@@ -167,19 +167,13 @@ func Resolve(
 			return nil, false, ferr
 		}
 
-		// Collect all resolved headers so we can detect collisions when
-		// creating dynamic specs. Pre-seed with fast-path resolved specs
-		// and identity specs.
+		// Collect all known headers to detect collisions when creating
+		// dynamic specs. Seed with the full registry (not just selected
+		// or mode-filtered) so dynamic fields named like built-ins always
+		// get disambiguated.
 		resolvedHeaders := make(map[string]struct{})
-		for _, c := range modeRegistry {
-			if c.Identity {
-				resolvedHeaders[strings.ToLower(c.Header)] = struct{}{}
-			}
-		}
-		for _, spec := range resolved {
-			if spec != nil {
-				resolvedHeaders[strings.ToLower(spec.Header)] = struct{}{}
-			}
+		for _, c := range r {
+			resolvedHeaders[strings.ToLower(c.Header)] = struct{}{}
 		}
 
 		var unknown []string

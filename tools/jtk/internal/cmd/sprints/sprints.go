@@ -379,7 +379,12 @@ func runIssues(ctx context.Context, opts *root.Options, sprintID int, maxResults
 		return err
 	}
 
-	result, err := client.GetSprintIssues(ctx, sprintID, startAt, maxResults)
+	var fetchFields []string
+	if projected {
+		fetchFields = projection.DeriveFetchFields(selected)
+	}
+
+	result, err := client.GetSprintIssues(ctx, sprintID, startAt, maxResults, fetchFields)
 	if err != nil {
 		return err
 	}
@@ -479,7 +484,7 @@ func runAdd(ctx context.Context, opts *root.Options, client *api.Client, sprintI
 		found := make(map[string]bool)
 		startAt := 0
 		for {
-			result, err := client.GetSprintIssues(ctx, sprintID, startAt, 50)
+			result, err := client.GetSprintIssues(ctx, sprintID, startAt, 50, nil)
 			if err != nil {
 				break
 			}

@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -301,6 +302,43 @@ func newCapturingServer(t *testing.T, keys []string, isLast bool, fieldsResp []a
 	return cs
 }
 
+func newCapturingServerWithCustomFields(t *testing.T, keys []string, isLast bool, fieldsResp []api.Field, customFields map[string]any) *capturingServer {
+	t.Helper()
+	cs := &capturingServer{searchCaptured: &api.SearchRequest{}}
+	cs.server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/field") {
+			cs.fieldsCalls++
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(fieldsResp)
+			return
+		}
+		if strings.Contains(r.URL.Path, "/search") {
+			body, _ := io.ReadAll(r.Body)
+			_ = json.Unmarshal(body, cs.searchCaptured)
+			// Build raw JSON with custom fields embedded so UnmarshalJSON captures them
+			var issueJSONs []string
+			for _, k := range keys {
+				parts := []string{
+					fmt.Sprintf(`"key":%q`, k),
+					fmt.Sprintf(`"fields":{"summary":"summary for %s","status":{"name":"Open"},"issuetype":{"name":"Task"},"assignee":{"displayName":"Alice"}`, k),
+				}
+				for fid, fv := range customFields {
+					fvJSON, _ := json.Marshal(fv)
+					parts[1] += fmt.Sprintf(`,%q:%s`, fid, string(fvJSON))
+				}
+				parts[1] += "}"
+				issueJSONs = append(issueJSONs, "{"+strings.Join(parts, ",")+","+fmt.Sprintf(`"id":%q`, k)+"}")
+			}
+			resp := fmt.Sprintf(`{"issues":[%s],"isLast":%t}`, strings.Join(issueJSONs, ","), isLast)
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(resp))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	return cs
+}
+
 func newOptsFor(t *testing.T, cs *capturingServer) (*root.Options, *bytes.Buffer, *bytes.Buffer) {
 	return newListOpts(t, cs.server)
 }
@@ -403,29 +441,34 @@ func TestRunList_Fields_UnknownToken_Errors(t *testing.T) {
 func TestRunList_Fields_DynamicField_ByHumanName_Succeeds(t *testing.T) {
 	// Non-parallel: cache isolation uses process-global SetRootForTest.
 	t.Cleanup(cache.SetRootForTest(t.TempDir()))
-	cs := newCapturingServer(t, []string{"TEST-1"}, true, []api.Field{
-		{ID: "customfield_99999", Name: "Phantom"},
-	})
+	cs := newCapturingServerWithCustomFields(t, []string{"TEST-1"}, true,
+		[]api.Field{{ID: "customfield_99999", Name: "Phantom"}},
+		map[string]any{"customfield_99999": "phantom-val"},
+	)
 	defer cs.server.Close()
 
 	opts, stdout, _ := newOptsFor(t, cs)
 	err := runList(context.Background(), opts, "TEST", "", 25, "", false, "Phantom")
 	testutil.RequireNoError(t, err)
 	testutil.Contains(t, stdout.String(), "Phantom")
+	testutil.Contains(t, stdout.String(), "phantom-val")
+	testutil.Contains(t, strings.Join(cs.searchCaptured.Fields, ","), "customfield_99999")
 }
 
 func TestRunList_Fields_DynamicField_ByFieldID_Succeeds(t *testing.T) {
 	// Non-parallel: cache isolation uses process-global SetRootForTest.
 	t.Cleanup(cache.SetRootForTest(t.TempDir()))
-	cs := newCapturingServer(t, []string{"TEST-1"}, true, []api.Field{
-		{ID: "customfield_99999", Name: "Phantom"},
-	})
+	cs := newCapturingServerWithCustomFields(t, []string{"TEST-1"}, true,
+		[]api.Field{{ID: "customfield_99999", Name: "Phantom"}},
+		map[string]any{"customfield_99999": "phantom-val"},
+	)
 	defer cs.server.Close()
 
 	opts, stdout, _ := newOptsFor(t, cs)
 	err := runList(context.Background(), opts, "TEST", "", 25, "", false, "customfield_99999")
 	testutil.RequireNoError(t, err)
 	testutil.Contains(t, stdout.String(), "Phantom")
+	testutil.Contains(t, stdout.String(), "phantom-val")
 }
 
 func TestRunList_Fields_WithJSON_Errors(t *testing.T) {

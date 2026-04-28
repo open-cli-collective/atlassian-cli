@@ -301,6 +301,71 @@ func TestAutomationPresenter_PresentGetDetail_ShowComponents(t *testing.T) {
 	}
 }
 
+func TestComponentTree_NestedChildren(t *testing.T) {
+	t.Parallel()
+	trigger := &api.RuleComponent{Component: "TRIGGER", Type: "issue.created"}
+	components := []api.RuleComponent{
+		{
+			Component: "CONDITION",
+			Type:      "jira.condition.container.block",
+			Children:  json.RawMessage(`[{"component":"CONDITION_BLOCK","type":"jira.condition.if.block","children":[{"component":"ACTION","type":"jira.issue.create"}]}]`),
+		},
+		{Component: "ACTION", Type: "assign.issue"},
+	}
+
+	rule := &api.AutomationRule{
+		UUID:       "uuid-nested",
+		Name:       "Nested",
+		State:      "ENABLED",
+		Trigger:    trigger,
+		Components: components,
+	}
+
+	model := AutomationPresenter{}.PresentGetDetail(rule, true)
+	tree := model.Sections[3].(*present.MessageSection)
+
+	if !strings.Contains(tree.Message, "TRIGGER  issue.created") {
+		t.Errorf("missing trigger, got %q", tree.Message)
+	}
+	if !strings.Contains(tree.Message, "  CONDITION  jira.condition.container.block") {
+		t.Errorf("missing condition, got %q", tree.Message)
+	}
+	if !strings.Contains(tree.Message, "    CONDITION_BLOCK  jira.condition.if.block") {
+		t.Errorf("missing nested condition block, got %q", tree.Message)
+	}
+	if !strings.Contains(tree.Message, "      ACTION  jira.issue.create") {
+		t.Errorf("missing deeply nested action, got %q", tree.Message)
+	}
+	if !strings.Contains(tree.Message, "  ACTION  assign.issue") {
+		t.Errorf("missing top-level action, got %q", tree.Message)
+	}
+}
+
+func TestComponentTree_TriggerDeduplication(t *testing.T) {
+	t.Parallel()
+	trigger := &api.RuleComponent{Component: "TRIGGER", Type: "issue.created"}
+	components := []api.RuleComponent{
+		{Component: "TRIGGER", Type: "issue.created"},
+		{Component: "ACTION", Type: "assign.issue"},
+	}
+
+	rule := &api.AutomationRule{
+		UUID:       "uuid-dedup",
+		Name:       "Dedup",
+		State:      "ENABLED",
+		Trigger:    trigger,
+		Components: components,
+	}
+
+	model := AutomationPresenter{}.PresentGetDetail(rule, true)
+	tree := model.Sections[3].(*present.MessageSection)
+
+	count := strings.Count(tree.Message, "TRIGGER  issue.created")
+	if count != 1 {
+		t.Errorf("expected 1 TRIGGER line (deduplication), got %d in %q", count, tree.Message)
+	}
+}
+
 func TestAutomationPresenter_PresentGetDetailExtended(t *testing.T) {
 	t.Parallel()
 	rule := &api.AutomationRule{

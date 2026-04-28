@@ -775,3 +775,38 @@ func TestDeleteAutomationRule(t *testing.T) {
 	testutil.Equal(t, receivedMethod, http.MethodDelete)
 	testutil.Contains(t, receivedPath, "/rule/rule-uuid-123")
 }
+
+func TestRuleComponent_DecodedChildren(t *testing.T) {
+	t.Parallel()
+	c := RuleComponent{
+		Component: "CONDITION",
+		Type:      "container",
+		Children:  json.RawMessage(`[{"component":"ACTION","type":"create"}]`),
+	}
+	children := c.DecodedChildren()
+	testutil.Len(t, children, 1)
+	testutil.Equal(t, children[0].Component, "ACTION")
+	testutil.Equal(t, children[0].Type, "create")
+}
+
+func TestRuleComponent_DecodedConditions(t *testing.T) {
+	t.Parallel()
+	c := RuleComponent{
+		Component:  "TRIGGER",
+		Type:       "issue.created",
+		Conditions: json.RawMessage(`[{"component":"CONDITION","type":"jql"}]`),
+	}
+	conditions := c.DecodedConditions()
+	testutil.Len(t, conditions, 1)
+	testutil.Equal(t, conditions[0].Component, "CONDITION")
+}
+
+func TestRuleComponent_DecodedChildren_NilAndMalformed(t *testing.T) {
+	t.Parallel()
+	empty := RuleComponent{Component: "ACTION", Type: "assign"}
+	testutil.Len(t, empty.DecodedChildren(), 0)
+	testutil.Len(t, empty.DecodedConditions(), 0)
+
+	malformed := RuleComponent{Children: json.RawMessage(`{invalid`)}
+	testutil.Len(t, malformed.DecodedChildren(), 0)
+}

@@ -42,7 +42,7 @@ Run these commands and capture the values. They are referenced as `$VARIABLES` t
 
 ```bash
 # $ACCOUNT_ID — your account ID (used for assignment and project lead)
-jtk me -o json | jq -r .accountId
+jtk me --id
 
 # $PROJECT — pick a project you have full access to
 jtk projects list --max 10
@@ -53,23 +53,23 @@ jtk issues types -p $PROJECT
 # Note a valid type name, e.g., SDLC, Bug, Task
 
 # $EXISTING_ISSUE — pick an existing issue key for read-only tests
-jtk issues list -p $PROJECT --max 3
+jtk issues list -p $PROJECT --max 3 --id
 # Note a KEY, e.g., MON-3714
 
 # $BOARD_ID — find a board for your project (Basic Auth only)
-jtk boards list -p $PROJECT
+jtk boards list -p $PROJECT --id
 # Note the ID column, e.g., 23
 
 # $SPRINT_ID — find the active sprint (Basic Auth only)
-jtk sprints list -b $BOARD_ID -s active
+jtk sprints list -b $BOARD_ID -s active --id
 # Note the ID column, e.g., 119
 
 # $AUTO_UUID — pick an enabled automation rule (Basic Auth only)
-jtk auto list --state ENABLED
-# Note a UUID from the first column
+jtk auto list --state ENABLED --id
+# Note a UUID from the output
 
 # $DASHBOARD_ID — pick a dashboard (Basic Auth only)
-jtk dashboards list --max 5
+jtk dashboards list --max 5 --id
 # Note an ID, e.g., 10001
 
 # $LINK_TYPE — check available link types
@@ -77,7 +77,7 @@ jtk links types
 # Note a NAME, e.g., Blocks
 
 # $CUSTOM_FIELD — pick a custom field ID
-jtk fields list --custom
+jtk fields list --custom-fields --id
 # Note an ID, e.g., customfield_10001
 
 # $SELECT_FIELD — pick a select/multiselect custom field with options
@@ -102,7 +102,6 @@ jtk fields list --custom
 | # | Command | Expected Output |
 |---|---------|-----------------|
 | 1 | `jtk config show` | Table with columns: KEY, VALUE, SOURCE. Token is masked as `****...` |
-| 2 | `jtk config show -o json` | Valid JSON object with keys `url`, `email`, `api_token`, etc. |
 
 ### config test
 
@@ -117,16 +116,15 @@ jtk fields list --custom
 | 1 | `jtk init --auth-method bearer` (interactive) | Prompts for URL, API token, Cloud ID. Skips email prompt. Tests connection via gateway. |
 | 2 | `jtk init --auth-method bearer --url URL --token TOKEN --cloud-id ID --no-verify` | Non-interactive setup completes without prompts |
 | 3 | `jtk config show` (after bearer init) | Table shows `auth_method = bearer`, `cloud_id = <value>`, email row is empty |
-| 4 | `jtk config show -o json` (after bearer init) | JSON has `"auth_method": "bearer"`, `"cloud_id": "<value>"` |
-| 5 | `jtk config test` (after bearer init) | `✓ Authentication successful` via gateway URL |
+| 4 | `jtk config test` (after bearer init) | `✓ Authentication successful` via gateway URL |
 
 ### me
 
 | # | Command | Expected Output |
 |---|---------|-----------------|
-| 1 | `jtk me` | Table with Account ID, Display Name, Email, Active |
-| 2 | `jtk me -o json` | Valid JSON with `accountId`, `displayName`, `emailAddress`, `active` |
-| 3 | `jtk me -o plain` | Account ID only (single line) |
+| 1 | `jtk me` | Detail block: Account ID, Display Name, Email, Active |
+| 2 | `jtk me --id` | Account ID only |
+| 3 | `jtk me --extended` | Extended user detail with additional fields |
 
 ---
 
@@ -136,27 +134,31 @@ jtk fields list --custom
 
 | # | Command | Expected Output |
 |---|---------|-----------------|
-| 1 | `jtk issues list -p $PROJECT --max 3` | Table with columns: KEY, SUMMARY, STATUS, ASSIGNEE, TYPE. At most 3 rows. |
-| 2 | `jtk issues list -p $PROJECT --max 2 -o json` | Valid JSON array with 2 elements |
-| 3 | `jtk issues list -p $PROJECT --max 2 -o plain` | Tab-separated values, 2 rows |
-| 4 | `jtk issues list -p NONEXISTENT` | Error message containing "not found" or empty results |
+| 1 | `jtk issues list -p $PROJECT --max 3` | Table: KEY, SUMMARY, STATUS, ASSIGNEE, TYPE. At most 3 rows. |
+| 2 | `jtk issues list -p $PROJECT --max 3 --id` | Issue keys only, one per line |
+| 3 | `jtk issues list -p $PROJECT --max 3 --extended` | Extended table with additional columns |
+| 4 | `jtk issues list -p $PROJECT --max 2 -o plain` | Tab-separated values, 2 rows |
+| 5 | `jtk issues list -p NONEXISTENT` | Error message containing "not found" or empty results |
 
 ### issues get
 
 | # | Command | Expected Output |
 |---|---------|-----------------|
-| 1 | `jtk issues get $EXISTING_ISSUE` | Shows Key, Summary, Status, Type, Priority, Assignee, Description, URL |
-| 2 | `jtk issues get $EXISTING_ISSUE -o json` | Valid JSON with `key`, `fields.summary`, `fields.status.name` |
-| 3 | `jtk issues get ${PROJECT}-99999` | `resource not found: Issue does not exist or you do not have permission to see it.` |
+| 1 | `jtk issues get $EXISTING_ISSUE` | Detail block: Key, Summary, Status, Type, Priority, Assignee, Description (truncated), URL |
+| 2 | `jtk issues get $EXISTING_ISSUE --id` | Issue key only |
+| 3 | `jtk issues get $EXISTING_ISSUE --extended` | Full detail block plus Sprint, Transitions list, raw custom fields block |
+| 4 | `jtk issues get $EXISTING_ISSUE --fulltext` | Full description and long text fields without truncation |
+| 5 | `jtk issues get ${PROJECT}-99999` | `resource not found: Issue does not exist or you do not have permission to see it.` |
 
 ### issues search
 
 | # | Command | Expected Output |
 |---|---------|-----------------|
-| 1 | `jtk issues search --jql "project = $PROJECT" --max 3` | Table with matching issues, at most 3 rows |
-| 2 | `jtk issues search --jql "project = $PROJECT" --max 2 -o json` | Valid JSON array |
-| 3 | `jtk issues search --jql "project = $PROJECT AND summary ~ 'xyznonexistent999'"` | `No issues found` |
-| 4 | `jtk issues search --jql "invalid jql ((("` | `bad request: Error in the JQL Query: ...` |
+| 1 | `jtk issues search --jql "project = $PROJECT" --max 3` | Table of matching issues, at most 3 rows |
+| 2 | `jtk issues search --jql "project = $PROJECT" --max 3 --id` | Issue keys only |
+| 3 | `jtk issues search --jql "project = $PROJECT" --max 3 --extended` | Extended table |
+| 4 | `jtk issues search --jql "project = $PROJECT AND summary ~ 'xyznonexistent999'"` | `No issues found` |
+| 5 | `jtk issues search --jql "invalid jql ((("` | `bad request: Error in the JQL Query: ...` |
 
 ### Auto-pagination (issues search / issues list)
 
@@ -164,44 +166,50 @@ jtk fields list --custom
 
 | # | Command | Expected Output |
 |---|---------|-----------------|
-| 1 | `jtk issues search --jql "project = $PROJECT" --max 200 -o json \| jq '.issues \| length'` | Number >= 101 (proves multi-page fetch) |
-| 2 | `jtk issues search --jql "project = $PROJECT" --max 200 -o json \| jq '.pagination'` | `total` matches count, `pageSize` <= 100 |
-| 3 | `jtk issues search --jql "project = $PROJECT" --max 200` | Table output with > 100 rows |
-| 4 | `jtk issues list -p $PROJECT --max 200 -o json \| jq '.issues \| length'` | Same multi-page behavior for list |
+| 1 | `jtk issues search --jql "project = $PROJECT" --max 200` | Table with > 100 rows (proves multi-page fetch) |
+| 2 | `jtk issues list -p $PROJECT --max 200` | Same multi-page behavior for list |
 
 ### `--fields` flag (issues search / issues list)
 
+> `--fields` is a pass-through to the Jira API that limits which fields are returned. Verify the command succeeds and renders the fields requested.
+
 | # | Command | Expected Output |
 |---|---------|-----------------|
-| 1 | `jtk issues search --jql "project = $PROJECT" --max 1 -o json \| jq '.issues[0].fields \| keys'` | Includes `customfield_*` keys (default `*all`) |
-| 2 | `jtk issues search --jql "project = $PROJECT" --max 1 --fields summary,status -o json \| jq '.issues[0].fields \| keys'` | Only `summary`, `status` |
-| 3 | `jtk issues list -p $PROJECT --max 1 -o json \| jq '.issues[0].fields \| keys'` | Same `*all` default |
-| 4 | `jtk issues list -p $PROJECT --max 1 --fields summary,customfield_10005 -o json \| jq '.issues[0].fields \| keys'` | Only requested fields |
+| 1 | `jtk issues search --jql "project = $PROJECT" --max 1 --fields summary,status` | Command succeeds; output reflects only the requested fields |
+| 2 | `jtk issues list -p $PROJECT --max 1 --fields summary,customfield_10005` | Same |
 
 ### issues types
 
 | # | Command | Expected Output |
 |---|---------|-----------------|
-| 1 | `jtk issues types -p $PROJECT` | Table with columns: ID, NAME, SUBTASK, DESCRIPTION |
-| 2 | `jtk issues types -p $PROJECT -o json` | Valid JSON array of issue type objects |
+| 1 | `jtk issues types -p $PROJECT` | Table: ID, NAME, SUBTASK, DESCRIPTION |
+| 2 | `jtk issues types -p $PROJECT --id` | Type IDs only |
 | 3 | `jtk issues types -p NONEXISTENT` | Error: 404 |
 
 ### issues fields
 
 | # | Command | Expected Output |
 |---|---------|-----------------|
-| 1 | `jtk issues fields` | Table with columns: ID, NAME, TYPE, CUSTOM |
-| 2 | `jtk issues fields --custom` | Same table but only rows where CUSTOM = yes |
-| 3 | `jtk issues fields -o json` | Valid JSON array |
+| 1 | `jtk issues fields` | Table: ID, NAME, TYPE, CUSTOM |
+| 2 | `jtk issues fields --custom-fields` | Only rows where CUSTOM = yes |
+| 3 | `jtk issues fields --id` | Field IDs only |
+| 4 | `jtk issues fields --extended` | Extended table with schema info |
 
 ### issues field-options
 
-> `field-options` requires `--issue` for most fields. Without it, the API returns "Field key is not valid".
+> Positional syntax: `jtk issues field-options <ISSUE-KEY> <field-name-or-id>`
 
 | # | Command | Expected Output |
 |---|---------|-----------------|
-| 1 | `jtk issues field-options priority --issue $EXISTING_ISSUE` | Table with columns: VALUE, ID (e.g., Highest/1, High/2, Medium/3, Low/4, Lowest/5) |
-| 2 | `jtk issues field-options priority --issue $EXISTING_ISSUE -o json` | Valid JSON array |
+| 1 | `jtk issues field-options $EXISTING_ISSUE priority` | Table: VALUE, ID (e.g., Highest/1, High/2, Medium/3, Low/4, Lowest/5) |
+| 2 | `jtk issues field-options $EXISTING_ISSUE priority --id` | Option IDs only |
+
+### issues check
+
+| # | Command | Expected Output |
+|---|---------|-----------------|
+| 1 | `jtk issues check $EXISTING_ISSUE` | Table of fields with PRESENT/MISSING status |
+| 2 | `jtk issues check $EXISTING_ISSUE --id` | Missing field IDs only (exit 1 if any missing, exit 0 if all present) |
 
 ---
 
@@ -209,13 +217,16 @@ jtk fields list --custom
 
 | # | Command | Expected Output |
 |---|---------|-----------------|
-| 1 | `jtk projects list --max 5` | Table with columns: KEY, NAME, TYPE, LEAD |
-| 2 | `jtk projects list -o json --max 3` | Valid JSON array with at most 3 elements |
-| 3 | `jtk projects get $PROJECT` | Shows Key, Name, ID, Type, Lead, Issue Types |
-| 4 | `jtk projects get $PROJECT -o json` | Valid JSON with `key`, `name`, `id` |
-| 5 | `jtk projects get NONEXISTENT` | `resource not found: No project could be found with key 'NONEXISTENT'.` |
-| 6 | `jtk projects types` | Table with columns: KEY, FORMATTED (e.g., software/Software) |
-| 7 | `jtk projects types -o json` | Valid JSON array |
+| 1 | `jtk projects list --max 5` | Table: KEY, NAME, TYPE, LEAD |
+| 2 | `jtk projects list --max 5 --id` | Project keys only |
+| 3 | `jtk projects list --max 5 --extended` | Extended table |
+| 4 | `jtk projects get $PROJECT` | Detail: Key, Name, ID, Type, Lead, Issue Types |
+| 5 | `jtk projects get $PROJECT --id` | Project key only |
+| 6 | `jtk projects get $PROJECT --extended` | Extended detail |
+| 7 | `jtk projects get NONEXISTENT` | `resource not found: No project could be found with key 'NONEXISTENT'.` |
+| 8 | `jtk projects types` | Table: KEY, FORMATTED (e.g., software/Software) |
+| 9 | `jtk projects types --id` | Type keys only |
+| 10 | `jtk projects types --extended` | Extended table |
 
 ---
 
@@ -227,20 +238,26 @@ jtk fields list --custom
 
 | # | Command | Expected Output |
 |---|---------|-----------------|
-| 1 | `jtk boards list --max 5` | Table with columns: ID, NAME, TYPE, PROJECT |
+| 1 | `jtk boards list --max 5` | Table: ID, NAME, TYPE, PROJECT |
 | 2 | `jtk boards list -p $PROJECT` | Only boards for that project |
-| 3 | `jtk boards get $BOARD_ID` | Shows ID, Name, Type, Project |
-| 4 | `jtk boards get $BOARD_ID -o json` | Valid JSON |
-| 5 | `jtk boards get 99999` | Error: 404 (board not found) |
+| 3 | `jtk boards list --id` | Board IDs only |
+| 4 | `jtk boards list --extended` | Extended table |
+| 5 | `jtk boards get $BOARD_ID` | Detail: ID, Name, Type, Project |
+| 6 | `jtk boards get $BOARD_ID --extended` | Extended detail including `Filter: <name> (id: <id>)` |
+| 7 | `jtk boards get $BOARD_ID --id` | Board ID only |
+| 8 | `jtk boards get 99999` | Error: 404 (board not found) |
 
 ### sprints
 
 | # | Command | Expected Output |
 |---|---------|-----------------|
-| 1 | `jtk sprints list -b $BOARD_ID -s active` | Table with columns: ID, NAME, STATE, START, END. State = `active` |
-| 2 | `jtk sprints list -b $BOARD_ID -o json` | Valid JSON array |
-| 3 | `jtk sprints current -b $BOARD_ID` | Shows ID, Name, State, Start, End |
-| 4 | `jtk sprints list` | `Error: required flag(s) "board" not set` |
+| 1 | `jtk sprints list -b $BOARD_ID -s active` | Table: ID, NAME, STATE, START, END. State = `active` |
+| 2 | `jtk sprints list -b $BOARD_ID -s active --id` | Sprint IDs only |
+| 3 | `jtk sprints list -b $BOARD_ID --extended` | Extended table with additional sprint details |
+| 4 | `jtk sprints current -b $BOARD_ID` | Current sprint detail: ID, Name, State, Start, End |
+| 5 | `jtk sprints current -b $BOARD_ID --id` | Current sprint ID only |
+| 6 | `jtk sprints current -b $BOARD_ID --extended` | Extended detail |
+| 7 | `jtk sprints list` | `Error: required flag(s) "board" not set` |
 
 ### sprints issues
 
@@ -248,9 +265,10 @@ jtk fields list --custom
 
 | # | Command | Expected Output |
 |---|---------|-----------------|
-| 1 | `jtk sprints issues $SPRINT_ID --max 3` | Table with columns: KEY, SUMMARY, STATUS, ASSIGNEE, TYPE |
-| 2 | `jtk sprints issues $SPRINT_ID --max 2 -o json` | Valid JSON array |
-| 3 | `jtk sprints issues 99999` | Error |
+| 1 | `jtk sprints issues $SPRINT_ID --max 3` | Table: KEY, SUMMARY, STATUS, ASSIGNEE, TYPE |
+| 2 | `jtk sprints issues $SPRINT_ID --max 3 --id` | Issue keys only |
+| 3 | `jtk sprints issues $SPRINT_ID --max 3 --extended` | Extended table |
+| 4 | `jtk sprints issues 99999` | Error |
 
 ---
 
@@ -260,16 +278,18 @@ jtk fields list --custom
 
 | # | Command | Expected Output |
 |---|---------|-----------------|
-| 1 | `jtk links types` | Table with columns: ID, NAME, OUTWARD, INWARD |
-| 2 | `jtk links types -o json` | Valid JSON array of link type objects |
+| 1 | `jtk links types` | Table: ID, NAME, OUTWARD, INWARD |
+| 2 | `jtk links types --id` | Link type IDs only |
+| 3 | `jtk links types --extended` | Extended table |
 
 ### links list
 
 | # | Command | Expected Output |
 |---|---------|-----------------|
-| 1 | `jtk links list $EXISTING_ISSUE` | Table with columns: ID, TYPE, DIRECTION, ISSUE, SUMMARY (or `No links on $EXISTING_ISSUE`) |
-| 2 | `jtk links list $EXISTING_ISSUE -o json` | Valid JSON array |
-| 3 | `jtk links list ${PROJECT}-99999` | `resource not found: ...` |
+| 1 | `jtk links list $EXISTING_ISSUE` | Table: ID, TYPE, DIRECTION, ISSUE, SUMMARY (or `No links on $EXISTING_ISSUE`) |
+| 2 | `jtk links list $EXISTING_ISSUE --id` | Link IDs only |
+| 3 | `jtk links list $EXISTING_ISSUE --extended` | Extended table |
+| 4 | `jtk links list ${PROJECT}-99999` | `resource not found: ...` |
 
 ---
 
@@ -281,35 +301,27 @@ jtk fields list --custom
 
 | # | Command | Expected Output |
 |---|---------|-----------------|
-| 1 | `jtk dashboards list --max 5` | Table with columns: ID, NAME, OWNER, FAVOURITE |
+| 1 | `jtk dashboards list --max 5` | Table: ID, NAME, OWNER, FAVOURITE |
 | 2 | `jtk dashboards list --search "SEARCH_TERM"` | Filtered results matching search term |
-| 3 | `jtk dashboards list -o json --max 3` | Valid JSON array with at most 3 elements |
-| 4 | `jtk dashboards list --search "xyznonexistent999"` | `No dashboards found matching "xyznonexistent999"` |
+| 3 | `jtk dashboards list --id` | Dashboard IDs only |
+| 4 | `jtk dashboards list --extended` | Extended table |
+| 5 | `jtk dashboards list --search "xyznonexistent999"` | `No dashboards found matching "xyznonexistent999"` |
 
 ### dashboards get
 
+> `dashboards get` does not support `--id` or `--extended`. Gadgets are rendered inline in the detail view.
+
 | # | Command | Expected Output |
 |---|---------|-----------------|
-| 1 | `jtk dashboards get $DASHBOARD_ID` | Shows ID, Name, Description, Owner, URL, then Gadgets table (if any) |
-| 2 | `jtk dashboards get $DASHBOARD_ID -o json` | Valid JSON with `dashboard` and `gadgets` keys |
-| 3 | `jtk dashboards get 99999` | Error: 404 |
+| 1 | `jtk dashboards get $DASHBOARD_ID` | Detail: ID, Name, Description, Owner, URL; then Gadgets table (ID \| TITLE \| MODULE) if any |
+| 2 | `jtk dashboards get 99999` | Error: 404 |
 
 ### dashboards gadgets list
 
 | # | Command | Expected Output |
 |---|---------|-----------------|
-| 1 | `jtk dashboards gadgets list $DASHBOARD_ID` | Table with columns: ID, TITLE, MODULE, POSITION |
-| 2 | `jtk dashboards gadgets list $DASHBOARD_ID -o json` | Valid JSON array |
-
-### dashboards gadgets add
-
-| # | Command | Expected Output |
-|---|---------|-----------------|
-| 1 | `jtk dashboards gadgets add $DASHBOARD_ID --type com.atlassian.jira.gadgets:filter-results-gadget` | Single table row with ID, TITLE, MODULE, POSITION |
-| 2 | `jtk dashboards gadgets add $DASHBOARD_ID --type com.atlassian.jira.gadgets:filter-results-gadget --id` | Gadget ID only |
-| 3 | `jtk dashboards gadgets add $DASHBOARD_ID --type com.atlassian.jira.gadgets:filter-results-gadget -o json` | Valid JSON object |
-| 4 | `jtk dashboards gadgets add $DASHBOARD_ID --type com.atlassian.jira.gadgets:filter-results-gadget --position 1,0` | Table row with position 1,0 |
-| 5 | `jtk dashboards gadgets add 99999 --type foo` | Error: 404 |
+| 1 | `jtk dashboards gadgets list $DASHBOARD_ID` | Table: ID, POSITION, TITLE, TYPE |
+| 2 | `jtk dashboards gadgets list $DASHBOARD_ID --id` | Gadget IDs only |
 
 ---
 
@@ -319,17 +331,19 @@ jtk fields list --custom
 
 | # | Command | Expected Output |
 |---|---------|-----------------|
-| 1 | `jtk users search "YOUR_NAME"` | Table with columns: ACCOUNT_ID, NAME, EMAIL, ACTIVE |
-| 2 | `jtk users search "YOUR_NAME" -o json` | Valid JSON array |
-| 3 | `jtk users search "xyznonexistent999"` | `No users found matching 'xyznonexistent999'` |
+| 1 | `jtk users search "YOUR_NAME"` | Table: ACCOUNT_ID, NAME, EMAIL, ACTIVE |
+| 2 | `jtk users search "YOUR_NAME" --id` | Account IDs only |
+| 3 | `jtk users search "YOUR_NAME" --extended` | Extended user table |
+| 4 | `jtk users search "xyznonexistent999"` | `No users found matching 'xyznonexistent999'` |
 
 ### users get
 
 | # | Command | Expected Output |
 |---|---------|-----------------|
-| 1 | `jtk users get $ACCOUNT_ID` | Table with Account ID, Display Name, Email, Active |
-| 2 | `jtk users get $ACCOUNT_ID -o json` | Valid JSON with `accountId`, `displayName`, `emailAddress`, `active` |
-| 3 | `jtk users get 000000000000000000000000` | Error: 404 (user not found) |
+| 1 | `jtk users get $ACCOUNT_ID` | Detail: Account ID, Display Name, Email, Active |
+| 2 | `jtk users get $ACCOUNT_ID --id` | Account ID only |
+| 3 | `jtk users get $ACCOUNT_ID --extended` | Extended user detail |
+| 4 | `jtk users get 000000000000000000000000` | Error: 404 (user not found) |
 
 ---
 
@@ -339,15 +353,17 @@ jtk fields list --custom
 
 | # | Command | Expected Output |
 |---|---------|-----------------|
-| 1 | `jtk auto list` | Table with columns: UUID, NAME, STATE, LABELS |
+| 1 | `jtk auto list` | Table: UUID, NAME, STATE, LABELS |
 | 2 | `jtk auto list --state ENABLED` | Only ENABLED rules |
 | 3 | `jtk auto list --state DISABLED` | Only DISABLED rules |
-| 4 | `jtk auto list -o json` | Valid JSON array |
-| 5 | `jtk auto get $AUTO_UUID` | Shows Name, UUID, State, Description, Components summary |
-| 6 | `jtk auto get $AUTO_UUID --show-components` | Adds component details: `[1] CONDITION: type`, `[2] ACTION: type`, etc. |
-| 7 | `jtk auto get $AUTO_UUID -o json` | Valid JSON |
-| 8 | `jtk auto export $AUTO_UUID \| jq .` | Pretty-printed valid JSON (top-level keys: `rule`, `connections`) |
-| 9 | `jtk auto export $AUTO_UUID --compact` | Single-line JSON |
+| 4 | `jtk auto list --id` | Rule UUIDs only |
+| 5 | `jtk auto list --extended` | Extended table with additional columns |
+| 6 | `jtk auto get $AUTO_UUID` | Detail: Name, UUID, State, Description, Components summary |
+| 7 | `jtk auto get $AUTO_UUID --extended` | Extended detail |
+| 8 | `jtk auto get $AUTO_UUID --id` | Rule UUID only |
+| 9 | `jtk auto get $AUTO_UUID --show-components` | Flat table: # \| COMPONENT \| TYPE |
+| 10 | `jtk auto export $AUTO_UUID \| jq .` | Pretty-printed valid JSON (top-level keys: `rule`, `connections`) |
+| 11 | `jtk auto export $AUTO_UUID --compact` | Single-line JSON |
 
 ---
 
@@ -357,20 +373,28 @@ jtk fields list --custom
 
 | # | Command | Expected Output |
 |---|---------|-----------------|
-| 1 | `jtk fields list` | Table with columns: ID, NAME, TYPE, CUSTOM |
-| 2 | `jtk fields list --custom` | Same table but only rows where CUSTOM = yes |
-| 3 | `jtk fields list -o json` | Valid JSON array |
-| 4 | `jtk fields list --name "story"` | Table showing only fields with "story" in the name |
-| 5 | `jtk fields list --name "story" -o json` | Valid JSON array, filtered to matching fields |
+| 1 | `jtk fields list` | Table: ID, NAME, TYPE, CUSTOM |
+| 2 | `jtk fields list --custom-fields` | Only rows where CUSTOM = yes |
+| 3 | `jtk fields list --id` | Field IDs only |
+| 4 | `jtk fields list --extended` | Extended table |
+| 5 | `jtk fields list --name "story"` | Table showing only fields with "story" in the name |
 | 6 | `jtk fields list --name "nonexistent"` | `No fields found` |
-| 7 | `jtk fields list --name "story" --custom` | Only custom fields matching "story" |
+| 7 | `jtk fields list --name "story" --custom-fields` | Only custom fields matching "story" |
+
+### fields show
+
+| # | Command | Expected Output |
+|---|---------|-----------------|
+| 1 | `jtk fields show $CUSTOM_FIELD` | Flat denormalized view: contexts, project mappings, options |
+| 2 | `jtk fields show $CUSTOM_FIELD --id` | Context IDs only |
+| 3 | `jtk fields show customfield_99999` | Error: 404 |
 
 ### fields contexts list
 
 | # | Command | Expected Output |
 |---|---------|-----------------|
-| 1 | `jtk fields contexts list $CUSTOM_FIELD` | Table with columns: ID, NAME, GLOBAL, ANY_ISSUE_TYPE |
-| 2 | `jtk fields contexts list $CUSTOM_FIELD -o json` | Valid JSON array |
+| 1 | `jtk fields contexts list $CUSTOM_FIELD` | Table: ID, NAME, GLOBAL, ANY_ISSUE_TYPE |
+| 2 | `jtk fields contexts list $CUSTOM_FIELD --id` | Context IDs only |
 | 3 | `jtk fields contexts list customfield_99999` | Error: 404 |
 
 ### fields options list
@@ -379,8 +403,7 @@ jtk fields list --custom
 
 | # | Command | Expected Output |
 |---|---------|-----------------|
-| 1 | `jtk fields options list $SELECT_FIELD` | Table with columns: ID, VALUE, DISABLED |
-| 2 | `jtk fields options list $SELECT_FIELD -o json` | Valid JSON array |
+| 1 | `jtk fields options list $SELECT_FIELD` | Table: ID, VALUE, DISABLED |
 
 ---
 
@@ -400,33 +423,57 @@ Run these steps in order. Each step depends on the previous.
    ```bash
    jtk issues create -p $PROJECT -t $ISSUE_TYPE -s "[Test] Integration Test Issue"
    ```
-   Expected: `✓ Created issue $PROJECT-XXXX` and `URL: https://...`
+   Expected: Full issue detail block (Key, Summary, Status, Type, Priority, Reporter, URL)
    Capture the issue key → `$TEST_ISSUE`
+
+   Also test `--id` variant:
+   ```bash
+   jtk issues create -p $PROJECT -t $ISSUE_TYPE -s "[Test] ID Flag Test" --id
+   ```
+   Expected: Issue key only (e.g., `MON-XXXX`). Delete this issue immediately after:
+   ```bash
+   jtk issues delete $PROJECT-XXXX --force
+   ```
 
 3. **Verify creation:**
    ```bash
    jtk issues get $TEST_ISSUE
    ```
-   Expected: Shows Key, Summary = `[Test] Integration Test Issue`, Status, Type = `$ISSUE_TYPE`
+   Expected: Key, Summary = `[Test] Integration Test Issue`, Status, Type = `$ISSUE_TYPE`
 
 4. **Update description:**
    ```bash
    jtk issues update $TEST_ISSUE -d "Test description for integration testing"
    ```
-   Expected: `✓ Updated issue $TEST_ISSUE`
+   Expected: Full issue detail block with updated description
 
 5. **Assign to self:**
    ```bash
    jtk issues assign $TEST_ISSUE $ACCOUNT_ID
    ```
-   Expected: `✓ Assigned issue $TEST_ISSUE to YOUR_NAME`
+   Expected: Full issue detail block with ASSIGNEE = your name
+
+   Also test `--id` variant:
+   ```bash
+   jtk issues assign $TEST_ISSUE $ACCOUNT_ID --id
+   ```
+   Expected: Issue key only
 
 6. **Add comment with escape sequences:**
    ```bash
    jtk comments add $TEST_ISSUE -b "Line one\nLine two\n\tIndented line"
    ```
-   Expected: `✓ Added comment XXXXX to $TEST_ISSUE`
+   Expected: Comment detail block (Issue Key, Comment ID, Author, body excerpt)
    Capture the comment ID → `$COMMENT_ID`
+
+   Also test `--id` variant:
+   ```bash
+   jtk comments add $TEST_ISSUE -b "ID flag test comment" --id
+   ```
+   Expected: Comment ID only. Delete this comment after:
+   ```bash
+   jtk comments delete $TEST_ISSUE $COMMENT_ID_2 --force
+   ```
 
 6b. **Verify escape sequences rendered:**
    ```bash
@@ -440,21 +487,27 @@ Run these steps in order. Each step depends on the previous.
    ```
    Expected: Table showing `$COMMENT_ID`, your name, and the comment body
 
-8. **Check transitions** (some workflows require custom fields):
+8. **Check transitions:**
    ```bash
-   jtk transitions list $TEST_ISSUE --fields
+   jtk transitions list $TEST_ISSUE
    ```
-   Expected: Table with columns: ID, NAME, TO STATUS, REQUIRED FIELDS
-   Note a valid transition name and any required fields
+   Expected: Table: ID, NAME, TO STATUS
+   Note a valid transition name → `$TRANSITION_NAME`
 
 9. **Transition issue:**
    ```bash
    # If no required fields:
-   jtk transitions do $TEST_ISSUE "TRANSITION_NAME"
+   jtk transitions do $TEST_ISSUE "$TRANSITION_NAME"
    # If required fields (e.g., Change Type):
-   jtk transitions do $TEST_ISSUE "TRANSITION_NAME" -f customfield_10005=Feature
+   jtk transitions do $TEST_ISSUE "$TRANSITION_NAME" -f customfield_10005=Feature
    ```
-   Expected: `✓ Transitioned $TEST_ISSUE`
+   Expected: Full issue detail block with updated status
+
+   Also test `--id` variant:
+   ```bash
+   jtk transitions do $TEST_ISSUE "$TRANSITION_NAME" --id
+   ```
+   Expected: Issue key only
 
 10. **Verify transition:**
     ```bash
@@ -466,20 +519,20 @@ Run these steps in order. Each step depends on the previous.
     ```bash
     jtk issues assign $TEST_ISSUE --unassign
     ```
-    Expected: `✓ Unassigned issue $TEST_ISSUE`
+    Expected: Full issue detail block with empty/unassigned ASSIGNEE
 
 11b. **Re-assign, then unassign via update --assignee none:**
     ```bash
     jtk issues assign $TEST_ISSUE $ACCOUNT_ID
     jtk issues update $TEST_ISSUE --assignee none
     ```
-    Expected: First command assigns, second command shows `✓ Updated issue $TEST_ISSUE`
+    Expected: First command shows full detail with assignee; second command shows full detail with empty ASSIGNEE
 
 11c. **Verify unassignment:**
     ```bash
-    jtk issues get $TEST_ISSUE -o json | jq '.fields.assignee'
+    jtk issues get $TEST_ISSUE
     ```
-    Expected: `null`
+    Expected: ASSIGNEE field shows empty/unassigned
 
 12. **Delete comment:**
     ```bash
@@ -493,6 +546,36 @@ Run these steps in order. Each step depends on the previous.
     ```
     Expected: `✓ Deleted issue $TEST_ISSUE`
 
+### Archive sub-block
+
+> **Residual artifact:** `issues archive` has no corresponding `issues restore` in this CLI. Archived issues remain archived until restored or removed outside this CLI/runbook. This is an accepted residual — note the two archived issue keys.
+
+1. **Create archive test issue (default output):**
+   ```bash
+   jtk issues create -p $PROJECT -t $ISSUE_TYPE -s "[Test] Archive Default"
+   ```
+   Capture the key → `$ARCHIVE_ISSUE_1`
+
+2. **Archive (default output):**
+   ```bash
+   jtk issues archive $ARCHIVE_ISSUE_1
+   ```
+   Expected: `Archived $ARCHIVE_ISSUE_1`
+
+3. **Create archive test issue (--id output):**
+   ```bash
+   jtk issues create -p $PROJECT -t $ISSUE_TYPE -s "[Test] Archive ID"
+   ```
+   Capture the key → `$ARCHIVE_ISSUE_2`
+
+4. **Archive (--id output):**
+   ```bash
+   jtk issues archive $ARCHIVE_ISSUE_2 --id
+   ```
+   Expected: `$ARCHIVE_ISSUE_2` (issue key only)
+
+> **Note:** Both `$ARCHIVE_ISSUE_1` and `$ARCHIVE_ISSUE_2` remain archived in Jira. They cannot be cleaned up via this CLI.
+
 ### Multi-value `--field` flag
 
 > Requires a multi-select or multi-checkbox custom field (`$MULTI_FIELD`) on the project. Skip if unavailable.
@@ -502,14 +585,14 @@ Run these steps in order. Each step depends on the previous.
    jtk issues create -p $PROJECT -t $ISSUE_TYPE -s "[Test] Multi-Value Field" \
      --field $MULTI_FIELD=Option1 --field $MULTI_FIELD=Option2
    ```
-   Expected: `✓ Created issue $PROJECT-XXXX`
+   Expected: Full issue detail block
    Capture the issue key → `$MV_ISSUE`
 
 2. **Verify both values set:**
    ```bash
-   jtk issues get $MV_ISSUE -o json | jq ".fields.$MULTI_FIELD"
+   jtk issues get $MV_ISSUE --extended
    ```
-   Expected: JSON array containing both Option1 and Option2
+   Expected: Custom fields block shows both Option1 and Option2 for `$MULTI_FIELD`
 
 3. **Cleanup:**
    ```bash
@@ -549,7 +632,13 @@ Run these steps in order.
    ```bash
    jtk links create $LINK_SOURCE $LINK_TARGET --type $LINK_TYPE
    ```
-   Expected: `Created $LINK_TYPE link: $LINK_SOURCE → $LINK_TARGET`
+   Expected: Table row with link ID, type, direction, target issue, and summary
+
+   Also test `--id` variant:
+   ```bash
+   jtk links create $LINK_SOURCE $LINK_TARGET --type $LINK_TYPE --id
+   ```
+   Expected: Link ID only
 
 4. **Verify link:**
    ```bash
@@ -558,25 +647,19 @@ Run these steps in order.
    Expected: Table shows link to `$LINK_TARGET` with type `$LINK_TYPE`
    Capture the link ID → `$LINK_ID`
 
-5. **Verify JSON output:**
-   ```bash
-   jtk links list $LINK_SOURCE -o json
-   ```
-   Expected: Valid JSON array with link object
-
-6. **Delete link:**
+5. **Delete link:**
    ```bash
    jtk links delete $LINK_ID
    ```
    Expected: `Deleted link $LINK_ID`
 
-7. **Verify deletion:**
+6. **Verify deletion:**
    ```bash
    jtk links list $LINK_SOURCE
    ```
    Expected: No link to `$LINK_TARGET` (or `No links on $LINK_SOURCE`)
 
-8. **Cleanup:**
+7. **Cleanup:**
    ```bash
    jtk issues delete $LINK_SOURCE --force
    jtk issues delete $LINK_TARGET --force
@@ -600,7 +683,7 @@ Run these steps in order.
    ```bash
    jtk projects create --key ZTEST --name "Integration Test Project" --type software --lead $ACCOUNT_ID
    ```
-   Expected: `✓ Created project ZTEST (Integration Test Project)`
+   Expected: Full project detail block (Key, Name, Type, Lead, etc.)
 
 2. **Verify creation:**
    ```bash
@@ -612,7 +695,7 @@ Run these steps in order.
    ```bash
    jtk projects update ZTEST --name "Updated Test Project"
    ```
-   Expected: `✓ Updated project ZTEST`
+   Expected: Full project detail block with Name = Updated Test Project
 
 4. **Verify update:**
    ```bash
@@ -630,7 +713,7 @@ Run these steps in order.
    ```bash
    jtk projects restore ZTEST
    ```
-   Expected: `✓ Restored project ZTEST (Updated Test Project)`
+   Expected: Full project detail block
 
 7. **Verify restore:**
    ```bash
@@ -691,6 +774,12 @@ Run these steps in order.
    ```
    Expected: Single table row with gadget ID, title, module, position
 
+   Also test `--id` variant:
+   ```bash
+   jtk dashboards gadgets add $TEST_DASH_ID --type com.atlassian.jira.gadgets:filter-results-gadget --id
+   ```
+   Expected: Gadget ID only
+
 6. **List gadgets (populated):**
    ```bash
    jtk dashboards gadgets list $TEST_DASH_ID
@@ -726,6 +815,8 @@ Run these steps in order.
 
 Run these steps in order. All mutations operate on a **copy** of a real rule — never modify production rules.
 
+> **Source rule state:** `$AUTO_UUID` was selected from `jtk auto list --state ENABLED`. The copy starts ENABLED. The correct toggle order is: create → disable → enable → idempotent enable → update → delete.
+
 ### Create test copy
 
 1. **Export a rule:**
@@ -742,8 +833,13 @@ Run these steps in order. All mutations operate on a **copy** of a real rule —
    ```bash
    jtk auto create --file /tmp/auto-clean.json
    ```
-   Expected: `✓ Created automation rule (UUID: XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX)`
+   Expected: Full automation rule detail block (Name, UUID, State, etc.)
    Capture the UUID → `$TEST_AUTO_UUID`
+
+   Also test `--id` variant:
+   ```bash
+   # Note: use a second export/strip/create cycle or just note the UUID from above
+   ```
 
 4. **Verify creation:**
    ```bash
@@ -753,17 +849,31 @@ Run these steps in order. All mutations operate on a **copy** of a real rule —
 
 ### Toggle cycle
 
-5. **Disable:**
+5. **Disable (source copy starts ENABLED):**
    ```bash
    jtk auto disable $TEST_AUTO_UUID
    ```
-   Expected: `✓ Rule "[Test] Auto Integration Copy": ENABLED → DISABLED`
+   Expected: Full rule detail block with State = DISABLED
+   (Fallback: `Rule "[Test] Auto Integration Copy": ENABLED → DISABLED`)
+
+   Also test `--id` variant:
+   ```bash
+   jtk auto disable $TEST_AUTO_UUID --id
+   ```
+   Expected: Rule UUID only
 
 6. **Re-enable:**
    ```bash
    jtk auto enable $TEST_AUTO_UUID
    ```
-   Expected: `✓ Rule "[Test] Auto Integration Copy": DISABLED → ENABLED`
+   Expected: Full rule detail block with State = ENABLED
+   (Fallback: `Rule "[Test] Auto Integration Copy": DISABLED → ENABLED`)
+
+   Also test `--id` variant:
+   ```bash
+   jtk auto enable $TEST_AUTO_UUID --id
+   ```
+   Expected: Rule UUID only
 
 7. **Idempotent enable:**
    ```bash
@@ -782,7 +892,7 @@ Run these steps in order. All mutations operate on a **copy** of a real rule —
    ```bash
    jtk auto update $TEST_AUTO_UUID --file /tmp/auto-rt.json
    ```
-   Expected: `✓ Updated automation rule $TEST_AUTO_UUID`
+   Expected: Full rule detail block
 
 10. **Verify unchanged:**
     ```bash
@@ -797,6 +907,11 @@ Run these steps in order. All mutations operate on a **copy** of a real rule —
     jtk auto delete $TEST_AUTO_UUID
     ```
     Expected: Rule deleted (auto-disables if ENABLED)
+
+12. **Clean up temporary files:**
+    ```bash
+    rm -f /tmp/auto-source.json /tmp/auto-clean.json /tmp/auto-rt.json
+    ```
 
 ### Error cases
 
@@ -825,13 +940,19 @@ Run these steps in order. All mutations operate on a **copy** of a real rule —
    ```bash
    jtk sprints add $SPRINT_ID $SPRINT_TEST_ISSUE
    ```
-   Expected: `✓ Moved 1 issue(s) to sprint $SPRINT_ID`
+   Expected: Issues list showing the added issue(s) in the sprint context
+
+   Also test `--id` variant:
+   ```bash
+   jtk sprints add $SPRINT_ID $SPRINT_TEST_ISSUE --id
+   ```
+   Expected: Issue key only
 
 3. **Verify** (may be slow):
    ```bash
-   jtk sprints issues $SPRINT_ID --max 50 -o json | jq -r '.[].key' | grep $SPRINT_TEST_ISSUE
+   jtk sprints issues $SPRINT_ID --max 50 --id
    ```
-   Expected: Issue key appears in output
+   Expected: `$SPRINT_TEST_ISSUE` appears in the list of issue keys
 
 4. **Cleanup:**
    ```bash
@@ -846,14 +967,25 @@ Run these steps in order. Each step depends on the previous.
 
 > Field management requires "Administer Jira" global permission. If you get 403 errors, verify your account has this permission.
 
+> **Residual artifact:** `fields delete` moves fields to trash (not permanent deletion — no purge API exists). The field at `$TEST_FIELD` will remain trashed at the end of this section. This is an accepted residual.
+
 ### Create and manage a test field
 
 1. **Create a select field:**
    ```bash
    jtk fields create --name "[Test] Integration Select" --type com.atlassian.jira.plugin.system.customfieldtypes:select
    ```
-   Expected: `✓ Created field customfield_XXXXX ([Test] Integration Select)`
+   Expected: Field detail row (ID, Name, Type)
    Capture the field ID → `$TEST_FIELD`
+
+   Also test `--id` variant:
+   ```bash
+   jtk fields create --name "[Test] Integration Select 2" --type com.atlassian.jira.plugin.system.customfieldtypes:select --id
+   ```
+   Expected: Field ID only. Delete this field immediately:
+   ```bash
+   jtk fields delete $FIELD_ID_2 --force
+   ```
 
 2. **Verify creation:**
    ```bash
@@ -861,18 +993,24 @@ Run these steps in order. Each step depends on the previous.
    ```
    Expected: Table showing the newly created field
 
+3. **Inspect field detail:**
    ```bash
-   jtk fields list --custom -o json | jq '.[] | select(.name == "[Test] Integration Select")'
+   jtk fields show $TEST_FIELD
    ```
-   Expected: JSON object with matching `name` and `id`
+   Expected: Flat view of contexts, project mappings, and options (may be sparse for new field)
 
-3. **List contexts:**
+   ```bash
+   jtk fields show $TEST_FIELD --id
+   ```
+   Expected: Context IDs only
+
+4. **List contexts:**
    ```bash
    jtk fields contexts list $TEST_FIELD
    ```
    Expected: Table showing the default context. Capture context ID → `$TEST_CTX`
 
-4. **Add options:**
+5. **Add options:**
    ```bash
    jtk fields options add $TEST_FIELD --value "Option A"
    ```
@@ -882,61 +1020,63 @@ Run these steps in order. Each step depends on the previous.
    ```
    Expected: `✓ Added option XXXXX (Option B)`
 
-5. **List options:**
+6. **List options:**
    ```bash
    jtk fields options list $TEST_FIELD
    ```
    Expected: Table showing Option A and Option B
    Capture an option ID → `$OPT_ID`
 
-6. **Update option:**
+7. **Update option:**
    ```bash
    jtk fields options update $TEST_FIELD --option $OPT_ID --value "Option A (updated)"
    ```
    Expected: `✓ Updated option $OPT_ID`
 
-7. **Verify update:**
+8. **Verify update:**
    ```bash
    jtk fields options list $TEST_FIELD
    ```
    Expected: Shows "Option A (updated)" instead of "Option A"
 
-8. **Delete option:**
+9. **Delete option:**
    ```bash
    jtk fields options delete $TEST_FIELD --option $OPT_ID --force
    ```
    Expected: `✓ Deleted option $OPT_ID from field $TEST_FIELD`
 
-9. **Create context:**
-   ```bash
-   jtk fields contexts create $TEST_FIELD --name "[Test] Context"
-   ```
-   Expected: `✓ Created context XXXXX ([Test] Context)`
-   Capture context ID → `$NEW_CTX`
+10. **Create context:**
+    ```bash
+    jtk fields contexts create $TEST_FIELD --name "[Test] Context"
+    ```
+    Expected: `✓ Created context XXXXX ([Test] Context)`
+    Capture context ID → `$NEW_CTX`
 
-10. **Delete context:**
+11. **Delete context:**
     ```bash
     jtk fields contexts delete $TEST_FIELD $NEW_CTX --force
     ```
     Expected: `✓ Deleted context $NEW_CTX from field $TEST_FIELD`
 
-11. **Trash field:**
+12. **Trash field:**
     ```bash
     jtk fields delete $TEST_FIELD --force
     ```
     Expected: `✓ Trashed field $TEST_FIELD`
 
-12. **Restore field:**
+13. **Restore field:**
     ```bash
     jtk fields restore $TEST_FIELD
     ```
-    Expected: `✓ Restored field $TEST_FIELD`
+    Expected: Full field detail block
 
-13. **Final cleanup — trash again:**
+14. **Final cleanup — trash again:**
     ```bash
     jtk fields delete $TEST_FIELD --force
     ```
     Expected: `✓ Trashed field $TEST_FIELD`
+
+> **Accepted residual:** `$TEST_FIELD` remains in the trash. Fields must be purged through the Jira admin UI; no API exists for permanent deletion.
 
 ### Error cases
 
@@ -957,7 +1097,7 @@ Run these steps in order. Each step depends on the previous.
 |---|---------|-----------------|
 | 1 | `jtk issues list -p $PROJECT --max 1 --no-color \| cat -v` | No `^[[` ANSI escape sequences |
 | 2 | `jtk issues list -p $PROJECT --max 1 --verbose` | Shows `→ GET ...` and `← 200 OK` debug lines |
-| 3 | `jtk issues list -p $PROJECT --max 1 -o json \| jq .` | Parses without errors |
+| 3 | `jtk issues list -p $PROJECT --max 1 -o json \| jq .` | Parses without errors (compatibility smoke test) |
 | 4 | `jtk issues list -p $PROJECT --max 1 -o plain` | Tab-separated, one row |
 
 ### Command aliases
@@ -1062,57 +1202,60 @@ Verify each alias produces the same output as the full command:
 - [ ] `jtk issues types -p $PROJECT` to learn `$ISSUE_TYPE`
 
 #### Config & Init (Section 1)
-- [ ] `config show` (table, JSON)
+- [ ] `config show` (table)
 - [ ] `config test`
-- [ ] `me` (table, JSON, plain)
+- [ ] `me` (table, `--id`, `--extended`)
 
 #### Issues Read-Only (Section 2)
-- [ ] `issues list` (table, JSON, plain, error)
-- [ ] `issues get` (table, JSON, 404)
-- [ ] `issues search` (results, JSON, no results, bad JQL)
+- [ ] `issues list` (table, `--id`, `--extended`, plain, error)
+- [ ] `issues get` (table, `--id`, `--extended`, `--fulltext`, 404)
+- [ ] `issues search` (results, `--id`, `--extended`, no results, bad JQL)
 - [ ] Auto-pagination (search multi-page, list multi-page)
-- [ ] `--fields` flag (default `*all`, explicit fields for search and list)
-- [ ] `issues types` (table, JSON, 404)
-- [ ] `issues fields` (all, custom, JSON)
-- [ ] `issues field-options` (with --issue, JSON)
+- [ ] `--fields` flag (field pass-through for search and list)
+- [ ] `issues types` (table, `--id`, 404)
+- [ ] `issues fields` (all, `--custom-fields`, `--id`, `--extended`)
+- [ ] `issues field-options` (positional syntax: `jtk issues field-options $EXISTING_ISSUE priority`, `--id`)
+- [ ] `issues check` (table, `--id`)
 
 #### Projects Read-Only (Section 3)
-- [ ] `projects list` (table, JSON)
-- [ ] `projects get` (table, JSON, 404)
-- [ ] `projects types` (table, JSON)
+- [ ] `projects list` (table, `--id`, `--extended`)
+- [ ] `projects get` (table, `--id`, `--extended`, 404)
+- [ ] `projects types` (table, `--id`, `--extended`)
 
 #### Boards & Sprints Read-Only (Section 4)
-- [ ] `boards list`, `boards get` (table, JSON, 404)
-- [ ] `sprints list`, `sprints current`
-- [ ] `sprints issues` (table, JSON)
+- [ ] `boards list`, `boards get` (table, `--id`, `--extended`, 404)
+- [ ] `boards get --extended` shows `Filter: <name> (id: <id>)`
+- [ ] `sprints list`, `sprints current` (`--id`, `--extended`)
+- [ ] `sprints issues` (table, `--id`, `--extended`)
 
 #### Links Read-Only (Section 5)
-- [ ] `links types` (table, JSON)
-- [ ] `links list` (table, JSON, 404)
+- [ ] `links types` (table, `--id`, `--extended`)
+- [ ] `links list` (table, `--id`, `--extended`, 404)
 
 #### Dashboards Read-Only (Section 6)
-- [ ] `dashboards list` (table, search, JSON, no results)
-- [ ] `dashboards get` (table, JSON, 404)
-- [ ] `dashboards gadgets list` (table, JSON)
-- [ ] `dashboards gadgets add` (table, --id, JSON, 404)
+- [ ] `dashboards list` (table, search, `--id`, `--extended`, no results)
+- [ ] `dashboards get` (detail with inline gadgets, 404) — no `--id`/`--extended`
+- [ ] `dashboards gadgets list` (table, `--id`)
 
 #### Users Read-Only (Section 7)
-- [ ] `users search` (results, JSON, no results)
-- [ ] `users get` (table, JSON, 404)
+- [ ] `users search` (results, `--id`, `--extended`, no results)
+- [ ] `users get` (table, `--id`, `--extended`, 404)
 
 #### Automation Read-Only (Section 8)
-- [ ] `auto list` (all, filtered, JSON)
-- [ ] `auto get` (summary, --show-components, JSON)
-- [ ] `auto export` (pretty, compact)
+- [ ] `auto list` (all, `--state ENABLED`, `--state DISABLED`, `--id`, `--extended`)
+- [ ] `auto get` (detail, `--extended`, `--id`, `--show-components` flat table)
+- [ ] `auto export` (pretty JSON, compact JSON)
 
 #### Fields Read-Only (Section 9)
-- [ ] `fields list` (all, custom, JSON)
-- [ ] `fields contexts list` (table, JSON, 404)
-- [ ] `fields options list` (table, JSON)
+- [ ] `fields list` (all, `--custom-fields`, `--id`, `--extended`)
+- [ ] `fields show` (detail, `--id`, 404)
+- [ ] `fields contexts list` (table, `--id`, 404)
+- [ ] `fields options list` (table)
 
 #### Issue Mutations (Section 10)
-- [ ] Create → get → update → assign → comment (with escape sequences) → transition → unassign → delete comment → delete issue
+- [ ] Create (full detail output) → get → update → assign (`--id` variant) → comment → comment `--id` variant → transitions list → transition (`--id` variant) → unassign → delete comment → delete issue
 - [ ] Unassign via `--assignee none` on `issues update`
+- [ ] Archive sub-block: create `$ARCHIVE_ISSUE_1` → archive (default) → create `$ARCHIVE_ISSUE_2` → archive `--id`
 - [ ] Multi-value `--field` flag (create issue with repeated `--field` same key)
 - [ ] Error cases (missing flags, 404)
 
@@ -1121,7 +1264,7 @@ Verify each alias produces the same output as the full command:
 - [ ] Error cases (nonexistent target, invalid type, delete 404)
 
 #### Project Mutations (Section 12)
-- [ ] Create → get → update → delete → restore → verify → delete (cleanup)
+- [ ] Create (full detail) → get → update → delete → restore → verify → delete (cleanup)
 - [ ] Error cases
 
 #### Dashboard Mutations (Section 13)
@@ -1129,23 +1272,23 @@ Verify each alias produces the same output as the full command:
 - [ ] Error cases (missing flags, 404)
 
 #### Automation Mutations (Section 14)
-- [ ] Create copy (strip UUID, rename)
-- [ ] Toggle cycle (disable, enable, idempotent)
+- [ ] Create copy (strip UUID, rename) → verify
+- [ ] Toggle cycle: disable → enable → idempotent enable
 - [ ] Round-trip update
-- [ ] Cleanup (`jtk auto delete`)
+- [ ] Cleanup (`jtk auto delete` + `rm -f /tmp/auto-*.json`)
 - [ ] Error cases
 
 #### Sprint Mutations (Section 15)
-- [ ] Create issue → add to sprint → verify → delete issue
+- [ ] Create issue → add to sprint → verify with `--id` → delete issue
 
 #### Field Mutations (Section 16)
-- [ ] Create field → list contexts → add options → update option → delete option
+- [ ] Create field → `fields show` → list contexts → add options → update option → delete option
 - [ ] Create context → delete context
 - [ ] Trash field → restore → trash again (cleanup)
 - [ ] Error cases (missing flags, 404)
 
 #### Global Flags & Aliases (Section 17)
-- [ ] `--no-color`, `--verbose`, `-o json`, `-o plain`
+- [ ] `--no-color`, `--verbose`, `-o json` (compat smoke test), `-o plain`
 - [ ] All aliases verified (including `jtk l`, `jtk link`, `jtk dash`, `jtk dashboard`)
 
 #### Error Cases (Section 18)
@@ -1158,6 +1301,7 @@ Verify each alias produces the same output as the full command:
 - [ ] Trash test fields: `jtk fields delete $TEST_FIELD --force`
 - [ ] Delete automation test rules: `jtk auto list | grep '\[Test\]' | awk '{print $1}' | xargs -I{} jtk auto delete {}`
 - [ ] Verify: `jtk auto list | grep -E '\[Test\]|\[DELETEME\]'` — should be empty
+- [ ] **Accepted residuals:** `$ARCHIVE_ISSUE_1` and `$ARCHIVE_ISSUE_2` remain archived (no CLI restore); `$TEST_FIELD` remains trashed (no purge API)
 
 ---
 
@@ -1176,40 +1320,43 @@ Verify each alias produces the same output as the full command:
 - [ ] Bearer auth init (non-interactive)
 - [ ] Bearer auth `config show` (auth_method = bearer, cloud_id displayed)
 - [ ] Bearer auth `config test`
-- [ ] `me` (table, JSON, plain)
+- [ ] `me` (table, `--id`, `--extended`)
 
 #### Issues Read-Only (Section 2)
-- [ ] `issues list` (table, JSON, plain, error)
-- [ ] `issues get` (table, JSON, 404)
-- [ ] `issues search` (results, JSON, no results, bad JQL)
+- [ ] `issues list` (table, `--id`, `--extended`, plain, error)
+- [ ] `issues get` (table, `--id`, `--extended`, `--fulltext`, 404)
+- [ ] `issues search` (results, `--id`, `--extended`, no results, bad JQL)
 - [ ] Auto-pagination (search multi-page, list multi-page)
-- [ ] `--fields` flag (default `*all`, explicit fields for search and list)
-- [ ] `issues types` (table, JSON, 404)
-- [ ] `issues fields` (all, custom, JSON)
-- [ ] `issues field-options` (with --issue, JSON)
+- [ ] `--fields` flag (field pass-through for search and list)
+- [ ] `issues types` (table, `--id`, 404)
+- [ ] `issues fields` (all, `--custom-fields`, `--id`, `--extended`)
+- [ ] `issues field-options` (positional syntax: `jtk issues field-options $EXISTING_ISSUE priority`, `--id`)
+- [ ] `issues check` (table, `--id`)
 
 #### Projects Read-Only (Section 3)
-- [ ] `projects list` (table, JSON)
-- [ ] `projects get` (table, JSON, 404)
-- [ ] `projects types` (table, JSON)
+- [ ] `projects list` (table, `--id`, `--extended`)
+- [ ] `projects get` (table, `--id`, `--extended`, 404)
+- [ ] `projects types` (table, `--id`, `--extended`)
 
 #### Links Read-Only (Section 5)
-- [ ] `links types` (table, JSON)
-- [ ] `links list` (table, JSON, 404)
+- [ ] `links types` (table, `--id`, `--extended`)
+- [ ] `links list` (table, `--id`, `--extended`, 404)
 
 #### Users Read-Only (Section 7)
-- [ ] `users search` (results, JSON, no results)
-- [ ] `users get` (table, JSON, 404)
+- [ ] `users search` (results, `--id`, `--extended`, no results)
+- [ ] `users get` (table, `--id`, `--extended`, 404)
 
 #### Fields Read-Only (Section 9)
-- [ ] `fields list` (all, custom, JSON)
-- [ ] `fields contexts list` (table, JSON, 404)
-- [ ] `fields options list` (table, JSON)
+- [ ] `fields list` (all, `--custom-fields`, `--id`, `--extended`)
+- [ ] `fields show` (detail, `--id`, 404)
+- [ ] `fields contexts list` (table, `--id`, 404)
+- [ ] `fields options list` (table)
 
 #### Issue Mutations (Section 10)
-- [ ] Create → get → update → assign → comment (with escape sequences) → transition → unassign → delete comment → delete issue
+- [ ] Create → get → update → assign → comment → transitions list → transition → unassign → delete comment → delete issue
 - [ ] Unassign via `--assignee none` on `issues update`
-- [ ] Multi-value `--field` flag (create issue with repeated `--field` same key)
+- [ ] Archive sub-block (two issues)
+- [ ] Multi-value `--field` flag
 - [ ] Error cases (missing flags, 404)
 
 #### Link Mutations (Section 11)
@@ -1221,7 +1368,7 @@ Verify each alias produces the same output as the full command:
 - [ ] Error cases
 
 #### Field Mutations (Section 16)
-- [ ] Create field → list contexts → add options → update option → delete option
+- [ ] Create field → `fields show` → list contexts → add options → update option → delete option
 - [ ] Create context → delete context
 - [ ] Trash field → restore → trash again (cleanup)
 - [ ] Error cases
@@ -1233,7 +1380,7 @@ Verify each alias produces the same output as the full command:
 - [ ] Dashboards: `list`, `get`, `create`, `delete`, `gadgets list`, `gadgets remove` → Dashboard scope error
 
 #### Global Flags & Aliases (Section 17)
-- [ ] `--no-color`, `--verbose`, `-o json`, `-o plain`
+- [ ] `--no-color`, `--verbose`, `-o json` (compat smoke test), `-o plain`
 - [ ] Applicable aliases (skip `jtk b`, `jtk sp`, `jtk auto`, `jtk dash`, `jtk dashboard`)
 
 #### Error Cases (Section 18)
@@ -1243,6 +1390,7 @@ Verify each alias produces the same output as the full command:
 - [ ] Delete test projects: `jtk projects delete ZTEST --force`
 - [ ] Delete test issues: search for `[Test]` prefix, delete with `--force`
 - [ ] Trash test fields: `jtk fields delete $TEST_FIELD --force`
+- [ ] **Accepted residuals:** `$ARCHIVE_ISSUE_1` and `$ARCHIVE_ISSUE_2` remain archived; `$TEST_FIELD` remains trashed
 
 ---
 

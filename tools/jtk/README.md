@@ -251,13 +251,13 @@ List issues in a project.
 ```bash
 jtk issues list --project MYPROJECT
 jtk issues list --project MYPROJECT --sprint current
-jtk issues list --project MYPROJECT -o json
+jtk issues list --project MYPROJECT --id
 
 # Auto-pagination: fetch up to 200 results across multiple pages
 jtk issues list --project MYPROJECT --max 200
 
-# Explicit field selection
-jtk issues list --project MYPROJECT --fields summary,status,customfield_10005 -o json
+# Explicit field selection (API-level filter)
+jtk issues list --project MYPROJECT --fields summary,status,customfield_10005
 ```
 
 | Flag | Short | Default | Description |
@@ -265,7 +265,7 @@ jtk issues list --project MYPROJECT --fields summary,status,customfield_10005 -o
 | `--project` | `-p` | | Project key |
 | `--sprint` | `-s` | | Filter by sprint: sprint ID or `current` |
 | `--max` | `-m` | `25` | Maximum number of results to return |
-| `--fields` | | `*all` | Comma-separated list of fields to include in JSON output |
+| `--fields` | | `*all` | Comma-separated list of fields to request from the API |
 | `--all-fields` | | `false` | Include all fields (e.g. description) |
 | `--next-page-token` | | | Token for next page of results |
 
@@ -350,20 +350,20 @@ Search issues using JQL.
 
 ```bash
 jtk issues search --jql "project = MYPROJECT AND status = 'In Progress'"
-jtk issues search --jql "assignee = currentUser()" -o json
+jtk issues search --jql "assignee = currentUser()" --id
 
 # Auto-pagination: fetch up to 200 results across multiple pages
 jtk issues search --jql "project = MYPROJECT" --max 200
 
-# Explicit field selection
-jtk issues search --jql "project = MYPROJECT" --fields summary,status -o json
+# Explicit field selection (API-level filter)
+jtk issues search --jql "project = MYPROJECT" --fields summary,status
 ```
 
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
 | `--jql` | | | JQL query string (**required**) |
 | `--max` | `-m` | `25` | Maximum number of results to return |
-| `--fields` | | `*all` | Comma-separated list of fields to include in JSON output |
+| `--fields` | | `*all` | Comma-separated list of fields to request from the API |
 | `--all-fields` | | `false` | Include all fields (e.g. description) |
 | `--next-page-token` | | | Token for next page of results |
 
@@ -400,6 +400,20 @@ jtk issues delete PROJ-123 --force
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--force` | `false` | Skip confirmation prompt |
+
+**Arguments:**
+- `<issue-key>` - The issue key (**required**)
+
+---
+
+### `jtk issues archive <issue-key>`
+
+Archive an issue. Archived issues are hidden from boards and search by default but remain in Jira. There is no corresponding `issues restore` command in this CLI — use the Jira UI to unarchive.
+
+```bash
+jtk issues archive PROJ-123
+jtk issues archive PROJ-123 --id
+```
 
 **Arguments:**
 - `<issue-key>` - The issue key (**required**)
@@ -453,32 +467,29 @@ List available fields for issues.
 ```bash
 jtk issues fields                    # All fields
 jtk issues fields PROJ-123           # Editable fields for a specific issue
-jtk issues fields --custom           # Custom fields only
+jtk issues fields --custom-fields    # Custom fields only
 ```
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--custom` | `false` | Show only custom fields |
+| `--custom-fields` | `false` | Show only custom fields |
 
 **Arguments:**
 - `[issue-key]` - Optional issue key to show editable fields
 
 ---
 
-### `jtk issues field-options <field-name-or-id>`
+### `jtk issues field-options <issue-key> <field-name-or-id>`
 
-List allowed values for a field.
+List allowed values for a field on a specific issue.
 
 ```bash
-jtk issues field-options priority
-jtk issues field-options customfield_10001 --issue PROJ-123
+jtk issues field-options PROJ-123 priority
+jtk issues field-options PROJ-123 customfield_10001
 ```
 
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--issue` | | Issue key for context-specific options |
-
 **Arguments:**
+- `<issue-key>` - The issue key for context-specific options (**required**)
 - `<field-name-or-id>` - Field name or ID (**required**)
 
 ---
@@ -495,15 +506,27 @@ List all fields (system and custom). Supports filtering by name with case-insens
 
 ```bash
 jtk fields list
-jtk fields list --custom
+jtk fields list --custom-fields
 jtk fields list --name "story point"
-jtk fields list -o json
+jtk fields list --id
 ```
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--custom` | `false` | Show only custom fields |
+| `--custom-fields` | `false` | Show only custom fields |
 | `--name` | | Filter fields by name (case-insensitive substring match) |
+
+#### `jtk fields show <field-id>`
+
+Show a flat denormalized view of a field's contexts, project mappings, and options.
+
+```bash
+jtk fields show customfield_10001
+jtk fields show customfield_10001 --id   # emit context IDs only
+```
+
+**Arguments:**
+- `<field-id>` - The field ID (**required**)
 
 #### `jtk fields create`
 
@@ -553,7 +576,7 @@ List contexts for a custom field.
 
 ```bash
 jtk fields contexts list customfield_10001
-jtk fields contexts list customfield_10001 -o json
+jtk fields contexts list customfield_10001 --id
 ```
 
 **Arguments:**
@@ -597,7 +620,6 @@ List options for a select/multi-select custom field.
 
 ```bash
 jtk fields options list customfield_10001
-jtk fields options list customfield_10001 -o json
 ```
 
 **Arguments:**
@@ -707,7 +729,7 @@ List all links on an issue.
 
 ```bash
 jtk links list PROJ-123
-jtk links list PROJ-123 -o json
+jtk links list PROJ-123 --id
 ```
 
 **Aliases:** `jtk link list`, `jtk l list`
@@ -762,7 +784,7 @@ List available issue link types.
 
 ```bash
 jtk links types
-jtk links types -o json
+jtk links types --id
 ```
 
 ---
@@ -773,12 +795,9 @@ List available transitions for an issue.
 
 ```bash
 jtk transitions list PROJ-123
-jtk transitions list PROJ-123 --fields
+jtk transitions list PROJ-123 --extended
+jtk transitions list PROJ-123 --id
 ```
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--fields` | `false` | Show required fields for each transition |
 
 **Arguments:**
 - `<issue-key>` - The issue key (**required**)
@@ -812,7 +831,7 @@ List comments on an issue.
 ```bash
 jtk comments list PROJ-123
 jtk comments list PROJ-123 --fulltext
-jtk comments list PROJ-123 -o json
+jtk comments list PROJ-123 --id
 ```
 
 | Flag | Short | Default | Description |
@@ -866,7 +885,7 @@ List attachments on an issue.
 
 ```bash
 jtk attachments list PROJ-123
-jtk attachments list PROJ-123 -o json
+jtk attachments list PROJ-123 --id
 ```
 
 **Arguments:**
@@ -934,7 +953,7 @@ List sprints for a board.
 ```bash
 jtk sprints list --board 123
 jtk sprints list --board 123 --state active
-jtk sprints list --board 123 -o json
+jtk sprints list --board 123 --id
 ```
 
 | Flag | Short | Default | Description |
@@ -965,7 +984,7 @@ List issues in a sprint.
 
 ```bash
 jtk sprints issues 456
-jtk sprints issues 456 -o json
+jtk sprints issues 456 --id
 ```
 
 | Flag | Short | Default | Description |
@@ -1315,7 +1334,6 @@ Get dashboard details including gadgets.
 
 ```bash
 jtk dashboards get 10001
-jtk dashboards get 10001 -o json
 ```
 
 **Arguments:**
@@ -1358,7 +1376,7 @@ List gadgets on a dashboard.
 
 ```bash
 jtk dashboards gadgets list 10001
-jtk dashboards gadgets list 10001 -o json
+jtk dashboards gadgets list 10001 --id
 ```
 
 **Arguments:**

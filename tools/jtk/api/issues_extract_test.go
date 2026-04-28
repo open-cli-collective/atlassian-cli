@@ -107,6 +107,8 @@ func TestFormatCustomFieldValue_Types(t *testing.T) {
 		{"nil", nil, ""},
 		{"unhandled_map", map[string]any{"progress": float64(0), "total": float64(0)}, ""},
 		{"unhandled_type", struct{ X int }{42}, ""},
+		{"serialized_java_object", "{pullrequest={dataType=pullrequest, state=MERGED}}", ""},
+		{"normal_string_with_equals", "key=value", "key=value"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

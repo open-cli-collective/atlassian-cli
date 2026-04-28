@@ -397,6 +397,9 @@ func FormatCustomFieldValue(v any) string {
 	}
 	switch val := v.(type) {
 	case string:
+		if strings.Contains(val, "={") {
+			return ""
+		}
 		return val
 	case float64:
 		if val == float64(int64(val)) {

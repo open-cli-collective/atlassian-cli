@@ -63,7 +63,7 @@ func TestFidelity_FromConfluenceStorage(t *testing.T) {
 			}
 
 			if *update {
-				if err := os.WriteFile(goldenPath, []byte(got), 0600); err != nil {
+				if err := os.WriteFile(goldenPath, []byte(got), 0600); err != nil { //nolint:gosec // test golden file path
 					t.Fatalf("writing golden file: %v", err)
 				}
 				t.Logf("updated %s", goldenPath)

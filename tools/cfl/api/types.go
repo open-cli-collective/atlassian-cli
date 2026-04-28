@@ -1,9 +1,6 @@
 package api //nolint:revive // package name is intentional
 
-import (
-	"fmt"
-	"time"
-)
+import "github.com/open-cli-collective/atlassian-go/atime"
 
 // PaginatedResponse wraps paginated API responses.
 type PaginatedResponse[T any] struct {
@@ -48,28 +45,28 @@ type DescriptionValue struct {
 
 // Page represents a Confluence page.
 type Page struct {
-	ID         string   `json:"id"`
-	Status     string   `json:"status"`
-	Title      string   `json:"title"`
-	SpaceID    string   `json:"spaceId"`
-	ParentID   string   `json:"parentId,omitempty"`
-	ParentType string   `json:"parentType,omitempty"`
-	Position   int      `json:"position,omitempty"`
-	AuthorID   string   `json:"authorId,omitempty"`
-	OwnerID    string   `json:"ownerId,omitempty"`
-	CreatedAt  Time     `json:"createdAt,omitempty"`
-	Version    *Version `json:"version,omitempty"`
-	Body       *Body    `json:"body,omitempty"`
-	Links      Links    `json:"_links,omitempty"`
+	ID         string               `json:"id"`
+	Status     string               `json:"status"`
+	Title      string               `json:"title"`
+	SpaceID    string               `json:"spaceId"`
+	ParentID   string               `json:"parentId,omitempty"`
+	ParentType string               `json:"parentType,omitempty"`
+	Position   int                  `json:"position,omitempty"`
+	AuthorID   string               `json:"authorId,omitempty"`
+	OwnerID    string               `json:"ownerId,omitempty"`
+	CreatedAt  *atime.AtlassianTime `json:"createdAt,omitempty"`
+	Version    *Version             `json:"version,omitempty"`
+	Body       *Body                `json:"body,omitempty"`
+	Links      Links                `json:"_links,omitempty"`
 }
 
 // Version contains page version information.
 type Version struct {
-	Number    int    `json:"number"`
-	Message   string `json:"message,omitempty"`
-	MinorEdit bool   `json:"minorEdit,omitempty"`
-	AuthorID  string `json:"authorId,omitempty"`
-	CreatedAt Time   `json:"createdAt,omitempty"`
+	Number    int                  `json:"number"`
+	Message   string               `json:"message,omitempty"`
+	MinorEdit bool                 `json:"minorEdit,omitempty"`
+	AuthorID  string               `json:"authorId,omitempty"`
+	CreatedAt *atime.AtlassianTime `json:"createdAt,omitempty"`
 }
 
 // Body contains page content in various representations.
@@ -98,50 +95,6 @@ type Attachment struct {
 	DownloadLink         string   `json:"downloadLink,omitempty"`
 	Version              *Version `json:"version,omitempty"`
 	Links                Links    `json:"_links,omitempty"`
-}
-
-// Time is a wrapper around time.Time for custom JSON parsing.
-type Time struct {
-	time.Time
-}
-
-// UnmarshalJSON parses Confluence's ISO 8601 date format.
-func (t *Time) UnmarshalJSON(data []byte) error {
-	s := string(data)
-
-	// Handle null or empty
-	if s == "null" || s == `""` || s == "" {
-		return nil
-	}
-
-	// Remove quotes if present
-	if len(s) >= 2 && s[0] == '"' && s[len(s)-1] == '"' {
-		s = s[1 : len(s)-1]
-	}
-
-	if s == "" {
-		return nil
-	}
-
-	parsed, err := time.Parse(time.RFC3339, s)
-	if err != nil {
-		// Try alternative format
-		parsed, err = time.Parse("2006-01-02T15:04:05.000Z", s)
-		if err != nil {
-			return fmt.Errorf("parsing time %q: %w", s, err)
-		}
-	}
-
-	t.Time = parsed
-	return nil
-}
-
-// MarshalJSON formats time in ISO 8601 format.
-func (t Time) MarshalJSON() ([]byte, error) {
-	if t.IsZero() {
-		return []byte("null"), nil
-	}
-	return []byte(`"` + t.Format(time.RFC3339) + `"`), nil
 }
 
 // CreatePageRequest is the request body for creating a page.

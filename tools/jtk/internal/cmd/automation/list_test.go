@@ -190,7 +190,7 @@ func TestRunList_NumericTimestamps(t *testing.T) {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"data":[{"uuid":"uuid-ts","name":"Timestamp Rule","state":"ENABLED","created":1701680400000,"updated":1701766800000}]}`))
+		_, _ = w.Write([]byte(`{"data":[{"uuid":"uuid-ts","name":"Timestamp Rule","state":"ENABLED","created":1701482354.625000000,"updated":1701568754.000000000}]}`))
 	}))
 	defer server.Close()
 

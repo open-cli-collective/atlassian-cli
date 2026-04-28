@@ -37,7 +37,7 @@ func ProjectPage(p *api.Page, spaceKey string, content string, mode artifact.Typ
 	if mode == artifact.Full {
 		if p.Version != nil {
 			art.Version = p.Version.Number
-			if !p.Version.CreatedAt.IsZero() {
+			if p.Version.CreatedAt != nil && !p.Version.CreatedAt.IsZero() {
 				art.CreatedAt = p.Version.CreatedAt.UTC().Format("2006-01-02T15:04:05Z07:00")
 			}
 			art.AuthorID = p.Version.AuthorID

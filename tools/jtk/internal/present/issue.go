@@ -235,11 +235,11 @@ func AppendCustomFieldsSection(model *present.OutputModel, entries []api.IssueFi
 
 	model.Sections = append(model.Sections, msg(""), msg("Custom Fields:"))
 	for _, e := range custom {
-		line := fmt.Sprintf("  %s: %s", e.Name, e.Value)
-		if e.Name == e.ID {
-			line = fmt.Sprintf("  %s: %s", e.ID, e.Value)
+		label := e.Name
+		if label == "" || label == e.ID {
+			label = e.ID
 		}
-		model.Sections = append(model.Sections, msg(line))
+		model.Sections = append(model.Sections, msg(fmt.Sprintf("  %s: %s", label, e.Value)))
 	}
 }
 
@@ -262,7 +262,7 @@ func (IssuePresenter) PresentDetailProjection(issue *api.Issue, _ string, fullte
 		{Label: "Components", Value: OrDash(issueComponentNames(issue))},
 		{Label: "Description", Value: issueDescriptionText(issue, fulltext)},
 		{Label: "Reporter", Value: issueReporterName(issue)},
-		{Label: "Created", Value: OrDash(issue.Fields.Created)},
+		{Label: "Created", Value: OrDash(FormatTime(issue.Fields.Created))},
 		{Label: "Fix_Versions", Value: issueFixVersions(issue)},
 		{Label: "Resolution", Value: issueResolution(issue)},
 	}

@@ -12,6 +12,7 @@ import (
 	"github.com/open-cli-collective/atlassian-go/testutil"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/cache"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 )
 
@@ -408,4 +409,62 @@ func TestRunGet_Extended_SprintFromCustomField(t *testing.T) {
 
 	output := stdout.String()
 	testutil.Contains(t, output, "Sprint: MON Sprint 70 (active)")
+}
+
+func TestRunGet_CustomFields_AppendsSection(t *testing.T) {
+	t.Cleanup(cache.SetRootForTest(t.TempDir()))
+
+	issueJSON := `{
+		"key": "TEST-1",
+		"fields": {
+			"summary": "Test issue",
+			"status": {"name": "Open"},
+			"issuetype": {"name": "Task"},
+			"customfield_10005": {"value": "Bug"}
+		}
+	}`
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if strings.Contains(r.URL.Path, "/field") {
+			_ = json.NewEncoder(w).Encode([]api.Field{
+				{ID: "customfield_10005", Name: "Change type", Custom: true, Schema: api.FieldSchema{Type: "option"}},
+			})
+			return
+		}
+		_, _ = w.Write([]byte(issueJSON))
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runGet(context.Background(), opts, "TEST-1", false, "", true)
+	testutil.RequireNoError(t, err)
+
+	output := stdout.String()
+	testutil.Contains(t, output, "Custom Fields:")
+	testutil.Contains(t, output, "Change type: Bug")
+}
+
+func TestRunGet_CustomFields_WithJSON_Errors(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(api.Issue{Key: "TEST-1"})
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	opts := &root.Options{Output: "json", Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runGet(context.Background(), opts, "TEST-1", false, "", true)
+	testutil.NotNil(t, err)
+	testutil.Contains(t, err.Error(), "not supported")
 }

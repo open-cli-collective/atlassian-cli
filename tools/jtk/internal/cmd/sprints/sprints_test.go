@@ -495,7 +495,7 @@ func TestRunIssues_Table(t *testing.T) {
 	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runIssues(context.Background(), opts, 456, 50, "")
+	err = runIssues(context.Background(), opts, 456, 50, "", "")
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()
@@ -525,7 +525,7 @@ func TestRunIssues_IDOnly(t *testing.T) {
 	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}, IDOnly: true}
 	opts.SetAPIClient(client)
 
-	err = runIssues(context.Background(), opts, 456, 50, "")
+	err = runIssues(context.Background(), opts, 456, 50, "", "")
 	testutil.RequireNoError(t, err)
 
 	testutil.Equal(t, stdout.String(), "PROJ-101\nPROJ-102\n")
@@ -552,7 +552,7 @@ func TestRunIssues_JSON(t *testing.T) {
 	opts := &root.Options{Output: "json", Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runIssues(context.Background(), opts, 456, 50, "")
+	err = runIssues(context.Background(), opts, 456, 50, "", "")
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()
@@ -571,7 +571,7 @@ func TestRunIssues_Empty(t *testing.T) {
 	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runIssues(context.Background(), opts, 456, 50, "")
+	err = runIssues(context.Background(), opts, 456, 50, "", "")
 	testutil.RequireNoError(t, err)
 
 	testutil.Contains(t, stdout.String(), "No issues in sprint")

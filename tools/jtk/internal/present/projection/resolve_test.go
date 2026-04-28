@@ -154,32 +154,69 @@ func TestResolve_UnknownToken_FallbackAttemptedButFails(t *testing.T) {
 	testutil.Equal(t, 1, stub.calls)
 }
 
-func TestResolve_UnrenderedField_ByHumanName(t *testing.T) {
+func TestResolve_DynamicSpec_ByHumanName(t *testing.T) {
 	t.Parallel()
 	stub := &fetchStub{fields: []api.Field{
 		{ID: "customfield_99999", Name: "Phantom"},
 	}}
-	_, _, err := Resolve(context.Background(), testRegistry, false, "Phantom", stub.fetch, "issues list")
-	var ure *UnrenderedFieldError
-	testutil.True(t, errors.As(err, &ure))
-	testutil.Equal(t, "Phantom", ure.JiraName)
-	testutil.Equal(t, "customfield_99999", ure.JiraID)
-	testutil.Equal(t, "issues list", ure.Command)
+	selected, projected, err := Resolve(context.Background(), testRegistry, false, "Phantom", stub.fetch, "issues list")
+	testutil.RequireNoError(t, err)
+	testutil.True(t, projected)
+	// Should contain identity (KEY) + dynamic spec
+	var found bool
+	for _, s := range selected {
+		if s.FieldID == "customfield_99999" && s.Dynamic && s.Header == "Phantom" {
+			found = true
+		}
+	}
+	testutil.True(t, found)
 }
 
-func TestResolve_UnrenderedField_ByFieldID_UsesHumanNameInMessage(t *testing.T) {
+func TestResolve_DynamicSpec_ByFieldID(t *testing.T) {
 	t.Parallel()
 	stub := &fetchStub{fields: []api.Field{
 		{ID: "customfield_99999", Name: "Phantom"},
 	}}
-	_, _, err := Resolve(context.Background(), testRegistry, false, "customfield_99999", stub.fetch, "issues list")
-	var ure *UnrenderedFieldError
-	testutil.True(t, errors.As(err, &ure))
-	testutil.Equal(t, "Phantom", ure.JiraName)
-	testutil.Equal(t, "customfield_99999", ure.JiraID)
-	// Error message must resolve the ID to the human-readable name.
-	testutil.Contains(t, err.Error(), "Phantom")
-	testutil.Contains(t, err.Error(), "customfield_99999")
+	selected, projected, err := Resolve(context.Background(), testRegistry, false, "customfield_99999", stub.fetch, "issues list")
+	testutil.RequireNoError(t, err)
+	testutil.True(t, projected)
+	var found bool
+	for _, s := range selected {
+		if s.FieldID == "customfield_99999" && s.Dynamic && s.Header == "Phantom" {
+			found = true
+		}
+	}
+	testutil.True(t, found)
+}
+
+func TestResolve_AmbiguousFieldName_Errors(t *testing.T) {
+	t.Parallel()
+	stub := &fetchStub{fields: []api.Field{
+		{ID: "customfield_10001", Name: "Duplicate"},
+		{ID: "customfield_10002", Name: "Duplicate"},
+	}}
+	_, _, err := Resolve(context.Background(), testRegistry, false, "Duplicate", stub.fetch, "issues list")
+	var afe *AmbiguousFieldNameError
+	testutil.True(t, errors.As(err, &afe))
+	testutil.Equal(t, 2, len(afe.Matches))
+}
+
+func TestResolve_DynamicSpec_HeaderCollision(t *testing.T) {
+	t.Parallel()
+	// "STATUS" is a registered header. A custom field also named "STATUS"
+	// should get a disambiguated header.
+	stub := &fetchStub{fields: []api.Field{
+		{ID: "customfield_99999", Name: "STATUS"},
+	}}
+	selected, _, err := Resolve(context.Background(), testRegistry, false, "STATUS,customfield_99999", stub.fetch, "issues list")
+	testutil.RequireNoError(t, err)
+	var dynamicHeader string
+	for _, s := range selected {
+		if s.Dynamic {
+			dynamicHeader = s.Header
+		}
+	}
+	testutil.Equal(t, "STATUS (customfield_99999)", dynamicHeader)
 }
 
 func TestResolve_ExtendedOnlyToken_WithoutFlag_Errors(t *testing.T) {

@@ -696,6 +696,61 @@ func (IssuePresenter) PresentList(issues []api.Issue, extended bool) *present.Ou
 	}
 }
 
+// AppendDynamicTableColumns adds columns for dynamic (cache-resolved) field
+// specs to the first TableSection in model. Each spec becomes a new column
+// with values extracted via api.ExtractFieldValue. Must be called BEFORE
+// ProjectTable so the projection slice can find the headers.
+func AppendDynamicTableColumns(model *present.OutputModel, issues []api.Issue, specs []projection.ColumnSpec) {
+	if model == nil || len(specs) == 0 {
+		return
+	}
+	for i, s := range model.Sections {
+		ts, ok := s.(*present.TableSection)
+		if !ok {
+			continue
+		}
+		for _, spec := range specs {
+			ts.Headers = append(ts.Headers, spec.Header)
+		}
+		for j, r := range ts.Rows {
+			if j >= len(issues) {
+				break
+			}
+			for _, spec := range specs {
+				val := api.ExtractFieldValue(&issues[j], spec.FieldID)
+				r.Cells = append(r.Cells, OrDash(val))
+			}
+			ts.Rows[j] = r
+		}
+		model.Sections[i] = ts
+		return
+	}
+}
+
+// AppendDynamicDetailFields adds fields for dynamic (cache-resolved) field
+// specs to the first DetailSection in model. Must be called BEFORE
+// ProjectDetail so the projection slice can find the labels.
+func AppendDynamicDetailFields(model *present.OutputModel, issue *api.Issue, specs []projection.ColumnSpec) {
+	if model == nil || issue == nil || len(specs) == 0 {
+		return
+	}
+	for i, s := range model.Sections {
+		ds, ok := s.(*present.DetailSection)
+		if !ok {
+			continue
+		}
+		for _, spec := range specs {
+			val := api.ExtractFieldValue(issue, spec.FieldID)
+			ds.Fields = append(ds.Fields, present.Field{
+				Label: spec.Header,
+				Value: OrDash(val),
+			})
+		}
+		model.Sections[i] = ds
+		return
+	}
+}
+
 // PresentTypes creates a table view for issue types.
 func (IssuePresenter) PresentTypes(types []api.IssueType) *present.OutputModel {
 	rows := make([]present.Row, len(types))

@@ -97,6 +97,7 @@ func runGet(ctx context.Context, opts *root.Options, issueKey string, noTruncate
 
 		if projected {
 			model := presenter.PresentDetailProjection(issue, client.IssueURL(issue.Key), noTruncate, dctx)
+			jtkpresent.AppendDynamicDetailFields(model, issue, projection.DynamicSpecs(selected))
 			projection.ApplyToDetailInModel(model, selected)
 			return jtkpresent.Emit(opts, model)
 		}
@@ -106,6 +107,7 @@ func runGet(ctx context.Context, opts *root.Options, issueKey string, noTruncate
 
 	if projected {
 		model := presenter.PresentDetailProjection(issue, client.IssueURL(issue.Key), noTruncate, nil)
+		jtkpresent.AppendDynamicDetailFields(model, issue, projection.DynamicSpecs(selected))
 		projection.ApplyToDetailInModel(model, selected)
 		return jtkpresent.Emit(opts, model)
 	}

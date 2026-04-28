@@ -400,7 +400,7 @@ func TestRunList_Fields_UnknownToken_Errors(t *testing.T) {
 	}
 }
 
-func TestRunList_Fields_UnrenderedField_ByHumanName_Errors(t *testing.T) {
+func TestRunList_Fields_DynamicField_ByHumanName_Succeeds(t *testing.T) {
 	// Non-parallel: cache isolation uses process-global SetRootForTest.
 	t.Cleanup(cache.SetRootForTest(t.TempDir()))
 	cs := newCapturingServer(t, []string{"TEST-1"}, true, []api.Field{
@@ -408,17 +408,13 @@ func TestRunList_Fields_UnrenderedField_ByHumanName_Errors(t *testing.T) {
 	})
 	defer cs.server.Close()
 
-	opts, _, _ := newOptsFor(t, cs)
+	opts, stdout, _ := newOptsFor(t, cs)
 	err := runList(context.Background(), opts, "TEST", "", 25, "", false, "Phantom")
-	var ure *projection.UnrenderedFieldError
-	if !errors.As(err, &ure) {
-		t.Fatalf("expected UnrenderedFieldError, got %v", err)
-	}
-	testutil.Equal(t, "Phantom", ure.JiraName)
-	testutil.Equal(t, "issues list", ure.Command)
+	testutil.RequireNoError(t, err)
+	testutil.Contains(t, stdout.String(), "Phantom")
 }
 
-func TestRunList_Fields_UnrenderedField_ByFieldID_Errors(t *testing.T) {
+func TestRunList_Fields_DynamicField_ByFieldID_Succeeds(t *testing.T) {
 	// Non-parallel: cache isolation uses process-global SetRootForTest.
 	t.Cleanup(cache.SetRootForTest(t.TempDir()))
 	cs := newCapturingServer(t, []string{"TEST-1"}, true, []api.Field{
@@ -426,14 +422,10 @@ func TestRunList_Fields_UnrenderedField_ByFieldID_Errors(t *testing.T) {
 	})
 	defer cs.server.Close()
 
-	opts, _, _ := newOptsFor(t, cs)
+	opts, stdout, _ := newOptsFor(t, cs)
 	err := runList(context.Background(), opts, "TEST", "", 25, "", false, "customfield_99999")
-	var ure *projection.UnrenderedFieldError
-	if !errors.As(err, &ure) {
-		t.Fatalf("expected UnrenderedFieldError, got %v", err)
-	}
-	testutil.Equal(t, "Phantom", ure.JiraName)
-	testutil.Contains(t, err.Error(), "Phantom")
+	testutil.RequireNoError(t, err)
+	testutil.Contains(t, stdout.String(), "Phantom")
 }
 
 func TestRunList_Fields_WithJSON_Errors(t *testing.T) {

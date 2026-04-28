@@ -141,22 +141,22 @@ func TestRunGet_Fields_UnknownToken_Errors(t *testing.T) {
 	}
 }
 
-func TestRunGet_Fields_UnrenderedField_ByFieldID_Errors(t *testing.T) {
+func TestRunGet_Fields_DynamicField_ByFieldID_Succeeds(t *testing.T) {
 	// Non-parallel: cache isolation uses process-global SetRootForTest.
 	t.Cleanup(cache.SetRootForTest(t.TempDir()))
-	cs := newCapturingGetServer(t, fullIssue(), []api.Field{
+	issue := fullIssue()
+	issue.Fields.CustomFields = map[string]any{
+		"customfield_99999": "phantom-value",
+	}
+	cs := newCapturingGetServer(t, issue, []api.Field{
 		{ID: "customfield_99999", Name: "Phantom"},
 	})
 	defer cs.server.Close()
 
-	opts, _, _ := newGetOpts(t, cs)
+	opts, stdout, _ := newGetOpts(t, cs)
 	err := runGet(context.Background(), opts, "TEST-1", false, "customfield_99999")
-	var ure *projection.UnrenderedFieldError
-	if !errors.As(err, &ure) {
-		t.Fatalf("expected UnrenderedFieldError, got %v", err)
-	}
-	testutil.Equal(t, "Phantom", ure.JiraName)
-	testutil.Equal(t, "issues get", ure.Command)
+	testutil.RequireNoError(t, err)
+	testutil.Contains(t, stdout.String(), "phantom-value")
 }
 
 func TestRunGet_Fields_WithJSON_Errors(t *testing.T) {

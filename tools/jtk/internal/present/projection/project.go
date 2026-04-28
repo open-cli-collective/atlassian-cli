@@ -121,6 +121,18 @@ func HasExtendedFields(selected []ColumnSpec, registry Registry) bool {
 	return false
 }
 
+// DynamicSpecs returns only the Dynamic specs from selected. Commands use
+// this to identify columns/fields that need runtime value extraction.
+func DynamicSpecs(selected []ColumnSpec) []ColumnSpec {
+	var out []ColumnSpec
+	for _, c := range selected {
+		if c.Dynamic {
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
 // DeriveFetchFields returns the minimum Jira field-ID set needed to render
 // the selected specs. Output is sorted and deduplicated so API requests are
 // stable across runs. Synthetic specs (empty FieldID, empty Fetch) are

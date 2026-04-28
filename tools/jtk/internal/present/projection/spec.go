@@ -37,6 +37,10 @@ type ColumnSpec struct {
 	// When empty and FieldID is empty, the column contributes nothing
 	// to the fetch set (synthetic columns like a constructed URL).
 	Fetch []string
+	// Dynamic is true for specs created at runtime from Jira field
+	// metadata (cache-backed). Commands use this to append values
+	// that the hardcoded presenter doesn't know about.
+	Dynamic bool
 }
 
 // fetchFields returns the Jira field IDs required to render this spec.

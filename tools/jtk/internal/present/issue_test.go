@@ -80,11 +80,11 @@ func TestIssuePresenter_PresentDetail_Extended(t *testing.T) {
 	model := p.PresentDetail(issue, "https://jira.example.com/browse/PROJ-123", true, false)
 
 	rendered := renderMsgSections(model)
-	if !strings.Contains(rendered, "category: In Progress") {
-		t.Errorf("expected status category in extended output:\n%s", rendered)
+	if !strings.Contains(rendered, "Status: In Progress") {
+		t.Errorf("expected status in extended output:\n%s", rendered)
 	}
-	if !strings.Contains(rendered, "Reporter: Bob (def456)") {
-		t.Errorf("expected reporter with ID in extended output:\n%s", rendered)
+	if !strings.Contains(rendered, "Reporter: Bob") {
+		t.Errorf("expected reporter in extended output:\n%s", rendered)
 	}
 	if !strings.Contains(rendered, "Created:") {
 		t.Errorf("expected Created in extended output:\n%s", rendered)

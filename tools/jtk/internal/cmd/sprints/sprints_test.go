@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -16,7 +17,10 @@ import (
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cache"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/mutation"
 )
+
+func init() { mutation.BackoffSchedule = []time.Duration{0, 0, 0, 0} }
 
 // seedBoardsAndSprints seeds the instance-scoped caches used by the Cobra
 // entry-point tests below. Pairs with cache.SetRootForTest for full
@@ -1314,10 +1318,11 @@ func TestNewRemoveCmd(t *testing.T) {
 }
 
 func TestRunRemove_Success(t *testing.T) {
-	postDone := false
+	t.Parallel()
+	var postDone atomic.Bool
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost && strings.Contains(r.URL.Path, "/backlog/issue") {
-			postDone = true
+			postDone.Store(true)
 			var body map[string]any
 			err := json.NewDecoder(r.Body).Decode(&body)
 			testutil.RequireNoError(t, err)
@@ -1330,7 +1335,7 @@ func TestRunRemove_Success(t *testing.T) {
 			return
 		}
 
-		if r.Method == http.MethodGet && postDone {
+		if r.Method == http.MethodGet && postDone.Load() {
 			key := "PROJ-101"
 			if strings.Contains(r.URL.Path, "PROJ-102") {
 				key = "PROJ-102"
@@ -1361,14 +1366,15 @@ func TestRunRemove_Success(t *testing.T) {
 }
 
 func TestRunRemove_SingleIssue(t *testing.T) {
-	postDone := false
+	t.Parallel()
+	var postDone atomic.Bool
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
-			postDone = true
+			postDone.Store(true)
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
-		if r.Method == http.MethodGet && postDone {
+		if r.Method == http.MethodGet && postDone.Load() {
 			_ = json.NewEncoder(w).Encode(api.Issue{
 				Key:    "PROJ-101",
 				Fields: api.IssueFields{Summary: "Issue 1"},
@@ -1433,14 +1439,12 @@ func TestRunRemove_APIError(t *testing.T) {
 }
 
 func TestRunRemove_FetchFails_Fallback(t *testing.T) {
-	requestCount := 0
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
-		// All GET requests fail — triggers fallback path
-		requestCount++
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
 	defer server.Close()
@@ -1460,6 +1464,7 @@ func TestRunRemove_FetchFails_Fallback(t *testing.T) {
 }
 
 func TestRemoveCmd_CobraEntryPoint(t *testing.T) {
+	t.Parallel()
 	var capturedPath string
 	var capturedIssues []any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

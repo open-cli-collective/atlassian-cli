@@ -2,6 +2,7 @@ package atime
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 )
@@ -126,7 +127,7 @@ func TestNilPointerOmitEmpty(t *testing.T) {
 		t.Fatalf("marshal: %v", err)
 	}
 	s := string(data)
-	if contains(s, "created") {
+	if strings.Contains(s, "created") {
 		t.Errorf("nil *AtlassianTime should be omitted, got: %s", s)
 	}
 }
@@ -142,17 +143,4 @@ func TestString(t *testing.T) {
 	if zero.String() != "" {
 		t.Errorf("zero String() = %q, want empty", zero.String())
 	}
-}
-
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && searchString(s, substr)
-}
-
-func searchString(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
 }

@@ -65,7 +65,8 @@ func (t *AtlassianTime) UnmarshalJSON(data []byte) error {
 	if err != nil {
 		return fmt.Errorf("AtlassianTime: cannot unmarshal %q: %w", s, err)
 	}
-	// Epoch seconds are ≤10 digits through 2286; epoch millis are 13+ digits for dates after 2001.
+	// Epoch seconds are ≤10 digits through 2286; epoch millis are 13 digits for modern dates.
+	// 11-12 digit values are ambiguous but don't occur in Atlassian API responses.
 	if len(s) <= 10 {
 		t.Time = time.Unix(n, 0).UTC()
 	} else {

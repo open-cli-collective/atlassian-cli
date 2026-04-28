@@ -60,6 +60,7 @@ func newListCmd(opts *root.Options) *cobra.Command {
 	cmd.Flags().IntVarP(&maxResults, "max", "m", 25, "Maximum number of results to return")
 	cmd.Flags().StringVar(&nextPageToken, "next-page-token", "", "Token for next page of results")
 	cmd.Flags().BoolVar(&allFields, "all-fields", false, "Include all fields (e.g. description)")
+	_ = cmd.Flags().MarkDeprecated("all-fields", "use --fields description instead")
 	cmd.Flags().StringVar(&fieldsFlag, "fields", "", "Comma-separated display columns (headers, Jira field IDs, or human names)")
 
 	return cmd

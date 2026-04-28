@@ -11,14 +11,6 @@ import (
 	"github.com/open-cli-collective/jira-ticket-cli/internal/present/projection"
 )
 
-// DetailContext carries extended-only data fetched by the command layer.
-type DetailContext struct {
-	Transitions       []api.Transition
-	TransitionsFailed bool              // true when the API call failed
-	Watchers          *api.WatchersInfo // nil = unavailable
-	Fields            []api.Field       // nil = degrade to raw field IDs
-}
-
 // IssuePresenter creates presentation models for issue data.
 type IssuePresenter struct{}
 
@@ -45,7 +37,8 @@ var IssueListSpec = projection.Registry{
 // IssueDetailSpec declares the fields emitted by PresentDetail /
 // PresentDetailProjection and the metadata for --fields projection.
 // Default fields are those an agent needs daily; extended adds
-// admin/schema/audit detail per #230.
+// Reporter, Created, Fix Versions, Resolution — matching the
+// "add more built-in context" semantics of --extended on list/search.
 var IssueDetailSpec = projection.Registry{
 	{Header: "Key", Identity: true},
 	{Header: "Summary", FieldID: "summary"},
@@ -62,14 +55,8 @@ var IssueDetailSpec = projection.Registry{
 	{Header: "Description", FieldID: "description"},
 	{Header: "Reporter", FieldID: "reporter", Extended: true},
 	{Header: "Created", FieldID: "created", Extended: true},
-	{Header: "Status_Category", Extended: true},
-	{Header: "Sprint_Dates", Extended: true},
-	{Header: "Component_IDs", Extended: true},
 	{Header: "Fix_Versions", FieldID: "fixVersions", Extended: true},
-	{Header: "Watchers", Extended: true},
 	{Header: "Resolution", FieldID: "resolution", Extended: true},
-	{Header: "Custom_Fields", Extended: true},
-	{Header: "Transitions", Extended: true},
 }
 
 // PresentDetail creates a spec-shaped detail view for a single issue.
@@ -143,61 +130,29 @@ func issueDetailDefaultSections(issue *api.Issue, fulltext bool) []present.Secti
 
 func issueDetailExtendedSections(issue *api.Issue, fulltext bool) []present.Section {
 	status := issueStatusName(issue)
-	statusCategory := ""
-	if issue.Fields.Status != nil {
-		statusCategory = issue.Fields.Status.StatusCategory.Name
-	}
 	issueType := issueTypeName(issue)
 	priority := issuePriorityName(issue)
 	points := formatStoryPoints(issue)
-
-	assignee := "Unassigned"
-	assigneeID := ""
-	if issue.Fields.Assignee != nil {
-		assignee = issue.Fields.Assignee.DisplayName
-		assigneeID = issue.Fields.Assignee.AccountID
-	}
-
-	reporter := "-"
-	reporterID := ""
-	if issue.Fields.Reporter != nil {
-		reporter = issue.Fields.Reporter.DisplayName
-		reporterID = issue.Fields.Reporter.AccountID
-	}
-
-	statusLine := fmt.Sprintf("Status: %s", OrDash(status))
-	if statusCategory != "" {
-		statusLine += fmt.Sprintf(" (category: %s)", statusCategory)
-	}
-	statusLine += fmt.Sprintf("   Type: %s   Priority: %s   Points: %s",
-		OrDash(issueType), OrDash(priority), points)
-
-	assigneeLine := fmt.Sprintf("Assignee: %s", assignee)
-	if assigneeID != "" {
-		assigneeLine += fmt.Sprintf(" (%s)", assigneeID)
-	}
-	assigneeLine += fmt.Sprintf("   Reporter: %s", reporter)
-	if reporterID != "" {
-		assigneeLine += fmt.Sprintf(" (%s)", reporterID)
-	}
+	assignee := issueAssigneeName(issue)
+	updated := FormatTime(issue.Fields.Updated)
+	reporter := issueReporterName(issue)
+	created := FormatTime(issue.Fields.Created)
 
 	sections := []present.Section{
-		msg(statusLine),
-		msg(assigneeLine),
+		msg(fmt.Sprintf("Status: %s   Type: %s   Priority: %s   Points: %s",
+			OrDash(status), OrDash(issueType), OrDash(priority), points)),
+		msg(fmt.Sprintf("Assignee: %s   Reporter: %s",
+			assignee, reporter)),
 		msg(fmt.Sprintf("Updated: %s   Created: %s",
-			OrDash(issue.Fields.Updated), OrDash(issue.Fields.Created))),
+			OrDash(updated), OrDash(created))),
 	}
 
 	if issue.Fields.Sprint != nil {
-		s := issue.Fields.Sprint
-		sprintRef := s.Name
-		sprintMeta := fmt.Sprintf("id: %d, %s", s.ID, OrDash(s.State))
-		if s.StartDate != nil {
-			sprintMeta += ", " + FormatDateOrDash(s.StartDate) + " → " + FormatDateOrDash(s.EndDate)
+		sprintRef := issue.Fields.Sprint.Name
+		if issue.Fields.Sprint.State != "" {
+			sprintRef += " (" + issue.Fields.Sprint.State + ")"
 		}
-		sections = append(sections, msg(fmt.Sprintf("Sprint: %s (%s)", sprintRef, sprintMeta)))
-	} else {
-		sections = append(sections, msg("Sprint: -"))
+		sections = append(sections, msg("Sprint: "+sprintRef))
 	}
 
 	if issue.Fields.Parent != nil {
@@ -209,24 +164,30 @@ func issueDetailExtendedSections(issue *api.Issue, fulltext bool) []present.Sect
 			parentRef += " (" + issue.Fields.Parent.Fields.IssueType.Name + ")"
 		}
 		sections = append(sections, msg("Parent: "+parentRef))
-	} else {
-		sections = append(sections, msg("Parent: -"))
 	}
 
-	labels := "-"
 	if len(issue.Fields.Labels) > 0 {
-		labels = strings.Join(issue.Fields.Labels, ", ")
+		sections = append(sections, msg("Labels: "+strings.Join(issue.Fields.Labels, ", ")))
 	}
-	sections = append(sections, msg("Labels: "+labels))
 
 	if len(issue.Fields.Components) > 0 {
 		names := make([]string, len(issue.Fields.Components))
 		for i, c := range issue.Fields.Components {
-			names[i] = fmt.Sprintf("%s (%s)", c.Name, c.ID)
+			names[i] = c.Name
 		}
 		sections = append(sections, msg("Components: "+strings.Join(names, ", ")))
-	} else {
-		sections = append(sections, msg("Components: -"))
+	}
+
+	if len(issue.Fields.FixVersions) > 0 {
+		names := make([]string, len(issue.Fields.FixVersions))
+		for i, v := range issue.Fields.FixVersions {
+			names[i] = v.Name
+		}
+		sections = append(sections, msg("Fix Versions: "+strings.Join(names, ", ")))
+	}
+
+	if issue.Fields.Resolution != nil {
+		sections = append(sections, msg("Resolution: "+issue.Fields.Resolution.Name))
 	}
 
 	sections = append(sections, issueDescriptionSection(issue, fulltext)...)
@@ -252,236 +213,40 @@ func issueDescriptionSection(issue *api.Issue, fulltext bool) []present.Section 
 	}
 }
 
-// PresentDetailExtended builds the full extended detail view with additional
-// context data (transitions, watchers, custom fields). Extended always implies
-// fulltext — description is never truncated.
-func (IssuePresenter) PresentDetailExtended(issue *api.Issue, _ string, dctx *DetailContext) *present.OutputModel {
-	sections := []present.Section{
-		msg(fmt.Sprintf("%s  %s", issue.Key, issue.Fields.Summary)),
+// AppendCustomFieldsSection appends a "Custom Fields:" section to the model
+// using pre-extracted IssueFieldEntry values (from api.ExtractIssueFieldValues).
+// Only custom fields (customfield_*) are included; entries are sorted by ID.
+func AppendCustomFieldsSection(model *present.OutputModel, entries []api.IssueFieldEntry) {
+	if model == nil || len(entries) == 0 {
+		return
 	}
 
-	status := issueStatusName(issue)
-	statusCategory := ""
-	if issue.Fields.Status != nil {
-		statusCategory = issue.Fields.Status.StatusCategory.Name
-	}
-	issueType := issueTypeName(issue)
-	priority := issuePriorityName(issue)
-	points := formatStoryPoints(issue)
-
-	assignee := "Unassigned"
-	assigneeID := ""
-	if issue.Fields.Assignee != nil {
-		assignee = issue.Fields.Assignee.DisplayName
-		assigneeID = issue.Fields.Assignee.AccountID
-	}
-
-	reporter := "-"
-	reporterID := ""
-	if issue.Fields.Reporter != nil {
-		reporter = issue.Fields.Reporter.DisplayName
-		reporterID = issue.Fields.Reporter.AccountID
-	}
-
-	statusLine := fmt.Sprintf("Status: %s", OrDash(status))
-	if statusCategory != "" {
-		statusLine += fmt.Sprintf(" (category: %s)", statusCategory)
-	}
-	statusLine += fmt.Sprintf("   Type: %s   Priority: %s   Points: %s",
-		OrDash(issueType), OrDash(priority), points)
-
-	assigneeLine := fmt.Sprintf("Assignee: %s", assignee)
-	if assigneeID != "" {
-		assigneeLine += fmt.Sprintf(" (%s)", assigneeID)
-	}
-	assigneeLine += fmt.Sprintf("   Reporter: %s", reporter)
-	if reporterID != "" {
-		assigneeLine += fmt.Sprintf(" (%s)", reporterID)
-	}
-
-	sections = append(sections,
-		msg(statusLine),
-		msg(assigneeLine),
-		msg(fmt.Sprintf("Updated: %s   Created: %s",
-			OrDash(issue.Fields.Updated), OrDash(issue.Fields.Created))),
-	)
-
-	if issue.Fields.Sprint != nil {
-		s := issue.Fields.Sprint
-		sprintRef := s.Name
-		sprintMeta := fmt.Sprintf("id: %d, %s", s.ID, OrDash(s.State))
-		if s.StartDate != nil {
-			sprintMeta += ", " + FormatDateOrDash(s.StartDate) + " → " + FormatDateOrDash(s.EndDate)
-		}
-		sections = append(sections, msg(fmt.Sprintf("Sprint: %s (%s)", sprintRef, sprintMeta)))
-	} else {
-		sections = append(sections, msg("Sprint: -"))
-	}
-
-	if issue.Fields.Parent != nil {
-		parentRef := issue.Fields.Parent.Key
-		if issue.Fields.Parent.Fields.Summary != "" {
-			parentRef += " — " + issue.Fields.Parent.Fields.Summary
-		}
-		if issue.Fields.Parent.Fields.IssueType != nil {
-			parentRef += " (" + issue.Fields.Parent.Fields.IssueType.Name + ")"
-		}
-		sections = append(sections, msg("Parent: "+parentRef))
-	} else {
-		sections = append(sections, msg("Parent: -"))
-	}
-
-	labels := "-"
-	if len(issue.Fields.Labels) > 0 {
-		labels = strings.Join(issue.Fields.Labels, ", ")
-	}
-	sections = append(sections, msg("Labels: "+labels))
-
-	if len(issue.Fields.Components) > 0 {
-		names := make([]string, len(issue.Fields.Components))
-		for i, c := range issue.Fields.Components {
-			names[i] = fmt.Sprintf("%s (%s)", c.Name, c.ID)
-		}
-		sections = append(sections, msg("Components: "+strings.Join(names, ", ")))
-	} else {
-		sections = append(sections, msg("Components: -"))
-	}
-
-	fixVersions := "-"
-	if len(issue.Fields.FixVersions) > 0 {
-		names := make([]string, len(issue.Fields.FixVersions))
-		for i, v := range issue.Fields.FixVersions {
-			names[i] = v.Name
-		}
-		fixVersions = strings.Join(names, ", ")
-	}
-	sections = append(sections, msg("Fix Versions: "+fixVersions))
-
-	if dctx != nil && dctx.Watchers != nil {
-		watching := "no"
-		if dctx.Watchers.IsWatching {
-			watching = "yes"
-		}
-		sections = append(sections, msg(fmt.Sprintf("Watchers: %d (watching: %s)", dctx.Watchers.WatchCount, watching)))
-	} else {
-		sections = append(sections, msg("Watchers: -"))
-	}
-
-	resolution := "-"
-	if issue.Fields.Resolution != nil {
-		resolution = issue.Fields.Resolution.Name
-	}
-	sections = append(sections, msg("Resolution: "+resolution))
-
-	sections = append(sections, issueExtendedCustomFields(issue, dctx)...)
-
-	sections = append(sections, issueDescriptionSection(issue, true)...)
-
-	sections = append(sections, msg(""), msg("Transitions:"))
-	if dctx != nil && dctx.TransitionsFailed {
-		sections = append(sections, msg("  (unavailable)"))
-	} else if dctx != nil && len(dctx.Transitions) > 0 {
-		for _, t := range dctx.Transitions {
-			sections = append(sections, msg(fmt.Sprintf("  %s | %s | %s", t.ID, t.Name, OrDash(t.To.Name))))
-		}
-	} else {
-		sections = append(sections, msg("  (none)"))
-	}
-
-	return &present.OutputModel{Sections: sections}
-}
-
-func issueExtendedCustomFields(issue *api.Issue, dctx *DetailContext) []present.Section {
-	if issue.Fields.CustomFields == nil {
-		return nil
-	}
-
-	fieldIndex := make(map[string]string)
-	if dctx != nil && dctx.Fields != nil {
-		for _, f := range dctx.Fields {
-			fieldIndex[f.ID] = f.Name
-		}
-	}
-
-	type entry struct {
-		id, value, name string
-	}
-	var entries []entry
-	for id, raw := range issue.Fields.CustomFields {
-		if !strings.HasPrefix(id, "customfield_") || raw == nil {
-			continue
-		}
-		if id == "customfield_10020" && issue.Fields.Sprint != nil {
-			continue
-		}
-		val := api.FormatCustomFieldValue(raw)
-		if val == "" {
-			continue
-		}
-		name := fieldIndex[id]
-		entries = append(entries, entry{id: id, value: val, name: name})
-	}
-
-	if len(entries) == 0 {
-		return nil
-	}
-
-	sort.Slice(entries, func(i, j int) bool { return entries[i].id < entries[j].id })
-
-	var sections []present.Section
+	var custom []api.IssueFieldEntry
 	for _, e := range entries {
-		line := fmt.Sprintf("%s: %s", e.id, e.value)
-		if e.name != "" {
-			line += fmt.Sprintf("   (%s)", e.name)
+		if strings.HasPrefix(e.ID, "customfield_") {
+			custom = append(custom, e)
 		}
-		sections = append(sections, msg(line))
 	}
-	return sections
+	if len(custom) == 0 {
+		return
+	}
+
+	sort.Slice(custom, func(i, j int) bool { return custom[i].ID < custom[j].ID })
+
+	model.Sections = append(model.Sections, msg(""), msg("Custom Fields:"))
+	for _, e := range custom {
+		line := fmt.Sprintf("  %s: %s", e.Name, e.Value)
+		if e.Name == e.ID {
+			line = fmt.Sprintf("  %s: %s", e.ID, e.Value)
+		}
+		model.Sections = append(model.Sections, msg(line))
+	}
 }
 
 // PresentDetailProjection builds a DetailSection view for `issues get --fields`.
-// When dctx is non-nil, extended fields (Watchers, Custom_Fields, Transitions)
-// are populated from it; otherwise they render as "-".
-func (IssuePresenter) PresentDetailProjection(issue *api.Issue, _ string, fulltext bool, dctx *DetailContext) *present.OutputModel {
-	watchersVal := "-"
-	if dctx != nil && dctx.Watchers != nil {
-		watching := "no"
-		if dctx.Watchers.IsWatching {
-			watching = "yes"
-		}
-		watchersVal = fmt.Sprintf("%d (watching: %s)", dctx.Watchers.WatchCount, watching)
-	}
-
-	customFieldsVal := "-"
-	if dctx != nil && issue.Fields.CustomFields != nil {
-		var parts []string
-		for id, raw := range issue.Fields.CustomFields {
-			if !strings.HasPrefix(id, "customfield_") || raw == nil {
-				continue
-			}
-			if id == "customfield_10020" && issue.Fields.Sprint != nil {
-				continue
-			}
-			val := api.FormatCustomFieldValue(raw)
-			if val != "" {
-				parts = append(parts, fmt.Sprintf("%s=%s", id, val))
-			}
-		}
-		if len(parts) > 0 {
-			sort.Strings(parts)
-			customFieldsVal = strings.Join(parts, "; ")
-		}
-	}
-
-	transitionsVal := "-"
-	if dctx != nil && len(dctx.Transitions) > 0 {
-		var parts []string
-		for _, t := range dctx.Transitions {
-			parts = append(parts, fmt.Sprintf("%s:%s:%s", t.ID, t.Name, OrDash(t.To.Name)))
-		}
-		transitionsVal = strings.Join(parts, ", ")
-	}
-
+// Only fields in the IssueDetailSpec registry are included; ProjectDetail
+// slices the result to the user's selected subset.
+func (IssuePresenter) PresentDetailProjection(issue *api.Issue, _ string, fulltext bool) *present.OutputModel {
 	fields := []present.Field{
 		{Label: "Key", Value: issue.Key},
 		{Label: "Summary", Value: issue.Fields.Summary},
@@ -498,14 +263,8 @@ func (IssuePresenter) PresentDetailProjection(issue *api.Issue, _ string, fullte
 		{Label: "Description", Value: issueDescriptionText(issue, fulltext)},
 		{Label: "Reporter", Value: issueReporterName(issue)},
 		{Label: "Created", Value: OrDash(issue.Fields.Created)},
-		{Label: "Status_Category", Value: issueStatusCategory(issue)},
-		{Label: "Sprint_Dates", Value: issueSprintDates(issue)},
-		{Label: "Component_IDs", Value: issueComponentIDs(issue)},
 		{Label: "Fix_Versions", Value: issueFixVersions(issue)},
-		{Label: "Watchers", Value: watchersVal},
 		{Label: "Resolution", Value: issueResolution(issue)},
-		{Label: "Custom_Fields", Value: customFieldsVal},
-		{Label: "Transitions", Value: transitionsVal},
 	}
 	return &present.OutputModel{
 		Sections: []present.Section{&present.DetailSection{Fields: fields}},
@@ -574,32 +333,6 @@ func issueComponentNames(issue *api.Issue) string {
 		names[i] = c.Name
 	}
 	return strings.Join(names, ", ")
-}
-
-func issueComponentIDs(issue *api.Issue) string {
-	if len(issue.Fields.Components) == 0 {
-		return "-"
-	}
-	ids := make([]string, len(issue.Fields.Components))
-	for i, c := range issue.Fields.Components {
-		ids[i] = fmt.Sprintf("%s (%s)", c.Name, c.ID)
-	}
-	return strings.Join(ids, ", ")
-}
-
-func issueStatusCategory(issue *api.Issue) string {
-	if issue.Fields.Status != nil && issue.Fields.Status.StatusCategory.Name != "" {
-		return issue.Fields.Status.StatusCategory.Name
-	}
-	return "-"
-}
-
-func issueSprintDates(issue *api.Issue) string {
-	if issue.Fields.Sprint == nil {
-		return "-"
-	}
-	s := issue.Fields.Sprint
-	return fmt.Sprintf("%s → %s", FormatDateOrDash(s.StartDate), FormatDateOrDash(s.EndDate))
 }
 
 func issueFixVersions(issue *api.Issue) string {

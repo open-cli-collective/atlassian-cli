@@ -67,7 +67,7 @@ func TestRunGet_TruncatesDescription(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runGet(context.Background(), opts, "TEST-1", false, "")
+	err = runGet(context.Background(), opts, "TEST-1", false, "", false)
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()
@@ -107,7 +107,7 @@ func TestRunGet_FullDescription(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runGet(context.Background(), opts, "TEST-1", true, "")
+	err = runGet(context.Background(), opts, "TEST-1", true, "", false)
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()
@@ -224,7 +224,7 @@ func TestRunGet_IDOnly(t *testing.T) {
 	opts := &root.Options{Output: "table", IDOnly: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	testutil.RequireNoError(t, runGet(context.Background(), opts, "TEST-1", false, ""))
+	testutil.RequireNoError(t, runGet(context.Background(), opts, "TEST-1", false, "", false))
 	testutil.Equal(t, stdout.String(), "TEST-1\n")
 }
 
@@ -252,7 +252,7 @@ func TestRunGet_IDOnlyPrecedenceOverExtendedFullText(t *testing.T) {
 
 	// runGet receives noTruncate derived from RunE; when --id is set, the truncation
 	// value doesn't matter because EmitIDOnly collapses output before presenter runs.
-	testutil.RequireNoError(t, runGet(context.Background(), opts, "TEST-1", true, ""))
+	testutil.RequireNoError(t, runGet(context.Background(), opts, "TEST-1", true, "", false))
 	testutil.Equal(t, stdout.String(), "TEST-1\n")
 }
 
@@ -286,7 +286,7 @@ func TestRunGet_ShortDescriptionNotTruncated(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runGet(context.Background(), opts, "TEST-1", false, "")
+	err = runGet(context.Background(), opts, "TEST-1", false, "", false)
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()
@@ -323,7 +323,7 @@ func TestRunGet_JSONOutputIgnoresFullFlag(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runGet(context.Background(), opts, "TEST-1", true, "")
+	err = runGet(context.Background(), opts, "TEST-1", true, "", false)
 	testutil.RequireNoError(t, err)
 
 	// Should be valid JSON
@@ -333,7 +333,7 @@ func TestRunGet_JSONOutputIgnoresFullFlag(t *testing.T) {
 	testutil.Equal(t, result.Key, "TEST-1")
 }
 
-func TestRunGet_Extended_ShowsNewSections(t *testing.T) {
+func TestRunGet_Extended_ShowsNormalizedSections(t *testing.T) {
 	t.Parallel()
 	issue := api.Issue{
 		Key: "TEST-1",
@@ -341,29 +341,16 @@ func TestRunGet_Extended_ShowsNewSections(t *testing.T) {
 			Summary:     "Test issue",
 			Status:      &api.Status{Name: "Open", StatusCategory: api.StatusCategory{Name: "To Do"}},
 			IssueType:   &api.IssueType{Name: "Task"},
+			Reporter:    &api.User{DisplayName: "Bob"},
 			Resolution:  &api.Resolution{Name: "Done"},
 			FixVersions: []api.Version{{ID: "1", Name: "v1.0"}},
+			Created:     "2026-04-01T12:00:00.000+0000",
 			Description: &api.Description{Text: strings.Repeat("A", 300)},
 		},
 	}
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		switch {
-		case strings.HasSuffix(r.URL.Path, "/transitions"):
-			_ = json.NewEncoder(w).Encode(api.TransitionsResponse{
-				Transitions: []api.Transition{
-					{ID: "11", Name: "Backlog", To: api.Status{Name: "Backlog"}},
-					{ID: "21", Name: "In Progress", To: api.Status{Name: "In Development"}},
-				},
-			})
-		case strings.HasSuffix(r.URL.Path, "/watchers"):
-			_ = json.NewEncoder(w).Encode(api.WatchersInfo{WatchCount: 3, IsWatching: true})
-		case strings.Contains(r.URL.Path, "/field"):
-			_ = json.NewEncoder(w).Encode([]api.Field{})
-		default:
-			_ = json.NewEncoder(w).Encode(issue)
-		}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(issue)
 	}))
 	defer server.Close()
 
@@ -374,68 +361,19 @@ func TestRunGet_Extended_ShowsNewSections(t *testing.T) {
 	opts := &root.Options{Output: "table", Extended: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runGet(context.Background(), opts, "TEST-1", false, "")
+	err = runGet(context.Background(), opts, "TEST-1", false, "", false)
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()
+	testutil.Contains(t, output, "Reporter: Bob")
 	testutil.Contains(t, output, "Fix Versions: v1.0")
-	testutil.Contains(t, output, "Watchers: 3 (watching: yes)")
 	testutil.Contains(t, output, "Resolution: Done")
-	testutil.Contains(t, output, "Transitions:")
-	testutil.Contains(t, output, "  11 | Backlog | Backlog")
-	testutil.Contains(t, output, "  21 | In Progress | In Development")
-	testutil.NotContains(t, output, "ID | NAME")
 	// Extended implies fulltext — full description present
 	testutil.NotContains(t, output, "[truncated")
-}
-
-func TestRunGet_ExtendedFields_ProjectionUsesDetailContext(t *testing.T) {
-	t.Parallel()
-	longDesc := strings.Repeat("B", 300)
-	issue := api.Issue{
-		Key: "TEST-1",
-		Fields: api.IssueFields{
-			Summary:     "Test issue",
-			Status:      &api.Status{Name: "Open"},
-			IssueType:   &api.IssueType{Name: "Task"},
-			Description: &api.Description{Text: longDesc},
-		},
-	}
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		switch {
-		case strings.HasSuffix(r.URL.Path, "/transitions"):
-			_ = json.NewEncoder(w).Encode(api.TransitionsResponse{
-				Transitions: []api.Transition{
-					{ID: "11", Name: "Backlog"},
-				},
-			})
-		case strings.HasSuffix(r.URL.Path, "/watchers"):
-			_ = json.NewEncoder(w).Encode(api.WatchersInfo{WatchCount: 5, IsWatching: false})
-		case strings.HasSuffix(r.URL.Path, "/field"):
-			_ = json.NewEncoder(w).Encode([]api.Field{})
-		default:
-			_ = json.NewEncoder(w).Encode(issue)
-		}
-	}))
-	defer server.Close()
-
-	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
-	testutil.RequireNoError(t, err)
-
-	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", Extended: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
-	opts.SetAPIClient(client)
-
-	err = runGet(context.Background(), opts, "TEST-1", false, "Watchers,Transitions,Description")
-	testutil.RequireNoError(t, err)
-
-	output := stdout.String()
-	testutil.Contains(t, output, "5 (watching: no)")
-	testutil.Contains(t, output, "11:Backlog:-")
-	testutil.Contains(t, output, longDesc)
-	testutil.NotContains(t, output, "[truncated")
+	// Kitchen-sink items no longer present
+	testutil.NotContains(t, output, "Transitions:")
+	testutil.NotContains(t, output, "Watchers:")
+	testutil.NotContains(t, output, "category:")
 }
 
 func TestRunGet_Extended_SprintFromCustomField(t *testing.T) {
@@ -444,35 +382,17 @@ func TestRunGet_Extended_SprintFromCustomField(t *testing.T) {
 		"key": "MON-4970",
 		"fields": {
 			"summary": "Sprint test issue",
-			"status": {"name": "In Development", "statusCategory": {"name": "In Progress"}},
+			"status": {"name": "In Development"},
 			"issuetype": {"name": "Task"},
 			"customfield_10020": [
 				{"id": 100, "name": "Sprint 69", "state": "closed"},
 				{"id": 125, "name": "MON Sprint 70", "state": "active", "startDate": "2026-04-10T00:00:00.000Z", "endDate": "2026-04-24T00:00:00.000Z"}
-			],
-			"customfield_10035": 5
+			]
 		}
 	}`
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		switch {
-		case strings.HasSuffix(r.URL.Path, "/transitions"):
-			_ = json.NewEncoder(w).Encode(api.TransitionsResponse{
-				Transitions: []api.Transition{
-					{ID: "91", Name: "Ready", To: api.Status{Name: "Ready for Development"}},
-				},
-			})
-		case strings.HasSuffix(r.URL.Path, "/watchers"):
-			_ = json.NewEncoder(w).Encode(api.WatchersInfo{WatchCount: 1, IsWatching: false})
-		case strings.Contains(r.URL.Path, "/field"):
-			_ = json.NewEncoder(w).Encode([]api.Field{
-				{ID: "customfield_10020", Name: "Sprint"},
-				{ID: "customfield_10035", Name: "Story Points"},
-			})
-		default:
-			_, _ = w.Write([]byte(issueJSON))
-		}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(issueJSON))
 	}))
 	defer server.Close()
 
@@ -483,12 +403,9 @@ func TestRunGet_Extended_SprintFromCustomField(t *testing.T) {
 	opts := &root.Options{Output: "table", Extended: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runGet(context.Background(), opts, "MON-4970", false, "")
+	err = runGet(context.Background(), opts, "MON-4970", false, "", false)
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()
-	testutil.Contains(t, output, "Sprint: MON Sprint 70 (id: 125, active, 2026-04-10 → 2026-04-24)")
-	testutil.NotContains(t, output, "customfield_10020")
-	testutil.Contains(t, output, "customfield_10035")
-	testutil.Contains(t, output, "  91 | Ready | Ready for Development")
+	testutil.Contains(t, output, "Sprint: MON Sprint 70 (active)")
 }

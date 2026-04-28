@@ -69,6 +69,7 @@ func Register(parent *cobra.Command, opts *root.Options) {
 	cmd.AddCommand(newCurrentCmd(opts))
 	cmd.AddCommand(newIssuesCmd(opts))
 	cmd.AddCommand(newAddCmd(opts))
+	cmd.AddCommand(newRemoveCmd(opts))
 
 	parent.AddCommand(cmd)
 }
@@ -513,4 +514,69 @@ func runAdd(ctx context.Context, opts *root.Options, client *api.Client, sprintI
 fallback:
 	_ = jtkpresent.Emit(opts, jtkpresent.SprintPresenter{}.PresentPostStateUnavailable())
 	return jtkpresent.Emit(opts, jtkpresent.SprintPresenter{}.PresentMoved(issueKeys, sprintID))
+}
+
+func newRemoveCmd(opts *root.Options) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "remove <issue-key>...",
+		Short: "Move issues to the backlog",
+		Long:  "Move one or more issues from their current sprint to the backlog.",
+		Example: `  # Move a single issue to backlog
+  jtk sprints remove PROJ-456
+
+  # Move multiple issues
+  jtk sprints remove PROJ-456 PROJ-789 PROJ-101`,
+		Args: cobra.MinimumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, err := opts.APIClient()
+			if err != nil {
+				return err
+			}
+			return runRemove(cmd.Context(), opts, client, args)
+		},
+	}
+
+	return cmd
+}
+
+func runRemove(ctx context.Context, opts *root.Options, client *api.Client, issueKeys []string) error {
+	if err := client.MoveIssuesToBacklog(ctx, issueKeys); err != nil {
+		return err
+	}
+
+	if opts.EmitIDOnly() {
+		return jtkpresent.EmitIDs(opts, issueKeys)
+	}
+
+	var matched []api.Issue
+	for i, delay := range mutation.BackoffSchedule {
+		if i > 0 && delay > 0 {
+			select {
+			case <-ctx.Done():
+				goto fallback
+			case <-time.After(delay):
+			}
+		}
+
+		matched = nil
+		for _, key := range issueKeys {
+			issue, err := client.GetIssue(ctx, key)
+			if err != nil {
+				matched = nil
+				break
+			}
+			matched = append(matched, *issue)
+		}
+		if len(matched) == len(issueKeys) {
+			break
+		}
+	}
+
+	if len(matched) == len(issueKeys) {
+		return jtkpresent.Emit(opts, jtkpresent.IssuePresenter{}.PresentList(matched, opts.IsExtended()))
+	}
+
+fallback:
+	_ = jtkpresent.Emit(opts, jtkpresent.SprintPresenter{}.PresentPostStateUnavailable())
+	return jtkpresent.Emit(opts, jtkpresent.SprintPresenter{}.PresentMovedToBacklog(issueKeys))
 }

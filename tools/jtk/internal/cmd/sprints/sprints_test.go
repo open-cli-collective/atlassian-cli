@@ -1303,6 +1303,226 @@ func TestCurrentCmd_BoardEnrichmentCobraLevel(t *testing.T) {
 	testutil.Contains(t, stdout.String(), "Board: 23 (MON board)")
 }
 
+// --- remove subcommand ---
+
+func TestNewRemoveCmd(t *testing.T) {
+	opts := &root.Options{}
+	cmd := newRemoveCmd(opts)
+
+	testutil.Equal(t, cmd.Use, "remove <issue-key>...")
+	testutil.NotEmpty(t, cmd.Short)
+}
+
+func TestRunRemove_Success(t *testing.T) {
+	postDone := false
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && strings.Contains(r.URL.Path, "/backlog/issue") {
+			postDone = true
+			var body map[string]any
+			err := json.NewDecoder(r.Body).Decode(&body)
+			testutil.RequireNoError(t, err)
+
+			issues, ok := body["issues"].([]any)
+			testutil.True(t, ok)
+			testutil.Len(t, issues, 2)
+
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+
+		if r.Method == http.MethodGet && postDone {
+			key := "PROJ-101"
+			if strings.Contains(r.URL.Path, "PROJ-102") {
+				key = "PROJ-102"
+			}
+			_ = json.NewEncoder(w).Encode(api.Issue{
+				Key:    key,
+				Fields: api.IssueFields{Summary: "Issue " + key},
+			})
+			return
+		}
+
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}, NoColor: true}
+	opts.SetAPIClient(client)
+
+	err = runRemove(context.Background(), opts, client, []string{"PROJ-101", "PROJ-102"})
+	testutil.RequireNoError(t, err)
+
+	testutil.Contains(t, stdout.String(), "PROJ-101")
+	testutil.Contains(t, stdout.String(), "PROJ-102")
+}
+
+func TestRunRemove_SingleIssue(t *testing.T) {
+	postDone := false
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			postDone = true
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		if r.Method == http.MethodGet && postDone {
+			_ = json.NewEncoder(w).Encode(api.Issue{
+				Key:    "PROJ-101",
+				Fields: api.IssueFields{Summary: "Issue 1"},
+			})
+			return
+		}
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}, NoColor: true}
+	opts.SetAPIClient(client)
+
+	err = runRemove(context.Background(), opts, client, []string{"PROJ-101"})
+	testutil.RequireNoError(t, err)
+
+	testutil.Contains(t, stdout.String(), "PROJ-101")
+}
+
+func TestRunRemove_IDOnly(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}, IDOnly: true}
+	opts.SetAPIClient(client)
+
+	err = runRemove(context.Background(), opts, client, []string{"PROJ-101", "PROJ-102"})
+	testutil.RequireNoError(t, err)
+
+	testutil.Equal(t, stdout.String(), "PROJ-101\nPROJ-102\n")
+}
+
+func TestRunRemove_APIError(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(`{"errorMessages":["server error"]}`))
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runRemove(context.Background(), opts, client, []string{"PROJ-101"})
+	testutil.NotNil(t, err)
+	testutil.Contains(t, err.Error(), "moving issues to backlog")
+}
+
+func TestRunRemove_FetchFails_Fallback(t *testing.T) {
+	requestCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		// All GET requests fail — triggers fallback path
+		requestCount++
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout, stderr bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &stderr, NoColor: true}
+	opts.SetAPIClient(client)
+
+	err = runRemove(context.Background(), opts, client, []string{"PROJ-101"})
+	testutil.RequireNoError(t, err)
+
+	testutil.Contains(t, stderr.String(), "post-state unavailable")
+	testutil.Contains(t, stdout.String(), "Moved PROJ-101 to backlog")
+}
+
+func TestRemoveCmd_CobraEntryPoint(t *testing.T) {
+	var capturedPath string
+	var capturedIssues []any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			capturedPath = r.URL.Path
+			var body map[string]any
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			if v, ok := body["issues"].([]any); ok {
+				capturedIssues = v
+			}
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	client := newAgileClient(t, server)
+
+	rootCmd, opts := root.NewCmd()
+	opts.SetAPIClient(client)
+	opts.Stdout = &bytes.Buffer{}
+	opts.Stderr = &bytes.Buffer{}
+	opts.NoColor = true
+	Register(rootCmd, opts)
+
+	rootCmd.SetArgs([]string{"sprints", "remove", "PROJ-1", "PROJ-2"})
+	err := rootCmd.Execute()
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, capturedPath, "/rest/agile/1.0/backlog/issue")
+	testutil.Len(t, capturedIssues, 2)
+}
+
+func TestRunRemove_AgentOutput(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}, NoColor: true}
+	opts.SetAPIClient(client)
+
+	err = runRemove(context.Background(), opts, client, []string{"MON-123"})
+	testutil.RequireNoError(t, err)
+
+	want := "Moved MON-123 to backlog\n"
+	if stdout.String() != want {
+		t.Errorf("mutation output:\ngot: %q\nwant: %q", stdout.String(), want)
+	}
+	if strings.Contains(stdout.String(), "✓") {
+		t.Error("agent policy should not have checkmark")
+	}
+}
+
 func TestRunAdd_AgentOutput(t *testing.T) {
 	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

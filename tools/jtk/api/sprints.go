@@ -109,3 +109,17 @@ func (c *Client) MoveIssuesToSprint(ctx context.Context, sprintID int, issueKeys
 	}
 	return nil
 }
+
+// MoveIssuesToBacklog moves issues to the backlog (removes from any sprint).
+func (c *Client) MoveIssuesToBacklog(ctx context.Context, issueKeys []string) error {
+	urlStr := fmt.Sprintf("%s/backlog/issue", c.AgileURL)
+	req := map[string]any{
+		"issues": issueKeys,
+	}
+
+	_, err := c.Post(ctx, urlStr, req)
+	if err != nil {
+		return fmt.Errorf("moving issues to backlog: %w", err)
+	}
+	return nil
+}

@@ -413,7 +413,7 @@ func FormatCustomFieldValue(v any) string {
 		if s, ok := val["displayName"].(string); ok {
 			return s
 		}
-		return fmt.Sprintf("%v", val)
+		return ""
 	case []any:
 		parts := make([]string, 0, len(val))
 		for _, item := range val {
@@ -435,7 +435,7 @@ func FormatCustomFieldValue(v any) string {
 		}
 		return "no"
 	default:
-		return fmt.Sprintf("%v", v)
+		return ""
 	}
 }
 

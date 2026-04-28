@@ -104,8 +104,12 @@ func (DashboardPresenter) PresentGadgets(gadgets []api.DashboardGadget) *present
 	rows := make([]present.Row, len(gadgets))
 	for i, g := range gadgets {
 		pos := fmt.Sprintf("%d,%d", g.Position.Row, g.Position.Column)
+		typ := g.ModuleID
+		if typ == "" {
+			typ = gadgetTypeFromURI(g.URI)
+		}
 		rows[i] = present.Row{
-			Cells: []string{FormatInt(g.ID), pos, g.Title, g.ModuleID},
+			Cells: []string{FormatInt(g.ID), pos, g.Title, typ},
 		}
 	}
 	return &present.OutputModel{
@@ -238,4 +242,19 @@ func formatPermissions(perms []api.SharePerm) string {
 		}
 	}
 	return strings.Join(parts, ", ")
+}
+
+// gadgetTypeFromURI extracts the short gadget type from a Jira gadget URI.
+// URI format: rest/gadgets/1.0/g/com.atlassian.jira.gadgets:assigned-to-me-gadget/gadgets/...
+func gadgetTypeFromURI(uri string) string {
+	colonIdx := strings.LastIndex(uri, ":")
+	if colonIdx < 0 {
+		return ""
+	}
+	rest := uri[colonIdx+1:]
+	slashIdx := strings.Index(rest, "/")
+	if slashIdx < 0 {
+		return rest
+	}
+	return rest[:slashIdx]
 }

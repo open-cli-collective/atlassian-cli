@@ -34,7 +34,7 @@ var IssueListSpec = projection.Registry{
 	{Header: "PTS", FieldID: "customfield_10035", Fetch: []string{"customfield_10035"}},
 	{Header: "ASSIGNEE", FieldID: "assignee"},
 	{Header: "REPORTER", FieldID: "reporter", Extended: true},
-	{Header: "SPRINT", FieldID: "sprint", Extended: true},
+	{Header: "SPRINT", FieldID: "sprint", Aliases: []string{"customfield_10020"}, Fetch: []string{"customfield_10020"}, Extended: true},
 	{Header: "PARENT", FieldID: "parent", Extended: true},
 	{Header: "UPDATED", FieldID: "updated", Extended: true},
 	{Header: "LABELS", FieldID: "labels", Extended: true},

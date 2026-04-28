@@ -2,6 +2,7 @@ package present
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
@@ -283,18 +284,20 @@ func TestAutomationPresenter_PresentGetDetail_ShowComponents(t *testing.T) {
 
 	model := AutomationPresenter{}.PresentGetDetail(rule, true)
 
-	// Header + State + Components + component table = 4
-	// (no description, so 3 msg sections + 1 table)
+	// Header + State + Components + component tree = 4
 	if len(model.Sections) != 4 {
-		t.Fatalf("expected 4 sections (3 msg + table), got %d", len(model.Sections))
+		t.Fatalf("expected 4 sections (3 msg + tree), got %d", len(model.Sections))
 	}
 
-	table, ok := model.Sections[3].(*present.TableSection)
+	tree, ok := model.Sections[3].(*present.MessageSection)
 	if !ok {
-		t.Fatalf("expected TableSection at [3], got %T", model.Sections[3])
+		t.Fatalf("expected MessageSection at [3], got %T", model.Sections[3])
 	}
-	if len(table.Rows) != 2 {
-		t.Errorf("expected 2 component rows, got %d", len(table.Rows))
+	if !strings.Contains(tree.Message, "TRIGGER  issue.created") {
+		t.Errorf("expected trigger line, got %q", tree.Message)
+	}
+	if !strings.Contains(tree.Message, "  ACTION  assign.issue") {
+		t.Errorf("expected indented action line, got %q", tree.Message)
 	}
 }
 

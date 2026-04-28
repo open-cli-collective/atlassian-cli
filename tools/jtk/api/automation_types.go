@@ -76,6 +76,30 @@ type RuleComponent struct {
 	ConnectionID  string          `json:"connectionId,omitempty"`
 }
 
+// DecodedChildren decodes the Children json.RawMessage into a slice of RuleComponent.
+func (c *RuleComponent) DecodedChildren() []RuleComponent {
+	if len(c.Children) == 0 {
+		return nil
+	}
+	var children []RuleComponent
+	if json.Unmarshal(c.Children, &children) != nil {
+		return nil
+	}
+	return children
+}
+
+// DecodedConditions decodes the Conditions json.RawMessage into a slice of RuleComponent.
+func (c *RuleComponent) DecodedConditions() []RuleComponent {
+	if len(c.Conditions) == 0 {
+		return nil
+	}
+	var conditions []RuleComponent
+	if json.Unmarshal(c.Conditions, &conditions) != nil {
+		return nil
+	}
+	return conditions
+}
+
 // AutomationRuleSummary is the lighter representation returned by the list/summary endpoint.
 type AutomationRuleSummary struct {
 	// Legacy numeric ID (may be absent).

@@ -323,7 +323,6 @@ func TestRunGet_ShowComponents(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	out := stdout.String()
-	testutil.Contains(t, out, "COMPONENT")
-	testutil.Contains(t, out, "TRIGGER")
-	testutil.Contains(t, out, "ACTION")
+	testutil.Contains(t, out, "TRIGGER  issue.created")
+	testutil.Contains(t, out, "  ACTION  assign.issue")
 }

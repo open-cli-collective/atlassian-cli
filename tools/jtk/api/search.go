@@ -37,6 +37,7 @@ var DefaultSearchFields = []string{
 	"components",
 	"reporter",
 	"parent",
+	"customfield_10020",
 	"customfield_10035",
 }
 

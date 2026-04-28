@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/open-cli-collective/atlassian-go/present"
+	"github.com/open-cli-collective/atlassian-go/testutil"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 )
@@ -196,4 +197,37 @@ func TestFormatPermissions(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestGadgetTypeFromURI(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name string
+		uri  string
+		want string
+	}{
+		{"standard", "rest/gadgets/1.0/g/com.atlassian.jira.gadgets:assigned-to-me-gadget/gadgets/assigned-to-me-gadget.xml", "assigned-to-me-gadget"},
+		{"project", "rest/gadgets/1.0/g/com.atlassian.jira.gadgets:project-gadget/gadgets/project-gadget.xml", "project-gadget"},
+		{"no_slash", "com.atlassian.jira.gadgets:filter-results-gadget", "filter-results-gadget"},
+		{"empty", "", ""},
+		{"no_colon", "rest/gadgets/1.0/g/no-colon", ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			testutil.Equal(t, gadgetTypeFromURI(tt.uri), tt.want)
+		})
+	}
+}
+
+func TestPresentGadgets_URIFallback(t *testing.T) {
+	t.Parallel()
+	gadgets := []api.DashboardGadget{
+		{ID: 1, Title: "Spaces", URI: "rest/gadgets/1.0/g/com.atlassian.jira.gadgets:project-gadget/gadgets/project-gadget.xml"},
+		{ID: 2, Title: "Filter", ModuleID: "explicit-type"},
+	}
+	model := DashboardPresenter{}.PresentGadgets(gadgets)
+	table := model.Sections[0].(*present.TableSection)
+	testutil.Equal(t, table.Rows[0].Cells[3], "project-gadget")
+	testutil.Equal(t, table.Rows[1].Cells[3], "explicit-type")
 }

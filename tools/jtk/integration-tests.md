@@ -167,16 +167,19 @@ jtk fields list --custom-fields --id
 | # | Command | Expected Output |
 |---|---------|-----------------|
 | 1 | `jtk issues search --jql "project = $PROJECT" --max 200` | Table with > 100 rows (proves multi-page fetch) |
+| 1b | `jtk issues search --jql "project = $PROJECT" --max 200 --id \| wc -l` | Number >= 101 (machine-verifiable row count) |
 | 2 | `jtk issues list -p $PROJECT --max 200` | Same multi-page behavior for list |
+| 2b | `jtk issues list -p $PROJECT --max 200 --id \| wc -l` | Number >= 101 (machine-verifiable row count) |
 
 ### `--fields` flag (issues search / issues list)
 
-> `--fields` is a pass-through to the Jira API that limits which fields are returned. Verify the command succeeds and renders the fields requested.
+> `--fields` is a column projection flag. It limits which columns appear in the table output. Without `--fields`, the default columns are KEY, STATUS, TYPE, PTS, ASSIGNEE, SUMMARY.
 
 | # | Command | Expected Output |
 |---|---------|-----------------|
-| 1 | `jtk issues search --jql "project = $PROJECT" --max 1 --fields summary,status` | Command succeeds; output reflects only the requested fields |
-| 2 | `jtk issues list -p $PROJECT --max 1 --fields summary,customfield_10005` | Same |
+| 1 | `jtk issues search --jql "project = $PROJECT" --max 1` | Table with default columns: KEY, STATUS, TYPE, PTS, ASSIGNEE, SUMMARY |
+| 2 | `jtk issues search --jql "project = $PROJECT" --max 1 --fields summary,status` | Table shows only SUMMARY and STATUS columns (KEY and others absent) |
+| 3 | `jtk issues list -p $PROJECT --max 1 --fields summary,customfield_10005` | Table shows only SUMMARY and the custom field columns |
 
 ### issues types
 
@@ -313,7 +316,7 @@ jtk fields list --custom-fields --id
 
 | # | Command | Expected Output |
 |---|---------|-----------------|
-| 1 | `jtk dashboards get $DASHBOARD_ID` | Detail: ID, Name, Description, Owner, URL; then Gadgets table (ID \| TITLE \| MODULE) if any |
+| 1 | `jtk dashboards get $DASHBOARD_ID` | Detail: ID, Name, Description, Owner, URL; then inline Gadgets table (ID \| TITLE \| MODULE) if any. Note: `MODULE` is the raw gadget URI — this differs intentionally from `gadgets list` which uses `TYPE` (the resolved module key) and adds a `POSITION` column. |
 | 2 | `jtk dashboards get 99999` | Error: 404 |
 
 ### dashboards gadgets list
@@ -491,8 +494,18 @@ Run these steps in order. Each step depends on the previous.
    ```bash
    jtk transitions list $TEST_ISSUE
    ```
-   Expected: Table: ID, NAME, TO STATUS
+   Expected: Table: ID, NAME, TO_STATUS
    Note a valid transition name → `$TRANSITION_NAME`
+
+   Also verify `--extended` and `--id` variants:
+   ```bash
+   jtk transitions list $TEST_ISSUE --extended
+   ```
+   Expected: Table adds STATUS_CATEGORY, HAS_SCREEN, CONDITIONAL, REQUIRED_FIELDS columns
+   ```bash
+   jtk transitions list $TEST_ISSUE --id
+   ```
+   Expected: Transition IDs only, one per line
 
 9. **Transition issue:**
    ```bash
@@ -836,9 +849,16 @@ Run these steps in order. All mutations operate on a **copy** of a real rule —
    Expected: Full automation rule detail block (Name, UUID, State, etc.)
    Capture the UUID → `$TEST_AUTO_UUID`
 
-   Also test `--id` variant:
+   Also test `--id` variant (requires a second throwaway copy):
    ```bash
-   # Note: use a second export/strip/create cycle or just note the UUID from above
+   jq 'del(.rule.uuid) | .rule.name = "[Test] Auto Integration Copy 2"' /tmp/auto-source.json > /tmp/auto-clean-2.json
+   TEST_AUTO_UUID_2=$(jtk auto create --file /tmp/auto-clean-2.json --id)
+   echo $TEST_AUTO_UUID_2
+   ```
+   Expected: UUID only (one line).
+   Clean up immediately:
+   ```bash
+   jtk auto delete $TEST_AUTO_UUID_2
    ```
 
 4. **Verify creation:**
@@ -978,11 +998,12 @@ Run these steps in order. Each step depends on the previous.
    Expected: Field detail row (ID, Name, Type)
    Capture the field ID → `$TEST_FIELD`
 
-   Also test `--id` variant:
+   Also test `--id` variant. Capture the ID so it can be cleaned up:
    ```bash
-   jtk fields create --name "[Test] Integration Select 2" --type com.atlassian.jira.plugin.system.customfieldtypes:select --id
+   FIELD_ID_2=$(jtk fields create --name "[Test] Integration Select 2" --type com.atlassian.jira.plugin.system.customfieldtypes:select --id)
+   echo $FIELD_ID_2
    ```
-   Expected: Field ID only. Delete this field immediately:
+   Expected: Field ID only (e.g. `customfield_XXXXX`). Delete this field immediately:
    ```bash
    jtk fields delete $FIELD_ID_2 --force
    ```

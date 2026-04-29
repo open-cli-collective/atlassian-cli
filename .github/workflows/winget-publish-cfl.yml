@@ -103,12 +103,11 @@ jobs:
           $branch = $branch -replace '[^A-Za-z0-9._/-]', '-'
 
           gh auth setup-git
-          gh repo clone $repo winget-pkgs-fork -- --filter=blob:none
+          git clone --filter=blob:none --depth=1 https://github.com/microsoft/winget-pkgs.git winget-pkgs-fork
 
           Set-Location winget-pkgs-fork
-          git remote add upstream https://github.com/microsoft/winget-pkgs.git
-          git fetch upstream $upstreamBranch --depth=1
-          git checkout -B $branch "upstream/$upstreamBranch"
+          git remote add fork "https://github.com/$owner/winget-pkgs.git"
+          git checkout -b $branch
 
           $destination = Join-Path (Get-Location) $manifestPath
           New-Item -ItemType Directory -Path $destination -Force | Out-Null
@@ -124,7 +123,7 @@ jobs:
           }
 
           git commit -m "$packageId version $version"
-          git push --force-with-lease origin $branch
+          git push --force-with-lease fork $branch
 
           Set-Location $env:GITHUB_WORKSPACE
           gh pr create `

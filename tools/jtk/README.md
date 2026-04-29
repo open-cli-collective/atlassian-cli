@@ -256,7 +256,7 @@ jtk issues list --project MYPROJECT --id
 # Auto-pagination: fetch up to 200 results across multiple pages
 jtk issues list --project MYPROJECT --max 200
 
-# Explicit field selection (API-level filter)
+# Explicit column projection
 jtk issues list --project MYPROJECT --fields summary,status,customfield_10005
 ```
 
@@ -355,7 +355,7 @@ jtk issues search --jql "assignee = currentUser()" --id
 # Auto-pagination: fetch up to 200 results across multiple pages
 jtk issues search --jql "project = MYPROJECT" --max 200
 
-# Explicit field selection (API-level filter)
+# Explicit column projection
 jtk issues search --jql "project = MYPROJECT" --fields summary,status
 ```
 

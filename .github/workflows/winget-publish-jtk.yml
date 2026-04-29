@@ -99,7 +99,6 @@ jobs:
           $owner = gh api user --jq .login
           $repo = "$owner/winget-pkgs"
           $upstreamBranch = gh api repos/microsoft/winget-pkgs --jq .default_branch
-          $forkDefault = gh api "repos/$repo" --jq .default_branch
           $branch = "open-cli-collective-jira-ticket-cli-$version-${{ github.run_id }}-${{ github.run_attempt }}"
           $branch = $branch -replace '[^A-Za-z0-9._/-]', '-'
 
@@ -107,7 +106,9 @@ jobs:
           gh repo clone $repo winget-pkgs-fork -- --filter=blob:none
 
           Set-Location winget-pkgs-fork
-          git checkout -B $branch "origin/$forkDefault"
+          git remote add upstream https://github.com/microsoft/winget-pkgs.git
+          git fetch upstream $upstreamBranch --depth=1
+          git checkout -B $branch "upstream/$upstreamBranch"
 
           $destination = Join-Path (Get-Location) $manifestPath
           New-Item -ItemType Directory -Path $destination -Force | Out-Null

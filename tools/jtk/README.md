@@ -265,7 +265,7 @@ jtk issues list --project MYPROJECT --fields summary,status,customfield_10005
 | `--project` | `-p` | | Project key |
 | `--sprint` | `-s` | | Filter by sprint: sprint ID or `current` |
 | `--max` | `-m` | `25` | Maximum number of results to return |
-| `--fields` | | `*all` | Comma-separated list of fields to request from the API |
+| `--fields` | | `*all` | Comma-separated display columns (headers, Jira field IDs, or human names) |
 | `--all-fields` | | `false` | Include all fields (e.g. description) |
 | `--next-page-token` | | | Token for next page of results |
 
@@ -363,7 +363,7 @@ jtk issues search --jql "project = MYPROJECT" --fields summary,status
 |------|-------|---------|-------------|
 | `--jql` | | | JQL query string (**required**) |
 | `--max` | `-m` | `25` | Maximum number of results to return |
-| `--fields` | | `*all` | Comma-separated list of fields to request from the API |
+| `--fields` | | `*all` | Comma-separated display columns (headers, Jira field IDs, or human names) |
 | `--all-fields` | | `false` | Include all fields (e.g. description) |
 | `--next-page-token` | | | Token for next page of results |
 

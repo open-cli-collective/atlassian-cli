@@ -469,11 +469,12 @@ Run these steps in order. Each step depends on the previous.
    Expected: Comment detail block (Issue Key, Comment ID, Author, body excerpt)
    Capture the comment ID → `$COMMENT_ID`
 
-   Also test `--id` variant:
+   Also test `--id` variant. Capture the ID so it can be cleaned up:
    ```bash
-   jtk comments add $TEST_ISSUE -b "ID flag test comment" --id
+   COMMENT_ID_2=$(jtk comments add $TEST_ISSUE -b "ID flag test comment" --id)
+   echo $COMMENT_ID_2
    ```
-   Expected: Comment ID only. Delete this comment after:
+   Expected: Comment ID only. Delete this comment immediately:
    ```bash
    jtk comments delete $TEST_ISSUE $COMMENT_ID_2 --force
    ```
@@ -930,7 +931,7 @@ Run these steps in order. All mutations operate on a **copy** of a real rule —
 
 12. **Clean up temporary files:**
     ```bash
-    rm -f /tmp/auto-source.json /tmp/auto-clean.json /tmp/auto-rt.json
+    rm -f /tmp/auto-source.json /tmp/auto-clean.json /tmp/auto-clean-2.json /tmp/auto-rt.json
     ```
 
 ### Error cases

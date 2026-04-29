@@ -35,7 +35,43 @@ jobs:
         run: |
           iwr https://aka.ms/wingetcreate/latest -OutFile wingetcreate.exe
 
+      - name: Sync winget-pkgs fork
+        env:
+          GH_TOKEN: ${{ secrets.WINGET_GITHUB_TOKEN }}
+        run: |
+          $owner = gh api user --jq .login
+          $repo = "$owner/winget-pkgs"
+          $branch = gh api repos/microsoft/winget-pkgs --jq .default_branch
+
+          gh api "repos/$repo" --silent 2>$null
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "Creating fork $repo"
+            gh api -X POST repos/microsoft/winget-pkgs/forks -F default_branch_only=true --silent
+
+            for ($i = 0; $i -lt 12; $i++) {
+              gh api "repos/$repo" --silent 2>$null
+              if ($LASTEXITCODE -eq 0) { break }
+              Start-Sleep -Seconds 5
+            }
+          } else {
+            $parent = gh api "repos/$repo" --jq '.parent.full_name // ""'
+            if ($parent -ne "microsoft/winget-pkgs") {
+              Write-Error "$repo exists but is not a fork of microsoft/winget-pkgs"
+              exit 1
+            }
+          }
+
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Unable to access $repo after creating fork"
+            exit 1
+          }
+
+          # The fork is only used as wingetcreate's submission workspace.
+          gh repo sync $repo --source microsoft/winget-pkgs --branch $branch --force
+
       - name: Update and submit manifest
+        env:
+          WINGET_CREATE_GITHUB_TOKEN: ${{ secrets.WINGET_GITHUB_TOKEN }}
         run: |
           $version = "${{ inputs.version }}"
           $baseUrl = "https://github.com/open-cli-collective/atlassian-cli/releases/download/jtk-v$version"
@@ -43,5 +79,4 @@ jobs:
           ./wingetcreate.exe update OpenCLICollective.jira-ticket-cli `
             --version $version `
             --urls "$baseUrl/jtk_${version}_windows_amd64.zip|x64" "$baseUrl/jtk_${version}_windows_arm64.zip|arm64" `
-            --submit `
-            --token ${{ secrets.WINGET_GITHUB_TOKEN }}
+            --submit

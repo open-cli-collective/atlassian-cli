@@ -274,6 +274,25 @@ func (SprintPresenter) PresentMoved(issueKeys []string, sprintID int) *present.O
 	}
 }
 
+// PresentMovedToBacklog creates a success message for moving issues to the backlog.
+func (SprintPresenter) PresentMovedToBacklog(issueKeys []string) *present.OutputModel {
+	var msg string
+	if len(issueKeys) == 1 {
+		msg = fmt.Sprintf("Moved %s to backlog", issueKeys[0])
+	} else {
+		msg = fmt.Sprintf("Moved %d issues to backlog", len(issueKeys))
+	}
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageSuccess,
+				Message: msg,
+				Stream:  present.StreamStdout,
+			},
+		},
+	}
+}
+
 // PresentPostStateUnavailable creates an advisory when post-state cannot be
 // fetched after a mutation, falling back to a confirmation-only output.
 func (SprintPresenter) PresentPostStateUnavailable() *present.OutputModel {

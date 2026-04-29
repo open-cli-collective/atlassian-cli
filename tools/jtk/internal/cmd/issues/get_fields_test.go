@@ -78,7 +78,7 @@ func TestRunGet_Fields_ProjectsDetailToSelected(t *testing.T) {
 	defer cs.server.Close()
 
 	opts, stdout, _ := newGetOpts(t, cs)
-	err := runGet(context.Background(), opts, "TEST-1", false, "Status")
+	err := runGet(context.Background(), opts, "TEST-1", false, "Status", false)
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()
@@ -100,7 +100,7 @@ func TestRunGet_Fields_Points_Column(t *testing.T) {
 	defer cs.server.Close()
 
 	opts, stdout, _ := newGetOpts(t, cs)
-	err := runGet(context.Background(), opts, "TEST-1", false, "Points")
+	err := runGet(context.Background(), opts, "TEST-1", false, "Points", false)
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()
@@ -117,7 +117,7 @@ func TestRunGet_Fields_HumanName_TriggersFieldsFetch(t *testing.T) {
 	defer cs.server.Close()
 
 	opts, stdout, _ := newGetOpts(t, cs)
-	err := runGet(context.Background(), opts, "TEST-1", false, "Issue Type")
+	err := runGet(context.Background(), opts, "TEST-1", false, "Issue Type", false)
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()
@@ -134,29 +134,29 @@ func TestRunGet_Fields_UnknownToken_Errors(t *testing.T) {
 	defer cs.server.Close()
 
 	opts, _, _ := newGetOpts(t, cs)
-	err := runGet(context.Background(), opts, "TEST-1", false, "bogus")
+	err := runGet(context.Background(), opts, "TEST-1", false, "bogus", false)
 	var ufe *projection.UnknownFieldError
 	if !errors.As(err, &ufe) {
 		t.Fatalf("expected UnknownFieldError, got %v", err)
 	}
 }
 
-func TestRunGet_Fields_UnrenderedField_ByFieldID_Errors(t *testing.T) {
+func TestRunGet_Fields_DynamicField_ByFieldID_Succeeds(t *testing.T) {
 	// Non-parallel: cache isolation uses process-global SetRootForTest.
 	t.Cleanup(cache.SetRootForTest(t.TempDir()))
-	cs := newCapturingGetServer(t, fullIssue(), []api.Field{
+	issue := fullIssue()
+	issue.Fields.CustomFields = map[string]any{
+		"customfield_99999": "phantom-value",
+	}
+	cs := newCapturingGetServer(t, issue, []api.Field{
 		{ID: "customfield_99999", Name: "Phantom"},
 	})
 	defer cs.server.Close()
 
-	opts, _, _ := newGetOpts(t, cs)
-	err := runGet(context.Background(), opts, "TEST-1", false, "customfield_99999")
-	var ure *projection.UnrenderedFieldError
-	if !errors.As(err, &ure) {
-		t.Fatalf("expected UnrenderedFieldError, got %v", err)
-	}
-	testutil.Equal(t, "Phantom", ure.JiraName)
-	testutil.Equal(t, "issues get", ure.Command)
+	opts, stdout, _ := newGetOpts(t, cs)
+	err := runGet(context.Background(), opts, "TEST-1", false, "customfield_99999", false)
+	testutil.RequireNoError(t, err)
+	testutil.Contains(t, stdout.String(), "phantom-value")
 }
 
 func TestRunGet_Fields_WithJSON_Errors(t *testing.T) {
@@ -166,7 +166,7 @@ func TestRunGet_Fields_WithJSON_Errors(t *testing.T) {
 
 	opts, _, _ := newGetOpts(t, cs)
 	opts.Output = "json"
-	err := runGet(context.Background(), opts, "TEST-1", false, "Status")
+	err := runGet(context.Background(), opts, "TEST-1", false, "Status", false)
 	if err == nil {
 		t.Fatalf("expected error when --fields combined with --output json")
 	}
@@ -180,7 +180,7 @@ func TestRunGet_FieldsWithIDOnly_IDWins(t *testing.T) {
 
 	opts, stdout, _ := newGetOpts(t, cs)
 	opts.IDOnly = true
-	err := runGet(context.Background(), opts, "TEST-1", false, "Status")
+	err := runGet(context.Background(), opts, "TEST-1", false, "Status", false)
 	testutil.RequireNoError(t, err)
 
 	// Bare key on stdout; nothing else.
@@ -200,7 +200,7 @@ func TestRunGet_IDOnly_SkipsFieldsResolution(t *testing.T) {
 
 	opts, _, _ := newGetOpts(t, cs)
 	opts.IDOnly = true
-	err := runGet(context.Background(), opts, "TEST-1", false, "Issue Type")
+	err := runGet(context.Background(), opts, "TEST-1", false, "Issue Type", false)
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, 0, cs.fieldsCalls)
 }
@@ -212,7 +212,7 @@ func TestRunGet_IDOnly_BypassesFieldsValidation(t *testing.T) {
 
 	opts, stdout, _ := newGetOpts(t, cs)
 	opts.IDOnly = true
-	err := runGet(context.Background(), opts, "TEST-1", false, "bogus")
+	err := runGet(context.Background(), opts, "TEST-1", false, "bogus", false)
 	testutil.RequireNoError(t, err)
 	if stdout.String() != "TEST-1\n" {
 		t.Errorf("expected bare key, got %q", stdout.String())
@@ -227,7 +227,7 @@ func TestRunGet_IDOnly_BypassesJSONFieldsRejection(t *testing.T) {
 	opts, stdout, _ := newGetOpts(t, cs)
 	opts.IDOnly = true
 	opts.Output = "json"
-	err := runGet(context.Background(), opts, "TEST-1", false, "Status")
+	err := runGet(context.Background(), opts, "TEST-1", false, "Status", false)
 	testutil.RequireNoError(t, err)
 	if stdout.String() != "TEST-1\n" {
 		t.Errorf("expected bare key, got %q", stdout.String())
@@ -251,7 +251,7 @@ func TestRunGet_Fields_SuppressesDescription_WhenNotSelected(t *testing.T) {
 	defer cs.server.Close()
 
 	opts, stdout, _ := newGetOpts(t, cs)
-	err := runGet(context.Background(), opts, "TEST-1", false, "Summary,Status")
+	err := runGet(context.Background(), opts, "TEST-1", false, "Summary,Status", false)
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()
@@ -272,7 +272,7 @@ func TestRunGet_Fields_Description_TruncatedWithoutFullText(t *testing.T) {
 	defer cs.server.Close()
 
 	opts, stdout, _ := newGetOpts(t, cs)
-	err := runGet(context.Background(), opts, "TEST-1", false, "Description")
+	err := runGet(context.Background(), opts, "TEST-1", false, "Description", false)
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()
@@ -288,7 +288,7 @@ func TestRunGet_Fields_Description_FullTextWhenSelected(t *testing.T) {
 	defer cs.server.Close()
 
 	opts, stdout, _ := newGetOpts(t, cs)
-	err := runGet(context.Background(), opts, "TEST-1", true, "Description")
+	err := runGet(context.Background(), opts, "TEST-1", true, "Description", false)
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()
@@ -305,7 +305,7 @@ func TestRunGet_Fields_FullTextNoOp_WhenDescriptionNotSelected(t *testing.T) {
 	defer cs.server.Close()
 
 	opts, stdout, _ := newGetOpts(t, cs)
-	err := runGet(context.Background(), opts, "TEST-1", true, "Summary")
+	err := runGet(context.Background(), opts, "TEST-1", true, "Summary", false)
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()
@@ -332,7 +332,7 @@ func TestRunGet_Fields_HumanName_CacheHit_SkipsFieldsFetch(t *testing.T) {
 	defer cs.server.Close()
 
 	opts, stdout, _ := newGetOpts(t, cs)
-	err := runGet(context.Background(), opts, "TEST-1", false, "Issue Type")
+	err := runGet(context.Background(), opts, "TEST-1", false, "Issue Type", false)
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()

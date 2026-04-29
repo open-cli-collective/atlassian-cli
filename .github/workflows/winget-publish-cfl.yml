@@ -35,7 +35,45 @@ jobs:
         run: |
           iwr https://aka.ms/wingetcreate/latest -OutFile wingetcreate.exe
 
-      - name: Update and submit manifest
+      - name: Ensure winget-pkgs fork
+        env:
+          GH_TOKEN: ${{ secrets.WINGET_GITHUB_TOKEN }}
+        run: |
+          $owner = gh api user --jq .login
+          $repo = "$owner/winget-pkgs"
+
+          gh api "repos/$repo" --silent 2>$null
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "Creating fork $repo"
+            gh api -X POST repos/microsoft/winget-pkgs/forks -F default_branch_only=true --silent
+
+            $forkReady = $false
+            for ($i = 0; $i -lt 12; $i++) {
+              gh api "repos/$repo" --silent 2>$null
+              if ($LASTEXITCODE -eq 0) {
+                $forkReady = $true
+                break
+              }
+              Start-Sleep -Seconds 5
+            }
+
+            if (-not $forkReady) {
+              Write-Error "Unable to access $repo after creating fork"
+              exit 1
+            }
+          } else {
+            $parent = gh api "repos/$repo" --jq '.parent.full_name // ""'
+            if ($parent -ne "microsoft/winget-pkgs") {
+              Write-Error "$repo exists but is not a fork of microsoft/winget-pkgs"
+              exit 1
+            }
+          }
+
+          Write-Host "Using fork $repo"
+
+      - name: Update manifest
+        env:
+          WINGET_CREATE_GITHUB_TOKEN: ${{ secrets.WINGET_GITHUB_TOKEN }}
         run: |
           $version = "${{ inputs.version }}"
           $baseUrl = "https://github.com/open-cli-collective/atlassian-cli/releases/download/cfl-v$version"
@@ -43,5 +81,53 @@ jobs:
           ./wingetcreate.exe update OpenCLICollective.cfl `
             --version $version `
             --urls "$baseUrl/cfl_${version}_windows_amd64.zip|x64" "$baseUrl/cfl_${version}_windows_arm64.zip|arm64" `
-            --submit `
-            --token ${{ secrets.WINGET_GITHUB_TOKEN }}
+            --out .
+
+      - name: Submit manifest PR
+        env:
+          GH_TOKEN: ${{ secrets.WINGET_GITHUB_TOKEN }}
+        run: |
+          $version = "${{ inputs.version }}"
+          $packageId = "OpenCLICollective.cfl"
+          $manifestPath = "manifests/o/OpenCLICollective/cfl/$version"
+
+          if (-not (Test-Path $manifestPath)) {
+            Write-Error "Expected manifest path not found: $manifestPath"
+            exit 1
+          }
+
+          $owner = gh api user --jq .login
+          $repo = "$owner/winget-pkgs"
+          $upstreamBranch = gh api repos/microsoft/winget-pkgs --jq .default_branch
+          $branch = "open-cli-collective-cfl-$version-${{ github.run_id }}-${{ github.run_attempt }}"
+          $branch = $branch -replace '[^A-Za-z0-9._/-]', '-'
+
+          gh auth setup-git
+          gh repo clone $repo winget-pkgs-fork -- --filter=blob:none --depth=1
+
+          Set-Location winget-pkgs-fork
+          git checkout -b $branch
+
+          $destination = Join-Path (Get-Location) $manifestPath
+          New-Item -ItemType Directory -Path $destination -Force | Out-Null
+          Copy-Item -Path (Join-Path $env:GITHUB_WORKSPACE "$manifestPath/*") -Destination $destination -Recurse -Force
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add ($manifestPath -replace '\\', '/')
+
+          if (-not (git status --porcelain)) {
+            Write-Error "No manifest changes detected"
+            exit 1
+          }
+
+          git commit -m "$packageId version $version"
+          git push --force-with-lease origin $branch
+
+          Set-Location $env:GITHUB_WORKSPACE
+          gh pr create `
+            --repo microsoft/winget-pkgs `
+            --head "${owner}:$branch" `
+            --base $upstreamBranch `
+            --title "$packageId version $version" `
+            --body "Automated winget manifest update for $packageId version $version."

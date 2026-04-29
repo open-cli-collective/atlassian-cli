@@ -301,6 +301,51 @@ func newCapturingServer(t *testing.T, keys []string, isLast bool, fieldsResp []a
 	return cs
 }
 
+func newCapturingServerWithCustomFields(t *testing.T, keys []string, isLast bool, fieldsResp []api.Field, customFields map[string]any) *capturingServer {
+	t.Helper()
+	cs := &capturingServer{searchCaptured: &api.SearchRequest{}}
+	cs.server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/field") {
+			cs.fieldsCalls++
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(fieldsResp)
+			return
+		}
+		if strings.Contains(r.URL.Path, "/search") {
+			body, _ := io.ReadAll(r.Body)
+			_ = json.Unmarshal(body, cs.searchCaptured)
+
+			issueFields := map[string]any{
+				"summary":   "summary for fixture",
+				"status":    map[string]any{"name": "Open"},
+				"issuetype": map[string]any{"name": "Task"},
+				"assignee":  map[string]any{"displayName": "Alice"},
+			}
+			for fid, fv := range customFields {
+				issueFields[fid] = fv
+			}
+
+			var issues []map[string]any
+			for _, k := range keys {
+				issues = append(issues, map[string]any{
+					"id":     k,
+					"key":    k,
+					"fields": issueFields,
+				})
+			}
+			resp := map[string]any{"issues": issues, "isLast": isLast}
+			if !isLast {
+				resp["nextPageToken"] = "next-token"
+			}
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(resp)
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	return cs
+}
+
 func newOptsFor(t *testing.T, cs *capturingServer) (*root.Options, *bytes.Buffer, *bytes.Buffer) {
 	return newListOpts(t, cs.server)
 }
@@ -400,40 +445,38 @@ func TestRunList_Fields_UnknownToken_Errors(t *testing.T) {
 	}
 }
 
-func TestRunList_Fields_UnrenderedField_ByHumanName_Errors(t *testing.T) {
+func TestRunList_Fields_DynamicField_ByHumanName_Succeeds(t *testing.T) {
 	// Non-parallel: cache isolation uses process-global SetRootForTest.
 	t.Cleanup(cache.SetRootForTest(t.TempDir()))
-	cs := newCapturingServer(t, []string{"TEST-1"}, true, []api.Field{
-		{ID: "customfield_99999", Name: "Phantom"},
-	})
+	cs := newCapturingServerWithCustomFields(t, []string{"TEST-1"}, true,
+		[]api.Field{{ID: "customfield_99999", Name: "Phantom"}},
+		map[string]any{"customfield_99999": "phantom-val"},
+	)
 	defer cs.server.Close()
 
-	opts, _, _ := newOptsFor(t, cs)
+	opts, stdout, _ := newOptsFor(t, cs)
 	err := runList(context.Background(), opts, "TEST", "", 25, "", false, "Phantom")
-	var ure *projection.UnrenderedFieldError
-	if !errors.As(err, &ure) {
-		t.Fatalf("expected UnrenderedFieldError, got %v", err)
-	}
-	testutil.Equal(t, "Phantom", ure.JiraName)
-	testutil.Equal(t, "issues list", ure.Command)
+	testutil.RequireNoError(t, err)
+	testutil.Contains(t, stdout.String(), "Phantom")
+	testutil.Contains(t, stdout.String(), "phantom-val")
+	testutil.Contains(t, strings.Join(cs.searchCaptured.Fields, ","), "customfield_99999")
 }
 
-func TestRunList_Fields_UnrenderedField_ByFieldID_Errors(t *testing.T) {
+func TestRunList_Fields_DynamicField_ByFieldID_Succeeds(t *testing.T) {
 	// Non-parallel: cache isolation uses process-global SetRootForTest.
 	t.Cleanup(cache.SetRootForTest(t.TempDir()))
-	cs := newCapturingServer(t, []string{"TEST-1"}, true, []api.Field{
-		{ID: "customfield_99999", Name: "Phantom"},
-	})
+	cs := newCapturingServerWithCustomFields(t, []string{"TEST-1"}, true,
+		[]api.Field{{ID: "customfield_99999", Name: "Phantom"}},
+		map[string]any{"customfield_99999": "phantom-val"},
+	)
 	defer cs.server.Close()
 
-	opts, _, _ := newOptsFor(t, cs)
+	opts, stdout, _ := newOptsFor(t, cs)
 	err := runList(context.Background(), opts, "TEST", "", 25, "", false, "customfield_99999")
-	var ure *projection.UnrenderedFieldError
-	if !errors.As(err, &ure) {
-		t.Fatalf("expected UnrenderedFieldError, got %v", err)
-	}
-	testutil.Equal(t, "Phantom", ure.JiraName)
-	testutil.Contains(t, err.Error(), "Phantom")
+	testutil.RequireNoError(t, err)
+	testutil.Contains(t, stdout.String(), "Phantom")
+	testutil.Contains(t, stdout.String(), "phantom-val")
+	testutil.Contains(t, strings.Join(cs.searchCaptured.Fields, ","), "customfield_99999")
 }
 
 func TestRunList_Fields_WithJSON_Errors(t *testing.T) {

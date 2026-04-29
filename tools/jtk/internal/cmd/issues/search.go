@@ -53,6 +53,7 @@ func newSearchCmd(opts *root.Options) *cobra.Command {
 	cmd.Flags().IntVarP(&maxResults, "max", "m", 25, "Maximum number of results to return")
 	cmd.Flags().StringVar(&nextPageToken, "next-page-token", "", "Token for next page of results")
 	cmd.Flags().BoolVar(&allFields, "all-fields", false, "Include all fields (e.g. description)")
+	_ = cmd.Flags().MarkDeprecated("all-fields", "use --fields description instead")
 	cmd.Flags().StringVar(&fieldsFlag, "fields", "", "Comma-separated display columns (headers, Jira field IDs, or human names)")
 	_ = cmd.MarkFlagRequired("jql")
 
@@ -129,6 +130,7 @@ func runSearch(ctx context.Context, opts *root.Options, jql string, maxResults i
 
 	model := jtkpresent.IssuePresenter{}.PresentListWithPagination(result.Issues, opts.IsExtended(), hasMore, nextToken)
 	if projected {
+		jtkpresent.AppendDynamicTableColumns(model, result.Issues, projection.DynamicSpecs(selected))
 		projection.ApplyToTableInModel(model, selected)
 	}
 	return jtkpresent.Emit(opts, model)

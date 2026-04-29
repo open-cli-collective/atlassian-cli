@@ -27,26 +27,22 @@ func (e *UnknownFieldError) Error() string {
 		quoteAll(e.Unknown), strings.Join(e.Suggestions, ", "))
 }
 
-// UnrenderedFieldError reports a --fields token that resolves to a real
-// Jira field but is not rendered by the current command. The error
-// message uses the Jira human-readable name (from api.Field.Name) even
-// when the user passed a field ID, so the UX is consistent.
-//
-// This is distinct from UnknownFieldError; callers (commands) print both
-// as prose on stderr, but tests assert on the specific type to verify
-// the projection-scope contract.
-type UnrenderedFieldError struct {
-	Token       string // What the user typed.
-	JiraName    string // api.Field.Name.
-	JiraID      string // api.Field.ID.
-	Command     string // e.g. "issues list" — used in the error message.
-	Suggestions []string
+// AmbiguousFieldNameError reports a --fields token that matches multiple
+// Jira fields by human name. The user must disambiguate with an exact
+// field ID.
+type AmbiguousFieldNameError struct {
+	Token   string
+	Matches []api.Field
 }
 
-func (e *UnrenderedFieldError) Error() string {
+func (e *AmbiguousFieldNameError) Error() string {
+	parts := make([]string, len(e.Matches))
+	for i, f := range e.Matches {
+		parts[i] = fmt.Sprintf("%s (%s)", f.Name, f.ID)
+	}
 	return fmt.Sprintf(
-		"field %q (%s) exists but is not rendered by %q; supported fields: %s",
-		e.JiraName, e.JiraID, e.Command, strings.Join(e.Suggestions, ", "),
+		"field name %q is ambiguous — matches: %s; use the field ID to disambiguate",
+		e.Token, strings.Join(parts, ", "),
 	)
 }
 
@@ -86,22 +82,20 @@ func (e *ExtendedOnlyError) Error() string {
 //   - Identity specs are prepended if the user omitted them; dedup preserved.
 //   - If a token matches an Extended-only spec with extended==false, return
 //     ExtendedOnlyError.
-//   - If a token resolves to a real api.Field but no registry entry, return
-//     UnrenderedFieldError using the Jira human-readable name — even when
-//     the user passed the field ID.
+//   - If a token resolves to a real api.Field but no registry entry, a
+//     dynamic ColumnSpec is created (Dynamic: true) so the command can
+//     render it from the issue's raw field data.
+//   - If a human name matches multiple Jira fields, return
+//     AmbiguousFieldNameError so the user can disambiguate with a field ID.
 //   - Otherwise, unresolved tokens → UnknownFieldError with registry-based
 //     suggestions.
-//
-// cmdName is the user-visible command label (e.g., "issues list") used in
-// UnrenderedFieldError for clarity; commands pass cmd.CommandPath() or a
-// hardcoded label.
 func Resolve(
 	ctx context.Context,
 	r Registry,
 	extended bool,
 	fieldsFlag string,
 	fetchFields func(context.Context) ([]api.Field, error),
-	cmdName string,
+	_ string,
 ) (selected []ColumnSpec, projectionApplied bool, err error) {
 	modeRegistry := r.ForMode(extended)
 
@@ -173,12 +167,22 @@ func Resolve(
 			return nil, false, ferr
 		}
 
+		// Collect all known headers to detect collisions when creating
+		// dynamic specs. Seed with the full registry (not just selected
+		// or mode-filtered) so dynamic fields named like built-ins always
+		// get disambiguated.
+		resolvedHeaders := make(map[string]struct{})
+		for _, c := range r {
+			resolvedHeaders[strings.ToLower(c.Header)] = struct{}{}
+		}
+
 		var unknown []string
 		for _, i := range deferred {
 			tok := tokens[i]
 			if spec, ok := modeRegistry.Match(tok, fields); ok {
 				s := spec
 				resolved[i] = &s
+				resolvedHeaders[strings.ToLower(s.Header)] = struct{}{}
 				continue
 			}
 
@@ -189,13 +193,27 @@ func Resolve(
 			}
 
 			if jf := findJiraField(fields, tok); jf != nil {
-				return nil, false, &UnrenderedFieldError{
-					Token:       tok,
-					JiraName:    jf.Name,
-					JiraID:      jf.ID,
-					Command:     cmdName,
-					Suggestions: registryHeaders(modeRegistry),
+				// Check for ambiguous human-name matches (only when
+				// the token is NOT an exact field ID match).
+				if api.FindFieldByID(fields, tok) == nil {
+					if matches := findAllJiraFieldsByName(fields, tok); len(matches) > 1 {
+						return nil, false, &AmbiguousFieldNameError{Token: tok, Matches: matches}
+					}
 				}
+
+				header := jf.Name
+				if _, collision := resolvedHeaders[strings.ToLower(header)]; collision {
+					header = fmt.Sprintf("%s (%s)", jf.Name, jf.ID)
+				}
+				resolvedHeaders[strings.ToLower(header)] = struct{}{}
+
+				resolved[i] = &ColumnSpec{
+					Header:  header,
+					FieldID: jf.ID,
+					Fetch:   []string{jf.ID},
+					Dynamic: true,
+				}
+				continue
 			}
 
 			unknown = append(unknown, tok)
@@ -228,6 +246,19 @@ func findJiraField(fields []api.Field, token string) *api.Field {
 		return f
 	}
 	return nil
+}
+
+// findAllJiraFieldsByName returns all fields whose Name matches token
+// (case-insensitive). Used to detect ambiguous human-name references.
+func findAllJiraFieldsByName(fields []api.Field, token string) []api.Field {
+	lower := strings.ToLower(token)
+	var matches []api.Field
+	for _, f := range fields {
+		if strings.ToLower(f.Name) == lower {
+			matches = append(matches, f)
+		}
+	}
+	return matches
 }
 
 // parseTokens splits a --fields CSV, trims whitespace, drops empty segments.

@@ -615,6 +615,68 @@ func TestIsNullValue(t *testing.T) {
 	}
 }
 
+func TestFormatFieldValue_WhitespaceTrimming(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		field *Field
+		value string
+		want  any
+	}{
+		{
+			name: "number field trims whitespace",
+			field: &Field{
+				ID:     "customfield_10001",
+				Name:   "Story Points",
+				Schema: FieldSchema{Type: "number"},
+			},
+			value: " 5 ",
+			want:  float64(5),
+		},
+		{
+			name: "option field trims whitespace",
+			field: &Field{
+				ID:     "customfield_10005",
+				Name:   "Change Type",
+				Schema: FieldSchema{Type: "option"},
+			},
+			value: " Bug Fix ",
+			want:  map[string]string{"value": "Bug Fix"},
+		},
+		{
+			name: "default string field preserves whitespace",
+			field: &Field{
+				ID:     "summary",
+				Name:   "Summary",
+				Schema: FieldSchema{Type: "string"},
+			},
+			value: " leading text ",
+			want:  " leading text ",
+		},
+		{
+			name: "textarea preserves whitespace",
+			field: &Field{
+				ID:   "description",
+				Name: "Description",
+				Schema: FieldSchema{
+					Type:   "string",
+					Custom: "com.atlassian.jira.plugin.system.customfieldtypes:textarea",
+				},
+			},
+			value: "  indented text",
+			want:  NewADFDocument("  indented text"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := FormatFieldValue(tt.field, tt.value)
+			testutil.Equal(t, got, tt.want)
+		})
+	}
+}
+
 func TestFindFieldByName_TrimsWhitespace(t *testing.T) {
 	t.Parallel()
 	fields := getTestFields()

@@ -153,7 +153,7 @@ func FormatFieldValue(field *Field, value string) any {
 		if n, err := strconv.ParseFloat(trimmed, 64); err == nil {
 			return n
 		}
-		return value
+		return trimmed
 	case "issuelink":
 		if _, err := strconv.Atoi(trimmed); err == nil {
 			return map[string]string{"id": trimmed}

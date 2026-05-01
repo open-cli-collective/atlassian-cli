@@ -65,6 +65,7 @@ func boardsFromCache(boards []api.Board, projectFilter string, startAt, maxResul
 	return &api.BoardsResponse{
 		MaxResults: maxResults,
 		StartAt:    startAt,
+		Total:      total,
 		IsLast:     end >= total,
 		Values:     filtered[startAt:end],
 	}

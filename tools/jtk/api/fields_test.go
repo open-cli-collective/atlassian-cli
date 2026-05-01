@@ -667,17 +667,17 @@ func TestResolveFieldArg(t *testing.T) {
 			wantField: true,
 		},
 		{
-			name:      "whitespace around value",
+			name:      "value preserved verbatim",
 			arg:       "Story Points= 5 ",
 			wantID:    "customfield_10001",
-			wantValue: "5",
+			wantValue: " 5 ",
 			wantField: true,
 		},
 		{
-			name:      "whitespace around both",
+			name:      "key trimmed value preserved",
 			arg:       " Story Points = 5 ",
 			wantID:    "customfield_10001",
-			wantValue: "5",
+			wantValue: " 5 ",
 			wantField: true,
 		},
 		{
@@ -700,6 +700,13 @@ func TestResolveFieldArg(t *testing.T) {
 			wantID:    "unknown_field",
 			wantValue: "val",
 			wantField: false,
+		},
+		{
+			name:      "value with leading whitespace preserved",
+			arg:       "Description=  indented text",
+			wantID:    "description",
+			wantValue: "  indented text",
+			wantField: true,
 		},
 		{
 			name:    "missing equals sign",

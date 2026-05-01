@@ -65,9 +65,8 @@ func FindFieldByID(fields []Field, id string) *Field {
 }
 
 // ResolveFieldArg parses a "key=value" field argument, trims whitespace from
-// both key and value, and resolves the key against the known field list (by
-// name first, then by ID). Returns the resolved field ID, the Field pointer
-// (nil if unresolved), and the trimmed value.
+// the key, and resolves it against the known field list (by name first, then
+// by ID). The value after the first "=" is passed through verbatim.
 func ResolveFieldArg(fields []Field, arg string) (fieldID string, field *Field, value string, err error) {
 	parts := strings.SplitN(arg, "=", 2)
 	if len(parts) != 2 {
@@ -75,7 +74,7 @@ func ResolveFieldArg(fields []Field, arg string) (fieldID string, field *Field, 
 	}
 
 	key := strings.TrimSpace(parts[0])
-	value = strings.TrimSpace(parts[1])
+	value = parts[1]
 
 	if resolved := FindFieldByName(fields, key); resolved != nil {
 		return resolved.ID, resolved, value, nil

@@ -110,6 +110,42 @@ func TestGetBoardsCacheFirst_FreshCacheProjectFilterWithPagination(t *testing.T)
 	testutil.Equal(t, got.IsLast, false)
 }
 
+func TestGetBoardsCacheFirst_FreshCacheStartAtBeyondTotal(t *testing.T) {
+	t.Cleanup(SetRootForTest(t.TempDir()))
+	t.Cleanup(SetInstanceKeyForTest("test.atlassian.net"))
+
+	testutil.RequireNoError(t, WriteResource("boards", "24h", testBoards))
+
+	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
+		t.Fatal("live API must not be called when cache is fresh")
+	}))
+	defer server.Close()
+
+	client := newBoardsTestClient(t, server.URL)
+	got, err := GetBoardsCacheFirst(context.Background(), client, "", 100, 50)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, len(got.Values), 0)
+	testutil.Equal(t, got.IsLast, true)
+}
+
+func TestGetBoardsCacheFirst_FreshCacheMaxResultsZeroUsesDefault(t *testing.T) {
+	t.Cleanup(SetRootForTest(t.TempDir()))
+	t.Cleanup(SetInstanceKeyForTest("test.atlassian.net"))
+
+	testutil.RequireNoError(t, WriteResource("boards", "24h", testBoards))
+
+	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
+		t.Fatal("live API must not be called when cache is fresh")
+	}))
+	defer server.Close()
+
+	client := newBoardsTestClient(t, server.URL)
+	got, err := GetBoardsCacheFirst(context.Background(), client, "", 0, 0)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, len(got.Values), 3)
+	testutil.Equal(t, got.IsLast, true)
+}
+
 func TestGetBoardsCacheFirst_ManualRegistryTTL_SkipsLive(t *testing.T) {
 	t.Cleanup(SetEntriesForTest([]Entry{
 		{Name: "boards", TTL: "manual"},

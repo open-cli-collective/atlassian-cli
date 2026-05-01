@@ -111,6 +111,24 @@ func TestGetSprintsCacheFirst_CommaStateFallsBackToLive(t *testing.T) {
 	testutil.Equal(t, len(got), 2)
 }
 
+func TestGetSprintsCacheFirst_MixedCaseStateServedFromCache(t *testing.T) {
+	t.Cleanup(SetRootForTest(t.TempDir()))
+	t.Cleanup(SetInstanceKeyForTest("test.atlassian.net"))
+
+	testutil.RequireNoError(t, WriteResource("sprints", "24h", testSprints))
+
+	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
+		t.Fatal("live API must not be called when cache is fresh")
+	}))
+	defer server.Close()
+
+	client := newSprintsTestClient(t, server.URL)
+	got, err := GetSprintsCacheFirst(context.Background(), client, 1, "Active", stubFetcher(nil, nil))
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, len(got), 1)
+	testutil.Equal(t, got[0].Name, "Sprint 2")
+}
+
 func TestGetSprintsCacheFirst_UnknownStateFallsBackToLive(t *testing.T) {
 	t.Cleanup(SetRootForTest(t.TempDir()))
 	t.Cleanup(SetInstanceKeyForTest("test.atlassian.net"))

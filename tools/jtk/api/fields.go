@@ -122,44 +122,48 @@ func FormatFieldValue(field *Field, value string) any {
 		return NewADFDocument(value)
 	}
 
+	// Trim whitespace for structured field types where leading/trailing spaces
+	// are never meaningful. Free-text fields (textarea above, default below)
+	// preserve the original value.
+	trimmed := strings.TrimSpace(value)
+
 	// The parent field requires {"key": "..."} format but Jira reports an empty
 	// schema type for it, so handle it before the type switch.
 	if field.ID == "parent" {
-		if _, err := strconv.Atoi(value); err == nil {
-			return map[string]string{"id": value}
+		if _, err := strconv.Atoi(trimmed); err == nil {
+			return map[string]string{"id": trimmed}
 		}
-		return map[string]string{"key": value}
+		return map[string]string{"key": trimmed}
 	}
 
 	switch field.Schema.Type {
 	case "option":
-		return map[string]string{"value": value}
+		return map[string]string{"value": trimmed}
 	case "array":
 		if field.Schema.Items == "option" {
-			return []map[string]string{{"value": value}}
+			return []map[string]string{{"value": trimmed}}
 		}
-		return []string{value}
+		return []string{trimmed}
 	case "user":
-		if IsNullValue(value) {
+		if IsNullValue(trimmed) {
 			return nil
 		}
-		return map[string]string{"accountId": value}
+		return map[string]string{"accountId": trimmed}
 	case "number":
-		if n, err := strconv.ParseFloat(value, 64); err == nil {
+		if n, err := strconv.ParseFloat(trimmed, 64); err == nil {
 			return n
 		}
 		return value
 	case "issuelink":
-		// Issue link fields (e.g., parent) need {"key": "..."} or {"id": "..."} format
-		if _, err := strconv.Atoi(value); err == nil {
-			return map[string]string{"id": value}
+		if _, err := strconv.Atoi(trimmed); err == nil {
+			return map[string]string{"id": trimmed}
 		}
-		return map[string]string{"key": value}
+		return map[string]string{"key": trimmed}
 	case "priority", "resolution", "status", "issuetype", "securitylevel":
-		if _, err := strconv.Atoi(value); err == nil {
-			return map[string]string{"id": value}
+		if _, err := strconv.Atoi(trimmed); err == nil {
+			return map[string]string{"id": trimmed}
 		}
-		return map[string]string{"name": value}
+		return map[string]string{"name": trimmed}
 	default:
 		return value
 	}

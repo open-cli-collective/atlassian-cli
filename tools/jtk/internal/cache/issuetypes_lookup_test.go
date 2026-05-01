@@ -216,6 +216,27 @@ func TestGetIssueTypesCacheFirst_NoInstanceFallsBackToLive(t *testing.T) {
 	}
 }
 
+func TestGetIssueTypesCacheFirst_LiveFallbackSendsExpand(t *testing.T) {
+	t.Cleanup(SetRootForTest(t.TempDir()))
+	t.Cleanup(SetInstanceKeyForTest("test.atlassian.net"))
+
+	var expandParam string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		expandParam = r.URL.Query().Get("expand")
+		w.Header().Set("Content-Type", "application/json")
+		resp := struct {
+			IssueTypes []api.IssueType `json:"issueTypes"`
+		}{IssueTypes: []api.IssueType{{ID: "1", Name: "Bug"}}}
+		_ = json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	client := newIssueTypesTestClient(t, server.URL)
+	_, err := GetIssueTypesCacheFirst(context.Background(), client, "TEST")
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, expandParam, "issueTypes")
+}
+
 func TestGetIssueTypesCacheFirst_LiveErrorPropagated(t *testing.T) {
 	t.Cleanup(SetRootForTest(t.TempDir()))
 	t.Cleanup(SetInstanceKeyForTest("test.atlassian.net"))

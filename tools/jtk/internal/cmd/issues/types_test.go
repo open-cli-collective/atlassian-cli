@@ -77,8 +77,7 @@ func TestRunTypes_Success(t *testing.T) {
 }
 
 func TestRunTypes_ProjectNotFound(t *testing.T) {
-	// Not t.Parallel(): SetInstanceKeyForTest mutates a cache package global.
-	// See seedCacheForIssues for the serial-execution contract.
+	t.Cleanup(cache.SetRootForTest(t.TempDir()))
 	t.Cleanup(cache.SetInstanceKeyForTest("test.atlassian.net"))
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
@@ -106,6 +105,7 @@ func TestRunTypes_ProjectNotFound(t *testing.T) {
 }
 
 func TestRunTypes_EmptyIssueTypes(t *testing.T) {
+	t.Cleanup(cache.SetRootForTest(t.TempDir()))
 	t.Cleanup(cache.SetInstanceKeyForTest("test.atlassian.net"))
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		response := api.ProjectDetail{
@@ -140,6 +140,7 @@ func TestRunTypes_EmptyIssueTypes(t *testing.T) {
 }
 
 func TestRunTypes_JSONOutput(t *testing.T) {
+	t.Cleanup(cache.SetRootForTest(t.TempDir()))
 	t.Cleanup(cache.SetInstanceKeyForTest("test.atlassian.net"))
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		response := api.ProjectDetail{
@@ -187,6 +188,7 @@ func TestRunTypes_JSONOutput(t *testing.T) {
 }
 
 func TestRunTypes_DescriptionTruncation(t *testing.T) {
+	t.Cleanup(cache.SetRootForTest(t.TempDir()))
 	t.Cleanup(cache.SetInstanceKeyForTest("test.atlassian.net"))
 	longDesc := strings.Repeat("A", 100) // 100 character description
 

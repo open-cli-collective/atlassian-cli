@@ -522,6 +522,7 @@ func TestRunDelete_JSONOutputEmitsText(t *testing.T) {
 }
 
 func TestRunTypes(t *testing.T) {
+	isolateCache(t)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"issueLinkTypes": []map[string]string{
@@ -546,7 +547,7 @@ func TestRunTypes(t *testing.T) {
 }
 
 func TestRunTypes_IDOnly(t *testing.T) {
-	t.Parallel()
+	isolateCache(t)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"issueLinkTypes": []map[string]string{

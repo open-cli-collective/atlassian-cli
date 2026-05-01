@@ -32,21 +32,22 @@ func TestNewTypesCmd(t *testing.T) {
 
 func TestRunTypes_Success(t *testing.T) {
 	seedCacheForIssues(t)
+	// Make issuetypes stale so the command falls back to the live server.
+	testutil.RequireNoError(t, cache.Touch("issuetypes"))
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		testutil.Equal(t, r.URL.Path, "/rest/api/3/project/TEST")
-
-		response := api.ProjectDetail{
-			ID:   json.Number("10000"),
-			Key:  "TEST",
-			Name: "Test Project",
-			IssueTypes: []api.IssueType{
-				{ID: "10001", Name: "Bug", Description: "A problem", Subtask: false},
-				{ID: "10002", Name: "Task", Description: "A task to do", Subtask: false},
-				{ID: "10003", Name: "Sub-task", Description: "A subtask", Subtask: true},
-			},
+		if r.URL.Path == "/rest/api/3/project/TEST" {
+			response := struct {
+				IssueTypes []api.IssueType `json:"issueTypes"`
+			}{
+				IssueTypes: []api.IssueType{
+					{ID: "10001", Name: "Bug", Description: "A problem", Subtask: false},
+					{ID: "10002", Name: "Task", Description: "A task to do", Subtask: false},
+					{ID: "10003", Name: "Sub-task", Description: "A subtask", Subtask: true},
+				},
+			}
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(response)
 		}
-		w.WriteHeader(http.StatusOK)
-		_ = json.NewEncoder(w).Encode(response)
 	}))
 	defer server.Close()
 
@@ -227,13 +228,79 @@ func TestRunTypes_DescriptionTruncation(t *testing.T) {
 	testutil.Contains(t, output, "...")
 }
 
+func TestRunTypes_FreshCacheSkipsLive(t *testing.T) {
+	seedCacheForIssues(t)
+
+	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
+		t.Fatal("live API must not be called when issuetypes cache is fresh")
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runTypes(context.Background(), opts, "TEST")
+	testutil.RequireNoError(t, err)
+	out := stdout.String()
+	testutil.Contains(t, out, "Bug")
+	testutil.Contains(t, out, "Task")
+}
+
+func TestRunTypes_FreshCacheSkipsLive_IDOnly(t *testing.T) {
+	seedCacheForIssues(t)
+
+	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
+		t.Fatal("live API must not be called when issuetypes cache is fresh")
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}, IDOnly: true}
+	opts.SetAPIClient(client)
+
+	err = runTypes(context.Background(), opts, "TEST")
+	testutil.RequireNoError(t, err)
+	testutil.Contains(t, stdout.String(), "10000\n")
+}
+
+func TestRunTypes_FreshCacheSkipsLive_JSON(t *testing.T) {
+	seedCacheForIssues(t)
+
+	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
+		t.Fatal("live API must not be called when issuetypes cache is fresh")
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "json", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runTypes(context.Background(), opts, "TEST")
+	testutil.RequireNoError(t, err)
+
+	var issueTypes []api.IssueType
+	err = json.Unmarshal(stdout.Bytes(), &issueTypes)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, len(issueTypes), 4)
+}
+
 func TestRunTypes_IDOnly(t *testing.T) {
 	seedCacheForIssues(t)
+	testutil.RequireNoError(t, cache.Touch("issuetypes"))
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		response := api.ProjectDetail{
-			ID:   json.Number("10000"),
-			Key:  "TEST",
-			Name: "Test Project",
+		response := struct {
+			IssueTypes []api.IssueType `json:"issueTypes"`
+		}{
 			IssueTypes: []api.IssueType{
 				{ID: "10001", Name: "Bug"},
 				{ID: "10002", Name: "Task"},

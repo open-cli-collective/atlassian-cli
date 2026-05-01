@@ -12,6 +12,7 @@ import (
 	"github.com/open-cli-collective/atlassian-go/view"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/cache"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/mutation"
 	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
@@ -342,7 +343,7 @@ func runTypes(ctx context.Context, opts *root.Options, fieldsFlag string) error 
 		return err
 	}
 
-	linkTypes, err := client.GetIssueLinkTypes(ctx)
+	linkTypes, err := cache.GetLinkTypesCacheFirst(ctx, client)
 	if err != nil {
 		return err
 	}
@@ -370,7 +371,8 @@ func runTypes(ctx context.Context, opts *root.Options, fieldsFlag string) error 
 	return jtkpresent.Emit(opts, model)
 }
 
-// GetIssueLinkTypes returns all link types (exported for use by other commands)
+// GetIssueLinkTypes returns all link types via cache-first lookup, falling
+// back to a live API call when the cache is stale or missing.
 func GetIssueLinkTypes(ctx context.Context, client *api.Client) ([]api.IssueLinkType, error) {
-	return client.GetIssueLinkTypes(ctx)
+	return cache.GetLinkTypesCacheFirst(ctx, client)
 }

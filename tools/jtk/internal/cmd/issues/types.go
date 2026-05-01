@@ -7,6 +7,7 @@ import (
 
 	"github.com/open-cli-collective/atlassian-go/view"
 
+	"github.com/open-cli-collective/jira-ticket-cli/internal/cache"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/resolve"
@@ -47,18 +48,18 @@ func runTypes(ctx context.Context, opts *root.Options, project string) error {
 	}
 	projectKey := resolvedProject.Key
 
-	projectDetail, err := client.GetProject(ctx, projectKey, "issueTypes")
+	issueTypes, err := cache.GetIssueTypesCacheFirst(ctx, client, projectKey)
 	if err != nil {
 		return err
 	}
 
-	if len(projectDetail.IssueTypes) == 0 {
+	if len(issueTypes) == 0 {
 		return jtkpresent.Emit(opts, jtkpresent.IssuePresenter{}.PresentNoTypes(projectKey))
 	}
 
 	if opts.EmitIDOnly() {
-		ids := make([]string, len(projectDetail.IssueTypes))
-		for i, t := range projectDetail.IssueTypes {
+		ids := make([]string, len(issueTypes))
+		for i, t := range issueTypes {
 			ids[i] = t.ID
 		}
 		return jtkpresent.EmitIDs(opts, ids)
@@ -66,9 +67,9 @@ func runTypes(ctx context.Context, opts *root.Options, project string) error {
 
 	v := opts.View()
 	if v.Format == view.FormatJSON {
-		return v.JSON(projectDetail.IssueTypes)
+		return v.JSON(issueTypes)
 	}
 
-	model := jtkpresent.IssuePresenter{}.PresentTypes(projectDetail.IssueTypes)
+	model := jtkpresent.IssuePresenter{}.PresentTypes(issueTypes)
 	return jtkpresent.Emit(opts, model)
 }

@@ -111,6 +111,29 @@ func TestGetSprintsCacheFirst_CommaStateFallsBackToLive(t *testing.T) {
 	testutil.Equal(t, len(got), 2)
 }
 
+func TestGetSprintsCacheFirst_UnknownStateFallsBackToLive(t *testing.T) {
+	t.Cleanup(SetRootForTest(t.TempDir()))
+	t.Cleanup(SetInstanceKeyForTest("test.atlassian.net"))
+
+	testutil.RequireNoError(t, WriteResource("sprints", "24h", testSprints))
+
+	liveCalled := false
+	liveResult := []api.Sprint{{ID: 101, Name: "Sprint 2", State: "active"}}
+
+	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
+		t.Fatal("should not hit httptest server")
+	}))
+	defer server.Close()
+
+	client := newSprintsTestClient(t, server.URL)
+	got, err := GetSprintsCacheFirst(context.Background(), client, 1, "typo", stubFetcher(&liveCalled, liveResult))
+	testutil.RequireNoError(t, err)
+	if !liveCalled {
+		t.Fatal("expected live fetcher call for unknown state value")
+	}
+	testutil.Equal(t, len(got), 1)
+}
+
 func TestGetSprintsCacheFirst_FreshCacheMissingBoardFallsBackToLive(t *testing.T) {
 	t.Cleanup(SetRootForTest(t.TempDir()))
 	t.Cleanup(SetInstanceKeyForTest("test.atlassian.net"))

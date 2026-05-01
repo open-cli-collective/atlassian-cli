@@ -42,9 +42,9 @@ func (c *Client) GetCustomFields(ctx context.Context) ([]Field, error) {
 	return customFields, nil
 }
 
-// FindFieldByName finds a field by name (case-insensitive)
+// FindFieldByName finds a field by name (case-insensitive, whitespace-trimmed).
 func FindFieldByName(fields []Field, name string) *Field {
-	nameLower := strings.ToLower(name)
+	nameLower := strings.ToLower(strings.TrimSpace(name))
 	for i := range fields {
 		if strings.ToLower(fields[i].Name) == nameLower {
 			return &fields[i]
@@ -53,14 +53,37 @@ func FindFieldByName(fields []Field, name string) *Field {
 	return nil
 }
 
-// FindFieldByID finds a field by ID
+// FindFieldByID finds a field by ID (whitespace-trimmed).
 func FindFieldByID(fields []Field, id string) *Field {
+	id = strings.TrimSpace(id)
 	for i := range fields {
 		if fields[i].ID == id {
 			return &fields[i]
 		}
 	}
 	return nil
+}
+
+// ResolveFieldArg parses a "key=value" field argument, trims whitespace from
+// both key and value, and resolves the key against the known field list (by
+// name first, then by ID). Returns the resolved field ID, the Field pointer
+// (nil if unresolved), and the trimmed value.
+func ResolveFieldArg(fields []Field, arg string) (fieldID string, field *Field, value string, err error) {
+	parts := strings.SplitN(arg, "=", 2)
+	if len(parts) != 2 {
+		return "", nil, "", fmt.Errorf("invalid field format: %s (expected key=value)", arg)
+	}
+
+	key := strings.TrimSpace(parts[0])
+	value = strings.TrimSpace(parts[1])
+
+	if resolved := FindFieldByName(fields, key); resolved != nil {
+		return resolved.ID, resolved, value, nil
+	}
+	if resolved := FindFieldByID(fields, key); resolved != nil {
+		return resolved.ID, resolved, value, nil
+	}
+	return key, nil, value, nil
 }
 
 // ResolveFieldID resolves a field name or ID to its ID

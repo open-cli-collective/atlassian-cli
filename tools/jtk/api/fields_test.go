@@ -614,3 +614,122 @@ func TestIsNullValue(t *testing.T) {
 		})
 	}
 }
+
+func TestFindFieldByName_TrimsWhitespace(t *testing.T) {
+	t.Parallel()
+	fields := getTestFields()
+
+	result := FindFieldByName(fields, "  Story Points  ")
+	testutil.NotNil(t, result)
+	testutil.Equal(t, result.ID, "customfield_10001")
+}
+
+func TestFindFieldByID_TrimsWhitespace(t *testing.T) {
+	t.Parallel()
+	fields := getTestFields()
+
+	result := FindFieldByID(fields, "  customfield_10001  ")
+	testutil.NotNil(t, result)
+	testutil.Equal(t, result.Name, "Story Points")
+}
+
+func TestResolveFieldArg(t *testing.T) {
+	t.Parallel()
+	fields := getTestFields()
+
+	tests := []struct {
+		name      string
+		arg       string
+		wantID    string
+		wantValue string
+		wantField bool
+		wantErr   bool
+	}{
+		{
+			name:      "resolve by name",
+			arg:       "Story Points=5",
+			wantID:    "customfield_10001",
+			wantValue: "5",
+			wantField: true,
+		},
+		{
+			name:      "case insensitive name",
+			arg:       "story points=5",
+			wantID:    "customfield_10001",
+			wantValue: "5",
+			wantField: true,
+		},
+		{
+			name:      "whitespace around key",
+			arg:       " Story Points =5",
+			wantID:    "customfield_10001",
+			wantValue: "5",
+			wantField: true,
+		},
+		{
+			name:      "whitespace around value",
+			arg:       "Story Points= 5 ",
+			wantID:    "customfield_10001",
+			wantValue: "5",
+			wantField: true,
+		},
+		{
+			name:      "whitespace around both",
+			arg:       " Story Points = 5 ",
+			wantID:    "customfield_10001",
+			wantValue: "5",
+			wantField: true,
+		},
+		{
+			name:      "resolve by field ID",
+			arg:       "customfield_10001=hello",
+			wantID:    "customfield_10001",
+			wantValue: "hello",
+			wantField: true,
+		},
+		{
+			name:      "field ID with whitespace",
+			arg:       " customfield_10001 =hello",
+			wantID:    "customfield_10001",
+			wantValue: "hello",
+			wantField: true,
+		},
+		{
+			name:      "unresolved key passes through trimmed",
+			arg:       " unknown_field =val",
+			wantID:    "unknown_field",
+			wantValue: "val",
+			wantField: false,
+		},
+		{
+			name:    "missing equals sign",
+			arg:     "no-equals-here",
+			wantErr: true,
+		},
+		{
+			name:      "value with equals sign",
+			arg:       "Summary=a=b=c",
+			wantID:    "summary",
+			wantValue: "a=b=c",
+			wantField: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fieldID, field, value, err := ResolveFieldArg(fields, tt.arg)
+			if tt.wantErr {
+				testutil.NotNil(t, err)
+				return
+			}
+			testutil.Nil(t, err)
+			testutil.Equal(t, fieldID, tt.wantID)
+			testutil.Equal(t, value, tt.wantValue)
+			if tt.wantField {
+				testutil.NotNil(t, field)
+			} else {
+				testutil.Nil(t, field)
+			}
+		})
+	}
+}

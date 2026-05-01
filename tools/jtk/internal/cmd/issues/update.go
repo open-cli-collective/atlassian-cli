@@ -122,27 +122,11 @@ func runUpdate(ctx context.Context, opts *root.Options, issueKey, summary, descr
 		}
 
 		for _, f := range fieldArgs {
-			parts := strings.SplitN(f, "=", 2)
-			if len(parts) != 2 {
-				return fmt.Errorf("invalid field format: %s (expected key=value)", f)
+			fieldID, field, value, err := api.ResolveFieldArg(allFields, f)
+			if err != nil {
+				return err
 			}
 
-			key, value := parts[0], parts[1]
-
-			// Try to resolve field name to ID and get field info
-			var fieldID string
-			var field *api.Field
-			if resolved := api.FindFieldByName(allFields, key); resolved != nil {
-				fieldID = resolved.ID
-				field = resolved
-			} else if resolved := api.FindFieldByID(allFields, key); resolved != nil {
-				fieldID = resolved.ID
-				field = resolved
-			} else {
-				fieldID = key
-			}
-
-			// Format value based on field type, merging with existing if same key repeated
 			formatted := api.FormatFieldValue(field, value)
 			if existing, ok := fields[fieldID]; ok {
 				fields[fieldID] = api.MergeFieldValues(existing, formatted)

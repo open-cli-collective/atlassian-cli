@@ -4,7 +4,6 @@ package transitions
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -169,23 +168,9 @@ func runDo(ctx context.Context, opts *root.Options, issueKey, transitionNameOrID
 		}
 
 		for _, f := range fieldArgs {
-			parts := strings.SplitN(f, "=", 2)
-			if len(parts) != 2 {
-				return fmt.Errorf("invalid field format: %s (expected key=value)", f)
-			}
-
-			key, value := parts[0], parts[1]
-
-			var fieldID string
-			var field *api.Field
-			if resolved := api.FindFieldByName(allFields, key); resolved != nil {
-				fieldID = resolved.ID
-				field = resolved
-			} else if resolved := api.FindFieldByID(allFields, key); resolved != nil {
-				fieldID = resolved.ID
-				field = resolved
-			} else {
-				fieldID = key
+			fieldID, field, value, err := api.ResolveFieldArg(allFields, f)
+			if err != nil {
+				return err
 			}
 
 			fields[fieldID] = api.FormatFieldValue(field, value)

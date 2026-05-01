@@ -1553,3 +1553,100 @@ func TestRunAdd_AgentOutput(t *testing.T) {
 		t.Error("agent policy should not have checkmark")
 	}
 }
+
+func TestRunList_FreshCacheSkipsLive(t *testing.T) {
+	seedBoardsAndSprints(t,
+		[]api.Board{{ID: 1, Name: "Board"}},
+		map[int][]api.Sprint{
+			1: {
+				{ID: 100, Name: "Sprint 1", State: "active", OriginBoardID: 1},
+				{ID: 101, Name: "Sprint 2", State: "future", OriginBoardID: 1},
+			},
+		},
+	)
+
+	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
+		t.Fatal("live API must not be called when sprints cache is fresh")
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runList(context.Background(), opts, client, 1, "", 50, "", "")
+	testutil.RequireNoError(t, err)
+	testutil.Contains(t, stdout.String(), "Sprint 1")
+	testutil.Contains(t, stdout.String(), "Sprint 2")
+}
+
+func TestRunList_FreshCacheSkipsLive_IDOnly(t *testing.T) {
+	seedBoardsAndSprints(t,
+		[]api.Board{{ID: 1, Name: "Board"}},
+		map[int][]api.Sprint{
+			1: {
+				{ID: 100, Name: "Sprint 1", State: "active", OriginBoardID: 1},
+				{ID: 101, Name: "Sprint 2", State: "future", OriginBoardID: 1},
+			},
+		},
+	)
+
+	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
+		t.Fatal("live API must not be called when sprints cache is fresh")
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}, IDOnly: true}
+	opts.SetAPIClient(client)
+
+	err = runList(context.Background(), opts, client, 1, "", 50, "", "")
+	testutil.RequireNoError(t, err)
+	testutil.Contains(t, stdout.String(), "100\n")
+	testutil.Contains(t, stdout.String(), "101\n")
+}
+
+// sprints current is deliberately live-only: the active sprint is
+// freshness-sensitive and may lag sprint transitions in cache.
+func TestRunCurrent_AlwaysCallsLive(t *testing.T) {
+	seedBoardsAndSprints(t,
+		[]api.Board{{ID: 1, Name: "Board"}},
+		map[int][]api.Sprint{
+			1: {
+				{ID: 100, Name: "Sprint 1", State: "active", OriginBoardID: 1},
+			},
+		},
+	)
+
+	liveCalled := false
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "/sprint") {
+			liveCalled = true
+			_ = json.NewEncoder(w).Encode(api.SprintsResponse{
+				Values: []api.Sprint{{ID: 100, Name: "Sprint 1", State: "active"}},
+				IsLast: true,
+			})
+		}
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	board := &api.Board{ID: 1, Name: "Board"}
+	err = runCurrent(context.Background(), opts, client, board, "")
+	testutil.RequireNoError(t, err)
+	if !liveCalled {
+		t.Fatal("sprints current must always call live API, not use cache")
+	}
+}

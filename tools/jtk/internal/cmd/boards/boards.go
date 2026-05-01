@@ -13,6 +13,7 @@ import (
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	jtkartifact "github.com/open-cli-collective/jira-ticket-cli/internal/artifact"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/cache"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/present/projection"
@@ -126,7 +127,7 @@ func runList(ctx context.Context, opts *root.Options, project string, maxResults
 		projectFilter = resolvedProject.Key
 	}
 
-	result, err := client.ListBoards(ctx, projectFilter, startAt, maxResults)
+	result, err := cache.GetBoardsCacheFirst(ctx, client, projectFilter, startAt, maxResults)
 	if err != nil {
 		return err
 	}

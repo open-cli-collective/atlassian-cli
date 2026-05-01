@@ -152,7 +152,7 @@ func runList(ctx context.Context, opts *root.Options, client *api.Client, boardI
 		}
 	}
 
-	allSprints, err := fetchAllSprints(ctx, client, boardID, state)
+	allSprints, err := cache.GetSprintsCacheFirst(ctx, client, boardID, state, fetchAllSprints)
 	if err != nil {
 		return err
 	}

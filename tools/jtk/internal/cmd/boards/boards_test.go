@@ -709,3 +709,56 @@ func TestRunGet_Extended_FilterNameFallback(t *testing.T) {
 	output := stdout.String()
 	testutil.Contains(t, output, "Filter: id: 10026")
 }
+
+func TestRunList_FreshCacheSkipsLive(t *testing.T) {
+	t.Cleanup(cache.SetRootForTest(t.TempDir()))
+	t.Cleanup(cache.SetInstanceKeyForTest("test.atlassian.net"))
+
+	testutil.RequireNoError(t, cache.WriteResource("boards", "24h", []api.Board{
+		{ID: 1, Name: "Board One", Type: "scrum", Location: api.BoardLocation{ProjectKey: "PROJ"}},
+		{ID: 2, Name: "Board Two", Type: "kanban", Location: api.BoardLocation{ProjectKey: "OTHER"}},
+	}))
+
+	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
+		t.Fatal("live API must not be called when boards cache is fresh")
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runList(context.Background(), opts, "", 50, "", "")
+	testutil.RequireNoError(t, err)
+	testutil.Contains(t, stdout.String(), "Board One")
+	testutil.Contains(t, stdout.String(), "Board Two")
+}
+
+func TestRunList_FreshCacheSkipsLive_IDOnly(t *testing.T) {
+	t.Cleanup(cache.SetRootForTest(t.TempDir()))
+	t.Cleanup(cache.SetInstanceKeyForTest("test.atlassian.net"))
+
+	testutil.RequireNoError(t, cache.WriteResource("boards", "24h", []api.Board{
+		{ID: 1, Name: "Board One", Type: "scrum"},
+		{ID: 2, Name: "Board Two", Type: "kanban"},
+	}))
+
+	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
+		t.Fatal("live API must not be called when boards cache is fresh")
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}, IDOnly: true}
+	opts.SetAPIClient(client)
+
+	err = runList(context.Background(), opts, "", 50, "", "")
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, stdout.String(), "1\n2\n")
+}

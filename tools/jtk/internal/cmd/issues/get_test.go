@@ -21,7 +21,7 @@ func TestNewGetCmd(t *testing.T) {
 	opts := &root.Options{}
 	cmd := newGetCmd(opts)
 
-	testutil.Equal(t, cmd.Use, "get <issue-key>")
+	testutil.Equal(t, cmd.Use, "get <issue-key> [issue-key...]")
 	testutil.Equal(t, cmd.Short, "Get issue details")
 
 	// Check that no-truncate flag exists
@@ -467,4 +467,180 @@ func TestRunGet_CustomFields_WithJSON_Errors(t *testing.T) {
 	err = runGet(context.Background(), opts, "TEST-1", false, "", true)
 	testutil.NotNil(t, err)
 	testutil.Contains(t, err.Error(), "not supported")
+}
+
+func newMultiIssueServer(t *testing.T, issues map[string]api.Issue) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		for key, issue := range issues {
+			if strings.Contains(r.URL.Path, "/issue/"+key) {
+				w.WriteHeader(http.StatusOK)
+				_ = json.NewEncoder(w).Encode(issue)
+				return
+			}
+		}
+		http.NotFound(w, r)
+	}))
+}
+
+func testIssues() map[string]api.Issue {
+	return map[string]api.Issue{
+		"PROJ-1": {
+			Key: "PROJ-1",
+			Fields: api.IssueFields{
+				Summary:   "First issue",
+				Status:    &api.Status{Name: "In Progress"},
+				IssueType: &api.IssueType{Name: "Story"},
+				Assignee:  &api.User{DisplayName: "Alice"},
+			},
+		},
+		"PROJ-2": {
+			Key: "PROJ-2",
+			Fields: api.IssueFields{
+				Summary:   "Second issue",
+				Status:    &api.Status{Name: "Done"},
+				IssueType: &api.IssueType{Name: "Bug"},
+				Assignee:  &api.User{DisplayName: "Bob"},
+			},
+		},
+		"PROJ-3": {
+			Key: "PROJ-3",
+			Fields: api.IssueFields{
+				Summary:   "Third issue",
+				Status:    &api.Status{Name: "Backlog"},
+				IssueType: &api.IssueType{Name: "Task"},
+			},
+		},
+	}
+}
+
+func TestRunGetMulti_Table(t *testing.T) {
+	t.Parallel()
+	issues := testIssues()
+	server := newMultiIssueServer(t, issues)
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runGetMulti(context.Background(), opts, []string{"PROJ-1", "PROJ-2", "PROJ-3"})
+	testutil.RequireNoError(t, err)
+
+	output := stdout.String()
+	testutil.Contains(t, output, "PROJ-1")
+	testutil.Contains(t, output, "PROJ-2")
+	testutil.Contains(t, output, "PROJ-3")
+	testutil.Contains(t, output, "First issue")
+	testutil.Contains(t, output, "Second issue")
+	testutil.Contains(t, output, "Third issue")
+}
+
+func TestRunGetMulti_PreservesOrder(t *testing.T) {
+	t.Parallel()
+	issues := testIssues()
+	server := newMultiIssueServer(t, issues)
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runGetMulti(context.Background(), opts, []string{"PROJ-3", "PROJ-1", "PROJ-2"})
+	testutil.RequireNoError(t, err)
+
+	output := stdout.String()
+	pos1 := strings.Index(output, "PROJ-3")
+	pos2 := strings.Index(output, "PROJ-1")
+	pos3 := strings.Index(output, "PROJ-2")
+	if pos1 >= pos2 || pos2 >= pos3 {
+		t.Errorf("order not preserved: PROJ-3 at %d, PROJ-1 at %d, PROJ-2 at %d", pos1, pos2, pos3)
+	}
+}
+
+func TestRunGetMulti_IDOnly(t *testing.T) {
+	t.Parallel()
+	issues := testIssues()
+	server := newMultiIssueServer(t, issues)
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}, IDOnly: true}
+	opts.SetAPIClient(client)
+
+	err = runGetMulti(context.Background(), opts, []string{"PROJ-1", "PROJ-2"})
+	testutil.RequireNoError(t, err)
+
+	output := stdout.String()
+	testutil.Contains(t, output, "PROJ-1")
+	testutil.Contains(t, output, "PROJ-2")
+}
+
+func TestRunGetMulti_JSON(t *testing.T) {
+	t.Parallel()
+	issues := testIssues()
+	server := newMultiIssueServer(t, issues)
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "json", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runGetMulti(context.Background(), opts, []string{"PROJ-1", "PROJ-2"})
+	testutil.RequireNoError(t, err)
+
+	output := stdout.String()
+	testutil.Contains(t, output, "PROJ-1")
+	testutil.Contains(t, output, "PROJ-2")
+}
+
+func TestRunGetMulti_FieldsFlagError(t *testing.T) {
+	t.Parallel()
+	opts := &root.Options{}
+	cmd := newGetCmd(opts)
+
+	cmd.SetArgs([]string{"PROJ-1", "PROJ-2", "--fields", "Status"})
+	err := cmd.Execute()
+	testutil.NotNil(t, err)
+	testutil.Contains(t, err.Error(), "--fields is only supported with a single issue key")
+}
+
+func TestRunGetMulti_CustomFieldsFlagError(t *testing.T) {
+	t.Parallel()
+	opts := &root.Options{}
+	cmd := newGetCmd(opts)
+
+	cmd.SetArgs([]string{"PROJ-1", "PROJ-2", "--custom-fields"})
+	err := cmd.Execute()
+	testutil.NotNil(t, err)
+	testutil.Contains(t, err.Error(), "--custom-fields is only supported with a single issue key")
+}
+
+func TestRunGetMulti_FailsOnBadKey(t *testing.T) {
+	t.Parallel()
+	issues := testIssues()
+	server := newMultiIssueServer(t, issues)
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runGetMulti(context.Background(), opts, []string{"PROJ-1", "NONEXIST-999"})
+	testutil.NotNil(t, err)
 }

@@ -2,9 +2,11 @@ package issues
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/spf13/cobra"
 
+	"github.com/open-cli-collective/atlassian-go/artifact"
 	"github.com/open-cli-collective/atlassian-go/present"
 	"github.com/open-cli-collective/atlassian-go/view"
 
@@ -22,17 +24,27 @@ func newGetCmd(opts *root.Options) *cobra.Command {
 	var customFields bool
 
 	cmd := &cobra.Command{
-		Use:   "get <issue-key>",
+		Use:   "get <issue-key> [issue-key...]",
 		Short: "Get issue details",
-		Long:  "Retrieve and display details for a specific issue.",
+		Long:  "Retrieve and display details for a specific issue, or a summary table when multiple keys are given.",
 		Example: `  jtk issues get PROJ-123
+  jtk issues get PROJ-123 PROJ-456 PROJ-789
   jtk issues get PROJ-123 --fulltext
   jtk issues get PROJ-123 --id
   jtk issues get PROJ-123 --fields Status,Assignee
   jtk issues get PROJ-123 --fields "Issue Type"
   jtk issues get PROJ-123 --custom-fields`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) > 1 {
+				if fieldsFlag != "" {
+					return fmt.Errorf("--fields is only supported with a single issue key")
+				}
+				if customFields {
+					return fmt.Errorf("--custom-fields is only supported with a single issue key")
+				}
+				return runGetMulti(cmd.Context(), opts, args)
+			}
 			return runGet(cmd.Context(), opts, args[0], noTruncate || opts.IsFullText(), fieldsFlag, customFields)
 		},
 	}
@@ -109,6 +121,44 @@ func runGet(ctx context.Context, opts *root.Options, issueKey string, noTruncate
 	if customFields {
 		appendCustomFields(ctx, client, issue, model)
 	}
+	return jtkpresent.Emit(opts, model)
+}
+
+func runGetMulti(ctx context.Context, opts *root.Options, issueKeys []string) error {
+	client, err := opts.APIClient()
+	if err != nil {
+		return err
+	}
+
+	if opts.EmitIDOnly() {
+		ids := make([]string, 0, len(issueKeys))
+		for _, key := range issueKeys {
+			issue, err := client.GetIssue(ctx, key)
+			if err != nil {
+				return err
+			}
+			ids = append(ids, issue.Key)
+		}
+		return jtkpresent.EmitIDs(opts, ids)
+	}
+
+	issues := make([]api.Issue, 0, len(issueKeys))
+	for _, key := range issueKeys {
+		issue, err := client.GetIssue(ctx, key)
+		if err != nil {
+			return err
+		}
+		issues = append(issues, *issue)
+	}
+
+	v := opts.View()
+
+	if v.Format == view.FormatJSON {
+		arts := jtkartifact.ProjectIssues(issues, opts.ArtifactMode())
+		return v.RenderArtifactList(artifact.NewListResult(arts, false))
+	}
+
+	model := jtkpresent.IssuePresenter{}.PresentList(issues, opts.IsExtended())
 	return jtkpresent.Emit(opts, model)
 }
 

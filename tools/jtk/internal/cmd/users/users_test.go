@@ -11,6 +11,7 @@ import (
 	"github.com/open-cli-collective/atlassian-go/testutil"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/cache"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 )
 
@@ -490,4 +491,87 @@ func TestRunSearch_ExpandParamNotSentOnSearchEndpoint(t *testing.T) {
 	if captured != "" {
 		t.Errorf("expand param should not be sent to /user/search, got %q", captured)
 	}
+}
+
+// ----- cache-backed users get -----
+
+func TestRunGet_FreshCacheSkipsLive(t *testing.T) {
+	t.Cleanup(cache.SetRootForTest(t.TempDir()))
+	t.Cleanup(cache.SetInstanceKeyForTest("test.atlassian.net"))
+
+	testutil.RequireNoError(t, cache.WriteResource("users", "24h", []api.User{
+		{AccountID: "abc123", DisplayName: "Alice", EmailAddress: "alice@example.com", Active: true},
+	}))
+
+	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
+		t.Fatal("live API must not be called when users cache is fresh")
+	}))
+	defer server.Close()
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(newClient(t, server.URL))
+
+	err := runGet(context.Background(), opts, "abc123", "")
+	testutil.RequireNoError(t, err)
+	testutil.Contains(t, stdout.String(), "Alice")
+}
+
+func TestRunGet_FreshCacheSkipsLive_JSON(t *testing.T) {
+	t.Cleanup(cache.SetRootForTest(t.TempDir()))
+	t.Cleanup(cache.SetInstanceKeyForTest("test.atlassian.net"))
+
+	testutil.RequireNoError(t, cache.WriteResource("users", "24h", []api.User{
+		{AccountID: "abc123", DisplayName: "Alice", EmailAddress: "alice@example.com", Active: true},
+	}))
+
+	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
+		t.Fatal("live API must not be called when users cache is fresh")
+	}))
+	defer server.Close()
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "json", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(newClient(t, server.URL))
+
+	err := runGet(context.Background(), opts, "abc123", "")
+	testutil.RequireNoError(t, err)
+
+	var user api.User
+	testutil.RequireNoError(t, json.Unmarshal(stdout.Bytes(), &user))
+	testutil.Equal(t, user.AccountID, "abc123")
+}
+
+func TestRunGet_ExtendedAlwaysCallsLive(t *testing.T) {
+	t.Cleanup(cache.SetRootForTest(t.TempDir()))
+	t.Cleanup(cache.SetInstanceKeyForTest("test.atlassian.net"))
+
+	testutil.RequireNoError(t, cache.WriteResource("users", "24h", []api.User{
+		{AccountID: "abc123", DisplayName: "Cached Alice"},
+	}))
+
+	liveCalled := false
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/rest/api/3/user" {
+			liveCalled = true
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(api.User{
+				AccountID:   "abc123",
+				DisplayName: "Live Alice",
+				Groups:      &api.UserCountBlock{Size: 2},
+			})
+		}
+	}))
+	defer server.Close()
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}, Extended: true}
+	opts.SetAPIClient(newClient(t, server.URL))
+
+	err := runGet(context.Background(), opts, "abc123", "")
+	testutil.RequireNoError(t, err)
+	if !liveCalled {
+		t.Fatal("users get --extended must always call live API, not use cache")
+	}
+	testutil.Contains(t, stdout.String(), "Live Alice")
 }

@@ -12,6 +12,7 @@ import (
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	jtkartifact "github.com/open-cli-collective/jira-ticket-cli/internal/artifact"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/cache"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/present/projection"
@@ -106,7 +107,7 @@ func runGet(ctx context.Context, opts *root.Options, accountID, fieldsFlag strin
 	if opts.IsExtended() {
 		expand = api.UserExtendedExpand
 	}
-	user, err := client.GetUser(ctx, accountID, expand)
+	user, err := cache.GetUserCacheFirst(ctx, client, accountID, expand)
 	if err != nil {
 		return err
 	}

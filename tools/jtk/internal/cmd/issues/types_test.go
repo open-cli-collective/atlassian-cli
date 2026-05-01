@@ -269,7 +269,7 @@ func TestRunTypes_FreshCacheSkipsLive_IDOnly(t *testing.T) {
 
 	err = runTypes(context.Background(), opts, "TEST")
 	testutil.RequireNoError(t, err)
-	testutil.Contains(t, stdout.String(), "10000\n")
+	testutil.Equal(t, stdout.String(), "10000\n10001\n10002\n10003\n")
 }
 
 func TestRunTypes_FreshCacheSkipsLive_JSON(t *testing.T) {

@@ -60,7 +60,7 @@ func TestRunList_DefaultColumnOrderMatchesSpec(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", NoColor: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{NoColor: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	testutil.RequireNoError(t, runList(context.Background(), opts, "", 50, "", ""))
@@ -96,7 +96,7 @@ func TestRunList_Extended_MatchesSpecShape(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", NoColor: true, Extended: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{NoColor: true, Extended: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	testutil.RequireNoError(t, runList(context.Background(), opts, "", 50, "", ""))
@@ -126,7 +126,7 @@ func TestRunList_HasMore_EmbedsTokenInContinuationLine(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", NoColor: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{NoColor: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	testutil.RequireNoError(t, runList(context.Background(), opts, "", 2, "", ""))
@@ -146,33 +146,11 @@ func TestRunList_NextPageToken_AdvancesStartAt(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	testutil.RequireNoError(t, runList(context.Background(), opts, "", 50, "25", ""))
 	testutil.Equal(t, captured, "25")
-}
-
-func TestRunList_Fields_JSONReturnsError(t *testing.T) {
-	t.Parallel()
-	// `--fields` + `-o json` is explicitly rejected (parity with users search
-	// / issues list). The guard in runList must fire before hitting the
-	// server so the user gets a predictable error.
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_ = json.NewEncoder(w).Encode(api.ProjectSearchResponse{Values: []api.ProjectDetail{}, IsLast: true})
-	}))
-	defer server.Close()
-
-	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
-	testutil.RequireNoError(t, err)
-
-	var stdout bytes.Buffer
-	opts := &root.Options{Output: "json", Stdout: &stdout, Stderr: &bytes.Buffer{}}
-	opts.SetAPIClient(client)
-
-	err = runList(context.Background(), opts, "", 50, "", "KEY")
-	testutil.NotNil(t, err)
-	testutil.Contains(t, err.Error(), "--fields is not supported")
 }
 
 func TestRunList_NextPageToken_RejectsNegative(t *testing.T) {
@@ -189,35 +167,13 @@ func TestRunList_NextPageToken_RejectsNegative(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	err = runList(context.Background(), opts, "", 50, "-5", "")
 	testutil.NotNil(t, err)
 	testutil.Contains(t, err.Error(), "invalid --next-page-token")
 	testutil.Contains(t, err.Error(), "non-negative")
-}
-
-func TestRunGet_Fields_JSONReturnsError(t *testing.T) {
-	t.Parallel()
-	// Mirrors TestRunGet_Fields_JSONReturnsError in users_test.go — the
-	// errFieldsWithJSON guard in runGet was introduced for this migration
-	// and should not silently accept both flags.
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_ = json.NewEncoder(w).Encode(api.ProjectDetail{Key: "TST", Name: "Test"})
-	}))
-	defer server.Close()
-
-	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
-	testutil.RequireNoError(t, err)
-
-	var stdout bytes.Buffer
-	opts := &root.Options{Output: "json", Stdout: &stdout, Stderr: &bytes.Buffer{}}
-	opts.SetAPIClient(client)
-
-	err = runGet(context.Background(), opts, "TST", "NAME")
-	testutil.NotNil(t, err)
-	testutil.Contains(t, err.Error(), "--fields is not supported")
 }
 
 func TestRunList_IDOnly_EmitsKeysOnly(t *testing.T) {
@@ -236,7 +192,7 @@ func TestRunList_IDOnly_EmitsKeysOnly(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", IDOnly: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{IDOnly: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	testutil.RequireNoError(t, runList(context.Background(), opts, "", 50, "", ""))
@@ -259,7 +215,7 @@ func TestRunList_Fields_ProjectsToSelectedColumns(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", NoColor: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{NoColor: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	testutil.RequireNoError(t, runList(context.Background(), opts, "", 50, "", "KEY,NAME"))
@@ -268,32 +224,6 @@ func TestRunList_Fields_ProjectsToSelectedColumns(t *testing.T) {
 	if stdout.String() != want {
 		t.Errorf("projects list --fields KEY,NAME:\ngot:  %q\nwant: %q", stdout.String(), want)
 	}
-}
-
-func TestRunList_JSON(t *testing.T) {
-	t.Parallel()
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_ = json.NewEncoder(w).Encode(api.ProjectSearchResponse{
-			Values: []api.ProjectDetail{
-				{Key: "TST", Name: "Test", ProjectTypeKey: "software"},
-			},
-			Total:  1,
-			IsLast: true,
-		})
-	}))
-	defer server.Close()
-
-	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
-	testutil.RequireNoError(t, err)
-
-	var stdout bytes.Buffer
-	opts := &root.Options{Output: "json", Stdout: &stdout, Stderr: &bytes.Buffer{}}
-	opts.SetAPIClient(client)
-
-	err = runList(context.Background(), opts, "", 50, "", "")
-	testutil.RequireNoError(t, err)
-	testutil.Contains(t, stdout.String(), `"key"`)
-	testutil.Contains(t, stdout.String(), "TST")
 }
 
 func TestRunList_Empty(t *testing.T) {
@@ -307,7 +237,7 @@ func TestRunList_Empty(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	err = runList(context.Background(), opts, "", 50, "", "")
@@ -339,7 +269,7 @@ func TestRunGet_DefaultSpecShape(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", NoColor: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{NoColor: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	testutil.RequireNoError(t, runGet(context.Background(), opts, "TST", ""))
@@ -374,7 +304,7 @@ func TestRunGet_Extended_EnumeratesComponentsAndFlags(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", NoColor: true, Extended: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{NoColor: true, Extended: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	testutil.RequireNoError(t, runGet(context.Background(), opts, "TST", ""))
@@ -423,7 +353,7 @@ func TestRunGet_Extended_ComponentListTruncatesAtLimit(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", NoColor: true, Extended: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{NoColor: true, Extended: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	testutil.RequireNoError(t, runGet(context.Background(), opts, "TST", ""))
@@ -463,7 +393,7 @@ func TestRunGet_Default_IssueTypesRowPresentEvenWhenEmpty(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", NoColor: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{NoColor: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	testutil.RequireNoError(t, runGet(context.Background(), opts, "EMPTY", ""))
@@ -490,7 +420,7 @@ func TestRunGet_Extended_MissingFlagsRenderDashes(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", NoColor: true, Extended: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{NoColor: true, Extended: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	testutil.RequireNoError(t, runGet(context.Background(), opts, "TST", ""))
@@ -510,7 +440,7 @@ func TestRunGet_IDOnly(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", IDOnly: true, Extended: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{IDOnly: true, Extended: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	testutil.RequireNoError(t, runGet(context.Background(), opts, "TST", "NAME"))
@@ -532,7 +462,7 @@ func TestRunGet_Fields_ProjectsDetailSection(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", NoColor: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{NoColor: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	testutil.RequireNoError(t, runGet(context.Background(), opts, "TST", "NAME,LEAD"))
@@ -590,7 +520,7 @@ func TestRunCreate(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	err = runCreate(context.Background(), opts, "TST", "Test Project", "software", "557058:295fe89c-10c2-4b0c-ba84-a4dd14ea7729", "")
@@ -621,7 +551,7 @@ func TestRunDelete_Force(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	err = runDelete(context.Background(), opts, "TST", true)
@@ -636,7 +566,6 @@ func TestRunDelete_NoForce_Declined(t *testing.T) {
 
 	var stdout bytes.Buffer
 	opts := &root.Options{
-		Output: "table",
 		Stdout: &stdout,
 		Stderr: &bytes.Buffer{},
 		Stdin:  bytes.NewBufferString("n\n"),
@@ -661,7 +590,6 @@ func TestRunDelete_NoForce_Accepted(t *testing.T) {
 
 	var stdout bytes.Buffer
 	opts := &root.Options{
-		Output: "table",
 		Stdout: &stdout,
 		Stderr: &bytes.Buffer{},
 		Stdin:  bytes.NewBufferString("y\n"),
@@ -688,7 +616,7 @@ func TestRunUpdate(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	err = runUpdate(context.Background(), opts, "TST", "Updated Name", "", "")
@@ -711,7 +639,7 @@ func TestRunRestore(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	err = runRestore(context.Background(), opts, "TST")
@@ -734,7 +662,7 @@ func TestRunTypes(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	testutil.RequireNoError(t, runTypes(context.Background(), opts, ""))
@@ -758,7 +686,7 @@ func TestRunTypes_Extended_AddsDescriptionKey(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", NoColor: true, Extended: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{NoColor: true, Extended: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	testutil.RequireNoError(t, runTypes(context.Background(), opts, ""))
@@ -783,7 +711,7 @@ func TestRunTypes_IDOnly(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", IDOnly: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{IDOnly: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	testutil.RequireNoError(t, runTypes(context.Background(), opts, ""))

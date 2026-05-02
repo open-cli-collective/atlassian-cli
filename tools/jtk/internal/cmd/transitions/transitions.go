@@ -83,11 +83,6 @@ func runList(ctx context.Context, opts *root.Options, issueKey string, showField
 		return jtkpresent.Emit(opts, jtkpresent.TransitionPresenter{}.PresentEmpty(issueKey))
 	}
 
-	v := opts.View()
-	if v.Format == "json" {
-		return v.JSON(transitions)
-	}
-
 	model := jtkpresent.TransitionPresenter{}.PresentList(transitions, showFields)
 	return jtkpresent.Emit(opts, model)
 }

@@ -238,33 +238,5 @@ func TestRunList_IDOnly_OverridesFields(t *testing.T) {
 }
 
 // --fields combined with --output json is rejected, mirroring runGet.
-func TestRunList_Fields_WithJSON_Errors(t *testing.T) {
-	t.Parallel()
-	server := newTestCommentsServer(t, []api.Comment{longBodyComment("1", "Alice")})
-	defer server.Close()
-
-	opts, _, _ := newCommentsOpts(t, server)
-	opts.Output = "json"
-	err := runList(context.Background(), opts, "TEST-1", 50, false, "ID")
-	if err == nil {
-		t.Fatalf("expected error when --fields combined with --output json")
-	}
-	testutil.Contains(t, err.Error(), "not supported with --output json")
-}
-
 // --id combined with --output json + --fields must let --id win without
 // triggering the JSON-vs-fields rejection (parity with runGet).
-func TestRunList_IDOnly_BypassesJSONFieldsRejection(t *testing.T) {
-	t.Parallel()
-	server := newTestCommentsServer(t, []api.Comment{longBodyComment("1", "Alice")})
-	defer server.Close()
-
-	opts, stdout, _ := newCommentsOpts(t, server)
-	opts.IDOnly = true
-	opts.Output = "json"
-	err := runList(context.Background(), opts, "TEST-1", 50, false, "Body")
-	testutil.RequireNoError(t, err)
-	if stdout.String() != "1\n" {
-		t.Errorf("expected bare ID, got %q", stdout.String())
-	}
-}

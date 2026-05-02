@@ -48,7 +48,7 @@ func TestRun_DefaultOutputMatchesSpecOneLiner(t *testing.T) {
 	defer server.Close()
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", NoColor: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{NoColor: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(newClient(t, server.URL))
 
 	testutil.RequireNoError(t, run(context.Background(), opts))
@@ -66,7 +66,7 @@ func TestRun_EmptyEmailRendersDash(t *testing.T) {
 	defer server.Close()
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", NoColor: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{NoColor: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(newClient(t, server.URL))
 
 	testutil.RequireNoError(t, run(context.Background(), opts))
@@ -93,7 +93,7 @@ func TestRun_Extended_EmitsThreeSpecRows(t *testing.T) {
 	defer server.Close()
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", NoColor: true, Extended: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{NoColor: true, Extended: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(newClient(t, server.URL))
 
 	testutil.RequireNoError(t, run(context.Background(), opts))
@@ -113,7 +113,7 @@ func TestRun_Extended_DashesWhenOptionalFieldsMissing(t *testing.T) {
 	defer server.Close()
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", NoColor: true, Extended: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{NoColor: true, Extended: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(newClient(t, server.URL))
 
 	testutil.RequireNoError(t, run(context.Background(), opts))
@@ -133,7 +133,7 @@ func TestRun_IDOnly(t *testing.T) {
 	defer server.Close()
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", IDOnly: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{IDOnly: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(newClient(t, server.URL))
 
 	testutil.RequireNoError(t, run(context.Background(), opts))
@@ -148,43 +148,7 @@ func TestRun_IDOnlyPrecedenceOverExtended(t *testing.T) {
 
 	var stdout bytes.Buffer
 	// Even with --extended and --fulltext set, --id wins: only the accountID.
-	opts := &root.Options{Output: "table", IDOnly: true, Extended: true, FullText: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
-	opts.SetAPIClient(newClient(t, server.URL))
-
-	testutil.RequireNoError(t, run(context.Background(), opts))
-	testutil.Equal(t, stdout.String(), "abc123\n")
-}
-
-func TestRun_JSON_UsesArtifactLayer(t *testing.T) {
-	t.Parallel()
-	user := &api.User{AccountID: "abc123", DisplayName: "John Doe", EmailAddress: "john@example.com", Active: true}
-	server := newTestUserServer(t, http.StatusOK, user)
-	defer server.Close()
-
-	var stdout bytes.Buffer
-	opts := &root.Options{Output: "json", Stdout: &stdout, Stderr: &bytes.Buffer{}}
-	opts.SetAPIClient(newClient(t, server.URL))
-
-	testutil.RequireNoError(t, run(context.Background(), opts))
-
-	output := stdout.String()
-	testutil.Contains(t, output, `"accountId"`)
-	testutil.Contains(t, output, "abc123")
-	testutil.Contains(t, output, `"displayName"`)
-	testutil.Contains(t, output, "John Doe")
-}
-
-func TestRun_Plain_EmitsBareAccountID(t *testing.T) {
-	t.Parallel()
-	// Legacy contract (pre-#237): `-o plain` emits just the accountID, no
-	// name, no email. --id is the preferred surface, but the plain format
-	// stays working for backwards compatibility with unmigrated scripts.
-	user := &api.User{AccountID: "abc123", DisplayName: "John Doe", EmailAddress: "john@example.com", Active: true}
-	server := newTestUserServer(t, http.StatusOK, user)
-	defer server.Close()
-
-	var stdout bytes.Buffer
-	opts := &root.Options{Output: "plain", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{IDOnly: true, Extended: true, FullText: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(newClient(t, server.URL))
 
 	testutil.RequireNoError(t, run(context.Background(), opts))
@@ -200,7 +164,7 @@ func TestRun_AuthFailure(t *testing.T) {
 	defer server.Close()
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(newClient(t, server.URL))
 
 	err := run(context.Background(), opts)
@@ -231,7 +195,7 @@ func TestRun_ExpandParamGatedOnExtended(t *testing.T) {
 			defer server.Close()
 
 			var stdout bytes.Buffer
-			opts := &root.Options{Output: "table", Extended: tc.extended, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+			opts := &root.Options{Extended: tc.extended, Stdout: &stdout, Stderr: &bytes.Buffer{}}
 			opts.SetAPIClient(newClient(t, server.URL))
 
 			testutil.RequireNoError(t, run(context.Background(), opts))

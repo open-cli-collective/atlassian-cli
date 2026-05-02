@@ -7,7 +7,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/open-cli-collective/atlassian-go/present"
-	"github.com/open-cli-collective/atlassian-go/view"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cache"
@@ -61,8 +60,6 @@ display name, or "me". Use 'jtk users search' for candidates or
 }
 
 func runCreate(ctx context.Context, opts *root.Options, key, name, projectType, lead, description string) error {
-	v := opts.View()
-
 	client, err := opts.APIClient()
 	if err != nil {
 		return err
@@ -90,10 +87,6 @@ func runCreate(ctx context.Context, opts *root.Options, key, name, projectType, 
 
 	if opts.EmitIDOnly() {
 		return jtkpresent.EmitIDs(opts, []string{project.Key})
-	}
-
-	if v.Format == view.FormatJSON {
-		return v.JSON(project)
 	}
 
 	return mutation.WriteAndPresent(ctx, opts, mutation.Config{

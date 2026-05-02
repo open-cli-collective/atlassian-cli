@@ -88,7 +88,7 @@ Use `jtk refresh --status` to inspect cache freshness without fetching anything.
 - **`--fulltext`** — disables truncation of descriptions and comments. Use when the user needs full body content (e.g., "show the full description"). `--no-truncate` is a deprecated alias kept during the migration; prefer `--fulltext`.
 - **`--id`** — emits only the primary identifier (issue key, account ID, etc.). Takes precedence over `--extended` and `--fulltext`. Use whenever a downstream step will parse the output — no decoration to strip, formatting is stable. **Caveat for scripts:** when a list command's result is truncated (multi-page), the pagination continuation notice (`More results available ...`) is still appended to STDOUT even with `--id`. For command substitution or line-by-line piping, either size `--max` so all results fit on one page, or post-filter with `grep -oE '[A-Z]+-[0-9]+' | head -1` to isolate just the identifier.
 
-`-o table|json|plain` is retained for backward compatibility but hidden from `--help`; prefer `--id` over format-parsing. JSON output is still first-class for scripting needs that require structured data.
+`automation export` is the only command that emits JSON — use `--id` for scripting composition.
 
 ### Pagination & Result Sizing
 

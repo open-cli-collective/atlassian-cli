@@ -23,7 +23,6 @@ func TestRunUpdate(t *testing.T) {
 
 		var stdout, stderr bytes.Buffer
 		opts := &root.Options{
-			Output: "table",
 			Stdout: &stdout,
 			Stderr: &stderr,
 		}
@@ -37,7 +36,6 @@ func TestRunUpdate(t *testing.T) {
 		t.Parallel()
 		var stdout, stderr bytes.Buffer
 		opts := &root.Options{
-			Output: "table",
 			Stdout: &stdout,
 			Stderr: &stderr,
 		}

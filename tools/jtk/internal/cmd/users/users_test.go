@@ -54,7 +54,7 @@ func TestRunGet_DefaultOutputMatchesSpecOneLiner(t *testing.T) {
 	defer server.Close()
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", NoColor: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{NoColor: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(newClient(t, server.URL))
 
 	testutil.RequireNoError(t, runGet(context.Background(), opts, "abc123", ""))
@@ -76,7 +76,7 @@ func TestRunGet_Extended_EmitsThreeSpecRows(t *testing.T) {
 	defer server.Close()
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", NoColor: true, Extended: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{NoColor: true, Extended: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(newClient(t, server.URL))
 
 	testutil.RequireNoError(t, runGet(context.Background(), opts, "abc", ""))
@@ -95,7 +95,7 @@ func TestRunGet_IDOnly_ShortCircuitsEverythingElse(t *testing.T) {
 	defer server.Close()
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", IDOnly: true, Extended: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{IDOnly: true, Extended: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(newClient(t, server.URL))
 
 	testutil.RequireNoError(t, runGet(context.Background(), opts, "abc123", "NAME,EMAIL"))
@@ -109,7 +109,7 @@ func TestRunGet_Fields_ProjectsDetailSection(t *testing.T) {
 	defer server.Close()
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", NoColor: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{NoColor: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(newClient(t, server.URL))
 
 	testutil.RequireNoError(t, runGet(context.Background(), opts, "abc", "NAME,EMAIL"))
@@ -122,27 +122,13 @@ func TestRunGet_Fields_ProjectsDetailSection(t *testing.T) {
 	}
 }
 
-func TestRunGet_Fields_JSONReturnsError(t *testing.T) {
-	t.Parallel()
-	server := newTestUserServer(t, api.User{AccountID: "abc", DisplayName: "X"})
-	defer server.Close()
-
-	var stdout bytes.Buffer
-	opts := &root.Options{Output: "json", Stdout: &stdout, Stderr: &bytes.Buffer{}}
-	opts.SetAPIClient(newClient(t, server.URL))
-
-	err := runGet(context.Background(), opts, "abc", "NAME")
-	testutil.NotNil(t, err)
-	testutil.Contains(t, err.Error(), "--fields is not supported")
-}
-
 func TestRunGet_Fields_UnknownHeaderFails(t *testing.T) {
 	t.Parallel()
 	server := newTestUserServer(t, api.User{AccountID: "abc", DisplayName: "X", Active: true})
 	defer server.Close()
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(newClient(t, server.URL))
 
 	// Trigger the no-op fetch path (noFieldFetch returns nil) — this token
@@ -165,40 +151,11 @@ func TestRunGet_IDOnly_SkipsAPIFetch(t *testing.T) {
 	defer server.Close()
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", IDOnly: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{IDOnly: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(newClient(t, server.URL))
 
 	testutil.RequireNoError(t, runGet(context.Background(), opts, "abc123", ""))
 	testutil.Equal(t, stdout.String(), "abc123\n")
-}
-
-func TestRunGet_Plain_MatchesSpecOneLiner(t *testing.T) {
-	t.Parallel()
-	// `-o plain` on users get was never a bare-ID shim (unlike me). Lock the
-	// current behavior: plain-format output is the same one-liner the table
-	// path emits.
-	server := newTestUserServer(t, api.User{AccountID: "abc123", DisplayName: "Alice", EmailAddress: "a@x.io", Active: true})
-	defer server.Close()
-
-	var stdout bytes.Buffer
-	opts := &root.Options{Output: "plain", NoColor: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
-	opts.SetAPIClient(newClient(t, server.URL))
-
-	testutil.RequireNoError(t, runGet(context.Background(), opts, "abc123", ""))
-	testutil.Equal(t, stdout.String(), "abc123 | Alice | a@x.io\n")
-}
-
-func TestRunGet_JSON_PreservesArtifactOutput(t *testing.T) {
-	t.Parallel()
-	server := newTestUserServer(t, api.User{AccountID: "abc123", DisplayName: "John Doe", Active: true})
-	defer server.Close()
-
-	var stdout bytes.Buffer
-	opts := &root.Options{Output: "json", Stdout: &stdout, Stderr: &bytes.Buffer{}}
-	opts.SetAPIClient(newClient(t, server.URL))
-
-	testutil.RequireNoError(t, runGet(context.Background(), opts, "abc123", ""))
-	testutil.Contains(t, stdout.String(), `"accountId"`)
 }
 
 // ----- users search -----
@@ -225,7 +182,7 @@ func TestRunSearch_DefaultTableMatchesSpecColumnOrder(t *testing.T) {
 	defer server.Close()
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", NoColor: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{NoColor: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(newClient(t, server.URL))
 
 	testutil.RequireNoError(t, runSearch(context.Background(), opts, "al", 10, "", ""))
@@ -247,7 +204,7 @@ func TestRunSearch_Extended_AppendsTimezoneLocale(t *testing.T) {
 	defer server.Close()
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", NoColor: true, Extended: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{NoColor: true, Extended: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(newClient(t, server.URL))
 
 	testutil.RequireNoError(t, runSearch(context.Background(), opts, "al", 10, "", ""))
@@ -268,7 +225,7 @@ func TestRunSearch_Extended_DashesForRedactedFields(t *testing.T) {
 	defer server.Close()
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", NoColor: true, Extended: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{NoColor: true, Extended: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(newClient(t, server.URL))
 
 	testutil.RequireNoError(t, runSearch(context.Background(), opts, "al", 10, "", ""))
@@ -290,7 +247,7 @@ func TestRunSearch_IDOnly_EmitsKeysOnly(t *testing.T) {
 	defer server.Close()
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", IDOnly: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{IDOnly: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(newClient(t, server.URL))
 
 	testutil.RequireNoError(t, runSearch(context.Background(), opts, "al", 10, "", ""))
@@ -311,7 +268,7 @@ func TestRunSearch_HasMore_AppendsTokenizedContinuation(t *testing.T) {
 	defer server.Close()
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", NoColor: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{NoColor: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(newClient(t, server.URL))
 
 	testutil.RequireNoError(t, runSearch(context.Background(), opts, "al", 2, "", ""))
@@ -335,7 +292,7 @@ func TestRunSearch_IDOnly_EmitsTokenizedContinuation(t *testing.T) {
 	defer server.Close()
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", IDOnly: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{IDOnly: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(newClient(t, server.URL))
 
 	testutil.RequireNoError(t, runSearch(context.Background(), opts, "al", 2, "", ""))
@@ -352,7 +309,7 @@ func TestRunSearch_NextPageToken_AdvancesStartAt(t *testing.T) {
 	defer server.Close()
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", NoColor: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{NoColor: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(newClient(t, server.URL))
 
 	testutil.RequireNoError(t, runSearch(context.Background(), opts, "al", 10, "20", ""))
@@ -365,7 +322,7 @@ func TestRunSearch_NextPageToken_RejectsNonNumeric(t *testing.T) {
 	defer server.Close()
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(newClient(t, server.URL))
 
 	err := runSearch(context.Background(), opts, "al", 10, "not-a-number", "")
@@ -380,27 +337,13 @@ func TestRunSearch_NextPageToken_RejectsNegative(t *testing.T) {
 	defer server.Close()
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(newClient(t, server.URL))
 
 	err := runSearch(context.Background(), opts, "al", 10, "-1", "")
 	testutil.NotNil(t, err)
 	testutil.Contains(t, err.Error(), "invalid --next-page-token")
 	testutil.Contains(t, err.Error(), "non-negative")
-}
-
-func TestRunSearch_Fields_JSONReturnsError(t *testing.T) {
-	t.Parallel()
-	server := newTestUsersServer(t, []api.User{})
-	defer server.Close()
-
-	var stdout bytes.Buffer
-	opts := &root.Options{Output: "json", Stdout: &stdout, Stderr: &bytes.Buffer{}}
-	opts.SetAPIClient(newClient(t, server.URL))
-
-	err := runSearch(context.Background(), opts, "al", 10, "", "NAME")
-	testutil.NotNil(t, err)
-	testutil.Contains(t, err.Error(), "--fields is not supported")
 }
 
 func TestRunSearch_Fields_ProjectsToSelectedColumns(t *testing.T) {
@@ -410,7 +353,7 @@ func TestRunSearch_Fields_ProjectsToSelectedColumns(t *testing.T) {
 	defer server.Close()
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", NoColor: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{NoColor: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(newClient(t, server.URL))
 
 	testutil.RequireNoError(t, runSearch(context.Background(), opts, "al", 10, "", "NAME"))
@@ -428,48 +371,11 @@ func TestRunSearch_Empty_ShowsFriendlyMessage(t *testing.T) {
 	defer server.Close()
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(newClient(t, server.URL))
 
 	testutil.RequireNoError(t, runSearch(context.Background(), opts, "ghost", 10, "", ""))
 	testutil.Contains(t, stdout.String(), "No users found")
-}
-
-func TestRunSearch_Plain_MatchesTableShape(t *testing.T) {
-	t.Parallel()
-	// Plain format for users search never had a bare-ID shim historically;
-	// lock current behavior (same shape as table) so a future change to the
-	// shared Emit path can't drift silently.
-	users := []api.User{
-		{AccountID: "a1", DisplayName: "Alice", EmailAddress: "a@x.io", Active: true},
-	}
-	server := newTestUsersServer(t, users)
-	defer server.Close()
-
-	var stdout bytes.Buffer
-	opts := &root.Options{Output: "plain", NoColor: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
-	opts.SetAPIClient(newClient(t, server.URL))
-
-	testutil.RequireNoError(t, runSearch(context.Background(), opts, "al", 10, "", ""))
-
-	want := "ACCOUNT_ID | NAME | EMAIL | ACTIVE\na1 | Alice | a@x.io | yes\n"
-	if stdout.String() != want {
-		t.Errorf("users search -o plain:\ngot:  %q\nwant: %q", stdout.String(), want)
-	}
-}
-
-func TestRunSearch_JSON_RendersArtifacts(t *testing.T) {
-	t.Parallel()
-	users := []api.User{{AccountID: "a1", DisplayName: "Alice", EmailAddress: "a@x.io", Active: true}}
-	server := newTestUsersServer(t, users)
-	defer server.Close()
-
-	var stdout bytes.Buffer
-	opts := &root.Options{Output: "json", Stdout: &stdout, Stderr: &bytes.Buffer{}}
-	opts.SetAPIClient(newClient(t, server.URL))
-
-	testutil.RequireNoError(t, runSearch(context.Background(), opts, "al", 10, "", ""))
-	testutil.Contains(t, stdout.String(), `"accountId"`)
 }
 
 func TestRunSearch_ExpandParamNotSentOnSearchEndpoint(t *testing.T) {
@@ -484,7 +390,7 @@ func TestRunSearch_ExpandParamNotSentOnSearchEndpoint(t *testing.T) {
 	defer server.Close()
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(newClient(t, server.URL))
 
 	testutil.RequireNoError(t, runSearch(context.Background(), opts, "al", 10, "", ""))
@@ -509,37 +415,12 @@ func TestRunGet_FreshCacheSkipsLive(t *testing.T) {
 	defer server.Close()
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(newClient(t, server.URL))
 
 	err := runGet(context.Background(), opts, "abc123", "")
 	testutil.RequireNoError(t, err)
 	testutil.Contains(t, stdout.String(), "Alice")
-}
-
-func TestRunGet_FreshCacheSkipsLive_JSON(t *testing.T) {
-	t.Cleanup(cache.SetRootForTest(t.TempDir()))
-	t.Cleanup(cache.SetInstanceKeyForTest("test.atlassian.net"))
-
-	testutil.RequireNoError(t, cache.WriteResource("users", "24h", []api.User{
-		{AccountID: "abc123", DisplayName: "Alice", EmailAddress: "alice@example.com", Active: true},
-	}))
-
-	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
-		t.Fatal("live API must not be called when users cache is fresh")
-	}))
-	defer server.Close()
-
-	var stdout bytes.Buffer
-	opts := &root.Options{Output: "json", Stdout: &stdout, Stderr: &bytes.Buffer{}}
-	opts.SetAPIClient(newClient(t, server.URL))
-
-	err := runGet(context.Background(), opts, "abc123", "")
-	testutil.RequireNoError(t, err)
-
-	var user api.User
-	testutil.RequireNoError(t, json.Unmarshal(stdout.Bytes(), &user))
-	testutil.Equal(t, user.AccountID, "abc123")
 }
 
 func TestRunGet_ExtendedAlwaysCallsLive(t *testing.T) {
@@ -565,7 +446,7 @@ func TestRunGet_ExtendedAlwaysCallsLive(t *testing.T) {
 	defer server.Close()
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}, Extended: true}
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}, Extended: true}
 	opts.SetAPIClient(newClient(t, server.URL))
 
 	err := runGet(context.Background(), opts, "abc123", "")

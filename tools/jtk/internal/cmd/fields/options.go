@@ -8,7 +8,6 @@ import (
 
 	"github.com/open-cli-collective/atlassian-go/present"
 	"github.com/open-cli-collective/atlassian-go/prompt"
-	"github.com/open-cli-collective/atlassian-go/view"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
@@ -69,8 +68,6 @@ func newOptionsListCmd(opts *root.Options) *cobra.Command {
 }
 
 func runOptionsList(ctx context.Context, opts *root.Options, fieldID, contextFlag string) error {
-	v := opts.View()
-
 	client, err := opts.APIClient()
 	if err != nil {
 		return err
@@ -92,10 +89,6 @@ func runOptionsList(ctx context.Context, opts *root.Options, fieldID, contextFla
 		fmt.Fprint(opts.Stdout, out.Stdout)
 		fmt.Fprint(opts.Stderr, out.Stderr)
 		return nil
-	}
-
-	if v.Format == view.FormatJSON {
-		return v.JSON(result.Values)
 	}
 
 	model := jtkpresent.FieldPresenter{}.PresentContextOptions(result.Values)
@@ -132,8 +125,6 @@ func newOptionsAddCmd(opts *root.Options) *cobra.Command {
 }
 
 func runOptionsAdd(ctx context.Context, opts *root.Options, fieldID, value, contextFlag string) error {
-	v := opts.View()
-
 	client, err := opts.APIClient()
 	if err != nil {
 		return err
@@ -159,10 +150,6 @@ func runOptionsAdd(ctx context.Context, opts *root.Options, fieldID, value, cont
 			ids[i] = o.ID
 		}
 		return jtkpresent.EmitIDs(opts, ids)
-	}
-
-	if v.Format == view.FormatJSON {
-		return v.JSON(options)
 	}
 
 	return jtkpresent.Emit(opts, jtkpresent.FieldPresenter{}.PresentContextOptions(options))
@@ -194,8 +181,6 @@ func newOptionsUpdateCmd(opts *root.Options) *cobra.Command {
 }
 
 func runOptionsUpdate(ctx context.Context, opts *root.Options, fieldID, optionID, value, contextFlag string) error {
-	v := opts.View()
-
 	client, err := opts.APIClient()
 	if err != nil {
 		return err
@@ -221,10 +206,6 @@ func runOptionsUpdate(ctx context.Context, opts *root.Options, fieldID, optionID
 			ids[i] = o.ID
 		}
 		return jtkpresent.EmitIDs(opts, ids)
-	}
-
-	if v.Format == view.FormatJSON {
-		return v.JSON(options)
 	}
 
 	return jtkpresent.Emit(opts, jtkpresent.FieldPresenter{}.PresentContextOptions(options))

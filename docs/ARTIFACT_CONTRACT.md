@@ -58,19 +58,15 @@ Some commands expose a `--raw` mode for source-faithful content where transforma
 
 > **Implementation note:** The mutual exclusivity constraint (`--full --raw → error`) and command-specific `--raw` validation are forward-looking requirements. They will be enforced as commands are migrated in #199 and #200.
 
-## Output Format Interaction
+## Output Format
 
-Artifact type and output format (`-o table|json|plain`) are independent concerns:
+JTK uses text-first output. The `-o json/plain/table` flag has been removed from JTK (CFL retains it). JTK commands render through presenters; `automation export` is the only command that emits JSON directly.
 
-**JSON output:**
-- `agent` = curated JSON with action-relevant fields (defined per-command)
-- `full` = richer JSON with inspection fields (defined per-command)
-- `raw` = source format as JSON-escaped string or native structure (command-specific)
-
-**Table output:**
-- `agent` = focused columns for action (defined per-command)
-- `full` = additional columns for inspection (defined per-command, still curated)
-- `raw` = error (raw is about content fidelity, not list views; commands should reject `--raw -o table`)
+**Text output modes:**
+- Default = focused output for human and agent consumption (defined per-command)
+- `--extended` = additional fields for inspection (defined per-command, still curated)
+- `--id` = primary identifier only, for scripting composition
+- `--fulltext` = disables truncation of descriptions and comments
 
 ## Design Principles
 

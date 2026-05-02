@@ -9,8 +9,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/open-cli-collective/atlassian-go/view"
-
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cache"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
@@ -62,12 +60,7 @@ func newListCmd(opts *root.Options) *cobra.Command {
 }
 
 func runList(ctx context.Context, opts *root.Options, issueKey, fieldsFlag string) error {
-	v := opts.View()
 	idOnly := opts.EmitIDOnly()
-
-	if !idOnly && fieldsFlag != "" && v.Format == view.FormatJSON {
-		return jtkpresent.ErrFieldsWithJSON
-	}
 
 	var selected []projection.ColumnSpec
 	var projected bool
@@ -106,10 +99,6 @@ func runList(ctx context.Context, opts *root.Options, issueKey, fieldsFlag strin
 
 	if len(links) == 0 {
 		return jtkpresent.Emit(opts, jtkpresent.LinkPresenter{}.PresentEmpty(issueKey))
-	}
-
-	if v.Format == view.FormatJSON {
-		return v.JSON(links)
 	}
 
 	model := jtkpresent.LinkPresenter{}.PresentList(links, opts.IsExtended())
@@ -154,8 +143,6 @@ For example, "jtk links create A B --type Blocks" means "A blocks B".`,
 }
 
 func runCreate(ctx context.Context, opts *root.Options, outwardKey, inwardKey, linkType string) error {
-	v := opts.View()
-
 	client, err := opts.APIClient()
 	if err != nil {
 		return err
@@ -192,15 +179,6 @@ func runCreate(ctx context.Context, opts *root.Options, outwardKey, inwardKey, l
 
 	if err := client.CreateIssueLink(ctx, outwardKey, inwardKey, linkType); err != nil {
 		return err
-	}
-
-	if !opts.EmitIDOnly() && v.Format == view.FormatJSON {
-		return v.JSON(map[string]string{
-			"status":       "created",
-			"outwardIssue": outwardKey,
-			"inwardIssue":  inwardKey,
-			"type":         linkType,
-		})
 	}
 
 	// Discover the created link via re-query (Jira returns no link ID from create).
@@ -314,12 +292,7 @@ func newTypesCmd(opts *root.Options) *cobra.Command {
 }
 
 func runTypes(ctx context.Context, opts *root.Options, fieldsFlag string) error {
-	v := opts.View()
 	idOnly := opts.EmitIDOnly()
-
-	if !idOnly && fieldsFlag != "" && v.Format == view.FormatJSON {
-		return jtkpresent.ErrFieldsWithJSON
-	}
 
 	var selected []projection.ColumnSpec
 	var projected bool
@@ -358,10 +331,6 @@ func runTypes(ctx context.Context, opts *root.Options, fieldsFlag string) error 
 			ids[i] = t.ID
 		}
 		return jtkpresent.EmitIDs(opts, ids)
-	}
-
-	if v.Format == view.FormatJSON {
-		return v.JSON(linkTypes)
 	}
 
 	model := jtkpresent.LinkPresenter{}.PresentTypes(linkTypes)

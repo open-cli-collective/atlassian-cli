@@ -218,7 +218,7 @@ Commands produce intentional artifacts, not raw API payloads. The surface is con
 | `--id` | Emits only the primary identifier. Takes precedence over `--extended` and `--fulltext`. |
 | `--fulltext` | Disables truncation of descriptions and comments. |
 
-`--output` / `-o` (`table`/`json`/`plain`) is retained for compatibility but hidden from `--help`. Per-command migration to the text-first output model is tracked under #230. The JSON path still functions — removal is scheduled per follow-up.
+`automation export` is the only command that emits JSON — it writes directly to stdout, independent of the global flag system.
 
 ## Dependencies
 

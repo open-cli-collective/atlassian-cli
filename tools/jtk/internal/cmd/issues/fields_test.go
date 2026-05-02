@@ -37,7 +37,7 @@ func TestRunGlobalFields_CacheHit_SkipsLiveCall(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	err = runGlobalFields(context.Background(), opts, client, false)
@@ -65,7 +65,7 @@ func TestRunGlobalFields_CacheHit_CustomFilter_SkipsLiveCall(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	err = runGlobalFields(context.Background(), opts, client, true)
@@ -103,7 +103,7 @@ func TestRunIssueFields_ShowsFieldValues(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	err = runIssueFields(context.Background(), opts, client, "TEST-1", false)
@@ -134,7 +134,7 @@ func TestRunIssueFields_CustomOnly(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	err = runIssueFields(context.Background(), opts, client, "TEST-1", true)
@@ -163,7 +163,7 @@ func TestRunGlobalFields_CacheMiss_FallsBackToLive(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	err = runGlobalFields(context.Background(), opts, client, false)

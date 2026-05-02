@@ -74,7 +74,7 @@ func TestRunList_Table(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	err = runList(context.Background(), opts, "", 50, "", "")
@@ -114,7 +114,7 @@ func TestRunList_Extended(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}, Extended: true}
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}, Extended: true}
 	opts.SetAPIClient(client)
 
 	err = runList(context.Background(), opts, "", 50, "", "")
@@ -143,7 +143,7 @@ func TestRunList_IDOnly(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}, IDOnly: true}
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}, IDOnly: true}
 	opts.SetAPIClient(client)
 
 	err = runList(context.Background(), opts, "", 50, "", "")
@@ -151,41 +151,6 @@ func TestRunList_IDOnly(t *testing.T) {
 
 	output := stdout.String()
 	testutil.Equal(t, output, "1\n2\n")
-}
-
-func TestRunList_JSON(t *testing.T) {
-	t.Parallel()
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_ = json.NewEncoder(w).Encode(api.BoardsResponse{
-			Values: []api.Board{
-				{
-					ID:   1,
-					Name: "Team Alpha Board",
-					Type: "scrum",
-					Location: api.BoardLocation{
-						ProjectKey: "ALPHA",
-					},
-				},
-			},
-			Total:  1,
-			IsLast: true,
-		})
-	}))
-	defer server.Close()
-
-	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
-	testutil.RequireNoError(t, err)
-
-	var stdout bytes.Buffer
-	opts := &root.Options{Output: "json", Stdout: &stdout, Stderr: &bytes.Buffer{}}
-	opts.SetAPIClient(client)
-
-	err = runList(context.Background(), opts, "", 50, "", "")
-	testutil.RequireNoError(t, err)
-
-	output := stdout.String()
-	testutil.Contains(t, output, `"name"`)
-	testutil.Contains(t, output, "Team Alpha Board")
 }
 
 func TestRunList_Empty(t *testing.T) {
@@ -203,7 +168,7 @@ func TestRunList_Empty(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout, stderr bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &stderr}
+	opts := &root.Options{Stdout: &stdout, Stderr: &stderr}
 	opts.SetAPIClient(client)
 
 	err = runList(context.Background(), opts, "", 50, "", "")
@@ -235,7 +200,7 @@ func TestRunList_ResolvesProjectByName(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	err = runList(context.Background(), opts, "Platform", 50, "", "")
@@ -258,7 +223,7 @@ func TestRunList_ProjectKeyShapePassesThrough(t *testing.T) {
 	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
 	testutil.RequireNoError(t, err)
 
-	opts := &root.Options{Output: "table", Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	err = runList(context.Background(), opts, "UNCACHED", 50, "", "")
@@ -285,7 +250,7 @@ func TestRunGet_Table(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	resolvedBoard := &api.Board{ID: 42, Name: "Sprint Board"}
@@ -311,7 +276,7 @@ func TestRunGet_IDOnly(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}, IDOnly: true}
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}, IDOnly: true}
 	opts.SetAPIClient(client)
 
 	resolvedBoard := &api.Board{ID: 42, Name: "Sprint Board"}
@@ -320,57 +285,9 @@ func TestRunGet_IDOnly(t *testing.T) {
 	testutil.Equal(t, stdout.String(), "42\n")
 }
 
-func TestRunGet_JSON(t *testing.T) {
-	t.Parallel()
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_ = json.NewEncoder(w).Encode(api.Board{
-			ID:   42,
-			Name: "Sprint Board",
-			Type: "scrum",
-			Location: api.BoardLocation{
-				ProjectKey: "PROJ",
-			},
-		})
-	}))
-	defer server.Close()
-
-	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
-	testutil.RequireNoError(t, err)
-
-	var stdout bytes.Buffer
-	opts := &root.Options{Output: "json", Stdout: &stdout, Stderr: &bytes.Buffer{}}
-	opts.SetAPIClient(client)
-
-	resolvedBoard := &api.Board{ID: 42, Name: "Sprint Board"}
-	err = runGet(context.Background(), opts, client, resolvedBoard, "")
-	testutil.RequireNoError(t, err)
-
-	output := stdout.String()
-	testutil.Contains(t, output, `"name"`)
-	testutil.Contains(t, output, "Sprint Board")
-}
-
-func TestRunList_FieldsWithJSONError(t *testing.T) {
-	t.Parallel()
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_ = json.NewEncoder(w).Encode(api.BoardsResponse{IsLast: true, Values: []api.Board{{ID: 1}}})
-	}))
-	defer server.Close()
-
-	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
-	testutil.RequireNoError(t, err)
-
-	opts := &root.Options{Output: "json", Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
-	opts.SetAPIClient(client)
-
-	err = runList(context.Background(), opts, "", 50, "", "ID,NAME")
-	testutil.NotNil(t, err)
-	testutil.Contains(t, err.Error(), "--fields is not supported")
-}
-
 func TestRunList_InvalidNextPageToken(t *testing.T) {
 	t.Parallel()
-	opts := &root.Options{Output: "table", Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
 
 	err := runList(context.Background(), opts, "", 50, "abc", "")
 	testutil.NotNil(t, err)
@@ -391,7 +308,7 @@ func TestRunList_Pagination(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	err = runList(context.Background(), opts, "", 1, "", "")
@@ -429,7 +346,7 @@ func TestRunGet_Extended(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}, Extended: true}
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}, Extended: true}
 	opts.SetAPIClient(client)
 
 	resolvedBoard := &api.Board{ID: 42, Name: "Sprint Board"}
@@ -477,7 +394,7 @@ func TestRunGet_Extended_EmptyFilterName(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}, Extended: true}
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}, Extended: true}
 	opts.SetAPIClient(client)
 
 	resolvedBoard := &api.Board{ID: 42, Name: "Sprint Board"}
@@ -507,7 +424,7 @@ func TestRunGet_NameFallback(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	// Resolved board has name from cache, but API response lacks it
@@ -516,25 +433,6 @@ func TestRunGet_NameFallback(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	testutil.Contains(t, stdout.String(), "Cached Name")
-}
-
-func TestRunGet_FieldsWithJSONError(t *testing.T) {
-	t.Parallel()
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_ = json.NewEncoder(w).Encode(api.Board{ID: 42, Name: "B", Type: "scrum"})
-	}))
-	defer server.Close()
-
-	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
-	testutil.RequireNoError(t, err)
-
-	opts := &root.Options{Output: "json", Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
-	opts.SetAPIClient(client)
-
-	resolvedBoard := &api.Board{ID: 42}
-	err = runGet(context.Background(), opts, client, resolvedBoard, "ID,NAME")
-	testutil.NotNil(t, err)
-	testutil.Contains(t, err.Error(), "--fields is not supported")
 }
 
 func TestRunGet_ResolvesBoardByName(t *testing.T) {
@@ -618,7 +516,7 @@ func TestRunGet_Extended_FilterNameAlreadyPresent_NoExtraFetch(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}, Extended: true}
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}, Extended: true}
 	opts.SetAPIClient(client)
 
 	err = runGet(context.Background(), opts, client, &api.Board{ID: 23, Name: "B"}, "")
@@ -658,7 +556,7 @@ func TestRunGet_Extended_FilterNameResolved(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}, Extended: true}
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}, Extended: true}
 	opts.SetAPIClient(client)
 
 	resolvedBoard := &api.Board{ID: 23, Name: "MON board"}
@@ -699,7 +597,7 @@ func TestRunGet_Extended_FilterNameFallback(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}, Extended: true}
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}, Extended: true}
 	opts.SetAPIClient(client)
 
 	resolvedBoard := &api.Board{ID: 23, Name: "MON board"}
@@ -728,7 +626,7 @@ func TestRunList_FreshCacheSkipsLive(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	err = runList(context.Background(), opts, "", 50, "", "")

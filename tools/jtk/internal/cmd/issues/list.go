@@ -9,12 +9,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/open-cli-collective/atlassian-go/artifact"
 	"github.com/open-cli-collective/atlassian-go/present"
-	"github.com/open-cli-collective/atlassian-go/view"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
-	jtkartifact "github.com/open-cli-collective/jira-ticket-cli/internal/artifact"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/present/projection"
@@ -67,8 +64,6 @@ func newListCmd(opts *root.Options) *cobra.Command {
 }
 
 func runList(ctx context.Context, opts *root.Options, project, sprint string, maxResults int, nextPageToken string, allFields bool, fieldsFlag string) error {
-	v := opts.View()
-
 	client, err := opts.APIClient()
 	if err != nil {
 		return err
@@ -79,10 +74,6 @@ func runList(ctx context.Context, opts *root.Options, project, sprint string, ma
 	// result would be thrown away. --id also overrides the JSON + --fields
 	// error since we're not producing JSON.
 	idOnly := opts.EmitIDOnly()
-
-	if !idOnly && fieldsFlag != "" && v.Format == view.FormatJSON {
-		return jtkpresent.ErrFieldsWithJSON
-	}
 
 	var selected []projection.ColumnSpec
 	var projected bool
@@ -136,7 +127,7 @@ func runList(ctx context.Context, opts *root.Options, project, sprint string, ma
 		jql += " ORDER BY updated DESC"
 	}
 
-	fields := deriveFetchFields(selected, projected, opts.IsExtended(), allFields, opts.Output)
+	fields := deriveFetchFields(selected, projected, opts.IsExtended(), allFields)
 
 	result, err := client.SearchPage(ctx, api.SearchPageOptions{
 		JQL:           jql,
@@ -164,11 +155,6 @@ func runList(ctx context.Context, opts *root.Options, project, sprint string, ma
 			return jtkpresent.Emit(opts, jtkpresent.PaginationOnlyModel(nextToken))
 		}
 		return jtkpresent.Emit(opts, jtkpresent.IssuePresenter{}.PresentEmpty())
-	}
-
-	if v.Format == view.FormatJSON {
-		arts := jtkartifact.ProjectIssues(result.Issues, opts.ArtifactMode())
-		return v.RenderArtifactList(artifact.NewListResult(arts, hasMore))
 	}
 
 	model := jtkpresent.IssuePresenter{}.PresentListWithPagination(result.Issues, opts.IsExtended(), hasMore, nextToken)

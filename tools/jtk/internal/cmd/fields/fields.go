@@ -9,7 +9,6 @@ import (
 
 	"github.com/open-cli-collective/atlassian-go/present"
 	"github.com/open-cli-collective/atlassian-go/prompt"
-	"github.com/open-cli-collective/atlassian-go/view"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cache"
@@ -113,11 +112,6 @@ func runList(ctx context.Context, opts *root.Options, customOnly bool, nameFilte
 		return jtkpresent.Emit(opts, jtkpresent.FieldPresenter{}.PresentEmpty())
 	}
 
-	v := opts.View()
-	if v.Format == view.FormatJSON {
-		return v.JSON(fields)
-	}
-
 	return jtkpresent.Emit(opts, jtkpresent.FieldPresenter{}.PresentList(fields, opts.IsExtended()))
 }
 
@@ -156,8 +150,6 @@ Common field types:
 }
 
 func runCreate(ctx context.Context, opts *root.Options, name, fieldType, description string) error {
-	v := opts.View()
-
 	client, err := opts.APIClient()
 	if err != nil {
 		return err
@@ -176,10 +168,6 @@ func runCreate(ctx context.Context, opts *root.Options, name, fieldType, descrip
 
 	if opts.EmitIDOnly() {
 		return jtkpresent.EmitIDs(opts, []string{field.ID})
-	}
-
-	if v.Format == view.FormatJSON {
-		return v.JSON(field)
 	}
 
 	return jtkpresent.Emit(opts, jtkpresent.FieldPresenter{}.PresentList([]api.Field{*field}, opts.IsExtended()))

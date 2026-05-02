@@ -137,7 +137,7 @@ jtk fields list --custom-fields --id
 | 1 | `jtk issues list -p $PROJECT --max 3` | Table: KEY, SUMMARY, STATUS, ASSIGNEE, TYPE. At most 3 rows. |
 | 2 | `jtk issues list -p $PROJECT --max 3 --id` | Issue keys only, one per line |
 | 3 | `jtk issues list -p $PROJECT --max 3 --extended` | Extended table with additional columns |
-| 4 | `jtk issues list -p $PROJECT --max 2 -o plain` | Tab-separated values, 2 rows |
+| 4 | `jtk issues list -p $PROJECT --max 2 --id` | Issue keys only, 2 per line |
 | 5 | `jtk issues list -p NONEXISTENT` | Error message containing "not found" or empty results |
 
 ### issues get
@@ -1119,8 +1119,7 @@ Run these steps in order. Each step depends on the previous.
 |---|---------|-----------------|
 | 1 | `jtk issues list -p $PROJECT --max 1 --no-color \| cat -v` | No `^[[` ANSI escape sequences |
 | 2 | `jtk issues list -p $PROJECT --max 1 --verbose` | Shows `→ GET ...` and `← 200 OK` debug lines |
-| 3 | `jtk issues list -p $PROJECT --max 1 -o json \| jq .` | Parses without errors (compatibility smoke test) |
-| 4 | `jtk issues list -p $PROJECT --max 1 -o plain` | Tab-separated, one row |
+| 3 | `jtk issues list -p $PROJECT --max 1 --id` | Issue key only, one per line |
 
 ### Command aliases
 
@@ -1310,7 +1309,7 @@ Verify each alias produces the same output as the full command:
 - [ ] Error cases (missing flags, 404)
 
 #### Global Flags & Aliases (Section 17)
-- [ ] `--no-color`, `--verbose`, `-o json` (compat smoke test), `-o plain`
+- [ ] `--no-color`, `--verbose`, `--id`
 - [ ] All aliases verified (including `jtk l`, `jtk link`, `jtk dash`, `jtk dashboard`)
 
 #### Error Cases (Section 18)
@@ -1402,7 +1401,7 @@ Verify each alias produces the same output as the full command:
 - [ ] Dashboards: `list`, `get`, `create`, `delete`, `gadgets list`, `gadgets remove` → Dashboard scope error
 
 #### Global Flags & Aliases (Section 17)
-- [ ] `--no-color`, `--verbose`, `-o json` (compat smoke test), `-o plain`
+- [ ] `--no-color`, `--verbose`, `--id`
 - [ ] Applicable aliases (skip `jtk b`, `jtk sp`, `jtk auto`, `jtk dash`, `jtk dashboard`)
 
 #### Error Cases (Section 18)

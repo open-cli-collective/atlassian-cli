@@ -3,7 +3,6 @@ package configcmd
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -20,56 +19,11 @@ import (
 
 func newTestRootOptions() *root.Options {
 	return &root.Options{
-		Output:  "table",
 		NoColor: true,
 		Stdout:  &bytes.Buffer{},
 		Stderr:  &bytes.Buffer{},
 		Stdin:   strings.NewReader(""),
 	}
-}
-
-func clearAuthEnvVars(t *testing.T) {
-	t.Helper()
-	// Set to empty string rather than unsetting — both os.Getenv and os.LookupEnv
-	// treat empty as "not configured" in our env var precedence logic.
-	for _, key := range []string{"JIRA_AUTH_METHOD", "JIRA_CLOUD_ID", "ATLASSIAN_AUTH_METHOD", "ATLASSIAN_CLOUD_ID"} {
-		t.Setenv(key, "")
-	}
-}
-
-func TestShowCmd_JSONOutput(t *testing.T) {
-	t.Setenv("JIRA_URL", "https://test.atlassian.net")
-	t.Setenv("JIRA_EMAIL", "test@example.com")
-	t.Setenv("JIRA_API_TOKEN", "token123456")
-	t.Setenv("ATLASSIAN_URL", "")
-	t.Setenv("ATLASSIAN_EMAIL", "")
-	t.Setenv("ATLASSIAN_API_TOKEN", "")
-	clearAuthEnvVars(t)
-
-	opts := &root.Options{
-		Output:  "json",
-		NoColor: true,
-		Stdout:  &bytes.Buffer{},
-		Stderr:  &bytes.Buffer{},
-		Stdin:   strings.NewReader(""),
-	}
-
-	cmd := newShowCmd(opts)
-	err := cmd.Execute()
-	testutil.RequireNoError(t, err)
-
-	stdout := opts.Stdout.(*bytes.Buffer).String()
-
-	// The entire stdout must be valid JSON — no trailing plain text
-	var parsed map[string]any
-	err = json.Unmarshal([]byte(stdout), &parsed)
-	testutil.RequireNoError(t, err)
-
-	testutil.Equal(t, parsed["url"], "https://test.atlassian.net")
-	testutil.Equal(t, parsed["email"], "test@example.com")
-	testutil.Equal(t, parsed["auth_method"], "basic")
-	testutil.Equal(t, parsed["cloud_id"], "")
-	testutil.NotContains(t, stdout, "Config file:")
 }
 
 func TestShowCmd_TableOutput(t *testing.T) {
@@ -284,39 +238,6 @@ func TestGetDefaultProjectWithSource(t *testing.T) {
 	t.Setenv("JIRA_DEFAULT_PROJECT", "PROJ")
 	_, source = config.GetDefaultProjectWithSource()
 	testutil.Equal(t, source, "env (JIRA_DEFAULT_PROJECT)")
-}
-
-func TestShowCmd_BearerAuth_JSONOutput(t *testing.T) {
-	t.Setenv("JIRA_URL", "https://test.atlassian.net")
-	t.Setenv("JIRA_API_TOKEN", "scoped-token-123")
-	t.Setenv("JIRA_AUTH_METHOD", "bearer")
-	t.Setenv("JIRA_CLOUD_ID", "cloud-abc-123")
-	t.Setenv("JIRA_EMAIL", "")
-	t.Setenv("ATLASSIAN_URL", "")
-	t.Setenv("ATLASSIAN_EMAIL", "")
-	t.Setenv("ATLASSIAN_API_TOKEN", "")
-	t.Setenv("ATLASSIAN_AUTH_METHOD", "")
-	t.Setenv("ATLASSIAN_CLOUD_ID", "")
-
-	opts := &root.Options{
-		Output:  "json",
-		NoColor: true,
-		Stdout:  &bytes.Buffer{},
-		Stderr:  &bytes.Buffer{},
-		Stdin:   strings.NewReader(""),
-	}
-
-	cmd := newShowCmd(opts)
-	err := cmd.Execute()
-	testutil.RequireNoError(t, err)
-
-	stdout := opts.Stdout.(*bytes.Buffer).String()
-	var parsed map[string]any
-	err = json.Unmarshal([]byte(stdout), &parsed)
-	testutil.RequireNoError(t, err)
-
-	testutil.Equal(t, parsed["auth_method"], "bearer")
-	testutil.Equal(t, parsed["cloud_id"], "cloud-abc-123")
 }
 
 func TestGetAuthMethodWithSource(t *testing.T) {

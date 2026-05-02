@@ -48,7 +48,6 @@ func TestRunSetState_AlreadyEnabled(t *testing.T) {
 
 	var stdout, stderr bytes.Buffer
 	opts := &root.Options{
-		Output: "table",
 		Stdout: &stdout,
 		Stderr: &stderr,
 	}
@@ -80,7 +79,6 @@ func TestRunSetState_AlreadyDisabled(t *testing.T) {
 
 	var stdout, stderr bytes.Buffer
 	opts := &root.Options{
-		Output: "table",
 		Stdout: &stdout,
 		Stderr: &stderr,
 	}
@@ -133,7 +131,6 @@ func TestRunSetState_EnableDisabledRule(t *testing.T) {
 
 	var stdout, stderr bytes.Buffer
 	opts := &root.Options{
-		Output: "table",
 		Stdout: &stdout,
 		Stderr: &stderr,
 	}

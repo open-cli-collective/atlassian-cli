@@ -6,12 +6,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/open-cli-collective/atlassian-go/artifact"
 	"github.com/open-cli-collective/atlassian-go/present"
-	"github.com/open-cli-collective/atlassian-go/view"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
-	jtkartifact "github.com/open-cli-collective/jira-ticket-cli/internal/artifact"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/present/projection"
@@ -69,8 +66,6 @@ func newListCmd(opts *root.Options) *cobra.Command {
 }
 
 func runList(ctx context.Context, opts *root.Options, issueKey string, maxResults int, noTruncate bool, fieldsFlag string) error {
-	v := opts.View()
-
 	client, err := opts.APIClient()
 	if err != nil {
 		return err
@@ -83,9 +78,6 @@ func runList(ctx context.Context, opts *root.Options, issueKey string, maxResult
 	var selected []projection.ColumnSpec
 	var projected bool
 	if !idOnly {
-		if fieldsFlag != "" && v.Format == view.FormatJSON {
-			return jtkpresent.ErrFieldsWithJSON
-		}
 		spec := jtkpresent.CommentListSpec
 		if noTruncate {
 			spec = jtkpresent.CommentDetailSpec
@@ -122,11 +114,6 @@ func runList(ctx context.Context, opts *root.Options, issueKey string, maxResult
 		model := jtkpresent.CommentPresenter{}.PresentEmpty(issueKey)
 		model.Sections = jtkpresent.AppendPaginationHint(model.Sections, hasMore)
 		return jtkpresent.Emit(opts, model)
-	}
-
-	if v.Format == view.FormatJSON {
-		arts := jtkartifact.ProjectComments(result.Comments, opts.ArtifactMode())
-		return v.RenderArtifactList(artifact.NewListResult(arts, hasMore))
 	}
 
 	extended := opts.IsExtended()
@@ -194,8 +181,6 @@ func newAddCmd(opts *root.Options) *cobra.Command {
 }
 
 func runAdd(ctx context.Context, opts *root.Options, issueKey, body string) error {
-	v := opts.View()
-
 	client, err := opts.APIClient()
 	if err != nil {
 		return err
@@ -208,10 +193,6 @@ func runAdd(ctx context.Context, opts *root.Options, issueKey, body string) erro
 
 	if opts.EmitIDOnly() {
 		return jtkpresent.EmitIDs(opts, []string{comment.ID})
-	}
-
-	if opts.Output == "json" {
-		return v.JSON(comment)
 	}
 
 	return jtkpresent.Emit(opts, jtkpresent.CommentPresenter{}.PresentAddedDetail(issueKey, comment))

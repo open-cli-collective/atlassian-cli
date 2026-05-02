@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -17,7 +16,6 @@ import (
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
-	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
 )
 
 // --- list tests ---
@@ -68,7 +66,7 @@ func TestRunList_Table(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	err = runList(context.Background(), opts, "TEST-1", "")
@@ -83,45 +81,6 @@ func TestRunList_Table(t *testing.T) {
 	testutil.Contains(t, output, "2024-06-16")
 	testutil.Contains(t, output, "Alice")
 	testutil.Contains(t, output, "Bob")
-}
-
-func TestRunList_JSON(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		response := struct {
-			Fields struct {
-				Attachment []api.Attachment `json:"attachment"`
-			} `json:"fields"`
-		}{}
-		response.Fields.Attachment = []api.Attachment{
-			{
-				ID:       "10001",
-				Filename: "screenshot.png",
-				Size:     204800,
-				MimeType: "image/png",
-				Created:  "2024-06-15T10:30:00.000Z",
-				Author:   api.User{DisplayName: "Alice"},
-				Content:  "https://example.com/download/10001",
-			},
-		}
-		_ = json.NewEncoder(w).Encode(response)
-	}))
-	defer server.Close()
-
-	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
-	testutil.RequireNoError(t, err)
-
-	var stdout bytes.Buffer
-	opts := &root.Options{Output: "json", Stdout: &stdout, Stderr: &bytes.Buffer{}}
-	opts.SetAPIClient(client)
-
-	err = runList(context.Background(), opts, "TEST-1", "")
-	testutil.RequireNoError(t, err)
-
-	output := stdout.String()
-	testutil.Contains(t, output, `"filename"`)
-	testutil.Contains(t, output, "screenshot.png")
-	testutil.Contains(t, output, `"mimeType"`)
-	testutil.Contains(t, output, `"size"`)
 }
 
 func TestRunList_Empty(t *testing.T) {
@@ -140,7 +99,7 @@ func TestRunList_Empty(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	err = runList(context.Background(), opts, "TEST-1", "")
@@ -238,23 +197,6 @@ func TestRunList_FieldsProjection(t *testing.T) {
 	testutil.NotContains(t, out, "AUTHOR")
 }
 
-func TestRunList_FieldsWithJSON_Error(t *testing.T) {
-	t.Parallel()
-	server := attachmentServer(t)
-	defer server.Close()
-
-	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
-	testutil.RequireNoError(t, err)
-
-	opts := &root.Options{Output: "json", Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
-	opts.SetAPIClient(client)
-
-	err = runList(context.Background(), opts, "TEST-1", "FILENAME")
-	if !errors.Is(err, jtkpresent.ErrFieldsWithJSON) {
-		t.Fatalf("expected ErrFieldsWithJSON, got %v", err)
-	}
-}
-
 // --- add tests ---
 
 func TestNewAddCmd(t *testing.T) {
@@ -299,7 +241,7 @@ func TestRunAdd_Success(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", NoColor: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{NoColor: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	err = runAdd(context.Background(), opts, "TEST-1", []string{tmpFile})
@@ -342,7 +284,7 @@ func TestRunAdd_PartialFailure(t *testing.T) {
 	_ = os.WriteFile(bad, []byte("fail"), 0600)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", NoColor: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{NoColor: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	err = runAdd(context.Background(), opts, "TEST-1", []string{good, bad})
@@ -369,7 +311,7 @@ func TestRunAdd_IDOnly(t *testing.T) {
 	_ = os.WriteFile(f, []byte("data"), 0600)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}, IDOnly: true}
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}, IDOnly: true}
 	opts.SetAPIClient(client)
 
 	err = runAdd(context.Background(), opts, "TEST-1", []string{f})
@@ -427,7 +369,7 @@ func TestRunGet_Success(t *testing.T) {
 	outputPath := filepath.Join(tmpDir, "downloaded.txt")
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", NoColor: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{NoColor: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	err = runGet(context.Background(), opts, "10001", outputPath)
@@ -467,7 +409,7 @@ func TestRunDelete_Success(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", NoColor: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{NoColor: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	err = runDelete(context.Background(), opts, "10001")

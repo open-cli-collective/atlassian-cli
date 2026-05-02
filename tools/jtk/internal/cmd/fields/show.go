@@ -9,7 +9,6 @@ import (
 	"github.com/spf13/cobra"
 
 	sharederrors "github.com/open-cli-collective/atlassian-go/errors"
-	"github.com/open-cli-collective/atlassian-go/view"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
@@ -57,10 +56,6 @@ func runShow(ctx context.Context, opts *root.Options, fieldID string) error {
 	}
 
 	if len(contexts) == 0 {
-		v := opts.View()
-		if v.Format == view.FormatJSON {
-			return v.JSON([]jtkpresent.FieldShowRow{})
-		}
 		return jtkpresent.Emit(opts, jtkpresent.FieldPresenter{}.PresentFieldShowEmpty(fieldID))
 	}
 
@@ -74,11 +69,6 @@ func runShow(ctx context.Context, opts *root.Options, fieldID string) error {
 	rows, err := buildShowRows(ctx, client, fieldID, contexts, projectsByContext)
 	if err != nil {
 		return err
-	}
-
-	v := opts.View()
-	if v.Format == view.FormatJSON {
-		return v.JSON(rows)
 	}
 
 	return jtkpresent.Emit(opts, jtkpresent.FieldPresenter{}.PresentFieldShow(rows))

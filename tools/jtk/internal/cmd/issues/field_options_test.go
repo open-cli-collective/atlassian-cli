@@ -48,7 +48,7 @@ func TestRunFieldOptions_CacheHit_SkipsFieldsFetch(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	err = runFieldOptions(context.Background(), opts, "Priority", "")
@@ -86,7 +86,7 @@ func TestRunFieldOptions_CacheMiss_FallsBackToLive(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	err = runFieldOptions(context.Background(), opts, "Priority", "")
@@ -134,7 +134,7 @@ func TestRunFieldOptions_FallbackToContext(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	err = runFieldOptions(context.Background(), opts, "Team", "TEST-1")

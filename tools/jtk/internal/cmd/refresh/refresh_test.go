@@ -27,7 +27,7 @@ func newOpts(t *testing.T) (*root.Options, *bytes.Buffer, *bytes.Buffer) {
 	testutil.RequireNoError(t, err)
 
 	var stdout, stderr bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &stderr}
+	opts := &root.Options{Stdout: &stdout, Stderr: &stderr}
 	opts.SetAPIClient(client)
 	return opts, &stdout, &stderr
 }
@@ -44,7 +44,7 @@ func TestRun_MissingConfig(t *testing.T) {
 	// Redirect HOME so the on-disk config file can't be read.
 	t.Setenv("HOME", t.TempDir())
 
-	opts := &root.Options{Output: "table", Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
 
 	err := run(context.Background(), opts, nil, false)
 	testutil.Error(t, err)

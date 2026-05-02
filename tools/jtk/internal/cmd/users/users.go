@@ -7,11 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/open-cli-collective/atlassian-go/artifact"
-	"github.com/open-cli-collective/atlassian-go/view"
-
 	"github.com/open-cli-collective/jira-ticket-cli/api"
-	jtkartifact "github.com/open-cli-collective/jira-ticket-cli/internal/artifact"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cache"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
@@ -71,8 +67,6 @@ func newGetCmd(opts *root.Options) *cobra.Command {
 }
 
 func runGet(ctx context.Context, opts *root.Options, accountID, fieldsFlag string) error {
-	v := opts.View()
-
 	client, err := opts.APIClient()
 	if err != nil {
 		return err
@@ -85,10 +79,6 @@ func runGet(ctx context.Context, opts *root.Options, accountID, fieldsFlag strin
 	// would be thrown away immediately.
 	if opts.EmitIDOnly() {
 		return jtkpresent.EmitIDs(opts, []string{accountID})
-	}
-
-	if fieldsFlag != "" && v.Format == view.FormatJSON {
-		return jtkpresent.ErrFieldsWithJSON
 	}
 
 	selected, projected, err := projection.Resolve(
@@ -110,10 +100,6 @@ func runGet(ctx context.Context, opts *root.Options, accountID, fieldsFlag strin
 	user, err := cache.GetUserCacheFirst(ctx, client, accountID, expand)
 	if err != nil {
 		return err
-	}
-
-	if v.Format == view.FormatJSON {
-		return v.RenderArtifact(jtkartifact.ProjectUser(user, opts.ArtifactMode()))
 	}
 
 	presenter := jtkpresent.UserPresenter{}
@@ -173,8 +159,6 @@ from the page being full (len(results) == --max).`,
 }
 
 func runSearch(ctx context.Context, opts *root.Options, query string, maxResults int, nextPageToken, fieldsFlag string) error {
-	v := opts.View()
-
 	client, err := opts.APIClient()
 	if err != nil {
 		return err
@@ -185,10 +169,6 @@ func runSearch(ctx context.Context, opts *root.Options, query string, maxResults
 	startAt, err := jtkpresent.ParseStartAtToken(nextPageToken)
 	if err != nil {
 		return err
-	}
-
-	if !idOnly && fieldsFlag != "" && v.Format == view.FormatJSON {
-		return jtkpresent.ErrFieldsWithJSON
 	}
 
 	var selected []projection.ColumnSpec
@@ -232,11 +212,6 @@ func runSearch(ctx context.Context, opts *root.Options, query string, maxResults
 
 	if len(users) == 0 {
 		return jtkpresent.Emit(opts, jtkpresent.UserPresenter{}.PresentEmpty(query))
-	}
-
-	if v.Format == view.FormatJSON {
-		arts := jtkartifact.ProjectUsers(users, opts.ArtifactMode())
-		return v.RenderArtifactList(artifact.NewListResult(arts, hasMore))
 	}
 
 	model := jtkpresent.UserPresenter{}.PresentUserListWithPagination(users, opts.IsExtended(), hasMore, nextToken)

@@ -33,7 +33,7 @@ Prompts for: Atlassian instance URL, email, API token (from https://id.atlassian
 | `--no-color` | Disable colored output |
 | `-v, --verbose` | Enable verbose output |
 
-> `-o table|json|plain` (`--output` / `-o`) is retained for backward compatibility but hidden from `--help`. Prefer `--id` over format-parsing. JSON output is still first-class for scripting needs that require structured data.
+> `automation export` is the only command that emits JSON. Use `--id` for scripting composition.
 
 ## Command Structure
 

@@ -5,8 +5,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/open-cli-collective/atlassian-go/view"
-
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cache"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
@@ -63,11 +61,6 @@ func runTypes(ctx context.Context, opts *root.Options, project string) error {
 			ids[i] = t.ID
 		}
 		return jtkpresent.EmitIDs(opts, ids)
-	}
-
-	v := opts.View()
-	if v.Format == view.FormatJSON {
-		return v.JSON(issueTypes)
 	}
 
 	model := jtkpresent.IssuePresenter{}.PresentTypes(issueTypes)

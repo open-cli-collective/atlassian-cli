@@ -229,7 +229,7 @@ func TestRunCheck_RequiredMissingReturnsError(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	err = runCheck(context.Background(), opts, "TEST-1", []string{"Story Points"}, nil)
@@ -261,7 +261,7 @@ func TestRunCheck_DefaultWarnListNeverErrors(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	err = runCheck(context.Background(), opts, "TEST-2", nil, nil)

@@ -215,8 +215,8 @@ Rules:
 
 The same domain value may support:
 
-- artifact projection for `-o json`
-- presentation modeling for text output
+- artifact projection (used by CFL for `-o json`)
+- presentation modeling for text output (used by JTK)
 
 These are related, but not identical, responsibilities.
 

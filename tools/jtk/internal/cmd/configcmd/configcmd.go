@@ -41,21 +41,6 @@ func newShowCmd(opts *root.Options) *cobra.Command {
 		RunE: func(_ *cobra.Command, _ []string) error {
 			cfg := config.GetValuesWithSources()
 
-			// JSON output
-			if opts.Output == "json" {
-				data := map[string]string{
-					"url":             cfg.URL,
-					"email":           cfg.Email,
-					"api_token":       jtkpresent.MaskToken(cfg.APIToken),
-					"default_project": cfg.DefaultProject,
-					"auth_method":     cfg.AuthMethod,
-					"cloud_id":        cfg.CloudID,
-					"path":            cfg.Path,
-				}
-				return opts.View().JSON(data)
-			}
-
-			// Text output
 			model := jtkpresent.ConfigPresenter{}.PresentConfigShow(
 				cfg.URL, cfg.URLSource,
 				cfg.Email, cfg.EmailSource,

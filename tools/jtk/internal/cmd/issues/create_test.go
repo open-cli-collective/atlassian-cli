@@ -43,7 +43,6 @@ func TestRunCreate_RequestBodyNoDoubleQuoting(t *testing.T) {
 
 	var stdout bytes.Buffer
 	opts := &root.Options{
-		Output: "table",
 		Stdout: &stdout,
 		Stderr: &bytes.Buffer{},
 	}
@@ -105,7 +104,6 @@ func TestRunCreate_SummaryWithSpecialCharacters(t *testing.T) {
 
 	var stdout bytes.Buffer
 	opts := &root.Options{
-		Output: "table",
 		Stdout: &stdout,
 		Stderr: &bytes.Buffer{},
 	}
@@ -176,7 +174,6 @@ func TestCreateCmd_CobraExecution_NoDoubleQuoting(t *testing.T) {
 
 	var stdout bytes.Buffer
 	opts := &root.Options{
-		Output: "table",
 		Stdout: &stdout,
 		Stderr: &bytes.Buffer{},
 	}
@@ -230,7 +227,6 @@ func TestRunCreate_WithParent(t *testing.T) {
 
 	var stdout bytes.Buffer
 	opts := &root.Options{
-		Output: "table",
 		Stdout: &stdout,
 		Stderr: &bytes.Buffer{},
 	}
@@ -275,7 +271,6 @@ func TestRunCreate_WithoutParent(t *testing.T) {
 
 	var stdout bytes.Buffer
 	opts := &root.Options{
-		Output: "table",
 		Stdout: &stdout,
 		Stderr: &bytes.Buffer{},
 	}
@@ -317,7 +312,6 @@ func TestCreateCmd_CobraExecution_WithParent(t *testing.T) {
 
 	var stdout bytes.Buffer
 	opts := &root.Options{
-		Output: "table",
 		Stdout: &stdout,
 		Stderr: &bytes.Buffer{},
 	}
@@ -368,7 +362,6 @@ func TestRunCreate_WithAssigneeAccountID(t *testing.T) {
 
 	var stdout bytes.Buffer
 	opts := &root.Options{
-		Output: "table",
 		Stdout: &stdout,
 		Stderr: &bytes.Buffer{},
 	}
@@ -418,7 +411,6 @@ func TestRunCreate_WithAssigneeMe(t *testing.T) {
 
 	var stdout bytes.Buffer
 	opts := &root.Options{
-		Output: "table",
 		Stdout: &stdout,
 		Stderr: &bytes.Buffer{},
 	}
@@ -468,7 +460,6 @@ func TestRunCreate_WithAssigneeEmail(t *testing.T) {
 
 	var stdout bytes.Buffer
 	opts := &root.Options{
-		Output: "table",
 		Stdout: &stdout,
 		Stderr: &bytes.Buffer{},
 	}
@@ -511,7 +502,6 @@ func TestRunCreate_DescriptionEscapeSequences(t *testing.T) {
 
 	var stdout bytes.Buffer
 	opts := &root.Options{
-		Output: "table",
 		Stdout: &stdout,
 		Stderr: &bytes.Buffer{},
 	}
@@ -561,7 +551,6 @@ func TestRunCreate_WithoutAssignee(t *testing.T) {
 
 	var stdout bytes.Buffer
 	opts := &root.Options{
-		Output: "table",
 		Stdout: &stdout,
 		Stderr: &bytes.Buffer{},
 	}
@@ -614,7 +603,7 @@ func TestRunCreate_ShowsPostState(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	err = runCreate(context.Background(), opts, "PROJ", "Task", "New issue", "", "", "", nil)
@@ -635,7 +624,7 @@ func TestRunCreate_IDOnly(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}, IDOnly: true}
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}, IDOnly: true}
 	opts.SetAPIClient(client)
 
 	err = runCreate(context.Background(), opts, "PROJ", "Task", "New issue", "", "", "", nil)

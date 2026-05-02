@@ -1,7 +1,6 @@
 package present
 
 import (
-	"errors"
 	"fmt"
 	"strconv"
 
@@ -9,12 +8,6 @@ import (
 
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 )
-
-// ErrFieldsWithJSON is the canonical error for `--fields` + `-o json`.
-// JSON artifacts are not projected; the two flags never combine. Previously
-// duplicated across cmd/issues, cmd/comments, cmd/users, and cmd/projects —
-// centralizing here stops the copies from drifting in wording.
-var ErrFieldsWithJSON = errors.New("--fields is not supported with --output json")
 
 // ParseStartAtToken converts a `--next-page-token` value (a decimal offset)
 // to a 0-based startAt. Empty input returns 0. Non-numeric or negative

@@ -60,7 +60,6 @@ func TestRunTypes_Success(t *testing.T) {
 
 	var stdout bytes.Buffer
 	opts := &root.Options{
-		Output: "table",
 		Stdout: &stdout,
 		Stderr: &bytes.Buffer{},
 	}
@@ -93,7 +92,6 @@ func TestRunTypes_ProjectNotFound(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	opts := &root.Options{
-		Output: "table",
 		Stdout: &bytes.Buffer{},
 		Stderr: &bytes.Buffer{},
 	}
@@ -128,7 +126,6 @@ func TestRunTypes_EmptyIssueTypes(t *testing.T) {
 
 	var stdout bytes.Buffer
 	opts := &root.Options{
-		Output: "table",
 		Stdout: &stdout,
 		Stderr: &bytes.Buffer{},
 	}
@@ -137,54 +134,6 @@ func TestRunTypes_EmptyIssueTypes(t *testing.T) {
 	err = runTypes(context.Background(), opts, "EMPTY")
 	testutil.RequireNoError(t, err)
 	testutil.Contains(t, stdout.String(), "No issue types found")
-}
-
-func TestRunTypes_JSONOutput(t *testing.T) {
-	t.Cleanup(cache.SetRootForTest(t.TempDir()))
-	t.Cleanup(cache.SetInstanceKeyForTest("test.atlassian.net"))
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		response := api.ProjectDetail{
-			ID:   json.Number("10000"),
-			Key:  "TEST",
-			Name: "Test Project",
-			IssueTypes: []api.IssueType{
-				{ID: "10001", Name: "Bug", Description: "A bug", Subtask: false},
-				{ID: "10002", Name: "Story", Description: "A user story", Subtask: false},
-			},
-		}
-		w.WriteHeader(http.StatusOK)
-		_ = json.NewEncoder(w).Encode(response)
-	}))
-	defer server.Close()
-
-	client, err := api.New(api.ClientConfig{
-		URL:      server.URL,
-		Email:    "test@example.com",
-		APIToken: "token",
-	})
-	testutil.RequireNoError(t, err)
-
-	var stdout bytes.Buffer
-	opts := &root.Options{
-		Output: "json",
-		Stdout: &stdout,
-		Stderr: &bytes.Buffer{},
-	}
-	opts.SetAPIClient(client)
-
-	err = runTypes(context.Background(), opts, "TEST")
-	testutil.RequireNoError(t, err)
-
-	// Verify JSON output
-	output := stdout.String()
-	testutil.True(t, strings.HasPrefix(strings.TrimSpace(output), "["))
-
-	var issueTypes []api.IssueType
-	err = json.Unmarshal([]byte(output), &issueTypes)
-	testutil.RequireNoError(t, err)
-	testutil.Len(t, issueTypes, 2)
-	testutil.Equal(t, issueTypes[0].Name, "Bug")
-	testutil.Equal(t, issueTypes[1].Name, "Story")
 }
 
 func TestRunTypes_DescriptionTruncation(t *testing.T) {
@@ -215,7 +164,6 @@ func TestRunTypes_DescriptionTruncation(t *testing.T) {
 
 	var stdout bytes.Buffer
 	opts := &root.Options{
-		Output: "table",
 		Stdout: &stdout,
 		Stderr: &bytes.Buffer{},
 	}
@@ -242,7 +190,7 @@ func TestRunTypes_FreshCacheSkipsLive(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	err = runTypes(context.Background(), opts, "TEST")
@@ -270,30 +218,6 @@ func TestRunTypes_FreshCacheSkipsLive_IDOnly(t *testing.T) {
 	err = runTypes(context.Background(), opts, "TEST")
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, stdout.String(), "10000\n10001\n10002\n10003\n")
-}
-
-func TestRunTypes_FreshCacheSkipsLive_JSON(t *testing.T) {
-	seedCacheForIssues(t)
-
-	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
-		t.Fatal("live API must not be called when issuetypes cache is fresh")
-	}))
-	defer server.Close()
-
-	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
-	testutil.RequireNoError(t, err)
-
-	var stdout bytes.Buffer
-	opts := &root.Options{Output: "json", Stdout: &stdout, Stderr: &bytes.Buffer{}}
-	opts.SetAPIClient(client)
-
-	err = runTypes(context.Background(), opts, "TEST")
-	testutil.RequireNoError(t, err)
-
-	var issueTypes []api.IssueType
-	err = json.Unmarshal(stdout.Bytes(), &issueTypes)
-	testutil.RequireNoError(t, err)
-	testutil.Equal(t, len(issueTypes), 4)
 }
 
 func TestRunTypes_IDOnly(t *testing.T) {

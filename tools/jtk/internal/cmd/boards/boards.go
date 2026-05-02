@@ -8,11 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/open-cli-collective/atlassian-go/artifact"
-	"github.com/open-cli-collective/atlassian-go/view"
-
 	"github.com/open-cli-collective/jira-ticket-cli/api"
-	jtkartifact "github.com/open-cli-collective/jira-ticket-cli/internal/artifact"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cache"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
@@ -85,16 +81,11 @@ func newListCmd(opts *root.Options) *cobra.Command {
 }
 
 func runList(ctx context.Context, opts *root.Options, project string, maxResults int, nextPageToken, fieldsFlag string) error {
-	v := opts.View()
 	idOnly := opts.EmitIDOnly()
 
 	startAt, err := jtkpresent.ParseStartAtToken(nextPageToken)
 	if err != nil {
 		return err
-	}
-
-	if !idOnly && fieldsFlag != "" && v.Format == view.FormatJSON {
-		return jtkpresent.ErrFieldsWithJSON
 	}
 
 	client, err := opts.APIClient()
@@ -153,11 +144,6 @@ func runList(ctx context.Context, opts *root.Options, project string, maxResults
 		return jtkpresent.Emit(opts, jtkpresent.BoardPresenter{}.PresentEmpty())
 	}
 
-	if v.Format == view.FormatJSON {
-		arts := jtkartifact.ProjectBoards(result.Values, opts.ArtifactMode())
-		return v.RenderArtifactList(artifact.NewListResult(arts, hasMore))
-	}
-
 	model := jtkpresent.BoardPresenter{}.PresentListWithPagination(result.Values, opts.IsExtended(), hasMore, nextToken)
 	if projected {
 		projection.ApplyToTableInModel(model, selected)
@@ -194,14 +180,8 @@ func newGetCmd(opts *root.Options) *cobra.Command {
 }
 
 func runGet(ctx context.Context, opts *root.Options, client *api.Client, resolvedBoard *api.Board, fieldsFlag string) error {
-	v := opts.View()
-
 	if opts.EmitIDOnly() {
 		return jtkpresent.EmitIDs(opts, []string{strconv.Itoa(resolvedBoard.ID)})
-	}
-
-	if fieldsFlag != "" && v.Format == view.FormatJSON {
-		return jtkpresent.ErrFieldsWithJSON
 	}
 
 	selected, projected, err := projection.Resolve(
@@ -239,10 +219,6 @@ func runGet(ctx context.Context, opts *root.Options, client *api.Client, resolve
 				config.Filter.Name = f.Name
 			}
 		}
-	}
-
-	if v.Format == view.FormatJSON {
-		return v.RenderArtifact(jtkartifact.ProjectBoard(board, opts.ArtifactMode()))
 	}
 
 	presenter := jtkpresent.BoardPresenter{}

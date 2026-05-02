@@ -86,7 +86,7 @@ func TestRunAssign_ResolvesDisplayName(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	// "User One" is seeded with AccountID=abc123 in seedCacheForIssues.
@@ -109,7 +109,7 @@ func TestRunAssign_ResolvesByAccountID(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	// Raw accountId passes cache lookup directly.
@@ -134,7 +134,7 @@ func TestRunAssign_SyntheticUserFallsBackToAccountID(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	rawID := "557058:295fe89c-10c2-4b0c-ba84-a4dd14ea7729"
@@ -159,7 +159,7 @@ func TestRunAssign_Unassign(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	// --unassign with an accountId arg: the flag wins and the resolver is
@@ -198,7 +198,7 @@ func TestRunAssign_ResolverNotFoundPropagates(t *testing.T) {
 	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
 	testutil.RequireNoError(t, err)
 
-	opts := &root.Options{Output: "table", Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	err = runAssign(context.Background(), opts, "PROJ-123", "Zzznonexistent", false)

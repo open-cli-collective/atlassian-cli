@@ -66,8 +66,6 @@ func newCreateCmd(opts *root.Options) *cobra.Command {
 }
 
 func runCreate(ctx context.Context, opts *root.Options, project, issueType, summary, description, parent, assignee string, fieldArgs []string) error {
-	v := opts.View()
-
 	client, err := opts.APIClient()
 	if err != nil {
 		return err
@@ -135,10 +133,6 @@ func runCreate(ctx context.Context, opts *root.Options, project, issueType, summ
 
 	if opts.EmitIDOnly() {
 		return jtkpresent.EmitIDs(opts, []string{issue.Key})
-	}
-
-	if opts.Output == "json" {
-		return v.JSON(issue)
 	}
 
 	// Write already executed above; the closure just provides the key.

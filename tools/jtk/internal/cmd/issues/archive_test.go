@@ -30,7 +30,7 @@ func TestRunArchive_Success(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout, stderr bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &stderr}
+	opts := &root.Options{Stdout: &stdout, Stderr: &stderr}
 	opts.SetAPIClient(client)
 
 	err = runArchive(context.Background(), opts, []string{"TEST-1"})
@@ -63,7 +63,7 @@ func TestRunArchive_PartialFailure(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout, stderr bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &stderr}
+	opts := &root.Options{Stdout: &stdout, Stderr: &stderr}
 	opts.SetAPIClient(client)
 
 	err = runArchive(context.Background(), opts, []string{"TEST-1", "TEST-2"})
@@ -88,7 +88,7 @@ func TestRunArchive_IDOnly(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", IDOnly: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{IDOnly: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	err = runArchive(context.Background(), opts, []string{"TEST-1", "TEST-2"})

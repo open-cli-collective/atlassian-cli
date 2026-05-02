@@ -46,7 +46,6 @@ func TestConfig_DefaultProject_Struct(t *testing.T) {
 func TestRunInit_InvalidAuthMethod(t *testing.T) {
 	t.Parallel()
 	opts := &root.Options{
-		Output:  "table",
 		NoColor: true,
 		Stdout:  &bytes.Buffer{},
 		Stderr:  &bytes.Buffer{},
@@ -66,7 +65,6 @@ func TestInitCommand_Flags(t *testing.T) {
 	rootCmd := &cobra.Command{Use: "jtk", Short: "Test CLI"}
 
 	opts := &root.Options{
-		Output:  "table",
 		NoColor: true,
 		Stdout:  &bytes.Buffer{},
 		Stderr:  &bytes.Buffer{},

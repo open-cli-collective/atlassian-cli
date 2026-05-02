@@ -86,7 +86,6 @@ func TestRunList_TruncatesCommentBody(t *testing.T) {
 
 	var stdout bytes.Buffer
 	opts := &root.Options{
-		Output: "table",
 		Stdout: &stdout,
 		Stderr: &bytes.Buffer{},
 	}
@@ -136,7 +135,6 @@ func TestRunList_FullCommentBody(t *testing.T) {
 
 	var stdout bytes.Buffer
 	opts := &root.Options{
-		Output: "table",
 		Stdout: &stdout,
 		Stderr: &bytes.Buffer{},
 	}
@@ -192,7 +190,6 @@ func TestNewListCmd_FullTextRoutesFromRoot(t *testing.T) {
 
 	var stdout bytes.Buffer
 	opts := &root.Options{
-		Output:   "table",
 		FullText: true,
 		Stdout:   &stdout,
 		Stderr:   &bytes.Buffer{},
@@ -246,7 +243,6 @@ func TestNewListCmd_NoTruncateAndFullTextBothSet(t *testing.T) {
 
 	var stdout bytes.Buffer
 	opts := &root.Options{
-		Output:   "table",
 		FullText: true,
 		Stdout:   &stdout,
 		Stderr:   &bytes.Buffer{},
@@ -296,7 +292,6 @@ func TestRunList_ShortCommentNotTruncated(t *testing.T) {
 
 	var stdout bytes.Buffer
 	opts := &root.Options{
-		Output: "table",
 		Stdout: &stdout,
 		Stderr: &bytes.Buffer{},
 	}
@@ -324,7 +319,6 @@ func TestRunList_NoComments(t *testing.T) {
 
 	var stdout, stderr bytes.Buffer
 	opts := &root.Options{
-		Output: "table",
 		Stdout: &stdout,
 		Stderr: &stderr,
 	}
@@ -644,7 +638,6 @@ func TestRunList_MultipleCommentsFullMode(t *testing.T) {
 
 	var stdout bytes.Buffer
 	opts := &root.Options{
-		Output: "table",
 		Stdout: &stdout,
 		Stderr: &bytes.Buffer{},
 	}
@@ -678,7 +671,7 @@ func TestRunAdd_IDOnly(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}, IDOnly: true}
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}, IDOnly: true}
 	opts.SetAPIClient(client)
 
 	err = runAdd(context.Background(), opts, "TEST-1", "test body")
@@ -706,7 +699,7 @@ func TestRunAdd_PostState(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	err = runAdd(context.Background(), opts, "TEST-1", "test body")
@@ -726,7 +719,7 @@ func TestRunDelete_TextConfirmation(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout, stderr bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &stderr}
+	opts := &root.Options{Stdout: &stdout, Stderr: &stderr}
 	opts.SetAPIClient(client)
 
 	err = runDelete(context.Background(), opts, "PROJ-1", "12345")
@@ -746,7 +739,7 @@ func TestRunDelete_JSONOutputEmitsText(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout, stderr bytes.Buffer
-	opts := &root.Options{Output: "json", Stdout: &stdout, Stderr: &stderr}
+	opts := &root.Options{Stdout: &stdout, Stderr: &stderr}
 	opts.SetAPIClient(client)
 
 	err = runDelete(context.Background(), opts, "PROJ-1", "12345")

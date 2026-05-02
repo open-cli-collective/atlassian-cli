@@ -15,7 +15,7 @@ A command-line interface for managing Jira Cloud tickets.
 - Manage dashboards and gadgets
 - Create and manage issue links
 - Search and look up users
-- Multiple output formats (table, JSON, plain)
+- Text-first output with `--id`, `--extended`, and `--fulltext` modifiers
 - Shell completion for bash, zsh, fish, and PowerShell
 
 ## Installation
@@ -160,7 +160,7 @@ These flags are available on all commands:
 | `--help` | `-h` | | Show help for command |
 | `--version` | | | Show version (root command only) |
 
-> `--output` / `-o` (`table`/`json`/`plain`) is retained for backward compatibility but is hidden from `--help`. Per-command migration to the text-first output model is tracked under #230.
+> `automation export` is the only command that emits JSON — it writes directly to stdout.
 
 ---
 
@@ -439,8 +439,7 @@ jtk issues check PROJ-123 --require "Story Points" --require Sprint
 # Mix required and warning fields, comma-separated.
 jtk issues check PROJ-123 --require "Story Points,Sprint" --warn "Description,Assignee"
 
-# JSON output, or emit only the IDs of MISSING fields.
-jtk issues check PROJ-123 --output json
+# Emit only the IDs of MISSING fields.
 jtk issues check PROJ-123 --require Sprint --id
 ```
 
@@ -451,7 +450,7 @@ jtk issues check PROJ-123 --require Sprint --id
 
 When `--require` is provided alone, the curated default warn-list is **not** applied — only the explicitly-named fields are checked.
 
-Output respects the standard global flags: `--output table\|json\|plain`, and `--id` to emit only the IDs of fields whose status is `MISSING`.
+Use `--id` to emit only the IDs of fields whose status is `MISSING`.
 
 **Exit codes:** `0` if all `--require` fields populated; `1` if any are missing.
 

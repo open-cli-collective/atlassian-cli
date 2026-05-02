@@ -7,8 +7,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/open-cli-collective/atlassian-go/view"
-
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
@@ -61,8 +59,6 @@ func newListCmd(opts *root.Options) *cobra.Command {
 }
 
 func runList(ctx context.Context, opts *root.Options, query string, maxResults int, nextPageToken, fieldsFlag string) error {
-	v := opts.View()
-
 	client, err := opts.APIClient()
 	if err != nil {
 		return err
@@ -73,10 +69,6 @@ func runList(ctx context.Context, opts *root.Options, query string, maxResults i
 	startAt, err := jtkpresent.ParseStartAtToken(nextPageToken)
 	if err != nil {
 		return err
-	}
-
-	if !idOnly && fieldsFlag != "" && v.Format == view.FormatJSON {
-		return jtkpresent.ErrFieldsWithJSON
 	}
 
 	var selected []projection.ColumnSpec
@@ -135,10 +127,6 @@ func runList(ctx context.Context, opts *root.Options, query string, maxResults i
 
 	if len(result.Values) == 0 {
 		return jtkpresent.Emit(opts, jtkpresent.ProjectPresenter{}.PresentEmpty())
-	}
-
-	if v.Format == view.FormatJSON {
-		return v.JSON(result.Values)
 	}
 
 	model := jtkpresent.ProjectPresenter{}.PresentProjectListWithPagination(result.Values, opts.IsExtended(), hasMore, nextToken)

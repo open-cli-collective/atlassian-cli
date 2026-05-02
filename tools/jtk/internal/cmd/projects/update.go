@@ -6,7 +6,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/open-cli-collective/atlassian-go/present"
-	"github.com/open-cli-collective/atlassian-go/view"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cache"
@@ -48,8 +47,6 @@ func newUpdateCmd(opts *root.Options) *cobra.Command {
 }
 
 func runUpdate(ctx context.Context, opts *root.Options, keyOrID, name, description, lead string) error {
-	v := opts.View()
-
 	client, err := opts.APIClient()
 	if err != nil {
 		return err
@@ -77,10 +74,6 @@ func runUpdate(ctx context.Context, opts *root.Options, keyOrID, name, descripti
 
 	if opts.EmitIDOnly() {
 		return jtkpresent.EmitIDs(opts, []string{project.Key})
-	}
-
-	if v.Format == view.FormatJSON {
-		return v.JSON(project)
 	}
 
 	var lastFetched *api.ProjectDetail

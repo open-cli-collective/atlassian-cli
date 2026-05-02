@@ -479,20 +479,6 @@ func TestRunList_Fields_DynamicField_ByFieldID_Succeeds(t *testing.T) {
 	testutil.Contains(t, strings.Join(cs.searchCaptured.Fields, ","), "customfield_99999")
 }
 
-func TestRunList_Fields_WithJSON_Errors(t *testing.T) {
-	t.Parallel()
-	cs := newCapturingServer(t, []string{"TEST-1"}, true, nil)
-	defer cs.server.Close()
-
-	opts, _, _ := newOptsFor(t, cs)
-	opts.Output = "json"
-	err := runList(context.Background(), opts, "TEST", "", 25, "", false, "SUMMARY")
-	if err == nil {
-		t.Fatalf("expected error when --fields combined with --output json")
-	}
-	testutil.Contains(t, err.Error(), "not supported with --output json")
-}
-
 func TestRunList_FieldsWithIDOnly_IDWins(t *testing.T) {
 	t.Parallel()
 	cs := newCapturingServer(t, []string{"TEST-1", "TEST-2"}, true, nil)
@@ -544,21 +530,6 @@ func TestRunList_IDOnly_BypassesFieldsValidation(t *testing.T) {
 
 // Under --id, the JSON + --fields rejection also must not fire. --id produces
 // plain identifiers, not JSON, so the conflict is moot.
-func TestRunList_IDOnly_BypassesJSONFieldsRejection(t *testing.T) {
-	t.Parallel()
-	cs := newCapturingServer(t, []string{"TEST-1"}, true, nil)
-	defer cs.server.Close()
-
-	opts, stdout, _ := newOptsFor(t, cs)
-	opts.IDOnly = true
-	opts.Output = "json"
-	err := runList(context.Background(), opts, "TEST", "", 25, "", false, "SUMMARY")
-	testutil.RequireNoError(t, err)
-	if stdout.String() != "TEST-1\n" {
-		t.Errorf("expected bare key, got %q", stdout.String())
-	}
-}
-
 func TestRunList_Fields_TrumpsAllFieldsForFetch(t *testing.T) {
 	t.Parallel()
 	cs := newCapturingServer(t, []string{"TEST-1"}, true, nil)

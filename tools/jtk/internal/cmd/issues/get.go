@@ -6,12 +6,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/open-cli-collective/atlassian-go/artifact"
 	"github.com/open-cli-collective/atlassian-go/present"
-	"github.com/open-cli-collective/atlassian-go/view"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
-	jtkartifact "github.com/open-cli-collective/jira-ticket-cli/internal/artifact"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cache"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
@@ -58,8 +55,6 @@ func newGetCmd(opts *root.Options) *cobra.Command {
 }
 
 func runGet(ctx context.Context, opts *root.Options, issueKey string, noTruncate bool, fieldsFlag string, customFields bool) error {
-	v := opts.View()
-
 	client, err := opts.APIClient()
 	if err != nil {
 		return err
@@ -71,14 +66,6 @@ func runGet(ctx context.Context, opts *root.Options, issueKey string, noTruncate
 			return err
 		}
 		return jtkpresent.EmitIDs(opts, []string{issue.Key})
-	}
-
-	if fieldsFlag != "" && v.Format == view.FormatJSON {
-		return jtkpresent.ErrFieldsWithJSON
-	}
-
-	if customFields && v.Format == view.FormatJSON {
-		return jtkpresent.ErrFieldsWithJSON
 	}
 
 	selected, projected, err := projection.Resolve(
@@ -96,10 +83,6 @@ func runGet(ctx context.Context, opts *root.Options, issueKey string, noTruncate
 	issue, err := client.GetIssue(ctx, issueKey)
 	if err != nil {
 		return err
-	}
-
-	if v.Format == view.FormatJSON {
-		return v.RenderArtifact(jtkartifact.ProjectIssue(issue, opts.ArtifactMode()))
 	}
 
 	presenter := jtkpresent.IssuePresenter{}
@@ -149,13 +132,6 @@ func runGetMulti(ctx context.Context, opts *root.Options, issueKeys []string) er
 			return err
 		}
 		issues = append(issues, *issue)
-	}
-
-	v := opts.View()
-
-	if v.Format == view.FormatJSON {
-		arts := jtkartifact.ProjectIssues(issues, opts.ArtifactMode())
-		return v.RenderArtifactList(artifact.NewListResult(arts, false))
 	}
 
 	model := jtkpresent.IssuePresenter{}.PresentList(issues, opts.IsExtended())

@@ -6,8 +6,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/open-cli-collective/atlassian-go/view"
-
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
@@ -55,11 +53,6 @@ func runList(ctx context.Context, opts *root.Options, state string) error {
 
 	if len(rules) == 0 {
 		return jtkpresent.Emit(opts, jtkpresent.AutomationPresenter{}.PresentEmpty())
-	}
-
-	v := opts.View()
-	if v.Format == view.FormatJSON {
-		return v.JSON(rules)
 	}
 
 	if opts.IsExtended() {

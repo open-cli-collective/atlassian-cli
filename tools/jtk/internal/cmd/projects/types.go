@@ -5,8 +5,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/open-cli-collective/atlassian-go/view"
-
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/present/projection"
@@ -40,18 +38,12 @@ func newTypesCmd(opts *root.Options) *cobra.Command {
 }
 
 func runTypes(ctx context.Context, opts *root.Options, fieldsFlag string) error {
-	v := opts.View()
-
 	client, err := opts.APIClient()
 	if err != nil {
 		return err
 	}
 
 	idOnly := opts.EmitIDOnly()
-
-	if !idOnly && fieldsFlag != "" && v.Format == view.FormatJSON {
-		return jtkpresent.ErrFieldsWithJSON
-	}
 
 	var selected []projection.ColumnSpec
 	var projected bool
@@ -84,10 +76,6 @@ func runTypes(ctx context.Context, opts *root.Options, fieldsFlag string) error 
 
 	if len(types) == 0 {
 		return jtkpresent.Emit(opts, jtkpresent.ProjectPresenter{}.PresentNoTypes())
-	}
-
-	if v.Format == view.FormatJSON {
-		return v.JSON(types)
 	}
 
 	presenter := jtkpresent.ProjectPresenter{}

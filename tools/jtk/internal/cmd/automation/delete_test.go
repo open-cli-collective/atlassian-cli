@@ -48,7 +48,6 @@ func TestRunDelete_DisabledRule(t *testing.T) {
 
 	var stdout, stderr bytes.Buffer
 	opts := &root.Options{
-		Output: "table",
 		Stdout: &stdout,
 		Stderr: &stderr,
 	}
@@ -98,7 +97,6 @@ func TestRunDelete_EnabledRule_DisablesFirst(t *testing.T) {
 
 	var stdout, stderr bytes.Buffer
 	opts := &root.Options{
-		Output: "table",
 		Stdout: &stdout,
 		Stderr: &stderr,
 	}
@@ -146,7 +144,6 @@ func TestRunDelete_PromptDeclined(t *testing.T) {
 
 	var stdout, stderr bytes.Buffer
 	opts := &root.Options{
-		Output: "table",
 		Stdout: &stdout,
 		Stderr: &stderr,
 		Stdin:  bytes.NewBufferString("n\n"),
@@ -190,7 +187,6 @@ func TestRunDelete_JSONOutputIgnored(t *testing.T) {
 
 	var stdout, stderr bytes.Buffer
 	opts := &root.Options{
-		Output: "json",
 		Stdout: &stdout,
 		Stderr: &stderr,
 	}

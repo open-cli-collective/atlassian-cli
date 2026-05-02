@@ -6,7 +6,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/open-cli-collective/atlassian-go/present"
-	"github.com/open-cli-collective/atlassian-go/view"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cache"
@@ -29,8 +28,6 @@ func newRestoreCmd(opts *root.Options) *cobra.Command {
 }
 
 func runRestore(ctx context.Context, opts *root.Options, keyOrID string) error {
-	v := opts.View()
-
 	client, err := opts.APIClient()
 	if err != nil {
 		return err
@@ -45,10 +42,6 @@ func runRestore(ctx context.Context, opts *root.Options, keyOrID string) error {
 
 	if opts.EmitIDOnly() {
 		return jtkpresent.EmitIDs(opts, []string{project.Key})
-	}
-
-	if v.Format == view.FormatJSON {
-		return v.JSON(project)
 	}
 
 	restoredName := project.Name

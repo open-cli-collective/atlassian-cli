@@ -25,9 +25,6 @@ func TestNewCmd(t *testing.T) {
 	testutil.NotNil(t, opts)
 
 	// Verify persistent flags exist
-	outputFlag := cmd.PersistentFlags().Lookup("output")
-	testutil.NotNil(t, outputFlag)
-
 	noColorFlag := cmd.PersistentFlags().Lookup("no-color")
 	testutil.NotNil(t, noColorFlag)
 
@@ -43,7 +40,6 @@ func TestNewCmd_Flags(t *testing.T) {
 		name string
 		flag string
 	}{
-		{"output flag", "output"},
 		{"no-color flag", "no-color"},
 		{"extended flag", "extended"},
 		{"fulltext flag", "fulltext"},
@@ -68,20 +64,9 @@ func TestNewCmd_FullFlagRemoved(t *testing.T) {
 	}
 }
 
-func TestNewCmd_OutputFlagHidden(t *testing.T) {
-	t.Parallel()
-	cmd, _ := NewCmd()
-	f := cmd.PersistentFlags().Lookup("output")
-	testutil.NotNil(t, f)
-	testutil.True(t, f.Hidden)
-}
-
 func TestNewCmd_FlagDefaults(t *testing.T) {
 	t.Parallel()
 	cmd, _ := NewCmd()
-
-	outputFlag := cmd.PersistentFlags().Lookup("output")
-	testutil.Equal(t, outputFlag.DefValue, "table")
 
 	noColorFlag := cmd.PersistentFlags().Lookup("no-color")
 	testutil.Equal(t, noColorFlag.DefValue, "false")
@@ -103,7 +88,6 @@ func TestOptions_View(t *testing.T) {
 	t.Parallel()
 	var stdout, stderr bytes.Buffer
 	opts := &Options{
-		Output:  "json",
 		NoColor: true,
 		Stdout:  &stdout,
 		Stderr:  &stderr,
@@ -201,7 +185,6 @@ func TestOptions_IDPrecedence(t *testing.T) {
 func TestOptions_View_UsesAgentPolicy(t *testing.T) {
 	t.Parallel()
 	opts := &Options{
-		Output: "table",
 		Stdout: &bytes.Buffer{},
 		Stderr: &bytes.Buffer{},
 	}

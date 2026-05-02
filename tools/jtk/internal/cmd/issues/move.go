@@ -222,8 +222,6 @@ func newMoveStatusCmd(opts *root.Options) *cobra.Command {
 }
 
 func runMoveStatus(ctx context.Context, opts *root.Options, taskID string) error {
-	v := opts.View()
-
 	client, err := opts.APIClient()
 	if err != nil {
 		return err
@@ -232,10 +230,6 @@ func runMoveStatus(ctx context.Context, opts *root.Options, taskID string) error
 	status, err := client.GetMoveTaskStatus(ctx, taskID)
 	if err != nil {
 		return err
-	}
-
-	if opts.Output == "json" {
-		return v.JSON(status)
 	}
 
 	model := jtkpresent.IssuePresenter{}.PresentMoveStatus(status)

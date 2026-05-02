@@ -69,20 +69,6 @@ func TestRunSearch_Fields_UnknownToken_Errors(t *testing.T) {
 	}
 }
 
-func TestRunSearch_Fields_WithJSON_Errors(t *testing.T) {
-	t.Parallel()
-	cs := newCapturingServer(t, []string{"TEST-1"}, true, nil)
-	defer cs.server.Close()
-
-	opts, _, _ := newOptsFor(t, cs)
-	opts.Output = "json"
-	err := runSearch(context.Background(), opts, "project = TEST", 25, "", false, "SUMMARY")
-	if err == nil {
-		t.Fatalf("expected error when --fields combined with --output json")
-	}
-	testutil.Contains(t, err.Error(), "not supported with --output json")
-}
-
 // Search and List share deriveFetchFields, but assert here directly so a
 // future divergence in search's fetch wiring does not hide behind list's
 // coverage.
@@ -180,21 +166,6 @@ func TestRunSearch_IDOnly_BypassesFieldsValidation(t *testing.T) {
 	opts, stdout, _ := newOptsFor(t, cs)
 	opts.IDOnly = true
 	err := runSearch(context.Background(), opts, "project = TEST", 25, "", false, "bogus")
-	testutil.RequireNoError(t, err)
-	if stdout.String() != "TEST-1\n" {
-		t.Errorf("expected bare key, got %q", stdout.String())
-	}
-}
-
-func TestRunSearch_IDOnly_BypassesJSONFieldsRejection(t *testing.T) {
-	t.Parallel()
-	cs := newCapturingServer(t, []string{"TEST-1"}, true, nil)
-	defer cs.server.Close()
-
-	opts, stdout, _ := newOptsFor(t, cs)
-	opts.IDOnly = true
-	opts.Output = "json"
-	err := runSearch(context.Background(), opts, "project = TEST", 25, "", false, "SUMMARY")
 	testutil.RequireNoError(t, err)
 	if stdout.String() != "TEST-1\n" {
 		t.Errorf("expected bare key, got %q", stdout.String())

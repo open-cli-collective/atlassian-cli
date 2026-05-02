@@ -62,7 +62,6 @@ func TestRunGet_TruncatesDescription(t *testing.T) {
 
 	var stdout bytes.Buffer
 	opts := &root.Options{
-		Output: "table",
 		Stdout: &stdout,
 		Stderr: &bytes.Buffer{},
 	}
@@ -102,7 +101,6 @@ func TestRunGet_FullDescription(t *testing.T) {
 
 	var stdout bytes.Buffer
 	opts := &root.Options{
-		Output: "table",
 		Stdout: &stdout,
 		Stderr: &bytes.Buffer{},
 	}
@@ -144,7 +142,6 @@ func TestNewGetCmd_FullTextRoutesFromRoot(t *testing.T) {
 
 	var stdout bytes.Buffer
 	opts := &root.Options{
-		Output:   "table",
 		FullText: true, // global --fulltext
 		Stdout:   &stdout,
 		Stderr:   &bytes.Buffer{},
@@ -188,7 +185,6 @@ func TestNewGetCmd_NoTruncateAndFullTextBothSet(t *testing.T) {
 
 	var stdout bytes.Buffer
 	opts := &root.Options{
-		Output:   "table",
 		FullText: true,
 		Stdout:   &stdout,
 		Stderr:   &bytes.Buffer{},
@@ -222,7 +218,7 @@ func TestRunGet_IDOnly(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", IDOnly: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{IDOnly: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	testutil.RequireNoError(t, runGet(context.Background(), opts, "TEST-1", false, "", false))
@@ -248,7 +244,7 @@ func TestRunGet_IDOnlyPrecedenceOverExtendedFullText(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", IDOnly: true, Extended: true, FullText: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{IDOnly: true, Extended: true, FullText: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	// runGet receives noTruncate derived from RunE; when --id is set, the truncation
@@ -281,7 +277,6 @@ func TestRunGet_ShortDescriptionNotTruncated(t *testing.T) {
 
 	var stdout bytes.Buffer
 	opts := &root.Options{
-		Output: "table",
 		Stdout: &stdout,
 		Stderr: &bytes.Buffer{},
 	}
@@ -293,45 +288,6 @@ func TestRunGet_ShortDescriptionNotTruncated(t *testing.T) {
 	output := stdout.String()
 	testutil.Contains(t, output, "Short description")
 	testutil.NotContains(t, output, "[truncated")
-}
-
-func TestRunGet_JSONOutputIgnoresFullFlag(t *testing.T) {
-	t.Parallel()
-	issue := api.Issue{
-		Key: "TEST-1",
-		Fields: api.IssueFields{
-			Summary:   "Test issue",
-			Status:    &api.Status{Name: "Open"},
-			IssueType: &api.IssueType{Name: "Task"},
-		},
-	}
-
-	server := newTestIssueServer(t, issue)
-	defer server.Close()
-
-	client, err := api.New(api.ClientConfig{
-		URL:      server.URL,
-		Email:    "test@example.com",
-		APIToken: "token",
-	})
-	testutil.RequireNoError(t, err)
-
-	var stdout bytes.Buffer
-	opts := &root.Options{
-		Output: "json",
-		Stdout: &stdout,
-		Stderr: &bytes.Buffer{},
-	}
-	opts.SetAPIClient(client)
-
-	err = runGet(context.Background(), opts, "TEST-1", true, "", false)
-	testutil.RequireNoError(t, err)
-
-	// Should be valid JSON
-	var result api.Issue
-	err = json.Unmarshal(stdout.Bytes(), &result)
-	testutil.RequireNoError(t, err)
-	testutil.Equal(t, result.Key, "TEST-1")
 }
 
 func TestRunGet_Extended_ShowsNormalizedSections(t *testing.T) {
@@ -359,7 +315,7 @@ func TestRunGet_Extended_ShowsNormalizedSections(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", Extended: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{Extended: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	err = runGet(context.Background(), opts, "TEST-1", false, "", false)
@@ -401,7 +357,7 @@ func TestRunGet_Extended_SprintFromCustomField(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", Extended: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{Extended: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	err = runGet(context.Background(), opts, "MON-4970", false, "", false)
@@ -449,24 +405,6 @@ func TestRunGet_CustomFields_AppendsSection(t *testing.T) {
 	output := stdout.String()
 	testutil.Contains(t, output, "Custom Fields:")
 	testutil.Contains(t, output, "Change type: Bug")
-}
-
-func TestRunGet_CustomFields_WithJSON_Errors(t *testing.T) {
-	t.Parallel()
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_ = json.NewEncoder(w).Encode(api.Issue{Key: "TEST-1"})
-	}))
-	defer server.Close()
-
-	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
-	testutil.RequireNoError(t, err)
-
-	opts := &root.Options{Output: "json", Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
-	opts.SetAPIClient(client)
-
-	err = runGet(context.Background(), opts, "TEST-1", false, "", true)
-	testutil.NotNil(t, err)
-	testutil.Contains(t, err.Error(), "not supported")
 }
 
 func newMultiIssueServer(t *testing.T, issues map[string]api.Issue) *httptest.Server {
@@ -524,7 +462,7 @@ func TestRunGetMulti_Table(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	err = runGetMulti(context.Background(), opts, []string{"PROJ-1", "PROJ-2", "PROJ-3"})
@@ -549,7 +487,7 @@ func TestRunGetMulti_PreservesOrder(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	err = runGetMulti(context.Background(), opts, []string{"PROJ-3", "PROJ-1", "PROJ-2"})
@@ -574,7 +512,7 @@ func TestRunGetMulti_IDOnly(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}, IDOnly: true}
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}, IDOnly: true}
 	opts.SetAPIClient(client)
 
 	err = runGetMulti(context.Background(), opts, []string{"PROJ-1", "PROJ-2"})
@@ -595,7 +533,7 @@ func TestRunGetMulti_JSON(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "json", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	err = runGetMulti(context.Background(), opts, []string{"PROJ-1", "PROJ-2"})
@@ -638,7 +576,7 @@ func TestRunGetMulti_FailsOnBadKey(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	err = runGetMulti(context.Background(), opts, []string{"PROJ-1", "NONEXIST-999"})

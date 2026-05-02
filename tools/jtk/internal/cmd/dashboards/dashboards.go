@@ -9,8 +9,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/open-cli-collective/atlassian-go/view"
-
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
@@ -71,8 +69,6 @@ Use --extended for additional fields (rank, permissions).`,
 }
 
 func runList(_ context.Context, opts *root.Options, search string, maxResults int) error {
-	v := opts.View()
-
 	client, err := opts.APIClient()
 	if err != nil {
 		return err
@@ -104,10 +100,6 @@ func runList(_ context.Context, opts *root.Options, search string, maxResults in
 
 	if len(dashboards) == 0 {
 		return jtkpresent.Emit(opts, jtkpresent.DashboardPresenter{}.PresentEmpty())
-	}
-
-	if v.Format == view.FormatJSON {
-		return v.JSON(dashboards)
 	}
 
 	gadgetCounts := fetchGadgetCounts(client, dashboards)
@@ -152,8 +144,6 @@ func newGetCmd(opts *root.Options) *cobra.Command {
 }
 
 func runGet(_ context.Context, opts *root.Options, dashboardID string) error {
-	v := opts.View()
-
 	client, err := opts.APIClient()
 	if err != nil {
 		return err
@@ -167,13 +157,6 @@ func runGet(_ context.Context, opts *root.Options, dashboardID string) error {
 	gadgetsResp, err := client.GetDashboardGadgets(dashboardID)
 	if err != nil {
 		return fmt.Errorf("failed to get gadgets: %w", err)
-	}
-
-	if v.Format == view.FormatJSON {
-		return v.JSON(map[string]interface{}{
-			"dashboard": dash,
-			"gadgets":   gadgetsResp.Gadgets,
-		})
 	}
 
 	model := jtkpresent.DashboardPresenter{}.PresentDetail(dash, gadgetsResp.Gadgets)
@@ -203,8 +186,6 @@ func newCreateCmd(opts *root.Options) *cobra.Command {
 }
 
 func runCreate(opts *root.Options, name, description string) error {
-	v := opts.View()
-
 	client, err := opts.APIClient()
 	if err != nil {
 		return err
@@ -224,10 +205,6 @@ func runCreate(opts *root.Options, name, description string) error {
 
 	if opts.EmitIDOnly() {
 		return jtkpresent.EmitIDs(opts, []string{dash.ID})
-	}
-
-	if v.Format == view.FormatJSON {
-		return v.JSON(dash)
 	}
 
 	counts := map[string]int{dash.ID: 0}
@@ -292,8 +269,6 @@ func newGadgetsListCmd(opts *root.Options) *cobra.Command {
 }
 
 func runGadgetsList(_ context.Context, opts *root.Options, dashboardID string) error {
-	v := opts.View()
-
 	client, err := opts.APIClient()
 	if err != nil {
 		return err
@@ -314,10 +289,6 @@ func runGadgetsList(_ context.Context, opts *root.Options, dashboardID string) e
 
 	if len(result.Gadgets) == 0 {
 		return jtkpresent.Emit(opts, jtkpresent.DashboardPresenter{}.PresentNoGadgets(dashboardID))
-	}
-
-	if v.Format == view.FormatJSON {
-		return v.JSON(result.Gadgets)
 	}
 
 	return jtkpresent.Emit(opts, jtkpresent.DashboardPresenter{}.PresentGadgets(result.Gadgets))
@@ -352,8 +323,6 @@ func newGadgetsAddCmd(opts *root.Options) *cobra.Command {
 }
 
 func runGadgetsAdd(_ context.Context, opts *root.Options, dashboardID, moduleKey, title, color, positionStr string) error {
-	v := opts.View()
-
 	client, err := opts.APIClient()
 	if err != nil {
 		return err
@@ -391,10 +360,6 @@ func runGadgetsAdd(_ context.Context, opts *root.Options, dashboardID, moduleKey
 
 	if opts.EmitIDOnly() {
 		return jtkpresent.EmitIDs(opts, []string{strconv.Itoa(gadget.ID)})
-	}
-
-	if v.Format == view.FormatJSON {
-		return v.JSON(gadget)
 	}
 
 	return jtkpresent.Emit(opts, jtkpresent.DashboardPresenter{}.PresentGadgets([]api.DashboardGadget{*gadget}))

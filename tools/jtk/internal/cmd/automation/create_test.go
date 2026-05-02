@@ -56,7 +56,6 @@ func TestRunCreate(t *testing.T) {
 
 		var stdout, stderr bytes.Buffer
 		opts := &root.Options{
-			Output: "table",
 			Stdout: &stdout,
 			Stderr: &stderr,
 		}
@@ -124,7 +123,6 @@ func TestRunCreate(t *testing.T) {
 
 		var stdout, stderr bytes.Buffer
 		opts := &root.Options{
-			Output: "table",
 			Stdout: &stdout,
 			Stderr: &stderr,
 		}
@@ -169,7 +167,6 @@ func TestRunCreate(t *testing.T) {
 
 		var stdout, stderr bytes.Buffer
 		opts := &root.Options{
-			Output: "table",
 			Stdout: &stdout,
 			Stderr: &stderr,
 		}
@@ -193,7 +190,6 @@ func TestRunCreate(t *testing.T) {
 
 		var stdout, stderr bytes.Buffer
 		opts := &root.Options{
-			Output: "table",
 			Stdout: &stdout,
 			Stderr: &stderr,
 		}
@@ -206,7 +202,6 @@ func TestRunCreate(t *testing.T) {
 	t.Run("file not found", func(t *testing.T) {
 		var stdout, stderr bytes.Buffer
 		opts := &root.Options{
-			Output: "table",
 			Stdout: &stdout,
 			Stderr: &stderr,
 		}

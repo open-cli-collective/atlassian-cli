@@ -9,8 +9,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/open-cli-collective/atlassian-go/view"
-
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
@@ -60,12 +58,7 @@ func newListCmd(opts *root.Options) *cobra.Command {
 }
 
 func runList(ctx context.Context, opts *root.Options, issueKey, fieldsFlag string) error {
-	v := opts.View()
 	idOnly := opts.EmitIDOnly()
-
-	if !idOnly && fieldsFlag != "" && v.Format == view.FormatJSON {
-		return jtkpresent.ErrFieldsWithJSON
-	}
 
 	var selected []projection.ColumnSpec
 	var projected bool
@@ -104,22 +97,6 @@ func runList(ctx context.Context, opts *root.Options, issueKey, fieldsFlag strin
 
 	if len(attachments) == 0 {
 		return jtkpresent.Emit(opts, jtkpresent.AttachmentPresenter{}.PresentEmpty(issueKey))
-	}
-
-	if v.Format == view.FormatJSON {
-		data := make([]map[string]any, 0, len(attachments))
-		for _, att := range attachments {
-			data = append(data, map[string]any{
-				"id":       att.ID.String(),
-				"filename": att.Filename,
-				"size":     att.Size,
-				"mimeType": att.MimeType,
-				"created":  att.Created,
-				"author":   att.Author.DisplayName,
-				"content":  att.Content,
-			})
-		}
-		return v.JSON(data)
 	}
 
 	model := jtkpresent.AttachmentPresenter{}.PresentList(attachments, opts.IsExtended())

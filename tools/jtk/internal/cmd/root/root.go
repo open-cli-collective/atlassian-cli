@@ -23,7 +23,6 @@ var ErrAlreadyReported = errors.New("already reported")
 
 // Options contains global options for commands
 type Options struct {
-	Output   string // Legacy output format (table/json/plain); flag is hidden during migration.
 	NoColor  bool
 	Extended bool // --extended: include admin/schema/audit fields.
 	FullText bool // --fulltext: disable truncation of descriptions/comments.
@@ -50,9 +49,9 @@ func (o *Options) IsExtended() bool { return !o.IDOnly && o.Extended }
 func (o *Options) IsFullText() bool { return !o.IDOnly && o.FullText }
 
 // View returns a configured View instance, deriving policy from RenderMode.
+// Format is hardcoded to table; legacy format selection is removed from JTK.
 func (o *Options) View() *view.View {
-	v := view.NewWithFormat(o.Output, o.NoColor)
-	// Derive legacy policy from RenderMode - single source of truth
+	v := view.NewWithFormat("table", o.NoColor)
 	if o.RenderMode() == present.RenderModeAgent {
 		v.SetPolicy(view.PolicyAgent)
 	}
@@ -131,8 +130,6 @@ func NewCmd() (*cobra.Command, *Options) {
 	cmd.SetVersionTemplate("{{.Version}}\n") // Bare version output for token efficiency
 
 	// Global flags - bound to opts struct
-	cmd.PersistentFlags().StringVarP(&opts.Output, "output", "o", "table", "Output format: table, json, plain")
-	_ = cmd.PersistentFlags().MarkHidden("output")
 	cmd.PersistentFlags().BoolVar(&opts.NoColor, "no-color", false, "Disable colored output")
 	cmd.PersistentFlags().BoolVar(&opts.Extended, "extended", false, "Include admin/schema/audit fields in output")
 	cmd.PersistentFlags().BoolVar(&opts.FullText, "fulltext", false, "Disable truncation of descriptions and comments")
@@ -151,7 +148,6 @@ func RegisterCommands(root *cobra.Command, opts *Options, registrars ...func(*co
 
 // GetOptions extracts Options from a root command
 func GetOptions(cmd *cobra.Command) *Options {
-	output, _ := cmd.Root().PersistentFlags().GetString("output")
 	noColor, _ := cmd.Root().PersistentFlags().GetBool("no-color")
 	extended, _ := cmd.Root().PersistentFlags().GetBool("extended")
 	fullText, _ := cmd.Root().PersistentFlags().GetBool("fulltext")
@@ -159,7 +155,6 @@ func GetOptions(cmd *cobra.Command) *Options {
 	verbose, _ := cmd.Root().PersistentFlags().GetBool("verbose")
 
 	return &Options{
-		Output:   output,
 		NoColor:  noColor,
 		Extended: extended,
 		FullText: fullText,

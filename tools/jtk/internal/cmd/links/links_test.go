@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -16,7 +15,6 @@ import (
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cache"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
-	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
 )
 
 // isolateCache points cache I/O at a temp directory and overrides the
@@ -60,7 +58,7 @@ func TestRunList(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	err = runList(context.Background(), opts, "PROJ-123", "")
@@ -85,7 +83,7 @@ func TestRunList_NoLinks(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout, stderr bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &stderr}
+	opts := &root.Options{Stdout: &stdout, Stderr: &stderr}
 	opts.SetAPIClient(client)
 
 	err = runList(context.Background(), opts, "PROJ-123", "")
@@ -196,23 +194,6 @@ func TestRunList_FieldsProjection(t *testing.T) {
 	testutil.NotContains(t, out, "DIRECTION")
 }
 
-func TestRunList_FieldsWithJSON_Error(t *testing.T) {
-	t.Parallel()
-	server := linkServer(t)
-	defer server.Close()
-
-	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
-	testutil.RequireNoError(t, err)
-
-	opts := &root.Options{Output: "json", Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
-	opts.SetAPIClient(client)
-
-	err = runList(context.Background(), opts, "PROJ-123", "TYPE")
-	if !errors.Is(err, jtkpresent.ErrFieldsWithJSON) {
-		t.Fatalf("expected ErrFieldsWithJSON, got %v", err)
-	}
-}
-
 func TestRunCreate(t *testing.T) {
 	var capturedBody []byte
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -237,7 +218,7 @@ func TestRunCreate(t *testing.T) {
 
 	isolateCache(t)
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	err = runCreate(context.Background(), opts, "PROJ-123", "PROJ-456", "Blocks")
@@ -279,7 +260,7 @@ func TestRunCreate_InwardVerbSwapsDirection(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	isolateCache(t)
-	opts := &root.Options{Output: "table", Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	// User perspective: PROJ-1 IS BLOCKED BY PROJ-2.
@@ -318,7 +299,7 @@ func TestRunCreate_OutwardVerbPreservesOrder(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	isolateCache(t)
-	opts := &root.Options{Output: "table", Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	err = runCreate(context.Background(), opts, "PROJ-1", "PROJ-2", "blocks")
@@ -357,7 +338,7 @@ func TestRunCreate_SymmetricVerbNoSwap(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	isolateCache(t)
-	opts := &root.Options{Output: "table", Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	err = runCreate(context.Background(), opts, "PROJ-1", "PROJ-2", "relates to")
@@ -421,7 +402,7 @@ func TestRunCreate_CanonicalRow(t *testing.T) {
 
 	seedLinkTypesForTest(t)
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	err = runCreate(context.Background(), opts, "PROJ-123", "PROJ-456", "Blocker")
@@ -473,7 +454,7 @@ func TestRunCreate_InvalidType(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	isolateCache(t)
-	opts := &root.Options{Output: "table", Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	err = runCreate(context.Background(), opts, "A", "B", "InvalidType")
@@ -493,7 +474,7 @@ func TestRunDelete(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	err = runDelete(context.Background(), opts, "10001")
@@ -512,7 +493,7 @@ func TestRunDelete_JSONOutputEmitsText(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout, stderr bytes.Buffer
-	opts := &root.Options{Output: "json", Stdout: &stdout, Stderr: &stderr}
+	opts := &root.Options{Stdout: &stdout, Stderr: &stderr}
 	opts.SetAPIClient(client)
 
 	err = runDelete(context.Background(), opts, "10001")
@@ -537,7 +518,7 @@ func TestRunTypes(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	err = runTypes(context.Background(), opts, "")
@@ -586,7 +567,7 @@ func TestRunTypes_FreshCacheSkipsLive(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	err = runTypes(context.Background(), opts, "")
@@ -617,34 +598,6 @@ func TestRunTypes_FreshCacheSkipsLive_IDOnly(t *testing.T) {
 	err = runTypes(context.Background(), opts, "")
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, stdout.String(), "1\n2\n")
-}
-
-func TestRunTypes_FreshCacheSkipsLive_JSON(t *testing.T) {
-	isolateCache(t)
-	testutil.RequireNoError(t, cache.WriteResource("linktypes", "24h", []api.IssueLinkType{
-		{ID: "1", Name: "Blocks", Inward: "is blocked by", Outward: "blocks"},
-	}))
-
-	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
-		t.Fatal("live API must not be called when linktypes cache is fresh")
-	}))
-	defer server.Close()
-
-	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
-	testutil.RequireNoError(t, err)
-
-	var stdout bytes.Buffer
-	opts := &root.Options{Output: "json", Stdout: &stdout, Stderr: &bytes.Buffer{}}
-	opts.SetAPIClient(client)
-
-	err = runTypes(context.Background(), opts, "")
-	testutil.RequireNoError(t, err)
-
-	var types []api.IssueLinkType
-	err = json.Unmarshal(stdout.Bytes(), &types)
-	testutil.RequireNoError(t, err)
-	testutil.Equal(t, len(types), 1)
-	testutil.Equal(t, types[0].Name, "Blocks")
 }
 
 func TestFindCreatedLink_MatchByName(t *testing.T) {

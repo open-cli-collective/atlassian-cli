@@ -6,7 +6,4 @@
 //   - An artifact struct with agent fields and full-only fields (omitempty)
 //   - A Project<Type> function: (domain, mode) -> artifact
 //   - A Project<Type>s helper for slices
-//
-// Commands check v.Format == view.FormatJSON before calling projection,
-// then use v.RenderArtifact() or v.RenderArtifactList() for output.
 package artifact

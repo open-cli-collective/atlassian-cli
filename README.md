@@ -255,7 +255,7 @@ cfl page view 123456 --full
 cfl page view 123456 --raw
 ```
 
-Output format (`-o table|json|plain`) is independent of representation. See [docs/ARTIFACT_CONTRACT.md](docs/ARTIFACT_CONTRACT.md) for the full contract specification.
+See [docs/ARTIFACT_CONTRACT.md](docs/ARTIFACT_CONTRACT.md) for the full output contract specification.
 
 ## jtk - Jira CLI
 

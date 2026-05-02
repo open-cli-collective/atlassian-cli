@@ -6,8 +6,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/open-cli-collective/atlassian-go/view"
-
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cache"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
@@ -108,11 +106,6 @@ func runFieldOptions(ctx context.Context, opts *root.Options, fieldNameOrID, iss
 			ids[i] = opt.ID
 		}
 		return jtkpresent.EmitIDs(opts, ids)
-	}
-
-	v := opts.View()
-	if v.Format == view.FormatJSON {
-		return v.JSON(options)
 	}
 
 	model := fp.PresentFieldOptionsWithHeader(fieldName, options)

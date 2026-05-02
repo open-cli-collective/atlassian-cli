@@ -52,7 +52,7 @@ func newGetOpts(t *testing.T, cs *capturingGetServer) (*root.Options, *bytes.Buf
 	client, err := api.New(api.ClientConfig{URL: cs.server.URL, Email: "e@x", APIToken: "t"})
 	testutil.RequireNoError(t, err)
 	var stdout, stderr bytes.Buffer
-	opts := &root.Options{Stdout: &stdout, Stderr: &stderr, Output: "table"}
+	opts := &root.Options{Stdout: &stdout, Stderr: &stderr}
 	opts.SetAPIClient(client)
 	return opts, &stdout, &stderr
 }
@@ -159,20 +159,6 @@ func TestRunGet_Fields_DynamicField_ByFieldID_Succeeds(t *testing.T) {
 	testutil.Contains(t, stdout.String(), "phantom-value")
 }
 
-func TestRunGet_Fields_WithJSON_Errors(t *testing.T) {
-	t.Parallel()
-	cs := newCapturingGetServer(t, fullIssue(), nil)
-	defer cs.server.Close()
-
-	opts, _, _ := newGetOpts(t, cs)
-	opts.Output = "json"
-	err := runGet(context.Background(), opts, "TEST-1", false, "Status", false)
-	if err == nil {
-		t.Fatalf("expected error when --fields combined with --output json")
-	}
-	testutil.Contains(t, err.Error(), "not supported with --output json")
-}
-
 func TestRunGet_FieldsWithIDOnly_IDWins(t *testing.T) {
 	t.Parallel()
 	cs := newCapturingGetServer(t, fullIssue(), nil)
@@ -213,21 +199,6 @@ func TestRunGet_IDOnly_BypassesFieldsValidation(t *testing.T) {
 	opts, stdout, _ := newGetOpts(t, cs)
 	opts.IDOnly = true
 	err := runGet(context.Background(), opts, "TEST-1", false, "bogus", false)
-	testutil.RequireNoError(t, err)
-	if stdout.String() != "TEST-1\n" {
-		t.Errorf("expected bare key, got %q", stdout.String())
-	}
-}
-
-func TestRunGet_IDOnly_BypassesJSONFieldsRejection(t *testing.T) {
-	t.Parallel()
-	cs := newCapturingGetServer(t, fullIssue(), nil)
-	defer cs.server.Close()
-
-	opts, stdout, _ := newGetOpts(t, cs)
-	opts.IDOnly = true
-	opts.Output = "json"
-	err := runGet(context.Background(), opts, "TEST-1", false, "Status", false)
 	testutil.RequireNoError(t, err)
 	if stdout.String() != "TEST-1\n" {
 		t.Errorf("expected bare key, got %q", stdout.String())

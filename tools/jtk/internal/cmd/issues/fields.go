@@ -6,8 +6,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/open-cli-collective/atlassian-go/view"
-
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cache"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
@@ -94,11 +92,6 @@ func runGlobalFields(ctx context.Context, opts *root.Options, client *api.Client
 		return jtkpresent.Emit(opts, jtkpresent.FieldPresenter{}.PresentEmpty())
 	}
 
-	v := opts.View()
-	if v.Format == view.FormatJSON {
-		return v.JSON(fields)
-	}
-
 	model := jtkpresent.FieldPresenter{}.PresentList(fields, opts.IsExtended())
 	return jtkpresent.Emit(opts, model)
 }
@@ -136,11 +129,6 @@ func runIssueFields(ctx context.Context, opts *root.Options, client *api.Client,
 			ids[i] = e.ID
 		}
 		return jtkpresent.EmitIDs(opts, ids)
-	}
-
-	v := opts.View()
-	if v.Format == view.FormatJSON {
-		return v.JSON(entries)
 	}
 
 	model := jtkpresent.FieldPresenter{}.PresentIssueFields(entries)

@@ -9,7 +9,6 @@ import (
 
 	"github.com/open-cli-collective/atlassian-go/present"
 	"github.com/open-cli-collective/atlassian-go/prompt"
-	"github.com/open-cli-collective/atlassian-go/view"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
@@ -45,8 +44,6 @@ func newContextsListCmd(opts *root.Options) *cobra.Command {
 }
 
 func runContextsList(ctx context.Context, opts *root.Options, fieldID string) error {
-	v := opts.View()
-
 	client, err := opts.APIClient()
 	if err != nil {
 		return err
@@ -63,10 +60,6 @@ func runContextsList(ctx context.Context, opts *root.Options, fieldID string) er
 		fmt.Fprint(opts.Stdout, out.Stdout)
 		fmt.Fprint(opts.Stderr, out.Stderr)
 		return nil
-	}
-
-	if v.Format == view.FormatJSON {
-		return v.JSON(result.Values)
 	}
 
 	model := jtkpresent.FieldPresenter{}.PresentContexts(result.Values)
@@ -102,8 +95,6 @@ func newContextsCreateCmd(opts *root.Options) *cobra.Command {
 }
 
 func runContextsCreate(ctx context.Context, opts *root.Options, fieldID, name, project string) error {
-	v := opts.View()
-
 	client, err := opts.APIClient()
 	if err != nil {
 		return err
@@ -123,10 +114,6 @@ func runContextsCreate(ctx context.Context, opts *root.Options, fieldID, name, p
 
 	if opts.EmitIDOnly() {
 		return jtkpresent.EmitIDs(opts, []string{fc.ID})
-	}
-
-	if v.Format == view.FormatJSON {
-		return v.JSON(fc)
 	}
 
 	return jtkpresent.Emit(opts, jtkpresent.FieldPresenter{}.PresentContexts([]api.FieldContext{*fc}))

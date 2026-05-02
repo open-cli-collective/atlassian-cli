@@ -39,7 +39,6 @@ func TestRunUpdate_RequestBodyNoDoubleQuoting(t *testing.T) {
 
 	var stdout bytes.Buffer
 	opts := &root.Options{
-		Output: "table",
 		Stdout: &stdout,
 		Stderr: &bytes.Buffer{},
 	}
@@ -163,7 +162,6 @@ func TestRunUpdate_TypeChange(t *testing.T) {
 
 	var stdout bytes.Buffer
 	opts := &root.Options{
-		Output: "table",
 		Stdout: &stdout,
 		Stderr: &bytes.Buffer{},
 	}
@@ -215,7 +213,6 @@ func TestRunUpdate_TypeAlreadyCorrect(t *testing.T) {
 
 	var stdout bytes.Buffer
 	opts := &root.Options{
-		Output: "table",
 		Stdout: &stdout,
 		Stderr: &bytes.Buffer{},
 	}
@@ -251,7 +248,6 @@ func TestRunUpdate_SummaryOnly(t *testing.T) {
 
 	var stdout bytes.Buffer
 	opts := &root.Options{
-		Output: "table",
 		Stdout: &stdout,
 		Stderr: &bytes.Buffer{},
 	}
@@ -284,7 +280,7 @@ func TestRunUpdate_IDOnly(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &bytes.Buffer{}, IDOnly: true}
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}, IDOnly: true}
 	opts.SetAPIClient(client)
 
 	err = runUpdate(context.Background(), opts, "PROJ-123", "New summary", "", "", "", "", nil)
@@ -294,7 +290,6 @@ func TestRunUpdate_IDOnly(t *testing.T) {
 
 func TestRunUpdate_NoFieldsError(t *testing.T) {
 	opts := &root.Options{
-		Output: "table",
 		Stdout: &bytes.Buffer{},
 		Stderr: &bytes.Buffer{},
 	}
@@ -326,7 +321,6 @@ func TestRunUpdate_ParentOnly(t *testing.T) {
 
 	var stdout bytes.Buffer
 	opts := &root.Options{
-		Output: "table",
 		Stdout: &stdout,
 		Stderr: &bytes.Buffer{},
 	}
@@ -369,7 +363,6 @@ func TestRunUpdate_ParentWithSummary(t *testing.T) {
 
 	var stdout bytes.Buffer
 	opts := &root.Options{
-		Output: "table",
 		Stdout: &stdout,
 		Stderr: &bytes.Buffer{},
 	}
@@ -411,7 +404,6 @@ func TestUpdateCmd_CobraExecution_WithParent(t *testing.T) {
 
 	var stdout bytes.Buffer
 	opts := &root.Options{
-		Output: "table",
 		Stdout: &stdout,
 		Stderr: &bytes.Buffer{},
 	}
@@ -461,7 +453,6 @@ func TestRunUpdate_AssigneeOnly(t *testing.T) {
 
 	var stdout bytes.Buffer
 	opts := &root.Options{
-		Output: "table",
 		Stdout: &stdout,
 		Stderr: &bytes.Buffer{},
 	}
@@ -510,7 +501,6 @@ func TestRunUpdate_AssigneeMe(t *testing.T) {
 
 	var stdout bytes.Buffer
 	opts := &root.Options{
-		Output: "table",
 		Stdout: &stdout,
 		Stderr: &bytes.Buffer{},
 	}
@@ -552,7 +542,6 @@ func TestUpdateCmd_CobraExecution_WithAssignee(t *testing.T) {
 
 	var stdout bytes.Buffer
 	opts := &root.Options{
-		Output: "table",
 		Stdout: &stdout,
 		Stderr: &bytes.Buffer{},
 	}

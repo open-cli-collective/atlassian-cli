@@ -27,7 +27,7 @@ func TestRunDelete_SingleIssue(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout, stderr bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &stderr}
+	opts := &root.Options{Stdout: &stdout, Stderr: &stderr}
 	opts.SetAPIClient(client)
 
 	err = runDelete(context.Background(), opts, []string{"PROJ-123"}, true)
@@ -49,7 +49,7 @@ func TestRunDelete_MultipleIssues(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout, stderr bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &stderr}
+	opts := &root.Options{Stdout: &stdout, Stderr: &stderr}
 	opts.SetAPIClient(client)
 
 	err = runDelete(context.Background(), opts, []string{"PROJ-1", "PROJ-2", "PROJ-3"}, true)
@@ -75,7 +75,7 @@ func TestRunDelete_PartialFailure(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout, stderr bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &stderr}
+	opts := &root.Options{Stdout: &stdout, Stderr: &stderr}
 	opts.SetAPIClient(client)
 
 	err = runDelete(context.Background(), opts, []string{"PROJ-1", "PROJ-2", "PROJ-3"}, true)
@@ -95,7 +95,6 @@ func TestRunDelete_PromptDeclined(t *testing.T) {
 
 	var stdout, stderr bytes.Buffer
 	opts := &root.Options{
-		Output: "table",
 		Stdout: &stdout,
 		Stderr: &stderr,
 		Stdin:  bytes.NewBufferString("n\n"),
@@ -116,7 +115,6 @@ func TestRunDelete_BatchPromptDeclined(t *testing.T) {
 
 	var stdout, stderr bytes.Buffer
 	opts := &root.Options{
-		Output: "table",
 		Stdout: &stdout,
 		Stderr: &stderr,
 		Stdin:  bytes.NewBufferString("n\n"),
@@ -142,7 +140,6 @@ func TestRunDelete_PromptAccepted(t *testing.T) {
 
 	var stdout, stderr bytes.Buffer
 	opts := &root.Options{
-		Output: "table",
 		Stdout: &stdout,
 		Stderr: &stderr,
 		Stdin:  bytes.NewBufferString("y\n"),
@@ -167,7 +164,6 @@ func TestRunDelete_BatchPromptAccepted(t *testing.T) {
 
 	var stdout, stderr bytes.Buffer
 	opts := &root.Options{
-		Output: "table",
 		Stdout: &stdout,
 		Stderr: &stderr,
 		Stdin:  bytes.NewBufferString("y\n"),
@@ -192,7 +188,7 @@ func TestRunDelete_AllFailures(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout, stderr bytes.Buffer
-	opts := &root.Options{Output: "table", Stdout: &stdout, Stderr: &stderr}
+	opts := &root.Options{Stdout: &stdout, Stderr: &stderr}
 	opts.SetAPIClient(client)
 
 	err = runDelete(context.Background(), opts, []string{"PROJ-1", "PROJ-2"}, true)

@@ -5,8 +5,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/open-cli-collective/atlassian-go/view"
-
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
@@ -43,8 +41,6 @@ func newGetCmd(opts *root.Options) *cobra.Command {
 }
 
 func runGet(ctx context.Context, opts *root.Options, keyOrID, fieldsFlag string) error {
-	v := opts.View()
-
 	client, err := opts.APIClient()
 	if err != nil {
 		return err
@@ -63,10 +59,6 @@ func runGet(ctx context.Context, opts *root.Options, keyOrID, fieldsFlag string)
 		return jtkpresent.EmitIDs(opts, []string{project.Key})
 	}
 
-	if fieldsFlag != "" && v.Format == view.FormatJSON {
-		return jtkpresent.ErrFieldsWithJSON
-	}
-
 	selected, projected, err := projection.Resolve(
 		ctx,
 		jtkpresent.ProjectDetailSpec,
@@ -82,10 +74,6 @@ func runGet(ctx context.Context, opts *root.Options, keyOrID, fieldsFlag string)
 	project, err := client.GetProject(ctx, keyOrID, api.ProjectGetExpand)
 	if err != nil {
 		return err
-	}
-
-	if v.Format == view.FormatJSON {
-		return v.JSON(project)
 	}
 
 	presenter := jtkpresent.ProjectPresenter{}

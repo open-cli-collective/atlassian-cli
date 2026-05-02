@@ -83,7 +83,7 @@ func TestRunMove_ExplicitTypeResolvesViaCache(t *testing.T) {
 	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
 	testutil.RequireNoError(t, err)
 
-	opts := &root.Options{Output: "table", Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	err = runMove(context.Background(), opts, []string{"PROJ-1"}, "TARGET", "Task", false, true)
@@ -120,7 +120,7 @@ func TestRunMove_DefaultsFromSourceTypeViaCache(t *testing.T) {
 	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
 	testutil.RequireNoError(t, err)
 
-	opts := &root.Options{Output: "table", Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	err = runMove(context.Background(), opts, []string{"PROJ-1"}, "TARGET", "", false, true)
@@ -159,7 +159,7 @@ func TestRunMove_SourceTypeMissingFallsBackToCachedNonSubtask(t *testing.T) {
 	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
 	testutil.RequireNoError(t, err)
 
-	opts := &root.Options{Output: "table", Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	err = runMove(context.Background(), opts, []string{"PROJ-1"}, "TARGET", "", false, true)
@@ -236,7 +236,7 @@ func TestRunMove_DefaultTypePathAttemptsRefreshOnErrCacheMiss(t *testing.T) {
 	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
 	testutil.RequireNoError(t, err)
 
-	opts := &root.Options{Output: "table", Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	err = runMove(context.Background(), opts, []string{"PROJ-1"}, "TARGET", "", false, true)
@@ -274,7 +274,7 @@ func TestRunMove_DefaultTypePathFailsWhenRefreshUnreachable(t *testing.T) {
 	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
 	testutil.RequireNoError(t, err)
 
-	opts := &root.Options{Output: "table", Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	err = runMove(context.Background(), opts, []string{"PROJ-1"}, "TARGET", "", false, true)
@@ -314,7 +314,7 @@ func TestRunMove_ColdCacheErrorsInsteadOfEmptyID(t *testing.T) {
 	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
 	testutil.RequireNoError(t, err)
 
-	opts := &root.Options{Output: "table", Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	err = runMove(context.Background(), opts, []string{"PROJ-1"}, "TARGET", "Task", false, true)
@@ -372,7 +372,7 @@ func TestRunMove_NoCachedIssueTypesPromptsToSpecifyType(t *testing.T) {
 	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
 	testutil.RequireNoError(t, err)
 
-	opts := &root.Options{Output: "table", Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	err = runMove(context.Background(), opts, []string{"PROJ-1"}, "TARGET", "", false, true)

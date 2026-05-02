@@ -5,9 +5,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/open-cli-collective/atlassian-go/view"
-
-	jtkartifact "github.com/open-cli-collective/jira-ticket-cli/internal/artifact"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
 )
@@ -40,8 +37,6 @@ For the exact JSON needed for editing, use 'jtk auto export' instead.`,
 }
 
 func runGet(ctx context.Context, opts *root.Options, ruleID string, showComponents bool) error {
-	v := opts.View()
-
 	client, err := opts.APIClient()
 	if err != nil {
 		return err
@@ -54,10 +49,6 @@ func runGet(ctx context.Context, opts *root.Options, ruleID string, showComponen
 
 	if opts.EmitIDOnly() {
 		return jtkpresent.EmitIDs(opts, []string{rule.Identifier()})
-	}
-
-	if v.Format == view.FormatJSON {
-		return v.RenderArtifact(jtkartifact.ProjectAutomationRule(rule, opts.ArtifactMode()))
 	}
 
 	presenter := jtkpresent.AutomationPresenter{}

@@ -9,11 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/open-cli-collective/atlassian-go/artifact"
-	"github.com/open-cli-collective/atlassian-go/view"
-
 	"github.com/open-cli-collective/jira-ticket-cli/api"
-	jtkartifact "github.com/open-cli-collective/jira-ticket-cli/internal/artifact"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cache"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/mutation"
@@ -123,17 +119,11 @@ func newListCmd(opts *root.Options) *cobra.Command {
 }
 
 func runList(ctx context.Context, opts *root.Options, client *api.Client, boardID int, state string, maxResults int, nextPageToken, fieldsFlag string) error {
-	v := opts.View()
-
 	idOnly := opts.EmitIDOnly()
 
 	startAt, err := jtkpresent.ParseStartAtToken(nextPageToken)
 	if err != nil {
 		return err
-	}
-
-	if !idOnly && fieldsFlag != "" && v.Format == view.FormatJSON {
-		return jtkpresent.ErrFieldsWithJSON
 	}
 
 	var selected []projection.ColumnSpec
@@ -188,11 +178,6 @@ func runList(ctx context.Context, opts *root.Options, client *api.Client, boardI
 
 	if len(page) == 0 {
 		return jtkpresent.Emit(opts, jtkpresent.SprintPresenter{}.PresentEmpty())
-	}
-
-	if v.Format == view.FormatJSON {
-		arts := jtkartifact.ProjectSprints(page, opts.ArtifactMode())
-		return v.RenderArtifactList(artifact.NewListResult(arts, hasMore))
 	}
 
 	model := jtkpresent.SprintPresenter{}.PresentListWithPagination(page, opts.IsExtended(), hasMore, nextToken)
@@ -258,12 +243,6 @@ func newCurrentCmd(opts *root.Options) *cobra.Command {
 }
 
 func runCurrent(ctx context.Context, opts *root.Options, client *api.Client, board *api.Board, fieldsFlag string) error {
-	v := opts.View()
-
-	if !opts.EmitIDOnly() && fieldsFlag != "" && v.Format == view.FormatJSON {
-		return jtkpresent.ErrFieldsWithJSON
-	}
-
 	var selected []projection.ColumnSpec
 	var projected bool
 	if !opts.EmitIDOnly() {
@@ -288,10 +267,6 @@ func runCurrent(ctx context.Context, opts *root.Options, client *api.Client, boa
 
 	if opts.EmitIDOnly() {
 		return jtkpresent.EmitIDs(opts, []string{strconv.Itoa(sprint.ID)})
-	}
-
-	if v.Format == view.FormatJSON {
-		return v.RenderArtifact(jtkartifact.ProjectSprint(sprint, opts.ArtifactMode()))
 	}
 
 	// Enrich synthetic board (no name) for table output paths.
@@ -326,9 +301,6 @@ func newIssuesCmd(opts *root.Options) *cobra.Command {
   jtk sprints issues 456 --fields KEY,STATUS,customfield_10005`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if !opts.EmitIDOnly() && fieldsFlag != "" && opts.View().Format == view.FormatJSON {
-				return jtkpresent.ErrFieldsWithJSON
-			}
 			client, err := opts.APIClient()
 			if err != nil {
 				return err
@@ -349,8 +321,6 @@ func newIssuesCmd(opts *root.Options) *cobra.Command {
 }
 
 func runIssues(ctx context.Context, opts *root.Options, sprintID int, maxResults int, nextPageToken string, fieldsFlag string) error {
-	v := opts.View()
-
 	client, err := opts.APIClient()
 	if err != nil {
 		return err
@@ -410,11 +380,6 @@ func runIssues(ctx context.Context, opts *root.Options, sprintID int, maxResults
 
 	if len(result.Issues) == 0 {
 		return jtkpresent.Emit(opts, jtkpresent.SprintPresenter{}.PresentNoIssues())
-	}
-
-	if v.Format == view.FormatJSON {
-		arts := jtkartifact.ProjectIssues(result.Issues, opts.ArtifactMode())
-		return v.RenderArtifactList(artifact.NewListResult(arts, hasMore))
 	}
 
 	model := jtkpresent.IssuePresenter{}.PresentListWithPagination(result.Issues, opts.IsExtended(), hasMore, nextToken)

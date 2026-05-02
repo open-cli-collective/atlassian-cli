@@ -63,7 +63,7 @@ Use --extended for additional fields (rank, permissions).`,
 	}
 
 	cmd.Flags().StringVar(&search, "search", "", "Search dashboards by name")
-	cmd.Flags().IntVar(&maxResults, "max", 50, "Maximum number of results")
+	cmd.Flags().IntVarP(&maxResults, "max", "m", 50, "Maximum number of results")
 
 	return cmd
 }

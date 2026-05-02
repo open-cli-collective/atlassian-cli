@@ -10,6 +10,7 @@ import (
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cache"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/present/projection"
 )
 
@@ -196,4 +197,13 @@ func TestRunSearch_Fields_HumanName_CacheHit_SkipsFieldsFetch(t *testing.T) {
 	if cs.fieldsCalls != 0 {
 		t.Errorf("fresh cache must suppress live GetFields; got %d call(s)", cs.fieldsCalls)
 	}
+}
+
+func TestNewSearchCmd_MaxFlagShape(t *testing.T) {
+	t.Parallel()
+	cmd := newSearchCmd(&root.Options{})
+	maxFlag := cmd.Flags().Lookup("max")
+	testutil.NotNil(t, maxFlag)
+	testutil.Equal(t, maxFlag.Shorthand, "m")
+	testutil.Equal(t, maxFlag.DefValue, "50")
 }

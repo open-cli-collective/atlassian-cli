@@ -169,7 +169,8 @@ func TestNewSearchCmd(t *testing.T) {
 	testutil.NotNil(t, cmd.Flags().Lookup("max"))
 	testutil.NotNil(t, cmd.Flags().Lookup("next-page-token"))
 	testutil.NotNil(t, cmd.Flags().Lookup("fields"))
-	testutil.Equal(t, cmd.Flags().Lookup("max").DefValue, "10")
+	testutil.Equal(t, cmd.Flags().Lookup("max").DefValue, "50")
+	testutil.Equal(t, cmd.Flags().Lookup("max").Shorthand, "m")
 }
 
 func TestRunSearch_DefaultTableMatchesSpecColumnOrder(t *testing.T) {

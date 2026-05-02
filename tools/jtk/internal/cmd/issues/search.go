@@ -46,7 +46,7 @@ func newSearchCmd(opts *root.Options) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&jql, "jql", "", "JQL query string (required)")
-	cmd.Flags().IntVarP(&maxResults, "max", "m", 25, "Maximum number of results to return")
+	cmd.Flags().IntVarP(&maxResults, "max", "m", 50, "Maximum number of results to return")
 	cmd.Flags().StringVar(&nextPageToken, "next-page-token", "", "Token for next page of results")
 	cmd.Flags().BoolVar(&allFields, "all-fields", false, "Include all fields (e.g. description)")
 	_ = cmd.Flags().MarkDeprecated("all-fields", "use --fields description instead")

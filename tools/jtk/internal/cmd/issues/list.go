@@ -54,7 +54,7 @@ func newListCmd(opts *root.Options) *cobra.Command {
 
 	cmd.Flags().StringVarP(&project, "project", "p", "", "Filter by project key or name")
 	cmd.Flags().StringVarP(&sprint, "sprint", "s", "", "Filter by sprint name, numeric ID, or 'current'")
-	cmd.Flags().IntVarP(&maxResults, "max", "m", 25, "Maximum number of results to return")
+	cmd.Flags().IntVarP(&maxResults, "max", "m", 50, "Maximum number of results to return")
 	cmd.Flags().StringVar(&nextPageToken, "next-page-token", "", "Token for next page of results")
 	cmd.Flags().BoolVar(&allFields, "all-fields", false, "Include all fields (e.g. description)")
 	_ = cmd.Flags().MarkDeprecated("all-fields", "use --fields description instead")

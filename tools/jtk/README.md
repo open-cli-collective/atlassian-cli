@@ -291,7 +291,7 @@ jtk issues list --project MYPROJECT --fields summary,status,customfield_10005
 |------|-------|---------|-------------|
 | `--project` | `-p` | | Project key or name |
 | `--sprint` | `-s` | | Filter by sprint: sprint name, numeric ID, or `current` |
-| `--max` | `-m` | `25` | Maximum number of results to return |
+| `--max` | `-m` | `50` | Maximum number of results to return |
 | `--fields` | | | Comma-separated display columns (headers, Jira field IDs, or human names) |
 | `--next-page-token` | | | Token for next page of results |
 
@@ -397,7 +397,7 @@ jtk issues search --jql "project = MYPROJECT" --fields summary,status
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
 | `--jql` | | | JQL query string (**required**) |
-| `--max` | `-m` | `25` | Maximum number of results to return |
+| `--max` | `-m` | `50` | Maximum number of results to return |
 | `--fields` | | | Comma-separated display columns (headers, Jira field IDs, or human names) |
 | `--next-page-token` | | | Token for next page of results |
 
@@ -1098,11 +1098,11 @@ jtk users search "john"
 jtk users search "john" --max 20
 ```
 
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--max` | `10` | Maximum number of results |
-| `--fields` | | Comma-separated display columns |
-| `--next-page-token` | | Token for next page of results |
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--max` | `-m` | `50` | Maximum number of results |
+| `--fields` | | | Comma-separated display columns |
+| `--next-page-token` | | | Token for next page of results |
 
 **Arguments:**
 - `<query>` - Search query (matches display name, email, etc.) (**required**)
@@ -1292,10 +1292,10 @@ jtk dashboards list --search "Sprint"
 jtk dashboards list --max 10
 ```
 
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--search` | | Search dashboards by name |
-| `--max` | `50` | Maximum number of results |
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--search` | | | Search dashboards by name |
+| `--max` | `-m` | `50` | Maximum number of results |
 
 > Note: Dashboard commands are not available with bearer auth (scoped tokens lack the Dashboard scope).
 

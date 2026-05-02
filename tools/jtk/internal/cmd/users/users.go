@@ -151,7 +151,7 @@ from the page being full (len(results) == --max).`,
 		},
 	}
 
-	cmd.Flags().IntVar(&maxResults, "max", 10, "Maximum number of results")
+	cmd.Flags().IntVarP(&maxResults, "max", "m", 50, "Maximum number of results")
 	cmd.Flags().StringVar(&nextPageToken, "next-page-token", "", "Decimal startAt for the next page")
 	cmd.Flags().StringVar(&fieldsFlag, "fields", "", "Comma-separated display columns (UserListSpec headers)")
 

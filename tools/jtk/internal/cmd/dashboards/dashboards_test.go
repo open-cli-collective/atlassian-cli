@@ -710,3 +710,12 @@ func TestRunGadgetsAdd_ZeroPosition(t *testing.T) {
 	testutil.Equal(t, req.Position.Row, 0)
 	testutil.Equal(t, req.Position.Column, 0)
 }
+
+func TestNewListCmd_MaxFlagShape(t *testing.T) {
+	t.Parallel()
+	cmd := newListCmd(&root.Options{})
+	maxFlag := cmd.Flags().Lookup("max")
+	testutil.NotNil(t, maxFlag)
+	testutil.Equal(t, maxFlag.Shorthand, "m")
+	testutil.Equal(t, maxFlag.DefValue, "50")
+}

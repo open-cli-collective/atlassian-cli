@@ -666,3 +666,12 @@ func TestRunList_Fields_HumanName_CacheHit_SkipsFieldsFetch(t *testing.T) {
 		t.Errorf("fresh cache must suppress live GetFields; got %d call(s)", cs.fieldsCalls)
 	}
 }
+
+func TestNewListCmd_MaxFlagShape(t *testing.T) {
+	t.Parallel()
+	cmd := newListCmd(&root.Options{})
+	maxFlag := cmd.Flags().Lookup("max")
+	testutil.NotNil(t, maxFlag)
+	testutil.Equal(t, maxFlag.Shorthand, "m")
+	testutil.Equal(t, maxFlag.DefValue, "50")
+}

@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/open-cli-collective/atlassian-go/testutil"
@@ -564,4 +565,55 @@ func TestUpdateCmd_CobraExecution_WithAssignee(t *testing.T) {
 	fields := reqBody["fields"].(map[string]any)
 	assigneeField := fields["assignee"].(map[string]any)
 	testutil.Equal(t, assigneeField["accountId"], "61292e4c4f29230069621c5f")
+}
+
+func TestRunUpdate_TypeChange_PollNotFound_ContinuesFieldUpdates(t *testing.T) {
+	seedCacheForIssues(t)
+	testutil.RequireNoError(t, cache.WriteResource("issuetypes", "24h", map[string][]api.IssueType{
+		"PROJ": {
+			{ID: "10000", Name: "Epic"},
+			{ID: "10001", Name: "Task"},
+		},
+	}))
+
+	var putCalled bool
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/rest/api/3/issue/PROJ-123" && r.Method == "GET":
+			_ = json.NewEncoder(w).Encode(api.Issue{
+				Key: "PROJ-123",
+				ID:  "10001",
+				Fields: api.IssueFields{
+					Summary:   "Original",
+					Project:   &api.Project{Key: "PROJ"},
+					IssueType: &api.IssueType{ID: "10000", Name: "Epic"},
+					Status:    &api.Status{Name: "Open"},
+				},
+			})
+		case r.URL.Path == "/rest/api/3/issue/PROJ-123" && r.Method == "PUT":
+			putCalled = true
+			w.WriteHeader(http.StatusNoContent)
+		case r.URL.Path == "/rest/api/3/bulk/issues/move" && r.Method == "POST":
+			_ = json.NewEncoder(w).Encode(api.MoveIssuesResponse{TaskID: "task-1"})
+		case strings.HasPrefix(r.URL.Path, "/rest/api/3/bulk/queue/"):
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(`{"errorMessages":["not found"]}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	var stdout, stderr bytes.Buffer
+	opts := &root.Options{Stdout: &stdout, Stderr: &stderr}
+	opts.SetAPIClient(client)
+
+	err = runUpdate(context.Background(), opts, "PROJ-123", "New summary", "", "", "", "Task", nil)
+	testutil.RequireNoError(t, err)
+
+	testutil.Contains(t, stderr.String(), "could not be verified")
+	testutil.True(t, putCalled, "field update PUT should still have been called")
 }

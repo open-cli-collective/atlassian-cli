@@ -35,13 +35,13 @@ the exported JSON are ignored — the new rule gets its own identifiers.
 
 New rules are created in DISABLED state by default.`,
 		Example: `  jtk automation create --file rule.json
-  jtk auto create -f new-rule.json`,
+  jtk auto create -F new-rule.json`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runCreate(cmd.Context(), opts, filePath)
 		},
 	}
 
-	cmd.Flags().StringVarP(&filePath, "file", "f", "", "Path to JSON file containing the rule definition (required)")
+	cmd.Flags().StringVarP(&filePath, "file", "F", "", "Path to JSON file containing the rule definition (required)")
 	_ = cmd.MarkFlagRequired("file")
 
 	return cmd

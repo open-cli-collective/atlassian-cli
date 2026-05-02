@@ -45,7 +45,7 @@ field mappings and workflow configuration.`,
 		},
 	}
 
-	cmd.Flags().StringVarP(&filePath, "file", "f", "", "Path to JSON file containing the rule definition (required)")
+	cmd.Flags().StringVarP(&filePath, "file", "F", "", "Path to JSON file containing the rule definition (required)")
 	_ = cmd.MarkFlagRequired("file")
 
 	return cmd

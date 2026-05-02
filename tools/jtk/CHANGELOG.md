@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Breaking:** Short alias for `--file` renamed from `-f` to `-F` on `attachments add`, `automation create`, and `automation update`. `-f` continues to mean `--field` on field-setting commands (`issues create`/`update`, `transitions do`). No back-compat alias. ([#339](https://github.com/open-cli-collective/atlassian-cli/issues/339))
 - Global output flags replaced with `--extended`, `--fulltext`, `--id` per the new output model. The `--full` flag is removed; use `--extended` for admin/schema/audit detail. `--id` takes precedence over `--extended` and `--fulltext`. `--output` / `-o` is hidden but still functional during migration. Per-command `--no-truncate` flags remain as deprecated aliases for `--fulltext`. Initial `--id` support is wired for `me`, `users get`, and `issues get` — remaining commands parse the flag but do not yet collapse output; broader per-command migration continues under #230 follow-ups. ([#231](https://github.com/open-cli-collective/atlassian-cli/issues/231))
 
 ### Added

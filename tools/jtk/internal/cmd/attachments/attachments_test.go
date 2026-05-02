@@ -208,7 +208,13 @@ func TestNewAddCmd(t *testing.T) {
 
 	fileFlag := cmd.Flags().Lookup("file")
 	testutil.NotNil(t, fileFlag)
-	testutil.Equal(t, fileFlag.Shorthand, "f")
+	testutil.Equal(t, fileFlag.Shorthand, "F")
+
+	// -f must not resolve to a registered shorthand on this command.
+	testutil.Nil(t, cmd.Flags().ShorthandLookup("f"))
+	if err := cmd.ParseFlags([]string{"-f", "x.txt"}); err == nil {
+		t.Fatalf("expected error parsing legacy -f shorthand, got nil")
+	}
 }
 
 func TestRunAdd_Success(t *testing.T) {

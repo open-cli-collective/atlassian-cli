@@ -798,7 +798,7 @@ jtk attachments add PROJ-123 --file doc.pdf --file image.png
 
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
-| `--file` | `-f` | | File to attach (**required**, can be repeated) |
+| `--file` | `-F` | | File to attach (**required**, can be repeated) |
 
 **Arguments:**
 - `<issue-key>` - The issue key (**required**)
@@ -1203,7 +1203,7 @@ jtk automation create --file rule-definition.json
 
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
-| `--file` | `-f` | | Path to JSON file containing the rule definition (**required**) |
+| `--file` | `-F` | | Path to JSON file containing the rule definition (**required**) |
 
 > Note: New rules are created in DISABLED state by default.
 
@@ -1221,7 +1221,7 @@ jtk automation update 123 --file updated-rule.json
 
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
-| `--file` | `-f` | | Path to JSON file containing the rule definition (**required**) |
+| `--file` | `-F` | | Path to JSON file containing the rule definition (**required**) |
 
 **Arguments:**
 - `<rule-id>` - The rule ID (**required**)

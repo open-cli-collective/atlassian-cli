@@ -12,6 +12,20 @@ import (
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 )
 
+func TestNewUpdateCmd_FileFlagShorthand(t *testing.T) {
+	t.Parallel()
+	cmd := newUpdateCmd(&root.Options{})
+
+	fileFlag := cmd.Flags().Lookup("file")
+	testutil.NotNil(t, fileFlag)
+	testutil.Equal(t, fileFlag.Shorthand, "F")
+
+	testutil.Nil(t, cmd.Flags().ShorthandLookup("f"))
+	if err := cmd.ParseFlags([]string{"-f", "rule.json"}); err == nil {
+		t.Fatalf("expected error parsing legacy -f shorthand, got nil")
+	}
+}
+
 func TestRunUpdate(t *testing.T) {
 	t.Parallel()
 	t.Run("invalid JSON file", func(t *testing.T) {

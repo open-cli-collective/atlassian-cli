@@ -124,7 +124,7 @@ func newAddCmd(opts *root.Options) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringArrayVarP(&files, "file", "f", nil, "File(s) to attach (can be specified multiple times)")
+	cmd.Flags().StringArrayVarP(&files, "file", "F", nil, "File(s) to attach (can be specified multiple times)")
 	_ = cmd.MarkFlagRequired("file")
 
 	return cmd

@@ -16,6 +16,20 @@ import (
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 )
 
+func TestNewCreateCmd_FileFlagShorthand(t *testing.T) {
+	t.Parallel()
+	cmd := newCreateCmd(&root.Options{})
+
+	fileFlag := cmd.Flags().Lookup("file")
+	testutil.NotNil(t, fileFlag)
+	testutil.Equal(t, fileFlag.Shorthand, "F")
+
+	testutil.Nil(t, cmd.Flags().ShorthandLookup("f"))
+	if err := cmd.ParseFlags([]string{"-f", "rule.json"}); err == nil {
+		t.Fatalf("expected error parsing legacy -f shorthand, got nil")
+	}
+}
+
 func TestRunCreate(t *testing.T) {
 	t.Parallel()
 	t.Run("strips server-assigned fields", func(t *testing.T) {

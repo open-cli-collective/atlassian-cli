@@ -299,7 +299,7 @@ func TestRunList_NameFilter_NoMatch(t *testing.T) {
 	testutil.Contains(t, stdout.String(), "No fields found")
 }
 
-func TestRunList_NameFilter_JSON(t *testing.T) {
+func TestRunList_NameFilter_Extended(t *testing.T) {
 	t.Cleanup(cache.SetRootForTest(t.TempDir()))
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode([]api.Field{
@@ -422,7 +422,7 @@ func TestRunCreate_IDOnly(t *testing.T) {
 	testutil.Equal(t, stdout.String(), "customfield_10100\n")
 }
 
-func TestRunCreate_JSON(t *testing.T) {
+func TestRunCreate_EmitsText(t *testing.T) {
 	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusCreated)
@@ -1036,7 +1036,7 @@ func TestRunDelete_EmitsText(t *testing.T) {
 	testutil.Equal(t, stderr.String(), "")
 }
 
-func TestRunOptionsDelete_JSONOutputEmitsText(t *testing.T) {
+func TestRunOptionsDelete_EmitsText(t *testing.T) {
 	t.Parallel()
 	callCount := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

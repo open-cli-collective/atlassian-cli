@@ -523,7 +523,7 @@ func TestRunGetMulti_IDOnly(t *testing.T) {
 	testutil.Contains(t, output, "PROJ-2")
 }
 
-func TestRunGetMulti_JSON(t *testing.T) {
+func TestRunGetMulti_DefaultOutput(t *testing.T) {
 	t.Parallel()
 	issues := testIssues()
 	server := newMultiIssueServer(t, issues)

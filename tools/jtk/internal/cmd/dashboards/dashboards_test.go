@@ -555,7 +555,7 @@ func TestRunGadgetsRemove(t *testing.T) {
 	testutil.Equal(t, stdout.String(), "Removed gadget 42 from dashboard 10001\n")
 }
 
-func TestRunGadgetsRemove_JSONOutputEmitsText(t *testing.T) {
+func TestRunGadgetsRemove_EmitsText(t *testing.T) {
 	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNoContent)

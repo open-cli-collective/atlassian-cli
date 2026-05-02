@@ -30,8 +30,9 @@ curl -s https://YOUR-SITE.atlassian.net/_edge/tenant_info | jq -r .cloudId
 
 # $PROJECT_ARI — construct from cloud ID and project ID
 # Format: ari:cloud:jira:$CLOUD_ID:project/$PROJECT_ID
-jtk projects get $PROJECT --id
-# → ari:cloud:jira:$CLOUD_ID:project/$PROJECT_ID
+jtk projects get $PROJECT --extended
+# Find the numeric project ID in the extended output, then construct:
+# ari:cloud:jira:$CLOUD_ID:project/$PROJECT_ID
 
 # $CUSTOM_SELECT_FIELD — a single-select custom field ID
 # List custom fields and find one with "select" type (e.g., "Banking Platform")

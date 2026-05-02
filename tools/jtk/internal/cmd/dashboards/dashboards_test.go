@@ -393,7 +393,7 @@ func TestRunDelete(t *testing.T) {
 	testutil.Equal(t, stdout.String(), "Deleted dashboard 10001\n")
 }
 
-func TestRunDelete_JSONOutputEmitsText(t *testing.T) {
+func TestRunDelete_EmitsText(t *testing.T) {
 	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNoContent)

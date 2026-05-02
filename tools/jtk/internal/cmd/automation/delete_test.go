@@ -156,7 +156,7 @@ func TestRunDelete_PromptDeclined(t *testing.T) {
 	testutil.Equal(t, stdout.String(), "Deletion cancelled.\n")
 }
 
-func TestRunDelete_JSONOutputIgnored(t *testing.T) {
+func TestRunDelete_EmitsText(t *testing.T) {
 	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

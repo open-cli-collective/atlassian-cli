@@ -64,6 +64,14 @@ func TestNewCmd_FullFlagRemoved(t *testing.T) {
 	}
 }
 
+func TestNewCmd_OutputFlagRemoved(t *testing.T) {
+	t.Parallel()
+	cmd, _ := NewCmd()
+	if f := cmd.PersistentFlags().Lookup("output"); f != nil {
+		t.Errorf("--output should have been removed; still registered as %q", f.Name)
+	}
+}
+
 func TestNewCmd_FlagDefaults(t *testing.T) {
 	t.Parallel()
 	cmd, _ := NewCmd()

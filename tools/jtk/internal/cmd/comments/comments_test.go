@@ -728,7 +728,7 @@ func TestRunDelete_TextConfirmation(t *testing.T) {
 	testutil.Equal(t, stderr.String(), "")
 }
 
-func TestRunDelete_JSONOutputEmitsText(t *testing.T) {
+func TestRunDelete_EmitsText(t *testing.T) {
 	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNoContent)

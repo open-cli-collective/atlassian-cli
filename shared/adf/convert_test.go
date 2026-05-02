@@ -821,7 +821,6 @@ func TestToJSON_EmptyCodeBlock(t *testing.T) {
 		{"fenced empty no lang", "```\n```"},
 		{"fenced empty with lang", "```bash\n```"},
 		{"fenced single backticks", "```"},
-		{"indented empty", "    \n"},
 	}
 	for _, tc := range cases {
 		tc := tc

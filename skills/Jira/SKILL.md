@@ -1,9 +1,11 @@
 ---
 name: Jira
-description: Jira issue tracking and project management via jtk CLI — search, create (single or bulk), update, assign, transition issues, manage sprints and boards, comments, attachments, cross-issue links, parent/sub-task hierarchies. USE WHEN jira, issues, tickets, sprint, standup, backlog, board, jira board, JQL, create issue, create tickets, bulk create, multiple tickets, sub-tasks, parent with children, epic with stories, decompose spec into tickets, turn PRD into tickets, link issues, my tickets, assign issue, move ticket, transition issue, move to done, add comment, attach to issue, jira attachment, jira status, what am I working on.
+description: Jira issue tracking and project management — search, create (single or bulk), update, assign, transition issues, manage sprints and boards, comments, attachments, cross-issue links, parent/sub-task hierarchies. USE WHEN jira, issues, tickets, sprint, standup, backlog, board, jira board, JQL, create issue, create tickets, bulk create, multiple tickets, sub-tasks, parent with children, epic with stories, decompose spec into tickets, turn PRD into tickets, link issues, my tickets, assign issue, move ticket, transition issue, move to done, add comment, attach to issue, jira attachment, jira status, what am I working on.
 ---
 
 # Jira
+
+> **Skill expects:** jtk v1.0.84+
 
 Issue tracking and project management via the `jtk` CLI tool ([open-cli-collective/atlassian-cli](https://github.com/open-cli-collective/atlassian-cli)).
 
@@ -31,13 +33,13 @@ If still missing: ask the user. Then suggest they persist it:
 
 Env var wins over config. Once set, `jtk issues list` (and other project-scoped commands) work without `--project`.
 
-### Board ID
+### Board (ID or name)
 
-`jtk` has no default-board mechanism — there's no env var or config key for a default board. If a board ID is needed and the user hasn't provided one, ask which board. Suggest `jtk boards list` or `jtk boards list --project KEY` to discover IDs.
+`jtk` has no default-board mechanism — there's no env var or config key for a default board. If a board is needed and the user hasn't provided one, ask which board. Suggest `jtk boards list` or `jtk boards list --project KEY` to discover boards. The `--board` flag (and board-accepting positional arguments) accept either a numeric ID or a board name — names are resolved via the local cache (see Cache Warming).
 
-### Sprint, issue key, attachment ID, comment ID, etc.
+### Sprint (ID or name), issue key, attachment ID, comment ID, etc.
 
-No defaults exist. Ask the user. Do not guess.
+No defaults exist. Ask the user. Do not guess. Sprint-accepting arguments (`jtk sprints add`, `--sprint` on list) accept either a numeric ID or a sprint name — names are resolved via the local cache (see Cache Warming).
 
 ### Assignee / user identity shortcut
 
@@ -86,7 +88,7 @@ Use `jtk refresh --status` to inspect cache freshness without fetching anything.
 
 - **`--extended`** — includes admin/schema/audit fields on top of the default output. Use when the user asks for "more detail," "all fields," or similar.
 - **`--fulltext`** — disables truncation of descriptions and comments. Use when the user needs full body content (e.g., "show the full description"). `--no-truncate` is a deprecated alias kept during the migration; prefer `--fulltext`.
-- **`--id`** — emits only the primary identifier (issue key, account ID, etc.). Takes precedence over `--extended` and `--fulltext`. Use whenever a downstream step will parse the output — no decoration to strip, formatting is stable. **Caveat for scripts:** when a list command's result is truncated (multi-page), the pagination continuation notice (`More results available ...`) is still appended to STDOUT even with `--id`. For command substitution or line-by-line piping, either size `--max` so all results fit on one page, or post-filter with `grep -oE '[A-Z]+-[0-9]+' | head -1` to isolate just the identifier.
+- **`--id`** — emits only the primary identifier (issue key, account ID, etc.). Takes precedence over `--extended` and `--fulltext`. Works on both reads and mutations — on a create or update, `--id` emits just the created/updated identifier instead of the full post-state block. Use whenever a downstream step will parse the output — no decoration to strip, formatting is stable. **Caveat for scripts:** when a list command's result is truncated (multi-page), the pagination continuation notice (`More results available ...`) is still appended to STDOUT even with `--id`. For command substitution or line-by-line piping, either size `--max` so all results fit on one page, or post-filter with `grep -oE '[A-Z]+-[0-9]+' | head -1` to isolate just the identifier.
 
 `automation export` is the only command that emits JSON — use `--id` for scripting composition.
 
@@ -131,7 +133,7 @@ Use that key directly — no API lookup needed.
 | Unassign | `jtk issues update PROJ-123 --assignee none` (or equivalently `jtk issues assign PROJ-123 --unassign`) |
 | Transition issue | `jtk transitions list PROJ-123` then `jtk transitions do PROJ-123 "Done"` |
 | Current user | `jtk me` (or `jtk me --id` for just the account ID) |
-| Current sprint | `jtk sprints current --board ID` |
+| Current sprint | `jtk sprints current --board ID_OR_NAME` |
 | Add comment | `jtk comments add PROJ-123 --body "..."` |
 
 **Full CLI reference:** load `CliReference.md`

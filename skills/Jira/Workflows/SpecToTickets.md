@@ -63,6 +63,8 @@ Identify:
 
 - **A flat set of peer siblings with no shared top-level parent.** When a spec is a grab-bag of loosely-related work items that don't need a coordinating parent, a flat set of top-level tickets is fine. Each ticket's `parent` is `none` — the Project itself is the effective parent. Don't invent a coordinator ticket just to satisfy a mental model of hierarchy.
 
+- **Companion files.** Mockups, templates, sample data, or other files the spec references explicitly. These will be mapped to tickets as attachments during composition — see the "Project artifacts" subsection in stage 3a.
+
 - **Ambiguities.** Things that could map to multiple ticket shapes, where the spec is unclear about work boundaries, or where the relationship between units isn't explicit. Identify them during this stage. They'll be written to the workfile's `ambiguities` field when you compose the workfile in stage 3a (the workfile is the source of truth — don't rely on conversation context to hold them). They're surfaced to the user in stage 3b's proposal and resolved during stage 4 confirmation.
 
 ### 2. Discovery (Up-Front and On-Demand)
@@ -178,6 +180,7 @@ The `---` sits outside description bodies (which are protected by the comment ma
 
 - **spec_title:** Auth Rework PRD
 - **spec_source:** Confluence page 12345 (https://...)
+- **spec_dir:** `/home/user/project-specs/auth-rework`
 - **project:** ANP
 - **created:** 2026-04-20T15:30:00-07:00
 - **updated:** 2026-04-20T15:45:00-07:00
@@ -207,6 +210,8 @@ Field notes:
 - **`target_sprint`** is `none` if no sprint is requested.
 - **`discovered_types`** is populated at the end of stage 2 from `jtk issues types --project KEY`. Mark sub-task types explicitly (e.g., "Sub-task (SUBTASK: yes, requires --parent)") so validation and composition can distinguish them. Stage 4a's type-related validation checks reference this list — it's the authoritative record of what types are valid for this batch, independent of conversation context.
 - **`discovered_priorities`** is populated at the end of stage 2 from `jtk issues field-options priority --issue EXISTING_KEY`, or `none` if the user doesn't plan to set priorities. Stage 4a's priority validation check references this list.
+- **`spec_dir`** — the absolute filesystem path of the directory containing the spec file. Used to resolve relative paths in the `artifacts` field. When the spec source is not a local file (e.g., a Confluence page), set to the directory the user provides as the artifact root, or `none` if no local artifacts exist.
+- **`artifacts`** maps companion files to the tickets they should be attached to after creation. See the "Project artifacts" subsection below for identification rules and path conventions. Use `none` when no artifacts are identified.
 - **`ambiguities`** is a list of open questions identified during stage 1 that the user needs to resolve. Empty (`none`) if none were found. The agent writes these here during stage 3a composition; stage 3b surfaces them to the user; stage 4 confirmation resolves them (and the agent clears or updates the list as each is resolved). If a revision during stage 4 introduces a new ambiguity, add it here and re-surface.
 
 **Temp IDs:** each ticket has a `jira_key` field initially set to `SpecToTicketWorkflowTemp-N` where N is a batch-local integer. References to other tickets in this batch — in `parent`, in `links[].target`, in description body prose, or in `short_description` — use the same temp ID. During execution (stage 5, inside ManageIssueSet), each temp ID gets replaced file-wide with the real Jira key as that ticket is created.
@@ -233,6 +238,7 @@ Field notes:
 - `links` — a structured list of `type` + `target` pairs, or `none`. The `type:` value is the canonical NAME from Jira's link-type model (e.g., `Blocks`, `Relates`, `Cloners`, `Duplicate`) — matches what `jtk links create --type` accepts. Run `jtk links types` to see the NAME column for your instance. The link entry lives in the SOURCE ticket's section; `target:` is the link's INWARD endpoint. A single link is stored once (in the source's section only), not twice: Jira represents the relationship from both sides automatically, rendering the OUTWARD phrase on the source side and the INWARD phrase on the target side. Example: if `SpecToTicketWorkflowTemp-2` blocks `SpecToTicketWorkflowTemp-3`, the entry lives in **#2's** section as `type: Blocks`, `target: SpecToTicketWorkflowTemp-3`. Do NOT add an inverse `is blocked by` entry in #3's section — that would double-count the relationship in Jira.
 - `source` — where in the spec this ticket was derived from (section heading, page, URL if applicable)
 - `short_description` — 1-3 sentence brief for the proposal view, NOT the ticket description
+- `artifacts` — list of file paths to attach to this ticket after creation, or `none`. Paths are relative to `spec_dir` (prefix `./`) when the file is at or below the spec directory, or absolute when outside it.
 
 Plus a `### Description` body enclosed in marker comments — the full multi-paragraph ticket description that will be written to Jira. This is the meat of the ticket and should be substantial enough that someone picking up the ticket cold can act on it without reading the spec. Include:
 
@@ -246,6 +252,47 @@ Descriptions should be as long as the work requires — multiple paragraphs, hea
 
 **Jira markdown support:** Jira Cloud accepts a substantial subset of standard Markdown in the `description` field: headings, bold/italic/strikethrough, inline code and fenced code blocks, ordered/unordered lists, tables, task-list checkboxes, blockquotes, links, and horizontal rules. For the authoritative list of supported syntax, see [Atlassian's Markdown docs](https://support.atlassian.com/jira-software-cloud/docs/markdown-and-keyboard-shortcuts/#Edit-and-create-with-markdown). Most spec content ports directly; exotic extensions (e.g., footnotes, definition lists) may not render.
 
+#### Project artifacts
+
+The spec may reference companion files — mockups, templates, sample data — that should be attached to the corresponding Jira tickets after creation. The spec's own references are the primary source for this mapping.
+
+**Identifying artifacts:**
+
+1. **Spec-referenced files.** Read the spec for explicit references to companion files: mockup images cited in UI sections, CSV templates referenced in parsing or download sections, sample data files cited in validation sections. Map each to the ticket whose scope covers the spec section that references it. A file may map to multiple tickets when more than one ticket's scope references it.
+
+2. **Top-level documents.** Scan `spec_dir` for conventional project documents — BRDs, PRDs, the spec file itself. These attach to the top-level parent or coordination ticket without needing an explicit spec reference. Do not scan for other files beyond these two categories unless the user directs otherwise.
+
+**Path representation:** Paths in the `artifacts` field are relative to `spec_dir` when the file is at or below that directory. Use `./` prefix for same-directory files and `./subdir/` for child directories. Use an absolute path when the file lives outside the spec directory tree.
+
+**Backtick quoting:** All artifact paths in the workfile and proposal are enclosed in backticks (e.g., `` `./mockup_upload_page.png` ``). Backticks are structural delimiters — they disambiguate paths that contain spaces or commas. When resolving a path against the filesystem or passing it to `jtk attachments add --file`, strip the enclosing backticks first; the filesystem path is the content between them. The `spec_dir` value is also backtick-quoted and must be stripped before use in path resolution.
+
+Record the mapping in the workfile as a batch-level metadata field:
+
+```
+- **artifacts:**
+  - file: `./BRD - Auth Rework.docx`
+    tickets: [SpecToTicketWorkflowTemp-1]
+    note: Business requirements document — parent tracking ticket
+  - file: `./mockup_upload_page.png`
+    tickets: [SpecToTicketWorkflowTemp-5]
+    note: Upload page UI mockup (§2.2)
+  - file: `./mockups/component_states.png`
+    tickets: [SpecToTicketWorkflowTemp-6]
+    note: Component state diagram from design review (§2.3)
+  - file: `./Bulk Upload Template.csv`
+    tickets: [SpecToTicketWorkflowTemp-3, SpecToTicketWorkflowTemp-5]
+    note: Input CSV template — parser (§3.1) and upload page download link (§2.2)
+  - file: `/home/user/shared-assets/onboarding-flow-diagram.pdf`
+    tickets: [SpecToTicketWorkflowTemp-1]
+    note: Cross-project onboarding flow reference (not in spec dir)
+```
+
+Use `none` when no artifacts are identified. The `file` path must resolve against `spec_dir` for relative paths. Verify each file exists when composing the workfile — flag missing files as ambiguities rather than silently dropping them. If a file exceeds Jira Cloud's attachment size limit (default 10MB, admin-configurable), flag it as an ambiguity during composition rather than waiting for an upload failure at execution time.
+
+The mapping is informational during composition and is surfaced to the user in the stage 3b proposal. The user may add, remove, or reassign artifacts during stage 4 confirmation. Artifact temp-ID references in `tickets` participate in Phase 1's file-wide find-and-replace alongside all other temp-ID references.
+
+The per-ticket `artifacts` field is the execution-facing projection of this batch-level mapping: each ticket lists only its own file paths (no notes — the batch-level entry has those). Both views must stay consistent; stage 4a validation check #20 enforces this.
+
 #### Canonical workfile template
 
 The following is a minimal but complete workfile showing all required structural pieces — the batch-metadata header, one fully-formed ticket section with every required field, the marker-delimited description body, and the `---` seam leading into the next ticket. Agents composing a workfile from scratch should use this as the structural template; the three detailed examples below fill out the variety of ticket shapes (standalone, sub-task with links, sub-task under existing issue):
@@ -255,6 +302,7 @@ The following is a minimal but complete workfile showing all required structural
 
 - **spec_title:** <spec title>
 - **spec_source:** <where the spec lives (URL, page ref, inline)>
+- **spec_dir:** `<absolute path to directory containing the spec file, or none>`
 - **project:** <PROJECT_KEY>
 - **created:** <ISO 8601 timestamp>
 - **updated:** <ISO 8601 timestamp>
@@ -269,6 +317,19 @@ The following is a minimal but complete workfile showing all required structural
 - **ambiguities:**
   - <open question 1>
   - <open question 2>
+- **artifacts:**
+  - file: `./PRD - Auth Rework.docx`
+    tickets: [SpecToTicketWorkflowTemp-1]
+    note: PRD — parent tracking ticket
+  - file: `./mockup_login_flow.png`
+    tickets: [SpecToTicketWorkflowTemp-2]
+    note: Login flow mockup (§1.4)
+  - file: `./fixtures/sample_sessions.csv`
+    tickets: [SpecToTicketWorkflowTemp-2, SpecToTicketWorkflowTemp-4]
+    note: Test fixture — session storage design (§2.1) and schema migration
+  - file: `/home/user/shared-assets/compliance-checklist.pdf`
+    tickets: [SpecToTicketWorkflowTemp-1]
+    note: Cross-project compliance reference (outside spec dir)
 
 ## Ticket: SpecToTicketWorkflowTemp-1
 
@@ -282,6 +343,9 @@ The following is a minimal but complete workfile showing all required structural
 - **links:** none
 - **source:** <spec section reference>
 - **short_description:** <1-3 sentence brief for the proposal view>
+- **artifacts:**
+  - `./PRD - Auth Rework.docx`
+  - `/home/user/shared-assets/compliance-checklist.pdf`
 
 ### Description
 
@@ -316,6 +380,9 @@ Each example below is a standalone illustration of a common ticket shape. In a r
 - **links:** none
 - **source:** PRD §0 (title + overview)
 - **short_description:** Parent tracking ticket for the auth rework rollout across Q2.
+- **artifacts:**
+  - `./PRD - Auth Rework.docx`
+  - `/home/user/shared-assets/compliance-checklist.pdf`
 
 ### Description
 
@@ -361,6 +428,9 @@ Derived from [PRD Title / Link] §0 (title + overview), §0.3 (compliance), §2.
     target: SpecToTicketWorkflowTemp-5
 - **source:** PRD §2.1 (Session Token Storage)
 - **short_description:** Schema and lifecycle design for Redis-backed session tokens per PRD §2.1. Pulled-forward auth flow from §1.4 and compliance constraints from §0.3. Peer-level relationship with the monitoring sub-task for operational observability of the new store.
+- **artifacts:**
+  - `./mockup_login_flow.png`
+  - `./fixtures/sample_sessions.csv`
 
 ### Description
 
@@ -426,6 +496,8 @@ Derived from PRD §2.1 "Session Token Storage". Flow diagram pulled forward from
 - **links:** none
 - **source:** PRD §2.1 (Acceptance criteria #3)
 - **short_description:** Schema change to the users-db to capture session-token audit fields. Sub-task under the existing quarterly DB infrastructure epic ANP-200.
+- **artifacts:**
+  - `./fixtures/sample_sessions.csv`
 
 ### Description
 
@@ -475,6 +547,18 @@ Show the user a compact overview generated from the workfile. For each ticket, d
 
 **Always use the full `SpecToTicketWorkflowTemp-N` identifiers in the proposal view — never abbreviate to short forms like "Temp-N" or "#N".** The proposal must use the same identifiers as the workfile so the user can cross-reference without ambiguity.
 
+**Artifacts section.** When the workfile's `artifacts` field is non-empty, include an artifacts summary at the top of the proposal, before the ticket list:
+
+```
+Artifacts (4 files identified for attachment after creation):
+  `./PRD - Auth Rework.docx` → SpecToTicketWorkflowTemp-1
+  `./mockup_login_flow.png` → SpecToTicketWorkflowTemp-2
+  `./fixtures/sample_sessions.csv` → SpecToTicketWorkflowTemp-2, SpecToTicketWorkflowTemp-4
+  `/home/user/shared-assets/compliance-checklist.pdf` → SpecToTicketWorkflowTemp-1
+```
+
+Additionally, within each ticket's proposal row, include an `Artifacts:` line listing the paths that will be attached to that ticket.
+
 Example proposal row:
 
 ```
@@ -484,11 +568,14 @@ SpecToTicketWorkflowTemp-3 [child of SpecToTicketWorkflowTemp-1]   type=Developm
    Brief:       Implements POST /api/x per the auth flow in §1.4.
                 Includes schema validation and error-case handling.
    Priority:    Medium
+   Artifacts:   `./mockup_api_flow.png`, `./fixtures/api_test_cases.csv`
    Relationships:
      - blocks SpecToTicketWorkflowTemp-4 (frontend wiring needs this API)
      - relates to ANP-123 (reuses auth middleware)
    [Full description available on request]
 ```
+
+When a ticket has no artifacts, omit the `Artifacts:` line from its proposal row (same as omitting Priority when unset).
 
 Surface any ambiguities from stage 1 as open questions for the user to resolve.
 
@@ -503,6 +590,7 @@ Ask the user to confirm, and wait for a concrete answer before proceeding:
 - Is the hierarchy and relationship structure correct?
 - Any priorities, assignees, or fields to adjust?
 - Any tickets to add or remove?
+- Are the artifact-to-ticket mappings correct? Any files to add, remove, or reassign?
 - Want to review the full description of any specific ticket before approving?
 
 **If the user requests any changes, update the workfile immediately** before responding. Do not hold changes in conversation context and defer the file update — the workfile is the source of truth and must reflect every confirmed edit.
@@ -516,7 +604,7 @@ When updating:
 
 Iterate until the user gives explicit go-ahead. If the user substantially revises the breakdown (adds/removes/merges/splits tickets), regenerate the full proposal from the updated workfile and re-confirm — don't partial-apply changes and proceed.
 
-**When a ticket is removed or merged during revision, scan the workfile for any remaining references to that ticket's temp ID.** Check every location a reference could live: `parent` fields on other tickets, `links[].target` entries on other tickets, prose inside description bodies (between the `<!-- SPECTOTICKETS_DESCRIPTION_START -->` / `<!-- SPECTOTICKETS_DESCRIPTION_END -->` markers), prose inside `short_description`, prose inside `source`, and prose inside the batch-level `ambiguities` field. For each remaining reference, present it to the user with its specific location and ask them to choose:
+**When a ticket is removed or merged during revision, scan the workfile for any remaining references to that ticket's temp ID.** Check every location a reference could live: `parent` fields on other tickets, `links[].target` entries on other tickets, prose inside description bodies (between the `<!-- SPECTOTICKETS_DESCRIPTION_START -->` / `<!-- SPECTOTICKETS_DESCRIPTION_END -->` markers), prose inside `short_description`, prose inside `source`, prose inside the batch-level `ambiguities` field, and `tickets` lists in the batch-level `artifacts` mapping. For each remaining reference, present it to the user with its specific location and ask them to choose:
 
 - **(a) Update the reference to point at a different ticket** — user specifies which. Agent edits the reference in place.
 - **(b) Remove the reference entirely** — agent deletes the reference from whichever field it's in.
@@ -540,7 +628,7 @@ Before proceeding to ManageIssueSet's Execute stage, validate the workfile. Do n
 
 **Checks:**
 
-1. **Every ticket section has all required fields and a description body.** Required bullet-field metadata: `jira_key`, `type`, `summary`, `priority`, `assignee`, `parent`, `labels`, `links`, `source`, `short_description`. The order shown in stage 3a is recommended for readability but is NOT enforced here — validation only checks that every required field is present, not that it appears in a specific position. Plus a `### Description` heading followed by content enclosed in `<!-- SPECTOTICKETS_DESCRIPTION_START -->` and `<!-- SPECTOTICKETS_DESCRIPTION_END -->` markers. The file's top section has the batch fields: `spec_title`, `spec_source`, `project`, `created`, `updated`, `status`, `target_sprint`, `discovered_types`, `discovered_priorities`, `ambiguities`.
+1. **Every ticket section has all required fields and a description body.** Required bullet-field metadata: `jira_key`, `type`, `summary`, `priority`, `assignee`, `parent`, `labels`, `links`, `source`, `short_description`, `artifacts`. The order shown in stage 3a is recommended for readability but is NOT enforced here — validation only checks that every required field is present, not that it appears in a specific position. Plus a `### Description` heading followed by content enclosed in `<!-- SPECTOTICKETS_DESCRIPTION_START -->` and `<!-- SPECTOTICKETS_DESCRIPTION_END -->` markers. The file's top section has the batch fields: `spec_title`, `spec_source`, `spec_dir`, `project`, `created`, `updated`, `status`, `target_sprint`, `discovered_types`, `discovered_priorities`, `ambiguities`, `artifacts`.
 
 2. **Description markers are well-formed.** For every ticket section, exactly one `<!-- SPECTOTICKETS_DESCRIPTION_START -->` marker followed by exactly one `<!-- SPECTOTICKETS_DESCRIPTION_END -->` marker, in that order. No nesting. No overlapping pairs. No start without a matching end. No end without a preceding start. File-wide count of start markers equals file-wide count of end markers equals the number of ticket sections.
 
@@ -560,6 +648,7 @@ Before proceeding to ManageIssueSet's Execute stage, validate the workfile. Do n
    - Prose inside `short_description`
    - Prose inside `source`
    - Prose inside the batch-level `ambiguities` field
+   - `tickets` lists in the batch-level `artifacts` mapping
 
    Each hit must match the `jira_key` value of exactly one ticket section. A reference that doesn't resolve is flagged with its specific location (which ticket section or batch field, and which line).
 
@@ -592,6 +681,8 @@ Before proceeding to ManageIssueSet's Execute stage, validate the workfile. Do n
 18. **`links[]` entries are well-formed.** Each link entry in a `- **links:**` block must have a `type:` line and a `target:` line. Standard shape: `  - type: <value>` followed on the next line by `    target: <value>` (two-space indent for the `- type:` continuation bullet, four-space indent for the `target:` sub-line). Malformed or missing `type`/`target` lines within a link entry will silently break Phase 2 link creation — flag them here. Skip this check when the ticket's `links:` field is `none`.
 
 19. **Batch `status` is `confirmed` before execution.** The batch-metadata `status:` field must be `confirmed` when validation runs pre-execution (stage 5 entry). A `status` of `proposed` or `revised` indicates the user hasn't finished approving the breakdown — execution would bypass the confirmation contract. Any value other than `confirmed` is a hard failure. Rationale: this guards against hand-edits or process errors where someone attempts to invoke execution on an unapproved workfile.
+
+20. **Artifact paths resolve.** If `spec_dir` is `none` and any artifact path (batch-level or per-ticket) is relative (starts with `./`), flag it — relative paths require a non-`none` `spec_dir` to resolve against. For each ticket's `artifacts` field (when not `none`): relative paths (starting with `./`) must resolve against the batch-level `spec_dir`; absolute paths must exist as-is. Flag any file that doesn't exist at the resolved path. Also verify consistency between the batch-level `artifacts` mapping and the per-ticket `artifacts` lists: every path in a ticket-level list should appear in the batch-level mapping with that ticket in its `tickets` list, and vice versa. Mismatches indicate a composition or revision error.
 
 **If validation surfaces any issues:**
 
@@ -627,6 +718,16 @@ Once the user has confirmed the breakdown and validation has passed, proceed to 
 - **Abort execution** and revise the breakdown — user returns to stage 4 to restructure.
 
 Do not silently choose a replacement priority or pattern-match "something close." The per-type scheme mismatch is a real configuration detail the user needs to see and decide on, not something to paper over. This handling applies equally to the initial Phase 1 run and to any resume-from-failure retry.
+
+**Artifact attachment during Phase 1.** After each successful `jtk issues create` and its file-wide find-and-replace, if the ticket's `artifacts` field is not `none`, attach each file. For each path: strip the enclosing backticks, then resolve it — relative paths (starting with `./`) are joined with the batch-level `spec_dir` value (also stripped of backticks) to produce an absolute filesystem path; absolute paths are used as-is. Pass the resolved path to `jtk attachments add <NEW_KEY> --file <RESOLVED_PATH>`. Verify the file exists before uploading. If an attachment fails (file not found, permission denied, size limit exceeded), log the failure and continue — attachment is best-effort enrichment and does not constitute a ticket-creation failure. Do not halt Phase 1 for attachment errors. Report attachment results per ticket in the post-action summary:
+
+```
+Attachments:
+  ✓ `PRD - Auth Rework.docx` → ANP-500
+  ✓ `compliance-checklist.pdf` → ANP-500
+  ✓ `sample_sessions.csv` → ANP-501, ANP-503
+  ✗ `onboarding-flow-diagram.pdf` → ANP-500 (file not found)
+```
 
 **How temp IDs resolve during execution:** this workflow's `SpecToTicketWorkflowTemp-N` convention is specific to the SpecToTickets → ManageIssueSet transition. During ManageIssueSet's Phase 1, each successful `jtk issues create` is followed by a file-wide find-and-replace in the workfile that swaps the ticket's `SpecToTicketWorkflowTemp-N` placeholder with the newly-issued real Jira key. Subsequent tickets that reference that temp ID (in `parent`, `links[].target`, or description prose) will see the real key by the time they're processed. The mechanic is owned by this workflow but executed by ManageIssueSet, so the same semantics are described in ManageIssueSet's "If arriving from SpecToTickets with a workfile" preamble.
 

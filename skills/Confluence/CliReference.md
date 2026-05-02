@@ -1,5 +1,7 @@
 # cfl CLI Reference
 
+> **Covers:** cfl v1.0.36
+
 Reference for the `cfl` command line tool from [open-cli-collective/atlassian-cli](https://github.com/open-cli-collective/atlassian-cli).
 
 ## Authentication
@@ -24,7 +26,7 @@ cfl config test
 |------|-------------|
 | `-o, --output FORMAT` | Output format (see SKILL.md "Output Representation and Format"): `table` (default), `json`, `plain` |
 | `--full` | Inspection-oriented representation (see SKILL.md). Not a content-truncation flag — for `page view` content truncation, use `--no-truncate`. |
-| `--raw` | Source-faithful representation (see SKILL.md). Command-specific. |
+| `--raw` | Source-faithful representation (see SKILL.md). **Not a true global flag** — only registered on `page view`. |
 | `--no-color` | Disable colored output |
 | `-c, --config PATH` | Override config file location (default: `~/.config/cfl/config.yml`) |
 
@@ -55,6 +57,8 @@ cfl [resource] [action] [ID] [flags]
 | `cfl page edit PAGE_ID --parent PAGE_ID` | Move page to new parent |
 | `cfl page copy PAGE_ID --title "Copy Title"` | Copy page |
 | `cfl page copy PAGE_ID --title "Copy" --space OTHER` | Copy to different space |
+| `cfl page copy PAGE_ID --title "Copy" --no-attachments` | Copy without attachments |
+| `cfl page copy PAGE_ID --title "Copy" --no-labels` | Copy without labels |
 | `cfl page delete PAGE_ID` | Delete page (with confirmation) |
 | `cfl page delete PAGE_ID --force` | Delete without confirmation |
 
@@ -158,7 +162,9 @@ echo "# Hello World" | cfl page create -s DEV -t "My Page"
 | `cfl space view KEY` | View space details (alias: `get`) |
 | `cfl space create --key KEY --name "NAME"` | Create space |
 | `cfl space update KEY --name "NAME"` | Update space name |
-| `cfl space delete KEY` | Delete space |
+| `cfl space update KEY --description "TEXT"` | Update space description |
+| `cfl space delete KEY` | Delete space (with confirmation) |
+| `cfl space delete KEY --force` | Delete without confirmation |
 
 ### Space List Flags
 

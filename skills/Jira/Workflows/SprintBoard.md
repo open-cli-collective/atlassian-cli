@@ -11,12 +11,12 @@ Manage sprints and boards — view active sprint, list sprint issues, add issues
 | User Says | Command | Required |
 |-----------|---------|----------|
 | "list boards", "show boards" | `jtk boards list` (optionally `--project KEY` to scope) | Nothing |
-| "board details" | `jtk boards get ID` | Board ID |
-| "current sprint", "active sprint" | `jtk sprints current --board ID` | Board ID |
-| "list sprints" | `jtk sprints list --board ID` | Board ID |
-| "sprint issues", "what's in the sprint" | `jtk sprints issues SPRINT_ID` | Sprint ID |
+| "board details" | `jtk boards get ID_OR_NAME` | Board ID or name |
+| "current sprint", "active sprint" | `jtk sprints current --board ID_OR_NAME` | Board ID or name |
+| "list sprints" | `jtk sprints list --board ID_OR_NAME` | Board ID or name |
+| "sprint issues", "what's in the sprint" | `jtk sprints issues SPRINT_ID_OR_NAME` | Sprint ID or name |
 | "what's in our current sprint" (shortcut) | `jtk issues list --project KEY --sprint current` | Project key |
-| "add to sprint" | `jtk sprints add SPRINT_ID PROJ-1 PROJ-2 ...` | Sprint ID + issue keys |
+| "add to sprint" | `jtk sprints add SPRINT_ID_OR_NAME PROJ-1 PROJ-2 ...` | Sprint ID/name + issue keys |
 
 ## Execute
 
@@ -33,21 +33,23 @@ jtk boards list --project KEY
 ### Get Active Sprint
 
 ```bash
-# Get board ID from customization or ask user
-jtk sprints current --board BOARD_ID
+# Get board ID/name from customization or ask user
+jtk sprints current --board BOARD_ID_OR_NAME
 ```
+
+To include the sprint goal in the output, add `--extended`.
 
 ### List Sprint Issues
 
 Two paths — pick based on what's known:
 
-**Path A: Board-based (when you have a board ID)**
+**Path A: Board-based (when you have a board ID or name)**
 ```bash
 # Get current sprint first
-jtk sprints current --board BOARD_ID
+jtk sprints current --board BOARD_ID_OR_NAME
 
 # Then list issues in that sprint
-jtk sprints issues SPRINT_ID
+jtk sprints issues SPRINT_ID_OR_NAME
 ```
 
 **Path B: Project shortcut (when you only have a project key)**
@@ -63,16 +65,17 @@ Issues are **positional arguments**, not a flag:
 
 ```bash
 # Single issue
-jtk sprints add SPRINT_ID PROJ-123
+jtk sprints add SPRINT_ID_OR_NAME PROJ-123
 
 # Multiple issues
-jtk sprints add SPRINT_ID PROJ-123 PROJ-456 PROJ-789
+jtk sprints add SPRINT_ID_OR_NAME PROJ-123 PROJ-456 PROJ-789
 ```
 
 ## Output Format
 
-- **Boards:** table with ID, Name, Type (Scrum/Kanban)
-- **Sprint info:** Name, State (active/future/closed), Start/End dates
+- **Boards:** table with ID, Type, Project, Name (column order: `ID | TYPE | PROJECT | NAME`)
+- **Sprint list:** table with ID, State, Start, End, Name (column order: `ID | STATE | START | END | NAME`). Sprint goals require `--extended`
+- **Sprint current:** sprint metadata with board reference. Sprint Goal requires `--extended`
 - **Sprint issues:** table with Key, Summary, Status, Assignee — grouped by status if possible
 
 ## Post-Action

@@ -1,5 +1,7 @@
 # jtk CLI Reference
 
+> **Covers:** jtk v1.0.84
+
 Reference for the `jtk` command line tool from [open-cli-collective/atlassian-cli](https://github.com/open-cli-collective/atlassian-cli).
 
 ## Authentication
@@ -45,8 +47,9 @@ jtk [resource] [action] [KEY/ID] [flags]
 
 | Command | Description |
 |---------|-------------|
-| `jtk me` | Show current authenticated user |
+| `jtk me` | Show current authenticated user (account ID, name, email) |
 | `jtk me --id` | Print just the account ID (script-friendly) |
+| `jtk me --extended` | Include timezone, locale, active status, group/role counts |
 
 ## Issues
 
@@ -65,7 +68,7 @@ jtk [resource] [action] [KEY/ID] [flags]
 | `jtk issues move PROJ-1 [PROJ-2 ...] --to-project NEWPROJ` | Move one or more issues to another project (Jira Cloud only). By default synchronous — waits for completion. Max 1000 issues per request. See move flags below |
 | `jtk issues move-status TASK_ID` | Check status of an async move operation (used with `--no-wait`) |
 | `jtk issues delete PROJ-123` | Permanently delete an issue. Interactive `y/N` prompt by default (prompt goes to stderr, reads from stdin); pass `--force` to skip. Destructive and irreversible |
-| `jtk issues types --project KEY` | List valid issue types for a project (output includes the `SUBTASK` column; use values from this list as `--type` on create) |
+| `jtk issues types --project KEY` | List valid issue types for a project (columns: `ID`, `NAME`, `SUBTASK`; use values from `NAME` as `--type` on create). Supports `--id`, `--extended` (adds `DESCRIPTION_KEY`) |
 | `jtk issues fields [PROJ-123]` | List available fields (all fields, or editable fields for a specific issue) |
 | `jtk issues field-options FIELD_NAME_OR_ID [--issue PROJ-123]` | List allowed values for a field (e.g. priority, custom selects) |
 
@@ -131,43 +134,54 @@ Status changes happen via `jtk transitions do`, **not** `jtk issues update`.
 | Command | Description |
 |---------|-------------|
 | `jtk transitions list PROJ-123` | List available transitions for issue |
-| `jtk transitions list PROJ-123 --fields` | Show required fields for each transition |
+| `jtk transitions list PROJ-123 --extended` | Show required fields for each transition |
 | `jtk transitions do PROJ-123 "Transition Name"` | Apply transition by name |
 | `jtk transitions do PROJ-123 21` | Apply transition by numeric ID |
-| `jtk transitions do PROJ-123 "Done" --field NAME=VALUE` | Apply with required fields (only when `transitions list --fields` shows a required field) |
+| `jtk transitions do PROJ-123 "Done" --field NAME=VALUE` | Apply with required fields (only when `transitions list --extended` shows a required field) |
 
 Common transition names: "To Do", "In Progress", "In Review", "Done" (instance-dependent — always run `transitions list` first).
 
-> **Do not speculatively pass `--field resolution=Done` (or any other field) unless `jtk transitions list --fields PROJ-123` explicitly shows it is required for the transition you're applying.** Many Jira workflows set resolution via post-function or hide it from the transition screen — speculatively providing `--field resolution=Done` will fail with "Field 'resolution' cannot be set. It is not on the appropriate screen, or unknown." In that case, re-run the transition without the `--field` flag.
+> **Do not speculatively pass `--field resolution=Done` (or any other field) unless `jtk transitions list PROJ-123 --extended` explicitly shows it is required for the transition you're applying.** Many Jira workflows set resolution via post-function or hide it from the transition screen — speculatively providing `--field resolution=Done` will fail with "Field 'resolution' cannot be set. It is not on the appropriate screen, or unknown." In that case, re-run the transition without the `--field` flag.
 
 ## Projects
 
 | Command | Description |
 |---------|-------------|
-| `jtk projects list` | List all projects |
-| `jtk projects get KEY` | Get project details |
+| `jtk projects list` | List all projects (columns: `KEY`, `TYPE`, `LEAD`, `NAME`). Supports `--id`, `--fields`, `--extended` (adds `STYLE`, `ISSUE_TYPES`, `COMPONENTS` counts), `--next-page-token` |
+| `jtk projects get KEY` | Get project details. Supports `--id`, `--fields`, `--extended` (enumerates components) |
 
 ## Sprints
 
+`--board` and sprint positional arguments accept either a numeric ID or a name (resolved via cache — see SKILL.md Cache Warming).
+
 | Command | Description |
 |---------|-------------|
-| `jtk sprints list --board ID` | List sprints for board |
-| `jtk sprints current --board ID` | Get active sprint |
-| `jtk sprints issues SPRINT_ID` | List issues in sprint |
-| `jtk sprints add SPRINT_ID PROJ-1 PROJ-2 ...` | Add issues to sprint (issues are positional) |
+| `jtk sprints list --board ID_OR_NAME` | List sprints for board (columns: `ID`, `STATE`, `START`, `END`, `NAME`). Supports `--extended` (adds sprint goals, timestamps), `--id`, `--fields`, `--next-page-token` |
+| `jtk sprints current --board ID_OR_NAME` | Get active sprint. Sprint Goal requires `--extended` (not shown by default). Supports `--id`, `--fields` |
+| `jtk sprints issues SPRINT_ID_OR_NAME` | List issues in sprint. Supports `--extended`, `--id`, `--max`, `--next-page-token` |
+| `jtk sprints add SPRINT_ID_OR_NAME PROJ-1 PROJ-2 ...` | Add issues to sprint (issues are positional) |
 
 ## Boards
 
 | Command | Description |
 |---------|-------------|
-| `jtk boards list` | List all boards |
-| `jtk boards get ID` | Get board details |
+| `jtk boards list` | List all boards (columns: `ID`, `TYPE`, `PROJECT`, `NAME`). Supports `--extended`, `--id`, `--fields`, `--next-page-token` |
+| `jtk boards get ID_OR_NAME` | Get board details. Supports `--extended` (shows board configuration: filter, columns), `--id`, `--fields` |
+
+## Links
+
+| Command | Description |
+|---------|-------------|
+| `jtk links list PROJ-123` | List links on an issue. Supports `--fields`, `--extended`, `--id` |
+| `jtk links create PROJ-123 PROJ-456 --type NAME` | Create a link between two issues. First issue is outward, second is inward (e.g., "A blocks B"). `--type` accepts canonical name (`Blocks`), outward verb (`blocks`), or inward verb (`is blocked by`) — inward verbs auto-swap the key ordering |
+| `jtk links delete LINK_ID` | Delete an issue link by numeric ID (use `jtk links list` to find IDs) |
+| `jtk links types` | List available link types for the instance (columns: `ID`, `NAME`, `OUTWARD`, `INWARD`). Supports `--fields`, `--id` |
 
 ## Comments
 
 | Command | Description |
 |---------|-------------|
-| `jtk comments list PROJ-123` | List comments on issue |
+| `jtk comments list PROJ-123` | List comments on issue. Supports `--fields` (columns: `ID`, `AUTHOR`, `CREATED`, `BODY`) |
 | `jtk comments add PROJ-123 --body "TEXT"` | Add comment (`--body` / `-b` is **required**; supports `\n`, `\t`, `\\` escapes) |
 | `jtk comments delete PROJ-123 COMMENT_ID` | Delete a comment |
 
@@ -175,7 +189,7 @@ Common transition names: "To Do", "In Progress", "In Review", "Done" (instance-d
 
 | Command | Description |
 |---------|-------------|
-| `jtk attachments list PROJ-123` | List attachments on issue |
+| `jtk attachments list PROJ-123` | List attachments on issue. Supports `--fields` |
 | `jtk attachments add PROJ-123 --file PATH` | Upload attachment (`--file` / `-f` repeatable for multiple) |
 | `jtk attachments get ATTACHMENT_ID` | Download attachment (alias: `download`) |
 | `jtk attachments get ATTACHMENT_ID --output ./dir/` | Download to specific directory |
@@ -186,9 +200,9 @@ Common transition names: "To Do", "In Progress", "In Review", "Done" (instance-d
 
 | Command | Description |
 |---------|-------------|
-| `jtk users search "QUERY"` | Search for users (matches display name, email, etc.) |
+| `jtk users search "QUERY"` | Search for users (columns: `ACCOUNT_ID`, `NAME`, `EMAIL`, `ACTIVE`). Supports `--extended` (adds `TIMEZONE`, `LOCALE`), `--id`, `--fields`, `--next-page-token` |
 | `jtk users search "QUERY" --max 1 --id` | Resolve a query to a single account ID (script-friendly) |
-| `jtk users get ACCOUNT_ID` | Get user details by account ID |
+| `jtk users get ACCOUNT_ID` | Get user details by account ID. Supports `--id`, `--fields` |
 | `jtk users get ACCOUNT_ID --id` | Echo just the account ID (useful in pipelines) |
 | `jtk me` | Show current authenticated user (see Current User section above) |
 
@@ -211,15 +225,17 @@ Common transition names: "To Do", "In Progress", "In Review", "Done" (instance-d
 - Data goes to stdout (pipeable)
 - Diagnostics/logs go to stderr
 - **Pagination continuation notices (`More results available ...`) go to STDOUT, not stderr** — this is intentional per `jtk`'s output contract, and applies even with `--id`. When using `--id` in command substitution or piping to a tool that reads line-by-line, size `--max` to match your expectation, or post-filter with `grep -oE '[A-Z]+-[0-9]+' | head -1` (or equivalent) to isolate just the identifier from any trailing notice.
-- Use `--id` global flag for just the primary identifier (useful when piping to another command; note the pagination caveat above)
-- Use `--fulltext` global flag to disable truncation of descriptions/comments
+- Use `--id` global flag for just the primary identifier — works on both reads and mutations (useful when piping to another command; note the pagination caveat above)
+- **Mutation output:** non-destructive mutations (create, update, assign, transition, add) re-fetch the entity after writing and show the same detail block as the corresponding `get` command. Destructive mutations (delete, remove) emit a confirmation line only. `--id` on any mutation emits just the primary identifier (issue key, comment ID, etc.)
+- Use `--fulltext` global flag to disable truncation of descriptions/comments. `--fulltext` is a no-op when the body field is not selected via `--fields`
+- Use `--fields` (per-command) to select specific columns in table/block output. Invalid field names error before making API calls
 - Use standard shell tools for filtering: `jtk issues list --project KEY | grep "Bug"`
 
 ## Scope of This Reference
 
-This reference covers `jtk`'s daily-use operator surface — issues, transitions, sprints, boards, comments, attachments, projects, users. It intentionally does **not** cover administrative surfaces, which are out of scope for the workflows in this skill:
+This reference covers `jtk`'s daily-use operator surface — issues, transitions, links, sprints, boards, comments, attachments, projects, users. It intentionally does **not** cover administrative surfaces, which are out of scope for the workflows in this skill:
 
-- `jtk fields` — custom field management (create, delete, restore, contexts, options)
+- `jtk fields` — custom field management (create, delete, restore, show, contexts, options). Note: `--custom` was renamed to `--custom-fields` on `fields list` in v1.0.84
 - `jtk dashboards` — dashboard and gadget management
 - `jtk automation` — automation rule management (list, export, create, update, enable/disable)
 

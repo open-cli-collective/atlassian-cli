@@ -1,9 +1,11 @@
 ---
 name: Confluence
-description: Confluence wiki and knowledge base management via cfl CLI — search, create, view, edit pages, manage spaces, attachments. USE WHEN confluence, wiki, knowledge base, runbook, documentation, docs page, wiki search, confluence page, create page, edit page, move page, search confluence, confluence space, view page, page attachments, attach to page, CQL, confluence search.
+description: Confluence wiki and knowledge base management — search, create, view, edit pages, manage spaces, attachments. USE WHEN confluence, wiki, knowledge base, runbook, documentation, docs page, wiki search, confluence page, create page, edit page, move page, search confluence, confluence space, view page, page attachments, attach to page, CQL, confluence search.
 ---
 
 # Confluence
+
+> **Skill expects:** cfl v1.0.36+
 
 Wiki and knowledge base management via the `cfl` CLI tool ([open-cli-collective/atlassian-cli](https://github.com/open-cli-collective/atlassian-cli)).
 

@@ -77,7 +77,7 @@ Regardless of pattern, work through every applicable step below before writing a
 
 6. **For updates (Patterns C and D):** Confirm the exact issue keys being touched. Don't let "all my tickets" or "these" stay ambiguous — translate it to a concrete JQL query, run `jtk issues search --jql "..."` to fetch matches, **show the user the list of matched keys**, and get explicit confirmation before any updates. The user should see exactly which issues you'll modify.
 
-7. **For links (Patterns B and D):** Confirm link direction and type. `A blocks B` and `B blocks A` are very different. Confirm the relationship semantics before creating links. Run `jtk links types` if unsure which link-type name matches the user's wording.
+7. **For links (Patterns B and D):** Confirm link direction and type. `A blocks B` and `B blocks A` are very different. Confirm the relationship semantics before creating links. Run `jtk links types` if unsure which link-type name matches the user's wording. The `--type` resolver on `jtk links create` accepts canonical names (e.g., `Blocks`), inward verbs (e.g., `is blocked by`), or outward verbs (e.g., `blocks`) — and when given an inward verb, it automatically swaps the issue key ordering to match the correct semantics.
 
 8. **Present the plan.** List every intended operation in execution order. Use a structured format (table or numbered list) that makes the agent's inferences visible to the user. For example:
 

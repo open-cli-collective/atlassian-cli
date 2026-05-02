@@ -127,7 +127,7 @@ Status changes happen through `jtk transitions do`, **not** through `jtk issues 
 jtk transitions list PROJ-123
 
 # Step 1b (optional but useful): show which transitions require fields
-jtk transitions list PROJ-123 --fields
+jtk transitions list PROJ-123 --extended
 
 # Step 2: Apply the transition by name
 jtk transitions do PROJ-123 "In Progress"
@@ -135,8 +135,8 @@ jtk transitions do PROJ-123 "In Progress"
 # Or by numeric ID (stable even if names change)
 jtk transitions do PROJ-123 21
 
-# If `transitions list --fields` showed a required field, pass it. Only
-# pass --field values that the list-fields output explicitly flagged as
+# If `transitions list --extended` showed a required field, pass it. Only
+# pass --field values that the list-extended output explicitly flagged as
 # required — many workflows set resolution via post-function or hide it
 # from the transition screen, and a speculative --field resolution=Done
 # will fail with "Field 'resolution' cannot be set. It is not on the
@@ -158,6 +158,6 @@ Common transition names (instance-dependent — always `list` first):
 
 After any action:
 1. Confirm success with the issue key
-2. For creates: show the new issue key. **Note: the `--id` global flag is currently ignored by `jtk issues create` — the command emits its full `Created issue PROJ-123 (https://...)` message regardless. For scripting, parse the key out of the decorated output (e.g., `grep -oE '[A-Z]+-[0-9]+' | head -1`) rather than relying on `--id`.**
+2. For creates and updates: the command re-fetches the entity and shows the same detail block as `jtk issues get` (post-state output). If the re-fetch fails, a simple confirmation message is shown instead. Use `--id` to emit just the issue key.
 3. For transitions: show old status → new status
 4. For assignments: confirm assignee display name

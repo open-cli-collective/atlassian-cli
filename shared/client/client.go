@@ -167,7 +167,9 @@ func (c *Client) Delete(ctx context.Context, path string) ([]byte, error) {
 const maxVerboseBodyLog = 4096
 
 // truncateForLog returns b unchanged if within the cap, otherwise a copy of the
-// first maxVerboseBodyLog bytes followed by a "...[truncated]" suffix.
+// first maxVerboseBodyLog bytes followed by a "...[truncated]" suffix. The cut
+// is byte-oriented and may split a multi-byte UTF-8 rune; acceptable for a
+// human-read verbose log line where the suffix marker makes truncation obvious.
 func truncateForLog(b []byte) []byte {
 	if len(b) <= maxVerboseBodyLog {
 		return b

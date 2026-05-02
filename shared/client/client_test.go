@@ -450,9 +450,9 @@ func TestClient_VerboseTruncatesLargeBodies(t *testing.T) {
 			t.Fatalf("no newline after %q", prefix)
 		}
 		line := output[idx+len(prefix) : idx+end]
-		const cap = maxVerboseBodyLog + len("...[truncated]")
-		if len(line) > cap {
-			t.Errorf("%s line len = %d, want <= %d", prefix, len(line), cap)
+		const maxLineLen = maxVerboseBodyLog + len("...[truncated]")
+		if len(line) > maxLineLen {
+			t.Errorf("%s line len = %d, want <= %d", prefix, len(line), maxLineLen)
 		}
 	}
 }

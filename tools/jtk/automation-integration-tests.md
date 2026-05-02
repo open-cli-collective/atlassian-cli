@@ -34,11 +34,12 @@ jtk projects get $PROJECT --id
 # → ari:cloud:jira:$CLOUD_ID:project/$PROJECT_ID
 
 # $CUSTOM_SELECT_FIELD — a single-select custom field ID
-jtk fields list --custom --id
-# Note the ID (e.g., customfield_10037)
+# List custom fields and find one with "select" type (e.g., "Banking Platform")
+jtk fields list --custom
+# Note the ID (e.g., customfield_10037) of a single-select field
 
 # $CUSTOM_MULTISELECT_FIELD — a multi-select/checkbox custom field ID
-jtk fields list --custom --id
+# From the same listing, find one with "multi" or "checkbox" type (e.g., "Products")
 # Note the ID (e.g., customfield_10038)
 
 # $SELECT_OPTION_ID — an option ID for the select field

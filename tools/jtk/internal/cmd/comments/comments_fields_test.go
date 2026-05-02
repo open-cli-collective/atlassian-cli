@@ -237,6 +237,3 @@ func TestRunList_IDOnly_OverridesFields(t *testing.T) {
 	}
 }
 
-// --fields combined with --output json is rejected, mirroring runGet.
-// --id combined with --output json + --fields must let --id win without
-// triggering the JSON-vs-fields rejection (parity with runGet).

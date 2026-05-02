@@ -1241,7 +1241,7 @@ jtk automation export 123 > rule-backup.json
 **Arguments:**
 - `<rule-id>` - The rule ID (**required**)
 
-> Note: Output is always JSON regardless of the `--output` flag.
+> Note: Output is always JSON — this is the only jtk command that emits JSON directly.
 
 ---
 

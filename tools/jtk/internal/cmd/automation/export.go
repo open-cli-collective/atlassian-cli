@@ -20,8 +20,7 @@ func newExportCmd(opts *root.Options) *cobra.Command {
 		Long: `Export the full automation rule definition as JSON.
 
 This outputs the exact JSON returned by the API, suitable for editing
-and re-importing via 'jtk auto update'. The -o flag is ignored; output
-is always JSON.
+and re-importing via 'jtk auto update'. Output is always JSON.
 
 RECOMMENDED WORKFLOW:
   jtk auto export <rule-id> > rule.json

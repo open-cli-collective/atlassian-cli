@@ -11,7 +11,7 @@ A command-line interface for managing Jira Cloud tickets.
 - Add comments and perform transitions
 - Manage attachments
 - Manage custom fields (create, delete, restore, contexts, options)
-- Manage automation rules (list, export, create, enable/disable)
+- Manage automation rules (list, export, create, update, delete, enable/disable)
 - Manage dashboards and gadgets
 - Create and manage issue links
 - Search and look up users
@@ -201,11 +201,8 @@ Show information about the currently authenticated user.
 ```bash
 jtk me
 jtk me --id     # print just the account ID (for scripting)
+jtk me --extended  # include timezone, locale, and group/application-role counts
 ```
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--id` | `false` | Emit only the account ID (global) |
 
 ---
 
@@ -244,9 +241,34 @@ jtk config clear --force
 
 ---
 
+### `jtk refresh`
+
+Refresh the local instance cache (fields, projects, users, issue types, statuses, priorities, boards, link types, etc.).
+
+With no arguments refreshes everything. With resource names, refreshes only those plus their dependencies. Use `--status` to check freshness without fetching.
+
+```bash
+# Refresh everything
+jtk refresh
+
+# Refresh a subset
+jtk refresh statuses
+
+# Show cache freshness without fetching
+jtk refresh --status
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--status` | `false` | Print cache freshness; no network calls |
+
+---
+
 ### `jtk issues list`
 
 List issues in a project.
+
+**Aliases:** `jtk issue list`, `jtk i list`
 
 ```bash
 jtk issues list --project MYPROJECT
@@ -262,33 +284,36 @@ jtk issues list --project MYPROJECT --fields summary,status,customfield_10005
 
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
-| `--project` | `-p` | | Project key |
-| `--sprint` | `-s` | | Filter by sprint: sprint ID or `current` |
+| `--project` | `-p` | | Project key or name |
+| `--sprint` | `-s` | | Filter by sprint: sprint name, numeric ID, or `current` |
 | `--max` | `-m` | `25` | Maximum number of results to return |
-| `--fields` | | `*all` | Comma-separated display columns (headers, Jira field IDs, or human names) |
-| `--all-fields` | | `false` | Include all fields (e.g. description) |
+| `--fields` | | | Comma-separated display columns (headers, Jira field IDs, or human names) |
 | `--next-page-token` | | | Token for next page of results |
 
 ---
 
-### `jtk issues get <issue-key>`
+### `jtk issues get <issue-key> [issue-key...]`
 
-Get details of a specific issue.
+Get details of one or more issues. A single key shows full detail; multiple keys show a summary table.
 
 ```bash
 jtk issues get PROJ-123
+jtk issues get PROJ-123 PROJ-456 PROJ-789
 jtk issues get PROJ-123 --fulltext
 jtk issues get PROJ-123 --id
+jtk issues get PROJ-123 --fields Status,Assignee
+jtk issues get PROJ-123 --custom-fields
 ```
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--id` | `false` | Emit only the issue key (global) |
+| `--fields` | | Comma-separated display fields (labels, Jira field IDs, or human names) |
+| `--custom-fields` | `false` | Append custom fields section to output |
 | `--fulltext` | `false` | Show full description without truncation (global) |
-| `--no-truncate` | `false` | Deprecated alias for `--fulltext` (kept during migration) |
+| `--id` | `false` | Emit only the issue key (global) |
 
 **Arguments:**
-- `<issue-key>` - The issue key (e.g., `PROJ-123`) (**required**)
+- `<issue-key> [issue-key...]` - One or more issue keys (**required**)
 
 ---
 
@@ -300,16 +325,21 @@ Create a new issue.
 jtk issues create --project MYPROJECT --type Task --summary "Fix login bug"
 jtk issues create -p MYPROJECT -t Story -s "Add new feature" --description "Details here"
 jtk issues create -p MYPROJECT -s "Custom field issue" --field priority=High --field labels=backend
+
+# Assign to yourself, by email, or by display name
+jtk issues create -p MYPROJECT -t Task -s "My task" --assignee me
+jtk issues create -p MYPROJECT -t Task -s "Their task" --assignee user@example.com
+jtk issues create -p MYPROJECT -t Task -s "Their task" --assignee "Aaron Wong"
 ```
 
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
-| `--project` | `-p` | | Project key (**required**) |
+| `--project` | `-p` | | Project key or name (**required**) |
 | `--type` | `-t` | `Task` | Issue type: `Task`, `Bug`, `Story`, etc. |
 | `--summary` | `-s` | | Issue summary (**required**) |
 | `--description` | `-d` | | Issue description (supports `\n`, `\t`, `\\` escape sequences) |
 | `--parent` | | | Parent issue key (epic or parent issue) |
-| `--assignee` | `-a` | | Assignee (account ID, email, or `"me"`) |
+| `--assignee` | `-a` | | Assignee (account ID, email, display name, or `"me"`) |
 | `--field` | `-f` | | Additional field in `key=value` format (can be repeated) |
 
 ---
@@ -335,7 +365,7 @@ jtk issues update PROJ-123 --field customfield_10050=Option1 --field customfield
 | `--summary` | `-s` | | New summary |
 | `--description` | `-d` | | New description (supports `\n`, `\t`, `\\` escape sequences) |
 | `--parent` | | | Parent issue key (epic or parent issue) |
-| `--assignee` | `-a` | | Assignee (account ID, email, `"me"`, or `"none"` to unassign) |
+| `--assignee` | `-a` | | Assignee (account ID, email, display name, `"me"`, or `"none"` to unassign) |
 | `--type` | `-t` | | New issue type (uses Jira Cloud bulk move API) |
 | `--field` | `-f` | | Field to update in `key=value` format (can be repeated; repeating the same key accumulates values for multi-select fields) |
 
@@ -363,18 +393,20 @@ jtk issues search --jql "project = MYPROJECT" --fields summary,status
 |------|-------|---------|-------------|
 | `--jql` | | | JQL query string (**required**) |
 | `--max` | `-m` | `25` | Maximum number of results to return |
-| `--fields` | | `*all` | Comma-separated display columns (headers, Jira field IDs, or human names) |
-| `--all-fields` | | `false` | Include all fields (e.g. description) |
+| `--fields` | | | Comma-separated display columns (headers, Jira field IDs, or human names) |
 | `--next-page-token` | | | Token for next page of results |
 
 ---
 
-### `jtk issues assign <issue-key> [account-id]`
+### `jtk issues assign <issue-key> [user]`
 
-Assign an issue to a user, or unassign it.
+Assign an issue to a user, or unassign it. The `[user]` argument accepts an account ID, email, display name, or `"me"`.
 
 ```bash
 jtk issues assign PROJ-123 5b10ac8d82e05b22cc7d4ef5
+jtk issues assign PROJ-123 "Aaron Wong"
+jtk issues assign PROJ-123 aaron@example.com
+jtk issues assign PROJ-123 me
 jtk issues assign PROJ-123 --unassign
 ```
 
@@ -384,16 +416,17 @@ jtk issues assign PROJ-123 --unassign
 
 **Arguments:**
 - `<issue-key>` - The issue key (**required**)
-- `[account-id]` - The Atlassian account ID (required unless `--unassign`)
+- `[user]` - Account ID, email, display name, or `"me"` (required unless `--unassign`)
 
 ---
 
-### `jtk issues delete <issue-key>`
+### `jtk issues delete <issue-key> [issue-key...]`
 
-Delete an issue.
+Delete one or more issues.
 
 ```bash
 jtk issues delete PROJ-123
+jtk issues delete PROJ-123 PROJ-124 PROJ-125
 jtk issues delete PROJ-123 --force
 ```
 
@@ -402,21 +435,22 @@ jtk issues delete PROJ-123 --force
 | `--force` | `false` | Skip confirmation prompt |
 
 **Arguments:**
-- `<issue-key>` - The issue key (**required**)
+- `<issue-key> [issue-key...]` - One or more issue keys (**required**)
 
 ---
 
-### `jtk issues archive <issue-key>`
+### `jtk issues archive <issue-key> [issue-key...]`
 
-Archive an issue. Archived issues are hidden from boards and search by default but remain in Jira. There is no corresponding `issues restore` command in this CLI — use the Jira UI to unarchive.
+Archive one or more issues. Archived issues are hidden from boards and search by default but remain in Jira.
 
 ```bash
 jtk issues archive PROJ-123
+jtk issues archive PROJ-123 PROJ-124 PROJ-125
 jtk issues archive PROJ-123 --id
 ```
 
 **Arguments:**
-- `<issue-key>` - The issue key (**required**)
+- `<issue-key> [issue-key...]` - One or more issue keys (**required**)
 
 ---
 
@@ -461,11 +495,11 @@ Use `--id` to emit only the IDs of fields whose status is `MISSING`.
 
 ### `jtk issues fields [issue-key]`
 
-List available fields for issues.
+List available fields, or show all fields with their current values for a specific issue.
 
 ```bash
 jtk issues fields                    # All fields
-jtk issues fields PROJ-123           # Editable fields for a specific issue
+jtk issues fields PROJ-123           # Field values for a specific issue
 jtk issues fields --custom-fields    # Custom fields only
 ```
 
@@ -474,203 +508,23 @@ jtk issues fields --custom-fields    # Custom fields only
 | `--custom-fields` | `false` | Show only custom fields |
 
 **Arguments:**
-- `[issue-key]` - Optional issue key to show editable fields
+- `[issue-key]` - Optional issue key to show field values
 
 ---
 
-### `jtk issues field-options <issue-key> <field-name-or-id>`
+### `jtk issues field-options [issue-key] <field-name-or-id>`
 
-List allowed values for a field on a specific issue.
+List allowed values for a field. Providing an issue key uses that issue's project context (recommended); omitting it uses the global field context.
 
 ```bash
 jtk issues field-options PROJ-123 priority
 jtk issues field-options PROJ-123 customfield_10001
+jtk issues field-options priority   # without issue context
 ```
 
 **Arguments:**
-- `<issue-key>` - The issue key for context-specific options (**required**)
+- `[issue-key]` - Optional issue key for context-specific options
 - `<field-name-or-id>` - Field name or ID (**required**)
-
----
-
-### `jtk fields`
-
-Manage custom fields, their contexts, and options.
-
-**Aliases:** `jtk field`, `jtk f`
-
-#### `jtk fields list`
-
-List all fields (system and custom). Supports filtering by name with case-insensitive substring matching.
-
-```bash
-jtk fields list
-jtk fields list --custom-fields
-jtk fields list --name "story point"
-jtk fields list --id
-```
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--custom-fields` | `false` | Show only custom fields |
-| `--name` | | Filter fields by name (case-insensitive substring match) |
-
-#### `jtk fields show <field-id>`
-
-Show a flat denormalized view of a field's contexts, project mappings, and options.
-
-```bash
-jtk fields show customfield_10001
-jtk fields show customfield_10001 --id   # emit context IDs only
-```
-
-**Arguments:**
-- `<field-id>` - The field ID (**required**)
-
-#### `jtk fields create`
-
-Create a new custom field.
-
-```bash
-jtk fields create --name "My Select Field" --type com.atlassian.jira.plugin.system.customfieldtypes:select
-jtk fields create --name "My Text Field" --type com.atlassian.jira.plugin.system.customfieldtypes:textarea --description "A text area field"
-```
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--name` | | Field name (**required**) |
-| `--type` | | Field type (**required**) |
-| `--description` | | Field description |
-
-#### `jtk fields delete <field-id>`
-
-Trash a custom field (can be restored).
-
-```bash
-jtk fields delete customfield_10001
-jtk fields delete customfield_10001 --force
-```
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--force` | `false` | Skip confirmation prompt |
-
-**Arguments:**
-- `<field-id>` - The field ID (**required**)
-
-#### `jtk fields restore <field-id>`
-
-Restore a trashed custom field.
-
-```bash
-jtk fields restore customfield_10001
-```
-
-**Arguments:**
-- `<field-id>` - The field ID (**required**)
-
-#### `jtk fields contexts list <field-id>`
-
-List contexts for a custom field.
-
-```bash
-jtk fields contexts list customfield_10001
-jtk fields contexts list customfield_10001 --id
-```
-
-**Arguments:**
-- `<field-id>` - The field ID (**required**)
-
-#### `jtk fields contexts create <field-id>`
-
-Create a context for a custom field.
-
-```bash
-jtk fields contexts create customfield_10001 --name "My Context"
-```
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--name` | | Context name (**required**) |
-
-**Arguments:**
-- `<field-id>` - The field ID (**required**)
-
-#### `jtk fields contexts delete <field-id> <context-id>`
-
-Delete a context from a custom field.
-
-```bash
-jtk fields contexts delete customfield_10001 10100
-jtk fields contexts delete customfield_10001 10100 --force
-```
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--force` | `false` | Skip confirmation prompt |
-
-**Arguments:**
-- `<field-id>` - The field ID (**required**)
-- `<context-id>` - The context ID (**required**)
-
-#### `jtk fields options list <field-id>`
-
-List options for a select/multi-select custom field.
-
-```bash
-jtk fields options list customfield_10001
-```
-
-**Arguments:**
-- `<field-id>` - The field ID (**required**)
-
-#### `jtk fields options add <field-id>`
-
-Add an option to a select/multi-select custom field.
-
-```bash
-jtk fields options add customfield_10001 --value "New Option"
-```
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--value` | | Option value (**required**) |
-
-**Arguments:**
-- `<field-id>` - The field ID (**required**)
-
-#### `jtk fields options update <field-id>`
-
-Update an existing option value.
-
-```bash
-jtk fields options update customfield_10001 --option 10200 --value "Updated Value"
-```
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--option` | | Option ID to update (**required**) |
-| `--value` | | New option value (**required**) |
-
-**Arguments:**
-- `<field-id>` - The field ID (**required**)
-
-#### `jtk fields options delete <field-id>`
-
-Delete an option from a select/multi-select custom field.
-
-```bash
-jtk fields options delete customfield_10001 --option 10200
-jtk fields options delete customfield_10001 --option 10200 --force
-```
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--option` | | Option ID to delete (**required**) |
-| `--force` | `false` | Skip confirmation prompt |
-
-**Arguments:**
-- `<field-id>` - The field ID (**required**)
 
 ---
 
@@ -695,12 +549,18 @@ Move one or more issues to a different project (Cloud only, max 1000 issues).
 ```bash
 jtk issues move PROJ-123 --to-project OTHERPROJ
 jtk issues move PROJ-123 PROJ-124 PROJ-125 --to-project OTHERPROJ --to-type Bug
+
+# Move without waiting for completion
+jtk issues move PROJ-123 --to-project OTHERPROJ --no-wait
+
+# Move without notifications
+jtk issues move PROJ-123 --to-project OTHERPROJ --no-notify
 ```
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--to-project` | | Target project key (**required**) |
-| `--to-type` | (same as source) | Target issue type |
+| `--to-project` | | Target project key or name (**required**) |
+| `--to-type` | (same as source) | Target issue type name |
 | `--notify` | `true` | Send notifications for the move |
 | `--wait` | `true` | Wait for move to complete |
 
@@ -726,12 +586,17 @@ jtk issues move-status 12345
 
 List all links on an issue.
 
+**Aliases:** `jtk link list`, `jtk l list`
+
 ```bash
 jtk links list PROJ-123
 jtk links list PROJ-123 --id
+jtk links list PROJ-123 --fields TYPE,ISSUE
 ```
 
-**Aliases:** `jtk link list`, `jtk l list`
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--fields` | | Comma-separated display columns |
 
 **Arguments:**
 - `<issue-key>` - The issue key (**required**)
@@ -740,11 +605,14 @@ jtk links list PROJ-123 --id
 
 ### `jtk links create <issue-key> <target-issue-key>`
 
-Create a link between two issues. The first issue is the outward issue and the second is the inward issue.
+Create a link between two issues. The first issue is the outward issue and the second is the inward issue. `--type` accepts the canonical name, the outward verb, or the inward verb.
 
 ```bash
 # A blocks B
 jtk links create PROJ-123 PROJ-456 --type Blocks
+
+# A is blocked by B (inward verb — issues are interpreted from user's perspective)
+jtk links create PROJ-123 PROJ-456 --type "is blocked by"
 
 # A relates to B
 jtk links create PROJ-123 PROJ-456 --type Relates
@@ -752,7 +620,7 @@ jtk links create PROJ-123 PROJ-456 --type Relates
 
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
-| `--type` | `-t` | | Link type name (**required**) |
+| `--type` | `-t` | | Link type: canonical name, outward verb, or inward verb (**required**) |
 
 **Arguments:**
 - `<issue-key>` - The outward issue key (**required**)
@@ -786,11 +654,17 @@ jtk links types
 jtk links types --id
 ```
 
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--fields` | | Comma-separated display columns |
+
 ---
 
 ### `jtk transitions list <issue-key>`
 
 List available transitions for an issue.
+
+**Aliases:** `jtk transition list`, `jtk tr list`
 
 ```bash
 jtk transitions list PROJ-123
@@ -806,6 +680,8 @@ jtk transitions list PROJ-123 --id
 ### `jtk transitions do <issue-key> <transition>`
 
 Perform a transition on an issue.
+
+**Aliases:** `jtk transition do`, `jtk tr do`
 
 ```bash
 jtk transitions do PROJ-123 "In Progress"
@@ -827,17 +703,19 @@ jtk transitions do PROJ-123 "Done" --field resolution=Fixed
 
 List comments on an issue.
 
+**Aliases:** `jtk comment list`, `jtk c list`
+
 ```bash
 jtk comments list PROJ-123
 jtk comments list PROJ-123 --fulltext
-jtk comments list PROJ-123 --id
+jtk comments list PROJ-123 --fields ID,AUTHOR
 ```
 
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
 | `--max` | `-m` | `50` | Maximum number of comments |
 | `--fulltext` | | `false` | Show full comment bodies without truncation (global) |
-| `--no-truncate` | | `false` | Deprecated alias for `--fulltext` (kept during migration) |
+| `--fields` | | | Comma-separated display fields |
 
 **Arguments:**
 - `<issue-key>` - The issue key (**required**)
@@ -847,6 +725,8 @@ jtk comments list PROJ-123 --id
 ### `jtk comments add <issue-key>`
 
 Add a comment to an issue.
+
+**Aliases:** `jtk comment add`, `jtk c add`
 
 ```bash
 jtk comments add PROJ-123 --body "This is my comment"
@@ -866,6 +746,8 @@ jtk comments add PROJ-123 --body "Line one\nLine two\n\tIndented line"
 
 Delete a comment from an issue.
 
+**Aliases:** `jtk comment delete`, `jtk c delete`
+
 ```bash
 jtk comments delete PROJ-123 10042
 ```
@@ -880,12 +762,16 @@ jtk comments delete PROJ-123 10042
 
 List attachments on an issue.
 
-**Aliases:** `jtk attachments ls`
+**Aliases:** `jtk attachments ls`, `jtk attachment list`, `jtk att list`
 
 ```bash
 jtk attachments list PROJ-123
 jtk attachments list PROJ-123 --id
 ```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--fields` | | Comma-separated display columns |
 
 **Arguments:**
 - `<issue-key>` - The issue key (**required**)
@@ -895,6 +781,8 @@ jtk attachments list PROJ-123 --id
 ### `jtk attachments add <issue-key>`
 
 Upload file(s) to an issue.
+
+**Aliases:** `jtk attachment add`, `jtk att add`
 
 ```bash
 jtk attachments add PROJ-123 --file screenshot.png
@@ -914,7 +802,7 @@ jtk attachments add PROJ-123 --file doc.pdf --file image.png
 
 Download an attachment.
 
-**Aliases:** `jtk attachments download`
+**Aliases:** `jtk attachments download`, `jtk attachment get`, `jtk att get`
 
 ```bash
 jtk attachments get 12345
@@ -934,7 +822,7 @@ jtk attachments get 12345 --output ./downloads/
 
 Delete an attachment.
 
-**Aliases:** `jtk attachments rm`
+**Aliases:** `jtk attachments rm`, `jtk attachment delete`, `jtk att delete`
 
 ```bash
 jtk attachments delete 12345
@@ -947,19 +835,21 @@ jtk attachments delete 12345
 
 ### `jtk sprints list`
 
-List sprints for a board.
+List sprints for a board. `--board` accepts a board ID or name.
 
 ```bash
 jtk sprints list --board 123
-jtk sprints list --board 123 --state active
+jtk sprints list --board "MON board" --state active
 jtk sprints list --board 123 --id
 ```
 
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
-| `--board` | `-b` | | Board ID (**required**) |
+| `--board` | `-b` | | Board ID or name (**required**) |
 | `--state` | `-s` | | Filter by state: `active`, `closed`, `future` |
 | `--max` | `-m` | `50` | Maximum number of results |
+| `--fields` | | | Comma-separated display columns |
+| `--next-page-token` | | | Token for next page of results |
 
 ---
 
@@ -969,43 +859,64 @@ Show the current active sprint.
 
 ```bash
 jtk sprints current --board 123
+jtk sprints current --board "MON board"
 ```
 
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
-| `--board` | `-b` | | Board ID (**required**) |
+| `--board` | `-b` | | Board ID or name (**required**) |
+| `--fields` | | | Comma-separated display fields |
 
 ---
 
-### `jtk sprints issues <sprint-id>`
+### `jtk sprints issues <sprint>`
 
-List issues in a sprint.
+List issues in a sprint. Accepts a sprint ID or name (resolved via cache).
 
 ```bash
 jtk sprints issues 456
+jtk sprints issues "MON Sprint 70"
 jtk sprints issues 456 --id
+jtk sprints issues 456 --fields KEY,STATUS,customfield_10005
 ```
 
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
 | `--max` | `-m` | `50` | Maximum number of results |
+| `--fields` | | | Comma-separated display columns |
+| `--next-page-token` | | | Token for next page of results |
 
 **Arguments:**
-- `<sprint-id>` - The sprint ID (**required**)
+- `<sprint>` - Sprint ID or name (**required**)
 
 ---
 
-### `jtk sprints add <sprint-id> <issue-key>...`
+### `jtk sprints add <sprint> <issue-key>...`
 
-Move one or more issues to a sprint.
+Move one or more issues to a sprint. Accepts a sprint ID or name.
 
 ```bash
 jtk sprints add 456 PROJ-123
+jtk sprints add "MON Sprint 70" PROJ-123
 jtk sprints add 456 PROJ-123 PROJ-124 PROJ-125
 ```
 
 **Arguments:**
-- `<sprint-id>` - The sprint ID (**required**)
+- `<sprint>` - Sprint ID or name (**required**)
+- `<issue-key>...` - One or more issue keys (**required**)
+
+---
+
+### `jtk sprints remove <issue-key>...`
+
+Move one or more issues from their current sprint to the backlog.
+
+```bash
+jtk sprints remove PROJ-456
+jtk sprints remove PROJ-456 PROJ-789 PROJ-101
+```
+
+**Arguments:**
 - `<issue-key>...` - One or more issue keys (**required**)
 
 ---
@@ -1021,21 +932,28 @@ jtk boards list --project MYPROJECT
 
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
-| `--project` | `-p` | | Filter by project key |
+| `--project` | `-p` | | Filter by project key or name |
 | `--max` | `-m` | `50` | Maximum number of results |
+| `--fields` | | | Comma-separated display columns |
+| `--next-page-token` | | | Token for next page of results |
 
 ---
 
-### `jtk boards get <board-id>`
+### `jtk boards get <board>`
 
-Get board details.
+Get board details. Accepts a board ID or name (resolved via cache).
 
 ```bash
 jtk boards get 123
+jtk boards get "MON board"
 ```
 
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--fields` | | Comma-separated display fields |
+
 **Arguments:**
-- `<board-id>` - The board ID (**required**)
+- `<board>` - Board ID or name (**required**)
 
 ---
 
@@ -1055,6 +973,8 @@ jtk projects list --max 10
 |------|-------|---------|-------------|
 | `--query` | `-q` | | Filter projects by name |
 | `--max` | `-m` | `50` | Maximum number of results |
+| `--fields` | | | Comma-separated display columns |
+| `--next-page-token` | | | Token for next page of results |
 
 ---
 
@@ -1067,6 +987,10 @@ jtk projects get MYPROJECT
 jtk projects get 10001
 ```
 
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--fields` | | Comma-separated display fields |
+
 **Arguments:**
 - `<project-key>` - Project key or numeric ID (**required**)
 
@@ -1077,8 +1001,8 @@ jtk projects get 10001
 Create a new Jira project.
 
 ```bash
-jtk projects create --key MYPROJ --name "My Project" --lead <account-id>
-jtk projects create --key BIZ --name "Business" --type business --lead <account-id> --description "Business project"
+jtk projects create --key MYPROJ --name "My Project" --lead me
+jtk projects create --key BIZ --name "Business" --type business --lead "Aaron Wong" --description "Business project"
 ```
 
 | Flag | Short | Default | Description |
@@ -1086,7 +1010,7 @@ jtk projects create --key BIZ --name "Business" --type business --lead <account-
 | `--key` | `-k` | | Project key (**required**) |
 | `--name` | `-n` | | Project name (**required**) |
 | `--type` | `-t` | `software` | Project type: `software`, `service_desk`, `business` |
-| `--lead` | `-l` | | Lead account ID (**required**) |
+| `--lead` | `-l` | | Lead: account ID, email, display name, or `"me"` (**required**) |
 | `--description` | `-d` | | Project description |
 
 > Tip: Use `jtk users search` to find account IDs, or `jtk me` to get your own.
@@ -1100,14 +1024,15 @@ Update a project's metadata. Only specified fields are changed.
 ```bash
 jtk projects update MYPROJ --name "New Name"
 jtk projects update MYPROJ --description "Updated description"
-jtk projects update MYPROJ --lead <account-id>
+jtk projects update MYPROJ --lead "Aaron Wong"
+jtk projects update MYPROJ --lead aaron@example.com
 ```
 
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
 | `--name` | `-n` | | New project name |
 | `--description` | `-d` | | New project description |
-| `--lead` | `-l` | | New lead account ID |
+| `--lead` | `-l` | | New lead: account ID, email, display name, or `"me"` |
 
 **Arguments:**
 - `<project-key>` - Project key (**required**)
@@ -1159,6 +1084,8 @@ jtk projects types
 
 Search for Jira users.
 
+**Aliases:** `jtk user search`, `jtk u search`
+
 ```bash
 jtk users search "john"
 jtk users search "john" --max 20
@@ -1167,6 +1094,8 @@ jtk users search "john" --max 20
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--max` | `10` | Maximum number of results |
+| `--fields` | | Comma-separated display columns |
+| `--next-page-token` | | Token for next page of results |
 
 **Arguments:**
 - `<query>` - Search query (matches display name, email, etc.) (**required**)
@@ -1177,6 +1106,8 @@ jtk users search "john" --max 20
 
 Get details for a specific user by account ID.
 
+**Aliases:** `jtk user get`, `jtk u get`
+
 ```bash
 jtk users get 5b10ac8d82e05b22cc7d4ef5
 jtk users get 5b10ac8d82e05b22cc7d4ef5 --id
@@ -1184,7 +1115,7 @@ jtk users get 5b10ac8d82e05b22cc7d4ef5 --id
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--id` | `false` | Emit only the account ID (global) |
+| `--fields` | | Comma-separated display fields |
 
 **Arguments:**
 - `<account-id>` - The Atlassian account ID (**required**)
@@ -1194,6 +1125,8 @@ jtk users get 5b10ac8d82e05b22cc7d4ef5 --id
 ### `jtk automation list`
 
 List automation rules.
+
+**Aliases:** `jtk auto list`
 
 ```bash
 jtk automation list
@@ -1209,6 +1142,8 @@ jtk automation list --state ENABLED
 ### `jtk automation get <rule-id>`
 
 Get details of an automation rule.
+
+**Aliases:** `jtk auto get`
 
 ```bash
 jtk automation get 123
@@ -1227,6 +1162,8 @@ jtk automation get 123 --show-components
 ### `jtk automation export <rule-id>`
 
 Export a rule definition as JSON.
+
+**Aliases:** `jtk auto export`
 
 ```bash
 jtk automation export 123
@@ -1249,6 +1186,8 @@ jtk automation export 123 > rule-backup.json
 
 Create an automation rule from a JSON file.
 
+**Aliases:** `jtk auto create`
+
 ```bash
 jtk automation create --file rule-definition.json
 ```
@@ -1265,6 +1204,8 @@ jtk automation create --file rule-definition.json
 
 Update an automation rule from a JSON file.
 
+**Aliases:** `jtk auto update`
+
 ```bash
 jtk automation update 123 --file updated-rule.json
 ```
@@ -1280,9 +1221,31 @@ jtk automation update 123 --file updated-rule.json
 
 ---
 
+### `jtk automation delete <rule-id>`
+
+Permanently delete an automation rule. If the rule is currently ENABLED, it will be automatically disabled before deletion. This action cannot be undone.
+
+**Aliases:** `jtk auto delete`
+
+```bash
+jtk automation delete 123
+jtk automation delete 123 --force
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--force` | `false` | Skip confirmation prompt |
+
+**Arguments:**
+- `<rule-id>` - The rule ID (**required**)
+
+---
+
 ### `jtk automation enable <rule-id>`
 
 Enable a disabled automation rule.
+
+**Aliases:** `jtk auto enable`
 
 ```bash
 jtk automation enable 123
@@ -1296,6 +1259,8 @@ jtk automation enable 123
 ### `jtk automation disable <rule-id>`
 
 Disable an enabled automation rule.
+
+**Aliases:** `jtk auto disable`
 
 ```bash
 jtk automation disable 123
@@ -1383,6 +1348,27 @@ jtk dashboards gadgets list 10001 --id
 
 ---
 
+### `jtk dashboards gadgets add <dashboard-id>`
+
+Add a gadget to a dashboard by its module key.
+
+```bash
+jtk dashboards gadgets add 10001 --type com.atlassian.jira.gadgets:sprint-burndown-gadget
+jtk dashboards gadgets add 10001 --type com.atlassian.jira.gadgets:filter-results-gadget --position 1,0 --title "My Filter"
+```
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--type` | `-t` | | Gadget module key (**required**) |
+| `--position` | `-p` | | Position as `row,column` (e.g. `1,0`) |
+| `--title` | | | Gadget title |
+| `--color` | | | Gadget color |
+
+**Arguments:**
+- `<dashboard-id>` - The dashboard ID (**required**)
+
+---
+
 ### `jtk dashboards gadgets remove <dashboard-id> <gadget-id>`
 
 Remove a gadget from a dashboard.
@@ -1394,6 +1380,208 @@ jtk dashboards gadgets remove 10001 42
 **Arguments:**
 - `<dashboard-id>` - The dashboard ID (**required**)
 - `<gadget-id>` - The gadget ID (**required**)
+
+---
+
+### `jtk fields list`
+
+List all fields (system and custom). Supports filtering by name with case-insensitive substring matching.
+
+**Aliases:** `jtk field list`, `jtk f list`
+
+```bash
+jtk fields list
+jtk fields list --custom-fields
+jtk fields list --name "story point"
+jtk fields list --id
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--custom-fields` | `false` | Show only custom fields |
+| `--name` | | Filter fields by name (case-insensitive substring match) |
+
+#### `jtk fields show <field-id>`
+
+Show a flat denormalized view of a field's contexts, project mappings, and options.
+
+```bash
+jtk fields show customfield_10001
+jtk fields show customfield_10001 --id   # emit context IDs only
+```
+
+**Arguments:**
+- `<field-id>` - The field ID (**required**)
+
+#### `jtk fields create`
+
+Create a new custom field.
+
+```bash
+jtk fields create --name "My Select Field" --type com.atlassian.jira.plugin.system.customfieldtypes:select
+jtk fields create --name "My Text Field" --type com.atlassian.jira.plugin.system.customfieldtypes:textarea --description "A text area field"
+```
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--name` | `-n` | | Field name (**required**) |
+| `--type` | `-t` | | Field type (**required**) |
+| `--description` | `-d` | | Field description |
+
+#### `jtk fields delete <field-id>`
+
+Trash a custom field (can be restored).
+
+```bash
+jtk fields delete customfield_10001
+jtk fields delete customfield_10001 --force
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--force` | `false` | Skip confirmation prompt |
+
+**Arguments:**
+- `<field-id>` - The field ID (**required**)
+
+#### `jtk fields restore <field-id>`
+
+Restore a trashed custom field.
+
+```bash
+jtk fields restore customfield_10001
+```
+
+**Arguments:**
+- `<field-id>` - The field ID (**required**)
+
+#### `jtk fields contexts list <field-id>`
+
+List contexts for a custom field.
+
+**Aliases:** `jtk fields context list`, `jtk fields ctx list`
+
+```bash
+jtk fields contexts list customfield_10001
+jtk fields contexts list customfield_10001 --id
+```
+
+**Arguments:**
+- `<field-id>` - The field ID (**required**)
+
+#### `jtk fields contexts create <field-id>`
+
+Create a context for a custom field.
+
+**Aliases:** `jtk fields context create`, `jtk fields ctx create`
+
+```bash
+jtk fields contexts create customfield_10001 --name "My Context"
+jtk fields contexts create customfield_10001 --name "Project Context" --project 10001
+```
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--name` | `-n` | | Context name (**required**) |
+| `--project` | `-p` | | Project ID to scope the context to |
+
+**Arguments:**
+- `<field-id>` - The field ID (**required**)
+
+#### `jtk fields contexts delete <field-id> <context-id>`
+
+Delete a context from a custom field.
+
+**Aliases:** `jtk fields context delete`, `jtk fields ctx delete`
+
+```bash
+jtk fields contexts delete customfield_10001 10100
+jtk fields contexts delete customfield_10001 10100 --force
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--force` | `false` | Skip confirmation prompt |
+
+**Arguments:**
+- `<field-id>` - The field ID (**required**)
+- `<context-id>` - The context ID (**required**)
+
+#### `jtk fields options list <field-id>`
+
+List options for a select/multi-select custom field. Auto-detects the default context if `--context` is not specified.
+
+**Aliases:** `jtk fields option list`, `jtk fields opt list`
+
+```bash
+jtk fields options list customfield_10001
+jtk fields options list customfield_10001 --context 10001
+```
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--context` | `-c` | | Context ID (auto-detected if omitted) |
+
+**Arguments:**
+- `<field-id>` - The field ID (**required**)
+
+#### `jtk fields options add <field-id>`
+
+Add an option to a select/multi-select custom field.
+
+**Aliases:** `jtk fields option add`, `jtk fields opt add`
+
+```bash
+jtk fields options add customfield_10001 --value "New Option"
+jtk fields options add customfield_10001 --value "Staging" --context 10001
+```
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--value` | `-V` | | Option value (**required**) |
+| `--context` | `-c` | | Context ID (auto-detected if omitted) |
+
+**Arguments:**
+- `<field-id>` - The field ID (**required**)
+
+#### `jtk fields options update <field-id>`
+
+Update an existing option value.
+
+**Aliases:** `jtk fields option update`, `jtk fields opt update`
+
+```bash
+jtk fields options update customfield_10001 --option 10200 --value "Updated Value"
+```
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--option` | | | Option ID to update (**required**) |
+| `--value` | `-V` | | New option value (**required**) |
+| `--context` | `-c` | | Context ID (auto-detected if omitted) |
+
+**Arguments:**
+- `<field-id>` - The field ID (**required**)
+
+#### `jtk fields options delete <field-id>`
+
+Delete an option from a select/multi-select custom field.
+
+**Aliases:** `jtk fields option delete`, `jtk fields opt delete`
+
+```bash
+jtk fields options delete customfield_10001 --option 10200
+jtk fields options delete customfield_10001 --option 10200 --force
+```
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--option` | | | Option ID to delete (**required**) |
+| `--force` | | `false` | Skip confirmation prompt |
+| `--context` | `-c` | | Context ID (auto-detected if omitted) |
+
+**Arguments:**
+- `<field-id>` - The field ID (**required**)
 
 ---
 

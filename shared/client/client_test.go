@@ -335,6 +335,143 @@ func TestClient_VerboseOutput(t *testing.T) {
 	}
 }
 
+func TestClient_VerboseLogsRequestBody(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer server.Close()
+
+	verboseOut := &bytes.Buffer{}
+	c := New(server.URL, "user@example.com", "token", &Options{Verbose: true, VerboseOut: verboseOut})
+
+	body := map[string]string{"hello": "world"}
+	if _, err := c.Post(context.Background(), "/api/test", body); err != nil {
+		t.Fatalf("Post() error = %v", err)
+	}
+
+	output := verboseOut.String()
+	if !strings.Contains(output, `→ body: {"hello":"world"}`) {
+		t.Errorf("expected request body in verbose output, got: %v", output)
+	}
+}
+
+func TestClient_VerboseSkipsBodyWhenNil(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer server.Close()
+
+	verboseOut := &bytes.Buffer{}
+	c := New(server.URL, "user@example.com", "token", &Options{Verbose: true, VerboseOut: verboseOut})
+
+	if _, err := c.Get(context.Background(), "/api/test"); err != nil {
+		t.Fatalf("Get() error = %v", err)
+	}
+
+	if strings.Contains(verboseOut.String(), "→ body:") {
+		t.Errorf("GET should not log a request body, got: %v", verboseOut.String())
+	}
+}
+
+func TestClient_VerboseLogsErrorResponseBody(t *testing.T) {
+	t.Parallel()
+	errorPayload := `{"errorMessages":["INVALID_INPUT"],"errors":{"description":"bad ADF"}}`
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(errorPayload))
+	}))
+	defer server.Close()
+
+	verboseOut := &bytes.Buffer{}
+	c := New(server.URL, "user@example.com", "token", &Options{Verbose: true, VerboseOut: verboseOut})
+
+	_, err := c.Post(context.Background(), "/api/test", map[string]string{"foo": "bar"})
+	if err == nil {
+		t.Fatal("expected error from 400 response")
+	}
+
+	output := verboseOut.String()
+	if !strings.Contains(output, "← body: "+errorPayload) {
+		t.Errorf("expected error response body in verbose output, got: %v", output)
+	}
+}
+
+func TestClient_VerboseSkipsResponseBodyOn2xx(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+	defer server.Close()
+
+	verboseOut := &bytes.Buffer{}
+	c := New(server.URL, "user@example.com", "token", &Options{Verbose: true, VerboseOut: verboseOut})
+
+	if _, err := c.Get(context.Background(), "/api/test"); err != nil {
+		t.Fatalf("Get() error = %v", err)
+	}
+
+	if strings.Contains(verboseOut.String(), "← body:") {
+		t.Errorf("2xx should not log response body, got: %v", verboseOut.String())
+	}
+}
+
+func TestClient_VerboseTruncatesLargeBodies(t *testing.T) {
+	t.Parallel()
+	bigField := strings.Repeat("A", 5000)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`{"big":"` + bigField + `"}`))
+	}))
+	defer server.Close()
+
+	verboseOut := &bytes.Buffer{}
+	c := New(server.URL, "user@example.com", "token", &Options{Verbose: true, VerboseOut: verboseOut})
+
+	_, _ = c.Post(context.Background(), "/api/test", map[string]string{"big": bigField})
+
+	output := verboseOut.String()
+	if !strings.Contains(output, "...[truncated]") {
+		t.Errorf("expected truncation suffix in verbose output, got: %v", output)
+	}
+	// Both the request body line and the response body line should be capped.
+	for _, prefix := range []string{"→ body: ", "← body: "} {
+		idx := strings.Index(output, prefix)
+		if idx < 0 {
+			t.Errorf("expected %q in output, got: %v", prefix, output)
+			continue
+		}
+		end := strings.Index(output[idx:], "\n")
+		if end < 0 {
+			t.Fatalf("no newline after %q", prefix)
+		}
+		line := output[idx+len(prefix) : idx+end]
+		const cap = maxVerboseBodyLog + len("...[truncated]")
+		if len(line) > cap {
+			t.Errorf("%s line len = %d, want <= %d", prefix, len(line), cap)
+		}
+	}
+}
+
+func TestTruncateForLog(t *testing.T) {
+	t.Parallel()
+	if got := truncateForLog([]byte("short")); string(got) != "short" {
+		t.Errorf("under cap: got %q, want %q", got, "short")
+	}
+	big := bytes.Repeat([]byte("X"), maxVerboseBodyLog+10)
+	got := truncateForLog(big)
+	if !bytes.HasSuffix(got, []byte("...[truncated]")) {
+		t.Errorf("expected truncated suffix, got %q", got)
+	}
+	if len(got) != maxVerboseBodyLog+len("...[truncated]") {
+		t.Errorf("len = %d, want %d", len(got), maxVerboseBodyLog+len("...[truncated]"))
+	}
+}
+
 func TestClient_ContextCancellation(t *testing.T) {
 	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

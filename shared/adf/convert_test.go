@@ -794,3 +794,91 @@ func TestToJSON_NoSubscriptSuperscript(t *testing.T) {
 		}
 	}
 }
+
+func TestToJSON_EmptyCodeBlock(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name  string
+		input string
+	}{
+		{"fenced empty no lang", "```\n```"},
+		{"fenced empty with lang", "```bash\n```"},
+		{"fenced single backticks", "```"},
+	}
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			result, err := ToJSON([]byte(tc.input))
+			testutil.RequireNoError(t, err)
+
+			var doc Document
+			err = json.Unmarshal([]byte(result), &doc)
+			testutil.RequireNoError(t, err)
+
+			assertNoEmptyTextNodes(t, doc.Content)
+		})
+	}
+}
+
+func TestToJSON_EmptyTableCell(t *testing.T) {
+	t.Parallel()
+	input := "| a | |\n|---|---|\n| | b |\n"
+	result, err := ToJSON([]byte(input))
+	testutil.RequireNoError(t, err)
+
+	var doc Document
+	err = json.Unmarshal([]byte(result), &doc)
+	testutil.RequireNoError(t, err)
+
+	assertNoEmptyTextNodes(t, doc.Content)
+}
+
+func TestToJSON_NoEmptyTextNodes(t *testing.T) {
+	t.Parallel()
+	inputs := []string{
+		"```\n```",
+		"```go\n```",
+		"| a | |\n|---|---|\n| | b |\n",
+		"Plain paragraph with **bold**.",
+		"# Heading\n\nText\n\n```\n```\n\n| x | |\n|---|---|\n| | y |\n",
+	}
+	for _, input := range inputs {
+		input := input
+		t.Run(input, func(t *testing.T) {
+			t.Parallel()
+			result, err := ToJSON([]byte(input))
+			testutil.RequireNoError(t, err)
+
+			var doc Document
+			err = json.Unmarshal([]byte(result), &doc)
+			testutil.RequireNoError(t, err)
+
+			assertNoEmptyTextNodes(t, doc.Content)
+		})
+	}
+}
+
+func TestToDocument_EmptyCodeBlock_NoEmptyTextNodes(t *testing.T) {
+	t.Parallel()
+	doc := ToDocument("Before\n\n```\n```\n\nAfter")
+	if doc == nil {
+		t.Fatal("ToDocument returned nil")
+	}
+	assertNoEmptyTextNodes(t, doc.Content)
+}
+
+func assertNoEmptyTextNodes(t *testing.T, nodes []*Node) {
+	t.Helper()
+	for _, n := range nodes {
+		if n == nil {
+			continue
+		}
+		if n.Type == "text" && n.Text == "" {
+			t.Errorf("found empty text node: %+v", n)
+		}
+		if len(n.Content) > 0 {
+			assertNoEmptyTextNodes(t, n.Content)
+		}
+	}
+}

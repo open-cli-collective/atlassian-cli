@@ -257,11 +257,9 @@ func (c *converter) convertFencedCodeBlock(n *ast.FencedCodeBlock) *Node {
 
 	codeStr := strings.TrimSuffix(code.String(), "\n")
 
-	node := &Node{
-		Type: "codeBlock",
-		Content: []*Node{
-			{Type: "text", Text: codeStr},
-		},
+	node := &Node{Type: "codeBlock"}
+	if codeStr != "" {
+		node.Content = []*Node{{Type: "text", Text: codeStr}}
 	}
 
 	if lang := string(n.Language(c.source)); lang != "" {
@@ -281,12 +279,11 @@ func (c *converter) convertCodeBlock(n *ast.CodeBlock) *Node {
 
 	codeStr := strings.TrimSuffix(code.String(), "\n")
 
-	return &Node{
-		Type: "codeBlock",
-		Content: []*Node{
-			{Type: "text", Text: codeStr},
-		},
+	node := &Node{Type: "codeBlock"}
+	if codeStr != "" {
+		node.Content = []*Node{{Type: "text", Text: codeStr}}
 	}
+	return node
 }
 
 func (c *converter) convertBlockquote(n *ast.Blockquote) *Node {
@@ -350,11 +347,9 @@ func (c *converter) convertTableCell(n *extast.TableCell, isHeader bool) *Node {
 	}
 
 	content := c.convertInlineChildren(n)
-	var para *Node
+	para := &Node{Type: "paragraph"}
 	if len(content) > 0 {
-		para = &Node{Type: "paragraph", Content: content}
-	} else {
-		para = &Node{Type: "paragraph", Content: []*Node{{Type: "text", Text: ""}}}
+		para.Content = content
 	}
 
 	return &Node{

@@ -54,6 +54,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `--verbose` now logs the outbound request JSON body and any 4xx/5xx response body (each truncated at 4 KB), surfacing field-level Jira errors that previously appeared only as opaque codes like `INVALID_INPUT`. ([#325](https://github.com/open-cli-collective/atlassian-cli/issues/325))
+- Empty fenced/indented code blocks and empty table cells no longer produce invalid ADF text nodes with empty content.
 - `jtk issues move --no-wait` and `--no-notify` now parse correctly. Previously the help text mentioned them but pflag did not register the negations, so they failed with "unknown flag". ([#342](https://github.com/open-cli-collective/atlassian-cli/issues/342))
 - `\n`, `\t`, `\\` escape sequences now work in `comments add --body` ([#188](https://github.com/open-cli-collective/atlassian-cli/pull/188))
 - `issues search` and `issues list` with `-o json` now return all fields including custom fields by default ([#180](https://github.com/open-cli-collective/atlassian-cli/pull/180))

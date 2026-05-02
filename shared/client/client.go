@@ -89,9 +89,11 @@ func (c *Client) Do(ctx context.Context, method, path string, body any) ([]byte,
 		url = c.BaseURL + path
 	}
 
+	var jsonBody []byte
 	var reqBody io.Reader
 	if body != nil {
-		jsonBody, err := json.Marshal(body)
+		var err error
+		jsonBody, err = json.Marshal(body)
 		if err != nil {
 			return nil, fmt.Errorf("marshaling request body: %w", err)
 		}
@@ -110,6 +112,9 @@ func (c *Client) Do(ctx context.Context, method, path string, body any) ([]byte,
 
 	if c.Verbose {
 		_, _ = fmt.Fprintf(c.VerboseOut, "→ %s %s\n", method, url)
+		if jsonBody != nil {
+			_, _ = fmt.Fprintf(c.VerboseOut, "→ body: %s\n", truncateForLog(jsonBody))
+		}
 	}
 
 	resp, err := c.HTTPClient.Do(req)
@@ -125,6 +130,9 @@ func (c *Client) Do(ctx context.Context, method, path string, body any) ([]byte,
 
 	if c.Verbose {
 		_, _ = fmt.Fprintf(c.VerboseOut, "← %d %s\n", resp.StatusCode, http.StatusText(resp.StatusCode))
+		if resp.StatusCode >= 400 && len(respBody) > 0 {
+			_, _ = fmt.Fprintf(c.VerboseOut, "← body: %s\n", truncateForLog(respBody))
+		}
 	}
 
 	// Handle error responses
@@ -153,4 +161,19 @@ func (c *Client) Put(ctx context.Context, path string, body any) ([]byte, error)
 // Delete performs a DELETE request.
 func (c *Client) Delete(ctx context.Context, path string) ([]byte, error) {
 	return c.Do(ctx, http.MethodDelete, path, nil)
+}
+
+// maxVerboseBodyLog caps the bytes shown for any single body in verbose output.
+const maxVerboseBodyLog = 4096
+
+// truncateForLog returns b unchanged if within the cap, otherwise a copy of the
+// first maxVerboseBodyLog bytes followed by a "...[truncated]" suffix.
+func truncateForLog(b []byte) []byte {
+	if len(b) <= maxVerboseBodyLog {
+		return b
+	}
+	out := make([]byte, 0, maxVerboseBodyLog+len("...[truncated]"))
+	out = append(out, b[:maxVerboseBodyLog]...)
+	out = append(out, "...[truncated]"...)
+	return out
 }

@@ -567,6 +567,48 @@ func TestUpdateCmd_CobraExecution_WithAssignee(t *testing.T) {
 	testutil.Equal(t, assigneeField["accountId"], "61292e4c4f29230069621c5f")
 }
 
+func TestRunUpdate_TypeChange_MoveNotFound_ServerDCError(t *testing.T) {
+	seedCacheForIssues(t)
+	testutil.RequireNoError(t, cache.WriteResource("issuetypes", "24h", map[string][]api.IssueType{
+		"PROJ": {
+			{ID: "10000", Name: "Epic"},
+			{ID: "10001", Name: "Task"},
+		},
+	}))
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/rest/api/3/issue/PROJ-123" && r.Method == "GET":
+			_ = json.NewEncoder(w).Encode(api.Issue{
+				Key: "PROJ-123",
+				ID:  "10001",
+				Fields: api.IssueFields{
+					Project:   &api.Project{Key: "PROJ"},
+					IssueType: &api.IssueType{ID: "10000", Name: "Epic"},
+				},
+			})
+		case r.URL.Path == "/rest/api/3/bulk/issues/move" && r.Method == "POST":
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(`{"errorMessages":["not found"]}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	opts := &root.Options{Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runUpdate(context.Background(), opts, "PROJ-123", "", "", "", "", "Task", nil)
+	if err == nil {
+		t.Fatal("expected error for Server/DC detection")
+	}
+	testutil.Contains(t, err.Error(), "requires Jira Cloud")
+}
+
 func TestRunUpdate_TypeChange_PollNotFound_ContinuesFieldUpdates(t *testing.T) {
 	seedCacheForIssues(t)
 	testutil.RequireNoError(t, cache.WriteResource("issuetypes", "24h", map[string][]api.IssueType{

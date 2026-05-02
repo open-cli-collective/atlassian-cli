@@ -5,10 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/spf13/cobra"
 
+	sharederrors "github.com/open-cli-collective/atlassian-go/errors"
 	"github.com/open-cli-collective/atlassian-go/present"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
@@ -149,8 +149,7 @@ func runMove(ctx context.Context, opts *root.Options, issueKeys []string, target
 
 	resp, err := client.MoveIssues(ctx, req)
 	if err != nil {
-		// Check if this is a Server/DC instance
-		if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "not found") {
+		if sharederrors.IsNotFound(err) {
 			return fmt.Errorf("move operation failed - this feature is only available on Jira Cloud")
 		}
 		return fmt.Errorf("initiating move: %w", err)
@@ -164,44 +163,44 @@ func runMove(ctx context.Context, opts *root.Options, issueKeys []string, target
 		return nil
 	}
 
-	// Wait for completion - progress to stderr
 	waitModel := ip.PresentMoveWaiting()
 	waitOut := present.Render(waitModel, opts.RenderStyle())
 	_, _ = fmt.Fprint(opts.Stderr, waitOut.Stderr)
 
-	for {
-		status, err := client.GetMoveTaskStatus(ctx, resp.TaskID)
-		if err != nil {
-			return fmt.Errorf("getting task status: %w", err)
-		}
+	status, err := pollMoveTask(ctx, client, resp.TaskID)
+	if errors.Is(err, errStatusUnavailable) {
+		model := ip.PresentMoveInitiated(resp.TaskID)
+		out := present.Render(model, opts.RenderStyle())
+		_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
+		_, _ = fmt.Fprintf(opts.Stderr, "Task status unavailable — verify with `jtk issues get`\n")
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("getting task status: %w", err)
+	}
 
-		switch status.Status {
-		case "COMPLETE":
-			if status.Result != nil && len(status.Result.Failed) > 0 {
-				model := ip.PresentMovePartialFailure(status.Result.Successful, status.Result.Failed)
-				out := present.Render(model, opts.RenderStyle())
-				_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
-				_, _ = fmt.Fprint(opts.Stderr, out.Stderr)
-				return fmt.Errorf("some issues failed to move")
-			}
-			model := ip.PresentMoved(len(issueKeys), projectKey)
+	switch status.Status {
+	case "COMPLETE":
+		if status.Result != nil && len(status.Result.Failed) > 0 {
+			model := ip.PresentMovePartialFailure(status.Result.Successful, status.Result.Failed)
 			out := present.Render(model, opts.RenderStyle())
 			_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
-			return nil
-
-		case "FAILED":
-			return fmt.Errorf("move failed")
-
-		case "CANCELLED":
-			return fmt.Errorf("move was cancelled")
-
-		case "ENQUEUED", "RUNNING":
-			// Still in progress
-			time.Sleep(1 * time.Second)
-
-		default:
-			return fmt.Errorf("unknown task status: %s", status.Status)
+			_, _ = fmt.Fprint(opts.Stderr, out.Stderr)
+			return fmt.Errorf("some issues failed to move")
 		}
+		model := ip.PresentMoved(len(issueKeys), projectKey)
+		out := present.Render(model, opts.RenderStyle())
+		_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
+		return nil
+
+	case "FAILED":
+		return fmt.Errorf("move failed")
+
+	case "CANCELLED":
+		return fmt.Errorf("move was cancelled")
+
+	default:
+		return fmt.Errorf("unknown task status: %s", status.Status)
 	}
 }
 

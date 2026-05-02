@@ -2,12 +2,13 @@ package issues
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/spf13/cobra"
 
+	sharederrors "github.com/open-cli-collective/atlassian-go/errors"
 	"github.com/open-cli-collective/atlassian-go/present"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
@@ -83,7 +84,11 @@ func runUpdate(ctx context.Context, opts *root.Options, issueKey, summary, descr
 	// Handle type change via the move API
 	if issueType != "" {
 		if err := changeIssueType(ctx, client, opts, issueKey, issueType); err != nil {
-			return err
+			if errors.Is(err, errTypeChangeUnverified) {
+				_, _ = fmt.Fprintf(opts.Stderr, "Type change accepted but status could not be verified\n")
+			} else {
+				return err
+			}
 		}
 	}
 
@@ -209,38 +214,36 @@ func changeIssueType(ctx context.Context, client *api.Client, opts *root.Options
 
 	resp, err := client.MoveIssues(ctx, req)
 	if err != nil {
-		if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "not found") {
+		if sharederrors.IsNotFound(err) {
 			return fmt.Errorf("type change failed - this feature requires Jira Cloud")
 		}
 		return fmt.Errorf("failed to change issue type: %w", err)
 	}
 
-	for {
-		status, err := client.GetMoveTaskStatus(ctx, resp.TaskID)
-		if err != nil {
-			return fmt.Errorf("failed to get task status: %w", err)
-		}
+	status, err := pollMoveTask(ctx, client, resp.TaskID)
+	if errors.Is(err, errStatusUnavailable) {
+		return errTypeChangeUnverified
+	}
+	if err != nil {
+		return fmt.Errorf("failed to get task status: %w", err)
+	}
 
-		switch status.Status {
-		case "COMPLETE":
-			if status.Result != nil && len(status.Result.Failed) > 0 {
-				for _, failed := range status.Result.Failed {
-					return fmt.Errorf("type change failed for %s: %s", failed.IssueKey, strings.Join(failed.Errors, ", "))
-				}
+	switch status.Status {
+	case "COMPLETE":
+		if status.Result != nil && len(status.Result.Failed) > 0 {
+			for _, failed := range status.Result.Failed {
+				return fmt.Errorf("type change failed for %s: %s", failed.IssueKey, strings.Join(failed.Errors, ", "))
 			}
-			return nil
-
-		case "FAILED":
-			return fmt.Errorf("type change failed")
-
-		case "CANCELLED":
-			return fmt.Errorf("type change was cancelled")
-
-		case "ENQUEUED", "RUNNING":
-			time.Sleep(1 * time.Second)
-
-		default:
-			return fmt.Errorf("unknown task status: %s", status.Status)
 		}
+		return nil
+
+	case "FAILED":
+		return fmt.Errorf("type change failed")
+
+	case "CANCELLED":
+		return fmt.Errorf("type change was cancelled")
+
+	default:
+		return fmt.Errorf("unknown task status: %s", status.Status)
 	}
 }

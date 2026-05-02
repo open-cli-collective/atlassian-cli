@@ -491,6 +491,56 @@ Run these steps in order. Each step depends on the previous.
    ```
    Expected: Table showing `$COMMENT_ID`, your name, and the comment body
 
+### Attachment sub-block
+
+> Run before deleting `$TEST_ISSUE`.
+
+7b. **Create a test file and upload (default output):**
+    ```bash
+    echo "integration test attachment" > /tmp/jtk-test-attach.txt
+    jtk attachments add $TEST_ISSUE --file /tmp/jtk-test-attach.txt
+    ```
+    Expected: Table row with filename, attachment ID, and file size.
+    Capture the attachment ID → `$ATTACH_ID`
+
+    Also test `--id` variant. Capture the ID so it can be cleaned up:
+    ```bash
+    ATTACH_ID_2=$(jtk attachments add $TEST_ISSUE --file /tmp/jtk-test-attach.txt --id)
+    echo $ATTACH_ID_2
+    ```
+    Expected: Attachment ID only (numeric). Delete this attachment immediately:
+    ```bash
+    jtk attachments delete $ATTACH_ID_2
+    ```
+
+7c. **List attachments:**
+    ```bash
+    jtk attachments list $TEST_ISSUE
+    ```
+    Expected: Table showing `$ATTACH_ID` with filename `jtk-test-attach.txt`
+
+7d. **Download attachment:**
+    ```bash
+    jtk attachments get $ATTACH_ID --output /tmp/
+    ```
+    Expected: Download success message (e.g., `Downloaded $ATTACH_ID → /tmp/jtk-test-attach.txt (28 B)`)
+    Clean up the download:
+    ```bash
+    rm /tmp/jtk-test-attach.txt
+    ```
+
+7e. **Delete attachment:**
+    ```bash
+    jtk attachments delete $ATTACH_ID
+    ```
+    Expected: `✓ Deleted attachment $ATTACH_ID`
+
+7f. **Verify deletion:**
+    ```bash
+    jtk attachments list $TEST_ISSUE
+    ```
+    Expected: `$ATTACH_ID` no longer listed (or `No attachments on $TEST_ISSUE`)
+
 8. **Check transitions:**
    ```bash
    jtk transitions list $TEST_ISSUE
@@ -622,6 +672,8 @@ Run these steps in order. Each step depends on the previous.
 | 3 | `jtk issues get ${PROJECT}-99999` | `resource not found: ...` |
 | 4 | `jtk issues update ${PROJECT}-99999 -s "Nope"` | `resource not found: ...` |
 | 5 | `jtk issues delete ${PROJECT}-99999 --force` | `resource not found: ...` |
+| 6 | `jtk attachments add $TEST_ISSUE --file /tmp/nonexistent.txt` | Error: file not found |
+| 7 | `jtk attachments delete 99999` | Error: 404 |
 
 ---
 
@@ -1277,9 +1329,10 @@ Verify each alias produces the same output as the full command:
 #### Issue Mutations (Section 10)
 - [ ] Create (full detail output) → get → update → assign (`--id` variant) → comment → comment `--id` variant → transitions list → transition (`--id` variant) → unassign → delete comment → delete issue
 - [ ] Unassign via `--assignee none` on `issues update`
+- [ ] Attachment sub-block (steps 7b–7f): upload (full output + `--id` variant) → list → download → delete → verify
 - [ ] Archive sub-block: create `$ARCHIVE_ISSUE_1` → archive (default) → create `$ARCHIVE_ISSUE_2` → archive `--id`
 - [ ] Multi-value `--field` flag (create issue with repeated `--field` same key)
-- [ ] Error cases (missing flags, 404)
+- [ ] Error cases (missing flags, 404, attachment not found)
 
 #### Link Mutations (Section 11)
 - [ ] Types → create issues → create link → verify → delete link → verify → cleanup
@@ -1377,9 +1430,10 @@ Verify each alias produces the same output as the full command:
 #### Issue Mutations (Section 10)
 - [ ] Create → get → update → assign → comment → transitions list → transition → unassign → delete comment → delete issue
 - [ ] Unassign via `--assignee none` on `issues update`
+- [ ] Attachment sub-block (steps 7b–7f): upload (full output + `--id` variant) → list → download → delete → verify
 - [ ] Archive sub-block (two issues)
 - [ ] Multi-value `--field` flag
-- [ ] Error cases (missing flags, 404)
+- [ ] Error cases (missing flags, 404, attachment not found)
 
 #### Link Mutations (Section 11)
 - [ ] Types → create issues → create link → verify → delete link → verify → cleanup

@@ -83,7 +83,7 @@ func TestPollMoveTask_PersistentNotFound_ReturnsStatusUnavailable(t *testing.T) 
 }
 
 func TestPollMoveTask_ContextCancellation(t *testing.T) {
-	t.Parallel()
+	// Not parallel: mutates package-level pollRetryDelay.
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 		_, _ = w.Write([]byte(`{"errorMessages":["not found"]}`))
@@ -93,7 +93,6 @@ func TestPollMoveTask_ContextCancellation(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
 
-	// Use a real delay so context cancellation can kick in
 	origDelay := pollRetryDelay
 	pollRetryDelay = 5 * time.Second
 	defer func() { pollRetryDelay = origDelay }()

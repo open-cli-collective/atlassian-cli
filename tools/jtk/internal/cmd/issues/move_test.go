@@ -329,6 +329,91 @@ func TestRunMove_ColdCacheErrorsInsteadOfEmptyID(t *testing.T) {
 	}
 }
 
+func TestRunMove_PollNotFound_GracefulDegradation(t *testing.T) {
+	seedCacheForIssues(t)
+	testutil.RequireNoError(t, cache.WriteResource("issuetypes", "24h", map[string][]api.IssueType{
+		"TARGET": {{ID: "10050", Name: "Task"}},
+	}))
+	testutil.RequireNoError(t, cache.WriteResource("projects", "24h", []api.Project{
+		{Key: "TARGET", Name: "Target"}, {Key: "PROJ", Name: "Source"},
+	}))
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasPrefix(r.URL.Path, "/rest/api/3/issue/PROJ-1") && r.Method == http.MethodGet:
+			_ = json.NewEncoder(w).Encode(api.Issue{
+				Key: "PROJ-1",
+				Fields: api.IssueFields{
+					Project:   &api.Project{Key: "PROJ"},
+					IssueType: &api.IssueType{ID: "10000", Name: "Task"},
+				},
+			})
+		case r.URL.Path == "/rest/api/3/bulk/issues/move" && r.Method == http.MethodPost:
+			_ = json.NewEncoder(w).Encode(api.MoveIssuesResponse{TaskID: "task-1"})
+		case strings.HasPrefix(r.URL.Path, "/rest/api/3/bulk/queue/"):
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(`{"errorMessages":["not found"]}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	var stdout, stderr bytes.Buffer
+	opts := &root.Options{Stdout: &stdout, Stderr: &stderr}
+	opts.SetAPIClient(client)
+
+	err = runMove(context.Background(), opts, []string{"PROJ-1"}, "TARGET", "Task", false, true)
+	testutil.RequireNoError(t, err)
+
+	testutil.Contains(t, stdout.String(), "task-1")
+	testutil.Contains(t, stderr.String(), "status unavailable")
+}
+
+func TestRunMove_MoveIssuesNotFound_ServerDCError(t *testing.T) {
+	seedCacheForIssues(t)
+	testutil.RequireNoError(t, cache.WriteResource("issuetypes", "24h", map[string][]api.IssueType{
+		"TARGET": {{ID: "10050", Name: "Task"}},
+	}))
+	testutil.RequireNoError(t, cache.WriteResource("projects", "24h", []api.Project{
+		{Key: "TARGET", Name: "Target"}, {Key: "PROJ", Name: "Source"},
+	}))
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasPrefix(r.URL.Path, "/rest/api/3/issue/PROJ-1") && r.Method == http.MethodGet:
+			_ = json.NewEncoder(w).Encode(api.Issue{
+				Key: "PROJ-1",
+				Fields: api.IssueFields{
+					Project:   &api.Project{Key: "PROJ"},
+					IssueType: &api.IssueType{ID: "10000", Name: "Task"},
+				},
+			})
+		case r.URL.Path == "/rest/api/3/bulk/issues/move" && r.Method == http.MethodPost:
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(`{"errorMessages":["not found"]}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	opts := &root.Options{Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runMove(context.Background(), opts, []string{"PROJ-1"}, "TARGET", "Task", false, true)
+	if err == nil {
+		t.Fatal("expected error for Server/DC detection")
+	}
+	testutil.Contains(t, err.Error(), "only available on Jira Cloud")
+}
+
 func TestRunMove_NoCachedIssueTypesPromptsToSpecifyType(t *testing.T) {
 	// --to-type omitted. Source is Epic, target project has NO cached
 	// issuetypes at all. Resolver should surface an actionable error

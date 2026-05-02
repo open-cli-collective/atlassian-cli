@@ -21,8 +21,8 @@ import (
 func newMoveCmd(opts *root.Options) *cobra.Command {
 	var targetProject string
 	var targetType string
-	var notify bool
-	var wait bool
+	var notify, wait bool
+	var noNotify, noWait bool
 
 	cmd := &cobra.Command{
 		Use:   "move <issue-key>...",
@@ -53,14 +53,24 @@ Limitations:
   jtk issues move PROJ-123 --to-project NEWPROJ --no-notify`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runMove(cmd.Context(), opts, args, targetProject, targetType, notify, wait)
+			effectiveNotify := notify
+			effectiveWait := wait
+			if noNotify {
+				effectiveNotify = false
+			}
+			if noWait {
+				effectiveWait = false
+			}
+			return runMove(cmd.Context(), opts, args, targetProject, targetType, effectiveNotify, effectiveWait)
 		},
 	}
 
 	cmd.Flags().StringVar(&targetProject, "to-project", "", "Target project key or name (required)")
 	cmd.Flags().StringVar(&targetType, "to-type", "", "Target issue type name (default: same as source, resolved via cache)")
-	cmd.Flags().BoolVar(&notify, "notify", true, "Send notifications for the move")
-	cmd.Flags().BoolVar(&wait, "wait", true, "Wait for the move to complete")
+	cmd.Flags().BoolVar(&notify, "notify", true, "Send notifications for the move (use --no-notify to suppress)")
+	cmd.Flags().BoolVar(&wait, "wait", true, "Wait for the move to complete (use --no-wait to return immediately and poll with move-status)")
+	cmd.Flags().BoolVar(&noNotify, "no-notify", false, "Suppress notifications (equivalent to --notify=false)")
+	cmd.Flags().BoolVar(&noWait, "no-wait", false, "Return immediately with task ID (equivalent to --wait=false)")
 
 	_ = cmd.MarkFlagRequired("to-project")
 

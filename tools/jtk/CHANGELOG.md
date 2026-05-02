@@ -54,6 +54,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `jtk issues move --no-wait` and `--no-notify` now parse correctly. Previously the help text mentioned them but pflag did not register the negations, so they failed with "unknown flag". ([#342](https://github.com/open-cli-collective/atlassian-cli/issues/342))
 - `\n`, `\t`, `\\` escape sequences now work in `comments add --body` ([#188](https://github.com/open-cli-collective/atlassian-cli/pull/188))
 - `issues search` and `issues list` with `-o json` now return all fields including custom fields by default ([#180](https://github.com/open-cli-collective/atlassian-cli/pull/180))
 - Wiki markup conversion no longer mangles hyphens and tildes ([#178](https://github.com/open-cli-collective/atlassian-cli/pull/178))

@@ -468,3 +468,86 @@ func TestRunMove_NoCachedIssueTypesPromptsToSpecifyType(t *testing.T) {
 		t.Fatalf("expected error to suggest --to-type, got: %v", err)
 	}
 }
+
+func TestNewMoveCmd_NegationFlagsApplyOverrides(t *testing.T) {
+	// Drives the cobra command with --no-wait --no-notify and asserts both
+	// overrides reach runMove: the captured request has sendBulkNotification
+	// false (from --no-notify), and the polling endpoint is never hit (from
+	// --no-wait). A buggy implementation that registers the negation flags
+	// but forgets to pass effective values into runMove would fail this.
+	seedCacheForIssues(t)
+	testutil.RequireNoError(t, cache.WriteResource("issuetypes", "24h", map[string][]api.IssueType{
+		"TARGET": {{ID: "10050", Name: "Task"}},
+	}))
+	testutil.RequireNoError(t, cache.WriteResource("projects", "24h", []api.Project{
+		{Key: "TARGET", Name: "Target"}, {Key: "PROJ", Name: "Source"},
+	}))
+
+	var moveBody []byte
+	var queueCalls int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasPrefix(r.URL.Path, "/rest/api/3/issue/PROJ-1") && r.Method == http.MethodGet:
+			_ = json.NewEncoder(w).Encode(api.Issue{
+				Key: "PROJ-1",
+				Fields: api.IssueFields{
+					Project:   &api.Project{Key: "PROJ"},
+					IssueType: &api.IssueType{ID: "10000", Name: "Task"},
+				},
+			})
+		case r.URL.Path == "/rest/api/3/bulk/issues/move" && r.Method == http.MethodPost:
+			moveBody, _ = io.ReadAll(r.Body)
+			_ = json.NewEncoder(w).Encode(api.MoveIssuesResponse{TaskID: "task-1"})
+		case strings.HasPrefix(r.URL.Path, "/rest/api/3/bulk/queue/"):
+			queueCalls++
+			t.Errorf("unexpected polling request with --no-wait: %s %s", r.Method, r.URL.Path)
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(api.MoveTaskStatus{TaskID: "task-1", Status: "COMPLETE"})
+		default:
+			t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	var stdout, stderr bytes.Buffer
+	opts := &root.Options{Stdout: &stdout, Stderr: &stderr}
+	opts.SetAPIClient(client)
+
+	cmd := newMoveCmd(opts)
+	cmd.SetArgs([]string{"PROJ-1", "--to-project", "TARGET", "--no-wait", "--no-notify"})
+	cmd.SetOut(&stdout)
+	cmd.SetErr(&stderr)
+	testutil.RequireNoError(t, cmd.ExecuteContext(context.Background()))
+
+	testutil.Equal(t, queueCalls, 0)
+
+	var req api.MoveIssuesRequest
+	testutil.RequireNoError(t, json.Unmarshal(moveBody, &req))
+	testutil.False(t, req.SendBulkNotification)
+}
+
+func TestNewMoveCmd_NegationFlagsRegistered(t *testing.T) {
+	t.Parallel()
+
+	for _, name := range []string{"no-wait", "no-notify"} {
+		f := newMoveCmd(&root.Options{}).Flags().Lookup(name)
+		testutil.NotNil(t, f)
+		testutil.Equal(t, f.DefValue, "false")
+	}
+
+	parseCases := [][]string{
+		{"--no-wait", "--to-project", "DEST"},
+		{"--no-notify", "--to-project", "DEST"},
+		{"--no-wait", "--no-notify", "--to-project", "DEST"},
+	}
+	for _, args := range parseCases {
+		cmd := newMoveCmd(&root.Options{})
+		if err := cmd.ParseFlags(args); err != nil {
+			t.Fatalf("expected %v to parse, got: %v", args, err)
+		}
+	}
+}

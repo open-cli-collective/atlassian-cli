@@ -462,6 +462,11 @@ func TestTruncateForLog(t *testing.T) {
 	if got := truncateForLog([]byte("short")); string(got) != "short" {
 		t.Errorf("under cap: got %q, want %q", got, "short")
 	}
+	// Exact-cap boundary: input length == maxVerboseBodyLog must NOT be truncated.
+	atCap := bytes.Repeat([]byte("Y"), maxVerboseBodyLog)
+	if got := truncateForLog(atCap); len(got) != maxVerboseBodyLog || bytes.Contains(got, []byte("[truncated]")) {
+		t.Errorf("at cap: expected pass-through (len=%d, no suffix), got len=%d truncated=%v", maxVerboseBodyLog, len(got), bytes.Contains(got, []byte("[truncated]")))
+	}
 	big := bytes.Repeat([]byte("X"), maxVerboseBodyLog+10)
 	got := truncateForLog(big)
 	if !bytes.HasSuffix(got, []byte("...[truncated]")) {
@@ -469,6 +474,27 @@ func TestTruncateForLog(t *testing.T) {
 	}
 	if len(got) != maxVerboseBodyLog+len("...[truncated]") {
 		t.Errorf("len = %d, want %d", len(got), maxVerboseBodyLog+len("...[truncated]"))
+	}
+}
+
+func TestClient_VerboseLogsResponseBodyOn5xx(t *testing.T) {
+	t.Parallel()
+	errorPayload := `{"errorMessages":["Internal server error"]}`
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(errorPayload))
+	}))
+	defer server.Close()
+
+	verboseOut := &bytes.Buffer{}
+	c := New(server.URL, "user@example.com", "token", &Options{Verbose: true, VerboseOut: verboseOut})
+
+	if _, err := c.Get(context.Background(), "/api/test"); err == nil {
+		t.Fatal("expected error from 500 response")
+	}
+
+	if !strings.Contains(verboseOut.String(), "← body: "+errorPayload) {
+		t.Errorf("expected 5xx response body in verbose output, got: %v", verboseOut.String())
 	}
 }
 

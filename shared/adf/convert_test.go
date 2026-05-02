@@ -795,6 +795,23 @@ func TestToJSON_NoSubscriptSuperscript(t *testing.T) {
 	}
 }
 
+func TestToJSON_NonEmptyCodeBlockKeepsTextChild(t *testing.T) {
+	t.Parallel()
+	result, err := ToJSON([]byte("```go\nfmt.Println(\"hi\")\n```"))
+	testutil.RequireNoError(t, err)
+
+	var doc Document
+	err = json.Unmarshal([]byte(result), &doc)
+	testutil.RequireNoError(t, err)
+
+	testutil.RequireEqual(t, len(doc.Content), 1)
+	cb := doc.Content[0]
+	testutil.Equal(t, cb.Type, "codeBlock")
+	testutil.RequireEqual(t, len(cb.Content), 1)
+	testutil.Equal(t, cb.Content[0].Type, "text")
+	testutil.Equal(t, cb.Content[0].Text, "fmt.Println(\"hi\")")
+}
+
 func TestToJSON_EmptyCodeBlock(t *testing.T) {
 	t.Parallel()
 	cases := []struct {
@@ -804,6 +821,7 @@ func TestToJSON_EmptyCodeBlock(t *testing.T) {
 		{"fenced empty no lang", "```\n```"},
 		{"fenced empty with lang", "```bash\n```"},
 		{"fenced single backticks", "```"},
+		{"indented empty", "    \n"},
 	}
 	for _, tc := range cases {
 		tc := tc

@@ -136,7 +136,7 @@ jtk transitions do PROJ-123 "In Progress"
 jtk transitions do PROJ-123 21
 
 # If `transitions list --extended` showed a required field, pass it. Only
-# pass --field values that the list-extended output explicitly flagged as
+# pass --field values that `transitions list --extended` explicitly flagged as
 # required — many workflows set resolution via post-function or hide it
 # from the transition screen, and a speculative --field resolution=Done
 # will fail with "Field 'resolution' cannot be set. It is not on the

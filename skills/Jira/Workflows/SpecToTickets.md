@@ -260,7 +260,7 @@ The spec may reference companion files — mockups, templates, sample data — t
 
 1. **Spec-referenced files.** Read the spec for explicit references to companion files: mockup images cited in UI sections, CSV templates referenced in parsing or download sections, sample data files cited in validation sections. Map each to the ticket whose scope covers the spec section that references it. A file may map to multiple tickets when more than one ticket's scope references it.
 
-2. **Top-level documents.** Scan `spec_dir` for conventional project documents — BRDs, PRDs, the spec file itself. These attach to the top-level parent or coordination ticket without needing an explicit spec reference. Do not scan for other files beyond these two categories unless the user directs otherwise.
+2. **Top-level documents.** Scan `spec_dir` for conventional project documents — BRDs, PRDs, the spec file itself. Identify by filename pattern: files whose name contains "BRD", "PRD", "brief", "spec", "requirements", or "design" (case-insensitive), or files the user explicitly names as a project document. These attach to the top-level parent or coordination ticket without needing an explicit spec reference. Do not scan for other files beyond these two categories unless the user directs otherwise.
 
 **Path representation:** Paths in the `artifacts` field are relative to `spec_dir` when the file is at or below that directory. Use `./` prefix for same-directory files and `./subdir/` for child directories. Use an absolute path when the file lives outside the spec directory tree.
 
@@ -302,7 +302,7 @@ The following is a minimal but complete workfile showing all required structural
 
 - **spec_title:** <spec title>
 - **spec_source:** <where the spec lives (URL, page ref, inline)>
-- **spec_dir:** `<absolute path to directory containing the spec file, or none>`
+- **spec_dir:** `<absolute path to directory containing the spec file, or none>` ← when none, all artifact paths must be absolute
 - **project:** <PROJECT_KEY>
 - **created:** <ISO 8601 timestamp>
 - **updated:** <ISO 8601 timestamp>
@@ -557,7 +557,7 @@ Artifacts (4 files identified for attachment after creation):
   `/home/user/shared-assets/compliance-checklist.pdf` → SpecToTicketWorkflowTemp-1
 ```
 
-Additionally, within each ticket's proposal row, include an `Artifacts:` line listing the paths that will be attached to that ticket.
+Additionally, within each ticket's proposal row, include an `Artifacts:` line listing the paths that will be attached to that ticket. Both sections are required when artifacts exist: the top-level block gives the reviewer a consolidated cross-reference view; the per-ticket line confirms what each individual ticket will receive. They are complementary, not alternatives.
 
 Example proposal row:
 
@@ -590,7 +590,7 @@ Ask the user to confirm, and wait for a concrete answer before proceeding:
 - Is the hierarchy and relationship structure correct?
 - Any priorities, assignees, or fields to adjust?
 - Any tickets to add or remove?
-- Are the artifact-to-ticket mappings correct? Any files to add, remove, or reassign?
+- Are the artifact-to-ticket mappings correct? Any files to add, remove, or reassign? (If you reassign artifacts, the agent will update both the batch-level mapping and the affected tickets' `artifacts` fields, then re-run check #20 before proceeding.)
 - Want to review the full description of any specific ticket before approving?
 
 **If the user requests any changes, update the workfile immediately** before responding. Do not hold changes in conversation context and defer the file update — the workfile is the source of truth and must reflect every confirmed edit.
@@ -628,7 +628,7 @@ Before proceeding to ManageIssueSet's Execute stage, validate the workfile. Do n
 
 **Checks:**
 
-1. **Every ticket section has all required fields and a description body.** Required bullet-field metadata: `jira_key`, `type`, `summary`, `priority`, `assignee`, `parent`, `labels`, `links`, `source`, `short_description`, `artifacts`. The order shown in stage 3a is recommended for readability but is NOT enforced here — validation only checks that every required field is present, not that it appears in a specific position. Plus a `### Description` heading followed by content enclosed in `<!-- SPECTOTICKETS_DESCRIPTION_START -->` and `<!-- SPECTOTICKETS_DESCRIPTION_END -->` markers. The file's top section has the batch fields: `spec_title`, `spec_source`, `spec_dir`, `project`, `created`, `updated`, `status`, `target_sprint`, `discovered_types`, `discovered_priorities`, `ambiguities`, `artifacts`.
+1. **Every ticket section has all required fields and a description body.** Required bullet-field metadata: `jira_key`, `type`, `summary`, `priority`, `assignee`, `parent`, `labels`, `links`, `source`, `short_description`, `artifacts`. The order shown in stage 3a is recommended for readability but is NOT enforced here — validation only checks that every required field is present, not that it appears in a specific position. Plus a `### Description` heading followed by content enclosed in `<!-- SPECTOTICKETS_DESCRIPTION_START -->` and `<!-- SPECTOTICKETS_DESCRIPTION_END -->` markers. The file's top section has the batch fields: `spec_title`, `spec_source`, `spec_dir`, `project`, `created`, `updated`, `status`, `target_sprint`, `discovered_types`, `discovered_priorities`, `ambiguities`, `artifacts`. **Backward compatibility:** workfiles composed before the `artifacts`/`spec_dir` fields were added will not have these fields. Treat a missing `artifacts` field on a ticket or at batch level as equivalent to `artifacts: none`. Treat a missing `spec_dir` field as `spec_dir: none`. Do not fail check #1 for a missing field when the equivalent default is unambiguous — surface it as a soft-warn and offer to add the field with its default value.
 
 2. **Description markers are well-formed.** For every ticket section, exactly one `<!-- SPECTOTICKETS_DESCRIPTION_START -->` marker followed by exactly one `<!-- SPECTOTICKETS_DESCRIPTION_END -->` marker, in that order. No nesting. No overlapping pairs. No start without a matching end. No end without a preceding start. File-wide count of start markers equals file-wide count of end markers equals the number of ticket sections.
 
@@ -682,7 +682,7 @@ Before proceeding to ManageIssueSet's Execute stage, validate the workfile. Do n
 
 19. **Batch `status` is `confirmed` before execution.** The batch-metadata `status:` field must be `confirmed` when validation runs pre-execution (stage 5 entry). A `status` of `proposed` or `revised` indicates the user hasn't finished approving the breakdown — execution would bypass the confirmation contract. Any value other than `confirmed` is a hard failure. Rationale: this guards against hand-edits or process errors where someone attempts to invoke execution on an unapproved workfile.
 
-20. **Artifact paths resolve.** If `spec_dir` is `none` and any artifact path (batch-level or per-ticket) is relative (starts with `./`), flag it — relative paths require a non-`none` `spec_dir` to resolve against. For each ticket's `artifacts` field (when not `none`): relative paths (starting with `./`) must resolve against the batch-level `spec_dir`; absolute paths must exist as-is. Flag any file that doesn't exist at the resolved path. Also verify consistency between the batch-level `artifacts` mapping and the per-ticket `artifacts` lists: every path in a ticket-level list should appear in the batch-level mapping with that ticket in its `tickets` list, and vice versa. Mismatches indicate a composition or revision error.
+20. **Artifact paths resolve.** (Hard failure.) `artifacts: none` (the literal string `none`) is always valid and skips this check for that field. An empty list (a `- **artifacts:**` key with no entries) is treated the same as `none` and is also valid. For non-`none` artifact fields: If `spec_dir` is `none` and any artifact path (batch-level or per-ticket) is relative (starts with `./`), flag it — relative paths require a non-`none` `spec_dir` to resolve against. Relative paths (starting with `./`) must resolve against the batch-level `spec_dir` (stripped of backticks) to produce an absolute path; absolute paths are used as-is. Flag any file that doesn't exist at the resolved path. Also verify consistency between the batch-level `artifacts` mapping and the per-ticket `artifacts` lists: every path in a ticket-level list should appear in the batch-level mapping with that ticket in its `tickets` list, and vice versa. Mismatches indicate a composition or revision error and are a hard failure.
 
 **If validation surfaces any issues:**
 
@@ -723,10 +723,10 @@ Do not silently choose a replacement priority or pattern-match "something close.
 
 ```
 Attachments:
-  ✓ `PRD - Auth Rework.docx` → ANP-500
-  ✓ `compliance-checklist.pdf` → ANP-500
-  ✓ `sample_sessions.csv` → ANP-501, ANP-503
-  ✗ `onboarding-flow-diagram.pdf` → ANP-500 (file not found)
+  ✓ `./PRD - Auth Rework.docx` → ANP-500
+  ✓ `/home/user/shared-assets/compliance-checklist.pdf` → ANP-500
+  ✓ `./fixtures/sample_sessions.csv` → ANP-501, ANP-503
+  ✗ `/home/user/shared-assets/onboarding-flow-diagram.pdf` → ANP-500 (file not found)
 ```
 
 **How temp IDs resolve during execution:** this workflow's `SpecToTicketWorkflowTemp-N` convention is specific to the SpecToTickets → ManageIssueSet transition. During ManageIssueSet's Phase 1, each successful `jtk issues create` is followed by a file-wide find-and-replace in the workfile that swaps the ticket's `SpecToTicketWorkflowTemp-N` placeholder with the newly-issued real Jira key. Subsequent tickets that reference that temp ID (in `parent`, `links[].target`, or description prose) will see the real key by the time they're processed. The mechanic is owned by this workflow but executed by ManageIssueSet, so the same semantics are described in ManageIssueSet's "If arriving from SpecToTickets with a workfile" preamble.

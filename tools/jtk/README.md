@@ -200,9 +200,11 @@ Show information about the currently authenticated user.
 
 ```bash
 jtk me
-jtk me --id     # print just the account ID (for scripting)
+jtk me --id        # print just the account ID (for scripting)
 jtk me --extended  # include timezone, locale, and group/application-role counts
 ```
+
+Uses global flags `--id` and `--extended` — no command-specific flags.
 
 ---
 
@@ -247,12 +249,15 @@ Refresh the local instance cache (fields, projects, users, issue types, statuses
 
 With no arguments refreshes everything. With resource names, refreshes only those plus their dependencies. Use `--status` to check freshness without fetching.
 
+Valid resource names: `fields`, `projects`, `users`, `issuetypes`, `statuses`, `priorities`, `resolutions`, `boards`, `sprints`, `linktypes`
+
 ```bash
 # Refresh everything
 jtk refresh
 
-# Refresh a subset
+# Refresh specific resources (auto-expands dependencies)
 jtk refresh statuses
+jtk refresh users issuetypes
 
 # Show cache freshness without fetching
 jtk refresh --status
@@ -441,7 +446,7 @@ jtk issues delete PROJ-123 --force
 
 ### `jtk issues archive <issue-key> [issue-key...]`
 
-Archive one or more issues. Archived issues are hidden from boards and search by default but remain in Jira.
+Archive one or more issues. Archived issues are hidden from boards and search by default but remain in Jira. There is no `issues restore` command — use the Jira UI to unarchive.
 
 ```bash
 jtk issues archive PROJ-123
@@ -516,14 +521,16 @@ jtk issues fields --custom-fields    # Custom fields only
 
 List allowed values for a field. Providing an issue key uses that issue's project context (recommended); omitting it uses the global field context.
 
+The first positional argument is treated as an issue key if it matches the `PROJ-123` pattern (uppercase letters/digits, hyphen, digits); otherwise it is treated as the field name.
+
 ```bash
 jtk issues field-options PROJ-123 priority
 jtk issues field-options PROJ-123 customfield_10001
-jtk issues field-options priority   # without issue context
+jtk issues field-options priority   # without issue context (single arg = field name)
 ```
 
 **Arguments:**
-- `[issue-key]` - Optional issue key for context-specific options
+- `[issue-key]` - Optional issue key for context-specific options (must match `KEY-NNN` pattern)
 - `<field-name-or-id>` - Field name or ID (**required**)
 
 ---
@@ -561,8 +568,8 @@ jtk issues move PROJ-123 --to-project OTHERPROJ --no-notify
 |------|---------|-------------|
 | `--to-project` | | Target project key or name (**required**) |
 | `--to-type` | (same as source) | Target issue type name |
-| `--notify` | `true` | Send notifications for the move |
-| `--wait` | `true` | Wait for move to complete |
+| `--notify` | `true` | Send notifications; use `--no-notify` to disable |
+| `--wait` | `true` | Wait for move to complete; use `--no-wait` to return immediately with the task ID |
 
 **Arguments:**
 - `<issue-key>...` - One or more issue keys (**required**)
@@ -1110,12 +1117,14 @@ Get details for a specific user by account ID.
 
 ```bash
 jtk users get 5b10ac8d82e05b22cc7d4ef5
-jtk users get 5b10ac8d82e05b22cc7d4ef5 --id
+jtk users get 5b10ac8d82e05b22cc7d4ef5 --id     # global flag: emit only account ID
+jtk users get 5b10ac8d82e05b22cc7d4ef5 --extended
 ```
 
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--fields` | | Comma-separated display fields |
+| `--id` | `false` | Emit only the account ID (global flag) |
 
 **Arguments:**
 - `<account-id>` - The Atlassian account ID (**required**)

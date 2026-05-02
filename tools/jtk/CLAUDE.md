@@ -200,6 +200,10 @@ Bearer auth routes requests through `https://api.atlassian.com/ex/jira/{cloudId}
 
 > **Scope limitations:** Scoped tokens lack Agile (boards/sprints), Automation, and Dashboard scopes. These commands are unavailable with bearer auth — this is an Atlassian platform limitation.
 
+## Command-Surface Guardrails
+
+See [GUARDRAILS.md](GUARDRAILS.md) for the broader command-surface design rules — verb language, flag short-alias map, pagination defaults, mutation safety, boolean flags, and the positional-vs-flag rule. Read it before adding new commands or flags.
+
 ## Output Standards
 
 Commands produce intentional artifacts, not raw API payloads. See [OUTPUT_SPEC.md](OUTPUT_SPEC.md) for the full example catalog. The rules below govern every command implementation.

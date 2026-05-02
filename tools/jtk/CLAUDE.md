@@ -4,7 +4,7 @@ This file provides guidance for AI agents working with the jira-ticket-cli codeb
 
 ## Project Overview
 
-jira-ticket-cli is a command-line interface for Jira (Cloud and self-hosted) written in Go. It uses the Cobra framework for commands and provides a public `api/` package that can be imported as a Go library. The CLI supports multiple output formats (table, JSON, plain).
+jira-ticket-cli is a command-line interface for Jira (Cloud and self-hosted) written in Go. It uses the Cobra framework for commands and provides a public `api/` package that can be imported as a Go library. Output is human+agent-readable text; there is no global `--output` format flag.
 
 ## Quick Commands
 
@@ -69,8 +69,8 @@ jira-ticket-cli/
 │   │   ├── me/                  # me (current user info)
 │   │   └── completion/          # Shell completion
 │   ├── config/                  # JSON config loading
+│   ├── present/                 # Output rendering (one file per resource type)
 │   ├── version/                 # Build-time version injection via ldflags
-│   ├── view/                    # Output formatting (table, JSON, plain)
 │   └── exitcode/                # Exit code constants
 ├── Makefile                     # Build, test, lint targets
 └── go.mod                       # Module: github.com/open-cli-collective/jira-ticket-cli
@@ -85,8 +85,11 @@ Commands use an Options struct for dependency injection:
 ```go
 // Root options (global flags)
 type Options struct {
-    Output  string
-    NoColor bool
+    NoColor  bool
+    Extended bool // --extended: admin/schema/audit fields
+    FullText bool // --fulltext: disable body truncation
+    IDOnly   bool // --id: primary identifier only; takes precedence over Extended/FullText
+    Verbose  bool
 }
 
 // Command-specific options embed root options
@@ -96,6 +99,8 @@ type listOptions struct {
     limit   int
 }
 ```
+
+Helper methods on `Options` handle flag precedence: `IsExtended()` and `IsFullText()` both return false when `IDOnly` is set.
 
 ### Register Pattern
 
@@ -113,21 +118,9 @@ func Register(rootCmd *cobra.Command, opts *root.Options) {
 }
 ```
 
-### View Pattern
+### Present Pattern
 
-Use the View struct for formatted output:
-
-```go
-v := view.New(opts.Output, opts.NoColor)
-
-// Table output
-headers := []string{"KEY", "SUMMARY", "STATUS"}
-rows := [][]string{{"PROJ-123", "Fix bug", "In Progress"}}
-v.Table(headers, rows)
-
-// JSON output
-v.JSON(data)
-```
+Output rendering lives in `internal/present/` — one file per resource type (`issue.go`, `sprint.go`, `board.go`, etc.). Each present function accepts the data and an `*root.Options`, then writes formatted text directly. The `View` struct (from `shared/view`) handles table mechanics (tabwriter, color). There is no JSON rendering path except in `automation export`, which writes JSON directly to stdout and bypasses the present layer entirely.
 
 ## Testing
 
@@ -207,18 +200,70 @@ Bearer auth routes requests through `https://api.atlassian.com/ex/jira/{cloudId}
 
 > **Scope limitations:** Scoped tokens lack Agile (boards/sprints), Automation, and Dashboard scopes. These commands are unavailable with bearer auth — this is an Atlassian platform limitation.
 
-## Output Contract
+## Output Standards
 
-Commands produce intentional artifacts, not raw API payloads. The surface is controlled by three global flags (per [#230](https://github.com/open-cli-collective/atlassian-cli/issues/230)):
+Commands produce intentional artifacts, not raw API payloads. See [OUTPUT_SPEC.md](OUTPUT_SPEC.md) for the full example catalog. The rules below govern every command implementation.
+
+### Output modes
 
 | Flag | Purpose |
 |------|---------|
 | *(none)* | Default: contextually-rich human+agent text. Stable format. |
-| `--extended` | Adds admin/schema/audit detail on top of default. |
+| `--extended` | Adds admin/schema/audit detail on top of default. Always implies `--fulltext`. |
 | `--id` | Emits only the primary identifier. Takes precedence over `--extended` and `--fulltext`. |
 | `--fulltext` | Disables truncation of descriptions and comments. |
 
-`automation export` is the only command that emits JSON — it writes directly to stdout, independent of the global flag system.
+`automation export` is the only command that emits JSON — it writes directly to stdout and bypasses the global flag system entirely. Every other command produces text.
+
+### List commands: pipe-delimited tables
+
+- Headers in ALL_CAPS; separator ` | ` (space-pipe-space)
+- Empty/null values: `-`
+- `--extended` adds columns; it does not replace default columns
+- When more pages exist, append: `More results available (next: TOKEN)`
+- Absence of that line signals a complete result set
+
+### Get / single-entity commands: header + key-value block
+
+- First line: `ID  Name` (two spaces between)
+- Attribute lines: `Key: Value   Key: Value` (three spaces between same-line pairs)
+- Optional rows (Labels, Components) appear **only when non-empty**
+- Description: blank line → `Description:` label → body text, always last
+- Body text truncates in default mode; trailer: `[truncated — use --fulltext for complete body]`
+
+### Date formatting
+
+- Default: `YYYY-MM-DD`
+- Extended: full ISO 8601 with timezone (`2026-04-16T07:16:24+0000`)
+- Missing/not-yet-set: `-`
+
+### Mutations: post-state, not confirmation (except destructive ops)
+
+- **Success output mirrors the `get` output of the affected entity** — the caller sees post-state in one call
+- After create: always re-fetch (the Jira API returns incomplete data from the create response)
+- Delete / archive / remove: plain confirmation only (`Deleted MON-4820`, `Archived MON-4820`)
+- `--id` on any mutation: only the affected entity's identifier
+
+### What `--extended` adds
+
+- Raw IDs alongside human-readable names (account IDs, component IDs, sprint IDs, type IDs)
+- Full ISO 8601 timestamps instead of `YYYY-MM-DD`
+- Admin fields: watchers, resolution, fix versions, status category, all non-null custom fields
+- Available workflow transitions (on issue get)
+- Always implies `--fulltext`
+
+### Name/ID resolution
+
+Entity-reference flags (`--assignee`, `--project`, `--board`, `--sprint`, link type arguments) resolve via instance cache:
+
+- Unique match → resolve silently
+- Ambiguous → fail, listing all matches with identifiers
+- No match + looks like a raw ID → pass through unchanged
+- No match + looks like a name → fail with `Try \`jtk refresh <resource>\`` suggestion
+
+### Errors
+
+Plain prose to stderr. No structured format. Ambiguity errors list all matches; unknown-entity errors suggest `jtk refresh`.
 
 ## Dependencies
 

@@ -631,3 +631,62 @@ func TestRunCreate_IDOnly(t *testing.T) {
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, stdout.String(), "TEST-1\n")
 }
+
+// TestRunCreate_FieldComponentArrayAndOptionMerge exercises the full --field
+// pipeline (parse → metadata lookup → FormatFieldValue → MergeFieldValues →
+// POST body construction). It guards two paths:
+//
+//   - components (array of component): a single value must be wrapped as
+//     [{name: "Frontend"}], not the legacy [{value: ...}] or string array.
+//   - a multi-checkbox custom field (array of option): repeated --field args
+//     must accumulate as [{value: "Opt1"}, {value: "Opt2"}], unchanged from
+//     before the components fix.
+func TestRunCreate_FieldComponentArrayAndOptionMerge(t *testing.T) {
+	seedCacheForIssues(t)
+
+	var capturedBody []byte
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/rest/api/3/field" && r.Method == "GET":
+			fields := []api.Field{
+				{ID: "components", Name: "Components", Schema: api.FieldSchema{Type: "array", Items: "component"}},
+				{ID: "customfield_10100", Name: "Tags", Custom: true, Schema: api.FieldSchema{Type: "array", Items: "option"}},
+			}
+			_ = json.NewEncoder(w).Encode(fields)
+		case r.URL.Path == "/rest/api/3/issue" && r.Method == "POST":
+			capturedBody, _ = io.ReadAll(r.Body)
+			w.WriteHeader(http.StatusCreated)
+			_ = json.NewEncoder(w).Encode(api.Issue{Key: "TEST-1", ID: "10001"})
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "e@x", APIToken: "t"})
+	testutil.RequireNoError(t, err)
+
+	opts := &root.Options{Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}, IDOnly: true}
+	opts.SetAPIClient(client)
+
+	err = runCreate(context.Background(), opts, "PROJ", "Task", "Test", "", "", "", []string{
+		"components=Frontend",
+		"customfield_10100=Opt1",
+		"customfield_10100=Opt2",
+	})
+	testutil.RequireNoError(t, err)
+
+	testutil.NotEmpty(t, capturedBody)
+	var reqBody map[string]any
+	testutil.RequireNoError(t, json.Unmarshal(capturedBody, &reqBody))
+	fields := reqBody["fields"].(map[string]any)
+
+	components := fields["components"].([]any)
+	testutil.Len(t, components, 1)
+	testutil.Equal(t, components[0].(map[string]any)["name"], "Frontend")
+
+	tags := fields["customfield_10100"].([]any)
+	testutil.Len(t, tags, 2)
+	testutil.Equal(t, tags[0].(map[string]any)["value"], "Opt1")
+	testutil.Equal(t, tags[1].(map[string]any)["value"], "Opt2")
+}

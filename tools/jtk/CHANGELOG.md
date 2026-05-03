@@ -54,6 +54,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `jtk issues create --field components=<id-or-name>` and `--field fixVersions=<id-or-name>` now work. Previously the array formatter only handled multi-checkbox (`option` items) and fell through to a plain string array for component and version items, which Jira rejects with `The list contains an invalid value`. Multi-value via repeated `--field` accumulates as expected. ([#227](https://github.com/open-cli-collective/atlassian-cli/issues/227))
 - `--verbose` now logs the outbound request JSON body and any 4xx/5xx response body (each truncated at 4 KB), surfacing field-level Jira errors that previously appeared only as opaque codes like `INVALID_INPUT`. ([#325](https://github.com/open-cli-collective/atlassian-cli/issues/325))
 - Empty fenced/indented code blocks and empty table cells no longer produce invalid ADF text nodes with empty content.
 - `jtk issues move --no-wait` and `--no-notify` now parse correctly. Previously the help text mentioned them but pflag did not register the negations, so they failed with "unknown flag". ([#342](https://github.com/open-cli-collective/atlassian-cli/issues/342))

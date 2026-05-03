@@ -109,6 +109,7 @@ func IsNullValue(v string) bool {
 // It handles special cases like:
 //   - option fields: wraps value as {"value": "..."}
 //   - array fields: wraps value as [{"value": "..."}] or []string{...}
+//   - array of component/version: wraps as [{"id": "..."}] for numeric or [{"name": "..."}] for names
 //   - user fields: wraps value as {"accountId": "..."}
 //   - number fields: converts string to float64
 //   - issuelink fields (e.g., parent): wraps value as {"key": "..."} or {"id": "..."}
@@ -142,6 +143,12 @@ func FormatFieldValue(field *Field, value string) any {
 	case "array":
 		if field.Schema.Items == "option" {
 			return []map[string]string{{"value": trimmed}}
+		}
+		if field.Schema.Items == "component" || field.Schema.Items == "version" {
+			if _, err := strconv.Atoi(trimmed); err == nil {
+				return []map[string]string{{"id": trimmed}}
+			}
+			return []map[string]string{{"name": trimmed}}
 		}
 		return []string{trimmed}
 	case "user":

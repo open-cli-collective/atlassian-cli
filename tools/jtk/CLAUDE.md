@@ -200,74 +200,14 @@ Bearer auth routes requests through `https://api.atlassian.com/ex/jira/{cloudId}
 
 > **Scope limitations:** Scoped tokens lack Agile (boards/sprints), Automation, and Dashboard scopes. These commands are unavailable with bearer auth — this is an Atlassian platform limitation.
 
-## Command-Surface Guardrails
+## Adding or modifying commands
 
-See [GUARDRAILS.md](GUARDRAILS.md) for the broader command-surface design rules — verb language, flag short-alias map, pagination defaults, mutation safety, boolean flags, and the positional-vs-flag rule. Read it before adding new commands or flags.
+Two normative specs govern every command in this CLI. They live next to the code in `internal/cmd/`:
 
-## Output Standards
+- **[internal/cmd/GUARDRAILS.md](internal/cmd/GUARDRAILS.md)** — command surface contract: verb language, flag short-alias map, pagination defaults, positional-vs-flag rule, mutation safety, boolean flag conventions.
+- **[internal/cmd/OUTPUT_SPEC.md](internal/cmd/OUTPUT_SPEC.md)** — output contract: list/get/mutation shapes, `--id` / `--extended` / `--fulltext` semantics, date formatting, error rules.
 
-Commands produce intentional artifacts, not raw API payloads. See [OUTPUT_SPEC.md](OUTPUT_SPEC.md) for the full example catalog. The rules below govern every command implementation.
-
-### Output modes
-
-| Flag | Purpose |
-|------|---------|
-| *(none)* | Default: contextually-rich human+agent text. Stable format. |
-| `--extended` | Adds admin/schema/audit detail on top of default. Always implies `--fulltext`. |
-| `--id` | Emits only the primary identifier. Takes precedence over `--extended` and `--fulltext`. |
-| `--fulltext` | Disables truncation of descriptions and comments. |
-
-`automation export` is the only command that emits JSON — it writes directly to stdout and bypasses the global flag system entirely. Every other command produces text.
-
-### List commands: pipe-delimited tables
-
-- Headers in ALL_CAPS; separator ` | ` (space-pipe-space)
-- Empty/null values: `-`
-- `--extended` adds columns; it does not replace default columns
-- When more pages exist, append: `More results available (next: TOKEN)`
-- Absence of that line signals a complete result set
-
-### Get / single-entity commands: header + key-value block
-
-- First line: `ID  Name` (two spaces between)
-- Attribute lines: `Key: Value   Key: Value` (three spaces between same-line pairs)
-- Optional rows (Labels, Components) appear **only when non-empty**
-- Description: blank line → `Description:` label → body text, always last
-- Body text truncates in default mode; trailer: `[truncated — use --fulltext for complete body]`
-
-### Date formatting
-
-- Default: `YYYY-MM-DD`
-- Extended: full ISO 8601 with timezone (`2026-04-16T07:16:24+0000`)
-- Missing/not-yet-set: `-`
-
-### Mutations: post-state, not confirmation (except destructive ops)
-
-- **Success output mirrors the `get` output of the affected entity** — the caller sees post-state in one call
-- After create: always re-fetch (the Jira API returns incomplete data from the create response)
-- Delete / archive / remove: plain confirmation only (`Deleted MON-4820`, `Archived MON-4820`)
-- `--id` on any mutation: only the affected entity's identifier
-
-### What `--extended` adds
-
-- Raw IDs alongside human-readable names (account IDs, component IDs, sprint IDs, type IDs)
-- Full ISO 8601 timestamps instead of `YYYY-MM-DD`
-- Admin fields: watchers, resolution, fix versions, status category, all non-null custom fields
-- Available workflow transitions (on issue get)
-- Always implies `--fulltext`
-
-### Name/ID resolution
-
-Entity-reference flags (`--assignee`, `--project`, `--board`, `--sprint`, link type arguments) resolve via instance cache:
-
-- Unique match → resolve silently
-- Ambiguous → fail, listing all matches with identifiers
-- No match + looks like a raw ID → pass through unchanged
-- No match + looks like a name → fail with `Try \`jtk refresh <resource>\`` suggestion
-
-### Errors
-
-Plain prose to stderr. No structured format. Ambiguity errors list all matches; unknown-entity errors suggest `jtk refresh`.
+Read whichever is relevant before writing a new command or flag. These docs are the single source of truth — do not duplicate their rules in CLAUDE.md or anywhere else; update the specs themselves.
 
 ## Dependencies
 

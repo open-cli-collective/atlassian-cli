@@ -58,6 +58,15 @@ fix: handle empty API response in boards list
 docs: update installation instructions
 ```
 
+## Adding or modifying commands
+
+Two normative specs govern every command in this CLI. Read whichever applies before opening a PR — reviewers will check against them:
+
+- [internal/cmd/GUARDRAILS.md](internal/cmd/GUARDRAILS.md) — command surface contract: verb language, flag aliases, pagination defaults, positional-vs-flag rule, mutation safety, boolean conventions.
+- [internal/cmd/OUTPUT_SPEC.md](internal/cmd/OUTPUT_SPEC.md) — output contract: list/get/mutation shapes, output-mode flags, date formatting, error rules.
+
+These docs are the single source of truth. If you find a rule that needs to change, update the spec — don't work around it.
+
 ## Pull Request Process
 
 1. Fork the repository

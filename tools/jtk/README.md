@@ -1730,6 +1730,11 @@ make lint
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
+Adding a new command or flag? Read these specs first — they're the contract every command in this CLI is held to:
+
+- [internal/cmd/GUARDRAILS.md](internal/cmd/GUARDRAILS.md) — verb language, flag aliases, pagination, mutation safety, boolean conventions, positional-vs-flag rule
+- [internal/cmd/OUTPUT_SPEC.md](internal/cmd/OUTPUT_SPEC.md) — list/get/mutation output shapes, `--id` / `--extended` / `--fulltext` semantics, error conventions
+
 ## License
 
 MIT License - see [LICENSE](LICENSE) for details.

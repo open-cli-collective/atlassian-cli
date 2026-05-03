@@ -156,7 +156,7 @@ These flags are available on all commands:
 | `--fulltext` | | `false` | Disable truncation of descriptions and comments |
 | `--id` | | `false` | Emit only the primary identifier (takes precedence over `--extended` and `--fulltext`) |
 | `--no-color` | | `false` | Disable colored output |
-| `--verbose` | `-v` | `false` | Enable verbose output |
+| `--verbose` | `-v` | `false` | Log each request's method/URL, JSON body, status, and any 4xx/5xx response body (each capped at 4 KB). Useful for diagnosing opaque Jira errors like `INVALID_INPUT`. |
 | `--help` | `-h` | | Show help for command |
 | `--version` | | | Show version (root command only) |
 

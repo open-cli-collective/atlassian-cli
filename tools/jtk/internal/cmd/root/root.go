@@ -134,7 +134,7 @@ func NewCmd() (*cobra.Command, *Options) {
 	cmd.PersistentFlags().BoolVar(&opts.Extended, "extended", false, "Include admin/schema/audit fields in output")
 	cmd.PersistentFlags().BoolVar(&opts.FullText, "fulltext", false, "Disable truncation of descriptions and comments")
 	cmd.PersistentFlags().BoolVar(&opts.IDOnly, "id", false, "Emit only the primary identifier (takes precedence over --extended and --fulltext)")
-	cmd.PersistentFlags().BoolVarP(&opts.Verbose, "verbose", "v", false, "Enable verbose output")
+	cmd.PersistentFlags().BoolVarP(&opts.Verbose, "verbose", "v", false, "Log each request's method/URL, JSON body, and any 4xx/5xx response body (each capped at 4 KB)")
 
 	return cmd, opts
 }

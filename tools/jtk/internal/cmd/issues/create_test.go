@@ -658,6 +658,7 @@ func TestRunCreate_FieldComponentArrayAndOptionMerge(t *testing.T) {
 			w.WriteHeader(http.StatusCreated)
 			_ = json.NewEncoder(w).Encode(api.Issue{Key: "TEST-1", ID: "10001"})
 		default:
+			t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
 			w.WriteHeader(http.StatusNotFound)
 		}
 	}))
@@ -679,17 +680,25 @@ func TestRunCreate_FieldComponentArrayAndOptionMerge(t *testing.T) {
 	testutil.NotEmpty(t, capturedBody)
 	var reqBody map[string]any
 	testutil.RequireNoError(t, json.Unmarshal(capturedBody, &reqBody))
-	fields := reqBody["fields"].(map[string]any)
+	fields, ok := reqBody["fields"].(map[string]any)
+	testutil.True(t, ok, "fields key missing or wrong type in POST body")
 
-	components := fields["components"].([]any)
+	components, ok := fields["components"].([]any)
+	testutil.True(t, ok, "components key missing or wrong type")
 	testutil.Len(t, components, 1)
-	componentEntry := components[0].(map[string]any)
+	componentEntry, ok := components[0].(map[string]any)
+	testutil.True(t, ok, "components[0] not a map")
 	// Lock the shape: exactly {"name": "Frontend"} — no leaked "id" key, no extras.
 	testutil.Equal(t, len(componentEntry), 1)
 	testutil.Equal(t, componentEntry["name"], "Frontend")
 
-	tags := fields["customfield_10100"].([]any)
+	tags, ok := fields["customfield_10100"].([]any)
+	testutil.True(t, ok, "customfield_10100 key missing or wrong type")
 	testutil.Len(t, tags, 2)
-	testutil.Equal(t, tags[0].(map[string]any)["value"], "Opt1")
-	testutil.Equal(t, tags[1].(map[string]any)["value"], "Opt2")
+	tag0, ok := tags[0].(map[string]any)
+	testutil.True(t, ok, "tags[0] not a map")
+	testutil.Equal(t, tag0["value"], "Opt1")
+	tag1, ok := tags[1].(map[string]any)
+	testutil.True(t, ok, "tags[1] not a map")
+	testutil.Equal(t, tag1["value"], "Opt2")
 }

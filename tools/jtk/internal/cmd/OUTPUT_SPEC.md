@@ -316,7 +316,7 @@ ID | NAME | SUBTASK | DESCRIPTION
 10026 | Kanban | no | Task following Kanban Flow
 ```
 
-**`issues field-options MON customfield_10050`** — default:
+**`issues field-options MON-4970 customfield_10050`** — default:
 ```
 ID | VALUE | DISABLED
 20001 | Platform | no

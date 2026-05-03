@@ -683,7 +683,10 @@ func TestRunCreate_FieldComponentArrayAndOptionMerge(t *testing.T) {
 
 	components := fields["components"].([]any)
 	testutil.Len(t, components, 1)
-	testutil.Equal(t, components[0].(map[string]any)["name"], "Frontend")
+	componentEntry := components[0].(map[string]any)
+	// Lock the shape: exactly {"name": "Frontend"} — no leaked "id" key, no extras.
+	testutil.Equal(t, len(componentEntry), 1)
+	testutil.Equal(t, componentEntry["name"], "Frontend")
 
 	tags := fields["customfield_10100"].([]any)
 	testutil.Len(t, tags, 2)

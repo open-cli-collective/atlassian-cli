@@ -611,3 +611,51 @@ func TestSharedStore_AuthMethodWithSource(t *testing.T) {
 	testutil.Equal(t, "bearer", value)
 	testutil.Equal(t, string(credstore.SourceDefault), source)
 }
+
+func TestSharedStore_FullPrecedenceChain(t *testing.T) {
+	tempDir, cleanup := setupTestConfig(t)
+	defer cleanup()
+
+	// Layer 1 (lowest): legacy file.
+	cfg := &Config{URL: "https://legacy.atlassian.net", APIToken: "legacy-tok"}
+	testutil.RequireNoError(t, Save(cfg))
+
+	// Layer 2: shared default.
+	sharedPath := filepath.Join(tempDir, "atlassian-cli", "config.yml")
+	store := &credstore.Store{
+		Default: credstore.Section{URL: "https://shared.atlassian.net", APIToken: "shared-tok"},
+	}
+	testutil.RequireNoError(t, store.Save(sharedPath))
+	testutil.Equal(t, "https://shared.atlassian.net", GetURL()) // shared default wins over legacy
+
+	// Layer 3: jtk override beats default.
+	store.JTK.Section = credstore.Section{APIToken: "jtk-tok"}
+	testutil.RequireNoError(t, store.Save(sharedPath))
+	testutil.Equal(t, "jtk-tok", GetAPIToken())
+
+	// Layer 4: ATLASSIAN_* env beats shared.
+	t.Setenv("ATLASSIAN_API_TOKEN", "atlassian-env-tok")
+	testutil.Equal(t, "atlassian-env-tok", GetAPIToken())
+
+	// Layer 5: JIRA_* env beats ATLASSIAN_*.
+	t.Setenv("JIRA_API_TOKEN", "jira-env-tok")
+	testutil.Equal(t, "jira-env-tok", GetAPIToken())
+}
+
+func TestSharedStore_CorruptDoesNotBlockAccessors(t *testing.T) {
+	tempDir, cleanup := setupTestConfig(t)
+	defer cleanup()
+
+	// Corrupt shared store.
+	sharedPath := filepath.Join(tempDir, "atlassian-cli", "config.yml")
+	testutil.RequireNoError(t, os.MkdirAll(filepath.Dir(sharedPath), 0o700))
+	testutil.RequireNoError(t, os.WriteFile(sharedPath, []byte("default: : :: ["), 0o600))
+
+	// Legacy still works.
+	cfg := &Config{URL: "https://legacy.atlassian.net", Email: "u@e", APIToken: "tok"}
+	testutil.RequireNoError(t, Save(cfg))
+
+	// Accessor returns legacy value despite corrupt shared.
+	testutil.Equal(t, "https://legacy.atlassian.net", GetURL())
+	testutil.Equal(t, "tok", GetAPIToken())
+}

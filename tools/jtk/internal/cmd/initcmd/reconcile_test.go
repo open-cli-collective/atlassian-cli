@@ -265,3 +265,68 @@ func TestMismatchDescription_EducationalText(t *testing.T) {
 		}
 	}
 }
+
+func TestReconcile_BothLegaciesMatch_AutoMigrates(t *testing.T) {
+	t.Parallel()
+	tmp := t.TempDir()
+	jtkPath := filepath.Join(tmp, "jtk.json")
+	cflPath := filepath.Join(tmp, "cfl.yml")
+	testutil.RequireNoError(t, os.WriteFile(jtkPath, []byte(
+		`{"url":"https://acme.atlassian.net","email":"u@e","api_token":"tok","default_project":"PROJ"}`), 0o600))
+	testutil.RequireNoError(t, os.WriteFile(cflPath, []byte(
+		"url: https://acme.atlassian.net/wiki\nemail: u@e\napi_token: tok\ndefault_space: SPACE\n"), 0o600))
+
+	v, stdout, _ := newReconcileView()
+	r, err := detectAndReconcile(v, jtkPath, cflPath,
+		filepath.Join(tmp, "shared.yml"),
+		"", "", "", "", "")
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, writeDefault, r.target)
+	testutil.Equal(t, "tok", r.prefill.APIToken)
+	// cfl's per-tool defaults preserved on the store.
+	testutil.Equal(t, "SPACE", r.store.CFL.DefaultSpace)
+	if !strings.Contains(stdout.String(), "Found matching jtk and cfl credentials") {
+		t.Errorf("expected matched-legacy message; got: %s", stdout.String())
+	}
+}
+
+func TestReconcile_CorruptJTKLegacyAborts(t *testing.T) {
+	t.Parallel()
+	tmp := t.TempDir()
+	jtkPath := filepath.Join(tmp, "jtk.json")
+	testutil.RequireNoError(t, os.WriteFile(jtkPath, []byte("{not json"), 0o600))
+
+	v, _, stderr := newReconcileView()
+	_, err := detectAndReconcile(v, jtkPath,
+		filepath.Join(tmp, "cfl.yml"),
+		filepath.Join(tmp, "shared.yml"),
+		"", "", "", "", "")
+	testutil.RequireError(t, err)
+
+	body, ferr := os.ReadFile(jtkPath)
+	testutil.RequireNoError(t, ferr)
+	testutil.Equal(t, "{not json", string(body))
+
+	if !strings.Contains(stderr.String(), "unreadable") {
+		t.Errorf("expected unreadable warning; got: %s", stderr.String())
+	}
+}
+
+func TestReconcile_CorruptCFLLegacyDowngradesToWarning(t *testing.T) {
+	t.Parallel()
+	tmp := t.TempDir()
+	cflPath := filepath.Join(tmp, "cfl.yml")
+	testutil.RequireNoError(t, os.WriteFile(cflPath, []byte("url: : :: ["), 0o600))
+
+	v, stdout, _ := newReconcileView()
+	r, err := detectAndReconcile(v,
+		filepath.Join(tmp, "jtk.json"),
+		cflPath,
+		filepath.Join(tmp, "shared.yml"),
+		"", "", "", "", "")
+	testutil.RequireNoError(t, err)
+	testutil.NotNil(t, r)
+	if !strings.Contains(stdout.String(), "ignoring") {
+		t.Errorf("expected ignore note for sibling-corrupt; got: %s", stdout.String())
+	}
+}

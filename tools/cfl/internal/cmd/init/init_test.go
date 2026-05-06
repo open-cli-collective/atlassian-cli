@@ -286,12 +286,12 @@ func TestFinalizeInit_AuthFailure(t *testing.T) {
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "authentication failed")
 
+	// Both the error and the remediation hint must land on stderr — splitting
+	// them across stdout/stderr would mean a script capturing only stderr
+	// sees the failure with no actionable next step.
 	stderr := opts.Stderr.(*bytes.Buffer).String()
 	testutil.Contains(t, stderr, "Connection failed")
-	// Friendly remediation copy is part of the contract — surface a clear
-	// next step rather than just dumping the error.
-	stdout := opts.Stdout.(*bytes.Buffer).String()
-	testutil.Contains(t, stdout, "Check your credentials and try again")
+	testutil.Contains(t, stderr, "Check your credentials and try again")
 
 	_, statErr := os.Stat(configPath)
 	testutil.True(t, os.IsNotExist(statErr), "config file should not exist after auth failure")
@@ -299,9 +299,9 @@ func TestFinalizeInit_AuthFailure(t *testing.T) {
 
 func TestFinalizeInit_NoVerify(t *testing.T) {
 	t.Parallel()
-	called := false
+	httpCalled := false
 	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
-		called = true
+		httpCalled = true
 	}))
 	defer server.Close()
 
@@ -314,20 +314,25 @@ func TestFinalizeInit_NoVerify(t *testing.T) {
 		APIToken: "test-token",
 	}
 
+	// Track builder invocation directly. If the noVerify guard regresses
+	// (e.g. moves below the build call), the server-not-called assertion
+	// alone wouldn't catch it — the builder running but never being used
+	// would still leave httpCalled=false.
+	builderCalled := false
 	build := func(_ *config.Config) (*api.Client, error) {
+		builderCalled = true
 		return api.NewClient(server.URL, "rian@example.com", "test-token"), nil
 	}
 
 	err := finalizeInit(context.Background(), opts, cfg, configPath, true, build)
 	testutil.RequireNoError(t, err)
 
-	testutil.False(t, called, "no API call should be made when --no-verify is set")
+	testutil.False(t, builderCalled, "clientBuilder should not be invoked when --no-verify is set")
+	testutil.False(t, httpCalled, "no API call should be made when --no-verify is set")
 
 	stdout := opts.Stdout.(*bytes.Buffer).String()
 	testutil.Contains(t, stdout, "Configuration saved to")
-	// No verify → no fetched user → no one-liner rendered. Pin on the
-	// would-be account ID rather than the " | " separator so that future
-	// log lines containing pipes don't false-positive.
+	// No verify → no "Connected to" confirmation, no user one-liner.
 	testutil.False(t, strings.Contains(stdout, "Connected to"), "verify confirmation should not appear without verify")
 
 	_, err = os.Stat(configPath)

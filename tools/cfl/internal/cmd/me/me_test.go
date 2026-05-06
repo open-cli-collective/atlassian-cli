@@ -110,10 +110,11 @@ func TestRun_JSONOutputFallsThroughToOneLiner(t *testing.T) {
 
 func TestRun_NormalizesPipesAndNewlines(t *testing.T) {
 	t.Parallel()
-	// Display name contains an embedded pipe and newline; without normalization
-	// the row would have more than three pipe-delimited fields and would split
-	// across multiple lines, breaking the documented contract.
-	server := userServer(t, `{"accountId":"abc123","displayName":"Joe | Pwn\nNext","email":"joe@example.com"}`)
+	// Display name contains embedded pipe + LF + bare CR; without normalization
+	// the row would have more than three pipe-delimited fields, span multiple
+	// lines, or render with terminal-CR overwrite artifacts. All three would
+	// break the documented contract.
+	server := userServer(t, `{"accountId":"abc123","displayName":"Joe | Pwn\nNext\rEnd","email":"joe@example.com"}`)
 	defer server.Close()
 
 	opts := newTestRootOptions()
@@ -123,7 +124,38 @@ func TestRun_NormalizesPipesAndNewlines(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	stdout := opts.Stdout.(*bytes.Buffer).String()
-	testutil.Equal(t, "abc123 | Joe \\| Pwn Next | joe@example.com\n", stdout)
+	testutil.Equal(t, "abc123 | Joe \\| Pwn Next End | joe@example.com\n", stdout)
+}
+
+func TestRun_IDOnly_NormalizesAccountID(t *testing.T) {
+	t.Parallel()
+	// --id should also honor the field-normalization contract: empty
+	// AccountID renders as "-", embedded specials are escaped/collapsed.
+	t.Run("empty AccountID renders as -", func(t *testing.T) {
+		t.Parallel()
+		server := userServer(t, `{"accountId":"","displayName":"Joe","email":"joe@example.com"}`)
+		defer server.Close()
+
+		opts := newTestRootOptions()
+		opts.SetAPIClient(api.NewClient(server.URL, "test@example.com", "token"))
+
+		err := Run(context.Background(), opts, true)
+		testutil.RequireNoError(t, err)
+		testutil.Equal(t, "-\n", opts.Stdout.(*bytes.Buffer).String())
+	})
+
+	t.Run("pathological AccountID is normalized", func(t *testing.T) {
+		t.Parallel()
+		server := userServer(t, `{"accountId":"abc|def\nghi","displayName":"Joe","email":"joe@example.com"}`)
+		defer server.Close()
+
+		opts := newTestRootOptions()
+		opts.SetAPIClient(api.NewClient(server.URL, "test@example.com", "token"))
+
+		err := Run(context.Background(), opts, true)
+		testutil.RequireNoError(t, err)
+		testutil.Equal(t, "abc\\|def ghi\n", opts.Stdout.(*bytes.Buffer).String())
+	})
 }
 
 func TestRegister_RegistersMeWithIDFlag(t *testing.T) {

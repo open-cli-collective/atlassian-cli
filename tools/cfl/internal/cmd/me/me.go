@@ -53,7 +53,7 @@ func Run(ctx context.Context, opts *root.Options, idOnly bool) error {
 
 	v := opts.View()
 	if idOnly {
-		v.Println("%s", user.AccountID)
+		v.Println("%s", normalizeField(user.AccountID))
 		return nil
 	}
 	RenderUserOneLiner(v, user)
@@ -81,6 +81,7 @@ func normalizeField(s string) string {
 	}
 	s = strings.ReplaceAll(s, "\r\n", " ")
 	s = strings.ReplaceAll(s, "\n", " ")
+	s = strings.ReplaceAll(s, "\r", " ")
 	s = strings.ReplaceAll(s, "|", `\|`)
 	return s
 }

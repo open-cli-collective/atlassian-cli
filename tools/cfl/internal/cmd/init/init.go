@@ -288,10 +288,11 @@ func finalizeInit(
 
 		user, err := client.GetCurrentUser(ctx)
 		if err != nil {
+			// Both lines go to stderr (via v.Error) so a script capturing
+			// only stderr sees the failure AND the remediation hint.
 			v.Error("Connection failed: %v", err)
-			v.Println("")
-			v.Info("Check your credentials and try again")
-			return fmt.Errorf("authentication failed")
+			v.Error("Check your credentials and try again")
+			return fmt.Errorf("authentication failed: %w", err)
 		}
 
 		v.Success("Connected to %s", cfg.URL)

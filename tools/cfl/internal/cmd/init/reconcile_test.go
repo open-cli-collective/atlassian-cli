@@ -118,7 +118,7 @@ func TestReconcile_CorruptSharedAborts(t *testing.T) {
 	testutil.RequireError(t, err)
 
 	// The shared file was not modified by detection.
-	body, ferr := os.ReadFile(sharedPath)
+	body, ferr := os.ReadFile(sharedPath) //nolint:gosec // test-controlled tempdir path
 	testutil.RequireNoError(t, ferr)
 	testutil.Equal(t, "default: : :: [", string(body))
 
@@ -140,7 +140,7 @@ func TestReconcile_CorruptCFLLegacyAborts(t *testing.T) {
 		"", "", "", "")
 	testutil.RequireError(t, err)
 
-	body, ferr := os.ReadFile(cflPath)
+	body, ferr := os.ReadFile(cflPath) //nolint:gosec // test-controlled tempdir path
 	testutil.RequireNoError(t, ferr)
 	testutil.Equal(t, "url: : :: [", string(body))
 
@@ -239,8 +239,8 @@ func TestReconcile_BothLegaciesMatch_AutoMigrates(t *testing.T) {
 
 func TestSectionsEqual_AuthMethodCanonicalization(t *testing.T) {
 	t.Parallel()
-	a := credstore.Section{URL: "https://x", Email: "u@e", APIToken: "t"}                            // empty method
-	b := credstore.Section{URL: "https://x", Email: "u@e", APIToken: "t", AuthMethod: "basic"}       // explicit
+	a := credstore.Section{URL: "https://x", Email: "u@e", APIToken: "t"}                      // empty method
+	b := credstore.Section{URL: "https://x", Email: "u@e", APIToken: "t", AuthMethod: "basic"} // explicit
 	if !credstore.SectionsEqual(a, b) {
 		t.Fatalf("empty auth_method should match explicit basic")
 	}
@@ -348,7 +348,7 @@ func TestResultFromMismatch_UseJTK_PreservesCFLDefaults(t *testing.T) {
 	jtk := &credstore.LegacyCreds{Path: "/jtk.json", URL: "https://jtk.atlassian.net", APIToken: "jtk-tok"}
 	v, _, _ := newReconcileView()
 	r := resultFromMismatch(cfl, jtk, "use_jtk", &credstore.Store{}, v, "", "", "", "")
-	testutil.Equal(t, "jtk-tok", r.prefill.APIToken) // jtk creds chosen
+	testutil.Equal(t, "jtk-tok", r.prefill.APIToken)   // jtk creds chosen
 	testutil.Equal(t, "SPACE", r.prefill.DefaultSpace) // but cfl's default_space preserved
 }
 
@@ -428,7 +428,7 @@ func TestResultFromSharedNoOverride_ReuseNo_FreshForm(t *testing.T) {
 	}
 	r := resultFromSharedNoOverride(store, false, "", "", "", "")
 	testutil.Equal(t, writeCFLOverride, r.target)
-	testutil.Equal(t, "", r.prefill.APIToken) // fresh, not prefilled
+	testutil.Equal(t, "", r.prefill.APIToken)             // fresh, not prefilled
 	testutil.Equal(t, "EXISTING", r.prefill.DefaultSpace) // tool defaults still carried so user doesn't retype
 	testutil.Equal(t, false, r.affectsSibling)
 }

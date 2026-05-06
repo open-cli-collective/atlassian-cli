@@ -216,7 +216,7 @@ func TestResultFromMismatch_UseCFL_PreservesJTKDefaults(t *testing.T) {
 	cfl := &credstore.LegacyCreds{Path: "/cfl.yml", URL: "https://cfl.atlassian.net/wiki", APIToken: "cfl-tok"}
 	v, _, _ := newReconcileView()
 	r := resultFromMismatch(jtk, cfl, "use_cfl", &credstore.Store{}, v, "", "", "", "", "")
-	testutil.Equal(t, "cfl-tok", r.prefill.APIToken) // cfl creds chosen
+	testutil.Equal(t, "cfl-tok", r.prefill.APIToken)    // cfl creds chosen
 	testutil.Equal(t, "PROJ", r.prefill.DefaultProject) // jtk's default_project preserved
 }
 
@@ -359,7 +359,7 @@ func TestReconcile_CorruptJTKLegacyAborts(t *testing.T) {
 		"", "", "", "", "")
 	testutil.RequireError(t, err)
 
-	body, ferr := os.ReadFile(jtkPath)
+	body, ferr := os.ReadFile(jtkPath) //nolint:gosec // test-controlled tempdir path
 	testutil.RequireNoError(t, ferr)
 	testutil.Equal(t, "{not json", string(body))
 

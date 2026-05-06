@@ -153,9 +153,6 @@ const (
 	SourceDefault     Source = "shared default"
 	SourceOverrideCFL Source = "shared cfl override"
 	SourceOverrideJTK Source = "shared jtk override"
-	// SourceOverride is retained for callers that don't care which tool
-	// owns the override section. Prefer the tool-specific constants.
-	SourceOverride Source = "shared override"
 )
 
 // ResolveWithSource returns the resolved value and where it came from.
@@ -185,7 +182,7 @@ func (s *Store) ResolveWithSource(tool, field string) (string, Source) {
 		case ToolJTK:
 			return v, SourceOverrideJTK
 		default:
-			return v, SourceOverride
+			return v, SourceUnset
 		}
 	}
 	if v := get(d); v != "" {

@@ -280,4 +280,3 @@ func runInit(ctx context.Context, opts *root.Options, prefillURL, prefillEmail, 
 
 	return nil
 }
-

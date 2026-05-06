@@ -296,7 +296,6 @@ func finalizeInit(
 		}
 	}
 
-
 	// Render the equivalent of `cfl me` using the user we already fetched
 	// during verify. No second API call, no opts state mutation.
 	if verifiedUser != nil {

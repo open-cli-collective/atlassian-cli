@@ -80,52 +80,27 @@ func detectAndReconcile(
 		// If the user already has a cfl override, edits go back to the
 		// override; otherwise the user picks default-vs-override.
 		hasOverride := !sectionEmpty(store.CFL.Section)
-		var target writeTarget
-		var reusePrefill bool
 		if hasOverride {
-			target = writeCFLOverride
-			reusePrefill = true
-		} else {
-			var reuse bool
-			err := huh.NewConfirm().
-				Title("Shared Atlassian credentials found").
-				Description(fmt.Sprintf(
-					"%s\n\nReuse these for cfl? (no = set up cfl-specific credentials)",
-					credstore.FormatSection("default", store.Default),
-				)).
-				Affirmative("Reuse").
-				Negative("Set cfl-specific").
-				Value(&reuse).
-				Run()
-			if err != nil {
-				return nil, err
-			}
-			if reuse {
-				target = writeDefault
-				reusePrefill = true
-				v.Info("Note: editing these credentials will also affect jtk (writes go to shared default).")
-			} else {
-				target = writeCFLOverride
-				reusePrefill = false
-			}
+			return resultFromSharedWithOverride(store, prefillURL, prefillEmail, prefillAuthMethod, prefillCloudID), nil
 		}
-		var cfg *config.Config
-		if reusePrefill {
-			cfg = configFromSection(store.Resolve(credstore.ToolCFL))
-			copyCFLDefaults(cfg, store.CFL)
-		} else {
-			// Fresh setup — only carry over cfl-specific defaults so the
-			// user doesn't have to re-type the default space.
-			cfg = &config.Config{}
-			copyCFLDefaults(cfg, store.CFL)
+		var reuse bool
+		err := huh.NewConfirm().
+			Title("Shared Atlassian credentials found").
+			Description(fmt.Sprintf(
+				"%s\n\nReuse these for cfl? (no = set up cfl-specific credentials)",
+				credstore.FormatSection("default", store.Default),
+			)).
+			Affirmative("Reuse").
+			Negative("Set cfl-specific").
+			Value(&reuse).
+			Run()
+		if err != nil {
+			return nil, err
 		}
-		applyFlagOverrides(cfg, prefillURL, prefillEmail, prefillAuthMethod, prefillCloudID)
-		return &reconcileResult{
-			prefill:        cfg,
-			target:         target,
-			store:          store,
-			affectsSibling: target == writeDefault && reusePrefill,
-		}, nil
+		if reuse {
+			v.Info("Note: editing these credentials will also affect jtk (writes go to shared default).")
+		}
+		return resultFromSharedNoOverride(store, reuse, prefillURL, prefillEmail, prefillAuthMethod, prefillCloudID), nil
 	}
 
 	// Case 2: only this tool's legacy exists.
@@ -206,8 +181,11 @@ func resultFromCFLLegacy(cflLegacy *credstore.LegacyCreds, store *credstore.Stor
 }
 
 // resultFromSiblingLegacy is the post-prompt branch for "only sibling
-// (jtk) legacy" — `reuse` is what huh returned.
+// (jtk) legacy" — `reuse` is what huh returned. Either way, jtk's
+// per-tool defaults (default_project) are preserved into the store so
+// jtk doesn't lose them on next read.
 func resultFromSiblingLegacy(jtkLegacy *credstore.LegacyCreds, store *credstore.Store, reuse bool, prefillURL, prefillEmail, prefillAuthMethod, prefillCloudID string) *reconcileResult {
+	store.JTK.DefaultProject = jtkLegacy.DefaultProject
 	var cfg *config.Config
 	if reuse {
 		cfg = configFromLegacy(jtkLegacy)
@@ -220,6 +198,39 @@ func resultFromSiblingLegacy(jtkLegacy *credstore.LegacyCreds, store *credstore.
 		consumed = []string{jtkLegacy.Path}
 	}
 	return &reconcileResult{prefill: cfg, target: writeDefault, store: store, consumedLegacies: consumed}
+}
+
+// resultFromSharedNoOverride is the post-prompt branch for the
+// shared-store-present-no-override case in detectAndReconcile.
+// `reuse` is what huh returned.
+func resultFromSharedNoOverride(store *credstore.Store, reuse bool, prefillURL, prefillEmail, prefillAuthMethod, prefillCloudID string) *reconcileResult {
+	var cfg *config.Config
+	target := writeCFLOverride
+	if reuse {
+		cfg = configFromSection(store.Resolve(credstore.ToolCFL))
+		copyCFLDefaults(cfg, store.CFL)
+		target = writeDefault
+	} else {
+		cfg = &config.Config{}
+		copyCFLDefaults(cfg, store.CFL)
+	}
+	applyFlagOverrides(cfg, prefillURL, prefillEmail, prefillAuthMethod, prefillCloudID)
+	return &reconcileResult{
+		prefill:        cfg,
+		target:         target,
+		store:          store,
+		affectsSibling: reuse, // reuse=yes writes to default → affects jtk
+	}
+}
+
+// resultFromSharedWithOverride is the (no-prompt) branch when shared
+// store already has a populated cfl override section. Edits land in
+// the override; default isn't touched.
+func resultFromSharedWithOverride(store *credstore.Store, prefillURL, prefillEmail, prefillAuthMethod, prefillCloudID string) *reconcileResult {
+	cfg := configFromSection(store.Resolve(credstore.ToolCFL))
+	copyCFLDefaults(cfg, store.CFL)
+	applyFlagOverrides(cfg, prefillURL, prefillEmail, prefillAuthMethod, prefillCloudID)
+	return &reconcileResult{prefill: cfg, target: writeCFLOverride, store: store}
 }
 
 // resultFromMismatch is the post-prompt branch for "both legacies

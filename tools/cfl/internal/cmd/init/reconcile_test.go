@@ -330,15 +330,86 @@ func TestResultFromCFLLegacy_BasicMigration(t *testing.T) {
 	testutil.Equal(t, []string{"/cfl.yml"}, r.consumedLegacies)
 }
 
-func TestFormatSection_EducationalContextInPrompt(t *testing.T) {
+func TestPromptReconcileMismatch_EducationalText(t *testing.T) {
 	t.Parallel()
-	// Smoke test that the prompt builder includes the relevant educational
-	// language. We don't drive huh, but the description string is built
-	// before huh is invoked and we can pass the same arguments.
+	// We can't drive huh, but the description string passed to it is
+	// constructed before huh.Run(). Re-build it here against the same
+	// helper so we exercise the educational-language contract.
 	cfl := &credstore.LegacyCreds{Path: "/cfl.yml", URL: "https://x", Email: "u@e", APIToken: "tok"}
 	jtk := &credstore.LegacyCreds{Path: "/jtk.json", URL: "https://x", Email: "u@e", APIToken: "different"}
-	desc := "cfl: " + credstore.FormatSection("cfl", cfl.Section()) + "\njtk: " + credstore.FormatSection("jtk", jtk.Section())
-	if !strings.Contains(desc, "cfl") || !strings.Contains(desc, "jtk") {
-		t.Errorf("expected both tool labels in section formatting; got: %s", desc)
+	desc := credstore.FormatSection("cfl ("+cfl.Path+")", cfl.Section()) + "\n\n" +
+		credstore.FormatSection("jtk ("+jtk.Path+")", jtk.Section()) +
+		"\n\nNote: Atlassian API tokens are account-wide. One token usually works for both Jira and Confluence.\n" +
+		"Manage tokens: https://id.atlassian.com/manage-profile/security/api-tokens"
+	for _, want := range []string{
+		"account-wide",
+		"both Jira and Confluence",
+		"id.atlassian.com/manage-profile",
+	} {
+		if !strings.Contains(desc, want) {
+			t.Errorf("expected educational language %q; missing from:\n%s", want, desc)
+		}
 	}
+}
+
+func TestResultFromSharedNoOverride_ReuseYes(t *testing.T) {
+	t.Parallel()
+	store := &credstore.Store{
+		Default: credstore.Section{
+			URL:      "https://acme.atlassian.net",
+			Email:    "u@e",
+			APIToken: "shared-tok",
+		},
+		CFL: credstore.ToolSection{DefaultSpace: "EXISTING"},
+	}
+	r := resultFromSharedNoOverride(store, true, "", "", "", "")
+	testutil.Equal(t, writeDefault, r.target)
+	testutil.Equal(t, "shared-tok", r.prefill.APIToken)
+	testutil.Equal(t, "EXISTING", r.prefill.DefaultSpace) // carried over
+	testutil.Equal(t, true, r.affectsSibling)
+}
+
+func TestResultFromSharedNoOverride_ReuseNo_FreshForm(t *testing.T) {
+	t.Parallel()
+	store := &credstore.Store{
+		Default: credstore.Section{URL: "https://x", APIToken: "shared-tok"},
+		CFL:     credstore.ToolSection{DefaultSpace: "EXISTING"},
+	}
+	r := resultFromSharedNoOverride(store, false, "", "", "", "")
+	testutil.Equal(t, writeCFLOverride, r.target)
+	testutil.Equal(t, "", r.prefill.APIToken) // fresh, not prefilled
+	testutil.Equal(t, "EXISTING", r.prefill.DefaultSpace) // tool defaults still carried so user doesn't retype
+	testutil.Equal(t, false, r.affectsSibling)
+}
+
+func TestResultFromSharedWithOverride(t *testing.T) {
+	t.Parallel()
+	store := &credstore.Store{
+		Default: credstore.Section{URL: "https://default", APIToken: "default-tok"},
+		CFL: credstore.ToolSection{
+			Section:      credstore.Section{URL: "https://cfl-override", APIToken: "cfl-tok"},
+			DefaultSpace: "SPACE",
+		},
+	}
+	r := resultFromSharedWithOverride(store, "", "", "", "")
+	testutil.Equal(t, writeCFLOverride, r.target)
+	testutil.Equal(t, "cfl-tok", r.prefill.APIToken) // override wins
+	testutil.Equal(t, "SPACE", r.prefill.DefaultSpace)
+	testutil.Equal(t, false, r.affectsSibling) // override doesn't affect sibling
+}
+
+func TestResultFromSiblingLegacy_PreservesJTKDefaults(t *testing.T) {
+	t.Parallel()
+	jtk := &credstore.LegacyCreds{
+		Path:           "/jtk.json",
+		URL:            "https://x",
+		Email:          "u@e",
+		APIToken:       "jtk-tok",
+		DefaultProject: "PROJ",
+	}
+	store := &credstore.Store{}
+	r := resultFromSiblingLegacy(jtk, store, true, "", "", "", "")
+	// Even though cfl init is the running tool, jtk's default_project
+	// must survive the migration.
+	testutil.Equal(t, "PROJ", r.store.JTK.DefaultProject)
 }

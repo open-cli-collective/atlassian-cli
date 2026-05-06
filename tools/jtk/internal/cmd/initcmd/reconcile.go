@@ -67,50 +67,27 @@ func detectAndReconcile(
 	// Case 1: shared store has usable jtk creds.
 	if store.HasUsableCreds(credstore.ToolJTK) {
 		hasOverride := !sectionEmpty(store.JTK.Section)
-		var target writeTarget
-		var reusePrefill bool
 		if hasOverride {
-			target = writeJTKOverride
-			reusePrefill = true
-		} else {
-			var reuse bool
-			err := huh.NewConfirm().
-				Title("Shared Atlassian credentials found").
-				Description(fmt.Sprintf(
-					"%s\n\nReuse these for jtk? (no = set up jtk-specific credentials)",
-					credstore.FormatSection("default", store.Default),
-				)).
-				Affirmative("Reuse").
-				Negative("Set jtk-specific").
-				Value(&reuse).
-				Run()
-			if err != nil {
-				return nil, err
-			}
-			if reuse {
-				target = writeDefault
-				reusePrefill = true
-				v.Info("Note: editing these credentials will also affect cfl (writes go to shared default).")
-			} else {
-				target = writeJTKOverride
-				reusePrefill = false
-			}
+			return resultFromSharedWithOverride(store, prefillURL, prefillEmail, prefillToken, prefillAuthMethod, prefillCloudID), nil
 		}
-		var cfg *config.Config
-		if reusePrefill {
-			cfg = configFromSection(store.Resolve(credstore.ToolJTK))
-			copyJTKDefaults(cfg, store.JTK)
-		} else {
-			cfg = &config.Config{}
-			copyJTKDefaults(cfg, store.JTK)
+		var reuse bool
+		err := huh.NewConfirm().
+			Title("Shared Atlassian credentials found").
+			Description(fmt.Sprintf(
+				"%s\n\nReuse these for jtk? (no = set up jtk-specific credentials)",
+				credstore.FormatSection("default", store.Default),
+			)).
+			Affirmative("Reuse").
+			Negative("Set jtk-specific").
+			Value(&reuse).
+			Run()
+		if err != nil {
+			return nil, err
 		}
-		applyFlagOverrides(cfg, prefillURL, prefillEmail, prefillToken, prefillAuthMethod, prefillCloudID)
-		return &reconcileResult{
-			prefill:        cfg,
-			target:         target,
-			store:          store,
-			affectsSibling: target == writeDefault && reusePrefill,
-		}, nil
+		if reuse {
+			v.Info("Note: editing these credentials will also affect cfl (writes go to shared default).")
+		}
+		return resultFromSharedNoOverride(store, reuse, prefillURL, prefillEmail, prefillToken, prefillAuthMethod, prefillCloudID), nil
 	}
 
 	// Case 2: only this tool's legacy.
@@ -192,6 +169,8 @@ func resultFromJTKLegacy(jtkLegacy *credstore.LegacyCreds, store *credstore.Stor
 }
 
 func resultFromSiblingLegacy(cflLegacy *credstore.LegacyCreds, store *credstore.Store, reuse bool, prefillURL, prefillEmail, prefillToken, prefillAuthMethod, prefillCloudID string) *reconcileResult {
+	store.CFL.DefaultSpace = cflLegacy.DefaultSpace
+	store.CFL.OutputFormat = cflLegacy.OutputFormat
 	var cfg *config.Config
 	if reuse {
 		cfg = configFromLegacy(cflLegacy)
@@ -204,6 +183,33 @@ func resultFromSiblingLegacy(cflLegacy *credstore.LegacyCreds, store *credstore.
 		consumed = []string{cflLegacy.Path}
 	}
 	return &reconcileResult{prefill: cfg, target: writeDefault, store: store, consumedLegacies: consumed}
+}
+
+func resultFromSharedNoOverride(store *credstore.Store, reuse bool, prefillURL, prefillEmail, prefillToken, prefillAuthMethod, prefillCloudID string) *reconcileResult {
+	var cfg *config.Config
+	target := writeJTKOverride
+	if reuse {
+		cfg = configFromSection(store.Resolve(credstore.ToolJTK))
+		copyJTKDefaults(cfg, store.JTK)
+		target = writeDefault
+	} else {
+		cfg = &config.Config{}
+		copyJTKDefaults(cfg, store.JTK)
+	}
+	applyFlagOverrides(cfg, prefillURL, prefillEmail, prefillToken, prefillAuthMethod, prefillCloudID)
+	return &reconcileResult{
+		prefill:        cfg,
+		target:         target,
+		store:          store,
+		affectsSibling: reuse,
+	}
+}
+
+func resultFromSharedWithOverride(store *credstore.Store, prefillURL, prefillEmail, prefillToken, prefillAuthMethod, prefillCloudID string) *reconcileResult {
+	cfg := configFromSection(store.Resolve(credstore.ToolJTK))
+	copyJTKDefaults(cfg, store.JTK)
+	applyFlagOverrides(cfg, prefillURL, prefillEmail, prefillToken, prefillAuthMethod, prefillCloudID)
+	return &reconcileResult{prefill: cfg, target: writeJTKOverride, store: store}
 }
 
 func resultFromMismatch(jtkLegacy, cflLegacy *credstore.LegacyCreds, choice string, store *credstore.Store, v *view.View, prefillURL, prefillEmail, prefillToken, prefillAuthMethod, prefillCloudID string) *reconcileResult {

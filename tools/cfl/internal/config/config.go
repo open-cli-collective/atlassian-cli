@@ -194,14 +194,16 @@ func warnCorruptSharedOnce(err error) {
 //  4. ATLASSIAN_* env
 //  5. CFL_* env (highest)
 //
-// A corrupt shared store surfaces as an error rather than silently
-// falling through, so init/runtime never overwrite a file we couldn't
-// read.
+// A corrupt shared store warns once on stderr and falls back to legacy
+// + env so a broken shared file doesn't crash every cfl command. Init
+// uses credstore.Load directly so it can surface the error and refuse
+// to overwrite.
 func LoadWithEnv(path string) (*Config, error) {
 	cfg, err := Load(path)
 	if err != nil {
-		// Legacy file missing is fine; start empty. (Distinguishing
-		// missing-vs-corrupt for the legacy file is jtk-init's job.)
+		// Legacy file missing or corrupt: start empty. cfl init has a
+		// separate detect-and-reconcile path that distinguishes those
+		// cases and refuses to clobber a corrupt legacy file.
 		cfg = &Config{}
 	}
 

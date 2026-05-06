@@ -185,3 +185,65 @@ func TestResultFromMismatch_KeepDifferent(t *testing.T) {
 		t.Errorf("expected keep-different note; got: %s", stdout.String())
 	}
 }
+
+func TestResultFromSharedNoOverride_ReuseYes(t *testing.T) {
+	t.Parallel()
+	store := &credstore.Store{
+		Default: credstore.Section{
+			URL:      "https://acme.atlassian.net",
+			Email:    "u@e",
+			APIToken: "shared-tok",
+		},
+		JTK: credstore.ToolSection{DefaultProject: "EXISTING"},
+	}
+	r := resultFromSharedNoOverride(store, true, "", "", "", "", "")
+	testutil.Equal(t, writeDefault, r.target)
+	testutil.Equal(t, "shared-tok", r.prefill.APIToken)
+	testutil.Equal(t, "EXISTING", r.prefill.DefaultProject)
+	testutil.Equal(t, true, r.affectsSibling)
+}
+
+func TestResultFromSharedNoOverride_ReuseNo_FreshForm(t *testing.T) {
+	t.Parallel()
+	store := &credstore.Store{
+		Default: credstore.Section{URL: "https://x", APIToken: "shared-tok"},
+		JTK:     credstore.ToolSection{DefaultProject: "EXISTING"},
+	}
+	r := resultFromSharedNoOverride(store, false, "", "", "", "", "")
+	testutil.Equal(t, writeJTKOverride, r.target)
+	testutil.Equal(t, "", r.prefill.APIToken)
+	testutil.Equal(t, "EXISTING", r.prefill.DefaultProject)
+	testutil.Equal(t, false, r.affectsSibling)
+}
+
+func TestResultFromSharedWithOverride(t *testing.T) {
+	t.Parallel()
+	store := &credstore.Store{
+		Default: credstore.Section{URL: "https://default", APIToken: "default-tok"},
+		JTK: credstore.ToolSection{
+			Section:        credstore.Section{URL: "https://jtk-override", APIToken: "jtk-tok"},
+			DefaultProject: "PROJ",
+		},
+	}
+	r := resultFromSharedWithOverride(store, "", "", "", "", "")
+	testutil.Equal(t, writeJTKOverride, r.target)
+	testutil.Equal(t, "jtk-tok", r.prefill.APIToken)
+	testutil.Equal(t, "PROJ", r.prefill.DefaultProject)
+	testutil.Equal(t, false, r.affectsSibling)
+}
+
+func TestResultFromSiblingLegacy_PreservesCFLDefaults(t *testing.T) {
+	t.Parallel()
+	cfl := &credstore.LegacyCreds{
+		Path:         "/cfl.yml",
+		URL:          "https://x",
+		Email:        "u@e",
+		APIToken:     "cfl-tok",
+		DefaultSpace: "SPACE",
+		OutputFormat: "json",
+	}
+	store := &credstore.Store{}
+	r := resultFromSiblingLegacy(cfl, store, true, "", "", "", "", "")
+	testutil.Equal(t, "SPACE", r.store.CFL.DefaultSpace)
+	testutil.Equal(t, "json", r.store.CFL.OutputFormat)
+}

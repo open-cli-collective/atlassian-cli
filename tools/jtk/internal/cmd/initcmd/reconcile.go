@@ -236,9 +236,14 @@ func resultFromMismatch(jtkLegacy, cflLegacy *credstore.LegacyCreds, choice stri
 		// Both tools land in their override sections so the split is
 		// stable: store.Default stays empty, jtk reads its override,
 		// cfl reads its override. Save target is writeJTKOverride so
-		// post-form edits stay in the jtk section.
+		// post-form edits stay in the jtk section. Per-tool defaults
+		// are set here so the function is self-contained — callers
+		// don't have to pre-populate the store.
 		store.JTK.Section = jtkLegacy.Section()
+		store.JTK.DefaultProject = jtkLegacy.DefaultProject
 		store.CFL.Section = cflLegacy.Section()
+		store.CFL.DefaultSpace = cflLegacy.DefaultSpace
+		store.CFL.OutputFormat = cflLegacy.OutputFormat
 		cfg := configFromLegacy(jtkLegacy)
 		applyFlagOverrides(cfg, prefillURL, prefillEmail, prefillToken, prefillAuthMethod, prefillCloudID)
 		v.Info("Keeping per-tool credentials. jtk will use jtk's token; cfl will use cfl's token.")

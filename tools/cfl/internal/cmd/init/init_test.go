@@ -148,6 +148,60 @@ func userResponseServer(t *testing.T, body string, status int) *httptest.Server 
 	}))
 }
 
+// TestFinalizeInit_WritesToCorrectSection verifies the saved YAML
+// routes credentials to the section named by writeTarget. A regression
+// in target selection (e.g. credentials landing in default when an
+// override was intended) would be silently invisible without this
+// readback assertion.
+func TestFinalizeInit_WritesToCorrectSection(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name   string
+		target writeTarget
+	}{
+		{"default", writeDefault},
+		{"cfl_override", writeCFLOverride},
+	}
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			server := userResponseServer(t, `{"accountId":"abc","displayName":"X","email":"x@e"}`, http.StatusOK)
+			defer server.Close()
+			build := func(_ *config.Config) (*api.Client, error) {
+				return api.NewClient(server.URL, "x@e", "tok"), nil
+			}
+			tmpDir := t.TempDir()
+			configPath := filepath.Join(tmpDir, "config.yml")
+			cfg := &config.Config{URL: server.URL + "/wiki", Email: "x@e", APIToken: "tok"}
+			result := &reconcileResult{store: &credstore.Store{}, target: tc.target}
+
+			testutil.RequireNoError(t,
+				finalizeInit(context.Background(), newFinalizeOpts(), cfg, result, configPath, false, build))
+
+			loaded, err := credstore.Load(configPath)
+			testutil.RequireNoError(t, err)
+
+			var got credstore.Section
+			switch tc.target {
+			case writeDefault:
+				got = loaded.Default
+				if loaded.CFL.APIToken != "" {
+					t.Errorf("creds leaked into CFL override: %+v", loaded.CFL.Section)
+				}
+			case writeCFLOverride:
+				got = loaded.CFL.Section
+				if loaded.Default.APIToken != "" {
+					t.Errorf("creds leaked into default: %+v", loaded.Default)
+				}
+			}
+			testutil.Equal(t, "tok", got.APIToken)
+			testutil.Equal(t, "x@e", got.Email)
+			testutil.Equal(t, server.URL, got.URL) // URL normalized: /wiki stripped
+		})
+	}
+}
+
 func TestFinalizeInit_BasicHappyPath(t *testing.T) {
 	t.Parallel()
 	server := userResponseServer(t, `{"accountId":"abc123","displayName":"Rian Stockbower","email":"rian@example.com"}`, http.StatusOK)

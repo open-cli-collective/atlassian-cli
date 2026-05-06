@@ -283,6 +283,7 @@ func finalizeInit(
 	if !noVerify {
 		client, err := build(cfg)
 		if err != nil {
+			v.Error("Could not construct API client: %v", err)
 			return fmt.Errorf("creating client: %w", err)
 		}
 

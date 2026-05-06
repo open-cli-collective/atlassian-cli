@@ -3,6 +3,7 @@ package init
 import (
 	"bytes"
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -295,6 +296,33 @@ func TestFinalizeInit_AuthFailure(t *testing.T) {
 
 	_, statErr := os.Stat(configPath)
 	testutil.True(t, os.IsNotExist(statErr), "config file should not exist after auth failure")
+}
+
+func TestFinalizeInit_BuildFailureSurfacesError(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yml")
+	opts := newFinalizeOpts()
+	cfg := &config.Config{
+		URL:      "https://example.atlassian.net",
+		Email:    "rian@example.com",
+		APIToken: "test-token",
+	}
+
+	build := func(_ *config.Config) (*api.Client, error) {
+		return nil, errors.New("simulated builder failure")
+	}
+
+	err := finalizeInit(context.Background(), opts, cfg, configPath, false, build)
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "simulated builder failure")
+
+	// User must see WHY init failed, not just a non-zero exit.
+	stderr := opts.Stderr.(*bytes.Buffer).String()
+	testutil.Contains(t, stderr, "Could not construct API client")
+
+	_, statErr := os.Stat(configPath)
+	testutil.True(t, os.IsNotExist(statErr), "config should not be saved when builder fails")
 }
 
 func TestFinalizeInit_NoVerify(t *testing.T) {

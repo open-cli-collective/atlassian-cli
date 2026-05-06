@@ -44,7 +44,7 @@ Missing fields render as "-" so the row is always exactly three pipe-delimited f
 func Run(ctx context.Context, opts *root.Options, idOnly bool) error {
 	client, err := opts.APIClient()
 	if err != nil {
-		return err
+		return fmt.Errorf("getting API client: %w", err)
 	}
 	user, err := client.GetCurrentUser(ctx)
 	if err != nil {

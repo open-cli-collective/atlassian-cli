@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"github.com/open-cli-collective/atlassian-go/auth"
 	"github.com/open-cli-collective/atlassian-go/credstore"
@@ -27,14 +28,12 @@ func loadShared() *credstore.Store {
 	return s
 }
 
-var corruptWarnEmitted = false
+var corruptSharedWarnOnce sync.Once
 
 func warnCorruptSharedOnce(err error) {
-	if corruptWarnEmitted {
-		return
-	}
-	corruptWarnEmitted = true
-	fmt.Fprintf(os.Stderr, "warning: shared credential store is unreadable (%v); falling back to per-tool config. Run `jtk init` to fix.\n", err)
+	corruptSharedWarnOnce.Do(func() {
+		fmt.Fprintf(os.Stderr, "warning: shared credential store is unreadable (%v); falling back to per-tool config. Run `jtk init` to fix.\n", err)
+	})
 }
 
 // jtkSection returns the resolved Section for jtk merged from default

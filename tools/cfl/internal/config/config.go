@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/open-cli-collective/atlassian-go/auth"
 	sharedconfig "github.com/open-cli-collective/atlassian-go/config"
@@ -177,14 +178,12 @@ func (c *Config) LoadFromShared(s *credstore.Store) {
 	}
 }
 
-var corruptSharedWarnEmitted = false
+var corruptSharedWarnOnce sync.Once
 
 func warnCorruptSharedOnce(err error) {
-	if corruptSharedWarnEmitted {
-		return
-	}
-	corruptSharedWarnEmitted = true
-	fmt.Fprintf(os.Stderr, "warning: shared credential store is unreadable (%v); falling back to per-tool config. Run `cfl init` to fix.\n", err)
+	corruptSharedWarnOnce.Do(func() {
+		fmt.Fprintf(os.Stderr, "warning: shared credential store is unreadable (%v); falling back to per-tool config. Run `cfl init` to fix.\n", err)
+	})
 }
 
 // LoadWithEnv loads configuration with full precedence:

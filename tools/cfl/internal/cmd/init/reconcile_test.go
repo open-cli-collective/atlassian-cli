@@ -310,9 +310,12 @@ func TestResultFromMismatch_KeepDifferent(t *testing.T) {
 	v, stdout, _ := newReconcileView()
 	store := &credstore.Store{}
 	r := resultFromMismatch(cfl, jtk, "keep_different", store, v, "", "", "", "")
-	// cfl creds → default; jtk creds → JTK override section.
-	testutil.Equal(t, "https://cfl.atlassian.net", r.store.Default.URL)
-	testutil.Equal(t, "cfl-tok", r.store.Default.APIToken)
+	// cfl creds → CFL override; jtk creds → JTK override; default empty.
+	testutil.Equal(t, writeCFLOverride, r.target)
+	testutil.Equal(t, "", r.store.Default.URL)
+	testutil.Equal(t, "", r.store.Default.APIToken)
+	testutil.Equal(t, "https://cfl.atlassian.net", r.store.CFL.URL)
+	testutil.Equal(t, "cfl-tok", r.store.CFL.APIToken)
 	testutil.Equal(t, "https://jtk.atlassian.net", r.store.JTK.URL)
 	testutil.Equal(t, "jtk-tok", r.store.JTK.APIToken)
 	testutil.Equal(t, "SPACE", r.store.CFL.DefaultSpace)

@@ -129,6 +129,7 @@ default:
   cloud_id: <id>                    # required for bearer
 cfl:
   default_space: SPACE              # cfl-only defaults
+  output_format: table              # cfl-only: table | json | plain
 jtk:
   default_project: PROJ             # jtk-only defaults
 ```

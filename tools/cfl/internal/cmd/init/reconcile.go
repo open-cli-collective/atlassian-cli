@@ -257,14 +257,18 @@ func resultFromMismatch(cflLegacy, jtkLegacy *credstore.LegacyCreds, choice stri
 		applyFlagOverrides(cfg, prefillURL, prefillEmail, prefillAuthMethod, prefillCloudID)
 		return &reconcileResult{prefill: cfg, target: writeDefault, store: store, consumedLegacies: consumed}
 	case "keep_different":
-		store.Default = cflLegacy.Section()
+		// Both tools land in their override sections so the split is
+		// stable: store.Default stays empty, cfl reads its override,
+		// jtk reads its override. Save target is writeCFLOverride so
+		// post-form edits stay in the cfl section.
+		store.CFL.Section = cflLegacy.Section()
 		store.CFL.DefaultSpace = cflLegacy.DefaultSpace
 		store.CFL.OutputFormat = cflLegacy.OutputFormat
 		store.JTK.Section = jtkLegacy.Section()
 		cfg := configFromLegacy(cflLegacy)
 		applyFlagOverrides(cfg, prefillURL, prefillEmail, prefillAuthMethod, prefillCloudID)
 		v.Info("Keeping per-tool credentials. cfl will use cfl's token; jtk will use jtk's token.")
-		return &reconcileResult{prefill: cfg, target: writeDefault, store: store, consumedLegacies: consumed}
+		return &reconcileResult{prefill: cfg, target: writeCFLOverride, store: store, consumedLegacies: consumed}
 	}
 	cfg := &config.Config{}
 	applyFlagOverrides(cfg, prefillURL, prefillEmail, prefillAuthMethod, prefillCloudID)

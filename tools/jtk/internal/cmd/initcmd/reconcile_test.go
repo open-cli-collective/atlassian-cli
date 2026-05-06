@@ -177,8 +177,12 @@ func TestResultFromMismatch_KeepDifferent(t *testing.T) {
 	cfl := &credstore.LegacyCreds{Path: "/cfl.yml", URL: "https://cfl.atlassian.net/wiki", Email: "u@e", APIToken: "cfl-tok", DefaultSpace: "SPACE"}
 	v, stdout, _ := newReconcileView()
 	r := resultFromMismatch(jtk, cfl, "keep_different", &credstore.Store{}, v, "", "", "", "", "")
-	testutil.Equal(t, "https://jtk.atlassian.net", r.store.Default.URL)
-	testutil.Equal(t, "jtk-tok", r.store.Default.APIToken)
+	// jtk creds → JTK override; cfl creds → CFL override; default empty.
+	testutil.Equal(t, writeJTKOverride, r.target)
+	testutil.Equal(t, "", r.store.Default.URL)
+	testutil.Equal(t, "", r.store.Default.APIToken)
+	testutil.Equal(t, "https://jtk.atlassian.net", r.store.JTK.URL)
+	testutil.Equal(t, "jtk-tok", r.store.JTK.APIToken)
 	testutil.Equal(t, "https://cfl.atlassian.net", r.store.CFL.URL)
 	testutil.Equal(t, "cfl-tok", r.store.CFL.APIToken)
 	if !strings.Contains(stdout.String(), "Keeping per-tool credentials") {

@@ -120,6 +120,7 @@ func detectAndReconcile(
 	if jtkLegacy != nil && cflLegacy != nil {
 		store.CFL.DefaultSpace = cflLegacy.DefaultSpace
 		store.CFL.OutputFormat = cflLegacy.OutputFormat
+		store.JTK.DefaultProject = jtkLegacy.DefaultProject
 		if credstore.SectionsEqual(jtkLegacy.Section(), cflLegacy.Section()) {
 			v.Info("Found matching jtk and cfl credentials; migrating to shared store.")
 			cfg := configFromLegacy(jtkLegacy)
@@ -232,12 +233,16 @@ func resultFromMismatch(jtkLegacy, cflLegacy *credstore.LegacyCreds, choice stri
 		applyFlagOverrides(cfg, prefillURL, prefillEmail, prefillToken, prefillAuthMethod, prefillCloudID)
 		return &reconcileResult{prefill: cfg, target: writeDefault, store: store, consumedLegacies: consumed}
 	case "keep_different":
-		store.Default = jtkLegacy.Section()
+		// Both tools land in their override sections so the split is
+		// stable: store.Default stays empty, jtk reads its override,
+		// cfl reads its override. Save target is writeJTKOverride so
+		// post-form edits stay in the jtk section.
+		store.JTK.Section = jtkLegacy.Section()
 		store.CFL.Section = cflLegacy.Section()
 		cfg := configFromLegacy(jtkLegacy)
 		applyFlagOverrides(cfg, prefillURL, prefillEmail, prefillToken, prefillAuthMethod, prefillCloudID)
 		v.Info("Keeping per-tool credentials. jtk will use jtk's token; cfl will use cfl's token.")
-		return &reconcileResult{prefill: cfg, target: writeDefault, store: store, consumedLegacies: consumed}
+		return &reconcileResult{prefill: cfg, target: writeJTKOverride, store: store, consumedLegacies: consumed}
 	}
 	cfg := &config.Config{}
 	applyFlagOverrides(cfg, prefillURL, prefillEmail, prefillToken, prefillAuthMethod, prefillCloudID)

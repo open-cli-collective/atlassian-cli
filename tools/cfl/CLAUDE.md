@@ -35,7 +35,8 @@ internal/cmd/            → Cobra command implementations
   page/                  → page list|view|create|edit|delete
   space/                 → space list|view|create|update|delete
   attachment/            → attachment list|upload|download
-  init/                  → Configuration wizard
+  init/                  → Configuration wizard (uses charmbracelet/huh + shared view.View)
+  me/                    → Show currently authenticated user as `accountId | displayName | email`
 internal/config/         → YAML config loading with env var overrides
 internal/view/           → Output formatting (table/json/plain)
 pkg/md/                  → Bidirectional Markdown ↔ XHTML conversion
@@ -156,6 +157,8 @@ Two auth methods are supported:
 - **Bearer Auth**: Uses `Authorization: Bearer <token>` against the `api.atlassian.com` gateway. Required for Atlassian service accounts with scoped API tokens.
 
 Bearer auth routes requests through `https://api.atlassian.com/ex/confluence/{cloudId}/wiki/...` and requires a Cloud ID. The `api/client.go` file has a separate `NewBearerClient()` constructor, selected in `root.go` based on config auth method.
+
+**`cfl init` and `cfl me` both depend on `/wiki/rest/api/user/current` working under bearer auth.** That endpoint is what verifies init's connection and powers the me one-liner. If a future scoped-token policy restricts user-info access for bearer tokens, both commands will surface a `Connection failed` / `getting current user` error rather than silently misbehave.
 
 ## Output Artifact Contract
 

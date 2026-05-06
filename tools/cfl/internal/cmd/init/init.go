@@ -4,27 +4,38 @@ package init
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"os"
-	"time"
 
 	"github.com/charmbracelet/huh"
 	"github.com/spf13/cobra"
 
 	"github.com/open-cli-collective/atlassian-go/auth"
-	"github.com/open-cli-collective/atlassian-go/client"
 
+	"github.com/open-cli-collective/confluence-cli/api"
+	"github.com/open-cli-collective/confluence-cli/internal/cmd/me"
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
 	"github.com/open-cli-collective/confluence-cli/internal/config"
 )
 
+// clientBuilder constructs an *api.Client from a config.
+// Pulled out as a parameter so tests can inject an httptest-pointed client
+// without depending on api.NewBearerClient's hardcoded gateway URL.
+type clientBuilder func(cfg *config.Config) (*api.Client, error)
+
+func defaultClientBuilder(cfg *config.Config) (*api.Client, error) {
+	if cfg.AuthMethod == auth.AuthMethodBearer {
+		return api.NewBearerClient(cfg.APIToken, cfg.CloudID)
+	}
+	return api.NewClient(cfg.URL, cfg.Email, cfg.APIToken), nil
+}
+
 // Register adds the init command to the root command.
-func Register(rootCmd *cobra.Command, _ *root.Options) {
-	rootCmd.AddCommand(newInitCmd())
+func Register(rootCmd *cobra.Command, opts *root.Options) {
+	rootCmd.AddCommand(newInitCmd(opts))
 }
 
 // newInitCmd creates the init command.
-func newInitCmd() *cobra.Command {
+func newInitCmd(opts *root.Options) *cobra.Command {
 	var (
 		url        string
 		email      string
@@ -58,7 +69,7 @@ For service account scoped tokens (bearer auth):
   # Service account (bearer auth) setup
   cfl init --auth-method bearer --url https://mycompany.atlassian.net --cloud-id YOUR_CLOUD_ID`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runInit(cmd.Context(), url, email, authMethod, cloudID, noVerify)
+			return runInit(cmd.Context(), opts, url, email, authMethod, cloudID, noVerify)
 		},
 	}
 
@@ -71,7 +82,9 @@ For service account scoped tokens (bearer auth):
 	return cmd
 }
 
-func runInit(ctx context.Context, prefillURL, prefillEmail, prefillAuthMethod, prefillCloudID string, noVerify bool) error {
+func runInit(ctx context.Context, opts *root.Options, prefillURL, prefillEmail, prefillAuthMethod, prefillCloudID string, noVerify bool) error {
+	v := opts.View()
+
 	// Validate --auth-method flag early, before any interactive prompts
 	if prefillAuthMethod != "" {
 		if err := auth.ValidateAuthMethod(prefillAuthMethod); err != nil {
@@ -99,7 +112,7 @@ func runInit(ctx context.Context, prefillURL, prefillEmail, prefillAuthMethod, p
 			return err
 		}
 		if !overwrite {
-			_, _ = fmt.Fprintln(os.Stderr, "Initialization cancelled.")
+			v.Info("Initialization cancelled.")
 			return nil
 		}
 	}
@@ -243,87 +256,69 @@ func runInit(ctx context.Context, prefillURL, prefillEmail, prefillAuthMethod, p
 		return err
 	}
 
-	// Normalize URL
 	cfg.NormalizeURL()
 
-	// Validate
 	if err := cfg.Validate(); err != nil {
 		return fmt.Errorf("invalid configuration: %w", err)
 	}
 
-	// Verify connection unless skipped
+	return finalizeInit(ctx, opts, cfg, configPath, noVerify, defaultClientBuilder)
+}
+
+// finalizeInit runs the verify/save/render pipeline after the form has produced
+// a normalized + validated config. Extracted as a non-interactive seam so tests
+// can supply an httptest-backed clientBuilder and a temp configPath.
+func finalizeInit(
+	ctx context.Context,
+	opts *root.Options,
+	cfg *config.Config,
+	configPath string,
+	noVerify bool,
+	build clientBuilder,
+) error {
+	v := opts.View()
+
+	var verifiedUser *api.User
+
 	if !noVerify {
-		_, _ = fmt.Fprint(os.Stderr, "Verifying connection... ")
-		if err := verifyConnection(ctx, cfg); err != nil {
-			_, _ = fmt.Fprintln(os.Stderr, "failed!")
-			return fmt.Errorf("verifying connection: %w", err)
+		client, err := build(cfg)
+		if err != nil {
+			return fmt.Errorf("creating client: %w", err)
 		}
-		_, _ = fmt.Fprintln(os.Stderr, "success!")
+
+		user, err := client.GetCurrentUser(ctx)
+		if err != nil {
+			v.Error("Connection failed: %v", err)
+			v.Println("")
+			v.Info("Check your credentials and try again")
+			return fmt.Errorf("authentication failed")
+		}
+
+		v.Success("Connected to %s", cfg.URL)
+		verifiedUser = user
 	}
 
-	// Save configuration
 	if err := cfg.Save(configPath); err != nil {
 		return err
 	}
 
-	_, _ = fmt.Fprintf(os.Stderr, "\nConfiguration saved to %s\n", configPath)
-	_, _ = fmt.Fprintln(os.Stderr, "\nYou're all set! Try running:")
-	_, _ = fmt.Fprintln(os.Stderr, "  cfl space list")
-	_, _ = fmt.Fprintln(os.Stderr, "  cfl page list --space <SPACE_KEY>")
+	v.Success("Configuration saved to %s", configPath)
 
-	if isBearer {
-		_, _ = fmt.Fprintln(os.Stderr, "")
-		_, _ = fmt.Fprintln(os.Stderr, "To switch back to basic auth later, run: cfl init --auth-method basic")
+	// Render the equivalent of `cfl me` using the user we already fetched
+	// during verify. No second API call, no opts state mutation.
+	if verifiedUser != nil {
+		v.Println("")
+		me.RenderUserOneLiner(v, verifiedUser)
 	}
 
-	return nil
-}
-
-func verifyConnection(ctx context.Context, cfg *config.Config) error {
-	httpClient := &http.Client{Timeout: 10 * time.Second}
-
-	var verifyURL string
+	v.Println("")
+	v.Println("You're all set! Try running:")
+	v.Println("  cfl space list")
+	v.Println("  cfl page list --space <SPACE_KEY>")
 
 	if cfg.AuthMethod == auth.AuthMethodBearer {
-		if cfg.CloudID == "" {
-			return fmt.Errorf("cloud ID is required for bearer auth connection verification")
-		}
-		// Bearer auth: use API gateway
-		verifyURL = fmt.Sprintf("%s/ex/confluence/%s/wiki/api/v2/spaces?limit=1", client.GatewayBaseURL, cfg.CloudID)
-	} else {
-		// Basic auth: use instance URL
-		verifyURL = cfg.URL + "/api/v2/spaces?limit=1"
-	}
-
-	req, err := http.NewRequestWithContext(ctx, "GET", verifyURL, nil)
-	if err != nil {
-		return err
-	}
-
-	if cfg.AuthMethod == auth.AuthMethodBearer {
-		req.Header.Set("Authorization", auth.BearerAuthHeader(cfg.APIToken))
-	} else {
-		req.SetBasicAuth(cfg.Email, cfg.APIToken)
-	}
-	req.Header.Set("Accept", "application/json")
-
-	resp, err := httpClient.Do(req)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode == 401 {
-		if cfg.AuthMethod == auth.AuthMethodBearer {
-			return fmt.Errorf("authentication failed - check your API token and cloud ID")
-		}
-		return fmt.Errorf("authentication failed - check your email and API token")
-	}
-	if resp.StatusCode == 403 {
-		return fmt.Errorf("access denied - check your permissions")
-	}
-	if resp.StatusCode != 200 {
-		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+		v.Println("")
+		v.Info("To switch back to basic auth later, run: cfl init --auth-method basic")
 	}
 
 	return nil

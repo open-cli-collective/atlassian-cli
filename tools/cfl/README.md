@@ -215,6 +215,32 @@ cfl init --auth-method bearer --url https://mycompany.atlassian.net \
 
 > **Bearer Auth:** For [Atlassian service accounts](https://support.atlassian.com/user-management/docs/manage-api-tokens-for-service-accounts/) with scoped API tokens. Email is not required. Requests route through the `api.atlassian.com` gateway.
 
+After a successful save, `cfl init` prints the equivalent of `cfl me` so you can confirm which user the saved credentials authenticate as.
+
+---
+
+### `cfl me`
+
+Show the currently authenticated user as a token-dense one-liner: `accountId | displayName | email`. Missing fields render as `-` so the row is always exactly three pipe-delimited fields and stable to parse.
+
+```bash
+# Show current user
+cfl me
+# → 60e09bae7fcd820073089249 | Rian Stockbower | rian@example.com
+
+# Show only the account ID (for scripting)
+cfl me --id
+# → 60e09bae7fcd820073089249
+
+# -o json falls through to the one-liner — there is no JSON representation of `cfl me`.
+cfl me -o json
+# → 60e09bae7fcd820073089249 | Rian Stockbower | rian@example.com
+```
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--id` | | `false` | Print only the account ID |
+
 ---
 
 ### `cfl space list`

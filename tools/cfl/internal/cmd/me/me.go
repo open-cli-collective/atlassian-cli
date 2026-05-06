@@ -4,6 +4,7 @@ package me
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -62,15 +63,24 @@ func Run(ctx context.Context, opts *root.Options, idOnly bool) error {
 // RenderUserOneLiner writes the canonical 3-field user one-liner to v.
 // Exported so cfl init can render the same output after a successful save
 // without re-fetching the user or going through opts.APIClient().
+//
+// Field values are normalized so the output is always exactly three
+// pipe-delimited fields on a single line — newlines collapse to spaces and
+// embedded pipes are escaped to "\|" so downstream parsers can rely on
+// `split('|')` returning three columns.
 func RenderUserOneLiner(v *view.View, user *api.User) {
-	name := dashIfEmpty(user.DisplayName)
-	email := dashIfEmpty(user.Email)
-	v.Println("%s | %s | %s", user.AccountID, name, email)
+	id := normalizeField(user.AccountID)
+	name := normalizeField(user.DisplayName)
+	email := normalizeField(user.Email)
+	v.Println("%s | %s | %s", id, name, email)
 }
 
-func dashIfEmpty(s string) string {
+func normalizeField(s string) string {
 	if s == "" {
 		return "-"
 	}
+	s = strings.ReplaceAll(s, "\r\n", " ")
+	s = strings.ReplaceAll(s, "\n", " ")
+	s = strings.ReplaceAll(s, "|", `\|`)
 	return s
 }

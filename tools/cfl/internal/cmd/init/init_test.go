@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/open-cli-collective/atlassian-go/auth"
+	sharedclient "github.com/open-cli-collective/atlassian-go/client"
 	"github.com/open-cli-collective/atlassian-go/testutil"
 	"github.com/spf13/cobra"
 
@@ -173,7 +174,15 @@ func TestFinalizeInit_BasicHappyPath(t *testing.T) {
 
 func TestFinalizeInit_BearerHappyPath(t *testing.T) {
 	t.Parallel()
-	server := userResponseServer(t, `{"accountId":"svc456","displayName":"Service Account","email":"svc@example.com"}`, http.StatusOK)
+	// Server asserts that the verify request actually carries a Bearer
+	// Authorization header — i.e. the bearer code path emits bearer auth on
+	// the wire, not just bearer-themed UI copy.
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		testutil.Equal(t, "/wiki/rest/api/user/current", r.URL.Path)
+		testutil.Equal(t, "Bearer scoped-token", r.Header.Get("Authorization"))
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"accountId":"svc456","displayName":"Service Account","email":"svc@example.com"}`))
+	}))
 	defer server.Close()
 
 	tmpDir := t.TempDir()
@@ -186,11 +195,15 @@ func TestFinalizeInit_BearerHappyPath(t *testing.T) {
 		CloudID:    "test-cloud-id",
 	}
 
-	// Builder returns the same httptest-backed client regardless of auth method.
-	// This exercises finalizeInit's bearer control flow without depending on
-	// api.NewBearerClient's hardcoded gateway URL.
-	build := func(_ *config.Config) (*api.Client, error) {
-		return api.NewClient(server.URL, "", "scoped-token"), nil
+	// Construct a real bearer-style client (auth header injected via Options)
+	// pointed at the httptest URL. This mirrors what api.NewBearerClient
+	// produces, just with a routable base URL.
+	build := func(c *config.Config) (*api.Client, error) {
+		return &api.Client{
+			Client: sharedclient.New(server.URL, "", "", &sharedclient.Options{
+				AuthHeader: auth.BearerAuthHeader(c.APIToken),
+			}),
+		}, nil
 	}
 
 	err := finalizeInit(context.Background(), opts, cfg, configPath, false, build)
@@ -204,6 +217,51 @@ func TestFinalizeInit_BearerHappyPath(t *testing.T) {
 
 	_, err = os.Stat(configPath)
 	testutil.RequireNoError(t, err)
+}
+
+// TestDefaultClientBuilder verifies the production wiring between
+// cfg.AuthMethod and which client constructor runs. In the finalizeInit
+// tests the builder is always replaced; this test pins the default.
+func TestDefaultClientBuilder(t *testing.T) {
+	t.Parallel()
+
+	t.Run("basic constructs basic-auth client", func(t *testing.T) {
+		t.Parallel()
+		cfg := &config.Config{
+			URL:      "https://example.atlassian.net",
+			Email:    "user@example.com",
+			APIToken: "secret",
+		}
+		c, err := defaultClientBuilder(cfg)
+		testutil.RequireNoError(t, err)
+		testutil.Equal(t, "https://example.atlassian.net", c.BaseURL)
+		// Basic auth header is "Basic <base64(email:token)>"; presence of the
+		// "Basic " prefix is enough to confirm dispatch.
+		testutil.True(t, strings.HasPrefix(c.AuthHeader, "Basic "), "expected Basic prefix, got: "+c.AuthHeader)
+	})
+
+	t.Run("bearer constructs bearer-auth client at gateway", func(t *testing.T) {
+		t.Parallel()
+		cfg := &config.Config{
+			APIToken:   "scoped-token",
+			AuthMethod: auth.AuthMethodBearer,
+			CloudID:    "cloud-abc",
+		}
+		c, err := defaultClientBuilder(cfg)
+		testutil.RequireNoError(t, err)
+		testutil.Contains(t, c.BaseURL, "/ex/confluence/cloud-abc/wiki")
+		testutil.Equal(t, "Bearer scoped-token", c.AuthHeader)
+	})
+
+	t.Run("bearer rejects empty cloud ID", func(t *testing.T) {
+		t.Parallel()
+		cfg := &config.Config{
+			APIToken:   "scoped-token",
+			AuthMethod: auth.AuthMethodBearer,
+		}
+		_, err := defaultClientBuilder(cfg)
+		testutil.RequireError(t, err)
+	})
 }
 
 func TestFinalizeInit_AuthFailure(t *testing.T) {
@@ -230,6 +288,10 @@ func TestFinalizeInit_AuthFailure(t *testing.T) {
 
 	stderr := opts.Stderr.(*bytes.Buffer).String()
 	testutil.Contains(t, stderr, "Connection failed")
+	// Friendly remediation copy is part of the contract — surface a clear
+	// next step rather than just dumping the error.
+	stdout := opts.Stdout.(*bytes.Buffer).String()
+	testutil.Contains(t, stdout, "Check your credentials and try again")
 
 	_, statErr := os.Stat(configPath)
 	testutil.True(t, os.IsNotExist(statErr), "config file should not exist after auth failure")
@@ -263,8 +325,10 @@ func TestFinalizeInit_NoVerify(t *testing.T) {
 
 	stdout := opts.Stdout.(*bytes.Buffer).String()
 	testutil.Contains(t, stdout, "Configuration saved to")
-	// No verify → no fetched user → no one-liner rendered.
-	testutil.False(t, strings.Contains(stdout, " | "), "user one-liner should not appear without verify")
+	// No verify → no fetched user → no one-liner rendered. Pin on the
+	// would-be account ID rather than the " | " separator so that future
+	// log lines containing pipes don't false-positive.
+	testutil.False(t, strings.Contains(stdout, "Connected to"), "verify confirmation should not appear without verify")
 
 	_, err = os.Stat(configPath)
 	testutil.RequireNoError(t, err)

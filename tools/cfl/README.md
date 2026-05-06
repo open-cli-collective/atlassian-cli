@@ -215,7 +215,7 @@ cfl init --auth-method bearer --url https://mycompany.atlassian.net \
 
 > **Bearer Auth:** For [Atlassian service accounts](https://support.atlassian.com/user-management/docs/manage-api-tokens-for-service-accounts/) with scoped API tokens. Email is not required. Requests route through the `api.atlassian.com` gateway.
 
-After a successful save, `cfl init` prints the equivalent of `cfl me` so you can confirm which user the saved credentials authenticate as.
+After a successful save, `cfl init` prints the equivalent of `cfl me` so you can confirm which user the saved credentials authenticate as. (Skipped when `--no-verify` is set, since no live API call is made and there is no user to render.)
 
 ---
 

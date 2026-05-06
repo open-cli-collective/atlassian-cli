@@ -223,21 +223,21 @@ func resultFromSharedWithOverride(store *credstore.Store, prefillURL, prefillEma
 func resultFromMismatch(jtkLegacy, cflLegacy *credstore.LegacyCreds, choice string, store *credstore.Store, v *view.View, prefillURL, prefillEmail, prefillToken, prefillAuthMethod, prefillCloudID string) *reconcileResult {
 	consumed := []string{jtkLegacy.Path, cflLegacy.Path}
 	switch choice {
-	case "use_jtk":
-		// User chose "use jtk's creds for both tools". Clear any stale
-		// cfl override credential fields so cfl resolves to the new
-		// default rather than a leftover override from a prior
-		// keep_different run. Per-tool defaults (default_space,
+	case "use_jtk", "use_cfl":
+		// User chose to unify on one tool's creds. Clear both
+		// override Sections so each tool resolves to the new default
+		// rather than a leftover override from a prior keep_different
+		// run. Per-tool defaults (default_space, default_project,
 		// output_format) are preserved.
+		store.JTK.Section = credstore.Section{}
 		store.CFL.Section = credstore.Section{}
-		cfg := configFromLegacy(jtkLegacy)
-		applyFlagOverrides(cfg, prefillURL, prefillEmail, prefillToken, prefillAuthMethod, prefillCloudID)
-		return &reconcileResult{prefill: cfg, target: writeDefault, store: store, consumedLegacies: consumed}
-	case "use_cfl":
-		// Same rationale as use_jtk — clear stale cfl override.
-		store.CFL.Section = credstore.Section{}
-		cfg := configFromLegacy(cflLegacy)
-		cfg.DefaultProject = jtkLegacy.DefaultProject
+		var cfg *config.Config
+		if choice == "use_jtk" {
+			cfg = configFromLegacy(jtkLegacy)
+		} else {
+			cfg = configFromLegacy(cflLegacy)
+			cfg.DefaultProject = jtkLegacy.DefaultProject
+		}
 		applyFlagOverrides(cfg, prefillURL, prefillEmail, prefillToken, prefillAuthMethod, prefillCloudID)
 		return &reconcileResult{prefill: cfg, target: writeDefault, store: store, consumedLegacies: consumed}
 	case "keep_different":

@@ -312,7 +312,34 @@ func TestResultFromMismatch_UseCFL_ClearsStaleJTKOverride(t *testing.T) {
 	testutil.Equal(t, writeDefault, r.target)
 	testutil.Equal(t, "", r.store.JTK.URL)
 	testutil.Equal(t, "", r.store.JTK.APIToken)
+	testutil.Equal(t, "", r.store.CFL.URL)
+	testutil.Equal(t, "", r.store.CFL.APIToken)
 	testutil.Equal(t, "PROJ", r.store.JTK.DefaultProject)
+}
+
+// Symmetric to UseCFL_ClearsStaleJTKOverride: use_jtk also clears
+// both overrides so cfl falls through to the new default.
+func TestResultFromMismatch_UseJTK_ClearsBothOverrides(t *testing.T) {
+	t.Parallel()
+	cfl := &credstore.LegacyCreds{Path: "/cfl.yml", URL: "https://cfl.atlassian.net/wiki", APIToken: "cfl-tok", DefaultSpace: "SPACE"}
+	jtk := &credstore.LegacyCreds{Path: "/jtk.json", URL: "https://jtk.atlassian.net", APIToken: "jtk-tok"}
+	v, _, _ := newReconcileView()
+	store := &credstore.Store{
+		CFL: credstore.ToolSection{
+			Section:      credstore.Section{URL: "https://stale.atlassian.net", APIToken: "stale-cfl"},
+			DefaultSpace: "STALE",
+		},
+		JTK: credstore.ToolSection{
+			Section: credstore.Section{URL: "https://stale-jtk.atlassian.net", APIToken: "stale-jtk"},
+		},
+	}
+	r := resultFromMismatch(cfl, jtk, "use_jtk", store, v, "", "", "", "")
+	testutil.Equal(t, writeDefault, r.target)
+	testutil.Equal(t, "", r.store.CFL.URL)
+	testutil.Equal(t, "", r.store.CFL.APIToken)
+	testutil.Equal(t, "", r.store.JTK.URL)
+	testutil.Equal(t, "", r.store.JTK.APIToken)
+	testutil.Equal(t, "STALE", r.store.CFL.DefaultSpace) // per-tool default survives
 }
 
 func TestResultFromMismatch_UseJTK_PreservesCFLDefaults(t *testing.T) {

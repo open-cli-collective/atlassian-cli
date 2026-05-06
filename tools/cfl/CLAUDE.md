@@ -140,12 +140,14 @@ Variables are checked in precedence order (first match wins):
 
 | Setting | Precedence |
 |---------|------------|
-| URL | `CFL_URL` → `ATLASSIAN_URL` → config |
-| Email | `CFL_EMAIL` → `ATLASSIAN_EMAIL` → config |
-| API Token | `CFL_API_TOKEN` → `ATLASSIAN_API_TOKEN` → config |
-| Default Space | `CFL_DEFAULT_SPACE` → config |
-| Auth Method | `CFL_AUTH_METHOD` → `ATLASSIAN_AUTH_METHOD` → config → `"basic"` |
-| Cloud ID | `CFL_CLOUD_ID` → `ATLASSIAN_CLOUD_ID` → config |
+| URL | `CFL_URL` → `ATLASSIAN_URL` → shared `cfl` override → shared `default` → legacy config |
+| Email | `CFL_EMAIL` → `ATLASSIAN_EMAIL` → shared `cfl` → shared `default` → legacy |
+| API Token | `CFL_API_TOKEN` → `ATLASSIAN_API_TOKEN` → shared `cfl` → shared `default` → legacy |
+| Default Space | `CFL_DEFAULT_SPACE` → shared `cfl.default_space` → legacy |
+| Auth Method | `CFL_AUTH_METHOD` → `ATLASSIAN_AUTH_METHOD` → shared `cfl` → shared `default` → legacy → `"basic"` |
+| Cloud ID | `CFL_CLOUD_ID` → `ATLASSIAN_CLOUD_ID` → shared `cfl` → shared `default` → legacy |
+
+The "shared" entries refer to the cross-tool credential store at `~/.config/atlassian-cli/config.yml` written by `cfl init` and `jtk init`. The `cfl` section overrides the `default` section per field. Legacy `~/.config/cfl/config.yml` keeps working indefinitely; init migrates it on first run.
 
 Use `ATLASSIAN_*` for shared credentials across cfl and jtk. Use `CFL_*` to override per-tool.
 

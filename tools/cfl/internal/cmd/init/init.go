@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/open-cli-collective/atlassian-go/auth"
+	"github.com/open-cli-collective/atlassian-go/credstore"
 
 	"github.com/open-cli-collective/confluence-cli/api"
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/me"
@@ -92,66 +93,16 @@ func runInit(ctx context.Context, opts *root.Options, prefillURL, prefillEmail, 
 		}
 	}
 
-	configPath := config.DefaultConfigPath()
+	legacyPath := config.DefaultConfigPath()
+	sharedPath := credstore.DefaultPath()
+	jtkLegacyPath := credstore.LegacyJTKPath()
 
-	// Load existing config for pre-population
-	existingCfg, _ := config.Load(configPath)
-	if existingCfg == nil {
-		existingCfg = &config.Config{}
+	result, err := detectAndReconcile(v, legacyPath, jtkLegacyPath, sharedPath,
+		prefillURL, prefillEmail, prefillAuthMethod, prefillCloudID)
+	if err != nil {
+		return err
 	}
-
-	// Check if config already exists
-	if _, err := os.Stat(configPath); err == nil {
-		var overwrite bool
-		err := huh.NewConfirm().
-			Title("Configuration already exists").
-			Description(fmt.Sprintf("Overwrite %s?", configPath)).
-			Value(&overwrite).
-			Run()
-		if err != nil {
-			return err
-		}
-		if !overwrite {
-			v.Info("Initialization cancelled.")
-			return nil
-		}
-	}
-
-	cfg := &config.Config{}
-
-	// Pre-fill from existing config, then override with CLI flags
-	// Priority: CLI flag > existing config value
-	if prefillURL != "" {
-		cfg.URL = prefillURL
-	} else if existingCfg.URL != "" {
-		cfg.URL = existingCfg.URL
-	}
-
-	if prefillEmail != "" {
-		cfg.Email = prefillEmail
-	} else if existingCfg.Email != "" {
-		cfg.Email = existingCfg.Email
-	}
-
-	if existingCfg.APIToken != "" {
-		cfg.APIToken = existingCfg.APIToken
-	}
-
-	if existingCfg.DefaultSpace != "" {
-		cfg.DefaultSpace = existingCfg.DefaultSpace
-	}
-
-	if prefillAuthMethod != "" {
-		cfg.AuthMethod = prefillAuthMethod
-	} else if existingCfg.AuthMethod != "" {
-		cfg.AuthMethod = existingCfg.AuthMethod
-	}
-
-	if prefillCloudID != "" {
-		cfg.CloudID = prefillCloudID
-	} else if existingCfg.CloudID != "" {
-		cfg.CloudID = existingCfg.CloudID
-	}
+	cfg := result.prefill
 
 	// Determine auth method for form building
 	isBearer := cfg.AuthMethod == auth.AuthMethodBearer
@@ -262,17 +213,18 @@ func runInit(ctx context.Context, opts *root.Options, prefillURL, prefillEmail, 
 		return fmt.Errorf("invalid configuration: %w", err)
 	}
 
-	return finalizeInit(ctx, opts, cfg, configPath, noVerify, defaultClientBuilder)
+	return finalizeInit(ctx, opts, cfg, result, sharedPath, noVerify, defaultClientBuilder)
 }
 
 // finalizeInit runs the verify/save/render pipeline after the form has produced
 // a normalized + validated config. Extracted as a non-interactive seam so tests
-// can supply an httptest-backed clientBuilder and a temp configPath.
+// can supply an httptest-backed clientBuilder and temp paths.
 func finalizeInit(
 	ctx context.Context,
 	opts *root.Options,
 	cfg *config.Config,
-	configPath string,
+	result *reconcileResult,
+	sharedPath string,
 	noVerify bool,
 	build clientBuilder,
 ) error {
@@ -300,11 +252,33 @@ func finalizeInit(
 		verifiedUser = user
 	}
 
-	if err := cfg.Save(configPath); err != nil {
-		return err
+	applyResultToStore(result.store, cfg, result.target)
+	if err := result.store.Save(sharedPath); err != nil {
+		return fmt.Errorf("saving shared store: %w", err)
+	}
+	v.Success("Configuration saved to %s", sharedPath)
+
+	// Optional: clean up legacy files we just migrated.
+	for _, lp := range result.consumedLegacies {
+		var deleteIt bool
+		if err := huh.NewConfirm().
+			Title(fmt.Sprintf("Delete legacy config at %s?", lp)).
+			Description("Migrated to the shared store; this file is no longer used.").
+			Affirmative("Delete").
+			Negative("Keep").
+			Value(&deleteIt).
+			Run(); err != nil {
+			return err
+		}
+		if deleteIt {
+			if err := os.Remove(lp); err != nil {
+				v.Error("Could not remove %s: %v", lp, err)
+			} else {
+				v.Info("Removed %s", lp)
+			}
+		}
 	}
 
-	v.Success("Configuration saved to %s", configPath)
 
 	// Render the equivalent of `cfl me` using the user we already fetched
 	// during verify. No second API call, no opts state mutation.

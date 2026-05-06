@@ -772,28 +772,36 @@ The text before `:` is treated as a space key if it contains only uppercase lett
 
 ## Configuration
 
-Configuration is stored in `~/.config/cfl/config.yml`:
+`cfl init` writes credentials to the shared store at `~/.config/atlassian-cli/config.yml`:
 
 ```yaml
-url: https://mycompany.atlassian.net/wiki
-email: you@example.com
-api_token: your-api-token
-default_space: DEV
-output_format: table
+default:
+  url: https://mycompany.atlassian.net   # base URL; cfl appends /wiki on read
+  email: you@example.com
+  api_token: your-api-token
+  auth_method: basic                     # or "bearer"
+  cloud_id: ""                           # required for bearer
+cfl:
+  default_space: DEV                     # cfl-only defaults
+  output_format: table
 ```
+
+The same file is shared with `jtk` — one Atlassian token, both tools. Run `cfl init` after `jtk init` (or vice versa) and you'll be offered to reuse the credentials. If you really need different tokens per tool, init's reconciliation flow lets you write per-tool overrides into the `cfl:` or `jtk:` section.
+
+Legacy `~/.config/cfl/config.yml` keeps working indefinitely. Init detects it on first run and prompts to migrate.
 
 ### Environment Variables
 
-Environment variables override config file values. Variables are checked in order of precedence (first match wins):
+Environment variables override file-based config. Variables are checked in order of precedence (first match wins):
 
 | Setting | Precedence (highest to lowest) |
 |---------|-------------------------------|
-| URL | `CFL_URL` → `ATLASSIAN_URL` → config file |
-| Email | `CFL_EMAIL` → `ATLASSIAN_EMAIL` → config file |
-| API Token | `CFL_API_TOKEN` → `ATLASSIAN_API_TOKEN` → config file |
-| Default Space | `CFL_DEFAULT_SPACE` → config file |
-| Auth Method | `CFL_AUTH_METHOD` → `ATLASSIAN_AUTH_METHOD` → config file → `basic` |
-| Cloud ID | `CFL_CLOUD_ID` → `ATLASSIAN_CLOUD_ID` → config file |
+| URL | `CFL_URL` → `ATLASSIAN_URL` → shared `cfl` override → shared `default` → legacy file |
+| Email | `CFL_EMAIL` → `ATLASSIAN_EMAIL` → shared `cfl` → shared `default` → legacy |
+| API Token | `CFL_API_TOKEN` → `ATLASSIAN_API_TOKEN` → shared `cfl` → shared `default` → legacy |
+| Default Space | `CFL_DEFAULT_SPACE` → shared `cfl.default_space` → legacy |
+| Auth Method | `CFL_AUTH_METHOD` → `ATLASSIAN_AUTH_METHOD` → shared → legacy → `basic` |
+| Cloud ID | `CFL_CLOUD_ID` → `ATLASSIAN_CLOUD_ID` → shared → legacy |
 
 **Shared credentials:** If you use both `cfl` and `jtk` (Jira CLI), set `ATLASSIAN_*` variables once:
 

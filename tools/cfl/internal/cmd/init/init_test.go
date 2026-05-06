@@ -13,6 +13,7 @@ import (
 
 	"github.com/open-cli-collective/atlassian-go/auth"
 	sharedclient "github.com/open-cli-collective/atlassian-go/client"
+	"github.com/open-cli-collective/atlassian-go/credstore"
 	"github.com/open-cli-collective/atlassian-go/testutil"
 	"github.com/spf13/cobra"
 
@@ -121,9 +122,13 @@ func TestRunInit_InvalidAuthMethod(t *testing.T) {
 	testutil.Contains(t, err.Error(), "invalid auth method")
 }
 
-// finalizeInit tests use t.TempDir() for configPath and an httptest-backed
+// finalizeInit tests use t.TempDir() for paths and an httptest-backed
 // clientBuilder so the user's real config is never touched and no real
 // network call is made.
+
+func newFinalizeReconcileResult() *reconcileResult {
+	return &reconcileResult{store: &credstore.Store{}, target: writeDefault}
+}
 
 func newFinalizeOpts() *root.Options {
 	return &root.Options{
@@ -161,7 +166,7 @@ func TestFinalizeInit_BasicHappyPath(t *testing.T) {
 		return api.NewClient(server.URL, "rian@example.com", "test-token"), nil
 	}
 
-	err := finalizeInit(context.Background(), opts, cfg, configPath, false, build)
+	err := finalizeInit(context.Background(), opts, cfg, newFinalizeReconcileResult(), configPath, false, build)
 	testutil.RequireNoError(t, err)
 
 	stdout := opts.Stdout.(*bytes.Buffer).String()
@@ -207,7 +212,7 @@ func TestFinalizeInit_BearerHappyPath(t *testing.T) {
 		}, nil
 	}
 
-	err := finalizeInit(context.Background(), opts, cfg, configPath, false, build)
+	err := finalizeInit(context.Background(), opts, cfg, newFinalizeReconcileResult(), configPath, false, build)
 	testutil.RequireNoError(t, err)
 
 	stdout := opts.Stdout.(*bytes.Buffer).String()
@@ -283,7 +288,7 @@ func TestFinalizeInit_AuthFailure(t *testing.T) {
 		return api.NewClient(server.URL, "rian@example.com", "wrong-token"), nil
 	}
 
-	err := finalizeInit(context.Background(), opts, cfg, configPath, false, build)
+	err := finalizeInit(context.Background(), opts, cfg, newFinalizeReconcileResult(), configPath, false, build)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "authentication failed")
 
@@ -313,7 +318,7 @@ func TestFinalizeInit_BuildFailureSurfacesError(t *testing.T) {
 		return nil, errors.New("simulated builder failure")
 	}
 
-	err := finalizeInit(context.Background(), opts, cfg, configPath, false, build)
+	err := finalizeInit(context.Background(), opts, cfg, newFinalizeReconcileResult(), configPath, false, build)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "simulated builder failure")
 
@@ -352,7 +357,7 @@ func TestFinalizeInit_NoVerify(t *testing.T) {
 		return api.NewClient(server.URL, "rian@example.com", "test-token"), nil
 	}
 
-	err := finalizeInit(context.Background(), opts, cfg, configPath, true, build)
+	err := finalizeInit(context.Background(), opts, cfg, newFinalizeReconcileResult(), configPath, true, build)
 	testutil.RequireNoError(t, err)
 
 	testutil.False(t, builderCalled, "clientBuilder should not be invoked when --no-verify is set")

@@ -179,11 +179,14 @@ Variables are checked in precedence order (first match wins):
 
 | Setting | Precedence |
 |---------|------------|
-| URL | `JIRA_URL` → `ATLASSIAN_URL` → config |
-| Email | `JIRA_EMAIL` → `ATLASSIAN_EMAIL` → config |
-| API Token | `JIRA_API_TOKEN` → `ATLASSIAN_API_TOKEN` → config |
-| Auth Method | `JIRA_AUTH_METHOD` → `ATLASSIAN_AUTH_METHOD` → config → `"basic"` |
-| Cloud ID | `JIRA_CLOUD_ID` → `ATLASSIAN_CLOUD_ID` → config |
+| URL | `JIRA_URL` → `ATLASSIAN_URL` → shared `jtk` override → shared `default` → legacy config → `JIRA_DOMAIN` |
+| Email | `JIRA_EMAIL` → `ATLASSIAN_EMAIL` → shared `jtk` → shared `default` → legacy |
+| API Token | `JIRA_API_TOKEN` → `ATLASSIAN_API_TOKEN` → shared `jtk` → shared `default` → legacy |
+| Default Project | `JIRA_DEFAULT_PROJECT` → shared `jtk.default_project` → legacy |
+| Auth Method | `JIRA_AUTH_METHOD` → `ATLASSIAN_AUTH_METHOD` → shared `jtk` → shared `default` → legacy → `"basic"` |
+| Cloud ID | `JIRA_CLOUD_ID` → `ATLASSIAN_CLOUD_ID` → shared `jtk` → shared `default` → legacy |
+
+The "shared" entries refer to the cross-tool credential store at `~/.config/atlassian-cli/config.yml` written by `jtk init` and `cfl init`. The `jtk` section overrides the `default` section per field. Legacy `~/.config/jira-ticket-cli/config.json` keeps working indefinitely; init migrates it on first run.
 
 Use `ATLASSIAN_*` for shared credentials across jtk and cfl. Use `JIRA_*` to override per-tool.
 

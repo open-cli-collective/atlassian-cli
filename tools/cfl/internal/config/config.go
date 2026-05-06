@@ -10,6 +10,7 @@ import (
 
 	"github.com/open-cli-collective/atlassian-go/auth"
 	sharedconfig "github.com/open-cli-collective/atlassian-go/config"
+	"github.com/open-cli-collective/atlassian-go/credstore"
 	"gopkg.in/yaml.v3"
 )
 
@@ -144,13 +145,61 @@ func Load(path string) (*Config, error) {
 	return &cfg, nil
 }
 
-// LoadWithEnv loads configuration from file and overrides with environment variables.
+// LoadFromShared layers credentials from the shared store (default
+// merged with cfl override) on top of the receiver. URLs from the
+// shared store are stored as base; this method appends "/wiki" so the
+// receiver matches cfl's legacy URL convention.
+func (c *Config) LoadFromShared(s *credstore.Store) {
+	if s == nil {
+		return
+	}
+	r := s.Resolve(credstore.ToolCFL)
+	if r.URL != "" {
+		c.URL = credstore.URLForCFL(r.URL)
+	}
+	if r.Email != "" {
+		c.Email = r.Email
+	}
+	if r.APIToken != "" {
+		c.APIToken = r.APIToken
+	}
+	if r.AuthMethod != "" {
+		c.AuthMethod = r.AuthMethod
+	}
+	if r.CloudID != "" {
+		c.CloudID = r.CloudID
+	}
+	if s.CFL.DefaultSpace != "" {
+		c.DefaultSpace = s.CFL.DefaultSpace
+	}
+	if s.CFL.OutputFormat != "" {
+		c.OutputFormat = s.CFL.OutputFormat
+	}
+}
+
+// LoadWithEnv loads configuration with full precedence:
+//  1. legacy file (lowest)
+//  2. shared store default
+//  3. shared store cfl override
+//  4. ATLASSIAN_* env
+//  5. CFL_* env (highest)
+//
+// A corrupt shared store surfaces as an error rather than silently
+// falling through, so init/runtime never overwrite a file we couldn't
+// read.
 func LoadWithEnv(path string) (*Config, error) {
 	cfg, err := Load(path)
 	if err != nil {
-		// If file doesn't exist, start with empty config
+		// Legacy file missing is fine; start empty. (Distinguishing
+		// missing-vs-corrupt for the legacy file is jtk-init's job.)
 		cfg = &Config{}
 	}
+
+	store, sErr := credstore.Load(credstore.DefaultPath())
+	if sErr != nil {
+		return nil, fmt.Errorf("loading shared credstore: %w", sErr)
+	}
+	cfg.LoadFromShared(store)
 
 	cfg.LoadFromEnv()
 	return cfg, nil

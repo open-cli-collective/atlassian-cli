@@ -16,11 +16,11 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/open-cli-collective/atlassian-go/auth"
+	"github.com/open-cli-collective/atlassian-go/credstore"
 	sharedurl "github.com/open-cli-collective/atlassian-go/url"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
-	"github.com/open-cli-collective/jira-ticket-cli/internal/config"
 )
 
 // Register registers the init command
@@ -77,65 +77,16 @@ func runInit(ctx context.Context, opts *root.Options, prefillURL, prefillEmail, 
 	}
 
 	v := opts.View()
-	configPath := config.Path()
+	sharedPath := credstore.DefaultPath()
+	jtkLegacyPath := credstore.LegacyJTKPath()
+	cflLegacyPath := credstore.LegacyCFLPath()
 
-	// Load existing config for pre-population
-	existingCfg, _ := config.Load()
-
-	// Check if config already exists
-	if _, err := os.Stat(configPath); err == nil {
-		var overwrite bool
-		err := huh.NewConfirm().
-			Title("Configuration already exists").
-			Description(fmt.Sprintf("Overwrite %s?", configPath)).
-			Value(&overwrite).
-			Run()
-		if err != nil {
-			return err
-		}
-		if !overwrite {
-			v.Info("Initialization cancelled.")
-			return nil
-		}
+	result, err := detectAndReconcile(v, jtkLegacyPath, cflLegacyPath, sharedPath,
+		prefillURL, prefillEmail, prefillToken, prefillAuthMethod, prefillCloudID)
+	if err != nil {
+		return err
 	}
-
-	// Initialize config with pre-filled values
-	// Priority: CLI flag > existing config value
-	cfg := &config.Config{}
-
-	if prefillURL != "" {
-		cfg.URL = prefillURL
-	} else if existingCfg.URL != "" {
-		cfg.URL = existingCfg.URL
-	}
-
-	if prefillEmail != "" {
-		cfg.Email = prefillEmail
-	} else if existingCfg.Email != "" {
-		cfg.Email = existingCfg.Email
-	}
-
-	if prefillToken != "" {
-		cfg.APIToken = prefillToken
-	} else if existingCfg.APIToken != "" {
-		cfg.APIToken = existingCfg.APIToken
-	}
-
-	if existingCfg.DefaultProject != "" {
-		cfg.DefaultProject = existingCfg.DefaultProject
-	}
-
-	if prefillAuthMethod != "" {
-		cfg.AuthMethod = prefillAuthMethod
-	} else if existingCfg.AuthMethod != "" {
-		cfg.AuthMethod = existingCfg.AuthMethod
-	}
-
-	if prefillCloudID != "" {
-		cfg.CloudID = prefillCloudID
-	} else if existingCfg.CloudID != "" {
-		cfg.CloudID = existingCfg.CloudID
-	}
+	cfg := result.prefill
 
 	// Determine auth method for form building
 	isBearer := cfg.AuthMethod == auth.AuthMethodBearer
@@ -271,12 +222,35 @@ func runInit(ctx context.Context, opts *root.Options, prefillURL, prefillEmail, 
 		v.Println("")
 	}
 
-	// Save configuration
-	if err := config.Save(cfg); err != nil {
-		return fmt.Errorf("saving configuration: %w", err)
+	// Save to shared credential store. Per-tool defaults always live in
+	// the jtk section; credential edits go to the section detectAndReconcile
+	// chose (default vs jtk override).
+	applyResultToStore(result.store, cfg, result.target)
+	if err := result.store.Save(sharedPath); err != nil {
+		return fmt.Errorf("saving shared store: %w", err)
+	}
+	v.Success("Configuration saved to %s", sharedPath)
+
+	for _, lp := range result.consumedLegacies {
+		var deleteIt bool
+		if err := huh.NewConfirm().
+			Title(fmt.Sprintf("Delete legacy config at %s?", lp)).
+			Description("Migrated to the shared store; this file is no longer used.").
+			Affirmative("Delete").
+			Negative("Keep").
+			Value(&deleteIt).
+			Run(); err != nil {
+			return err
+		}
+		if deleteIt {
+			if err := removeFile(lp); err != nil {
+				v.Error("Could not remove %s: %v", lp, err)
+			} else {
+				v.Info("Removed %s", lp)
+			}
+		}
 	}
 
-	v.Success("Configuration saved to %s", configPath)
 	v.Println("")
 	v.Println("Try it out:")
 	v.Println("  jtk me")
@@ -289,3 +263,7 @@ func runInit(ctx context.Context, opts *root.Options, prefillURL, prefillEmail, 
 
 	return nil
 }
+
+// removeFile is a thin wrapper to keep os.Remove out of the hot path
+// where it adds noise in tests/diff reviews.
+func removeFile(path string) error { return os.Remove(path) }

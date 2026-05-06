@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	sharedconfig "github.com/open-cli-collective/atlassian-go/config"
+	"github.com/open-cli-collective/atlassian-go/credstore"
 	"github.com/open-cli-collective/atlassian-go/testutil"
 )
 
@@ -426,4 +427,142 @@ func TestGetEnvWithFallback(t *testing.T) {
 		os.Unsetenv("TEST_FALLBACK")
 		testutil.Equal(t, "", sharedconfig.GetEnvWithFallback("TEST_PRIMARY", "TEST_FALLBACK"))
 	})
+}
+
+func TestConfig_LoadFromShared(t *testing.T) {
+	t.Parallel()
+
+	t.Run("default fills empty fields and appends /wiki to URL", func(t *testing.T) {
+		t.Parallel()
+		store := &credstore.Store{
+			Default: credstore.Section{
+				URL:      "https://acme.atlassian.net",
+				Email:    "default@example.com",
+				APIToken: "default-tok",
+			},
+		}
+		cfg := &Config{}
+		cfg.LoadFromShared(store)
+		testutil.Equal(t, "https://acme.atlassian.net/wiki", cfg.URL)
+		testutil.Equal(t, "default@example.com", cfg.Email)
+		testutil.Equal(t, "default-tok", cfg.APIToken)
+	})
+
+	t.Run("cfl override beats default per field", func(t *testing.T) {
+		t.Parallel()
+		store := &credstore.Store{
+			Default: credstore.Section{
+				URL:      "https://acme.atlassian.net",
+				Email:    "default@example.com",
+				APIToken: "default-tok",
+			},
+			CFL: credstore.ToolSection{
+				Section: credstore.Section{APIToken: "cfl-only-tok"},
+			},
+		}
+		cfg := &Config{}
+		cfg.LoadFromShared(store)
+		testutil.Equal(t, "default@example.com", cfg.Email) // from default
+		testutil.Equal(t, "cfl-only-tok", cfg.APIToken)     // from override
+	})
+
+	t.Run("default_space and output_format come from cfl section only", func(t *testing.T) {
+		t.Parallel()
+		store := &credstore.Store{
+			CFL: credstore.ToolSection{
+				DefaultSpace: "MYSPACE",
+				OutputFormat: "json",
+			},
+		}
+		cfg := &Config{}
+		cfg.LoadFromShared(store)
+		testutil.Equal(t, "MYSPACE", cfg.DefaultSpace)
+		testutil.Equal(t, "json", cfg.OutputFormat)
+	})
+
+	t.Run("nil store is no-op", func(t *testing.T) {
+		t.Parallel()
+		cfg := &Config{URL: "preserve"}
+		cfg.LoadFromShared(nil)
+		testutil.Equal(t, "preserve", cfg.URL)
+	})
+
+	t.Run("empty shared store leaves config alone", func(t *testing.T) {
+		t.Parallel()
+		cfg := &Config{URL: "https://existing/wiki", Email: "e@x"}
+		cfg.LoadFromShared(&credstore.Store{})
+		testutil.Equal(t, "https://existing/wiki", cfg.URL)
+		testutil.Equal(t, "e@x", cfg.Email)
+	})
+
+	t.Run("shared overlays existing legacy values", func(t *testing.T) {
+		t.Parallel()
+		// Loader contract: shared values replace existing fields when set,
+		// because legacy precedence is below shared.
+		cfg := &Config{URL: "https://legacy.atlassian.net/wiki", APIToken: "legacy-tok"}
+		store := &credstore.Store{
+			Default: credstore.Section{
+				URL:      "https://shared.atlassian.net",
+				APIToken: "shared-tok",
+			},
+		}
+		cfg.LoadFromShared(store)
+		testutil.Equal(t, "https://shared.atlassian.net/wiki", cfg.URL)
+		testutil.Equal(t, "shared-tok", cfg.APIToken)
+	})
+}
+
+func TestLoadWithEnv_PrecedenceLegacyToSharedToEnv(t *testing.T) {
+	// Isolate XDG so credstore.DefaultPath points into a tempdir.
+	xdg := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", xdg)
+
+	// Seed legacy file (cfl-only).
+	legacyDir := t.TempDir()
+	legacyPath := filepath.Join(legacyDir, "config.yml")
+	legacy := &Config{
+		URL:      "https://legacy.atlassian.net/wiki",
+		Email:    "legacy@example.com",
+		APIToken: "legacy-tok",
+	}
+	testutil.RequireNoError(t, legacy.Save(legacyPath))
+
+	// Seed shared store (overrides URL + token via default).
+	sharedPath := filepath.Join(xdg, "atlassian-cli", "config.yml")
+	store := &credstore.Store{
+		Default: credstore.Section{
+			URL:      "https://shared.atlassian.net",
+			APIToken: "shared-tok",
+		},
+	}
+	testutil.RequireNoError(t, store.Save(sharedPath))
+
+	// Set CFL_API_TOKEN env (highest precedence).
+	t.Setenv("CFL_API_TOKEN", "env-tok")
+
+	cfg, err := LoadWithEnv(legacyPath)
+	testutil.RequireNoError(t, err)
+
+	// URL: shared wins over legacy (env not set for URL).
+	testutil.Equal(t, "https://shared.atlassian.net/wiki", cfg.URL)
+	// Email: only legacy has it; preserved.
+	testutil.Equal(t, "legacy@example.com", cfg.Email)
+	// API token: env wins over shared and legacy.
+	testutil.Equal(t, "env-tok", cfg.APIToken)
+}
+
+func TestLoadWithEnv_CorruptSharedSurfacesError(t *testing.T) {
+	xdg := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", xdg)
+	sharedPath := filepath.Join(xdg, "atlassian-cli", "config.yml")
+	testutil.RequireNoError(t, os.MkdirAll(filepath.Dir(sharedPath), 0o700))
+	testutil.RequireNoError(t, os.WriteFile(sharedPath, []byte("default: : :: ["), 0o600))
+
+	legacyDir := t.TempDir()
+	legacyPath := filepath.Join(legacyDir, "config.yml")
+	legacy := &Config{URL: "https://x.atlassian.net/wiki", Email: "e@x", APIToken: "t"}
+	testutil.RequireNoError(t, legacy.Save(legacyPath))
+
+	_, err := LoadWithEnv(legacyPath)
+	testutil.RequireError(t, err)
 }

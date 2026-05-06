@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/open-cli-collective/atlassian-go/credstore"
 	"github.com/open-cli-collective/atlassian-go/testutil"
 	"github.com/open-cli-collective/atlassian-go/url"
 )
@@ -527,4 +528,86 @@ func TestGetURL_FullPrecedenceChain(t *testing.T) {
 	// JIRA_URL takes precedence over ATLASSIAN_URL
 	t.Setenv("JIRA_URL", "https://jira-url.atlassian.net")
 	testutil.Equal(t, GetURL(), "https://jira-url.atlassian.net")
+}
+
+func TestSharedStore_FillsURLBetweenEnvAndLegacy(t *testing.T) {
+	tempDir, cleanup := setupTestConfig(t)
+	defer cleanup()
+
+	// Seed shared store with a URL.
+	sharedPath := filepath.Join(tempDir, "atlassian-cli", "config.yml")
+	store := &credstore.Store{
+		Default: credstore.Section{URL: "https://shared.atlassian.net"},
+	}
+	testutil.RequireNoError(t, store.Save(sharedPath))
+
+	// No legacy file, no env vars → shared default wins.
+	testutil.Equal(t, "https://shared.atlassian.net", GetURL())
+
+	// Env var beats shared.
+	t.Setenv("ATLASSIAN_URL", "https://env.atlassian.net")
+	testutil.Equal(t, "https://env.atlassian.net", GetURL())
+}
+
+func TestSharedStore_JTKOverrideBeatsDefault(t *testing.T) {
+	tempDir, cleanup := setupTestConfig(t)
+	defer cleanup()
+
+	sharedPath := filepath.Join(tempDir, "atlassian-cli", "config.yml")
+	store := &credstore.Store{
+		Default: credstore.Section{
+			URL:      "https://shared.atlassian.net",
+			APIToken: "default-tok",
+		},
+		JTK: credstore.ToolSection{
+			Section: credstore.Section{APIToken: "jtk-tok"},
+		},
+	}
+	testutil.RequireNoError(t, store.Save(sharedPath))
+
+	testutil.Equal(t, "jtk-tok", GetAPIToken())
+}
+
+func TestSharedStore_LegacyWinsWhenSharedAbsent(t *testing.T) {
+	_, cleanup := setupTestConfig(t)
+	defer cleanup()
+
+	cfg := &Config{
+		URL:      "https://legacy.atlassian.net",
+		Email:    "legacy@example.com",
+		APIToken: "legacy-tok",
+	}
+	testutil.RequireNoError(t, Save(cfg))
+	testutil.Equal(t, "https://legacy.atlassian.net", GetURL())
+	testutil.Equal(t, "legacy-tok", GetAPIToken())
+}
+
+func TestSharedStore_DefaultProject(t *testing.T) {
+	tempDir, cleanup := setupTestConfig(t)
+	defer cleanup()
+
+	sharedPath := filepath.Join(tempDir, "atlassian-cli", "config.yml")
+	store := &credstore.Store{
+		JTK: credstore.ToolSection{DefaultProject: "MON"},
+	}
+	testutil.RequireNoError(t, store.Save(sharedPath))
+
+	testutil.Equal(t, "MON", GetDefaultProject())
+	t.Setenv("JIRA_DEFAULT_PROJECT", "ENV")
+	testutil.Equal(t, "ENV", GetDefaultProject())
+}
+
+func TestSharedStore_AuthMethodWithSource(t *testing.T) {
+	tempDir, cleanup := setupTestConfig(t)
+	defer cleanup()
+
+	sharedPath := filepath.Join(tempDir, "atlassian-cli", "config.yml")
+	store := &credstore.Store{
+		Default: credstore.Section{AuthMethod: "bearer"},
+	}
+	testutil.RequireNoError(t, store.Save(sharedPath))
+
+	value, source := GetAuthMethodWithSource()
+	testutil.Equal(t, "bearer", value)
+	testutil.Equal(t, string(credstore.SourceDefault), source)
 }

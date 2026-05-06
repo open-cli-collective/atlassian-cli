@@ -1596,34 +1596,37 @@ jtk fields options delete customfield_10001 --option 10200 --force
 
 ## Configuration
 
-Configuration is stored in your system's config directory under `jira-ticket-cli/`:
+`jtk init` writes credentials to the shared store at `~/.config/atlassian-cli/config.yml`:
 
-- **macOS:** `~/Library/Application Support/jira-ticket-cli/config.json`
-- **Linux:** `~/.config/jira-ticket-cli/config.json`
-
-Run `jtk config show` to see the path on your system.
-
-```json
-{
-  "url": "https://mycompany.atlassian.net",
-  "email": "user@example.com",
-  "api_token": "your-api-token",
-  "default_project": "MYPROJECT"
-}
+```yaml
+default:
+  url: https://mycompany.atlassian.net
+  email: user@example.com
+  api_token: your-api-token
+  auth_method: basic                # or "bearer"
+  cloud_id: ""                      # required for bearer
+jtk:
+  default_project: MYPROJECT        # jtk-only defaults
 ```
+
+The same file is shared with `cfl` — one Atlassian token, both tools. Run `jtk init` after `cfl init` (or vice versa) and you'll be offered to reuse the credentials. If you really need different tokens per tool, init's reconciliation flow lets you write per-tool overrides into the `jtk:` or `cfl:` section.
+
+Legacy `~/.config/jira-ticket-cli/config.json` keeps working indefinitely. Init detects it on first run and prompts to migrate.
+
+Run `jtk config show` to see the resolved values and their sources.
 
 ### Environment Variables
 
-Environment variables override config file values. Variables are checked in order of precedence (first match wins):
+Environment variables override file-based config. Variables are checked in order of precedence (first match wins):
 
 | Setting | Precedence (highest to lowest) |
 |---------|-------------------------------|
-| URL | `JIRA_URL` → `ATLASSIAN_URL` → config file |
-| Email | `JIRA_EMAIL` → `ATLASSIAN_EMAIL` → config file |
-| API Token | `JIRA_API_TOKEN` → `ATLASSIAN_API_TOKEN` → config file |
-| Default Project | `JIRA_DEFAULT_PROJECT` → config file |
-| Auth Method | `JIRA_AUTH_METHOD` → `ATLASSIAN_AUTH_METHOD` → config file → `basic` |
-| Cloud ID | `JIRA_CLOUD_ID` → `ATLASSIAN_CLOUD_ID` → config file |
+| URL | `JIRA_URL` → `ATLASSIAN_URL` → shared `jtk` override → shared `default` → legacy → `JIRA_DOMAIN` |
+| Email | `JIRA_EMAIL` → `ATLASSIAN_EMAIL` → shared `jtk` → shared `default` → legacy |
+| API Token | `JIRA_API_TOKEN` → `ATLASSIAN_API_TOKEN` → shared `jtk` → shared `default` → legacy |
+| Default Project | `JIRA_DEFAULT_PROJECT` → shared `jtk.default_project` → legacy |
+| Auth Method | `JIRA_AUTH_METHOD` → `ATLASSIAN_AUTH_METHOD` → shared → legacy → `basic` |
+| Cloud ID | `JIRA_CLOUD_ID` → `ATLASSIAN_CLOUD_ID` → shared → legacy |
 
 **Shared credentials:** If you use both `jtk` and `cfl` (Confluence CLI), set `ATLASSIAN_*` variables once:
 

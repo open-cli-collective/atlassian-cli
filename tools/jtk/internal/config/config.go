@@ -9,8 +9,33 @@ import (
 	"path/filepath"
 
 	"github.com/open-cli-collective/atlassian-go/auth"
+	"github.com/open-cli-collective/atlassian-go/credstore"
 	"github.com/open-cli-collective/atlassian-go/url"
 )
+
+// loadShared returns the shared credential store, or an empty Store
+// on any read/parse error. Accessors silently fall through on corrupt
+// shared store, mirroring the legacy-file behavior in this file. Init
+// loads credstore directly via credstore.Load to surface corruption.
+func loadShared() *credstore.Store {
+	s, err := credstore.Load(credstore.DefaultPath())
+	if err != nil {
+		return &credstore.Store{}
+	}
+	return s
+}
+
+// jtkSection returns the resolved Section for jtk merged from default
+// and the jtk override.
+func jtkSection() credstore.Section {
+	return loadShared().Resolve(credstore.ToolJTK)
+}
+
+// jtkSectionWithSource returns the resolved value and source for one
+// field of the jtk section.
+func jtkSectionWithSource(field string) (string, credstore.Source) {
+	return loadShared().ResolveWithSource(credstore.ToolJTK, field)
+}
 
 const (
 	configDirName  = "jira-ticket-cli"
@@ -101,12 +126,15 @@ func Clear() error {
 }
 
 // GetURL returns the Jira URL from config or environment.
-// Precedence: JIRA_URL → ATLASSIAN_URL → config url → JIRA_DOMAIN (legacy) → config domain (legacy)
+// Precedence: JIRA_URL → ATLASSIAN_URL → shared jtk override → shared default → legacy config url → JIRA_DOMAIN → legacy config domain.
 func GetURL() string {
 	if v := os.Getenv("JIRA_URL"); v != "" {
 		return url.NormalizeURL(v)
 	}
 	if v := os.Getenv("ATLASSIAN_URL"); v != "" {
+		return url.NormalizeURL(v)
+	}
+	if v := jtkSection().URL; v != "" {
 		return url.NormalizeURL(v)
 	}
 	cfg, err := Load()
@@ -140,12 +168,15 @@ func GetDomain() string {
 }
 
 // GetEmail returns the email from config or environment.
-// Precedence: JIRA_EMAIL → ATLASSIAN_EMAIL → config email
+// Precedence: JIRA_EMAIL → ATLASSIAN_EMAIL → shared jtk override → shared default → legacy config email.
 func GetEmail() string {
 	if v := os.Getenv("JIRA_EMAIL"); v != "" {
 		return v
 	}
 	if v := os.Getenv("ATLASSIAN_EMAIL"); v != "" {
+		return v
+	}
+	if v := jtkSection().Email; v != "" {
 		return v
 	}
 	cfg, err := Load()
@@ -156,12 +187,15 @@ func GetEmail() string {
 }
 
 // GetAPIToken returns the API token from config or environment.
-// Precedence: JIRA_API_TOKEN → ATLASSIAN_API_TOKEN → config api_token
+// Precedence: JIRA_API_TOKEN → ATLASSIAN_API_TOKEN → shared jtk override → shared default → legacy config api_token.
 func GetAPIToken() string {
 	if v := os.Getenv("JIRA_API_TOKEN"); v != "" {
 		return v
 	}
 	if v := os.Getenv("ATLASSIAN_API_TOKEN"); v != "" {
+		return v
+	}
+	if v := jtkSection().APIToken; v != "" {
 		return v
 	}
 	cfg, err := Load()
@@ -190,7 +224,7 @@ func GetAuthMethod() string {
 }
 
 // GetAuthMethodWithSource returns the auth method and its source.
-// Precedence: JIRA_AUTH_METHOD → ATLASSIAN_AUTH_METHOD → config auth_method → "basic"
+// Precedence: JIRA_AUTH_METHOD → ATLASSIAN_AUTH_METHOD → shared jtk override → shared default → legacy config auth_method → "basic"
 // Invalid values are skipped and fall through to the next source.
 // Validation happens at entry points (api.New, init --auth-method) not here.
 func GetAuthMethodWithSource() (value, source string) {
@@ -203,6 +237,9 @@ func GetAuthMethodWithSource() (value, source string) {
 		if auth.ValidateAuthMethod(v) == nil {
 			return v, "env (ATLASSIAN_AUTH_METHOD)"
 		}
+	}
+	if v, src := jtkSectionWithSource("auth_method"); v != "" && auth.ValidateAuthMethod(v) == nil {
+		return v, string(src)
 	}
 	cfg, err := Load()
 	if err != nil {
@@ -224,13 +261,16 @@ func GetCloudID() string {
 }
 
 // GetCloudIDWithSource returns the Cloud ID and its source.
-// Precedence: JIRA_CLOUD_ID → ATLASSIAN_CLOUD_ID → config cloud_id
+// Precedence: JIRA_CLOUD_ID → ATLASSIAN_CLOUD_ID → shared jtk override → shared default → legacy config cloud_id.
 func GetCloudIDWithSource() (value, source string) {
 	if v := os.Getenv("JIRA_CLOUD_ID"); v != "" {
 		return v, "env (JIRA_CLOUD_ID)"
 	}
 	if v := os.Getenv("ATLASSIAN_CLOUD_ID"); v != "" {
 		return v, "env (ATLASSIAN_CLOUD_ID)"
+	}
+	if v, src := jtkSectionWithSource("cloud_id"); v != "" {
+		return v, string(src)
 	}
 	cfg, err := Load()
 	if err != nil {
@@ -243,9 +283,12 @@ func GetCloudIDWithSource() (value, source string) {
 }
 
 // GetDefaultProject returns the default project from config or environment.
-// Precedence: JIRA_DEFAULT_PROJECT → config default_project
+// Precedence: JIRA_DEFAULT_PROJECT → shared jtk.default_project → legacy config default_project.
 func GetDefaultProject() string {
 	if v := os.Getenv("JIRA_DEFAULT_PROJECT"); v != "" {
+		return v
+	}
+	if v := loadShared().JTK.DefaultProject; v != "" {
 		return v
 	}
 	cfg, err := Load()

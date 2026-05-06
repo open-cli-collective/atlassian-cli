@@ -116,6 +116,35 @@ Both tools support shared Atlassian credentials via `ATLASSIAN_*` environment va
 
 Tool-specific variables (`CFL_*`, `JIRA_*`) take precedence over shared variables. Both tools support Basic Auth (classic tokens, instance URL) and Bearer Auth (scoped tokens, api.atlassian.com gateway).
 
+## Shared credential store
+
+`cfl init` and `jtk init` both write to `~/.config/atlassian-cli/config.yml` (mode 0600). One token, both tools. Schema:
+
+```yaml
+default:
+  url: https://acme.atlassian.net   # base URL; cfl appends /wiki on read
+  email: u@example.com
+  api_token: <token>
+  auth_method: basic                # or "bearer"
+  cloud_id: <id>                    # required for bearer
+cfl:
+  default_space: SPACE              # cfl-only defaults
+jtk:
+  default_project: PROJ             # jtk-only defaults
+```
+
+The `cfl` and `jtk` sections may also carry credential overrides (`url`, `email`, `api_token`, `auth_method`, `cloud_id`) for the rare case where users want different tokens per tool. Per-field merge: a `cfl.api_token` override doesn't shadow `default.email`.
+
+**Resolution precedence (highest wins):**
+
+1. Tool-specific env (`CFL_*` / `JIRA_*`)
+2. `ATLASSIAN_*` env
+3. Shared store, tool override section
+4. Shared store, `default` section
+5. Legacy per-tool config (`~/.config/cfl/config.yml`, `~/.config/jira-ticket-cli/config.json`)
+
+Legacy files keep working indefinitely. Init detects them, prompts to migrate, and offers cleanup. If both tools' legacy files have different credentials, init runs a reconciliation flow (use cfl's, use jtk's, or keep them different) and educates the user that one Atlassian token usually works for both products.
+
 ## Git History
 
 This monorepo was created using `git subtree` to preserve the full commit history of both tools. Use `git log --oneline` to see the complete history from both source repositories.

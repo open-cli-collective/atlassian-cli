@@ -134,3 +134,54 @@ func TestApplyResultToStore_OverrideTarget(t *testing.T) {
 	testutil.Equal(t, "https://default.atlassian.net", store.Default.URL)
 	testutil.Equal(t, "default-tok", store.Default.APIToken)
 }
+
+func TestResultFromSiblingLegacy_ReuseYes(t *testing.T) {
+	t.Parallel()
+	cfl := &credstore.LegacyCreds{Path: "/cfl.yml", URL: "https://acme.atlassian.net/wiki", Email: "u@e", APIToken: "cfl-tok"}
+	r := resultFromSiblingLegacy(cfl, &credstore.Store{}, true, "", "", "", "", "")
+	testutil.Equal(t, "cfl-tok", r.prefill.APIToken)
+	testutil.Equal(t, []string{"/cfl.yml"}, r.consumedLegacies)
+}
+
+func TestResultFromSiblingLegacy_ReuseNo(t *testing.T) {
+	t.Parallel()
+	cfl := &credstore.LegacyCreds{Path: "/cfl.yml", APIToken: "cfl-tok"}
+	r := resultFromSiblingLegacy(cfl, &credstore.Store{}, false, "", "", "", "", "")
+	testutil.Equal(t, "", r.prefill.APIToken)
+	testutil.Equal(t, 0, len(r.consumedLegacies))
+}
+
+func TestResultFromMismatch_UseJTK(t *testing.T) {
+	t.Parallel()
+	jtk := &credstore.LegacyCreds{Path: "/jtk.json", URL: "https://jtk.atlassian.net", APIToken: "jtk-tok", DefaultProject: "PROJ"}
+	cfl := &credstore.LegacyCreds{Path: "/cfl.yml", URL: "https://cfl.atlassian.net/wiki", APIToken: "cfl-tok"}
+	v, _, _ := newReconcileView()
+	r := resultFromMismatch(jtk, cfl, "use_jtk", &credstore.Store{}, v, "", "", "", "", "")
+	testutil.Equal(t, "jtk-tok", r.prefill.APIToken)
+	testutil.Equal(t, "PROJ", r.prefill.DefaultProject)
+}
+
+func TestResultFromMismatch_UseCFL_PreservesJTKDefaults(t *testing.T) {
+	t.Parallel()
+	jtk := &credstore.LegacyCreds{Path: "/jtk.json", URL: "https://jtk.atlassian.net", APIToken: "jtk-tok", DefaultProject: "PROJ"}
+	cfl := &credstore.LegacyCreds{Path: "/cfl.yml", URL: "https://cfl.atlassian.net/wiki", APIToken: "cfl-tok"}
+	v, _, _ := newReconcileView()
+	r := resultFromMismatch(jtk, cfl, "use_cfl", &credstore.Store{}, v, "", "", "", "", "")
+	testutil.Equal(t, "cfl-tok", r.prefill.APIToken) // cfl creds chosen
+	testutil.Equal(t, "PROJ", r.prefill.DefaultProject) // jtk's default_project preserved
+}
+
+func TestResultFromMismatch_KeepDifferent(t *testing.T) {
+	t.Parallel()
+	jtk := &credstore.LegacyCreds{Path: "/jtk.json", URL: "https://jtk.atlassian.net", Email: "u@e", APIToken: "jtk-tok"}
+	cfl := &credstore.LegacyCreds{Path: "/cfl.yml", URL: "https://cfl.atlassian.net/wiki", Email: "u@e", APIToken: "cfl-tok", DefaultSpace: "SPACE"}
+	v, stdout, _ := newReconcileView()
+	r := resultFromMismatch(jtk, cfl, "keep_different", &credstore.Store{}, v, "", "", "", "", "")
+	testutil.Equal(t, "https://jtk.atlassian.net", r.store.Default.URL)
+	testutil.Equal(t, "jtk-tok", r.store.Default.APIToken)
+	testutil.Equal(t, "https://cfl.atlassian.net", r.store.CFL.URL)
+	testutil.Equal(t, "cfl-tok", r.store.CFL.APIToken)
+	if !strings.Contains(stdout.String(), "Keeping per-tool credentials") {
+		t.Errorf("expected keep-different note; got: %s", stdout.String())
+	}
+}

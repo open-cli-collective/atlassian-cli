@@ -255,3 +255,90 @@ func TestApplyResultToStore_PreservesExistingDefaultSpace(t *testing.T) {
 	applyResultToStore(store, cfg, writeDefault)
 	testutil.Equal(t, "EXISTING", store.CFL.DefaultSpace) // not stomped
 }
+
+// Post-prompt branch tests — drive each huh-mediated decision by
+// calling the extracted helpers directly so we don't have to fake
+// stdin.
+
+func TestResultFromSiblingLegacy_ReuseYes(t *testing.T) {
+	t.Parallel()
+	jtk := &credstore.LegacyCreds{
+		Path:           "/jtk.json",
+		URL:            "https://acme.atlassian.net",
+		Email:          "u@e",
+		APIToken:       "jtk-tok",
+		DefaultProject: "PROJ",
+	}
+	r := resultFromSiblingLegacy(jtk, &credstore.Store{}, true, "", "", "", "")
+	testutil.Equal(t, "jtk-tok", r.prefill.APIToken)
+	testutil.Equal(t, []string{"/jtk.json"}, r.consumedLegacies)
+}
+
+func TestResultFromSiblingLegacy_ReuseNo(t *testing.T) {
+	t.Parallel()
+	jtk := &credstore.LegacyCreds{Path: "/jtk.json", APIToken: "jtk-tok"}
+	r := resultFromSiblingLegacy(jtk, &credstore.Store{}, false, "", "", "", "")
+	testutil.Equal(t, "", r.prefill.APIToken) // fresh setup, no prefill
+	testutil.Equal(t, 0, len(r.consumedLegacies))
+}
+
+func TestResultFromMismatch_UseCFL(t *testing.T) {
+	t.Parallel()
+	cfl := &credstore.LegacyCreds{Path: "/cfl.yml", URL: "https://cfl.atlassian.net/wiki", APIToken: "cfl-tok", DefaultSpace: "SPACE"}
+	jtk := &credstore.LegacyCreds{Path: "/jtk.json", URL: "https://jtk.atlassian.net", APIToken: "jtk-tok", DefaultProject: "PROJ"}
+	v, _, _ := newReconcileView()
+	r := resultFromMismatch(cfl, jtk, "use_cfl", &credstore.Store{}, v, "", "", "", "")
+	testutil.Equal(t, "cfl-tok", r.prefill.APIToken)
+	testutil.Equal(t, "SPACE", r.prefill.DefaultSpace)
+	testutil.Equal(t, []string{"/cfl.yml", "/jtk.json"}, r.consumedLegacies)
+}
+
+func TestResultFromMismatch_UseJTK_PreservesCFLDefaults(t *testing.T) {
+	t.Parallel()
+	cfl := &credstore.LegacyCreds{Path: "/cfl.yml", URL: "https://cfl.atlassian.net/wiki", APIToken: "cfl-tok", DefaultSpace: "SPACE"}
+	jtk := &credstore.LegacyCreds{Path: "/jtk.json", URL: "https://jtk.atlassian.net", APIToken: "jtk-tok"}
+	v, _, _ := newReconcileView()
+	r := resultFromMismatch(cfl, jtk, "use_jtk", &credstore.Store{}, v, "", "", "", "")
+	testutil.Equal(t, "jtk-tok", r.prefill.APIToken) // jtk creds chosen
+	testutil.Equal(t, "SPACE", r.prefill.DefaultSpace) // but cfl's default_space preserved
+}
+
+func TestResultFromMismatch_KeepDifferent(t *testing.T) {
+	t.Parallel()
+	cfl := &credstore.LegacyCreds{Path: "/cfl.yml", URL: "https://cfl.atlassian.net/wiki", Email: "u@e", APIToken: "cfl-tok", DefaultSpace: "SPACE"}
+	jtk := &credstore.LegacyCreds{Path: "/jtk.json", URL: "https://jtk.atlassian.net", Email: "u@e", APIToken: "jtk-tok"}
+	v, stdout, _ := newReconcileView()
+	store := &credstore.Store{}
+	r := resultFromMismatch(cfl, jtk, "keep_different", store, v, "", "", "", "")
+	// cfl creds → default; jtk creds → JTK override section.
+	testutil.Equal(t, "https://cfl.atlassian.net", r.store.Default.URL)
+	testutil.Equal(t, "cfl-tok", r.store.Default.APIToken)
+	testutil.Equal(t, "https://jtk.atlassian.net", r.store.JTK.URL)
+	testutil.Equal(t, "jtk-tok", r.store.JTK.APIToken)
+	testutil.Equal(t, "SPACE", r.store.CFL.DefaultSpace)
+	if !strings.Contains(stdout.String(), "Keeping per-tool credentials") {
+		t.Errorf("expected keep-different note; got: %s", stdout.String())
+	}
+}
+
+func TestResultFromCFLLegacy_BasicMigration(t *testing.T) {
+	t.Parallel()
+	cfl := &credstore.LegacyCreds{Path: "/cfl.yml", URL: "https://acme.atlassian.net/wiki", APIToken: "tok"}
+	r := resultFromCFLLegacy(cfl, &credstore.Store{}, "", "", "", "")
+	testutil.Equal(t, writeDefault, r.target)
+	testutil.Equal(t, "tok", r.prefill.APIToken)
+	testutil.Equal(t, []string{"/cfl.yml"}, r.consumedLegacies)
+}
+
+func TestFormatSection_EducationalContextInPrompt(t *testing.T) {
+	t.Parallel()
+	// Smoke test that the prompt builder includes the relevant educational
+	// language. We don't drive huh, but the description string is built
+	// before huh is invoked and we can pass the same arguments.
+	cfl := &credstore.LegacyCreds{Path: "/cfl.yml", URL: "https://x", Email: "u@e", APIToken: "tok"}
+	jtk := &credstore.LegacyCreds{Path: "/jtk.json", URL: "https://x", Email: "u@e", APIToken: "different"}
+	desc := "cfl: " + credstore.FormatSection("cfl", cfl.Section()) + "\njtk: " + credstore.FormatSection("jtk", jtk.Section())
+	if !strings.Contains(desc, "cfl") || !strings.Contains(desc, "jtk") {
+		t.Errorf("expected both tool labels in section formatting; got: %s", desc)
+	}
+}

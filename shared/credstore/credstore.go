@@ -71,8 +71,12 @@ func DefaultPath() string {
 
 // Load reads the store at path. An absent file returns an empty Store
 // with nil error so first-run callers don't have to special-case it.
-// A present-but-unreadable or unparseable file returns ErrCorruptStore;
-// callers must not overwrite without explicit user action.
+// A present-but-unreadable or unparseable file returns ErrCorruptStore.
+//
+// init code paths use this directly so they can refuse to overwrite a
+// file we couldn't read. Runtime config-resolution paths (cfl
+// LoadWithEnv, jtk's accessors) instead warn-and-fall-back so a
+// corrupt shared file doesn't break every command for the user.
 func Load(path string) (*Store, error) {
 	data, err := os.ReadFile(path) //nolint:gosec // CLI tool reading its own config
 	if err != nil {

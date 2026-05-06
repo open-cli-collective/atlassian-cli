@@ -115,10 +115,8 @@ func detectAndReconcile(
 
 	// Case 2: only this tool's legacy.
 	if jtkLegacy != nil && cflLegacy == nil {
-		cfg := configFromLegacy(jtkLegacy)
-		applyFlagOverrides(cfg, prefillURL, prefillEmail, prefillToken, prefillAuthMethod, prefillCloudID)
 		v.Info("Migrating existing jtk config at %s to shared store.", jtkLegacy.Path)
-		return &reconcileResult{prefill: cfg, target: writeDefault, store: store, consumedLegacies: []string{jtkLegacy.Path}}, nil
+		return resultFromJTKLegacy(jtkLegacy, store, prefillURL, prefillEmail, prefillToken, prefillAuthMethod, prefillCloudID), nil
 	}
 
 	// Case 3: only sibling cfl legacy.
@@ -137,18 +135,7 @@ func detectAndReconcile(
 		if err != nil {
 			return nil, err
 		}
-		var cfg *config.Config
-		if reuse {
-			cfg = configFromLegacy(cflLegacy)
-		} else {
-			cfg = &config.Config{}
-		}
-		applyFlagOverrides(cfg, prefillURL, prefillEmail, prefillToken, prefillAuthMethod, prefillCloudID)
-		consumed := []string{}
-		if reuse {
-			consumed = []string{cflLegacy.Path}
-		}
-		return &reconcileResult{prefill: cfg, target: writeDefault, store: store, consumedLegacies: consumed}, nil
+		return resultFromSiblingLegacy(cflLegacy, store, reuse, prefillURL, prefillEmail, prefillToken, prefillAuthMethod, prefillCloudID), nil
 	}
 
 	// Case 4: both legacies exist. Preserve cfl's per-tool defaults on
@@ -166,24 +153,7 @@ func detectAndReconcile(
 		if err != nil {
 			return nil, err
 		}
-		switch choice {
-		case "use_jtk":
-			cfg := configFromLegacy(jtkLegacy)
-			applyFlagOverrides(cfg, prefillURL, prefillEmail, prefillToken, prefillAuthMethod, prefillCloudID)
-			return &reconcileResult{prefill: cfg, target: writeDefault, store: store, consumedLegacies: []string{jtkLegacy.Path, cflLegacy.Path}}, nil
-		case "use_cfl":
-			cfg := configFromLegacy(cflLegacy)
-			cfg.DefaultProject = jtkLegacy.DefaultProject
-			applyFlagOverrides(cfg, prefillURL, prefillEmail, prefillToken, prefillAuthMethod, prefillCloudID)
-			return &reconcileResult{prefill: cfg, target: writeDefault, store: store, consumedLegacies: []string{jtkLegacy.Path, cflLegacy.Path}}, nil
-		case "keep_different":
-			store.Default = jtkLegacy.Section()
-			store.CFL.Section = cflLegacy.Section()
-			cfg := configFromLegacy(jtkLegacy)
-			applyFlagOverrides(cfg, prefillURL, prefillEmail, prefillToken, prefillAuthMethod, prefillCloudID)
-			v.Info("Keeping per-tool credentials. jtk will use jtk's token; cfl will use cfl's token.")
-			return &reconcileResult{prefill: cfg, target: writeDefault, store: store, consumedLegacies: []string{jtkLegacy.Path, cflLegacy.Path}}, nil
-		}
+		return resultFromMismatch(jtkLegacy, cflLegacy, choice, store, v, prefillURL, prefillEmail, prefillToken, prefillAuthMethod, prefillCloudID), nil
 	}
 
 	cfg := &config.Config{}
@@ -209,6 +179,56 @@ func promptReconcileMismatch(jtkLegacy, cflLegacy *credstore.LegacyCreds) (strin
 		Value(&choice).
 		Run()
 	return choice, err
+}
+
+// resultFromJTKLegacy / resultFromSiblingLegacy / resultFromMismatch
+// are the post-prompt branches lifted out so tests can drive them
+// without huh. See the cfl mirror in tools/cfl/internal/cmd/init/reconcile.go.
+
+func resultFromJTKLegacy(jtkLegacy *credstore.LegacyCreds, store *credstore.Store, prefillURL, prefillEmail, prefillToken, prefillAuthMethod, prefillCloudID string) *reconcileResult {
+	cfg := configFromLegacy(jtkLegacy)
+	applyFlagOverrides(cfg, prefillURL, prefillEmail, prefillToken, prefillAuthMethod, prefillCloudID)
+	return &reconcileResult{prefill: cfg, target: writeDefault, store: store, consumedLegacies: []string{jtkLegacy.Path}}
+}
+
+func resultFromSiblingLegacy(cflLegacy *credstore.LegacyCreds, store *credstore.Store, reuse bool, prefillURL, prefillEmail, prefillToken, prefillAuthMethod, prefillCloudID string) *reconcileResult {
+	var cfg *config.Config
+	if reuse {
+		cfg = configFromLegacy(cflLegacy)
+	} else {
+		cfg = &config.Config{}
+	}
+	applyFlagOverrides(cfg, prefillURL, prefillEmail, prefillToken, prefillAuthMethod, prefillCloudID)
+	consumed := []string{}
+	if reuse {
+		consumed = []string{cflLegacy.Path}
+	}
+	return &reconcileResult{prefill: cfg, target: writeDefault, store: store, consumedLegacies: consumed}
+}
+
+func resultFromMismatch(jtkLegacy, cflLegacy *credstore.LegacyCreds, choice string, store *credstore.Store, v *view.View, prefillURL, prefillEmail, prefillToken, prefillAuthMethod, prefillCloudID string) *reconcileResult {
+	consumed := []string{jtkLegacy.Path, cflLegacy.Path}
+	switch choice {
+	case "use_jtk":
+		cfg := configFromLegacy(jtkLegacy)
+		applyFlagOverrides(cfg, prefillURL, prefillEmail, prefillToken, prefillAuthMethod, prefillCloudID)
+		return &reconcileResult{prefill: cfg, target: writeDefault, store: store, consumedLegacies: consumed}
+	case "use_cfl":
+		cfg := configFromLegacy(cflLegacy)
+		cfg.DefaultProject = jtkLegacy.DefaultProject
+		applyFlagOverrides(cfg, prefillURL, prefillEmail, prefillToken, prefillAuthMethod, prefillCloudID)
+		return &reconcileResult{prefill: cfg, target: writeDefault, store: store, consumedLegacies: consumed}
+	case "keep_different":
+		store.Default = jtkLegacy.Section()
+		store.CFL.Section = cflLegacy.Section()
+		cfg := configFromLegacy(jtkLegacy)
+		applyFlagOverrides(cfg, prefillURL, prefillEmail, prefillToken, prefillAuthMethod, prefillCloudID)
+		v.Info("Keeping per-tool credentials. jtk will use jtk's token; cfl will use cfl's token.")
+		return &reconcileResult{prefill: cfg, target: writeDefault, store: store, consumedLegacies: consumed}
+	}
+	cfg := &config.Config{}
+	applyFlagOverrides(cfg, prefillURL, prefillEmail, prefillToken, prefillAuthMethod, prefillCloudID)
+	return &reconcileResult{prefill: cfg, target: writeDefault, store: store}
 }
 
 func sectionEmpty(s credstore.Section) bool {

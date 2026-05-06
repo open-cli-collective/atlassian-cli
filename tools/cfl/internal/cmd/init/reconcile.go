@@ -130,10 +130,8 @@ func detectAndReconcile(
 
 	// Case 2: only this tool's legacy exists.
 	if cflLegacy != nil && jtkLegacy == nil {
-		cfg := configFromLegacy(cflLegacy)
-		applyFlagOverrides(cfg, prefillURL, prefillEmail, prefillAuthMethod, prefillCloudID)
 		v.Info("Migrating existing cfl config at %s to shared store.", cflLegacy.Path)
-		return &reconcileResult{prefill: cfg, target: writeDefault, store: store, consumedLegacies: []string{cflLegacy.Path}}, nil
+		return resultFromCFLLegacy(cflLegacy, store, prefillURL, prefillEmail, prefillAuthMethod, prefillCloudID), nil
 	}
 
 	// Case 3: only sibling legacy exists.
@@ -152,18 +150,7 @@ func detectAndReconcile(
 		if err != nil {
 			return nil, err
 		}
-		var cfg *config.Config
-		if reuse {
-			cfg = configFromLegacy(jtkLegacy)
-		} else {
-			cfg = &config.Config{}
-		}
-		applyFlagOverrides(cfg, prefillURL, prefillEmail, prefillAuthMethod, prefillCloudID)
-		consumed := []string{}
-		if reuse {
-			consumed = []string{jtkLegacy.Path}
-		}
-		return &reconcileResult{prefill: cfg, target: writeDefault, store: store, consumedLegacies: consumed}, nil
+		return resultFromSiblingLegacy(jtkLegacy, store, reuse, prefillURL, prefillEmail, prefillAuthMethod, prefillCloudID), nil
 	}
 
 	// Case 4: both legacies exist. Either way, preserve jtk's per-tool
@@ -181,31 +168,7 @@ func detectAndReconcile(
 		if err != nil {
 			return nil, err
 		}
-		switch choice {
-		case "use_cfl":
-			cfg := configFromLegacy(cflLegacy)
-			applyFlagOverrides(cfg, prefillURL, prefillEmail, prefillAuthMethod, prefillCloudID)
-			return &reconcileResult{prefill: cfg, target: writeDefault, store: store, consumedLegacies: []string{cflLegacy.Path, jtkLegacy.Path}}, nil
-		case "use_jtk":
-			// Use jtk's creds for cfl, but still preserve cfl's per-tool
-			// defaults so default_space doesn't disappear.
-			cfg := configFromLegacy(jtkLegacy)
-			cfg.DefaultSpace = cflLegacy.DefaultSpace
-			cfg.OutputFormat = cflLegacy.OutputFormat
-			applyFlagOverrides(cfg, prefillURL, prefillEmail, prefillAuthMethod, prefillCloudID)
-			return &reconcileResult{prefill: cfg, target: writeDefault, store: store, consumedLegacies: []string{cflLegacy.Path, jtkLegacy.Path}}, nil
-		case "keep_different":
-			// cfl creds → default; jtk creds → jtk override. Per-tool
-			// defaults preserved on both sides.
-			store.Default = cflLegacy.Section()
-			store.CFL.DefaultSpace = cflLegacy.DefaultSpace
-			store.CFL.OutputFormat = cflLegacy.OutputFormat
-			store.JTK.Section = jtkLegacy.Section()
-			cfg := configFromLegacy(cflLegacy)
-			applyFlagOverrides(cfg, prefillURL, prefillEmail, prefillAuthMethod, prefillCloudID)
-			v.Info("Keeping per-tool credentials. cfl will use cfl's token; jtk will use jtk's token.")
-			return &reconcileResult{prefill: cfg, target: writeDefault, store: store, consumedLegacies: []string{cflLegacy.Path, jtkLegacy.Path}}, nil
-		}
+		return resultFromMismatch(cflLegacy, jtkLegacy, choice, store, v, prefillURL, prefillEmail, prefillAuthMethod, prefillCloudID), nil
 	}
 
 	// Case 5: nothing on disk anywhere.
@@ -232,6 +195,62 @@ func promptReconcileMismatch(cflLegacy, jtkLegacy *credstore.LegacyCreds) (strin
 		Value(&choice).
 		Run()
 	return choice, err
+}
+
+// resultFromCFLLegacy is the post-prompt branch for "only this tool's
+// legacy" — lifted out so tests can drive it without huh.
+func resultFromCFLLegacy(cflLegacy *credstore.LegacyCreds, store *credstore.Store, prefillURL, prefillEmail, prefillAuthMethod, prefillCloudID string) *reconcileResult {
+	cfg := configFromLegacy(cflLegacy)
+	applyFlagOverrides(cfg, prefillURL, prefillEmail, prefillAuthMethod, prefillCloudID)
+	return &reconcileResult{prefill: cfg, target: writeDefault, store: store, consumedLegacies: []string{cflLegacy.Path}}
+}
+
+// resultFromSiblingLegacy is the post-prompt branch for "only sibling
+// (jtk) legacy" — `reuse` is what huh returned.
+func resultFromSiblingLegacy(jtkLegacy *credstore.LegacyCreds, store *credstore.Store, reuse bool, prefillURL, prefillEmail, prefillAuthMethod, prefillCloudID string) *reconcileResult {
+	var cfg *config.Config
+	if reuse {
+		cfg = configFromLegacy(jtkLegacy)
+	} else {
+		cfg = &config.Config{}
+	}
+	applyFlagOverrides(cfg, prefillURL, prefillEmail, prefillAuthMethod, prefillCloudID)
+	consumed := []string{}
+	if reuse {
+		consumed = []string{jtkLegacy.Path}
+	}
+	return &reconcileResult{prefill: cfg, target: writeDefault, store: store, consumedLegacies: consumed}
+}
+
+// resultFromMismatch is the post-prompt branch for "both legacies
+// exist with different creds". `choice` is the huh select value:
+// "use_cfl" | "use_jtk" | "keep_different".
+func resultFromMismatch(cflLegacy, jtkLegacy *credstore.LegacyCreds, choice string, store *credstore.Store, v *view.View, prefillURL, prefillEmail, prefillAuthMethod, prefillCloudID string) *reconcileResult {
+	consumed := []string{cflLegacy.Path, jtkLegacy.Path}
+	switch choice {
+	case "use_cfl":
+		cfg := configFromLegacy(cflLegacy)
+		applyFlagOverrides(cfg, prefillURL, prefillEmail, prefillAuthMethod, prefillCloudID)
+		return &reconcileResult{prefill: cfg, target: writeDefault, store: store, consumedLegacies: consumed}
+	case "use_jtk":
+		cfg := configFromLegacy(jtkLegacy)
+		cfg.DefaultSpace = cflLegacy.DefaultSpace
+		cfg.OutputFormat = cflLegacy.OutputFormat
+		applyFlagOverrides(cfg, prefillURL, prefillEmail, prefillAuthMethod, prefillCloudID)
+		return &reconcileResult{prefill: cfg, target: writeDefault, store: store, consumedLegacies: consumed}
+	case "keep_different":
+		store.Default = cflLegacy.Section()
+		store.CFL.DefaultSpace = cflLegacy.DefaultSpace
+		store.CFL.OutputFormat = cflLegacy.OutputFormat
+		store.JTK.Section = jtkLegacy.Section()
+		cfg := configFromLegacy(cflLegacy)
+		applyFlagOverrides(cfg, prefillURL, prefillEmail, prefillAuthMethod, prefillCloudID)
+		v.Info("Keeping per-tool credentials. cfl will use cfl's token; jtk will use jtk's token.")
+		return &reconcileResult{prefill: cfg, target: writeDefault, store: store, consumedLegacies: consumed}
+	}
+	cfg := &config.Config{}
+	applyFlagOverrides(cfg, prefillURL, prefillEmail, prefillAuthMethod, prefillCloudID)
+	return &reconcileResult{prefill: cfg, target: writeDefault, store: store}
 }
 
 func sectionEmpty(s credstore.Section) bool {

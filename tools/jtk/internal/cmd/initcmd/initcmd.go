@@ -260,7 +260,7 @@ func runInit(ctx context.Context, opts *root.Options, prefillURL, prefillEmail, 
 			return err
 		}
 		if deleteIt {
-			if err := removeFile(lp); err != nil {
+			if err := os.Remove(lp); err != nil {
 				v.Error("Could not remove %s: %v", lp, err)
 			} else {
 				v.Info("Removed %s", lp)
@@ -281,6 +281,3 @@ func runInit(ctx context.Context, opts *root.Options, prefillURL, prefillEmail, 
 	return nil
 }
 
-// removeFile is a thin wrapper to keep os.Remove out of the hot path
-// where it adds noise in tests/diff reviews.
-func removeFile(path string) error { return os.Remove(path) }

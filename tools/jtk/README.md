@@ -1611,7 +1611,7 @@ jtk:
 
 The same file is shared with `cfl` — one Atlassian token, both tools. Run `jtk init` after `cfl init` (or vice versa) and you'll be offered to reuse the credentials. If you really need different tokens per tool, init's reconciliation flow lets you write per-tool overrides into the `jtk:` or `cfl:` section.
 
-Legacy `~/.config/jira-ticket-cli/config.json` keeps working indefinitely. Init detects it on first run and prompts to migrate.
+Legacy per-tool config keeps working indefinitely (Linux: `~/.config/jira-ticket-cli/config.json`; macOS: `~/Library/Application Support/jira-ticket-cli/config.json`). Init detects it on first run and prompts to migrate.
 
 Run `jtk config show` to inspect the resolved values. (Source-attribution for shared-store fields is partial today: `auth_method` and `cloud_id` already report their shared-store source; URL / email / API token / default project will be wired up in a follow-up PR.)
 

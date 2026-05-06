@@ -141,7 +141,7 @@ The `cfl` and `jtk` sections may also carry credential overrides (`url`, `email`
 2. `ATLASSIAN_*` env
 3. Shared store, tool override section
 4. Shared store, `default` section
-5. Legacy per-tool config (`~/.config/cfl/config.yml`, `~/.config/jira-ticket-cli/config.json`)
+5. Legacy per-tool config (`~/.config/cfl/config.yml`; jtk uses `os.UserConfigDir()` so macOS is `~/Library/Application Support/jira-ticket-cli/config.json`, Linux is `~/.config/jira-ticket-cli/config.json`)
 
 Legacy files keep working indefinitely. Init detects them, prompts to migrate, and offers cleanup. If both tools' legacy files have different credentials, init runs a reconciliation flow (use cfl's, use jtk's, or keep them different) and educates the user that one Atlassian token usually works for both products.
 

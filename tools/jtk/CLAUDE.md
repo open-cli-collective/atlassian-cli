@@ -186,7 +186,7 @@ Variables are checked in precedence order (first match wins):
 | Auth Method | `JIRA_AUTH_METHOD` → `ATLASSIAN_AUTH_METHOD` → shared `jtk` → shared `default` → legacy → `"basic"` |
 | Cloud ID | `JIRA_CLOUD_ID` → `ATLASSIAN_CLOUD_ID` → shared `jtk` → shared `default` → legacy |
 
-The "shared" entries refer to the cross-tool credential store at `~/.config/atlassian-cli/config.yml` written by `jtk init` and `cfl init`. The `jtk` section overrides the `default` section per field. Legacy `~/.config/jira-ticket-cli/config.json` keeps working indefinitely; init migrates it on first run.
+The "shared" entries refer to the cross-tool credential store at `~/.config/atlassian-cli/config.yml` written by `jtk init` and `cfl init`. The `jtk` section overrides the `default` section per field. Legacy jtk config (Linux: `~/.config/jira-ticket-cli/config.json`; macOS: `~/Library/Application Support/jira-ticket-cli/config.json`) keeps working indefinitely; init migrates it on first run.
 
 Use `ATLASSIAN_*` for shared credentials across jtk and cfl. Use `JIRA_*` to override per-tool.
 

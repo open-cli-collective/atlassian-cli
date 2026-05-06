@@ -41,9 +41,17 @@ func LegacyCFLPath() string {
 	return tooledPath("cfl", "config.yml")
 }
 
-// LegacyJTKPath returns the canonical jtk legacy config path.
+// LegacyJTKPath returns the canonical jtk legacy config path. jtk's
+// loader uses os.UserConfigDir(), which on macOS is
+// ~/Library/Application Support — matching it here is critical so
+// macOS users with an existing jtk config are detected by sibling
+// init reconciliation.
 func LegacyJTKPath() string {
-	return tooledPath("jira-ticket-cli", "config.json")
+	dir, err := os.UserConfigDir()
+	if err != nil {
+		return filepath.Join(".", "jira-ticket-cli", "config.json")
+	}
+	return filepath.Join(dir, "jira-ticket-cli", "config.json")
 }
 
 func tooledPath(toolDir, file string) string {

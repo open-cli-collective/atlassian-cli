@@ -97,8 +97,27 @@ func TestLoadLegacyJTK_CorruptReturnsErrCorrupt(t *testing.T) {
 	}
 }
 
-func TestLegacyPaths_HonorXDG(t *testing.T) {
+func TestLegacyCFLPath_HonorsXDG(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", "/custom/xdg")
 	testutil.Equal(t, "/custom/xdg/cfl/config.yml", LegacyCFLPath())
-	testutil.Equal(t, "/custom/xdg/jira-ticket-cli/config.json", LegacyJTKPath())
+}
+
+func TestLegacyJTKPath_MatchesUserConfigDir(t *testing.T) {
+	// jtk uses os.UserConfigDir(); we must match exactly so macOS
+	// users (~/Library/Application Support) are detected.
+	dir, err := os.UserConfigDir()
+	testutil.RequireNoError(t, err)
+	want := filepath.Join(dir, "jira-ticket-cli", "config.json")
+	testutil.Equal(t, want, LegacyJTKPath())
+}
+
+func TestLegacyJTKPath_NotXDGFallback(t *testing.T) {
+	// On Linux os.UserConfigDir honors XDG_CONFIG_HOME, but on macOS
+	// it returns ~/Library/Application Support and ignores XDG. Either
+	// way, our LegacyJTKPath must match os.UserConfigDir's choice.
+	t.Setenv("XDG_CONFIG_HOME", "/custom/xdg")
+	dir, err := os.UserConfigDir()
+	testutil.RequireNoError(t, err)
+	want := filepath.Join(dir, "jira-ticket-cli", "config.json")
+	testutil.Equal(t, want, LegacyJTKPath())
 }

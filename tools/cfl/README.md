@@ -788,7 +788,7 @@ cfl:
 
 The same file is shared with `jtk` — one Atlassian token, both tools. Run `cfl init` after `jtk init` (or vice versa) and you'll be offered to reuse the credentials. If you really need different tokens per tool, init's reconciliation flow lets you write per-tool overrides into the `cfl:` or `jtk:` section.
 
-Legacy `~/.config/cfl/config.yml` keeps working indefinitely. Init detects it on first run and prompts to migrate.
+Legacy `~/.config/cfl/config.yml` keeps working indefinitely. Init detects it on first run and prompts to migrate. If your legacy URL ends in `/wiki`, migration strips it: the shared store always holds the base URL and cfl appends `/wiki` on read.
 
 ### Environment Variables
 

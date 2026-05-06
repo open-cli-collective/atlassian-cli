@@ -182,22 +182,21 @@ func TestFinalizeInit_WritesToCorrectSection(t *testing.T) {
 			loaded, err := credstore.Load(configPath)
 			testutil.RequireNoError(t, err)
 
-			var got credstore.Section
+			var got, leak credstore.Section
 			switch tc.target {
 			case writeDefault:
-				got = loaded.Default
-				if loaded.CFL.APIToken != "" {
-					t.Errorf("creds leaked into CFL override: %+v", loaded.CFL.Section)
-				}
+				got, leak = loaded.Default, loaded.CFL.Section
 			case writeCFLOverride:
-				got = loaded.CFL.Section
-				if loaded.Default.APIToken != "" {
-					t.Errorf("creds leaked into default: %+v", loaded.Default)
-				}
+				got, leak = loaded.CFL.Section, loaded.Default
 			}
 			testutil.Equal(t, "tok", got.APIToken)
 			testutil.Equal(t, "x@e", got.Email)
 			testutil.Equal(t, server.URL, got.URL) // URL normalized: /wiki stripped
+			// Leak guard: every credential field must be empty in the
+			// non-target section, not just APIToken.
+			testutil.Equal(t, "", leak.APIToken)
+			testutil.Equal(t, "", leak.Email)
+			testutil.Equal(t, "", leak.URL)
 		})
 	}
 }

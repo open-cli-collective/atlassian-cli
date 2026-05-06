@@ -144,8 +144,12 @@ func (s *Store) Resolve(tool string) Section {
 type Source string
 
 const (
-	SourceUnset    Source = "unset"
-	SourceDefault  Source = "shared default"
+	SourceUnset       Source = "unset"
+	SourceDefault     Source = "shared default"
+	SourceOverrideCFL Source = "shared cfl override"
+	SourceOverrideJTK Source = "shared jtk override"
+	// SourceOverride is retained for callers that don't care which tool
+	// owns the override section. Prefer the tool-specific constants.
 	SourceOverride Source = "shared override"
 )
 
@@ -170,7 +174,14 @@ func (s *Store) ResolveWithSource(tool, field string) (string, Source) {
 		return ""
 	}
 	if v := get(o); v != "" {
-		return v, SourceOverride
+		switch tool {
+		case ToolCFL:
+			return v, SourceOverrideCFL
+		case ToolJTK:
+			return v, SourceOverrideJTK
+		default:
+			return v, SourceOverride
+		}
 	}
 	if v := get(d); v != "" {
 		return v, SourceDefault

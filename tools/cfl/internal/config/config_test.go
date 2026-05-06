@@ -551,7 +551,10 @@ func TestLoadWithEnv_PrecedenceLegacyToSharedToEnv(t *testing.T) {
 	testutil.Equal(t, "env-tok", cfg.APIToken)
 }
 
-func TestLoadWithEnv_CorruptSharedSurfacesError(t *testing.T) {
+func TestLoadWithEnv_CorruptSharedFallsBackToLegacy(t *testing.T) {
+	// Runtime LoadWithEnv must keep working even when the shared file is
+	// broken — every cfl command would otherwise fail. Init uses a
+	// separate path that does surface corruption.
 	xdg := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", xdg)
 	sharedPath := filepath.Join(xdg, "atlassian-cli", "config.yml")
@@ -563,6 +566,7 @@ func TestLoadWithEnv_CorruptSharedSurfacesError(t *testing.T) {
 	legacy := &Config{URL: "https://x.atlassian.net/wiki", Email: "e@x", APIToken: "t"}
 	testutil.RequireNoError(t, legacy.Save(legacyPath))
 
-	_, err := LoadWithEnv(legacyPath)
-	testutil.RequireError(t, err)
+	cfg, err := LoadWithEnv(legacyPath)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "https://x.atlassian.net/wiki", cfg.URL)
 }

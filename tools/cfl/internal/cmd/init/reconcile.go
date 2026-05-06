@@ -33,6 +33,11 @@ type reconcileResult struct {
 	target           writeTarget
 	store            *credstore.Store
 	consumedLegacies []string // paths of legacy files actually read into prefill
+	// affectsSibling is true when finalizeInit should confirm before
+	// writing because the save will mutate credentials the sibling tool
+	// is currently reading from. Set when reuse=yes was chosen on a
+	// shared store that already had usable creds.
+	affectsSibling bool
 }
 
 // detectAndReconcile decides what to do given whatever configs already
@@ -73,11 +78,13 @@ func detectAndReconcile(
 	// Case 1: shared store has usable creds for cfl already.
 	if store.HasUsableCreds(credstore.ToolCFL) {
 		// If the user already has a cfl override, edits go back to the
-		// override; otherwise edits land in default.
+		// override; otherwise the user picks default-vs-override.
 		hasOverride := !sectionEmpty(store.CFL.Section)
 		var target writeTarget
+		var reusePrefill bool
 		if hasOverride {
 			target = writeCFLOverride
+			reusePrefill = true
 		} else {
 			var reuse bool
 			err := huh.NewConfirm().
@@ -95,15 +102,30 @@ func detectAndReconcile(
 			}
 			if reuse {
 				target = writeDefault
-				v.Info("Note: edits will affect both cfl and jtk (writing to shared default).")
+				reusePrefill = true
+				v.Info("Note: editing these credentials will also affect jtk (writes go to shared default).")
 			} else {
 				target = writeCFLOverride
+				reusePrefill = false
 			}
 		}
-		cfg := configFromSection(store.Resolve(credstore.ToolCFL))
-		copyCFLDefaults(cfg, store.CFL)
+		var cfg *config.Config
+		if reusePrefill {
+			cfg = configFromSection(store.Resolve(credstore.ToolCFL))
+			copyCFLDefaults(cfg, store.CFL)
+		} else {
+			// Fresh setup — only carry over cfl-specific defaults so the
+			// user doesn't have to re-type the default space.
+			cfg = &config.Config{}
+			copyCFLDefaults(cfg, store.CFL)
+		}
 		applyFlagOverrides(cfg, prefillURL, prefillEmail, prefillAuthMethod, prefillCloudID)
-		return &reconcileResult{prefill: cfg, target: target, store: store}, nil
+		return &reconcileResult{
+			prefill:        cfg,
+			target:         target,
+			store:          store,
+			affectsSibling: target == writeDefault && reusePrefill,
+		}, nil
 	}
 
 	// Case 2: only this tool's legacy exists.
@@ -144,15 +166,17 @@ func detectAndReconcile(
 		return &reconcileResult{prefill: cfg, target: writeDefault, store: store, consumedLegacies: consumed}, nil
 	}
 
-	// Case 4: both legacies exist.
+	// Case 4: both legacies exist. Either way, preserve jtk's per-tool
+	// defaults into the store so jtk doesn't lose default_project on
+	// next read.
 	if cflLegacy != nil && jtkLegacy != nil {
+		store.JTK.DefaultProject = jtkLegacy.DefaultProject
 		if credstore.SectionsEqual(cflLegacy.Section(), jtkLegacy.Section()) {
 			v.Info("Found matching cfl and jtk credentials; migrating to shared store.")
 			cfg := configFromLegacy(cflLegacy)
 			applyFlagOverrides(cfg, prefillURL, prefillEmail, prefillAuthMethod, prefillCloudID)
 			return &reconcileResult{prefill: cfg, target: writeDefault, store: store, consumedLegacies: []string{cflLegacy.Path, jtkLegacy.Path}}, nil
 		}
-		// Mismatch: educational reconciliation flow.
 		choice, err := promptReconcileMismatch(cflLegacy, jtkLegacy)
 		if err != nil {
 			return nil, err
@@ -163,18 +187,20 @@ func detectAndReconcile(
 			applyFlagOverrides(cfg, prefillURL, prefillEmail, prefillAuthMethod, prefillCloudID)
 			return &reconcileResult{prefill: cfg, target: writeDefault, store: store, consumedLegacies: []string{cflLegacy.Path, jtkLegacy.Path}}, nil
 		case "use_jtk":
+			// Use jtk's creds for cfl, but still preserve cfl's per-tool
+			// defaults so default_space doesn't disappear.
 			cfg := configFromLegacy(jtkLegacy)
+			cfg.DefaultSpace = cflLegacy.DefaultSpace
+			cfg.OutputFormat = cflLegacy.OutputFormat
 			applyFlagOverrides(cfg, prefillURL, prefillEmail, prefillAuthMethod, prefillCloudID)
 			return &reconcileResult{prefill: cfg, target: writeDefault, store: store, consumedLegacies: []string{cflLegacy.Path, jtkLegacy.Path}}, nil
 		case "keep_different":
-			// Write the cfl creds to default, jtk creds as a jtk override.
-			// We do this directly on the store now so the post-form save
-			// preserves both halves.
+			// cfl creds → default; jtk creds → jtk override. Per-tool
+			// defaults preserved on both sides.
 			store.Default = cflLegacy.Section()
 			store.CFL.DefaultSpace = cflLegacy.DefaultSpace
 			store.CFL.OutputFormat = cflLegacy.OutputFormat
 			store.JTK.Section = jtkLegacy.Section()
-			store.JTK.DefaultProject = jtkLegacy.DefaultProject
 			cfg := configFromLegacy(cflLegacy)
 			applyFlagOverrides(cfg, prefillURL, prefillEmail, prefillAuthMethod, prefillCloudID)
 			v.Info("Keeping per-tool credentials. cfl will use cfl's token; jtk will use jtk's token.")
@@ -261,8 +287,10 @@ func applyFlagOverrides(cfg *config.Config, url, email, authMethod, cloudID stri
 }
 
 // applyResultToStore mutates the shared store so it carries the form's
-// final cfg in the right section. It preserves any unrelated existing
-// fields (e.g., jtk section, jtk per-tool defaults).
+// final cfg in the right section. It preserves unrelated existing
+// fields (jtk section, jtk per-tool defaults) and only overwrites a
+// CFL per-tool default when the form actually produced a value, so a
+// freshly-set-up cfl doesn't stomp a previously-saved default_space.
 func applyResultToStore(store *credstore.Store, cfg *config.Config, target writeTarget) {
 	cred := credstore.Section{
 		URL:        credstore.NormalizeBaseURL(cfg.URL),
@@ -277,7 +305,10 @@ func applyResultToStore(store *credstore.Store, cfg *config.Config, target write
 	case writeCFLOverride:
 		store.CFL.Section = cred
 	}
-	// Tool-specific bits always live in the cfl section.
-	store.CFL.DefaultSpace = cfg.DefaultSpace
-	store.CFL.OutputFormat = cfg.OutputFormat
+	if cfg.DefaultSpace != "" {
+		store.CFL.DefaultSpace = cfg.DefaultSpace
+	}
+	if cfg.OutputFormat != "" {
+		store.CFL.OutputFormat = cfg.OutputFormat
+	}
 }

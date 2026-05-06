@@ -252,6 +252,23 @@ func finalizeInit(
 		verifiedUser = user
 	}
 
+	if result.affectsSibling {
+		var confirm bool
+		if err := huh.NewConfirm().
+			Title("Save will affect jtk").
+			Description("These credentials are stored in shared `default` and used by both cfl and jtk. Continue?").
+			Affirmative("Save").
+			Negative("Cancel").
+			Value(&confirm).
+			Run(); err != nil {
+			return err
+		}
+		if !confirm {
+			v.Info("Initialization cancelled. No changes saved.")
+			return nil
+		}
+	}
+
 	applyResultToStore(result.store, cfg, result.target)
 	if err := result.store.Save(sharedPath); err != nil {
 		return fmt.Errorf("saving shared store: %w", err)

@@ -13,16 +13,28 @@ import (
 	"github.com/open-cli-collective/atlassian-go/url"
 )
 
-// loadShared returns the shared credential store, or an empty Store
-// on any read/parse error. Accessors silently fall through on corrupt
-// shared store, mirroring the legacy-file behavior in this file. Init
-// loads credstore directly via credstore.Load to surface corruption.
+// loadShared returns the shared credential store. Accessors can't
+// propagate errors, so on corrupt shared store we warn once on stderr
+// (so the user sees something is wrong) and fall through to legacy
+// reads. Init has a separate code path that surfaces corruption as a
+// hard error and refuses to clobber the file.
 func loadShared() *credstore.Store {
 	s, err := credstore.Load(credstore.DefaultPath())
 	if err != nil {
+		warnCorruptSharedOnce(err)
 		return &credstore.Store{}
 	}
 	return s
+}
+
+var corruptWarnEmitted = false
+
+func warnCorruptSharedOnce(err error) {
+	if corruptWarnEmitted {
+		return
+	}
+	corruptWarnEmitted = true
+	fmt.Fprintf(os.Stderr, "warning: shared credential store is unreadable (%v); falling back to per-tool config. Run `jtk init` to fix.\n", err)
 }
 
 // jtkSection returns the resolved Section for jtk merged from default

@@ -222,6 +222,23 @@ func runInit(ctx context.Context, opts *root.Options, prefillURL, prefillEmail, 
 		v.Println("")
 	}
 
+	if result.affectsSibling {
+		var confirm bool
+		if err := huh.NewConfirm().
+			Title("Save will affect cfl").
+			Description("These credentials are stored in shared `default` and used by both jtk and cfl. Continue?").
+			Affirmative("Save").
+			Negative("Cancel").
+			Value(&confirm).
+			Run(); err != nil {
+			return err
+		}
+		if !confirm {
+			v.Info("Initialization cancelled. No changes saved.")
+			return nil
+		}
+	}
+
 	// Save to shared credential store. Per-tool defaults always live in
 	// the jtk section; credential edits go to the section detectAndReconcile
 	// chose (default vs jtk override).

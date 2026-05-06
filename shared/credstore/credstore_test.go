@@ -152,7 +152,7 @@ func TestResolveWithSource(t *testing.T) {
 	}{
 		{"url", "https://acme.atlassian.net", SourceDefault},
 		{"email", "u@e.com", SourceDefault},
-		{"api_token", "cfl-tok", SourceOverride},
+		{"api_token", "cfl-tok", SourceOverrideCFL},
 		{"cloud_id", "", SourceUnset},
 	}
 	for _, tc := range cases {

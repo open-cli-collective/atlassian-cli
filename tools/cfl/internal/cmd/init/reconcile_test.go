@@ -210,3 +210,48 @@ func TestApplyResultToStore_OverrideTarget(t *testing.T) {
 	testutil.Equal(t, "https://default.atlassian.net", store.Default.URL)
 	testutil.Equal(t, "default-tok", store.Default.APIToken)
 }
+
+func TestReconcile_BothLegaciesMatch_AutoMigrates(t *testing.T) {
+	t.Parallel()
+	tmp := t.TempDir()
+	cflPath := filepath.Join(tmp, "cfl.yml")
+	jtkPath := filepath.Join(tmp, "jtk.json")
+	testutil.RequireNoError(t, os.WriteFile(cflPath, []byte(
+		"url: https://acme.atlassian.net/wiki\nemail: u@e\napi_token: tok\ndefault_space: SPACE\n"), 0o600))
+	testutil.RequireNoError(t, os.WriteFile(jtkPath, []byte(
+		`{"url":"https://acme.atlassian.net","email":"u@e","api_token":"tok","default_project":"PROJ"}`), 0o600))
+
+	v, stdout, _ := newReconcileView()
+	r, err := detectAndReconcile(v, cflPath, jtkPath,
+		filepath.Join(tmp, "shared.yml"),
+		"", "", "", "")
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, writeDefault, r.target)
+	testutil.Equal(t, "tok", r.prefill.APIToken)
+	// jtk's default_project is preserved on the store even though we
+	// chose cfl as the migration source.
+	testutil.Equal(t, "PROJ", r.store.JTK.DefaultProject)
+	if !strings.Contains(stdout.String(), "Found matching cfl and jtk credentials") {
+		t.Errorf("expected matched-legacy message; got: %s", stdout.String())
+	}
+	testutil.Equal(t, false, r.affectsSibling) // migration, not affecting existing sibling state
+}
+
+func TestSectionsEqual_AuthMethodCanonicalization(t *testing.T) {
+	t.Parallel()
+	a := credstore.Section{URL: "https://x", Email: "u@e", APIToken: "t"}                            // empty method
+	b := credstore.Section{URL: "https://x", Email: "u@e", APIToken: "t", AuthMethod: "basic"}       // explicit
+	if !credstore.SectionsEqual(a, b) {
+		t.Fatalf("empty auth_method should match explicit basic")
+	}
+}
+
+func TestApplyResultToStore_PreservesExistingDefaultSpace(t *testing.T) {
+	t.Parallel()
+	store := &credstore.Store{
+		CFL: credstore.ToolSection{DefaultSpace: "EXISTING"},
+	}
+	cfg := configFixture{URL: "https://x", Email: "u@e", APIToken: "t"}.toConfig() // no DefaultSpace
+	applyResultToStore(store, cfg, writeDefault)
+	testutil.Equal(t, "EXISTING", store.CFL.DefaultSpace) // not stomped
+}

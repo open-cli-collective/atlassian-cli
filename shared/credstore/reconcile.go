@@ -6,15 +6,24 @@ import (
 )
 
 // SectionsEqual reports whether two Sections describe the same
-// credentials. URLs are normalized to base form before comparison so
+// credentials. URLs are normalized to base form so
 // "https://acme.atlassian.net/wiki" and "https://acme.atlassian.net"
-// don't read as different.
+// don't read as different. AuthMethod "" is canonicalized to "basic"
+// before comparison since legacy configs commonly omit the field while
+// migrated configs write it explicitly.
 func SectionsEqual(a, b Section) bool {
 	return NormalizeBaseURL(a.URL) == NormalizeBaseURL(b.URL) &&
 		a.Email == b.Email &&
 		a.APIToken == b.APIToken &&
-		a.AuthMethod == b.AuthMethod &&
+		canonAuthMethod(a.AuthMethod) == canonAuthMethod(b.AuthMethod) &&
 		a.CloudID == b.CloudID
+}
+
+func canonAuthMethod(m string) string {
+	if m == "" {
+		return "basic"
+	}
+	return m
 }
 
 // MaskToken returns a redacted form of an API token suitable for

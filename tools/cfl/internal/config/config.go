@@ -177,6 +177,16 @@ func (c *Config) LoadFromShared(s *credstore.Store) {
 	}
 }
 
+var corruptSharedWarnEmitted = false
+
+func warnCorruptSharedOnce(err error) {
+	if corruptSharedWarnEmitted {
+		return
+	}
+	corruptSharedWarnEmitted = true
+	fmt.Fprintf(os.Stderr, "warning: shared credential store is unreadable (%v); falling back to per-tool config. Run `cfl init` to fix.\n", err)
+}
+
 // LoadWithEnv loads configuration with full precedence:
 //  1. legacy file (lowest)
 //  2. shared store default
@@ -197,9 +207,14 @@ func LoadWithEnv(path string) (*Config, error) {
 
 	store, sErr := credstore.Load(credstore.DefaultPath())
 	if sErr != nil {
-		return nil, fmt.Errorf("loading shared credstore: %w", sErr)
+		// Runtime callers can't propagate the error meaningfully — every
+		// cfl command would die. Warn once on stderr and fall back to
+		// legacy + env. `cfl init` uses credstore.Load directly so it
+		// can surface the error and refuse to clobber.
+		warnCorruptSharedOnce(sErr)
+	} else {
+		cfg.LoadFromShared(store)
 	}
-	cfg.LoadFromShared(store)
 
 	cfg.LoadFromEnv()
 	return cfg, nil

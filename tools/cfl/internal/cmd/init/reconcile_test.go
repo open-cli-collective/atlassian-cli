@@ -330,24 +330,20 @@ func TestResultFromCFLLegacy_BasicMigration(t *testing.T) {
 	testutil.Equal(t, []string{"/cfl.yml"}, r.consumedLegacies)
 }
 
-func TestPromptReconcileMismatch_EducationalText(t *testing.T) {
+func TestMismatchDescription_EducationalText(t *testing.T) {
 	t.Parallel()
-	// We can't drive huh, but the description string passed to it is
-	// constructed before huh.Run(). Re-build it here against the same
-	// helper so we exercise the educational-language contract.
 	cfl := &credstore.LegacyCreds{Path: "/cfl.yml", URL: "https://x", Email: "u@e", APIToken: "tok"}
 	jtk := &credstore.LegacyCreds{Path: "/jtk.json", URL: "https://x", Email: "u@e", APIToken: "different"}
-	desc := credstore.FormatSection("cfl ("+cfl.Path+")", cfl.Section()) + "\n\n" +
-		credstore.FormatSection("jtk ("+jtk.Path+")", jtk.Section()) +
-		"\n\nNote: Atlassian API tokens are account-wide. One token usually works for both Jira and Confluence.\n" +
-		"Manage tokens: https://id.atlassian.com/manage-profile/security/api-tokens"
+	desc := mismatchDescription(cfl, jtk)
 	for _, want := range []string{
 		"account-wide",
 		"both Jira and Confluence",
 		"id.atlassian.com/manage-profile",
+		"/cfl.yml",
+		"/jtk.json",
 	} {
 		if !strings.Contains(desc, want) {
-			t.Errorf("expected educational language %q; missing from:\n%s", want, desc)
+			t.Errorf("expected %q in mismatch description; got:\n%s", want, desc)
 		}
 	}
 }

@@ -1613,7 +1613,7 @@ The same file is shared with `cfl` — one Atlassian token, both tools. Run `jtk
 
 Legacy `~/.config/jira-ticket-cli/config.json` keeps working indefinitely. Init detects it on first run and prompts to migrate.
 
-Run `jtk config show` to inspect the resolved values. (Source-attribution for shared-store fields will be added in a follow-up PR; today, source labels reflect env-vars and the legacy file only.)
+Run `jtk config show` to inspect the resolved values. (Source-attribution for shared-store fields is partial today: `auth_method` and `cloud_id` already report their shared-store source; URL / email / API token / default project will be wired up in a follow-up PR.)
 
 ### Environment Variables
 

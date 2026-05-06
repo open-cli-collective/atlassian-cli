@@ -152,12 +152,19 @@ func detectAndReconcile(
 	return &reconcileResult{prefill: cfg, target: writeDefault, store: store}, nil
 }
 
-func promptReconcileMismatch(cflLegacy, jtkLegacy *credstore.LegacyCreds) (string, error) {
-	desc := fmt.Sprintf(
+// mismatchDescription is the prompt description for the both-legacies-
+// mismatch reconciliation. Extracted so tests can assert the
+// educational language without driving huh.
+func mismatchDescription(cflLegacy, jtkLegacy *credstore.LegacyCreds) string {
+	return fmt.Sprintf(
 		"%s\n\n%s\n\nNote: Atlassian API tokens are account-wide. One token usually works for both Jira and Confluence.\nManage tokens: https://id.atlassian.com/manage-profile/security/api-tokens",
 		credstore.FormatSection("cfl ("+cflLegacy.Path+")", cflLegacy.Section()),
 		credstore.FormatSection("jtk ("+jtkLegacy.Path+")", jtkLegacy.Section()),
 	)
+}
+
+func promptReconcileMismatch(cflLegacy, jtkLegacy *credstore.LegacyCreds) (string, error) {
+	desc := mismatchDescription(cflLegacy, jtkLegacy)
 	var choice string
 	err := huh.NewSelect[string]().
 		Title("Different Atlassian credentials found").

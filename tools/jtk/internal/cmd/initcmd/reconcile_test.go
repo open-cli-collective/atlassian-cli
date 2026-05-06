@@ -247,3 +247,21 @@ func TestResultFromSiblingLegacy_PreservesCFLDefaults(t *testing.T) {
 	testutil.Equal(t, "SPACE", r.store.CFL.DefaultSpace)
 	testutil.Equal(t, "json", r.store.CFL.OutputFormat)
 }
+
+func TestMismatchDescription_EducationalText(t *testing.T) {
+	t.Parallel()
+	jtk := &credstore.LegacyCreds{Path: "/jtk.json", URL: "https://x", Email: "u@e", APIToken: "tok"}
+	cfl := &credstore.LegacyCreds{Path: "/cfl.yml", URL: "https://x", Email: "u@e", APIToken: "different"}
+	desc := mismatchDescription(jtk, cfl)
+	for _, want := range []string{
+		"account-wide",
+		"both Jira and Confluence",
+		"id.atlassian.com/manage-profile",
+		"/jtk.json",
+		"/cfl.yml",
+	} {
+		if !strings.Contains(desc, want) {
+			t.Errorf("expected %q in mismatch description; got:\n%s", want, desc)
+		}
+	}
+}

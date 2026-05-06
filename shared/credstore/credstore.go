@@ -26,9 +26,10 @@ const ToolCFL = "cfl"
 // ToolJTK is the section key for jtk-scoped overrides and defaults.
 const ToolJTK = "jtk"
 
-// ErrCorruptStore wraps any failure to parse a shared store. Callers
-// must surface this rather than silently falling through, otherwise
-// they risk overwriting a user file they couldn't read.
+// ErrCorruptStore wraps any failure to parse a shared store. Init
+// surfaces this as a hard error and refuses to overwrite the file;
+// runtime config-resolution paths warn-and-fall-back instead so a
+// corrupt shared file doesn't crash every command.
 var ErrCorruptStore = errors.New("credstore: corrupt or unparseable")
 
 // Section holds the credential fields shared across both tools.

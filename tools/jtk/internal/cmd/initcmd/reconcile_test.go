@@ -161,6 +161,28 @@ func TestResultFromMismatch_UseJTK(t *testing.T) {
 	testutil.Equal(t, "PROJ", r.prefill.DefaultProject)
 }
 
+// TestResultFromMismatch_UseJTK_ClearsStaleCFLOverride pins the
+// daemon-r3 fix: prior keep_different override on cfl must be cleared
+// when the user picks use_jtk, so cfl resolves to the new default
+// rather than the stale cfl override.
+func TestResultFromMismatch_UseJTK_ClearsStaleCFLOverride(t *testing.T) {
+	t.Parallel()
+	jtk := &credstore.LegacyCreds{Path: "/jtk.json", URL: "https://jtk.atlassian.net", APIToken: "jtk-tok"}
+	cfl := &credstore.LegacyCreds{Path: "/cfl.yml", URL: "https://cfl.atlassian.net/wiki", APIToken: "cfl-tok"}
+	v, _, _ := newReconcileView()
+	store := &credstore.Store{
+		CFL: credstore.ToolSection{
+			Section:      credstore.Section{URL: "https://stale.atlassian.net", APIToken: "stale-tok"},
+			DefaultSpace: "SPACE", // per-tool default must survive
+		},
+	}
+	r := resultFromMismatch(jtk, cfl, "use_jtk", store, v, "", "", "", "", "")
+	testutil.Equal(t, writeDefault, r.target)
+	testutil.Equal(t, "", r.store.CFL.URL)
+	testutil.Equal(t, "", r.store.CFL.APIToken)
+	testutil.Equal(t, "SPACE", r.store.CFL.DefaultSpace)
+}
+
 func TestResultFromMismatch_UseCFL_PreservesJTKDefaults(t *testing.T) {
 	t.Parallel()
 	jtk := &credstore.LegacyCreds{Path: "/jtk.json", URL: "https://jtk.atlassian.net", APIToken: "jtk-tok", DefaultProject: "PROJ"}

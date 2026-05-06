@@ -247,10 +247,18 @@ func resultFromMismatch(cflLegacy, jtkLegacy *credstore.LegacyCreds, choice stri
 	consumed := []string{cflLegacy.Path, jtkLegacy.Path}
 	switch choice {
 	case "use_cfl":
+		// User chose "use cfl's creds for both tools". Clear any
+		// stale jtk override credential fields so jtk resolves to
+		// the new default rather than a leftover override from a
+		// prior keep_different run. Per-tool defaults (default_project)
+		// are preserved.
+		store.JTK.Section = credstore.Section{}
 		cfg := configFromLegacy(cflLegacy)
 		applyFlagOverrides(cfg, prefillURL, prefillEmail, prefillAuthMethod, prefillCloudID)
 		return &reconcileResult{prefill: cfg, target: writeDefault, store: store, consumedLegacies: consumed}
 	case "use_jtk":
+		// Same rationale as use_cfl — clear stale jtk override.
+		store.JTK.Section = credstore.Section{}
 		cfg := configFromLegacy(jtkLegacy)
 		cfg.DefaultSpace = cflLegacy.DefaultSpace
 		cfg.OutputFormat = cflLegacy.OutputFormat

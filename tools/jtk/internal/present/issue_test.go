@@ -449,6 +449,21 @@ func TestIssuePresenter_PresentTypeAlreadyCurrent(t *testing.T) {
 	}
 }
 
+func TestIssuePresenter_PresentStatusAlreadyCurrent(t *testing.T) {
+	t.Parallel()
+	model := IssuePresenter{}.PresentStatusAlreadyCurrent("Done")
+	msg := model.Sections[0].(*present.MessageSection)
+	if msg.Kind != present.MessageInfo {
+		t.Errorf("want MessageInfo, got %v", msg.Kind)
+	}
+	if msg.Stream != present.StreamStderr {
+		t.Errorf("want StreamStderr, got %v", msg.Stream)
+	}
+	if msg.Message != "status is already Done" {
+		t.Errorf("unexpected message %q", msg.Message)
+	}
+}
+
 func TestIssuePresenter_PresentTypeFallbackWarning(t *testing.T) {
 	t.Parallel()
 	model := IssuePresenter{}.PresentTypeFallbackWarning("Bug", "MON", "Task")

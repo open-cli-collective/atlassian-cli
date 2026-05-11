@@ -75,6 +75,44 @@ func TestFindTransitionByName_NilSlice(t *testing.T) {
 	testutil.Nil(t, result)
 }
 
+func TestFindTransitionsByStatus(t *testing.T) {
+	t.Parallel()
+	transitions := []Transition{
+		{ID: "11", Name: "Start", To: Status{Name: "In Progress"}},
+		{ID: "21", Name: "Resume", To: Status{Name: "In Progress"}},
+		{ID: "31", Name: "Complete", To: Status{Name: "Done"}},
+	}
+
+	tests := []struct {
+		name       string
+		statusName string
+		wantIDs    []string
+	}{
+		{"exact single match", "Done", []string{"31"}},
+		{"case-insensitive single match", "done", []string{"31"}},
+		{"multiple matches", "In Progress", []string{"11", "21"}},
+		{"no match", "Closed", nil},
+		{"empty input", "", nil},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := FindTransitionsByStatus(transitions, tt.statusName)
+			if len(got) != len(tt.wantIDs) {
+				t.Fatalf("got %d matches, want %d", len(got), len(tt.wantIDs))
+			}
+			for i, want := range tt.wantIDs {
+				testutil.Equal(t, got[i].ID, want)
+			}
+		})
+	}
+}
+
+func TestFindTransitionsByStatus_EmptyAndNil(t *testing.T) {
+	testutil.Equal(t, len(FindTransitionsByStatus([]Transition{}, "Done")), 0)
+	testutil.Equal(t, len(FindTransitionsByStatus(nil, "Done")), 0)
+}
+
 func TestClient_GetTransitions(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testutil.Contains(t, r.URL.Path, "/issue/PROJ-123/transitions")

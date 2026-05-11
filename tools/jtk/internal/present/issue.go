@@ -657,6 +657,19 @@ func (IssuePresenter) PresentTypeAlreadyCurrent(typeName string) *present.Output
 	}
 }
 
+// PresentStatusAlreadyCurrent creates an advisory when status is already current.
+func (IssuePresenter) PresentStatusAlreadyCurrent(statusName string) *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageInfo,
+				Message: fmt.Sprintf("status is already %s", statusName),
+				Stream:  present.StreamStderr,
+			},
+		},
+	}
+}
+
 // --- Empty state methods ---
 
 // PresentEmpty creates an info message for empty issue list.

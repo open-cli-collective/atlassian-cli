@@ -67,3 +67,18 @@ func FindTransitionByName(transitions []Transition, name string) *Transition {
 	}
 	return nil
 }
+
+// FindTransitionsByStatus returns all transitions whose target status name
+// matches statusName (case-insensitive). Returns an empty slice when none
+// match. Callers are responsible for handling ambiguity when more than one
+// transition lands on the same target status.
+func FindTransitionsByStatus(transitions []Transition, statusName string) []Transition {
+	nameLower := strings.ToLower(statusName)
+	var matches []Transition
+	for _, t := range transitions {
+		if strings.ToLower(t.To.Name) == nameLower {
+			matches = append(matches, t)
+		}
+	}
+	return matches
+}

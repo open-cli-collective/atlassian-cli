@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -45,7 +46,7 @@ func TestRunUpdate_RequestBodyNoDoubleQuoting(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runUpdate(context.Background(), opts, "PROJ-123", "Updated summary", "Updated description", "", "", "", nil)
+	err = runUpdate(context.Background(), opts, "PROJ-123", "Updated summary", "Updated description", "", "", "", "", nil)
 	testutil.RequireNoError(t, err)
 
 	testutil.NotEmpty(t, capturedBody)
@@ -168,7 +169,7 @@ func TestRunUpdate_TypeChange(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runUpdate(context.Background(), opts, "PROJ-123", "", "", "", "", "Task", nil)
+	err = runUpdate(context.Background(), opts, "PROJ-123", "", "", "", "", "Task", "", nil)
 	testutil.RequireNoError(t, err)
 	testutil.True(t, moveCompleted, "should have called the move API")
 
@@ -222,7 +223,7 @@ func TestRunUpdate_TypeAlreadyCorrect(t *testing.T) {
 	// Should succeed without calling move API since it's already the right type.
 	// The silent changeIssueType returns nil (no-op), then WriteAndPresent
 	// re-fetches and shows post-state detail.
-	err = runUpdate(context.Background(), opts, "PROJ-123", "", "", "", "", "Task", nil)
+	err = runUpdate(context.Background(), opts, "PROJ-123", "", "", "", "", "Task", "", nil)
 	testutil.RequireNoError(t, err)
 	testutil.Contains(t, stdout.String(), "PROJ-123")
 }
@@ -254,7 +255,7 @@ func TestRunUpdate_SummaryOnly(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runUpdate(context.Background(), opts, "PROJ-123", "New summary", "", "", "", "", nil)
+	err = runUpdate(context.Background(), opts, "PROJ-123", "New summary", "", "", "", "", "", nil)
 	testutil.RequireNoError(t, err)
 
 	var reqBody map[string]any
@@ -284,7 +285,7 @@ func TestRunUpdate_IDOnly(t *testing.T) {
 	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}, IDOnly: true}
 	opts.SetAPIClient(client)
 
-	err = runUpdate(context.Background(), opts, "PROJ-123", "New summary", "", "", "", "", nil)
+	err = runUpdate(context.Background(), opts, "PROJ-123", "New summary", "", "", "", "", "", nil)
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, stdout.String(), "PROJ-123\n")
 }
@@ -295,7 +296,7 @@ func TestRunUpdate_NoFieldsError(t *testing.T) {
 		Stderr: &bytes.Buffer{},
 	}
 
-	err := runUpdate(context.Background(), opts, "PROJ-123", "", "", "", "", "", nil)
+	err := runUpdate(context.Background(), opts, "PROJ-123", "", "", "", "", "", "", nil)
 	testutil.Error(t, err)
 	testutil.Contains(t, err.Error(), "no fields specified")
 }
@@ -327,7 +328,7 @@ func TestRunUpdate_ParentOnly(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runUpdate(context.Background(), opts, "PROJ-456", "", "", "PROJ-100", "", "", nil)
+	err = runUpdate(context.Background(), opts, "PROJ-456", "", "", "PROJ-100", "", "", "", nil)
 	testutil.RequireNoError(t, err)
 
 	testutil.NotEmpty(t, capturedBody)
@@ -369,7 +370,7 @@ func TestRunUpdate_ParentWithSummary(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runUpdate(context.Background(), opts, "PROJ-456", "Updated title", "", "PROJ-200", "", "", nil)
+	err = runUpdate(context.Background(), opts, "PROJ-456", "Updated title", "", "PROJ-200", "", "", "", nil)
 	testutil.RequireNoError(t, err)
 
 	testutil.NotEmpty(t, capturedBody)
@@ -459,7 +460,7 @@ func TestRunUpdate_AssigneeOnly(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runUpdate(context.Background(), opts, "PROJ-789", "", "", "", "61292e4c4f29230069621c5f", "", nil)
+	err = runUpdate(context.Background(), opts, "PROJ-789", "", "", "", "61292e4c4f29230069621c5f", "", "", nil)
 	testutil.RequireNoError(t, err)
 
 	testutil.NotEmpty(t, capturedBody)
@@ -507,7 +508,7 @@ func TestRunUpdate_AssigneeMe(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runUpdate(context.Background(), opts, "PROJ-789", "", "", "", "me", "", nil)
+	err = runUpdate(context.Background(), opts, "PROJ-789", "", "", "", "me", "", "", nil)
 	testutil.RequireNoError(t, err)
 
 	testutil.NotEmpty(t, capturedBody)
@@ -602,7 +603,7 @@ func TestRunUpdate_TypeChange_MoveNotFound_ServerDCError(t *testing.T) {
 	opts := &root.Options{Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runUpdate(context.Background(), opts, "PROJ-123", "", "", "", "", "Task", nil)
+	err = runUpdate(context.Background(), opts, "PROJ-123", "", "", "", "", "Task", "", nil)
 	if err == nil {
 		t.Fatal("expected error for Server/DC detection")
 	}
@@ -653,9 +654,259 @@ func TestRunUpdate_TypeChange_PollNotFound_ContinuesFieldUpdates(t *testing.T) {
 	opts := &root.Options{Stdout: &stdout, Stderr: &stderr}
 	opts.SetAPIClient(client)
 
-	err = runUpdate(context.Background(), opts, "PROJ-123", "New summary", "", "", "", "Task", nil)
+	err = runUpdate(context.Background(), opts, "PROJ-123", "New summary", "", "", "", "Task", "", nil)
 	testutil.RequireNoError(t, err)
 
 	testutil.Contains(t, stderr.String(), "could not be verified")
 	testutil.True(t, putCalled, "field update PUT should still have been called")
+}
+
+// --- Tests for --status (#358) ----------------------------------------------
+
+// statusServerConfig drives the mock server used by --status tests.
+type statusServerConfig struct {
+	currentStatus     string           // status name returned on the initial issue GET
+	transitions       []api.Transition // transitions returned by GET /transitions
+	transitionsErr    int              // if non-zero, /transitions returns this HTTP status
+	postTransitionErr int              // if non-zero, POST /transitions returns this HTTP status
+}
+
+type statusServerRecord struct {
+	getIssueCalls  int
+	getTransitions int
+	postTransition int
+	putIssue       int
+	transitionBody []byte
+}
+
+func newStatusServer(t *testing.T, cfg statusServerConfig) (*httptest.Server, *statusServerRecord) {
+	t.Helper()
+	rec := &statusServerRecord{}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/rest/api/3/issue/PROJ-123" && r.Method == "GET":
+			rec.getIssueCalls++
+			issue := map[string]any{
+				"key": "PROJ-123",
+				"id":  "10001",
+				"fields": map[string]any{
+					"summary":   "Test",
+					"status":    map[string]any{"name": cfg.currentStatus},
+					"project":   map[string]any{"key": "PROJ"},
+					"issuetype": map[string]any{"id": "10001", "name": "Task"},
+				},
+			}
+			_ = json.NewEncoder(w).Encode(issue)
+		case r.URL.Path == "/rest/api/3/issue/PROJ-123/transitions" && r.Method == "GET":
+			rec.getTransitions++
+			if cfg.transitionsErr != 0 {
+				w.WriteHeader(cfg.transitionsErr)
+				return
+			}
+			_ = json.NewEncoder(w).Encode(api.TransitionsResponse{Transitions: cfg.transitions})
+		case r.URL.Path == "/rest/api/3/issue/PROJ-123/transitions" && r.Method == "POST":
+			rec.postTransition++
+			rec.transitionBody, _ = io.ReadAll(r.Body)
+			if cfg.postTransitionErr != 0 {
+				w.WriteHeader(cfg.postTransitionErr)
+				return
+			}
+			w.WriteHeader(http.StatusNoContent)
+		case r.URL.Path == "/rest/api/3/issue/PROJ-123" && r.Method == "PUT":
+			rec.putIssue++
+			w.WriteHeader(http.StatusNoContent)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	return srv, rec
+}
+
+func newOptsForServer(t *testing.T, url string) (*root.Options, *bytes.Buffer, *bytes.Buffer) {
+	t.Helper()
+	client, err := api.New(api.ClientConfig{URL: url, Email: "t@t.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+	stdout, stderr := &bytes.Buffer{}, &bytes.Buffer{}
+	opts := &root.Options{Stdout: stdout, Stderr: stderr}
+	opts.SetAPIClient(client)
+	return opts, stdout, stderr
+}
+
+func TestRunUpdate_StatusOnly_HappyPath(t *testing.T) {
+	srv, rec := newStatusServer(t, statusServerConfig{
+		currentStatus: "To Do",
+		transitions: []api.Transition{
+			{ID: "31", Name: "Complete", To: api.Status{Name: "Done"}},
+		},
+	})
+	opts, stdout, _ := newOptsForServer(t, srv.URL)
+
+	err := runUpdate(context.Background(), opts, "PROJ-123", "", "", "", "", "", "Done", nil)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, rec.postTransition, 1)
+	testutil.Equal(t, rec.putIssue, 0)
+
+	var body api.TransitionRequest
+	testutil.RequireNoError(t, json.Unmarshal(rec.transitionBody, &body))
+	testutil.Equal(t, body.Transition.ID, "31")
+	testutil.Contains(t, stdout.String(), "PROJ-123")
+}
+
+func TestRunUpdate_StatusOnly_AlreadyCurrent(t *testing.T) {
+	srv, rec := newStatusServer(t, statusServerConfig{
+		currentStatus: "Done",
+		transitions:   []api.Transition{{ID: "31", Name: "Complete", To: api.Status{Name: "Done"}}},
+	})
+	opts, _, stderr := newOptsForServer(t, srv.URL)
+
+	err := runUpdate(context.Background(), opts, "PROJ-123", "", "", "", "", "", "done", nil)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, rec.postTransition, 0)
+	testutil.Equal(t, rec.getTransitions, 0)
+	testutil.Contains(t, stderr.String(), "status is already")
+}
+
+func TestRunUpdate_StatusAndSummary_AlreadyCurrent(t *testing.T) {
+	srv, rec := newStatusServer(t, statusServerConfig{currentStatus: "Done"})
+	opts, _, _ := newOptsForServer(t, srv.URL)
+
+	err := runUpdate(context.Background(), opts, "PROJ-123", "New summary", "", "", "", "", "Done", nil)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, rec.postTransition, 0)
+	testutil.Equal(t, rec.putIssue, 1)
+}
+
+func TestRunUpdate_Status_NotFound(t *testing.T) {
+	srv, rec := newStatusServer(t, statusServerConfig{
+		currentStatus: "To Do",
+		transitions: []api.Transition{
+			{ID: "11", Name: "Start", To: api.Status{Name: "In Progress"}},
+		},
+	})
+	opts, _, stderr := newOptsForServer(t, srv.URL)
+
+	err := runUpdate(context.Background(), opts, "PROJ-123", "", "", "", "", "", "Bogus", nil)
+	testutil.Error(t, err)
+	testutil.True(t, errors.Is(err, root.ErrAlreadyReported), "expected ErrAlreadyReported sentinel")
+	testutil.Equal(t, rec.postTransition, 0)
+	testutil.Equal(t, rec.putIssue, 0)
+	testutil.Contains(t, stderr.String(), "no transition to status 'Bogus'")
+	testutil.Contains(t, stderr.String(), "In Progress")
+}
+
+func TestRunUpdate_Status_NotFound_DoesNotWriteSummary(t *testing.T) {
+	// Preflight failure must not perform any field writes.
+	srv, rec := newStatusServer(t, statusServerConfig{
+		currentStatus: "To Do",
+		transitions: []api.Transition{
+			{ID: "11", Name: "Start", To: api.Status{Name: "In Progress"}},
+		},
+	})
+	opts, _, _ := newOptsForServer(t, srv.URL)
+
+	err := runUpdate(context.Background(), opts, "PROJ-123", "New summary", "", "", "", "", "Bogus", nil)
+	testutil.Error(t, err)
+	testutil.Equal(t, rec.putIssue, 0)
+}
+
+func TestRunUpdate_Status_Ambiguous(t *testing.T) {
+	srv, rec := newStatusServer(t, statusServerConfig{
+		currentStatus: "To Do",
+		transitions: []api.Transition{
+			{ID: "31", Name: "Resolve", To: api.Status{Name: "Done"}},
+			{ID: "41", Name: "Close", To: api.Status{Name: "Done"}},
+		},
+	})
+	opts, _, stderr := newOptsForServer(t, srv.URL)
+
+	err := runUpdate(context.Background(), opts, "PROJ-123", "", "", "", "", "", "Done", nil)
+	testutil.Error(t, err)
+	testutil.True(t, errors.Is(err, root.ErrAlreadyReported))
+	testutil.Equal(t, rec.postTransition, 0)
+	testutil.Contains(t, stderr.String(), "multiple transitions")
+	testutil.Contains(t, stderr.String(), "jtk transitions do PROJ-123")
+}
+
+func TestRunUpdate_StatusAndSummary_HappyPath_OrdersWritesPutBeforePost(t *testing.T) {
+	var order []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/rest/api/3/issue/PROJ-123" && r.Method == "GET":
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"key": "PROJ-123",
+				"fields": map[string]any{
+					"status":  map[string]any{"name": "To Do"},
+					"project": map[string]any{"key": "PROJ"},
+				},
+			})
+		case r.URL.Path == "/rest/api/3/issue/PROJ-123/transitions" && r.Method == "GET":
+			_ = json.NewEncoder(w).Encode(api.TransitionsResponse{Transitions: []api.Transition{
+				{ID: "31", Name: "Done", To: api.Status{Name: "Done"}},
+			}})
+		case r.URL.Path == "/rest/api/3/issue/PROJ-123" && r.Method == "PUT":
+			order = append(order, "PUT")
+			w.WriteHeader(http.StatusNoContent)
+		case r.URL.Path == "/rest/api/3/issue/PROJ-123/transitions" && r.Method == "POST":
+			order = append(order, "POST")
+			w.WriteHeader(http.StatusNoContent)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer srv.Close()
+
+	opts, _, _ := newOptsForServer(t, srv.URL)
+	err := runUpdate(context.Background(), opts, "PROJ-123", "New summary", "", "", "", "", "Done", nil)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, len(order), 2)
+	testutil.Equal(t, order[0], "PUT")
+	testutil.Equal(t, order[1], "POST")
+}
+
+func TestRunUpdate_Status_TransitionPostFailsAfterPut(t *testing.T) {
+	// Documented non-rollback semantics: if the transition POST fails after a
+	// successful field PUT, the PUT stands and the error surfaces.
+	srv, rec := newStatusServer(t, statusServerConfig{
+		currentStatus: "To Do",
+		transitions: []api.Transition{
+			{ID: "31", Name: "Done", To: api.Status{Name: "Done"}},
+		},
+		postTransitionErr: http.StatusInternalServerError,
+	})
+	opts, _, _ := newOptsForServer(t, srv.URL)
+
+	err := runUpdate(context.Background(), opts, "PROJ-123", "New summary", "", "", "", "", "Done", nil)
+	testutil.Error(t, err)
+	testutil.Equal(t, rec.putIssue, 1)
+	testutil.Equal(t, rec.postTransition, 1)
+}
+
+func TestRunUpdate_Status_IDOnly(t *testing.T) {
+	srv, rec := newStatusServer(t, statusServerConfig{
+		currentStatus: "To Do",
+		transitions: []api.Transition{
+			{ID: "31", Name: "Done", To: api.Status{Name: "Done"}},
+		},
+	})
+	opts, stdout, _ := newOptsForServer(t, srv.URL)
+	opts.IDOnly = true
+
+	err := runUpdate(context.Background(), opts, "PROJ-123", "", "", "", "", "", "Done", nil)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, rec.postTransition, 1)
+	testutil.Equal(t, stdout.String(), "PROJ-123\n")
+}
+
+func TestRunUpdate_Status_IDOnly_AlreadyCurrent_EmitsKeyNoAdvisory(t *testing.T) {
+	srv, rec := newStatusServer(t, statusServerConfig{currentStatus: "Done"})
+	opts, stdout, stderr := newOptsForServer(t, srv.URL)
+	opts.IDOnly = true
+
+	err := runUpdate(context.Background(), opts, "PROJ-123", "", "", "", "", "", "Done", nil)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, rec.postTransition, 0)
+	testutil.Equal(t, rec.getTransitions, 0)
+	testutil.Equal(t, stdout.String(), "PROJ-123\n")
+	testutil.Equal(t, stderr.String(), "")
 }

@@ -25,6 +25,7 @@ func newUpdateCmd(opts *root.Options) *cobra.Command {
 	var parent string
 	var assignee string
 	var issueType string
+	var status string
 	var fields []string
 
 	cmd := &cobra.Command{
@@ -33,7 +34,14 @@ func newUpdateCmd(opts *root.Options) *cobra.Command {
 		Long: `Update fields on an existing Jira issue.
 
 To change the issue type, use --type. This uses the Jira Cloud bulk move API
-transparently (since the standard update API does not support type changes).`,
+transparently (since the standard update API does not support type changes).
+
+To change the workflow status, use --status. This resolves the matching
+transition against the issue's current workflow and POSTs to the transitions
+endpoint. If multiple transitions land on the same target status, run
+` + "`jtk transitions do <key> <id>`" + ` instead. ` + "`--status`" + ` is resolved before any
+writes; condition-based transitions that become available only after a
+preceding field edit must be performed as a separate command.`,
 		Example: `  # Update summary
   jtk issues update PROJ-123 --summary "New summary"
 
@@ -42,6 +50,9 @@ transparently (since the standard update API does not support type changes).`,
 
   # Change issue type
   jtk issues update PROJ-123 --type Story
+
+  # Change workflow status
+  jtk issues update PROJ-123 --status Done
 
   # Move issue under a different parent/epic
   jtk issues update PROJ-123 --parent PROJ-100
@@ -56,7 +67,7 @@ transparently (since the standard update API does not support type changes).`,
   jtk issues update PROJ-123 --field priority=High --field "Story Points"=5`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runUpdate(cmd.Context(), opts, args[0], summary, description, parent, assignee, issueType, fields)
+			return runUpdate(cmd.Context(), opts, args[0], summary, description, parent, assignee, issueType, status, fields)
 		},
 	}
 
@@ -65,20 +76,39 @@ transparently (since the standard update API does not support type changes).`,
 	cmd.Flags().StringVar(&parent, "parent", "", "Parent issue key (epic or parent issue)")
 	cmd.Flags().StringVarP(&assignee, "assignee", "a", "", "Assignee (account ID, email, or \"me\")")
 	cmd.Flags().StringVarP(&issueType, "type", "t", "", "New issue type (uses bulk move API)")
+	cmd.Flags().StringVar(&status, "status", "", "New workflow status (uses transitions API)")
 	cmd.Flags().StringArrayVarP(&fields, "field", "f", nil, "Fields to update (key=value)")
 
 	return cmd
 }
 
-func runUpdate(ctx context.Context, opts *root.Options, issueKey, summary, description, parent, assignee, issueType string, fieldArgs []string) error {
+// statusChange describes the result of preflight-resolving a --status request.
+type statusChange struct {
+	isNoop       bool   // current status already equals requested
+	transitionID string // empty when isNoop
+	targetStatus string // resolved To.Name; used by mutation.ModelContainsStatus
+}
+
+func runUpdate(ctx context.Context, opts *root.Options, issueKey, summary, description, parent, assignee, issueType, status string, fieldArgs []string) error {
 	// Validate that at least one field is being updated before making API calls
-	if summary == "" && description == "" && parent == "" && assignee == "" && issueType == "" && len(fieldArgs) == 0 {
+	if summary == "" && description == "" && parent == "" && assignee == "" && issueType == "" && status == "" && len(fieldArgs) == 0 {
 		return fmt.Errorf("no fields specified to update")
 	}
 
 	client, err := opts.APIClient()
 	if err != nil {
 		return err
+	}
+
+	// Preflight: resolve --status against the issue's *current* workflow before
+	// any writes. This lets us reject ambiguous/invalid status names without
+	// having partially mutated the issue.
+	var sc statusChange
+	if status != "" {
+		sc, err = resolveStatusChange(ctx, client, opts, issueKey, status)
+		if err != nil {
+			return err
+		}
 	}
 
 	// Handle type change via the move API
@@ -148,13 +178,41 @@ func runUpdate(ctx context.Context, opts *root.Options, issueKey, summary, descr
 		req = api.BuildUpdateRequest(fields)
 	}
 
+	// Status-only no-op short-circuit: nothing else to write, status already
+	// matches. In ID-only mode we still emit the key (machine-parseable
+	// output); otherwise emit a stderr advisory.
+	if status != "" && sc.isNoop && req == nil && issueType == "" {
+		if opts.EmitIDOnly() {
+			return jtkpresent.EmitIDs(opts, []string{issueKey})
+		}
+		return jtkpresent.Emit(opts, jtkpresent.IssuePresenter{}.PresentStatusAlreadyCurrent(status))
+	}
+
+	doTransition := func(ctx context.Context) error {
+		if status == "" || sc.isNoop {
+			return nil
+		}
+		return client.DoTransition(ctx, issueKey, sc.transitionID, nil)
+	}
+
 	if opts.EmitIDOnly() {
 		if req != nil {
 			if err := client.UpdateIssue(ctx, issueKey, req); err != nil {
 				return err
 			}
 		}
+		if err := doTransition(ctx); err != nil {
+			return err
+		}
 		return jtkpresent.EmitIDs(opts, []string{issueKey})
+	}
+
+	var isFresh func(*present.OutputModel) bool
+	if status != "" && !sc.isNoop {
+		target := sc.targetStatus
+		isFresh = func(m *present.OutputModel) bool {
+			return mutation.ModelContainsStatus(m, target)
+		}
 	}
 
 	return mutation.WriteAndPresent(ctx, opts, mutation.Config{
@@ -163,6 +221,9 @@ func runUpdate(ctx context.Context, opts *root.Options, issueKey, summary, descr
 				if err := client.UpdateIssue(ctx, issueKey, req); err != nil {
 					return "", err
 				}
+			}
+			if err := doTransition(ctx); err != nil {
+				return "", err
 			}
 			return issueKey, nil
 		},
@@ -175,10 +236,43 @@ func runUpdate(ctx context.Context, opts *root.Options, issueKey, summary, descr
 				issue, client.IssueURL(id), opts.IsExtended(), opts.IsFullText(),
 			), nil
 		},
+		IsFresh: isFresh,
 		Fallback: func(id string) *present.OutputModel {
 			return jtkpresent.IssuePresenter{}.PresentUpdated(id)
 		},
 	})
+}
+
+// resolveStatusChange preflights a --status request: it fetches the issue and
+// (if a transition is needed) the available transitions, then classifies the
+// outcome. On user-facing errors (no matching transition, ambiguous match) it
+// emits the error via the presenter and returns root.ErrAlreadyReported so
+// the caller does not double-print.
+func resolveStatusChange(ctx context.Context, client *api.Client, opts *root.Options, issueKey, status string) (statusChange, error) {
+	issue, err := client.GetIssue(ctx, issueKey)
+	if err != nil {
+		return statusChange{}, fmt.Errorf("failed to get issue: %w", err)
+	}
+	if issue.Fields.Status != nil && strings.EqualFold(issue.Fields.Status.Name, status) {
+		return statusChange{isNoop: true, targetStatus: issue.Fields.Status.Name}, nil
+	}
+
+	transitions, err := client.GetTransitions(ctx, issueKey)
+	if err != nil {
+		return statusChange{}, fmt.Errorf("failed to get transitions: %w", err)
+	}
+
+	matches := api.FindTransitionsByStatus(transitions, status)
+	switch len(matches) {
+	case 0:
+		_ = jtkpresent.Emit(opts, jtkpresent.TransitionPresenter{}.PresentStatusNotFound(status, transitions))
+		return statusChange{}, root.ErrAlreadyReported
+	case 1:
+		return statusChange{transitionID: matches[0].ID, targetStatus: matches[0].To.Name}, nil
+	default:
+		_ = jtkpresent.Emit(opts, jtkpresent.TransitionPresenter{}.PresentStatusAmbiguous(issueKey, status, matches))
+		return statusChange{}, root.ErrAlreadyReported
+	}
 }
 
 // changeIssueType performs the type change via the bulk move API.

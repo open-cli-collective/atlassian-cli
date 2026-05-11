@@ -1095,3 +1095,45 @@ func TestRunUpdate_TypeAndStatus_TransitionPostFailsAfterMove(t *testing.T) {
 	testutil.Error(t, err)
 	testutil.True(t, moveCalled, "type change happened before the transition failed (non-rollback)")
 }
+
+// TestRunUpdate_Status_GetTransitionsError covers the preflight error path
+// where listing transitions fails; no writes should happen and the error
+// must be wrapped so the caller sees "failed to get transitions".
+func TestRunUpdate_Status_GetTransitionsError(t *testing.T) {
+	srv, rec := newStatusServer(t, statusServerConfig{
+		currentStatus:  "To Do",
+		transitionsErr: http.StatusInternalServerError,
+	})
+	opts, _, _ := newOptsForServer(t, srv.URL)
+
+	err := runUpdate(context.Background(), opts, "PROJ-123", "", "", "", "", "", "Done", nil)
+	testutil.Error(t, err)
+	testutil.Contains(t, err.Error(), "failed to get transitions")
+	testutil.Equal(t, rec.postTransition, 0)
+	testutil.Equal(t, rec.putIssue, 0)
+}
+
+// TestRunUpdate_Status_GetIssueError covers the preflight error path where
+// the initial issue fetch fails. With --summary also requested, we assert
+// that no field PUT happens — preflight protects field writes.
+func TestRunUpdate_Status_GetIssueError(t *testing.T) {
+	var putCalled bool
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/rest/api/3/issue/PROJ-123" && r.Method == "GET":
+			w.WriteHeader(http.StatusInternalServerError)
+		case r.URL.Path == "/rest/api/3/issue/PROJ-123" && r.Method == "PUT":
+			putCalled = true
+			w.WriteHeader(http.StatusNoContent)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer srv.Close()
+
+	opts, _, _ := newOptsForServer(t, srv.URL)
+	err := runUpdate(context.Background(), opts, "PROJ-123", "New summary", "", "", "", "", "Done", nil)
+	testutil.Error(t, err)
+	testutil.Contains(t, err.Error(), "failed to get issue")
+	testutil.False(t, putCalled, "preflight failure must block the field PUT")
+}

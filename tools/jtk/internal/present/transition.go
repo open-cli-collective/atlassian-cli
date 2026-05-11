@@ -117,22 +117,33 @@ func (TransitionPresenter) PresentStatusNotFound(requested string, available []a
 			Message: fmt.Sprintf("no transition to status '%s' is currently available on this issue", requested),
 			Stream:  present.StreamStderr,
 		},
-		&present.MessageSection{
-			Kind:    present.MessageInfo,
-			Message: "Available target statuses:",
-			Stream:  present.StreamStderr,
-		},
 	}
 
 	seen := make(map[string]bool, len(available))
+	var statusLines []present.Section
 	for _, t := range available {
 		if t.To.Name == "" || seen[strings.ToLower(t.To.Name)] {
 			continue
 		}
 		seen[strings.ToLower(t.To.Name)] = true
-		sections = append(sections, &present.MessageSection{
+		statusLines = append(statusLines, &present.MessageSection{
 			Kind:    present.MessageInfo,
 			Message: fmt.Sprintf("  %s", t.To.Name),
+			Stream:  present.StreamStderr,
+		})
+	}
+
+	if len(statusLines) > 0 {
+		sections = append(sections, &present.MessageSection{
+			Kind:    present.MessageInfo,
+			Message: "Available target statuses:",
+			Stream:  present.StreamStderr,
+		})
+		sections = append(sections, statusLines...)
+	} else {
+		sections = append(sections, &present.MessageSection{
+			Kind:    present.MessageInfo,
+			Message: "No transitions are available on this issue (terminal state).",
 			Stream:  present.StreamStderr,
 		})
 	}

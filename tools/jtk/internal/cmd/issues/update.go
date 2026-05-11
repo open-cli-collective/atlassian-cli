@@ -83,9 +83,11 @@ preceding field edit must be performed as a separate command.`,
 }
 
 // statusChange describes the result of preflight-resolving a --status request.
+// It is only populated when --status was requested; an empty value should not
+// be interpreted as a noop.
 type statusChange struct {
 	isNoop       bool   // current status already equals requested
-	transitionID string // empty when isNoop
+	transitionID string // populated when isNoop is false and a transition was resolved
 	targetStatus string // resolved To.Name; used by mutation.ModelContainsStatus
 }
 
@@ -253,7 +255,10 @@ func resolveStatusChange(ctx context.Context, client *api.Client, opts *root.Opt
 	if err != nil {
 		return statusChange{}, fmt.Errorf("failed to get issue: %w", err)
 	}
-	if issue.Fields.Status != nil && strings.EqualFold(issue.Fields.Status.Name, status) {
+	if issue.Fields.Status == nil {
+		return statusChange{}, fmt.Errorf("issue %s has no current status; cannot resolve --status", issueKey)
+	}
+	if strings.EqualFold(issue.Fields.Status.Name, status) {
 		return statusChange{isNoop: true, targetStatus: issue.Fields.Status.Name}, nil
 	}
 

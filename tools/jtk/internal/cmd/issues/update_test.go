@@ -686,12 +686,21 @@ func newStatusServer(t *testing.T, cfg statusServerConfig) (*httptest.Server, *s
 		switch {
 		case r.URL.Path == "/rest/api/3/issue/PROJ-123" && r.Method == "GET":
 			rec.getIssueCalls++
+			// After a successful transition POST the issue reflects the new
+			// status, so subsequent GETs return it. This lets the IsFresh
+			// contract actually be tested rather than always reading the
+			// pre-write status. Only safe when there is a single transition
+			// (unambiguous target).
+			currentStatus := cfg.currentStatus
+			if rec.postTransition > 0 && cfg.postTransitionErr == 0 && len(cfg.transitions) == 1 {
+				currentStatus = cfg.transitions[0].To.Name
+			}
 			issue := map[string]any{
 				"key": "PROJ-123",
 				"id":  "10001",
 				"fields": map[string]any{
 					"summary":   "Test",
-					"status":    map[string]any{"name": cfg.currentStatus},
+					"status":    map[string]any{"name": currentStatus},
 					"project":   map[string]any{"key": "PROJ"},
 					"issuetype": map[string]any{"id": "10001", "name": "Task"},
 				},
@@ -751,6 +760,57 @@ func TestRunUpdate_StatusOnly_HappyPath(t *testing.T) {
 	testutil.RequireNoError(t, json.Unmarshal(rec.transitionBody, &body))
 	testutil.Equal(t, body.Transition.ID, "31")
 	testutil.Contains(t, stdout.String(), "PROJ-123")
+	// Freshness: post-write fetch must surface the new status, not the
+	// pre-write one. (newStatusServer flips the status after a successful POST.)
+	testutil.Contains(t, stdout.String(), "Done")
+}
+
+// TestRunUpdate_Status_FreshnessRetries proves IsFresh is wired to the
+// resolved target status. The first post-write fetch returns the stale status
+// ("To Do") and subsequent fetches return the fresh status ("Done"). With
+// IsFresh correctly wired, the renderer retries past the stale read and
+// emits a model that contains "Done". Without it, the first stale model
+// would be emitted immediately and "To Do" would appear in stdout.
+func TestRunUpdate_Status_FreshnessRetries(t *testing.T) {
+	var (
+		postCount int
+		getCount  int
+	)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/rest/api/3/issue/PROJ-123" && r.Method == "GET":
+			getCount++
+			// First GET is the preflight; second is the first post-write fetch
+			// (stale); third+ are the freshness retries (fresh).
+			status := "To Do"
+			if postCount > 0 && getCount > 2 {
+				status = "Done"
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"key": "PROJ-123",
+				"fields": map[string]any{
+					"status":  map[string]any{"name": status},
+					"project": map[string]any{"key": "PROJ"},
+				},
+			})
+		case r.URL.Path == "/rest/api/3/issue/PROJ-123/transitions" && r.Method == "GET":
+			_ = json.NewEncoder(w).Encode(api.TransitionsResponse{Transitions: []api.Transition{
+				{ID: "31", Name: "Complete", To: api.Status{Name: "Done"}},
+			}})
+		case r.URL.Path == "/rest/api/3/issue/PROJ-123/transitions" && r.Method == "POST":
+			postCount++
+			w.WriteHeader(http.StatusNoContent)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer srv.Close()
+
+	opts, stdout, _ := newOptsForServer(t, srv.URL)
+	err := runUpdate(context.Background(), opts, "PROJ-123", "", "", "", "", "", "Done", nil)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, postCount, 1)
+	testutil.Contains(t, stdout.String(), "Done")
 }
 
 func TestRunUpdate_StatusOnly_AlreadyCurrent(t *testing.T) {
@@ -909,4 +969,129 @@ func TestRunUpdate_Status_IDOnly_AlreadyCurrent_EmitsKeyNoAdvisory(t *testing.T)
 	testutil.Equal(t, rec.getTransitions, 0)
 	testutil.Equal(t, stdout.String(), "PROJ-123\n")
 	testutil.Equal(t, stderr.String(), "")
+}
+
+// TestRunUpdate_TypeAndStatus_HappyPath exercises the riskiest combinable
+// path: --status is resolved against the issue's pre-move workflow, then the
+// type change runs (bulk-move API), then the pre-move transition POST runs.
+// Documented contract: the pre-move transition ID is what gets POSTed.
+func TestRunUpdate_TypeAndStatus_HappyPath(t *testing.T) {
+	seedCacheForIssues(t)
+	testutil.RequireNoError(t, cache.WriteResource("issuetypes", "24h", map[string][]api.IssueType{
+		"PROJ": {
+			{ID: "10000", Name: "Epic"},
+			{ID: "10001", Name: "Task"},
+		},
+	}))
+	var (
+		moveCalled       bool
+		transitionPosted bool
+		transitionBody   []byte
+		order            []string
+	)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/rest/api/3/issue/PROJ-123" && r.Method == "GET":
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"key": "PROJ-123",
+				"id":  "10001",
+				"fields": map[string]any{
+					"status":    map[string]any{"name": "To Do"},
+					"project":   map[string]any{"key": "PROJ"},
+					"issuetype": map[string]any{"id": "10000", "name": "Epic"},
+				},
+			})
+		case r.URL.Path == "/rest/api/3/project/PROJ" && r.Method == "GET":
+			_ = json.NewEncoder(w).Encode(struct {
+				IssueTypes []api.IssueType `json:"issueTypes"`
+			}{IssueTypes: []api.IssueType{{ID: "10001", Name: "Task"}}})
+		case r.URL.Path == "/rest/api/3/issue/PROJ-123/transitions" && r.Method == "GET":
+			_ = json.NewEncoder(w).Encode(api.TransitionsResponse{Transitions: []api.Transition{
+				{ID: "31", Name: "Complete", To: api.Status{Name: "Done"}},
+			}})
+		case r.URL.Path == "/rest/api/3/bulk/issues/move" && r.Method == "POST":
+			order = append(order, "MOVE")
+			moveCalled = true
+			_ = json.NewEncoder(w).Encode(api.MoveIssuesResponse{TaskID: "task-1"})
+		case r.URL.Path == "/rest/api/3/bulk/queue/task-1" && r.Method == "GET":
+			_ = json.NewEncoder(w).Encode(api.MoveTaskStatus{
+				TaskID: "task-1", Status: "COMPLETE", Progress: 100,
+				Result: &api.MoveTaskResult{Successful: []string{"PROJ-123"}},
+			})
+		case r.URL.Path == "/rest/api/3/issue/PROJ-123/transitions" && r.Method == "POST":
+			order = append(order, "TRANSITION")
+			transitionPosted = true
+			transitionBody, _ = io.ReadAll(r.Body)
+			w.WriteHeader(http.StatusNoContent)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer srv.Close()
+
+	opts, _, _ := newOptsForServer(t, srv.URL)
+	err := runUpdate(context.Background(), opts, "PROJ-123", "", "", "", "", "Task", "Done", nil)
+	testutil.RequireNoError(t, err)
+	testutil.True(t, moveCalled, "bulk move must be called")
+	testutil.True(t, transitionPosted, "transition POST must follow the move")
+	testutil.Equal(t, len(order), 2)
+	testutil.Equal(t, order[0], "MOVE")
+	testutil.Equal(t, order[1], "TRANSITION")
+
+	var body api.TransitionRequest
+	testutil.RequireNoError(t, json.Unmarshal(transitionBody, &body))
+	testutil.Equal(t, body.Transition.ID, "31")
+}
+
+// TestRunUpdate_TypeAndStatus_TransitionPostFailsAfterMove documents the
+// non-rollback contract: if the pre-move transition becomes invalid after the
+// type change (e.g. the new workflow doesn't have it), the type change is
+// already done and the transition error is surfaced.
+func TestRunUpdate_TypeAndStatus_TransitionPostFailsAfterMove(t *testing.T) {
+	seedCacheForIssues(t)
+	testutil.RequireNoError(t, cache.WriteResource("issuetypes", "24h", map[string][]api.IssueType{
+		"PROJ": {{ID: "10001", Name: "Task"}},
+	}))
+	var moveCalled bool
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/rest/api/3/issue/PROJ-123" && r.Method == "GET":
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"key": "PROJ-123",
+				"fields": map[string]any{
+					"status":    map[string]any{"name": "To Do"},
+					"project":   map[string]any{"key": "PROJ"},
+					"issuetype": map[string]any{"id": "10000", "name": "Epic"},
+				},
+			})
+		case r.URL.Path == "/rest/api/3/project/PROJ" && r.Method == "GET":
+			_ = json.NewEncoder(w).Encode(struct {
+				IssueTypes []api.IssueType `json:"issueTypes"`
+			}{IssueTypes: []api.IssueType{{ID: "10001", Name: "Task"}}})
+		case r.URL.Path == "/rest/api/3/issue/PROJ-123/transitions" && r.Method == "GET":
+			_ = json.NewEncoder(w).Encode(api.TransitionsResponse{Transitions: []api.Transition{
+				{ID: "31", Name: "Complete", To: api.Status{Name: "Done"}},
+			}})
+		case r.URL.Path == "/rest/api/3/bulk/issues/move" && r.Method == "POST":
+			moveCalled = true
+			_ = json.NewEncoder(w).Encode(api.MoveIssuesResponse{TaskID: "task-1"})
+		case r.URL.Path == "/rest/api/3/bulk/queue/task-1" && r.Method == "GET":
+			_ = json.NewEncoder(w).Encode(api.MoveTaskStatus{
+				TaskID: "task-1", Status: "COMPLETE", Progress: 100,
+				Result: &api.MoveTaskResult{Successful: []string{"PROJ-123"}},
+			})
+		case r.URL.Path == "/rest/api/3/issue/PROJ-123/transitions" && r.Method == "POST":
+			// New workflow rejects the pre-move transition.
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(`{"errorMessages":["transition not valid"]}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer srv.Close()
+
+	opts, _, _ := newOptsForServer(t, srv.URL)
+	err := runUpdate(context.Background(), opts, "PROJ-123", "", "", "", "", "Task", "Done", nil)
+	testutil.Error(t, err)
+	testutil.True(t, moveCalled, "type change happened before the transition failed (non-rollback)")
 }

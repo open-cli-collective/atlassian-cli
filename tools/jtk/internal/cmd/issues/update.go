@@ -185,7 +185,7 @@ func runUpdate(ctx context.Context, opts *root.Options, issueKey, summary, descr
 		if opts.EmitIDOnly() {
 			return jtkpresent.EmitIDs(opts, []string{issueKey})
 		}
-		return jtkpresent.Emit(opts, jtkpresent.IssuePresenter{}.PresentStatusAlreadyCurrent(status))
+		return jtkpresent.Emit(opts, jtkpresent.IssuePresenter{}.PresentStatusAlreadyCurrent(sc.targetStatus))
 	}
 
 	doTransition := func(ctx context.Context) error {

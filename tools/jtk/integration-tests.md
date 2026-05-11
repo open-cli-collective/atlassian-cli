@@ -663,6 +663,108 @@ Run these steps in order. Each step depends on the previous.
    jtk issues delete $MV_ISSUE --force
    ```
 
+### `--status` sub-block (issues update routes to transitions API)
+
+> Validates that `jtk issues update --status <name>` performs a workflow
+> transition under the hood. The sub-block creates a dedicated issue so it
+> can finish in any status without interfering with later steps.
+
+1. **Create a fresh issue for status testing:**
+   ```bash
+   STATUS_ISSUE=$(jtk issues create -p $PROJECT -t $ISSUE_TYPE -s "[Test] Status Update" --id)
+   echo $STATUS_ISSUE
+   ```
+   Expected: A new issue key. Capture it as `$STATUS_ISSUE`.
+
+2. **Discover available target statuses for the issue:**
+   ```bash
+   jtk transitions list $STATUS_ISSUE
+   ```
+   Expected: Table of available transitions with `ID | NAME | TO_STATUS`.
+   Pick a target status name → `$STATUS_TARGET` (e.g., `In Progress`).
+   Pick a second target status → `$STATUS_SECOND` (e.g., `Done`).
+
+3. **Transition by status name (happy path):**
+   ```bash
+   jtk issues update $STATUS_ISSUE --status "$STATUS_TARGET"
+   ```
+   Expected: Full issue detail block; STATUS row shows `$STATUS_TARGET`.
+
+4. **Re-run the same transition (already-current short-circuit):**
+   ```bash
+   jtk issues update $STATUS_ISSUE --status "$STATUS_TARGET"
+   ```
+   Expected: stderr advisory `status is already $STATUS_TARGET` and exit 0.
+   No errors, no extra output on stdout.
+
+5. **Combine `--status` with `--summary`:**
+   ```bash
+   jtk issues update $STATUS_ISSUE \
+     --summary "[Test] Status Update (combined)" \
+     --status "$STATUS_SECOND"
+   ```
+   Expected: Full issue detail block with the new summary AND the new
+   status. (PUT before POST internally.)
+
+6. **`--id` mode + transition:**
+   ```bash
+   jtk transitions list $STATUS_ISSUE   # pick another available status -> $STATUS_THIRD
+   jtk issues update $STATUS_ISSUE --status "$STATUS_THIRD" --id
+   ```
+   Expected: Issue key only on stdout, no advisory. `jtk issues get $STATUS_ISSUE`
+   should confirm the status changed.
+
+7. **`--id` mode + already-current (no advisory in ID mode):**
+   ```bash
+   jtk issues update $STATUS_ISSUE --status "$STATUS_THIRD" --id
+   ```
+   Expected: Issue key on stdout, nothing on stderr, exit 0.
+
+7b. **Ambiguous status (multiple transitions to the same target status):**
+
+   Some workflows have more than one transition leading to the same target
+   status (e.g. two different paths to `Done`). Inspect the transitions list
+   from step 2; if any `TO_STATUS` appears on more than one row, pick that
+   name as `$STATUS_AMBIGUOUS` and run:
+   ```bash
+   jtk issues update $STATUS_ISSUE --status "$STATUS_AMBIGUOUS"
+   ```
+   Expected: stderr error `multiple transitions land on status '$STATUS_AMBIGUOUS'`,
+   followed by a candidates list with IDs, and a `jtk transitions do <key> <id>`
+   recommendation. Exit non-zero. No state change.
+
+   Also verify that preflight blocks combined writes:
+   ```bash
+   jtk issues update $STATUS_ISSUE \
+     --summary "[Test] should not apply" \
+     --status "$STATUS_AMBIGUOUS"
+   ```
+   Then `jtk issues get $STATUS_ISSUE` confirms the summary did NOT change.
+
+   If no workflow on the test project has ambiguous transitions, skip this step.
+
+8. **Invalid status name (not in the available transitions):**
+   ```bash
+   jtk issues update $STATUS_ISSUE --status "Definitely Not A Real Status"
+   ```
+   Expected: stderr error `no transition to status 'Definitely Not A Real Status' is currently available on this issue`
+   followed by an `Available target statuses:` list. Exit code non-zero.
+   No state change on the issue.
+
+9. **Preflight failure does not write summary:**
+   ```bash
+   jtk issues update $STATUS_ISSUE \
+     --summary "[Test] should not be applied" \
+     --status "Definitely Not A Real Status"
+   ```
+   Expected: Same error as step 8. `jtk issues get $STATUS_ISSUE` confirms
+   the summary was NOT changed.
+
+10. **Cleanup:**
+    ```bash
+    jtk issues delete $STATUS_ISSUE --force
+    ```
+
 ### Error cases
 
 | # | Command | Expected Output |

@@ -361,6 +361,9 @@ jtk issues update PROJ-123 --description "Updated description" --field labels=ur
 # Unassign an issue
 jtk issues update PROJ-123 --assignee none
 
+# Change workflow status (routes to the transitions API under the hood)
+jtk issues update PROJ-123 --status Done
+
 # Multi-value fields: repeat --field with the same key to accumulate values
 jtk issues update PROJ-123 --field customfield_10050=Option1 --field customfield_10050=Option2
 ```
@@ -372,6 +375,7 @@ jtk issues update PROJ-123 --field customfield_10050=Option1 --field customfield
 | `--parent` | | | Parent issue key (epic or parent issue) |
 | `--assignee` | `-a` | | Assignee (account ID, email, display name, `"me"`, or `"none"` to unassign) |
 | `--type` | `-t` | | New issue type (uses Jira Cloud bulk move API) |
+| `--status` | | | New workflow status (uses Jira transitions API; resolved before any writes) |
 | `--field` | `-f` | | Field to update in `key=value` format (can be repeated; repeating the same key accumulates values for multi-select fields) |
 
 **Arguments:**
@@ -686,7 +690,11 @@ jtk transitions list PROJ-123 --id
 
 ### `jtk transitions do <issue-key> <transition>`
 
-Perform a transition on an issue.
+Perform a transition on an issue. For ordinary status changes, prefer
+`jtk issues update <key> --status <name>` — it hides the Jira API split.
+Reach for `transitions do` when you need to disambiguate multiple
+transitions to the same target status, set fields-on-transition, or pick
+a transition by ID.
 
 **Aliases:** `jtk transition do`, `jtk tr do`
 

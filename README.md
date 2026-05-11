@@ -278,9 +278,14 @@ jtk projects create --key PROJ --name "My Project" --lead <account-id>
 jtk projects update PROJ --name "New Name"
 jtk projects delete PROJ
 
-# Transitions
+# Workflow status (typical)
+jtk issues update PROJ-123 --status "Done"
+
+# Transitions API (advanced: pick a specific transition by ID, set
+# fields-on-transition, or disambiguate when multiple transitions land on
+# the same target status)
 jtk transitions list PROJ-123
-jtk transitions do PROJ-123 "Done"
+jtk transitions do PROJ-123 51
 
 # Comments
 jtk comments list PROJ-123

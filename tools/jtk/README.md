@@ -361,8 +361,9 @@ jtk issues update PROJ-123 --description "Updated description" --field labels=ur
 # Unassign an issue
 jtk issues update PROJ-123 --assignee none
 
-# Change workflow status (routes to the transitions API under the hood)
-jtk issues update PROJ-123 --status Done
+# Change workflow status (routes to the transitions API under the hood).
+# Quote multi-word status names: --status "In Progress"
+jtk issues update PROJ-123 --status "Done"
 
 # Multi-value fields: repeat --field with the same key to accumulate values
 jtk issues update PROJ-123 --field customfield_10050=Option1 --field customfield_10050=Option2

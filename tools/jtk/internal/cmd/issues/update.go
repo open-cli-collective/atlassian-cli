@@ -51,8 +51,8 @@ preceding field edit must be performed as a separate command.`,
   # Change issue type
   jtk issues update PROJ-123 --type Story
 
-  # Change workflow status
-  jtk issues update PROJ-123 --status Done
+  # Change workflow status (quote multi-word names: --status "In Progress")
+  jtk issues update PROJ-123 --status "Done"
 
   # Move issue under a different parent/epic
   jtk issues update PROJ-123 --parent PROJ-100

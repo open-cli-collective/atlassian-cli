@@ -1,4 +1,8 @@
 // Package main is the entry point for the cfl (Confluence) CLI.
+//
+// Distribution is fully automated: merges to main with feat:/fix: prefixes
+// trigger auto-release, which runs GoReleaser (Homebrew + binary artifacts)
+// and dispatches the chocolatey and winget publish workflows.
 package main
 
 import (

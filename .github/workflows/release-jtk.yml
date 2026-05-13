@@ -69,12 +69,28 @@ jobs:
         env:
           TAP_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
 
-  # Chocolatey and winget publishing live in chocolatey-publish-jtk.yml and
-  # winget-publish-jtk.yml respectively (workflow_dispatch only). Keeping them
-  # out of this workflow avoids gating the release on Microsoft-hosted services
-  # (wingetcreate's fork-sync, choco push) that fail intermittently and don't
-  # block the actual binary/Homebrew artifacts. Run them manually after a
-  # release per .github/workflows/CLAUDE.md ("Publish workflows are manual").
+  # chocolatey-publish-jtk.yml and winget-publish-jtk.yml are dispatched
+  # automatically by the trigger-publish job below. They remain in separate
+  # workflow files (workflow_dispatch only) so Microsoft-hosted service
+  # flakiness in wingetcreate fork-sync or choco push does not gate the
+  # binary/Homebrew artifacts.
+
+  trigger-publish:
+    needs: goreleaser
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    permissions:
+      actions: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      VERSION: ${{ needs.goreleaser.outputs.version }}
+    steps:
+      - name: Trigger Chocolatey publish
+        continue-on-error: true
+        run: gh workflow run chocolatey-publish-jtk.yml -f version="$VERSION" --ref main --repo "$GITHUB_REPOSITORY"
+      - name: Trigger Winget publish
+        continue-on-error: true
+        run: gh workflow run winget-publish-jtk.yml -f version="$VERSION" --ref main --repo "$GITHUB_REPOSITORY"
 
   linux-packages:
     needs: goreleaser

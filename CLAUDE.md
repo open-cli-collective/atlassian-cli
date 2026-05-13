@@ -80,7 +80,7 @@ When a release-triggering commit is merged to main:
 3. A temporary semver tag (`v1.0.150`) is created for GoReleaser compatibility
 4. GoReleaser builds binaries, creates the GitHub release, and pushes the Homebrew cask
 5. The release is re-tagged from `v1.0.150` → `cfl-v1.0.150` and the temporary tag is deleted
-6. Chocolatey and Winget workflows publish packages
+6. The release workflow's `trigger-publish` job dispatches `chocolatey-publish-{tool}.yml` and `winget-publish-{tool}.yml` via `gh workflow run` (manual `workflow_dispatch` is retained as a fallback)
 
 **Fragile: tag rename and download URLs.** GoReleaser runs *before* the tag rename in step 5. Any GoReleaser-generated download URLs must use `url.template` to hardcode the final tool-prefixed tag — otherwise they'll reference the deleted temporary tag and 404. The `homebrew_casks` sections in `.goreleaser-{tool}.yml` have `url.template` set for this reason. If you add a new packaging integration that uses release download URLs, it must account for the tag rename.
 

@@ -19,11 +19,12 @@ jobs:
           iwr https://aka.ms/wingetcreate/latest -OutFile wingetcreate.exe
 
       - name: Update manifest
+        env:
+          WINGET_CREATE_GITHUB_TOKEN: ${{ secrets.WINGET_GITHUB_TOKEN }}
         run: |
           $version = "${{ inputs.version }}"
           $baseUrl = "https://github.com/open-cli-collective/atlassian-cli/releases/download/jtk-v$version"
           ./wingetcreate.exe update OpenCLICollective.jira-ticket-cli `
             --version $version `
             --urls "$baseUrl/jtk_${version}_windows_amd64.zip|x64" "$baseUrl/jtk_${version}_windows_arm64.zip|arm64" `
-            --submit `
-            --token ${{ secrets.WINGET_GITHUB_TOKEN }}
+            --submit

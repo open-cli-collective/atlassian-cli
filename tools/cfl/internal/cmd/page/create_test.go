@@ -960,3 +960,34 @@ func TestRunCreate_FileDash_EmptyStdin(t *testing.T) {
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "page content cannot be empty")
 }
+
+// "--file - --legacy" converts markdown stdin to storage XHTML.
+func TestRunCreate_FileDash_Stdin_Legacy(t *testing.T) {
+	t.Parallel()
+	var receivedBody map[string]any
+	server := mockCreateBodyServer(t, &receivedBody)
+	defer server.Close()
+
+	rootOpts := newCreateTestRootOptions()
+	rootOpts.Stdin = strings.NewReader("# Hello\n\nThis is **bold** text.")
+	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
+	opts := &createOptions{
+		Options: rootOpts,
+		space:   "DEV",
+		title:   "Test Page",
+		file:    "-",
+		legacy:  true,
+	}
+
+	err := runCreate(context.Background(), opts)
+	testutil.RequireNoError(t, err)
+
+	bodyMap := receivedBody["body"].(map[string]any)
+	storageMap := bodyMap["storage"].(map[string]any)
+	content := storageMap["value"].(string)
+	testutil.Contains(t, content, "<h1")
+	testutil.Contains(t, content, "<strong>bold</strong>")
+	testutil.Nil(t, bodyMap["atlas_doc_format"])
+}

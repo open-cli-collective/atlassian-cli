@@ -1661,20 +1661,8 @@ func TestRunEdit_FileDash_Stdin_NoMarkdown_ADF(t *testing.T) {
 // "--file -" with empty stdin still hits the empty-content guard.
 func TestRunEdit_FileDash_EmptyStdin(t *testing.T) {
 	t.Parallel()
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == "GET" {
-			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte(`{
-				"id": "12345",
-				"title": "Test",
-				"version": {"number": 1},
-				"body": {"storage": {"value": "<p>Old</p>"}},
-				"_links": {"webui": "/pages/12345"}
-			}`))
-			return
-		}
-		w.WriteHeader(http.StatusNotFound)
-	}))
+	var receivedBody map[string]any
+	server := mockEditBodyServer(t, &receivedBody)
 	defer server.Close()
 
 	rootOpts := newEditTestRootOptions()
@@ -1690,4 +1678,33 @@ func TestRunEdit_FileDash_EmptyStdin(t *testing.T) {
 	err := runEdit(context.Background(), opts)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "page content cannot be empty")
+}
+
+// "--file - --legacy" converts markdown stdin to storage XHTML.
+func TestRunEdit_FileDash_Stdin_Legacy(t *testing.T) {
+	t.Parallel()
+	var receivedBody map[string]any
+	server := mockEditBodyServer(t, &receivedBody)
+	defer server.Close()
+
+	rootOpts := newEditTestRootOptions()
+	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+	rootOpts.Stdin = strings.NewReader("# Heading\n\nSome **bold** text.")
+	opts := &editOptions{
+		Options: rootOpts,
+		pageID:  "12345",
+		file:    "-",
+		legacy:  true,
+	}
+
+	err := runEdit(context.Background(), opts)
+	testutil.RequireNoError(t, err)
+
+	bodyMap := receivedBody["body"].(map[string]any)
+	storageMap := bodyMap["storage"].(map[string]any)
+	content := storageMap["value"].(string)
+	testutil.Contains(t, content, "<h1")
+	testutil.Contains(t, content, "<strong>bold</strong>")
+	testutil.Nil(t, bodyMap["atlas_doc_format"])
 }

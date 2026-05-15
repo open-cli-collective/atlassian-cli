@@ -935,3 +935,28 @@ func TestRunCreate_FileDash_Stdin_NoMarkdown_ADF(t *testing.T) {
 	adfMap := bodyMap["atlas_doc_format"].(map[string]any)
 	testutil.Equal(t, adf, adfMap["value"].(string))
 }
+
+// "--file -" with empty stdin still hits the empty-content guard
+// (symmetric with TestRunEdit_FileDash_EmptyStdin).
+func TestRunCreate_FileDash_EmptyStdin(t *testing.T) {
+	t.Parallel()
+	var receivedBody map[string]any
+	server := mockCreateBodyServer(t, &receivedBody)
+	defer server.Close()
+
+	rootOpts := newCreateTestRootOptions()
+	rootOpts.Stdin = strings.NewReader("")
+	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
+	opts := &createOptions{
+		Options: rootOpts,
+		space:   "DEV",
+		title:   "Test Page",
+		file:    "-",
+	}
+
+	err := runCreate(context.Background(), opts)
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "page content cannot be empty")
+}

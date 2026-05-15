@@ -823,3 +823,115 @@ func TestRunCreate_WhitespaceOnlyFile(t *testing.T) {
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "page content cannot be empty")
 }
+
+// mockCreateBodyServer returns a server capturing the create request body.
+func mockCreateBodyServer(t *testing.T, received *map[string]any) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == "GET" && strings.Contains(r.URL.Path, "/spaces"):
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"results": [{"id": "123456", "key": "DEV"}]}`))
+		case r.Method == "POST" && strings.Contains(r.URL.Path, "/pages"):
+			body, _ := io.ReadAll(r.Body)
+			_ = json.Unmarshal(body, received)
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"id": "99999", "title": "Test", "version": {"number": 1}}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+}
+
+// "--file -" reads the body from stdin; the early os.Stat guard must not
+// treat "-" as a path (it would ENOENT).
+func TestRunCreate_FileDash_Stdin_ADF(t *testing.T) {
+	t.Parallel()
+	var receivedBody map[string]any
+	server := mockCreateBodyServer(t, &receivedBody)
+	defer server.Close()
+
+	rootOpts := newCreateTestRootOptions()
+	rootOpts.Stdin = strings.NewReader("# Hello\n\nThis is **bold** text.")
+	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
+	opts := &createOptions{
+		Options: rootOpts,
+		space:   "DEV",
+		title:   "Test Page",
+		file:    "-",
+	}
+
+	err := runCreate(context.Background(), opts)
+	testutil.RequireNoError(t, err)
+
+	bodyMap := receivedBody["body"].(map[string]any)
+	adfMap := bodyMap["atlas_doc_format"].(map[string]any)
+	content := adfMap["value"].(string)
+	testutil.Contains(t, content, `"type":"doc"`)
+	testutil.Contains(t, content, `"type":"heading"`)
+	testutil.Contains(t, content, `"type":"strong"`)
+}
+
+// "--file - --storage" pipes raw storage XHTML through unchanged.
+func TestRunCreate_FileDash_Stdin_Storage(t *testing.T) {
+	t.Parallel()
+	var receivedBody map[string]any
+	server := mockCreateBodyServer(t, &receivedBody)
+	defer server.Close()
+
+	rootOpts := newCreateTestRootOptions()
+	rootOpts.Stdin = strings.NewReader(`<p>Storage content</p>`)
+	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
+	useMd := false
+	opts := &createOptions{
+		Options:  rootOpts,
+		space:    "DEV",
+		title:    "Test Page",
+		file:     "-",
+		storage:  true,
+		markdown: &useMd,
+	}
+
+	err := runCreate(context.Background(), opts)
+	testutil.RequireNoError(t, err)
+
+	bodyMap := receivedBody["body"].(map[string]any)
+	storageMap := bodyMap["storage"].(map[string]any)
+	testutil.Equal(t, "<p>Storage content</p>", storageMap["value"].(string))
+	testutil.Nil(t, bodyMap["atlas_doc_format"])
+}
+
+// "--file - --no-markdown" passes raw ADF JSON through to atlas_doc_format
+// unconverted (the shape INT-425's create_page(format="adf") relies on).
+func TestRunCreate_FileDash_Stdin_NoMarkdown_ADF(t *testing.T) {
+	t.Parallel()
+	var receivedBody map[string]any
+	server := mockCreateBodyServer(t, &receivedBody)
+	defer server.Close()
+
+	adf := `{"type":"doc","version":1,"content":[]}`
+	rootOpts := newCreateTestRootOptions()
+	rootOpts.Stdin = strings.NewReader(adf)
+	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
+	useMd := false
+	opts := &createOptions{
+		Options:  rootOpts,
+		space:    "DEV",
+		title:    "Test Page",
+		file:     "-",
+		markdown: &useMd,
+	}
+
+	err := runCreate(context.Background(), opts)
+	testutil.RequireNoError(t, err)
+
+	bodyMap := receivedBody["body"].(map[string]any)
+	adfMap := bodyMap["atlas_doc_format"].(map[string]any)
+	testutil.Equal(t, adf, adfMap["value"].(string))
+}

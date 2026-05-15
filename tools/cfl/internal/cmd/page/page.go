@@ -2,10 +2,22 @@
 package page
 
 import (
+	"io"
+	"os"
+
 	"github.com/spf13/cobra"
 
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
 )
+
+// stdinReader returns the reader to use for `--file -` content. Tests inject
+// a reader via root.Options.Stdin; in production it defaults to os.Stdin.
+func stdinReader(o *root.Options) io.Reader {
+	if o != nil && o.Stdin != nil {
+		return o.Stdin
+	}
+	return os.Stdin
+}
 
 // Register adds page commands to the root command.
 func Register(rootCmd *cobra.Command, opts *root.Options) {

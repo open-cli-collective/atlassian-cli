@@ -40,7 +40,7 @@ By default, pages are created using the cloud editor format (ADF).
 Use --legacy to create pages in the legacy editor format.
 
 Content can be provided via:
-- --file flag to read from a file
+- --file flag to read from a file (use --file - to read from stdin)
 - Standard input (pipe content)
 - Interactive editor (default, or with --editor flag)
 
@@ -64,6 +64,9 @@ Content format:
 
   # Create from stdin (markdown)
   echo "# Hello World" | cfl page create -s DEV -t "My Page"
+
+  # Create from stdin via explicit --file - (e.g. piping HTML as storage)
+  echo "<p>Hello</p>" | cfl page create -s DEV -t "My Page" --file - --storage
 
   # Create from stdin with legacy format (XHTML)
   echo "<p>Hello</p>" | cfl page create -s DEV -t "My Page" --no-markdown --legacy
@@ -106,8 +109,9 @@ Content format:
 
 func runCreate(ctx context.Context, opts *createOptions) error {
 	// Validate file exists before making any network calls so we fail
-	// fast on bad input without needing config or API access.
-	if opts.file != "" {
+	// fast on bad input without needing config or API access. "-" means
+	// stdin, which has no path to stat.
+	if opts.file != "" && opts.file != "-" {
 		if _, err := os.Stat(opts.file); err != nil {
 			return fmt.Errorf("reading file: %w", err)
 		}
@@ -224,6 +228,14 @@ func getContent(opts *createOptions) (string, bool, error) {
 			}
 		}
 		return true
+	}
+
+	if opts.file == "-" {
+		data, err := io.ReadAll(stdinReader(opts.Options))
+		if err != nil {
+			return "", false, fmt.Errorf("reading stdin: %w", err)
+		}
+		return string(data), useMarkdown(""), nil
 	}
 
 	if opts.file != "" {

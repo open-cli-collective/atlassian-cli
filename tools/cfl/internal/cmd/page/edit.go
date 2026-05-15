@@ -41,7 +41,7 @@ By default, pages are updated using the cloud editor format (ADF).
 Use --legacy to update pages in the legacy editor format.
 
 Content can be provided via:
-- --file flag to read from a file
+- --file flag to read from a file (use --file - to read from stdin)
 - Standard input (pipe content)
 - Interactive editor (default, or with --editor flag)
 
@@ -62,6 +62,9 @@ Content format:
 
   # Update page content from stdin
   echo "# Updated Content" | cfl page edit 12345
+
+  # Update from stdin via explicit --file - (e.g. piping HTML as storage)
+  echo "<p>Updated</p>" | cfl page edit 12345 --file - --storage
 
   # Update page title only
   cfl page edit 12345 --title "New Title"
@@ -110,8 +113,9 @@ Content format:
 
 func runEdit(ctx context.Context, opts *editOptions) error {
 	// Validate file exists before making any network calls so we fail
-	// fast on bad input without needing config or API access.
-	if opts.file != "" {
+	// fast on bad input without needing config or API access. "-" means
+	// stdin, which has no path to stat.
+	if opts.file != "" && opts.file != "-" {
 		if _, err := os.Stat(opts.file); err != nil {
 			return fmt.Errorf("reading file: %w", err)
 		}
@@ -279,6 +283,14 @@ func getEditContent(opts *editOptions, existingPage *api.Page) (string, bool, er
 			}
 		}
 		return true
+	}
+
+	if opts.file == "-" {
+		data, err := io.ReadAll(stdinReader(opts.Options))
+		if err != nil {
+			return "", false, fmt.Errorf("reading stdin: %w", err)
+		}
+		return string(data), useMarkdown(""), nil
 	}
 
 	if opts.file != "" {

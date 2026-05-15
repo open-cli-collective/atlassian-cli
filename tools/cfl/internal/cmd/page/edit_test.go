@@ -1539,3 +1539,155 @@ func TestRunEdit_ADFPage_NewContent(t *testing.T) {
 	adfMap := bodyMap["atlas_doc_format"].(map[string]any)
 	testutil.Contains(t, adfMap["value"].(string), "Updated Content")
 }
+
+// mockEditBodyServer returns a server serving an existing page on GET and
+// capturing the PUT update body.
+func mockEditBodyServer(t *testing.T, received *map[string]any) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case "GET":
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{
+				"id": "12345",
+				"title": "Test",
+				"version": {"number": 1},
+				"body": {"storage": {"value": "<p>Old</p>"}},
+				"_links": {"webui": "/pages/12345"}
+			}`))
+		case "PUT":
+			body, _ := io.ReadAll(r.Body)
+			_ = json.Unmarshal(body, received)
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{
+				"id": "12345",
+				"title": "Test",
+				"version": {"number": 2},
+				"_links": {"webui": "/pages/12345"}
+			}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+}
+
+// "--file -" reads the edit body from stdin; the early os.Stat guard must
+// not treat "-" as a path.
+func TestRunEdit_FileDash_Stdin_ADF(t *testing.T) {
+	t.Parallel()
+	var receivedBody map[string]any
+	server := mockEditBodyServer(t, &receivedBody)
+	defer server.Close()
+
+	rootOpts := newEditTestRootOptions()
+	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+	rootOpts.Stdin = strings.NewReader("# Heading\n\nSome **bold** text.")
+	opts := &editOptions{
+		Options: rootOpts,
+		pageID:  "12345",
+		file:    "-",
+	}
+
+	err := runEdit(context.Background(), opts)
+	testutil.RequireNoError(t, err)
+
+	bodyMap := receivedBody["body"].(map[string]any)
+	adfMap := bodyMap["atlas_doc_format"].(map[string]any)
+	content := adfMap["value"].(string)
+	testutil.Contains(t, content, `"type":"doc"`)
+	testutil.Contains(t, content, `"type":"heading"`)
+	testutil.Contains(t, content, `"type":"strong"`)
+}
+
+// "--file - --storage" pipes raw storage XHTML through unchanged.
+func TestRunEdit_FileDash_Stdin_Storage(t *testing.T) {
+	t.Parallel()
+	var receivedBody map[string]any
+	server := mockEditBodyServer(t, &receivedBody)
+	defer server.Close()
+
+	rootOpts := newEditTestRootOptions()
+	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+	rootOpts.Stdin = strings.NewReader(`<p>Updated storage</p>`)
+	useMd := false
+	opts := &editOptions{
+		Options:  rootOpts,
+		pageID:   "12345",
+		file:     "-",
+		storage:  true,
+		markdown: &useMd,
+	}
+
+	err := runEdit(context.Background(), opts)
+	testutil.RequireNoError(t, err)
+
+	bodyMap := receivedBody["body"].(map[string]any)
+	storageMap := bodyMap["storage"].(map[string]any)
+	testutil.Equal(t, "<p>Updated storage</p>", storageMap["value"].(string))
+	testutil.Nil(t, bodyMap["atlas_doc_format"])
+}
+
+// "--file - --no-markdown" passes raw ADF JSON through to atlas_doc_format
+// unconverted (the shape INT-425's edit_page(format="adf") relies on).
+func TestRunEdit_FileDash_Stdin_NoMarkdown_ADF(t *testing.T) {
+	t.Parallel()
+	var receivedBody map[string]any
+	server := mockEditBodyServer(t, &receivedBody)
+	defer server.Close()
+
+	adf := `{"type":"doc","version":1,"content":[]}`
+	rootOpts := newEditTestRootOptions()
+	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+	rootOpts.Stdin = strings.NewReader(adf)
+	useMd := false
+	opts := &editOptions{
+		Options:  rootOpts,
+		pageID:   "12345",
+		file:     "-",
+		markdown: &useMd,
+	}
+
+	err := runEdit(context.Background(), opts)
+	testutil.RequireNoError(t, err)
+
+	bodyMap := receivedBody["body"].(map[string]any)
+	adfMap := bodyMap["atlas_doc_format"].(map[string]any)
+	testutil.Equal(t, adf, adfMap["value"].(string))
+}
+
+// "--file -" with empty stdin still hits the empty-content guard.
+func TestRunEdit_FileDash_EmptyStdin(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "GET" {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{
+				"id": "12345",
+				"title": "Test",
+				"version": {"number": 1},
+				"body": {"storage": {"value": "<p>Old</p>"}},
+				"_links": {"webui": "/pages/12345"}
+			}`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	rootOpts := newEditTestRootOptions()
+	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+	rootOpts.Stdin = strings.NewReader("")
+	opts := &editOptions{
+		Options: rootOpts,
+		pageID:  "12345",
+		file:    "-",
+	}
+
+	err := runEdit(context.Background(), opts)
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "page content cannot be empty")
+}

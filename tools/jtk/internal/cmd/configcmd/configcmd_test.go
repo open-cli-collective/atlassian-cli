@@ -5,6 +5,8 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -28,12 +30,12 @@ func newTestRootOptions() *root.Options {
 }
 
 func TestShowCmd_TableOutput(t *testing.T) {
+	credtest.Hermetic(t) // deterministic file keyring; clears token env
 	t.Setenv("JIRA_URL", "https://test.atlassian.net")
 	t.Setenv("JIRA_EMAIL", "test@example.com")
 	t.Setenv("JIRA_API_TOKEN", "token123456")
 	t.Setenv("ATLASSIAN_URL", "")
 	t.Setenv("ATLASSIAN_EMAIL", "")
-	t.Setenv("ATLASSIAN_API_TOKEN", "")
 
 	opts := newTestRootOptions()
 
@@ -44,6 +46,26 @@ func TestShowCmd_TableOutput(t *testing.T) {
 	stdout := opts.Stdout.(*bytes.Buffer).String()
 	testutil.Contains(t, stdout, "Config file:")
 	testutil.Contains(t, stdout, "test@example.com")
+	// The token value (here from env) must never be rendered.
+	testutil.NotContains(t, stdout, "token123456")
+	testutil.Contains(t, stdout, "configured")
+}
+
+func TestRunClear_All(t *testing.T) {
+	xdg := credtest.Hermetic(t)
+	credtest.SeedToken(t, keyring.KeyAPIToken, "shared-secret")
+
+	sharedPath := filepath.Join(xdg, "atlassian-cli", "config.yml")
+	testutil.RequireNoError(t, os.MkdirAll(filepath.Dir(sharedPath), 0o700))
+	testutil.RequireNoError(t, os.WriteFile(sharedPath, []byte("default:\n  url: https://x\n"), 0o600))
+
+	opts, _, _ := newClearOpts(t, true, "")
+	opts.all = true
+	testutil.RequireNoError(t, runClear(context.Background(), opts))
+
+	testutil.False(t, jtkTokenPresent(t, keyring.KeyAPIToken))
+	_, statErr := os.Stat(sharedPath)
+	testutil.True(t, os.IsNotExist(statErr))
 }
 
 func TestNewTestCmd_Success(t *testing.T) {

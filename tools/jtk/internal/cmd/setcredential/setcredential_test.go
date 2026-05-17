@@ -36,3 +36,21 @@ func TestSetCredential_StdinStoresToKeyring(t *testing.T) {
 	testutil.True(t, ok)
 	testutil.Equal(t, "jtk-wrapper-token", got)
 }
+
+// jtk must refuse the sibling's override key (storing it would leave a
+// token jtk never resolves).
+func TestSetCredential_RejectsSiblingKey(t *testing.T) {
+	credtest.Hermetic(t)
+
+	opts := &root.Options{
+		Stdin:  strings.NewReader("x\n"),
+		Stdout: &bytes.Buffer{},
+		Stderr: &bytes.Buffer{},
+	}
+	rootCmd := &cobra.Command{Use: "jtk"}
+	Register(rootCmd, opts)
+	rootCmd.SetArgs([]string{"set-credential", "--key", keyring.KeyCFLAPIToken})
+	if err := rootCmd.Execute(); err == nil {
+		t.Fatal("expected jtk set-credential --key cfl_api_token to be rejected")
+	}
+}

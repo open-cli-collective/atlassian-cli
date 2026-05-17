@@ -201,6 +201,86 @@ func TestMigration_LegacyFiles_ScrubAndIdempotent(t *testing.T) {
 	}
 }
 
+// ClearAll must FAIL LOUD (naming the path) when a surviving legacy file
+// is unparseable — never claim success while plaintext may remain.
+func TestClearAll_FailsLoudOnUnparseableLegacy(t *testing.T) {
+	hermetic(t)
+	if err := SetCredential(strings.NewReader(secret), KeyAPIToken, ""); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	cflPath := credstore.LegacyCFLPath()
+	if err := os.MkdirAll(filepath.Dir(cflPath), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	// Not valid YAML and not valid JSON.
+	if err := os.WriteFile(cflPath, []byte(":::not yaml: ["), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	err := ClearAll()
+	if err == nil {
+		t.Fatal("ClearAll must fail loud on an unparseable legacy file")
+	}
+	if !strings.Contains(err.Error(), cflPath) {
+		t.Fatalf("error must name the offending path; got: %v", err)
+	}
+	// The corrupt file is left in place (user-removable), not silently
+	// destroyed.
+	if _, statErr := os.Stat(cflPath); statErr != nil {
+		t.Fatalf("corrupt legacy file should remain for manual removal: %v", statErr)
+	}
+}
+
+// A legacy token shadowed by a non-empty shared default is scrub-only:
+// no override key written, and (since nothing was relocated to a NEW
+// key beyond the default) the file is still scrubbed.
+func TestMigration_ShadowedLegacy_ScrubOnly(t *testing.T) {
+	dir := hermetic(t)
+	sharedPath := filepath.Join(dir, "atlassian-cli", "config.yml")
+	if err := os.MkdirAll(filepath.Dir(sharedPath), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(sharedPath,
+		[]byte("default:\n  url: https://acme.atlassian.net\n  api_token: DEFAULT-"+secret+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cflPath := credstore.LegacyCFLPath()
+	if err := os.MkdirAll(filepath.Dir(cflPath), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(cflPath,
+		[]byte("url: https://acme.atlassian.net\napi_token: SHADOWED-"+secret+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := EnsureMigrated(); err != nil {
+		t.Fatalf("EnsureMigrated: %v", err)
+	}
+	s, err := OpenNoMigrate()
+	if err != nil {
+		t.Fatalf("OpenNoMigrate: %v", err)
+	}
+	defer func() { _ = s.Close() }()
+
+	if _, ok, _ := s.get(KeyCFLAPIToken); ok {
+		t.Fatal("shadowed legacy value must NOT be written to cfl_api_token")
+	}
+	if v, ok, _ := s.get(KeyAPIToken); !ok || v != "DEFAULT-"+secret {
+		t.Fatalf("api_token: got=%q ok=%v", v, ok)
+	}
+	// Both plaintext sources scrubbed even though the legacy file's value
+	// was dead data.
+	for _, p := range []string{sharedPath, cflPath} {
+		raw, rerr := os.ReadFile(p) //nolint:gosec // G304: test reads its own temp file
+		if rerr != nil {
+			t.Fatal(rerr)
+		}
+		if strings.Contains(string(raw), secret) {
+			t.Fatalf("%s not scrubbed:\n%s", p, raw)
+		}
+	}
+}
+
 // InspectForTool must report presence/source/backend without ever
 // returning the token value.
 func TestInspectForTool_NoValue(t *testing.T) {

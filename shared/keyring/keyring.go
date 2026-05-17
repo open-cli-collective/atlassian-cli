@@ -213,12 +213,21 @@ func (s *Store) ClearBundle() error {
 // holds the token, so there is no io.Reader to read from). No migration
 // runs: init calls EnsureMigrated up front, so the §1.8 source is already
 // resolved before the new token is written.
-func PersistToken(key, token string) error {
+func PersistToken(key, token string) (err error) {
 	s, err := openCanonical()
 	if err != nil {
 		return err
 	}
-	defer func() { _ = s.Close() }()
+	// Surface the Close error on this WRITE path: the encrypted-file
+	// backend may flush/sync on Close, so a swallowed Close error after a
+	// "successful" SetToken could mean the token was never durably
+	// written. Read-only callers (HasTokenForTool, EnsureMigrated) keep
+	// the cheap discard — there a Close error changes nothing.
+	defer func() {
+		if cerr := s.Close(); cerr != nil && err == nil {
+			err = fmt.Errorf("persist token: close keyring %s: %w", s.ref, cerr)
+		}
+	}()
 	return s.SetToken(key, token)
 }
 

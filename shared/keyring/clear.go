@@ -2,6 +2,7 @@ package keyring
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -56,7 +57,12 @@ type ClearPlan struct {
 // the (file/env-populated) plan so the caller can decide: `--all`
 // proceeds with file cleanup; a default single-key clear hard-fails.
 //
-// The caller owns the returned *Store and must Close it when non-nil.
+// Store-ownership contract: a NON-NIL returned *Store is open and owned
+// by the caller, which MUST Close it (the cobra wrappers do so with a
+// `if store != nil { defer store.Close() }`). On every error path the
+// store is closed internally and nil is returned, so the rule is simply
+// "Close it iff it is non-nil" — never both close-internally and
+// transfer.
 func PlanClear(tool string) (ClearPlan, *Store, error) {
 	p := ClearPlan{Ref: Ref}
 
@@ -131,21 +137,24 @@ func ClearAll(store *Store) (bundleCleared bool, err error) {
 // ClearFiles removes the shared non-secret config file and scrubs any
 // surviving pre-migration legacy plaintext files. It is keyring-
 // independent so the `--all` recovery path can clean plaintext even when
-// the keyring cannot be opened. Legacy scrub runs before the shared
-// config removal; an unparseable legacy file is a fail-loud stop.
+// the keyring cannot be opened. Every source is attempted even if an
+// earlier one fails, and all failures are reported together (errors.Join)
+// so a single unparseable file does not hide — or block cleanup of — the
+// others; the joined error still names each offending path.
 func ClearFiles() error {
+	var errs []error
 	if err := scrubLegacyFile(credstore.LegacyCFLPath()); err != nil {
-		return err
+		errs = append(errs, err)
 	}
 	if err := scrubLegacyFile(credstore.LegacyJTKPath()); err != nil {
-		return err
+		errs = append(errs, err)
 	}
 	if sp := credstore.DefaultPath(); fileExists(sp) {
 		if err := os.Remove(sp); err != nil && !os.IsNotExist(err) {
-			return err
+			errs = append(errs, err)
 		}
 	}
-	return nil
+	return errors.Join(errs...)
 }
 
 func fileExists(path string) bool {

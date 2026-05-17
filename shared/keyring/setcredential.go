@@ -21,7 +21,7 @@ import (
 // The token is never echoed: it is read, trimmed, and written; no caller
 // branch logs or returns it. The one-time §1.8 migration runs first so a
 // pre-existing legacy token cannot later collide.
-func SetCredential(in io.Reader, key, envVar string) error {
+func SetCredential(in io.Reader, key, envVar string) (err error) {
 	if !slices.Contains(allowedKeys, key) {
 		return fmt.Errorf("unknown credential key %q (allowed: %s)",
 			key, strings.Join(allowedKeys, ", "))
@@ -59,6 +59,13 @@ func SetCredential(in io.Reader, key, envVar string) error {
 	if err != nil {
 		return err
 	}
-	defer func() { _ = s.Close() }()
+	// WRITE path: surface the Close error (the file backend may flush on
+	// Close) so a swallowed Close after a "successful" SetToken cannot
+	// hide a non-durable write.
+	defer func() {
+		if cerr := s.Close(); cerr != nil && err == nil {
+			err = fmt.Errorf("set-credential: close keyring %s: %w", s.ref, cerr)
+		}
+	}()
 	return s.SetToken(key, token)
 }

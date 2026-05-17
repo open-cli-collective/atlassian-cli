@@ -25,7 +25,9 @@ func hermetic(t *testing.T) string {
 		t.Setenv(v, "")
 	}
 	ResetMigrationNotice()
+	ResetCorruptWarnOnce()
 	t.Cleanup(ResetMigrationNotice)
+	t.Cleanup(ResetCorruptWarnOnce)
 	return dir
 }
 
@@ -328,5 +330,61 @@ func TestInspectForTool_NoValue(t *testing.T) {
 		strings.Contains(info.Backend, secret) ||
 		strings.Contains(info.BackendSource, secret) {
 		t.Fatalf("InspectForTool leaked the secret: %+v", info)
+	}
+}
+
+// TestResolveToken_CorruptSharedConfig_DegradesGracefully covers the
+// graceful-degradation path: a malformed shared config.yml must NOT
+// de-authenticate commands — the token still resolves from the keyring,
+// and the user is warned exactly once across repeated resolves (the
+// one-shot guard), with no secret in the warning text.
+func TestResolveToken_CorruptSharedConfig_DegradesGracefully(t *testing.T) {
+	dir := hermetic(t)
+	if err := SetCredential(strings.NewReader(secret), KeyAPIToken, ""); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	sharedPath := filepath.Join(dir, "atlassian-cli", "config.yml")
+	if err := os.MkdirAll(filepath.Dir(sharedPath), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	// Neither valid YAML nor JSON → credstore.Load wraps ErrCorruptStore.
+	if err := os.WriteFile(sharedPath, []byte(":::not yaml: ["), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	// Capture stderr to assert the warning fires exactly once across two
+	// resolves (the mutex-guarded one-shot).
+	tmp, err := os.CreateTemp(dir, "stderr")
+	if err != nil {
+		t.Fatal(err)
+	}
+	orig := os.Stderr
+	os.Stderr = tmp
+	defer func() { os.Stderr = orig }()
+
+	for i := 0; i < 2; i++ {
+		got, src, rerr := ResolveToken(ToolCFL)
+		if rerr != nil {
+			t.Fatalf("ResolveToken must degrade gracefully on a corrupt shared config; got error: %v", rerr)
+		}
+		if got != secret {
+			t.Fatalf("token must still resolve from the keyring; got %q", got)
+		}
+		if src != SourceKeyAPI {
+			t.Fatalf("source must be the keyring api_token; got %q", src)
+		}
+	}
+
+	os.Stderr = orig
+	_ = tmp.Close()
+	out, rerr := os.ReadFile(tmp.Name())
+	if rerr != nil {
+		t.Fatal(rerr)
+	}
+	if n := strings.Count(string(out), "shared config store is unreadable"); n != 1 {
+		t.Fatalf("warning must fire exactly once across two resolves; got %d\n%s", n, out)
+	}
+	if strings.Contains(string(out), secret) {
+		t.Fatal("warning text leaked the secret")
 	}
 }

@@ -291,7 +291,8 @@ func finalizeInit(
 		tokenKey = keyring.KeyFor(credstore.ToolCFL)
 	}
 	if err := keyring.PersistToken(tokenKey, cfg.APIToken); err != nil {
-		v.Error("Saved config but could not store the API token securely: %v", err)
+		v.Error("Saved the non-secret config to %s, but could not store the API token in the keyring: %v", sharedPath, err)
+		v.Error("Recover by storing just the token (no need to re-run init): `cfl set-credential` (reads stdin or --from-env VAR).")
 		return err
 	}
 	v.Success("Configuration saved to %s (token stored in the OS keyring)", sharedPath)

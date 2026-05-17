@@ -1,15 +1,11 @@
 package keyring
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"sort"
 	"strings"
-
-	"gopkg.in/yaml.v3"
 
 	cccredstore "github.com/open-cli-collective/cli-common/credstore"
 
@@ -107,13 +103,19 @@ func migrateLegacyOverwrite(s *Store, overwrite bool) error {
 	if err := scrubSharedStore(store, sharedPath); err != nil {
 		return fmt.Errorf("migrated to keyring %s but could not scrub %s: %w", s.ref, sharedPath, err)
 	}
+	// Scrub the legacy files via the SAME generic map round-trip
+	// `config clear` uses (scrubLegacyFile): it deletes only api_token
+	// and preserves every other key verbatim — including fields a user
+	// hand-added or a future schema introduces. A hardcoded
+	// field-allowlist rewrite would silently drop those during this
+	// one-time, irreversible migration.
 	if legacyCFL != nil && legacyCFL.APIToken != "" {
-		if err := scrubLegacyCFL(legacyCFL); err != nil {
+		if err := scrubLegacyFile(cflPath); err != nil {
 			return fmt.Errorf("migrated to keyring %s but could not scrub %s: %w", s.ref, cflPath, err)
 		}
 	}
 	if legacyJTK != nil && legacyJTK.APIToken != "" {
-		if err := scrubLegacyJTK(legacyJTK); err != nil {
+		if err := scrubLegacyFile(jtkPath); err != nil {
 			return fmt.Errorf("migrated to keyring %s but could not scrub %s: %w", s.ref, jtkPath, err)
 		}
 	}
@@ -153,18 +155,26 @@ func gatherEffective(store *credstore.Store, lc, lj *credstore.LegacyCreds) (wan
 	want = map[string]string{}
 	locs = map[string]string{}
 
+	// Location strings name the concrete plaintext file so a conflict
+	// error tells the user exactly which file still holds a secret to
+	// remove/scrub — no separate diagnostic step.
+	sharedPath := credstore.DefaultPath()
+
 	effDefault := store.Default.APIToken
 	if effDefault != "" {
 		want[KeyAPIToken] = effDefault
-		locs[KeyAPIToken] = "shared config default"
+		locs[KeyAPIToken] = "shared config default (" + sharedPath + ")"
 	}
 
 	lcTok, ljTok := "", ""
+	lcPath, ljPath := "", ""
 	if lc != nil {
 		lcTok = lc.APIToken
+		lcPath = lc.Path
 	}
 	if lj != nil {
 		ljTok = lj.APIToken
+		ljPath = lj.Path
 	}
 	if effDefault != "" || store.CFL.APIToken != "" || store.JTK.APIToken != "" ||
 		lcTok != "" || ljTok != "" {
@@ -176,11 +186,11 @@ func gatherEffective(store *credstore.Store, lc, lj *credstore.LegacyCreds) (wan
 	// override outranks the legacy file, so a legacy-file value is only
 	// reachable when the Store override is empty AND no default shadows it.
 	cflOwn, cflLoc := firstNonEmptyLoc(
-		store.CFL.APIToken, "shared cfl override",
-		shadowed(lcTok, effDefault), "legacy cfl config")
+		store.CFL.APIToken, "shared cfl override ("+sharedPath+")",
+		shadowed(lcTok, effDefault), "legacy cfl config ("+lcPath+")")
 	jtkOwn, jtkLoc := firstNonEmptyLoc(
-		store.JTK.APIToken, "shared jtk override",
-		shadowed(ljTok, effDefault), "legacy jtk config")
+		store.JTK.APIToken, "shared jtk override ("+sharedPath+")",
+		shadowed(ljTok, effDefault), "legacy jtk config ("+ljPath+")")
 
 	if cflOwn != "" && cflOwn != effDefault {
 		want[KeyCFLAPIToken] = cflOwn
@@ -263,63 +273,7 @@ func scrubSharedStore(store *credstore.Store, path string) error {
 	return store.Save(path)
 }
 
-// scrubLegacyCFL rewrites the cfl legacy YAML without api_token, keeping
-// the other (non-secret) fields so the file still works as a fallback.
-func scrubLegacyCFL(lc *credstore.LegacyCreds) error {
-	out := map[string]string{}
-	put := func(k, v string) {
-		if v != "" {
-			out[k] = v
-		}
-	}
-	put("url", lc.URL)
-	put("email", lc.Email)
-	put("auth_method", lc.AuthMethod)
-	put("cloud_id", lc.CloudID)
-	put("default_space", lc.DefaultSpace)
-	put("output_format", lc.OutputFormat)
-	data, err := yaml.Marshal(out)
-	if err != nil {
-		return err
-	}
-	return writeScrubbed(lc.Path, data)
-}
-
-// scrubLegacyJTK rewrites the jtk legacy JSON without api_token.
-func scrubLegacyJTK(lj *credstore.LegacyCreds) error {
-	out := map[string]string{}
-	put := func(k, v string) {
-		if v != "" {
-			out[k] = v
-		}
-	}
-	put("url", lj.URL)
-	put("email", lj.Email)
-	put("auth_method", lj.AuthMethod)
-	put("cloud_id", lj.CloudID)
-	put("default_project", lj.DefaultProject)
-	data, err := json.MarshalIndent(out, "", "  ")
-	if err != nil {
-		return err
-	}
-	return writeScrubbed(lj.Path, data)
-}
-
-func writeScrubbed(path string, data []byte) error {
-	if path == "" {
-		return nil
-	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-		return err
-	}
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, data, 0o600); err != nil { //nolint:gosec // G306: 0600 is correct for a config file
-		_ = os.Remove(tmp)
-		return err
-	}
-	if err := os.Rename(tmp, path); err != nil {
-		_ = os.Remove(tmp)
-		return err
-	}
-	return nil
-}
+// (Legacy-file scrubbing is the generic, field-preserving scrubLegacyFile
+// in clear.go — shared by both the migration and `config clear` paths so
+// the "delete only api_token, keep everything else" guarantee lives in
+// exactly one implementation.)

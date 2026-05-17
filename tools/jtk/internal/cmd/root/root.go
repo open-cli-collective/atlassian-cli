@@ -88,10 +88,14 @@ func (o *Options) APIClient() (*api.Client, error) {
 	if o.cachedClient != nil {
 		return o.cachedClient, nil
 	}
+	token, err := config.ResolveAPIToken()
+	if err != nil {
+		return nil, err
+	}
 	c, err := api.New(api.ClientConfig{
 		URL:        config.GetURL(),
 		Email:      config.GetEmail(),
-		APIToken:   config.GetAPIToken(),
+		APIToken:   token,
 		Verbose:    o.Verbose,
 		AuthMethod: config.GetAuthMethod(),
 		CloudID:    config.GetCloudID(),

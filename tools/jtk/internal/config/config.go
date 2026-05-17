@@ -11,6 +11,7 @@ import (
 
 	"github.com/open-cli-collective/atlassian-go/auth"
 	"github.com/open-cli-collective/atlassian-go/credstore"
+	"github.com/open-cli-collective/atlassian-go/keyring"
 	"github.com/open-cli-collective/atlassian-go/url"
 )
 
@@ -110,7 +111,13 @@ func Save(cfg *Config) error {
 		return fmt.Errorf("creating config directory: %w", err)
 	}
 
-	data, err := json.MarshalIndent(cfg, "", "  ") //nolint:gosec // config file intentionally stores API token
+	// Save-projection: the API token lives in the OS keyring, never the
+	// plaintext config file. Strip it before marshaling so no Save path
+	// can persist the secret. Load still parses a legacy api_token so the
+	// one-time keyring migration can find it (asymmetric codec).
+	toWrite := *cfg
+	toWrite.APIToken = ""
+	data, err := json.MarshalIndent(&toWrite, "", "  ")
 	if err != nil {
 		return fmt.Errorf("marshaling config: %w", err)
 	}
@@ -197,31 +204,38 @@ func GetEmail() string {
 	return cfg.Email
 }
 
-// GetAPIToken returns the API token from config or environment.
-// Precedence: JIRA_API_TOKEN → ATLASSIAN_API_TOKEN → shared jtk override → shared default → legacy config api_token.
+// ResolveAPIToken is the AUTHORITATIVE runtime token resolver: env
+// (JIRA_API_TOKEN → ATLASSIAN_API_TOKEN) then the OS keyring, running the
+// one-time §1.8 migration. A keyring error PROPAGATES — it must never be
+// folded into an empty token (that would silently de-authenticate every
+// command). This is the single migrating entry point; APIClient uses it.
+func ResolveAPIToken() (string, error) {
+	tok, _, err := keyring.ResolveToken(credstore.ToolJTK)
+	return tok, err
+}
+
+// GetAPIToken returns the API token via the NON-migrating keyring path
+// (env → keyring), swallowing keyring errors to an empty string. It is
+// used only by diagnostics (`config show` source column) and the
+// IsConfigured gate; the authoritative, error-propagating path is
+// ResolveAPIToken. The token is no longer read from the plaintext config
+// file or shared store.
 func GetAPIToken() string {
-	if v := os.Getenv("JIRA_API_TOKEN"); v != "" {
-		return v
-	}
-	if v := os.Getenv("ATLASSIAN_API_TOKEN"); v != "" {
-		return v
-	}
-	if v := jtkSection().APIToken; v != "" {
-		return v
-	}
-	cfg, err := Load()
+	tok, _, err := keyring.ResolveTokenNoMigrate(credstore.ToolJTK)
 	if err != nil {
 		return ""
 	}
-	return cfg.APIToken
+	return tok
 }
 
-// IsConfigured returns true if all required config values are set.
-// For bearer auth: URL + API token + Cloud ID are required (no email).
-// For basic auth: URL + email + API token are required.
+// IsConfigured returns true if the NON-SECRET config is complete and a
+// token is resolvable (env or keyring, non-migrating). The token left
+// the plaintext config store, so completeness is composed from both
+// halves. For bearer auth: URL + Cloud ID + token; for basic: URL +
+// email + token.
 func IsConfigured() bool {
 	if GetAuthMethod() == auth.AuthMethodBearer {
-		return GetURL() != "" && GetAPIToken() != "" && GetCloudID() != ""
+		return GetURL() != "" && GetCloudID() != "" && GetAPIToken() != ""
 	}
 	return GetURL() != "" && GetEmail() != "" && GetAPIToken() != ""
 }

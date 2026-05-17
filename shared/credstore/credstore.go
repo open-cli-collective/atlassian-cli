@@ -1,11 +1,16 @@
-// Package credstore reads and writes the shared Atlassian credential
-// store at ~/.config/atlassian-cli/config.yml. The store has a single
+// Package credstore reads and writes the shared Atlassian NON-SECRET
+// config at ~/.config/atlassian-cli/config.yml. The store has a single
 // "default" section that both cfl and jtk consume, plus optional
 // "cfl" and "jtk" sections that hold per-tool overrides (full or partial).
 //
-// Credential resolution is per-field merge (tool override beats default,
-// any unset field falls through), so a partial override — say, just a
-// different api_token for cfl — is fully supported.
+// The API token is NOT persisted here — it lives in the OS keyring via
+// the sibling shared/keyring package. The codec is intentionally
+// asymmetric: Load still READS a legacy api_token (it is the one-time
+// migration source) but Save NEVER writes one (see Store.MarshalYAML).
+//
+// Field resolution is per-field merge (tool override beats default, any
+// unset field falls through), so a partial override — say, a different
+// cloud_id for cfl — is fully supported.
 package credstore
 
 import (
@@ -101,7 +106,7 @@ func (s *Store) Save(path string) error {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return fmt.Errorf("creating %s: %w", dir, err)
 	}
-	data, err := yaml.Marshal(s) //nolint:gosec // config file intentionally stores API token
+	data, err := yaml.Marshal(s)
 	if err != nil {
 		return fmt.Errorf("marshaling: %w", err)
 	}
@@ -115,6 +120,23 @@ func (s *Store) Save(path string) error {
 		return fmt.Errorf("renaming %s -> %s: %w", tmp, path, err)
 	}
 	return nil
+}
+
+// MarshalYAML is the write half of the asymmetric codec: it strips every
+// api_token before serialization so Save can NEVER persist a secret, even
+// if a Store still carries a legacy token freshly read by Load (the
+// migration source). Load is unchanged — it must keep reading api_token so
+// the one-time keyring migration can find it.
+//
+// The local alias type has Store's fields but not this method, so the
+// returned value marshals through the default path (no recursion).
+func (s Store) MarshalYAML() (any, error) {
+	type alias Store
+	c := s
+	c.Default.APIToken = ""
+	c.CFL.APIToken = ""
+	c.JTK.APIToken = ""
+	return alias(c), nil
 }
 
 func (s *Store) toolSection(tool string) ToolSection {
@@ -191,11 +213,13 @@ func (s *Store) ResolveWithSource(tool, field string) (string, Source) {
 	return "", SourceUnset
 }
 
-// HasUsableCreds reports whether Resolve(tool) yields enough fields to
-// authenticate against Atlassian for this tool. Basic requires url +
-// email + token; bearer requires url + token + cloud_id. Empty
-// auth_method defaults to basic, matching the rest of the codebase.
-func (s *Store) HasUsableCreds(tool string) bool {
+// HasUsableConfig reports whether the NON-SECRET config for tool is
+// complete enough to authenticate once a token is supplied. The api_token
+// is no longer part of this store (it lives in the keyring), so callers
+// must compose this with keyring.HasToken for full readiness. Basic
+// requires url + email; bearer requires url + cloud_id. Empty auth_method
+// defaults to basic, matching the rest of the codebase.
+func (s *Store) HasUsableConfig(tool string) bool {
 	r := s.Resolve(tool)
 	method := r.AuthMethod
 	if method == "" {
@@ -203,9 +227,9 @@ func (s *Store) HasUsableCreds(tool string) bool {
 	}
 	switch method {
 	case auth.AuthMethodBearer:
-		return r.URL != "" && r.APIToken != "" && r.CloudID != ""
+		return r.URL != "" && r.CloudID != ""
 	case auth.AuthMethodBasic:
-		return r.URL != "" && r.Email != "" && r.APIToken != ""
+		return r.URL != "" && r.Email != ""
 	default:
 		return false
 	}

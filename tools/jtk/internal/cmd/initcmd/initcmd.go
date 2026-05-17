@@ -17,6 +17,7 @@ import (
 
 	"github.com/open-cli-collective/atlassian-go/auth"
 	"github.com/open-cli-collective/atlassian-go/credstore"
+	"github.com/open-cli-collective/atlassian-go/keyring"
 	sharedurl "github.com/open-cli-collective/atlassian-go/url"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
@@ -77,6 +78,15 @@ func runInit(ctx context.Context, opts *root.Options, prefillURL, prefillEmail, 
 	}
 
 	v := opts.View()
+
+	// Run the one-time §1.8 migration up front so a pre-existing legacy
+	// plaintext token is relocated (and scrubbed) into the keyring before
+	// the user sets a new one — otherwise it could collide later.
+	if err := keyring.EnsureMigrated(); err != nil {
+		v.Error("Could not prepare secure credential storage: %v", err)
+		return err
+	}
+
 	sharedPath := credstore.DefaultPath()
 	jtkLegacyPath := credstore.LegacyJTKPath()
 	cflLegacyPath := credstore.LegacyCFLPath()
@@ -246,7 +256,19 @@ func runInit(ctx context.Context, opts *root.Options, prefillURL, prefillEmail, 
 	if err := result.store.Save(sharedPath); err != nil {
 		return fmt.Errorf("saving shared store: %w", err)
 	}
-	v.Success("Configuration saved to %s", sharedPath)
+
+	// The token never lands in the plaintext store (Save strips it) — it
+	// goes to the OS keyring under the key matching the write target:
+	// shared default → api_token; jtk override → jtk_api_token.
+	tokenKey := keyring.KeyAPIToken
+	if result.target == writeJTKOverride {
+		tokenKey = keyring.KeyFor(credstore.ToolJTK)
+	}
+	if err := keyring.PersistToken(tokenKey, cfg.APIToken); err != nil {
+		v.Error("Saved config but could not store the API token securely: %v", err)
+		return err
+	}
+	v.Success("Configuration saved to %s (token stored in the OS keyring)", sharedPath)
 
 	for _, lp := range result.consumedLegacies {
 		var deleteIt bool

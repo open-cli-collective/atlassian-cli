@@ -190,6 +190,35 @@ func (s *Store) ClearBundle() error {
 	return err
 }
 
+// PersistToken stores token under an allowlisted key at the canonical
+// shared ref — the in-memory ingress path for `init` (the form already
+// holds the token, so there is no io.Reader to read from). No migration
+// runs: init calls EnsureMigrated up front, so the §1.8 source is already
+// resolved before the new token is written.
+func PersistToken(key, token string) error {
+	s, err := OpenRef("")
+	if err != nil {
+		return err
+	}
+	defer func() { _ = s.Close() }()
+	return s.SetToken(key, token)
+}
+
+// HasTokenForTool reports whether a keyring token is already present for
+// tool (its override key, else the shared default) WITHOUT running the
+// migration or consulting env. Used by `init` detection to compose
+// readiness with credstore.HasUsableConfig. A genuine keyring error is
+// surfaced, never folded into false.
+func HasTokenForTool(tool string) (bool, error) {
+	s, err := OpenNoMigrate()
+	if err != nil {
+		return false, err
+	}
+	defer func() { _ = s.Close() }()
+	_, ok, err := s.Token(tool)
+	return ok, err
+}
+
 // EnsureMigrated runs (and resolves) the one-time §1.8 migration up front
 // via the full Open() path, then closes. Shared by `cfl init` /
 // `jtk init` / `set-credential` (default ref) so the migration guarantee

@@ -7,10 +7,21 @@ import (
 	"github.com/charmbracelet/huh"
 
 	"github.com/open-cli-collective/atlassian-go/credstore"
+	"github.com/open-cli-collective/atlassian-go/keyring"
 	"github.com/open-cli-collective/atlassian-go/view"
 
 	"github.com/open-cli-collective/confluence-cli/internal/config"
 )
+
+// hasUsableCreds composes the non-secret config completeness check
+// (credstore) with keyring token presence. The token no longer lives in
+// the shared store, so neither half alone means "already configured".
+func hasUsableCreds(store *credstore.Store, tool string) (bool, error) {
+	if !store.HasUsableConfig(tool) {
+		return false, nil
+	}
+	return keyring.HasTokenForTool(tool)
+}
 
 // writeTarget tells the post-form save logic which section of the
 // shared store to write credential edits into. Tool-specific bits
@@ -75,8 +86,12 @@ func detectAndReconcile(
 		jtkLegacy = nil
 	}
 
-	// Case 1: shared store has usable creds for cfl already.
-	if store.HasUsableCreds(credstore.ToolCFL) {
+	// Case 1: shared store + keyring already hold usable creds for cfl.
+	usable, err := hasUsableCreds(store, credstore.ToolCFL)
+	if err != nil {
+		return nil, err
+	}
+	if usable {
 		// If the user already has a cfl override, edits go back to the
 		// override; otherwise the user picks default-vs-override.
 		hasOverride := !sectionEmpty(store.CFL.Section)

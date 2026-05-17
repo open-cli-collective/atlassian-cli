@@ -7,10 +7,21 @@ import (
 	"github.com/charmbracelet/huh"
 
 	"github.com/open-cli-collective/atlassian-go/credstore"
+	"github.com/open-cli-collective/atlassian-go/keyring"
 	"github.com/open-cli-collective/atlassian-go/view"
 
 	"github.com/open-cli-collective/jira-ticket-cli/internal/config"
 )
+
+// hasUsableCreds composes the non-secret config completeness check
+// (credstore) with keyring token presence. The token no longer lives in
+// the shared store, so neither half alone means "already configured".
+func hasUsableCreds(store *credstore.Store, tool string) (bool, error) {
+	if !store.HasUsableConfig(tool) {
+		return false, nil
+	}
+	return keyring.HasTokenForTool(tool)
+}
 
 // writeTarget tells the post-form save logic which section of the
 // shared store to write credential edits into.
@@ -64,8 +75,12 @@ func detectAndReconcile(
 		cflLegacy = nil
 	}
 
-	// Case 1: shared store has usable jtk creds.
-	if store.HasUsableCreds(credstore.ToolJTK) {
+	// Case 1: shared store + keyring already hold usable jtk creds.
+	usable, err := hasUsableCreds(store, credstore.ToolJTK)
+	if err != nil {
+		return nil, err
+	}
+	if usable {
 		hasOverride := !sectionEmpty(store.JTK.Section)
 		if hasOverride {
 			return resultFromSharedWithOverride(store, prefillURL, prefillEmail, prefillToken, prefillAuthMethod, prefillCloudID), nil

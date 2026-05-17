@@ -12,6 +12,7 @@ import (
 	"github.com/open-cli-collective/atlassian-go/auth"
 	sharedconfig "github.com/open-cli-collective/atlassian-go/config"
 	"github.com/open-cli-collective/atlassian-go/credstore"
+	"github.com/open-cli-collective/atlassian-go/keyring"
 	"gopkg.in/yaml.v3"
 )
 
@@ -62,6 +63,17 @@ func (c *Config) Validate() error {
 	return nil
 }
 
+// MarshalYAML strips the API token before serialization so Save can
+// never persist the secret to the plaintext legacy file (the token lives
+// in the OS keyring). Load/UnmarshalYAML is unchanged — it still parses a
+// legacy api_token so the one-time keyring migration can find it. The
+// local alias has Config's fields but not this method (no recursion).
+func (c Config) MarshalYAML() (any, error) {
+	type alias Config
+	c.APIToken = ""
+	return alias(c), nil
+}
+
 // NormalizeURL ensures the URL has the /wiki suffix for Confluence Cloud.
 func (c *Config) NormalizeURL() {
 	c.URL = strings.TrimSuffix(c.URL, "/")
@@ -80,9 +92,10 @@ func (c *Config) LoadFromEnv() {
 	if email := sharedconfig.GetEnvWithFallback("CFL_EMAIL", "ATLASSIAN_EMAIL"); email != "" {
 		c.Email = email
 	}
-	if token := sharedconfig.GetEnvWithFallback("CFL_API_TOKEN", "ATLASSIAN_API_TOKEN"); token != "" {
-		c.APIToken = token
-	}
+	// The API token is intentionally NOT read here: it is resolved
+	// exclusively via keyring.ResolveToken (which itself checks
+	// CFL_API_TOKEN → ATLASSIAN_API_TOKEN before the keyring). Reading it
+	// here too would reintroduce a plaintext path.
 	if space := os.Getenv("CFL_DEFAULT_SPACE"); space != "" {
 		c.DefaultSpace = space
 	}
@@ -118,7 +131,7 @@ func (c *Config) Save(path string) error {
 		return fmt.Errorf("creating config directory: %w", err)
 	}
 
-	data, err := yaml.Marshal(c) //nolint:gosec // config file intentionally stores API token
+	data, err := yaml.Marshal(c)
 	if err != nil {
 		return fmt.Errorf("marshaling config: %w", err)
 	}
@@ -161,9 +174,8 @@ func (c *Config) LoadFromShared(s *credstore.Store) {
 	if r.Email != "" {
 		c.Email = r.Email
 	}
-	if r.APIToken != "" {
-		c.APIToken = r.APIToken
-	}
+	// r.APIToken is intentionally ignored — the token lives in the
+	// keyring, not the shared config store (resolved in LoadWithEnv).
 	if r.AuthMethod != "" {
 		c.AuthMethod = r.AuthMethod
 	}
@@ -186,12 +198,21 @@ func warnCorruptSharedOnce(err error) {
 	})
 }
 
-// LoadWithEnv loads configuration with full precedence:
+// LoadWithEnv loads configuration with full precedence.
+//
+// Non-secret fields (url, email, auth_method, cloud_id, default_space,
+// output_format):
 //  1. legacy file (lowest)
 //  2. shared store default
 //  3. shared store cfl override
 //  4. ATLASSIAN_* env
 //  5. CFL_* env (highest)
+//
+// The API token is resolved separately and authoritatively via
+// keyring.ResolveToken (env → OS keyring, running the one-time §1.8
+// migration). It is never read from the plaintext legacy file or shared
+// store. A keyring error propagates (it must not be folded into an empty
+// token, which would silently de-authenticate every command).
 //
 // A corrupt shared store warns once on stderr and falls back to legacy
 // + env so a broken shared file doesn't crash every cfl command. Init
@@ -218,5 +239,13 @@ func LoadWithEnv(path string) (*Config, error) {
 	}
 
 	cfg.LoadFromEnv()
+
+	// Authoritative token resolution: overwrites any token a legacy-file
+	// parse may have populated, so plaintext can never reach the client.
+	tok, _, kErr := keyring.ResolveToken(credstore.ToolCFL)
+	if kErr != nil {
+		return nil, kErr
+	}
+	cfg.APIToken = tok
 	return cfg, nil
 }

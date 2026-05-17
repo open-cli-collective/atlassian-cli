@@ -22,6 +22,7 @@ import (
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/page"
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/search"
+	"github.com/open-cli-collective/confluence-cli/internal/cmd/setcredential"
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/space"
 )
 
@@ -39,6 +40,7 @@ func main() {
 		space.Register,
 		attachment.Register,
 		search.Register,
+		setcredential.Register,
 		completion.Register,
 	)
 

@@ -35,7 +35,7 @@ jtk-only override.`,
 			if err := keyring.SetCredential(opts.Stdin, key, fromEnv, ref); err != nil {
 				return err
 			}
-			fmt.Fprintln(opts.Stderr, "API token stored in the OS keyring.")
+			_, _ = fmt.Fprintln(opts.Stderr, "API token stored in the OS keyring.")
 			return nil
 		},
 	}

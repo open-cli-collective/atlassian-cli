@@ -1605,24 +1605,31 @@ jtk fields options delete customfield_10001 --option 10200 --force
 
 ## Configuration
 
-`jtk init` writes credentials to the shared store at `~/.config/atlassian-cli/config.yml`:
+`jtk init` stores the **API token in your OS keyring** (macOS Keychain /
+Linux Secret Service / Windows Credential Manager, or an opt-in
+encrypted-file backend) and writes only **non-secret** config to the
+shared store at `~/.config/atlassian-cli/config.yml`:
 
 ```yaml
 default:
   url: https://mycompany.atlassian.net
   email: user@example.com
-  api_token: your-api-token
   auth_method: basic                # or "bearer"
   cloud_id: ""                      # required for bearer
 jtk:
   default_project: MYPROJECT        # jtk-only defaults
 ```
 
-The same file is shared with `cfl` — one Atlassian token, both tools. Run `jtk init` after `cfl init` (or vice versa) and you'll be offered to reuse the credentials. If you really need different tokens per tool, init's reconciliation flow lets you write per-tool overrides into the `jtk:` or `cfl:` section.
+There is **no `api_token:` field** — the secret never touches a
+plaintext file. The same config file and keyring bundle are shared with
+`cfl` — one Atlassian token, both tools. Run `jtk init` after `cfl init`
+(or vice versa) and you'll be offered to reuse the credentials. To set a
+token non-interactively: `jtk set-credential` (reads stdin or
+`--from-env VAR`).
 
-Legacy per-tool config keeps working indefinitely (Linux: `~/.config/jira-ticket-cli/config.json`; macOS: `~/Library/Application Support/jira-ticket-cli/config.json`). Init detects it on first run and prompts to migrate.
+Legacy per-tool config keeps working indefinitely (Linux: `~/.config/jira-ticket-cli/config.json`; macOS: `~/Library/Application Support/jira-ticket-cli/config.json`). The first command auto-migrates any pre-existing plaintext token into the keyring and scrubs the plaintext in place.
 
-Run `jtk config show` to inspect the resolved values. (Source-attribution for shared-store fields is partial today: `auth_method` and `cloud_id` already report their shared-store source; URL / email / API token / default project will be wired up in a follow-up PR.)
+Run `jtk config show` to inspect the resolved values, including the keyring ref, backend, and whether a token is configured (the token value itself is never displayed). `jtk config clear` removes the tool's resolved key; `jtk config clear --all` removes the whole bundle plus the non-secret config file.
 
 ### Environment Variables
 
@@ -1632,7 +1639,7 @@ Environment variables override file-based config. Variables are checked in order
 |---------|-------------------------------|
 | URL | `JIRA_URL` → `ATLASSIAN_URL` → shared `jtk` override → shared `default` → legacy → `JIRA_DOMAIN` |
 | Email | `JIRA_EMAIL` → `ATLASSIAN_EMAIL` → shared `jtk` → shared `default` → legacy |
-| API Token | `JIRA_API_TOKEN` → `ATLASSIAN_API_TOKEN` → shared `jtk` → shared `default` → legacy |
+| API Token | `JIRA_API_TOKEN` → `ATLASSIAN_API_TOKEN` → keyring `jtk_api_token` → keyring `api_token` (OS keyring, never a plaintext file) |
 | Default Project | `JIRA_DEFAULT_PROJECT` → shared `jtk.default_project` → legacy |
 | Auth Method | `JIRA_AUTH_METHOD` → `ATLASSIAN_AUTH_METHOD` → shared → legacy → `basic` |
 | Cloud ID | `JIRA_CLOUD_ID` → `ATLASSIAN_CLOUD_ID` → shared → legacy |

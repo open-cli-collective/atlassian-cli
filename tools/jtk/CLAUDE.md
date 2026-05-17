@@ -181,7 +181,7 @@ Variables are checked in precedence order (first match wins):
 |---------|------------|
 | URL | `JIRA_URL` → `ATLASSIAN_URL` → shared `jtk` override → shared `default` → legacy config → `JIRA_DOMAIN` |
 | Email | `JIRA_EMAIL` → `ATLASSIAN_EMAIL` → shared `jtk` → shared `default` → legacy |
-| API Token | `JIRA_API_TOKEN` → `ATLASSIAN_API_TOKEN` → shared `jtk` → shared `default` → legacy |
+| API Token | `JIRA_API_TOKEN` → `ATLASSIAN_API_TOKEN` → keyring `jtk_api_token` → keyring `api_token` (OS keyring, **not** the config file) |
 | Default Project | `JIRA_DEFAULT_PROJECT` → shared `jtk.default_project` → legacy |
 | Auth Method | `JIRA_AUTH_METHOD` → `ATLASSIAN_AUTH_METHOD` → shared `jtk` → shared `default` → legacy → `"basic"` |
 | Cloud ID | `JIRA_CLOUD_ID` → `ATLASSIAN_CLOUD_ID` → shared `jtk` → shared `default` → legacy |

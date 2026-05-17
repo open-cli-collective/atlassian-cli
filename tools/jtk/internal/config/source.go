@@ -11,10 +11,10 @@ import (
 // This is a projection helper that inspects env vars and config file to determine
 // where each value came from. Used by commands to pass resolved values to presenters.
 type ValuesWithSources struct {
-	URL            string
-	URLSource      string
-	Email          string
-	EmailSource    string
+	URL         string
+	URLSource   string
+	Email       string
+	EmailSource string
 	// The API token VALUE is never projected — the keyring is the source
 	// of truth and §1.12 forbids displaying it (or any prefix/suffix).
 	// Only presence + source + non-secret keyring metadata are shown.
@@ -23,13 +23,13 @@ type ValuesWithSources struct {
 	KeyringRef        string
 	KeyringBackend    string
 	KeyringPassphrase string // file backend only; "" otherwise
-	DefaultProject string
-	ProjectSource  string
-	AuthMethod     string
-	AuthMethodSrc  string
-	CloudID        string
-	CloudIDSrc     string
-	Path           string
+	DefaultProject    string
+	ProjectSource     string
+	AuthMethod        string
+	AuthMethodSrc     string
+	CloudID           string
+	CloudIDSrc        string
+	Path              string
 }
 
 // GetValuesWithSources returns all config values with their source information.

@@ -227,7 +227,7 @@ func conflictError(conflictKeys []string, locs map[string]string, ref string) er
 	for _, k := range conflictKeys {
 		parts = append(parts, fmt.Sprintf("%s (legacy %s vs keyring %s/%s)", k, locs[k], ref, k))
 	}
-	return fmt.Errorf("%w: %s; resolve by clearing one side (`config clear` or unset the legacy/env value) then re-running",
+	return fmt.Errorf("%w: %s; resolve by clearing one side (`config clear`, or remove/scrub the legacy plaintext file) then re-running",
 		ErrMigrationConflict, strings.Join(parts, ", "))
 }
 

@@ -56,14 +56,12 @@ func open(overwrite, runMigration bool) (*Store, error) {
 	return s, nil
 }
 
-// OpenRef opens against an explicit ref (set-credential --ref). An empty
-// ref falls back to the canonical shared Ref. Migration never runs here:
-// the one-time migration only ever targets the canonical ref.
-func OpenRef(ref string) (*Store, error) {
-	if strings.TrimSpace(ref) == "" {
-		ref = Ref
-	}
-	return openRef(ref)
+// openCanonical opens the one fixed shared bundle WITHOUT running the
+// migration. Internal-only ingress helper (PersistToken, SetCredential):
+// the ref is a compile-time constant — there is no caller-supplied ref
+// in the fixed-ref architecture.
+func openCanonical() (*Store, error) {
+	return openRef(Ref)
 }
 
 func openRef(ref string) (*Store, error) {
@@ -196,7 +194,7 @@ func (s *Store) ClearBundle() error {
 // runs: init calls EnsureMigrated up front, so the §1.8 source is already
 // resolved before the new token is written.
 func PersistToken(key, token string) error {
-	s, err := OpenRef("")
+	s, err := openCanonical()
 	if err != nil {
 		return err
 	}

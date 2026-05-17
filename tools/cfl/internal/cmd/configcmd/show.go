@@ -24,10 +24,11 @@ The API token value is never displayed — only whether one is configured,
 where it resolves from, and the OS keyring backend in use. Token/keyring
 reporting is authoritative.
 
-Note: non-secret source attribution (URL, email, etc.) reflects
-environment variables and the legacy per-tool file; values resolved from
-the shared store at ~/.config/atlassian-cli/config.yml show their
-effective value but may report their source as "config" or "not set".`,
+Note: the non-secret rows (URL, email, etc.) reflect environment
+variables and the legacy per-tool file ONLY. A value set solely in the
+shared store at ~/.config/atlassian-cli/config.yml is shown as "not set"
+here even though the tool resolves and uses it at runtime — run a real
+command to confirm effective configuration.`,
 		Example: `  # Show current configuration
   cfl config show`,
 		RunE: func(_ *cobra.Command, _ []string) error {

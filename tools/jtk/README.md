@@ -1629,7 +1629,7 @@ token non-interactively: `jtk set-credential` (reads stdin or
 
 Legacy per-tool config keeps working indefinitely (Linux: `~/.config/jira-ticket-cli/config.json`; macOS: `~/Library/Application Support/jira-ticket-cli/config.json`). The first command auto-migrates any pre-existing plaintext token into the keyring and scrubs the plaintext in place.
 
-Run `jtk config show` to inspect the resolved values, including the keyring ref, backend, and whether a token is configured (the token value itself is never displayed). Token/keyring reporting is authoritative; non-secret source attribution reflects env + the legacy per-tool file, so values resolved from the shared store may report their source as "config" or "-". `jtk config clear` removes the tool's resolved key; `jtk config clear --all` removes the whole bundle plus the non-secret config file.
+Run `jtk config show` to inspect the resolved values, including the keyring ref, backend, and whether a token is configured (the token value itself is never displayed). Token/keyring reporting is authoritative; the non-secret rows reflect env + the legacy per-tool file only, so a value set solely in the shared store appears as "-" there even though jtk uses it at runtime. `jtk config clear` removes the tool's resolved key; `jtk config clear --all` removes the whole bundle plus the non-secret config file.
 
 ### Environment Variables
 

@@ -2,6 +2,7 @@ package keyring
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"strings"
 
@@ -154,14 +155,17 @@ func scrubLegacyFile(path string, isYAML bool) error {
 		return err
 	}
 	m := map[string]any{}
-	if isYAML {
-		if err := yaml.Unmarshal(data, &m); err != nil {
-			return nil // unparseable legacy file: leave it; init handles corruption
-		}
-	} else {
-		if err := json.Unmarshal(data, &m); err != nil {
-			return nil
-		}
+	unmarshal := yaml.Unmarshal
+	if !isYAML {
+		unmarshal = json.Unmarshal
+	}
+	if err := unmarshal(data, &m); err != nil {
+		// Destructive --all path: refuse to claim success while a
+		// possibly-plaintext token may still sit in an unparseable file.
+		// Name the exact path so the user can remove it themselves.
+		return fmt.Errorf(
+			"legacy file %s is unparseable and was NOT scrubbed; it may still contain a plaintext api_token — remove it manually: %w",
+			path, err)
 	}
 	if _, ok := m["api_token"]; !ok {
 		return nil

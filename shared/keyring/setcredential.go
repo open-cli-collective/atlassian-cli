@@ -53,7 +53,7 @@ func SetCredential(in io.Reader, key, envVar string) error {
 	if err := EnsureMigrated(); err != nil {
 		return err
 	}
-	s, err := OpenRef("") // canonical shared Ref (fixed)
+	s, err := openCanonical() // the one fixed shared bundle
 	if err != nil {
 		return err
 	}

@@ -160,7 +160,8 @@ func TestConfigPresenter_PresentConfigShow(t *testing.T) {
 	model := p.PresentConfigShow(
 		"https://test.atlassian.net", "env (JIRA_URL)",
 		"test@example.com", "config",
-		"****token****", "env (JIRA_API_TOKEN)",
+		true, "environment",
+		"atlassian-cli/default", "file (env ATLASSIAN_CLI_KEYRING_BACKEND)", "env (ATLASSIAN_CLI_KEYRING_PASSPHRASE)",
 		"PROJ", "config",
 		"basic", "default",
 		"", "-",
@@ -169,42 +170,23 @@ func TestConfigPresenter_PresentConfigShow(t *testing.T) {
 
 	testutil.Equal(t, len(model.Sections), 2)
 
-	// First section: table
 	table := model.Sections[0].(*present.TableSection)
 	testutil.Equal(t, table.Headers, []string{"KEY", "VALUE", "SOURCE"})
-	testutil.Equal(t, len(table.Rows), 6)
+	// url,email,api_token,default_project,auth_method,cloud_id,
+	// keyring_ref,keyring_backend,keyring_passphrase
+	testutil.Equal(t, len(table.Rows), 9)
 
-	// Verify first row (url)
 	testutil.Equal(t, table.Rows[0].Cells[0], "url")
 	testutil.Equal(t, table.Rows[0].Cells[1], "https://test.atlassian.net")
-	testutil.Equal(t, table.Rows[0].Cells[2], "env (JIRA_URL)")
 
-	// Second section: config path message
+	// api_token row: presence only — never the value or a masked slice.
+	testutil.Equal(t, table.Rows[2].Cells[0], "api_token")
+	testutil.Equal(t, table.Rows[2].Cells[1], "configured")
+	testutil.Equal(t, table.Rows[2].Cells[2], "environment")
+	testutil.Equal(t, table.Rows[6].Cells[0], "keyring_ref")
+	testutil.Equal(t, table.Rows[6].Cells[1], "atlassian-cli/default")
+
 	msg := model.Sections[1].(*present.MessageSection)
 	testutil.Equal(t, msg.Kind, present.MessageInfo)
 	testutil.Contains(t, msg.Message, "/path/to/config.json")
-}
-
-func TestMaskToken(t *testing.T) {
-	t.Parallel()
-	tests := []struct {
-		name  string
-		token string
-		want  string
-	}{
-		{"normal token", "abcd1234567890wxyz", "abcd********wxyz"},
-		{"short token", "abc", "********"},
-		{"exactly 8 chars", "12345678", "********"},
-		{"9 chars", "123456789", "1234********6789"},
-		{"empty token", "", ""},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			got := MaskToken(tt.token)
-			if got != tt.want {
-				t.Errorf("MaskToken(%q) = %q, want %q", tt.token, got, tt.want)
-			}
-		})
-	}
 }

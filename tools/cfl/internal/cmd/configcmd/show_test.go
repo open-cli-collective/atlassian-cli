@@ -6,49 +6,6 @@ import (
 	"github.com/open-cli-collective/atlassian-go/testutil"
 )
 
-func TestMaskToken(t *testing.T) {
-	t.Parallel()
-	tests := []struct {
-		name  string
-		token string
-		want  string
-	}{
-		{
-			name:  "normal token",
-			token: "abcd1234567890wxyz",
-			want:  "abcd********wxyz",
-		},
-		{
-			name:  "short token",
-			token: "abc",
-			want:  "********",
-		},
-		{
-			name:  "exactly 8 chars",
-			token: "12345678",
-			want:  "********",
-		},
-		{
-			name:  "9 chars",
-			token: "123456789",
-			want:  "1234********6789",
-		},
-		{
-			name:  "empty token",
-			token: "",
-			want:  "",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			got := maskToken(tt.token)
-			testutil.Equal(t, tt.want, got)
-		})
-	}
-}
-
 func TestGetValueAndSource(t *testing.T) {
 	t.Parallel()
 	tests := []struct {

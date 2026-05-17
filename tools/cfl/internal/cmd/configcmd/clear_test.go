@@ -7,125 +7,89 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/open-cli-collective/atlassian-go/credstore"
+	"github.com/open-cli-collective/atlassian-go/credtest"
+	"github.com/open-cli-collective/atlassian-go/keyring"
 	"github.com/open-cli-collective/atlassian-go/testutil"
 
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
 )
 
-func TestRunClear_FileNotFound(t *testing.T) {
-	// Use a temp directory that doesn't have a config file
-	tempDir := t.TempDir()
-	t.Setenv("XDG_CONFIG_HOME", tempDir)
-
-	rootOpts := &root.Options{
-		Output:  "table",
-		NoColor: true,
-		Stdout:  &bytes.Buffer{},
-		Stderr:  &bytes.Buffer{},
-	}
-
-	opts := &clearOptions{
-		Options: rootOpts,
-		force:   true,
-		stdin:   strings.NewReader(""),
-	}
-
-	err := runClear(opts)
-	testutil.RequireNoError(t, err)
+func newClearOpts(force bool, stdin string) (*clearOptions, *bytes.Buffer, *bytes.Buffer) {
+	out, errBuf := &bytes.Buffer{}, &bytes.Buffer{}
+	return &clearOptions{
+		Options: &root.Options{Output: "table", NoColor: true, Stdout: out, Stderr: errBuf},
+		force:   force,
+		stdin:   strings.NewReader(stdin),
+	}, out, errBuf
 }
 
-func TestRunClear_WithForce(t *testing.T) {
-	// Create a temp config file
-	tempDir := t.TempDir()
-	t.Setenv("XDG_CONFIG_HOME", tempDir)
-
-	configDir := filepath.Join(tempDir, "cfl")
-	testutil.RequireNoError(t, os.MkdirAll(configDir, 0750))
-	configPath := filepath.Join(configDir, "config.yml")
-	err := os.WriteFile(configPath, []byte("url: https://test.atlassian.net"), 0600)
+func tokenPresent(t *testing.T, key string) bool {
+	t.Helper()
+	s, err := keyring.OpenNoMigrate()
 	testutil.RequireNoError(t, err)
-
-	rootOpts := &root.Options{
-		Output:  "table",
-		NoColor: true,
-		Stdout:  &bytes.Buffer{},
-		Stderr:  &bytes.Buffer{},
-	}
-
-	opts := &clearOptions{
-		Options: rootOpts,
-		force:   true,
-		stdin:   strings.NewReader(""),
-	}
-
-	err = runClear(opts)
+	defer func() { _ = s.Close() }()
+	ok, err := s.HasToken(key)
 	testutil.RequireNoError(t, err)
-
-	// Verify file is deleted
-	_, err = os.Stat(configPath)
-	testutil.True(t, os.IsNotExist(err))
+	return ok
 }
 
-func TestRunClear_WithConfirmation(t *testing.T) {
-	// Create a temp config file
-	tempDir := t.TempDir()
-	t.Setenv("XDG_CONFIG_HOME", tempDir)
+func TestRunClear_NothingToClear(t *testing.T) {
+	credtest.Hermetic(t)
+	opts, _, errBuf := newClearOpts(true, "")
+	testutil.RequireNoError(t, runClear(opts))
+	testutil.Contains(t, errBuf.String(), "nothing to clear")
+}
 
-	configDir := filepath.Join(tempDir, "cfl")
-	testutil.RequireNoError(t, os.MkdirAll(configDir, 0750))
-	configPath := filepath.Join(configDir, "config.yml")
-	err := os.WriteFile(configPath, []byte("url: https://test.atlassian.net"), 0600)
-	testutil.RequireNoError(t, err)
+func TestRunClear_DeletesSharedKey_WithForce(t *testing.T) {
+	credtest.Hermetic(t)
+	credtest.SeedToken(t, keyring.KeyAPIToken, "shared-secret")
 
-	rootOpts := &root.Options{
-		Output:  "table",
-		NoColor: true,
-		Stdout:  &bytes.Buffer{},
-		Stderr:  &bytes.Buffer{},
-	}
+	opts, _, errBuf := newClearOpts(true, "")
+	testutil.RequireNoError(t, runClear(opts))
 
-	opts := &clearOptions{
-		Options: rootOpts,
-		force:   false,
-		stdin:   strings.NewReader("y\n"),
-	}
+	testutil.False(t, tokenPresent(t, keyring.KeyAPIToken))
+	// Shared-default deletion must warn that the sibling loses access.
+	testutil.Contains(t, errBuf.String(), "jtk will also lose access")
+}
 
-	err = runClear(opts)
-	testutil.RequireNoError(t, err)
+func TestRunClear_DeletesCFLOverride_Confirmed(t *testing.T) {
+	credtest.Hermetic(t)
+	credtest.SeedToken(t, keyring.KeyAPIToken, "shared-secret")
+	credtest.SeedToken(t, keyring.KeyFor(credstore.ToolCFL), "cfl-secret")
 
-	// Verify file is deleted
-	_, err = os.Stat(configPath)
-	testutil.True(t, os.IsNotExist(err))
+	opts, _, errBuf := newClearOpts(false, "y\n")
+	testutil.RequireNoError(t, runClear(opts))
+
+	// Only cfl's override is removed; the shared default survives.
+	testutil.False(t, tokenPresent(t, keyring.KeyFor(credstore.ToolCFL)))
+	testutil.True(t, tokenPresent(t, keyring.KeyAPIToken))
+	testutil.Contains(t, errBuf.String(), "cfl_api_token")
 }
 
 func TestRunClear_Cancelled(t *testing.T) {
-	// Create a temp config file
-	tempDir := t.TempDir()
-	t.Setenv("XDG_CONFIG_HOME", tempDir)
+	credtest.Hermetic(t)
+	credtest.SeedToken(t, keyring.KeyAPIToken, "shared-secret")
 
-	configDir := filepath.Join(tempDir, "cfl")
-	testutil.RequireNoError(t, os.MkdirAll(configDir, 0750))
-	configPath := filepath.Join(configDir, "config.yml")
-	err := os.WriteFile(configPath, []byte("url: https://test.atlassian.net"), 0600)
-	testutil.RequireNoError(t, err)
+	opts, _, _ := newClearOpts(false, "n\n")
+	testutil.RequireNoError(t, runClear(opts))
 
-	rootOpts := &root.Options{
-		Output:  "table",
-		NoColor: true,
-		Stdout:  &bytes.Buffer{},
-		Stderr:  &bytes.Buffer{},
-	}
+	testutil.True(t, tokenPresent(t, keyring.KeyAPIToken))
+}
 
-	opts := &clearOptions{
-		Options: rootOpts,
-		force:   false,
-		stdin:   strings.NewReader("n\n"),
-	}
+func TestRunClear_All(t *testing.T) {
+	xdg := credtest.Hermetic(t)
+	credtest.SeedToken(t, keyring.KeyAPIToken, "shared-secret")
 
-	err = runClear(opts)
-	testutil.RequireNoError(t, err)
+	sharedPath := filepath.Join(xdg, "atlassian-cli", "config.yml")
+	testutil.RequireNoError(t, os.MkdirAll(filepath.Dir(sharedPath), 0o700))
+	testutil.RequireNoError(t, os.WriteFile(sharedPath, []byte("default:\n  url: https://x\n"), 0o600))
 
-	// Verify file still exists
-	_, err = os.Stat(configPath)
-	testutil.NoError(t, err)
+	opts, _, _ := newClearOpts(true, "")
+	opts.all = true
+	testutil.RequireNoError(t, runClear(opts))
+
+	testutil.False(t, tokenPresent(t, keyring.KeyAPIToken))
+	_, statErr := os.Stat(sharedPath)
+	testutil.True(t, os.IsNotExist(statErr))
 }

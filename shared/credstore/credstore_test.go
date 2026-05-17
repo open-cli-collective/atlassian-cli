@@ -53,9 +53,11 @@ func TestSaveLoad_Roundtrip(t *testing.T) {
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, in.Default.URL, out.Default.URL)
 	testutil.Equal(t, in.Default.Email, out.Default.Email)
-	testutil.Equal(t, in.Default.APIToken, out.Default.APIToken)
-	testutil.Equal(t, in.CFL.APIToken, out.CFL.APIToken)
 	testutil.Equal(t, in.CFL.DefaultSpace, out.CFL.DefaultSpace)
+	// Asymmetric codec: Save never persists the token, so a Save→Load
+	// roundtrip drops it (it now lives in the keyring).
+	testutil.Equal(t, "", out.Default.APIToken)
+	testutil.Equal(t, "", out.CFL.APIToken)
 }
 
 func TestSave_ModeIs0600(t *testing.T) {
@@ -165,7 +167,10 @@ func TestResolveWithSource(t *testing.T) {
 	}
 }
 
-func TestHasUsableCreds(t *testing.T) {
+// HasUsableConfig is NON-secret completeness only — the token lives in
+// the keyring, so it is intentionally NOT part of this check (callers
+// compose it with keyring.HasTokenForTool).
+func TestHasUsableConfig(t *testing.T) {
 	t.Parallel()
 	cases := []struct {
 		name string
@@ -174,13 +179,19 @@ func TestHasUsableCreds(t *testing.T) {
 		want bool
 	}{
 		{
-			name: "basic complete in default",
-			s:    &Store{Default: Section{URL: "u", Email: "e", APIToken: "t"}},
+			name: "basic complete (no token needed)",
+			s:    &Store{Default: Section{URL: "u", Email: "e"}},
 			tool: ToolCFL,
 			want: true,
 		},
 		{
 			name: "basic missing email",
+			s:    &Store{Default: Section{URL: "u"}},
+			tool: ToolCFL,
+			want: false,
+		},
+		{
+			name: "a stray token does not substitute for email",
 			s:    &Store{Default: Section{URL: "u", APIToken: "t"}},
 			tool: ToolCFL,
 			want: false,
@@ -188,7 +199,7 @@ func TestHasUsableCreds(t *testing.T) {
 		{
 			name: "basic completed by partial override",
 			s: &Store{
-				Default: Section{URL: "u", APIToken: "t"},
+				Default: Section{URL: "u"},
 				CFL:     ToolSection{Section: Section{Email: "e"}},
 			},
 			tool: ToolCFL,
@@ -197,15 +208,15 @@ func TestHasUsableCreds(t *testing.T) {
 		{
 			name: "bearer needs cloud_id",
 			s: &Store{Default: Section{
-				URL: "u", APIToken: "t", AuthMethod: auth.AuthMethodBearer,
+				URL: "u", AuthMethod: auth.AuthMethodBearer,
 			}},
 			tool: ToolJTK,
 			want: false,
 		},
 		{
-			name: "bearer complete",
+			name: "bearer complete (no token needed)",
 			s: &Store{Default: Section{
-				URL: "u", APIToken: "t", CloudID: "c", AuthMethod: auth.AuthMethodBearer,
+				URL: "u", CloudID: "c", AuthMethod: auth.AuthMethodBearer,
 			}},
 			tool: ToolJTK,
 			want: true,
@@ -220,9 +231,55 @@ func TestHasUsableCreds(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			got := tc.s.HasUsableCreds(tc.tool)
+			got := tc.s.HasUsableConfig(tc.tool)
 			testutil.Equal(t, tc.want, got)
 		})
+	}
+}
+
+// TestSave_NeverWritesAnyToken is the §3 asymmetric-codec guarantee:
+// even when the in-memory Store carries tokens in every section, the
+// marshaled bytes contain no api_token; Load still exposes a token so
+// the one-time keyring migration can find it.
+func TestSave_NeverWritesAnyToken(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yml")
+
+	in := &Store{
+		Default: Section{URL: "u", Email: "e", APIToken: "DEFAULT_SECRET"},
+		CFL:     ToolSection{Section: Section{APIToken: "CFL_SECRET"}, DefaultSpace: "SP"},
+		JTK:     ToolSection{Section: Section{APIToken: "JTK_SECRET"}, DefaultProject: "PR"},
+	}
+	if err := in.Save(path); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	raw, err := os.ReadFile(path) //nolint:gosec // test reads its own temp file
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+	got := string(raw)
+	for _, secret := range []string{"DEFAULT_SECRET", "CFL_SECRET", "JTK_SECRET", "api_token"} {
+		if strings.Contains(got, secret) {
+			t.Fatalf("Save persisted %q; file:\n%s", secret, got)
+		}
+	}
+	// Non-secret fields are still written.
+	if !strings.Contains(got, "default_space") || !strings.Contains(got, "SP") {
+		t.Fatalf("Save dropped non-secret fields; file:\n%s", got)
+	}
+
+	// Load still reads api_token (migration source): write one by hand.
+	legacy := "default:\n  url: u\n  email: e\n  api_token: LEGACY_SECRET\n"
+	if err := os.WriteFile(path, []byte(legacy), 0o600); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+	back, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if back.Default.APIToken != "LEGACY_SECRET" {
+		t.Fatalf("Load did not expose api_token for migration; got %q", back.Default.APIToken)
 	}
 }
 

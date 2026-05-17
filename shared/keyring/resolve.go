@@ -1,9 +1,29 @@
 package keyring
 
 import (
+	"errors"
+	"fmt"
 	"os"
 	"strings"
+	"sync"
+
+	"github.com/open-cli-collective/atlassian-go/credstore"
 )
+
+// corruptWarnOnce mirrors the pre-existing "corrupt shared store → warn
+// once, keep working" runtime contract: a malformed ~/.config config.yml
+// is a CONFIG-FILE problem, not a secret-store failure. It must not run
+// (or scrub) the §1.8 migration, but it must also not de-authenticate
+// every command — the keyring still resolves via the non-migrating path.
+var corruptWarnOnce sync.Once
+
+func warnCorruptOnce(err error) {
+	corruptWarnOnce.Do(func() {
+		fmt.Fprintf(os.Stderr,
+			"warning: shared config store is unreadable (%v); the one-time keyring migration is deferred. Run `cfl init`/`jtk init` to fix.\n",
+			err)
+	})
+}
 
 // TokenSource describes where a resolved API token came from (for
 // `config show`). Never the value.
@@ -63,6 +83,19 @@ func ResolveToken(tool string) (string, TokenSource, error) {
 	}
 	s, err := Open()
 	if err != nil {
+		// A corrupt shared CONFIG file only blocks the migration source;
+		// it must not kill the command. Defer migration, warn once, and
+		// still resolve the token from the keyring (non-migrating).
+		// Genuine keyring-backend errors still propagate.
+		if errors.Is(err, credstore.ErrCorruptStore) {
+			warnCorruptOnce(err)
+			ns, nerr := OpenNoMigrate()
+			if nerr != nil {
+				return "", SourceNone, nerr
+			}
+			defer func() { _ = ns.Close() }()
+			return resolveFromStore(ns, tool)
+		}
 		return "", SourceNone, err
 	}
 	defer func() { _ = s.Close() }()

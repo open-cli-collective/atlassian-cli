@@ -14,6 +14,8 @@ import (
 	"github.com/open-cli-collective/atlassian-go/auth"
 	sharedclient "github.com/open-cli-collective/atlassian-go/client"
 	"github.com/open-cli-collective/atlassian-go/credstore"
+	"github.com/open-cli-collective/atlassian-go/credtest"
+	"github.com/open-cli-collective/atlassian-go/keyring"
 	"github.com/open-cli-collective/atlassian-go/testutil"
 	"github.com/spf13/cobra"
 
@@ -154,18 +156,19 @@ func userResponseServer(t *testing.T, body string, status int) *httptest.Server 
 // override was intended) would be silently invisible without this
 // readback assertion.
 func TestFinalizeInit_WritesToCorrectSection(t *testing.T) {
-	t.Parallel()
+	// credtest.Hermetic uses t.Setenv → no t.Parallel here.
 	cases := []struct {
-		name   string
-		target writeTarget
+		name    string
+		target  writeTarget
+		wantKey string
 	}{
-		{"default", writeDefault},
-		{"cfl_override", writeCFLOverride},
+		{"default", writeDefault, keyring.KeyAPIToken},
+		{"cfl_override", writeCFLOverride, keyring.KeyFor(credstore.ToolCFL)},
 	}
 	for _, tc := range cases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
+			credtest.Hermetic(t)
 			server := userResponseServer(t, `{"accountId":"abc","displayName":"X","email":"x@e"}`, http.StatusOK)
 			defer server.Close()
 			build := func(_ *config.Config) (*api.Client, error) {
@@ -189,20 +192,27 @@ func TestFinalizeInit_WritesToCorrectSection(t *testing.T) {
 			case writeCFLOverride:
 				got, leak = loaded.CFL.Section, loaded.Default
 			}
-			testutil.Equal(t, "tok", got.APIToken)
+			// The token is NEVER persisted to the plaintext store — it
+			// goes to the keyring under the write-target key.
+			testutil.Equal(t, "", got.APIToken)
 			testutil.Equal(t, "x@e", got.Email)
 			testutil.Equal(t, server.URL, got.URL) // URL normalized: /wiki stripped
-			// Leak guard: every credential field must be empty in the
-			// non-target section, not just APIToken.
 			testutil.Equal(t, "", leak.APIToken)
 			testutil.Equal(t, "", leak.Email)
 			testutil.Equal(t, "", leak.URL)
+
+			s, err := keyring.OpenNoMigrate()
+			testutil.RequireNoError(t, err)
+			defer func() { _ = s.Close() }()
+			ok, err := s.HasToken(tc.wantKey)
+			testutil.RequireNoError(t, err)
+			testutil.True(t, ok)
 		})
 	}
 }
 
 func TestFinalizeInit_BasicHappyPath(t *testing.T) {
-	t.Parallel()
+	credtest.Hermetic(t) // t.Setenv → no t.Parallel
 	server := userResponseServer(t, `{"accountId":"abc123","displayName":"Rian Stockbower","email":"rian@example.com"}`, http.StatusOK)
 	defer server.Close()
 
@@ -232,7 +242,7 @@ func TestFinalizeInit_BasicHappyPath(t *testing.T) {
 }
 
 func TestFinalizeInit_BearerHappyPath(t *testing.T) {
-	t.Parallel()
+	credtest.Hermetic(t) // t.Setenv → no t.Parallel
 	// Server asserts that the verify request actually carries a Bearer
 	// Authorization header — i.e. the bearer code path emits bearer auth on
 	// the wire, not just bearer-themed UI copy.
@@ -384,7 +394,7 @@ func TestFinalizeInit_BuildFailureSurfacesError(t *testing.T) {
 }
 
 func TestFinalizeInit_NoVerify(t *testing.T) {
-	t.Parallel()
+	credtest.Hermetic(t) // t.Setenv → no t.Parallel
 	httpCalled := false
 	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
 		httpCalled = true

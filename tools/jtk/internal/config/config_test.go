@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/open-cli-collective/atlassian-go/credstore"
+	"github.com/open-cli-collective/atlassian-go/keyring"
 	"github.com/open-cli-collective/atlassian-go/testutil"
 	"github.com/open-cli-collective/atlassian-go/url"
 )
@@ -41,6 +42,14 @@ func setupTestConfig(t *testing.T) (string, func()) {
 	err := os.MkdirAll(libDir, 0700)
 	testutil.RequireNoError(t, err)
 
+	// Force the portable encrypted-file keyring backend so token
+	// resolution is deterministic and never touches the OS keychain.
+	t.Setenv(keyring.BackendEnvVar, "file")
+	t.Setenv("ATLASSIAN_CLI_KEYRING_PASSPHRASE", "jtk-test-passphrase")
+	t.Setenv("CFL_API_TOKEN", "")
+	keyring.ResetMigrationNotice()
+	t.Cleanup(keyring.ResetMigrationNotice)
+
 	// Return empty cleanup since t.TempDir and t.Setenv handle it
 	return tempDir, func() {}
 }
@@ -65,7 +74,9 @@ func TestConfig_SaveAndLoad(t *testing.T) {
 
 	testutil.Equal(t, loaded.URL, cfg.URL)
 	testutil.Equal(t, loaded.Email, cfg.Email)
-	testutil.Equal(t, loaded.APIToken, cfg.APIToken)
+	// Asymmetric codec: Save never persists the token (it lives in the
+	// keyring); Load reads it only as the one-time migration source.
+	testutil.Equal(t, loaded.APIToken, "")
 }
 
 func TestConfig_Load_NotExists(t *testing.T) {
@@ -244,15 +255,15 @@ func TestGetAPIToken_EnvOverride(t *testing.T) {
 	_, cleanup := setupTestConfig(t)
 	defer cleanup()
 
-	// Save config
-	cfg := &Config{APIToken: "config-token"}
-	err := Save(cfg)
-	testutil.RequireNoError(t, err)
+	// A plaintext config api_token is NEVER the source anymore.
+	testutil.RequireNoError(t, Save(&Config{APIToken: "config-token"}))
+	testutil.Equal(t, GetAPIToken(), "")
 
-	// Without env, should return config value
-	testutil.Equal(t, GetAPIToken(), "config-token")
+	// Keyring is the store of truth.
+	testutil.RequireNoError(t, keyring.PersistToken(keyring.KeyAPIToken, "kr-token"))
+	testutil.Equal(t, GetAPIToken(), "kr-token")
 
-	// With env, should return env value
+	// Env outranks the keyring.
 	t.Setenv("JIRA_API_TOKEN", "env-token")
 	testutil.Equal(t, GetAPIToken(), "env-token")
 }
@@ -270,14 +281,17 @@ func TestIsConfigured(t *testing.T) {
 	testutil.RequireNoError(t, err)
 	testutil.False(t, IsConfigured())
 
-	// Fully configured with URL
+	// Non-secret config complete but no token yet → still not configured.
 	cfg = &Config{
-		URL:      "https://test.atlassian.net",
-		Email:    "test@example.com",
-		APIToken: "token",
+		URL:   "https://test.atlassian.net",
+		Email: "test@example.com",
 	}
 	err = Save(cfg)
 	testutil.RequireNoError(t, err)
+	testutil.False(t, IsConfigured())
+
+	// Token in the keyring completes it.
+	testutil.RequireNoError(t, keyring.PersistToken(keyring.KeyAPIToken, "kr-token"))
 	testutil.True(t, IsConfigured())
 }
 
@@ -285,14 +299,14 @@ func TestIsConfigured_LegacyDomain(t *testing.T) {
 	_, cleanup := setupTestConfig(t)
 	defer cleanup()
 
-	// Fully configured with legacy domain
+	// Fully configured with legacy domain + keyring token.
 	cfg := &Config{
-		Domain:   "test",
-		Email:    "test@example.com",
-		APIToken: "token",
+		Domain: "test",
+		Email:  "test@example.com",
 	}
 	err := Save(cfg)
 	testutil.RequireNoError(t, err)
+	testutil.RequireNoError(t, keyring.PersistToken(keyring.KeyAPIToken, "kr-token"))
 	testutil.True(t, IsConfigured())
 }
 
@@ -555,16 +569,13 @@ func TestSharedStore_JTKOverrideBeatsDefault(t *testing.T) {
 
 	sharedPath := filepath.Join(tempDir, "atlassian-cli", "config.yml")
 	store := &credstore.Store{
-		Default: credstore.Section{
-			URL:      "https://shared.atlassian.net",
-			APIToken: "default-tok",
-		},
-		JTK: credstore.ToolSection{
-			Section: credstore.Section{APIToken: "jtk-tok"},
-		},
+		Default: credstore.Section{URL: "https://shared.atlassian.net"},
 	}
 	testutil.RequireNoError(t, store.Save(sharedPath))
 
+	// The per-tool override now lives in the KEYRING, not the YAML store.
+	testutil.RequireNoError(t, keyring.PersistToken(keyring.KeyAPIToken, "default-tok"))
+	testutil.RequireNoError(t, keyring.PersistToken(keyring.KeyFor(credstore.ToolJTK), "jtk-tok"))
 	testutil.Equal(t, "jtk-tok", GetAPIToken())
 }
 
@@ -579,7 +590,9 @@ func TestSharedStore_LegacyWinsWhenSharedAbsent(t *testing.T) {
 	}
 	testutil.RequireNoError(t, Save(cfg))
 	testutil.Equal(t, "https://legacy.atlassian.net", GetURL())
-	testutil.Equal(t, "legacy-tok", GetAPIToken())
+	// The token is never read from the legacy plaintext file at runtime
+	// (only the one-time migration consumes it); keyring is empty here.
+	testutil.Equal(t, "", GetAPIToken())
 }
 
 func TestSharedStore_DefaultProject(t *testing.T) {
@@ -628,12 +641,14 @@ func TestSharedStore_FullPrecedenceChain(t *testing.T) {
 	testutil.RequireNoError(t, store.Save(sharedPath))
 	testutil.Equal(t, "https://shared.atlassian.net", GetURL()) // shared default wins over legacy
 
-	// Layer 3: jtk override beats default.
-	store.JTK.Section = credstore.Section{APIToken: "jtk-tok"}
-	testutil.RequireNoError(t, store.Save(sharedPath))
+	// Token precedence is keyring-based (not the YAML store/legacy):
+	// shared default key, then the jtk override key, then env.
+	testutil.RequireNoError(t, keyring.PersistToken(keyring.KeyAPIToken, "shared-tok"))
+	testutil.Equal(t, "shared-tok", GetAPIToken())
+	testutil.RequireNoError(t, keyring.PersistToken(keyring.KeyFor(credstore.ToolJTK), "jtk-tok"))
 	testutil.Equal(t, "jtk-tok", GetAPIToken())
 
-	// Layer 4: ATLASSIAN_* env beats shared.
+	// Layer 4: ATLASSIAN_* env beats the keyring.
 	t.Setenv("ATLASSIAN_API_TOKEN", "atlassian-env-tok")
 	testutil.Equal(t, "atlassian-env-tok", GetAPIToken())
 
@@ -655,7 +670,9 @@ func TestSharedStore_CorruptDoesNotBlockAccessors(t *testing.T) {
 	cfg := &Config{URL: "https://legacy.atlassian.net", Email: "u@e", APIToken: "tok"}
 	testutil.RequireNoError(t, Save(cfg))
 
-	// Accessor returns legacy value despite corrupt shared.
+	// Non-secret accessor returns the legacy value despite corrupt shared.
 	testutil.Equal(t, "https://legacy.atlassian.net", GetURL())
-	testutil.Equal(t, "tok", GetAPIToken())
+	// GetAPIToken is keyring-only (non-migrating) — a corrupt shared
+	// store doesn't block it; the keyring is simply empty here.
+	testutil.Equal(t, "", GetAPIToken())
 }

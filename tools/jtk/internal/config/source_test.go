@@ -3,6 +3,7 @@ package config
 import (
 	"testing"
 
+	"github.com/open-cli-collective/atlassian-go/keyring"
 	"github.com/open-cli-collective/atlassian-go/testutil"
 )
 
@@ -91,35 +92,38 @@ func TestGetEmailWithSource_EnvPrecedence(t *testing.T) {
 	testutil.Equal(t, source, "env (JIRA_EMAIL)")
 }
 
-func TestGetAPITokenWithSource_EnvPrecedence(t *testing.T) {
+// The token now resolves from env → OS keyring (never the plaintext
+// config file). GetValuesWithSources exposes presence + source only.
+func TestTokenResolution_EnvAndKeyring(t *testing.T) {
 	_, cleanup := setupTestConfig(t)
 	defer cleanup()
 
-	// No config, no env
-	value, source := GetAPITokenWithSource()
-	testutil.Equal(t, value, "")
-	testutil.Equal(t, source, "-")
+	// Nothing configured anywhere.
+	r := GetValuesWithSources()
+	testutil.False(t, r.TokenConfigured)
+	testutil.Equal(t, r.TokenSource, string(keyring.SourceNone))
 
-	// Config file
-	cfg := &Config{APIToken: "config-token"}
-	err := Save(cfg)
-	testutil.RequireNoError(t, err)
+	// A plaintext config api_token must NOT make the token resolvable.
+	testutil.RequireNoError(t, Save(&Config{APIToken: "config-token"}))
+	r = GetValuesWithSources()
+	testutil.False(t, r.TokenConfigured)
 
-	value, source = GetAPITokenWithSource()
-	testutil.Equal(t, value, "config-token")
-	testutil.Equal(t, source, "config")
+	// Seeded into the keyring under the shared default key.
+	testutil.RequireNoError(t, keyring.PersistToken(keyring.KeyAPIToken, "kr-token"))
+	r = GetValuesWithSources()
+	testutil.True(t, r.TokenConfigured)
+	testutil.Equal(t, r.TokenSource, string(keyring.SourceKeyAPI))
 
-	// ATLASSIAN_API_TOKEN takes precedence over config
+	// Env outranks the keyring.
 	t.Setenv("ATLASSIAN_API_TOKEN", "atlassian-token")
-	value, source = GetAPITokenWithSource()
-	testutil.Equal(t, value, "atlassian-token")
-	testutil.Equal(t, source, "env (ATLASSIAN_API_TOKEN)")
+	r = GetValuesWithSources()
+	testutil.True(t, r.TokenConfigured)
+	testutil.Equal(t, r.TokenSource, string(keyring.SourceEnv))
 
-	// JIRA_API_TOKEN takes precedence over ATLASSIAN_API_TOKEN
 	t.Setenv("JIRA_API_TOKEN", "jira-token")
-	value, source = GetAPITokenWithSource()
-	testutil.Equal(t, value, "jira-token")
-	testutil.Equal(t, source, "env (JIRA_API_TOKEN)")
+	r = GetValuesWithSources()
+	testutil.True(t, r.TokenConfigured)
+	testutil.Equal(t, r.TokenSource, string(keyring.SourceEnv))
 }
 
 func TestGetDefaultProjectWithSource_EnvPrecedence(t *testing.T) {
@@ -173,8 +177,8 @@ func TestGetValuesWithSources_AllFields(t *testing.T) {
 	testutil.Equal(t, result.Email, "config@example.com")
 	testutil.Equal(t, result.EmailSource, "config")
 
-	testutil.Equal(t, result.APIToken, "env-token")
-	testutil.Equal(t, result.TokenSource, "env (JIRA_API_TOKEN)")
+	testutil.True(t, result.TokenConfigured)
+	testutil.Equal(t, result.TokenSource, string(keyring.SourceEnv))
 
 	testutil.Equal(t, result.DefaultProject, "PROJ")
 	testutil.Equal(t, result.ProjectSource, "config")
@@ -200,8 +204,8 @@ func TestGetValuesWithSources_AllEmpty(t *testing.T) {
 	testutil.Equal(t, result.Email, "")
 	testutil.Equal(t, result.EmailSource, "-")
 
-	testutil.Equal(t, result.APIToken, "")
-	testutil.Equal(t, result.TokenSource, "-")
+	testutil.False(t, result.TokenConfigured)
+	testutil.Equal(t, result.TokenSource, string(keyring.SourceNone))
 
 	testutil.Equal(t, result.DefaultProject, "")
 	testutil.Equal(t, result.ProjectSource, "-")

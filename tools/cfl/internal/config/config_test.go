@@ -8,6 +8,7 @@ import (
 
 	sharedconfig "github.com/open-cli-collective/atlassian-go/config"
 	"github.com/open-cli-collective/atlassian-go/credstore"
+	"github.com/open-cli-collective/atlassian-go/credtest"
 	"github.com/open-cli-collective/atlassian-go/testutil"
 )
 
@@ -189,7 +190,9 @@ func TestConfig_LoadFromEnv(t *testing.T) {
 
 		testutil.Equal(t, "https://env.atlassian.net", cfg.URL)
 		testutil.Equal(t, "env@example.com", cfg.Email)
-		testutil.Equal(t, "env-token", cfg.APIToken)
+		// LoadFromEnv no longer touches the token — it is resolved
+		// exclusively via keyring.ResolveToken (env → OS keyring).
+		testutil.Equal(t, "", cfg.APIToken)
 		testutil.Equal(t, "ENV", cfg.DefaultSpace)
 	})
 
@@ -250,7 +253,8 @@ func TestConfig_Save_and_Load(t *testing.T) {
 
 	testutil.Equal(t, original.URL, loaded.URL)
 	testutil.Equal(t, original.Email, loaded.Email)
-	testutil.Equal(t, original.APIToken, loaded.APIToken)
+	// Asymmetric codec: Save never persists the token.
+	testutil.Equal(t, "", loaded.APIToken)
 	testutil.Equal(t, original.DefaultSpace, loaded.DefaultSpace)
 	testutil.Equal(t, original.OutputFormat, loaded.OutputFormat)
 }
@@ -285,7 +289,7 @@ func TestConfig_LoadFromEnv_AtlassianFallback(t *testing.T) {
 
 		testutil.Equal(t, "https://shared.atlassian.net", cfg.URL)
 		testutil.Equal(t, "shared@example.com", cfg.Email)
-		testutil.Equal(t, "shared-token", cfg.APIToken)
+		testutil.Equal(t, "", cfg.APIToken) // token not handled by LoadFromEnv
 	})
 
 	t.Run("CFL_* takes precedence over ATLASSIAN_*", func(t *testing.T) {
@@ -304,7 +308,7 @@ func TestConfig_LoadFromEnv_AtlassianFallback(t *testing.T) {
 
 		testutil.Equal(t, "https://cfl.atlassian.net", cfg.URL)
 		testutil.Equal(t, "cfl@example.com", cfg.Email)
-		testutil.Equal(t, "cfl-token", cfg.APIToken)
+		testutil.Equal(t, "", cfg.APIToken) // token not handled by LoadFromEnv
 	})
 
 	t.Run("mixed CFL_* and ATLASSIAN_*", func(t *testing.T) {
@@ -321,7 +325,7 @@ func TestConfig_LoadFromEnv_AtlassianFallback(t *testing.T) {
 
 		testutil.Equal(t, "https://cfl.atlassian.net", cfg.URL)
 		testutil.Equal(t, "shared@example.com", cfg.Email)
-		testutil.Equal(t, "shared-token", cfg.APIToken)
+		testutil.Equal(t, "", cfg.APIToken) // token not handled by LoadFromEnv
 	})
 }
 
@@ -346,7 +350,7 @@ func TestConfig_Save_and_Load_WithAuthFields(t *testing.T) {
 	testutil.Equal(t, original.AuthMethod, loaded.AuthMethod)
 	testutil.Equal(t, original.CloudID, loaded.CloudID)
 	testutil.Equal(t, original.URL, loaded.URL)
-	testutil.Equal(t, original.APIToken, loaded.APIToken)
+	testutil.Equal(t, "", loaded.APIToken) // Save never persists the token
 }
 
 func TestConfig_LoadFromEnv_AuthFields(t *testing.T) {
@@ -445,10 +449,12 @@ func TestConfig_LoadFromShared(t *testing.T) {
 		cfg.LoadFromShared(store)
 		testutil.Equal(t, "https://acme.atlassian.net/wiki", cfg.URL)
 		testutil.Equal(t, "default@example.com", cfg.Email)
-		testutil.Equal(t, "default-tok", cfg.APIToken)
+		// The token is NOT layered from the shared store anymore — it
+		// lives in the keyring (resolved separately in LoadWithEnv).
+		testutil.Equal(t, "", cfg.APIToken)
 	})
 
-	t.Run("cfl override beats default per field", func(t *testing.T) {
+	t.Run("cfl override does not layer the token", func(t *testing.T) {
 		t.Parallel()
 		store := &credstore.Store{
 			Default: credstore.Section{
@@ -463,7 +469,7 @@ func TestConfig_LoadFromShared(t *testing.T) {
 		cfg := &Config{}
 		cfg.LoadFromShared(store)
 		testutil.Equal(t, "default@example.com", cfg.Email) // from default
-		testutil.Equal(t, "cfl-only-tok", cfg.APIToken)     // from override
+		testutil.Equal(t, "", cfg.APIToken)                 // token not from store
 	})
 
 	t.Run("default_space and output_format come from cfl section only", func(t *testing.T) {
@@ -508,7 +514,9 @@ func TestConfig_LoadFromShared(t *testing.T) {
 		}
 		cfg.LoadFromShared(store)
 		testutil.Equal(t, "https://shared.atlassian.net/wiki", cfg.URL)
-		testutil.Equal(t, "shared-tok", cfg.APIToken)
+		// LoadFromShared no longer touches the token, so a value already
+		// on the struct is left untouched (keyring is authoritative).
+		testutil.Equal(t, "legacy-tok", cfg.APIToken)
 	})
 }
 
@@ -555,8 +563,10 @@ func TestLoadWithEnv_CorruptSharedFallsBackToLegacy(t *testing.T) {
 	// Runtime LoadWithEnv must keep working even when the shared file is
 	// broken — every cfl command would otherwise fail. Init uses a
 	// separate path that does surface corruption.
-	xdg := t.TempDir()
-	t.Setenv("XDG_CONFIG_HOME", xdg)
+	// Hermetic: deterministic file-backend keyring (so the corrupt-store
+	// fallback resolves an empty token instead of touching the OS
+	// keychain) and isolated XDG.
+	xdg := credtest.Hermetic(t)
 	sharedPath := filepath.Join(xdg, "atlassian-cli", "config.yml")
 	testutil.RequireNoError(t, os.MkdirAll(filepath.Dir(sharedPath), 0o700))
 	testutil.RequireNoError(t, os.WriteFile(sharedPath, []byte("default: : :: ["), 0o600))
@@ -569,4 +579,7 @@ func TestLoadWithEnv_CorruptSharedFallsBackToLegacy(t *testing.T) {
 	cfg, err := LoadWithEnv(legacyPath)
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, "https://x.atlassian.net/wiki", cfg.URL)
+	// Corrupt shared store defers migration; keyring is empty → no token,
+	// but the command still works (no error).
+	testutil.Equal(t, "", cfg.APIToken)
 }

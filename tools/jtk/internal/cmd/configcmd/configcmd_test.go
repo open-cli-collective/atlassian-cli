@@ -5,11 +5,12 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/open-cli-collective/atlassian-go/credstore"
+	"github.com/open-cli-collective/atlassian-go/credtest"
+	"github.com/open-cli-collective/atlassian-go/keyring"
 	"github.com/open-cli-collective/atlassian-go/testutil"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
@@ -141,84 +142,65 @@ func TestNewTestCmd_NoURL(t *testing.T) {
 	testutil.Contains(t, stderr, "No Jira URL configured")
 }
 
-func getConfigDir(t *testing.T) string {
-	// os.UserConfigDir() returns different paths per platform:
-	// - macOS: $HOME/Library/Application Support
-	// - Linux: $XDG_CONFIG_HOME or $HOME/.config
-	// We set HOME and let the config package derive the path
-	tempDir := t.TempDir()
-	t.Setenv("HOME", tempDir)
-	t.Setenv("XDG_CONFIG_HOME", filepath.Join(tempDir, ".config"))
-
-	// Get the actual config path the config package will use
-	configPath := config.Path()
-	return filepath.Dir(configPath)
+func newClearOpts(t *testing.T, force bool, stdin string) (*clearOptions, *bytes.Buffer, *bytes.Buffer) {
+	t.Helper()
+	out, errBuf := &bytes.Buffer{}, &bytes.Buffer{}
+	return &clearOptions{
+		Options: &root.Options{NoColor: true, Stdout: out, Stderr: errBuf, Stdin: strings.NewReader("")},
+		force:   force,
+		stdin:   strings.NewReader(stdin),
+	}, out, errBuf
 }
 
-func TestRunClear_WithConfirmation(t *testing.T) {
-	configDir := getConfigDir(t)
-	testutil.RequireNoError(t, os.MkdirAll(configDir, 0700))
-	configPath := filepath.Join(configDir, "config.json")
-	testutil.RequireNoError(t, os.WriteFile(configPath, []byte(`{}`), 0600))
-
-	opts := newTestRootOptions()
-	clearOpts := &clearOptions{
-		Options: opts,
-		force:   false,
-		stdin:   strings.NewReader("y\n"),
-	}
-
-	err := runClear(context.Background(), clearOpts)
+func jtkTokenPresent(t *testing.T, key string) bool {
+	t.Helper()
+	s, err := keyring.OpenNoMigrate()
 	testutil.RequireNoError(t, err)
+	defer func() { _ = s.Close() }()
+	ok, err := s.HasToken(key)
+	testutil.RequireNoError(t, err)
+	return ok
+}
 
-	// Verify file was deleted
-	_, err = os.Stat(configPath)
-	testutil.True(t, os.IsNotExist(err))
+func TestRunClear_DeletesSharedKey_Confirmed(t *testing.T) {
+	credtest.Hermetic(t)
+	credtest.SeedToken(t, keyring.KeyAPIToken, "shared-secret")
 
-	stdout := opts.Stdout.(*bytes.Buffer).String()
-	testutil.Contains(t, stdout, "Configuration file removed")
+	opts, _, errBuf := newClearOpts(t, false, "y\n")
+	testutil.RequireNoError(t, runClear(context.Background(), opts))
+
+	testutil.False(t, jtkTokenPresent(t, keyring.KeyAPIToken))
+	testutil.Contains(t, errBuf.String(), "cfl will also lose access")
 }
 
 func TestRunClear_Cancelled(t *testing.T) {
-	configDir := getConfigDir(t)
-	testutil.RequireNoError(t, os.MkdirAll(configDir, 0700))
-	configPath := filepath.Join(configDir, "config.json")
-	testutil.RequireNoError(t, os.WriteFile(configPath, []byte(`{}`), 0600))
+	credtest.Hermetic(t)
+	credtest.SeedToken(t, keyring.KeyAPIToken, "shared-secret")
 
-	opts := newTestRootOptions()
-	clearOpts := &clearOptions{
-		Options: opts,
-		force:   false,
-		stdin:   strings.NewReader("n\n"),
-	}
+	opts, _, _ := newClearOpts(t, false, "n\n")
+	testutil.RequireNoError(t, runClear(context.Background(), opts))
 
-	err := runClear(context.Background(), clearOpts)
-	testutil.RequireNoError(t, err)
-
-	// Verify file still exists
-	_, err = os.Stat(configPath)
-	testutil.NoError(t, err)
+	testutil.True(t, jtkTokenPresent(t, keyring.KeyAPIToken))
 }
 
-func TestRunClear_Force(t *testing.T) {
-	configDir := getConfigDir(t)
-	testutil.RequireNoError(t, os.MkdirAll(configDir, 0700))
-	configPath := filepath.Join(configDir, "config.json")
-	testutil.RequireNoError(t, os.WriteFile(configPath, []byte(`{}`), 0600))
+func TestRunClear_Force_DeletesJTKOverride(t *testing.T) {
+	credtest.Hermetic(t)
+	credtest.SeedToken(t, keyring.KeyAPIToken, "shared-secret")
+	credtest.SeedToken(t, keyring.KeyFor(credstore.ToolJTK), "jtk-secret")
 
-	opts := newTestRootOptions()
-	clearOpts := &clearOptions{
-		Options: opts,
-		force:   true,
-		stdin:   strings.NewReader(""), // No input needed with --force
-	}
+	opts, _, _ := newClearOpts(t, true, "")
+	testutil.RequireNoError(t, runClear(context.Background(), opts))
 
-	err := runClear(context.Background(), clearOpts)
-	testutil.RequireNoError(t, err)
+	// Only jtk's override key is removed; the shared default survives.
+	testutil.False(t, jtkTokenPresent(t, keyring.KeyFor(credstore.ToolJTK)))
+	testutil.True(t, jtkTokenPresent(t, keyring.KeyAPIToken))
+}
 
-	// Verify file was deleted
-	_, err = os.Stat(configPath)
-	testutil.True(t, os.IsNotExist(err))
+func TestRunClear_NothingToClear(t *testing.T) {
+	credtest.Hermetic(t)
+	opts, out, _ := newClearOpts(t, true, "")
+	testutil.RequireNoError(t, runClear(context.Background(), opts))
+	testutil.Contains(t, out.String(), "nothing to clear")
 }
 
 func TestGetDefaultProjectWithSource(t *testing.T) {

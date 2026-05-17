@@ -202,7 +202,9 @@ func TestMigration_LegacyFiles_ScrubAndIdempotent(t *testing.T) {
 }
 
 // ClearAll must FAIL LOUD (naming the path) when a surviving legacy file
-// is unparseable — never claim success while plaintext may remain.
+// is unparseable — never claim success while plaintext may remain — AND,
+// because the plaintext scrub runs before the bundle clear, the keyring
+// token must survive the failure (the safer, recoverable state).
 func TestClearAll_FailsLoudOnUnparseableLegacy(t *testing.T) {
 	hermetic(t)
 	if err := SetCredential(strings.NewReader(secret), KeyAPIToken, ""); err != nil {
@@ -217,9 +219,22 @@ func TestClearAll_FailsLoudOnUnparseableLegacy(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err := ClearAll()
+	plan, store, perr := PlanClear(ToolCFL)
+	if perr != nil {
+		t.Fatalf("PlanClear: %v", perr)
+	}
+	if store == nil {
+		t.Fatal("PlanClear must return an open store on success")
+	}
+	defer func() { _ = store.Close() }()
+	_ = plan
+
+	cleared, err := ClearAll(store)
 	if err == nil {
 		t.Fatal("ClearAll must fail loud on an unparseable legacy file")
+	}
+	if cleared {
+		t.Fatal("ClearAll must not report the bundle cleared when scrub failed")
 	}
 	if !strings.Contains(err.Error(), cflPath) {
 		t.Fatalf("error must name the offending path; got: %v", err)
@@ -228,6 +243,16 @@ func TestClearAll_FailsLoudOnUnparseableLegacy(t *testing.T) {
 	// destroyed.
 	if _, statErr := os.Stat(cflPath); statErr != nil {
 		t.Fatalf("corrupt legacy file should remain for manual removal: %v", statErr)
+	}
+	// Safer ordering: scrub runs before the bundle clear, so the keyring
+	// token must still be present after the failure (recoverable).
+	chk, oerr := OpenNoMigrate()
+	if oerr != nil {
+		t.Fatalf("reopen: %v", oerr)
+	}
+	defer func() { _ = chk.Close() }()
+	if ok, herr := chk.HasToken(KeyAPIToken); herr != nil || !ok {
+		t.Fatalf("keyring token must survive a failed scrub (safer ordering); ok=%v err=%v", ok, herr)
 	}
 }
 

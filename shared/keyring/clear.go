@@ -28,7 +28,7 @@ type ClearPlan struct {
 	SharedDefault bool
 
 	// ExistingKeys are all bundle keys currently holding a value (the
-	// --all blast radius).
+	// --all blast radius). Empty when the keyring could not be opened.
 	ExistingKeys []string
 
 	// EnvActive lists the token env vars currently set for this tool;
@@ -36,13 +36,28 @@ type ClearPlan struct {
 	EnvActive []string
 
 	// SharedConfigPath / LegacyPaths are the extra plaintext files --all
-	// removes/scrubs (only those that exist are listed).
+	// removes/scrubs (only those that exist are listed). Computed without
+	// the keyring so `--all` can still preview/clean them when the keyring
+	// itself is unopenable (the recovery path).
 	SharedConfigPath string
 	LegacyPaths      []string
 }
 
-// PlanClear computes the ClearPlan for tool via the non-migrating path.
-func PlanClear(tool string) (ClearPlan, error) {
+// PlanClear computes the ClearPlan for tool and, on success, returns the
+// SAME open keyring handle the caller then uses to delete — exactly ONE
+// keyring open for the whole `config clear` flow (no PlanClear→delete
+// TOCTOU window, and only one file-backend passphrase prompt).
+//
+// The env vars and the plaintext-file fields are computed WITHOUT the
+// keyring and are always populated, even when the keyring open fails:
+// `config clear --all` is the intended recovery path and must still be
+// able to scrub plaintext artifacts when the keyring is broken. On open
+// failure the returned *Store is nil and the error is returned alongside
+// the (file/env-populated) plan so the caller can decide: `--all`
+// proceeds with file cleanup; a default single-key clear hard-fails.
+//
+// The caller owns the returned *Store and must Close it when non-nil.
+func PlanClear(tool string) (ClearPlan, *Store, error) {
 	p := ClearPlan{Ref: Ref}
 
 	for _, name := range envVarsFor(tool) {
@@ -50,16 +65,24 @@ func PlanClear(tool string) (ClearPlan, error) {
 			p.EnvActive = append(p.EnvActive, name)
 		}
 	}
+	if sp := credstore.DefaultPath(); fileExists(sp) {
+		p.SharedConfigPath = sp
+	}
+	for _, lp := range []string{credstore.LegacyCFLPath(), credstore.LegacyJTKPath()} {
+		if lp != "" && fileExists(lp) {
+			p.LegacyPaths = append(p.LegacyPaths, lp)
+		}
+	}
 
 	s, err := OpenNoMigrate()
 	if err != nil {
-		return p, err
+		return p, nil, err
 	}
-	defer func() { _ = s.Close() }()
 
 	existing, err := s.ExistingKeys()
 	if err != nil {
-		return p, err
+		_ = s.Close()
+		return p, nil, err
 	}
 	p.ExistingKeys = existing
 
@@ -78,57 +101,51 @@ func PlanClear(tool string) (ClearPlan, error) {
 		p.SharedDefault = true
 	}
 
-	if sp := credstore.DefaultPath(); fileExists(sp) {
-		p.SharedConfigPath = sp
-	}
-	for _, lp := range []string{credstore.LegacyCFLPath(), credstore.LegacyJTKPath()} {
-		if lp != "" && fileExists(lp) {
-			p.LegacyPaths = append(p.LegacyPaths, lp)
-		}
-	}
-	return p, nil
+	return p, s, nil
 }
 
-// ClearKey deletes one already-resolved bundle key (idempotent; an empty
-// key is a no-op). The caller passes the key from a ClearPlan it already
-// computed, so this performs exactly ONE keyring open — avoiding both the
-// PlanClear→delete TOCTOU window and a second file-backend passphrase
-// prompt.
-func ClearKey(key string) error {
-	if key == "" {
-		return nil
+// ClearAll is the destructive reset with the safe ordering baked into ONE
+// place: plaintext artifacts are scrubbed/removed FIRST (legacy files,
+// then the shared non-secret config), and the keyring bundle is cleared
+// LAST. If a plaintext scrub fails, the secret therefore still survives
+// in the keyring — the safer, recoverable state — rather than the reverse
+// (keyring wiped, plaintext token still on disk).
+//
+// store may be nil (the keyring could not be opened): the plaintext
+// cleanup still runs and bundleCleared is reported false so the caller
+// can tell the user the bundle was intentionally left intact. Passing the
+// already-open store from PlanClear keeps the whole flow to one open.
+func ClearAll(store *Store) (bundleCleared bool, err error) {
+	if err := ClearFiles(); err != nil {
+		return false, err
 	}
-	s, err := OpenNoMigrate()
-	if err != nil {
-		return err
+	if store == nil {
+		return false, nil
 	}
-	defer func() { _ = s.Close() }()
-	return s.DeleteToken(key)
+	if err := store.ClearBundle(); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
-// ClearAll is the explicit destructive path: the whole keyring bundle
-// plus the shared non-secret config file, plus a scrub of any surviving
-// pre-migration legacy plaintext files.
-func ClearAll() error {
-	s, err := OpenNoMigrate()
-	if err != nil {
+// ClearFiles removes the shared non-secret config file and scrubs any
+// surviving pre-migration legacy plaintext files. It is keyring-
+// independent so the `--all` recovery path can clean plaintext even when
+// the keyring cannot be opened. Legacy scrub runs before the shared
+// config removal; an unparseable legacy file is a fail-loud stop.
+func ClearFiles() error {
+	if err := scrubLegacyFile(credstore.LegacyCFLPath()); err != nil {
 		return err
 	}
-	if err := s.ClearBundle(); err != nil {
-		_ = s.Close()
+	if err := scrubLegacyFile(credstore.LegacyJTKPath()); err != nil {
 		return err
 	}
-	_ = s.Close()
-
 	if sp := credstore.DefaultPath(); fileExists(sp) {
 		if err := os.Remove(sp); err != nil && !os.IsNotExist(err) {
 			return err
 		}
 	}
-	if err := scrubLegacyFile(credstore.LegacyCFLPath()); err != nil {
-		return err
-	}
-	return scrubLegacyFile(credstore.LegacyJTKPath())
+	return nil
 }
 
 func fileExists(path string) bool {

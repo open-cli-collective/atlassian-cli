@@ -57,11 +57,11 @@ func migrateLegacyOverwrite(s *Store, overwrite bool) error {
 	jtkPath := credstore.LegacyJTKPath()
 	legacyCFL, errC := credstore.LoadLegacyCFL(cflPath)
 	if errC != nil {
-		return errC
+		return deferLegacyLoadErr(errC)
 	}
 	legacyJTK, errJ := credstore.LoadLegacyJTK(jtkPath)
 	if errJ != nil {
-		return errJ
+		return deferLegacyLoadErr(errJ)
 	}
 
 	want, locs, anyPlaintext := gatherEffective(store, legacyCFL, legacyJTK)
@@ -129,6 +129,20 @@ func migrateLegacyOverwrite(s *Store, overwrite bool) error {
 			strings.Join(keys, ", "), s.ref))
 	}
 	return nil
+}
+
+// deferLegacyLoadErr classifies ANY legacy-file load failure as
+// ErrCorruptStore so ResolveToken's graceful path (warn once, skip
+// migration, keep resolving from the keyring) handles it uniformly.
+// LoadLegacyCFL/JTK already wrap parse errors; this also catches the
+// merely-unreadable cases (permissions, bad encoding, missing dir) so a
+// single broken legacy file can never de-authenticate every command —
+// only `init` (which explicitly reconciles) should hard-fail on it.
+func deferLegacyLoadErr(err error) error {
+	if errors.Is(err, credstore.ErrCorruptStore) {
+		return err
+	}
+	return fmt.Errorf("%w: %w", credstore.ErrCorruptStore, err)
 }
 
 // gatherEffective computes the genuine per-scope key writes, a non-secret

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 
 	cccredstore "github.com/open-cli-collective/cli-common/credstore"
@@ -76,7 +77,12 @@ func openRef(ref string) (*Store, error) {
 		opts.ConfigBackend = cccredstore.BackendFile
 	default:
 		// Fail closed: an unrecognized backend must not silently degrade.
-		return nil, fmt.Errorf("invalid %s %q in environment (only \"file\" is supported)", BackendEnvVar, b)
+		// Be explicit that the OS keyring is the unset/auto default — a
+		// user typing "keychain"/"secret-service" is reaching for what
+		// they already get by leaving this unset.
+		return nil, fmt.Errorf(
+			"invalid %s %q: the only recognized value is \"file\" (opt-in encrypted-file backend); leave %s unset to auto-select the OS keyring (macOS Keychain / Linux Secret Service / Windows Credential Manager)",
+			BackendEnvVar, b, BackendEnvVar)
 	}
 	opts.FilePassphrase = passphraseFunc(service)
 
@@ -132,6 +138,15 @@ func (s *Store) get(key string) (string, bool, error) {
 
 // SetToken stores a token under an allowlisted key (ingress / migration).
 func (s *Store) SetToken(key, val string) error {
+	// Enforce the allowlist at the lowest write chokepoint: SetCredential
+	// validates earlier (better message), but PersistToken (init) and any
+	// future caller reach the keyring only through here, so the security
+	// boundary for "what may be stored under the fixed ref" lives in one
+	// place rather than relying on each caller to re-check.
+	if !slices.Contains(allowedKeys, key) {
+		return fmt.Errorf("refusing to store under non-allowlisted key %q at %s (allowed: %s)",
+			key, s.ref, strings.Join(allowedKeys, ", "))
+	}
 	// Reject empty values for ALL ingress paths (SetCredential already
 	// trims+rejects; this also covers PersistToken). An empty per-tool
 	// override would make Token() silently fall back to the shared key.

@@ -530,7 +530,11 @@ Manage cfl configuration.
 
 #### `cfl config show`
 
-Display current configuration with masked credentials and source info.
+Display the resolved configuration, including the keyring ref, backend,
+and whether a token is configured (the token value itself is never
+displayed). Token/keyring reporting is authoritative; the non-secret rows
+reflect env + the legacy per-tool file only, so a value set solely in the
+shared store appears as "-" there even though cfl uses it at runtime.
 
 ```bash
 cfl config show
@@ -546,11 +550,18 @@ cfl config test
 
 #### `cfl config clear`
 
-Remove the stored configuration file.
+Remove cfl's resolved token key from the OS keyring (`cfl_api_token` if a
+cfl override exists, otherwise the shared `api_token` — you are warned
+when clearing the shared key, since jtk also uses it). `--all` removes the
+entire shared bundle plus the non-secret config file and scrubs any
+surviving legacy plaintext files; `--all` still cleans the plaintext
+artifacts even when the keyring itself cannot be opened (the recovery
+path).
 
 ```bash
 cfl config clear
 cfl config clear --force
+cfl config clear --all
 ```
 
 | Flag | Short | Default | Description |

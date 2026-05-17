@@ -10,19 +10,32 @@ import (
 	"github.com/open-cli-collective/atlassian-go/credstore"
 )
 
-// corruptWarnOnce mirrors the pre-existing "corrupt shared store → warn
-// once, keep working" runtime contract: a malformed ~/.config config.yml
-// is a CONFIG-FILE problem, not a secret-store failure. It must not run
-// (or scrub) the §1.8 migration, but it must also not de-authenticate
-// every command — the keyring still resolves via the non-migrating path.
-var corruptWarnOnce sync.Once
+// The "corrupt shared store → warn once, keep working" runtime contract:
+// a malformed ~/.config config.yml is a CONFIG-FILE problem, not a
+// secret-store failure. It must not run (or scrub) the §1.8 migration,
+// but it must also not de-authenticate every command — the keyring still
+// resolves via the non-migrating path.
+//
+// State is a mutex-guarded bool rather than a sync.Once: the test seam
+// must be able to re-arm it, and reassigning a sync.Once while another
+// goroutine may be in .Do() is a data race (the race detector flags it
+// under `go test -race` when credtest.Hermetic resets concurrently).
+// This mirrors sink.go's sinkMu pattern.
+var (
+	corruptMu     sync.Mutex
+	corruptWarned bool
+)
 
 func warnCorruptOnce(err error) {
-	corruptWarnOnce.Do(func() {
-		fmt.Fprintf(os.Stderr,
-			"warning: shared config store is unreadable (%v); the one-time keyring migration is deferred. Run `cfl init`/`jtk init` to fix.\n",
-			err)
-	})
+	corruptMu.Lock()
+	defer corruptMu.Unlock()
+	if corruptWarned {
+		return
+	}
+	corruptWarned = true
+	fmt.Fprintf(os.Stderr,
+		"warning: shared config store is unreadable (%v); the one-time keyring migration is deferred. Run `cfl init`/`jtk init` to fix.\n",
+		err)
 }
 
 // ResetCorruptWarnOnce re-arms the one-shot corrupt-config warning (test
@@ -30,7 +43,9 @@ func warnCorruptOnce(err error) {
 // test that exercises the corrupt path does not silently suppress the
 // warning for every later test in the same process.
 func ResetCorruptWarnOnce() {
-	corruptWarnOnce = sync.Once{}
+	corruptMu.Lock()
+	corruptWarned = false
+	corruptMu.Unlock()
 }
 
 // TokenSource describes where a resolved API token came from (for

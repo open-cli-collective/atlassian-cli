@@ -143,9 +143,13 @@ The `cfl`/`jtk` sections may still carry non-secret per-tool overrides
 
 Keyring bundle: fixed ref `atlassian-cli/default`, keys `api_token`
 (shared default), `cfl_api_token`, `jtk_api_token` (per-tool overrides).
-Backend selection is env-only (`ATLASSIAN_CLI_KEYRING_BACKEND`); the
-file-backend passphrase comes from `ATLASSIAN_CLI_KEYRING_PASSPHRASE` or
-a no-echo TTY prompt.
+Backend selection is env-only (`ATLASSIAN_CLI_KEYRING_BACKEND`); leave it
+unset to auto-select the OS keyring, or set it to `file` for the opt-in
+encrypted-file backend. The file-backend passphrase comes from
+`ATLASSIAN_CLI_KEYRING_PASSPHRASE` or a no-echo TTY prompt. **The file
+backend cannot prompt non-interactively:** any non-TTY invocation (CI, a
+piped token) MUST pre-set `ATLASSIAN_CLI_KEYRING_PASSPHRASE`, and the
+passphrase can never share stdin with a piped token.
 
 **Token resolution precedence (highest wins):**
 
@@ -157,11 +161,17 @@ a no-echo TTY prompt.
 Non-secret fields keep their previous precedence (env → shared store
 override → shared default → legacy file).
 
-**One-time auto-migration:** the first API/`test`/`init` invocation moves
-any pre-existing plaintext token (shared `config.yml` *or* a legacy
-per-tool file) into the keyring and scrubs the plaintext in place,
-printing a one-line notice. Legacy non-secret files keep working; init
-still detects/reconciles them.
+**One-time auto-migration:** the first API/`test`/`init` invocation that
+actually opens the keyring moves any pre-existing plaintext token (shared
+`config.yml` *or* a legacy per-tool file) into the keyring and scrubs the
+plaintext in place, printing a one-line notice. Legacy non-secret files
+keep working; init still detects/reconciles them. **Caveat:** when an
+API-token env var is set it wins outright and the keyring is not opened,
+so migration is deferred until an invocation actually needs the keyring
+(`init`/`set-credential`, or a command run without the env var). A user
+who *permanently* exports the token via env therefore keeps the plaintext
+file until they run `init`/`set-credential` — env is an explicit runtime
+override, so a read path is never forced to mutate disk behind it.
 
 **Non-interactive ingress:** `cfl set-credential` / `jtk set-credential`
 read a token from stdin or `--from-env VAR` and store it in the keyring

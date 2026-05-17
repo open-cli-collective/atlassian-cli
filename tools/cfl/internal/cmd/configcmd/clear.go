@@ -62,8 +62,15 @@ override at runtime and cannot be cleared by this command.`,
 }
 
 func runClear(opts *clearOptions) error {
-	plan, err := keyring.PlanClear(credstore.ToolCFL)
-	if err != nil {
+	// One keyring open for the whole flow: PlanClear hands back the open
+	// store the delete/clear step reuses (no second passphrase prompt).
+	// The env + plaintext-file fields are populated even when the keyring
+	// cannot be opened, so `--all` can still clean plaintext artifacts.
+	plan, store, err := keyring.PlanClear(credstore.ToolCFL)
+	if store != nil {
+		defer func() { _ = store.Close() }()
+	}
+	if err != nil && !opts.all {
 		return fmt.Errorf("inspecting keyring: %w", err)
 	}
 
@@ -101,6 +108,10 @@ func runClear(opts *clearOptions) error {
 		for _, lp := range plan.LegacyPaths {
 			_, _ = fmt.Fprintf(opts.Stderr, "It will scrub the legacy plaintext file: %s\n", lp)
 		}
+		if err != nil {
+			_, _ = fmt.Fprintf(opts.Stderr,
+				"Note: the keyring could not be opened (%v); plaintext artifacts will still be cleaned, but the keyring bundle will be left intact.\n", err)
+		}
 		ok, cerr := confirm("Proceed?")
 		if cerr != nil {
 			return cerr
@@ -109,8 +120,14 @@ func runClear(opts *clearOptions) error {
 			_, _ = fmt.Fprintln(opts.Stderr, "Cancelled. Nothing was cleared.")
 			return nil
 		}
-		if err := keyring.ClearAll(); err != nil {
-			return err
+		cleared, aerr := keyring.ClearAll(store)
+		if aerr != nil {
+			return aerr
+		}
+		if !cleared {
+			return fmt.Errorf(
+				"plaintext artifacts were cleaned, but the keyring bundle %s was NOT cleared because the keyring is unavailable (%w); fix the keyring and re-run `cfl config clear --all`",
+				plan.Ref, err)
 		}
 		_, _ = fmt.Fprintln(opts.Stderr, "Removed the shared keyring bundle and config file.")
 		envNote()
@@ -136,7 +153,7 @@ func runClear(opts *clearOptions) error {
 		_, _ = fmt.Fprintln(opts.Stderr, "Cancelled. Nothing was cleared.")
 		return nil
 	}
-	if err := keyring.ClearKey(plan.ToolKey); err != nil {
+	if err := store.DeleteToken(plan.ToolKey); err != nil {
 		return err
 	}
 	_, _ = fmt.Fprintf(opts.Stderr, "Removed key %q from keyring %s.\n", plan.ToolKey, plan.Ref)

@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/open-cli-collective/atlassian-go/credstore"
 )
 
 // hermetic isolates HOME/XDG and forces the encrypted-file backend so
@@ -34,7 +36,7 @@ func TestSetCredential_StdinAndEnv(t *testing.T) {
 	hermetic(t)
 
 	// stdin path: trims surrounding whitespace.
-	if err := SetCredential(strings.NewReader("  "+secret+"\n"), KeyAPIToken, "", ""); err != nil {
+	if err := SetCredential(strings.NewReader("  "+secret+"\n"), KeyAPIToken, ""); err != nil {
 		t.Fatalf("SetCredential(stdin): %v", err)
 	}
 	got, ok, err := func() (string, bool, error) {
@@ -51,7 +53,7 @@ func TestSetCredential_StdinAndEnv(t *testing.T) {
 
 	// --from-env path.
 	t.Setenv("MY_SECRET_VAR", "env-"+secret)
-	if err := SetCredential(nil, KeyJTKAPIToken, "MY_SECRET_VAR", ""); err != nil {
+	if err := SetCredential(nil, KeyJTKAPIToken, "MY_SECRET_VAR"); err != nil {
 		t.Fatalf("SetCredential(env): %v", err)
 	}
 }
@@ -59,14 +61,18 @@ func TestSetCredential_StdinAndEnv(t *testing.T) {
 func TestSetCredential_Rejections(t *testing.T) {
 	hermetic(t)
 
-	if err := SetCredential(strings.NewReader("   \n"), KeyAPIToken, "", ""); err == nil {
+	if err := SetCredential(strings.NewReader("   \n"), KeyAPIToken, ""); err == nil {
 		t.Fatal("expected error for empty token")
 	}
-	if err := SetCredential(strings.NewReader("x"), "bogus_key", "", ""); err == nil {
+	if err := SetCredential(strings.NewReader("x"), "bogus_key", ""); err == nil {
 		t.Fatal("expected error for unknown key")
 	}
-	if err := SetCredential(nil, KeyAPIToken, "DEFINITELY_UNSET_VAR", ""); err == nil {
+	if err := SetCredential(nil, KeyAPIToken, "DEFINITELY_UNSET_VAR"); err == nil {
 		t.Fatal("expected error for unset env var")
+	}
+	// nil reader + no env var must be a normal error, never a panic.
+	if err := SetCredential(nil, KeyAPIToken, ""); err == nil {
+		t.Fatal("expected error for nil stdin and no --from-env")
 	}
 }
 
@@ -136,11 +142,70 @@ func TestMigration_EndToEnd_ScrubAndSignal(t *testing.T) {
 	}
 }
 
+// End-to-end: legacy per-tool plaintext files (cfl yaml + jtk json) with
+// NO shared default migrate to their own override keys, are scrubbed in
+// place, and the migration is idempotent regardless of tool order.
+func TestMigration_LegacyFiles_ScrubAndIdempotent(t *testing.T) {
+	hermetic(t)
+
+	cflPath := credstore.LegacyCFLPath()
+	jtkPath := credstore.LegacyJTKPath()
+	if err := os.MkdirAll(filepath.Dir(cflPath), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Dir(jtkPath), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	cflTok, jtkTok := "CFL-"+secret, "JTK-"+secret
+	if err := os.WriteFile(cflPath,
+		[]byte("url: https://acme.atlassian.net\nemail: c@e\napi_token: "+cflTok+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(jtkPath,
+		[]byte(`{"url":"https://acme.atlassian.net","email":"j@e","api_token":"`+jtkTok+`"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := EnsureMigrated(); err != nil {
+		t.Fatalf("EnsureMigrated: %v", err)
+	}
+
+	s, err := OpenNoMigrate()
+	if err != nil {
+		t.Fatalf("OpenNoMigrate: %v", err)
+	}
+	defer func() { _ = s.Close() }()
+
+	// No shared default → each legacy file maps to its own override key.
+	if v, ok, _ := s.get(KeyCFLAPIToken); !ok || v != cflTok {
+		t.Fatalf("cfl_api_token: got=%q ok=%v", v, ok)
+	}
+	if v, ok, _ := s.get(KeyJTKAPIToken); !ok || v != jtkTok {
+		t.Fatalf("jtk_api_token: got=%q ok=%v", v, ok)
+	}
+
+	for _, p := range []string{cflPath, jtkPath} {
+		raw, rerr := os.ReadFile(p) //nolint:gosec // G304: test reads its own temp file
+		if rerr != nil {
+			t.Fatal(rerr)
+		}
+		if strings.Contains(string(raw), secret) || strings.Contains(string(raw), "api_token") {
+			t.Fatalf("legacy file %s not scrubbed:\n%s", p, raw)
+		}
+	}
+
+	// Idempotent across re-run (cfl-first / jtk-first order is internal
+	// to gatherEffective; a second pass must be a silent no-op).
+	if err := EnsureMigrated(); err != nil {
+		t.Fatalf("second EnsureMigrated must be idempotent: %v", err)
+	}
+}
+
 // InspectForTool must report presence/source/backend without ever
 // returning the token value.
 func TestInspectForTool_NoValue(t *testing.T) {
 	hermetic(t)
-	if err := SetCredential(strings.NewReader(secret), KeyAPIToken, "", ""); err != nil {
+	if err := SetCredential(strings.NewReader(secret), KeyAPIToken, ""); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
 	info, err := InspectForTool(ToolCFL)

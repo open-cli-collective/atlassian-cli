@@ -15,7 +15,7 @@ import (
 
 // Register adds the set-credential command to the root command.
 func Register(rootCmd *cobra.Command, opts *root.Options) {
-	var fromEnv, key, ref string
+	var fromEnv, key string
 
 	cmd := &cobra.Command{
 		Use:   "set-credential",
@@ -32,7 +32,7 @@ cfl-only override.`,
   # From an environment variable, cfl-only override
   cfl set-credential --from-env CFL_API_TOKEN --key cfl_api_token`,
 		RunE: func(_ *cobra.Command, _ []string) error {
-			if err := keyring.SetCredential(opts.Stdin, key, fromEnv, ref); err != nil {
+			if err := keyring.SetCredential(opts.Stdin, key, fromEnv); err != nil {
 				return err
 			}
 			_, _ = fmt.Fprintln(opts.Stderr, "API token stored in the OS keyring.")
@@ -42,7 +42,6 @@ cfl-only override.`,
 
 	cmd.Flags().StringVar(&fromEnv, "from-env", "", "Read the token from this environment variable instead of stdin")
 	cmd.Flags().StringVar(&key, "key", keyring.KeyAPIToken, "Bundle key: api_token (shared), cfl_api_token, or jtk_api_token")
-	cmd.Flags().StringVar(&ref, "ref", "", "Keyring ref (default: the shared atlassian-cli/default bundle)")
 
 	rootCmd.AddCommand(cmd)
 }

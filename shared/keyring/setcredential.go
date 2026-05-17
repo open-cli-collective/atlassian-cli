@@ -13,13 +13,15 @@ import (
 // so each tool only needs a thin cobra wrapper — shared/ never imports
 // cobra. It reads the token from envVar (when non-empty) else from in,
 // trims surrounding whitespace, refuses an empty value, validates the
-// key against the bundle allowlist, and stores it at ref.
+// key against the bundle allowlist, and stores it in the one canonical
+// shared bundle (the ref is a compile-time constant — there is no
+// user-facing ref: runtime resolution, migration, show, and clear all
+// target the same bundle, so storing elsewhere would be unreadable).
 //
 // The token is never echoed: it is read, trimmed, and written; no caller
-// branch logs or returns it. The default ref runs the one-time §1.8
-// migration first (so a pre-existing legacy token cannot later collide);
-// an explicit non-default ref does not migrate (it is a distinct bundle).
-func SetCredential(in io.Reader, key, envVar, ref string) error {
+// branch logs or returns it. The one-time §1.8 migration runs first so a
+// pre-existing legacy token cannot later collide.
+func SetCredential(in io.Reader, key, envVar string) error {
 	if !slices.Contains(allowedKeys, key) {
 		return fmt.Errorf("unknown credential key %q (allowed: %s)",
 			key, strings.Join(allowedKeys, ", "))
@@ -33,6 +35,9 @@ func SetCredential(in io.Reader, key, envVar, ref string) error {
 		}
 		raw = v
 	} else {
+		if in == nil {
+			return errors.New("no token source: provide it on stdin or use --from-env")
+		}
 		b, err := io.ReadAll(in)
 		if err != nil {
 			return fmt.Errorf("read API token: %w", err)
@@ -45,14 +50,10 @@ func SetCredential(in io.Reader, key, envVar, ref string) error {
 		return errors.New("refusing to store an empty API token")
 	}
 
-	useDefaultRef := strings.TrimSpace(ref) == "" || ref == Ref
-	if useDefaultRef {
-		if err := EnsureMigrated(); err != nil {
-			return err
-		}
+	if err := EnsureMigrated(); err != nil {
+		return err
 	}
-
-	s, err := OpenRef(ref) // empty ref → canonical shared Ref
+	s, err := OpenRef("") // canonical shared Ref (fixed)
 	if err != nil {
 		return err
 	}

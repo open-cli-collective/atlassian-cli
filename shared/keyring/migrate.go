@@ -82,7 +82,17 @@ func migrateLegacyOverwrite(s *Store, overwrite bool) error {
 	}
 
 	if len(toWrite) > 0 {
-		if _, err := s.cs.SetBundle(s.profile, toWrite, cccredstore.WithOverwrite()); err != nil {
+		// Only force-overwrite on the explicit overwrite path. On the
+		// normal path planWrites already excluded every key that exists
+		// with a different value (those are fail-loud conflicts); writing
+		// without WithOverwrite keeps that contract even against a key
+		// that appeared between the preflight read and here (TOCTOU) —
+		// the backend errors instead of silently clobbering it.
+		var opts []cccredstore.SetOpt
+		if overwrite {
+			opts = append(opts, cccredstore.WithOverwrite())
+		}
+		if _, err := s.cs.SetBundle(s.profile, toWrite, opts...); err != nil {
 			return fmt.Errorf("migrate API token to keyring %s: %w", s.ref, err)
 		}
 	}
@@ -217,7 +227,7 @@ func conflictError(conflictKeys []string, locs map[string]string, ref string) er
 	for _, k := range conflictKeys {
 		parts = append(parts, fmt.Sprintf("%s (legacy %s vs keyring %s/%s)", k, locs[k], ref, k))
 	}
-	return fmt.Errorf("%w: %s; resolve by clearing one side then re-running (or use the overwrite path)",
+	return fmt.Errorf("%w: %s; resolve by clearing one side (`config clear` or unset the legacy/env value) then re-running",
 		ErrMigrationConflict, strings.Join(parts, ", "))
 }
 

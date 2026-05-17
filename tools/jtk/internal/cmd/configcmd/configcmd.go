@@ -39,7 +39,14 @@ func newShowCmd(opts *root.Options) *cobra.Command {
 	return &cobra.Command{
 		Use:   "show",
 		Short: "Show current configuration",
-		Long:  "Display the current configuration. The API token is shown as a presence status only (its value lives in the OS keyring and is never displayed).",
+		Long: `Display the current configuration.
+
+The API token is shown as a presence status only (its value lives in the
+OS keyring and is never displayed); token/keyring reporting is
+authoritative. Non-secret source attribution reflects environment
+variables and the legacy per-tool file — values resolved from the shared
+~/.config/atlassian-cli/config.yml show their effective value but may
+report their source as "config" or "-".`,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			cfg := config.GetValuesWithSources()
 

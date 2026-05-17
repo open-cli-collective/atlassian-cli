@@ -20,9 +20,14 @@ func newShowCmd(opts *root.Options) *cobra.Command {
 		Short: "Show current configuration",
 		Long: `Display the current cfl configuration.
 
-Shows the source of each value (environment variable, config file, or
-not set). The API token value is never displayed — only whether one is
-configured, where it resolves from, and the OS keyring backend in use.`,
+The API token value is never displayed — only whether one is configured,
+where it resolves from, and the OS keyring backend in use. Token/keyring
+reporting is authoritative.
+
+Note: non-secret source attribution (URL, email, etc.) reflects
+environment variables and the legacy per-tool file; values resolved from
+the shared store at ~/.config/atlassian-cli/config.yml show their
+effective value but may report their source as "config" or "not set".`,
 		Example: `  # Show current configuration
   cfl config show`,
 		RunE: func(_ *cobra.Command, _ []string) error {

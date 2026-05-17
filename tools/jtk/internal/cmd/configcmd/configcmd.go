@@ -10,6 +10,8 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/open-cli-collective/atlassian-go/credstore"
+	"github.com/open-cli-collective/atlassian-go/keyring"
 	"github.com/open-cli-collective/atlassian-go/present"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
@@ -37,14 +39,15 @@ func newShowCmd(opts *root.Options) *cobra.Command {
 	return &cobra.Command{
 		Use:   "show",
 		Short: "Show current configuration",
-		Long:  "Display the current configuration values (token is masked).",
+		Long:  "Display the current configuration. The API token is shown as a presence status only (its value lives in the OS keyring and is never displayed).",
 		RunE: func(_ *cobra.Command, _ []string) error {
 			cfg := config.GetValuesWithSources()
 
 			model := jtkpresent.ConfigPresenter{}.PresentConfigShow(
 				cfg.URL, cfg.URLSource,
 				cfg.Email, cfg.EmailSource,
-				cfg.APIToken, cfg.TokenSource,
+				cfg.TokenConfigured, cfg.TokenSource,
+				cfg.KeyringRef, cfg.KeyringBackend, cfg.KeyringPassphrase,
 				cfg.DefaultProject, cfg.ProjectSource,
 				cfg.AuthMethod, cfg.AuthMethodSrc,
 				cfg.CloudID, cfg.CloudIDSrc,
@@ -61,6 +64,7 @@ func newShowCmd(opts *root.Options) *cobra.Command {
 type clearOptions struct {
 	*root.Options
 	force bool
+	all   bool
 	stdin io.Reader // For testing
 }
 
@@ -72,80 +76,125 @@ func newClearCmd(opts *root.Options) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "clear",
-		Short: "Clear stored configuration",
-		Long: `Remove the stored configuration file.
+		Short: "Clear the stored Atlassian API token from the OS keyring",
+		Long: `Remove the stored API token from the OS keyring.
 
-Note: Environment variables (JIRA_*, ATLASSIAN_*) will still be used if set.`,
-		Example: `  # Clear configuration (with confirmation)
+By default this deletes only the key jtk resolves to: jtk_api_token if a
+jtk-specific override exists, otherwise the shared api_token (which cfl
+also uses — you will be warned). The exact ref and key are previewed
+before deletion.
+
+Use --all to remove the ENTIRE shared bundle plus the shared non-secret
+config file and scrub any surviving legacy plaintext files.
+
+Note: JIRA_API_TOKEN / ATLASSIAN_API_TOKEN environment variables still
+override at runtime and cannot be cleared by this command.`,
+		Example: `  # Clear jtk's resolved token key (with confirmation + preview)
   jtk config clear
 
   # Clear without confirmation
-  jtk config clear --force`,
+  jtk config clear --force
+
+  # Remove the entire shared bundle and config file
+  jtk config clear --all`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runClear(cmd.Context(), clearOpts)
 		},
 	}
 
 	cmd.Flags().BoolVarP(&clearOpts.force, "force", "f", false, "Skip confirmation prompt")
+	cmd.Flags().BoolVar(&clearOpts.all, "all", false, "Remove the entire shared bundle + config file (destructive)")
 
 	return cmd
 }
 
 func runClear(ctx context.Context, opts *clearOptions) error {
 	_ = ctx
-	configPath := config.Path()
 
-	// Check if config file exists
-	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		model := jtkpresent.ConfigPresenter{}.PresentNoConfig(configPath)
-		out := present.Render(model, opts.RenderStyle())
-		fmt.Fprint(opts.Stdout, out.Stdout)
-		fmt.Fprint(opts.Stderr, out.Stderr)
+	plan, err := keyring.PlanClear(credstore.ToolJTK)
+	if err != nil {
+		return fmt.Errorf("inspecting keyring: %w", err)
+	}
+
+	confirm := func(prompt string) (bool, error) {
+		if opts.force {
+			return true, nil
+		}
+		fmt.Fprint(opts.Stderr, prompt+" [y/N]: ")
+		var response string
+		_, ferr := fmt.Fscanln(opts.stdin, &response)
+		if ferr != nil && ferr.Error() != "unexpected newline" {
+			return false, ferr
+		}
+		response = strings.TrimSpace(strings.ToLower(response))
+		return response == "y" || response == "yes", nil
+	}
+
+	envNote := func() {
+		if len(plan.EnvActive) > 0 {
+			fmt.Fprintf(opts.Stderr,
+				"Note: %s still set in the environment and will continue to override at runtime (not cleared).\n",
+				strings.Join(plan.EnvActive, ", "))
+		}
+	}
+
+	if opts.all {
+		fmt.Fprintf(opts.Stderr, "This will remove the ENTIRE shared keyring bundle %s", plan.Ref)
+		if len(plan.ExistingKeys) > 0 {
+			fmt.Fprintf(opts.Stderr, " (keys: %s)", strings.Join(plan.ExistingKeys, ", "))
+		}
+		fmt.Fprintln(opts.Stderr, ".")
+		if plan.SharedConfigPath != "" {
+			fmt.Fprintf(opts.Stderr, "It will also delete the shared config file: %s\n", plan.SharedConfigPath)
+		}
+		for _, lp := range plan.LegacyPaths {
+			fmt.Fprintf(opts.Stderr, "It will scrub the legacy plaintext file: %s\n", lp)
+		}
+		ok, cerr := confirm("Proceed?")
+		if cerr != nil {
+			return cerr
+		}
+		if !ok {
+			fmt.Fprintln(opts.Stdout, "Cancelled. Nothing was cleared.")
+			return nil
+		}
+		if err := keyring.ClearAll(); err != nil {
+			return err
+		}
+		fmt.Fprintln(opts.Stdout, "Removed the shared keyring bundle and config file.")
+		envNote()
 		return nil
 	}
 
-	// Confirm unless --force
-	if !opts.force {
-		fmt.Fprintf(opts.Stderr, "This will remove: %s\n", configPath)
-		fmt.Fprint(opts.Stderr, "Are you sure? [y/N]: ")
-
-		var response string
-		_, err := fmt.Fscanln(opts.stdin, &response)
-		if err != nil && err.Error() != "unexpected newline" {
-			return err
-		}
-
-		response = strings.TrimSpace(strings.ToLower(response))
-		if response != "y" && response != "yes" {
-			cancelModel := jtkpresent.ConfigPresenter{}.PresentClearCancelled()
-			cancelOut := present.Render(cancelModel, opts.RenderStyle())
-			fmt.Fprint(opts.Stdout, cancelOut.Stdout)
-			fmt.Fprint(opts.Stderr, cancelOut.Stderr)
-			return nil
-		}
+	if plan.ToolKey == "" {
+		fmt.Fprintf(opts.Stdout, "No stored API token in keyring %s for jtk; nothing to clear.\n", plan.Ref)
+		envNote()
+		return nil
 	}
 
-	if err := config.Clear(); err != nil {
+	fmt.Fprintf(opts.Stderr, "This will delete key %q from keyring %s.\n", plan.ToolKey, plan.Ref)
+	if plan.SharedDefault {
+		fmt.Fprintln(opts.Stderr,
+			"Warning: this is the SHARED token (api_token). cfl will also lose access. Use a jtk_api_token override if you want jtk-only credentials.")
+	}
+	ok, cerr := confirm("Proceed?")
+	if cerr != nil {
+		return cerr
+	}
+	if !ok {
+		fmt.Fprintln(opts.Stdout, "Cancelled. Nothing was cleared.")
+		return nil
+	}
+	deleted, err := keyring.ClearToolKey(credstore.ToolJTK)
+	if err != nil {
 		return err
 	}
-
-	// Check for active environment variables
-	var envVars []string
-	if os.Getenv("JIRA_URL") != "" || os.Getenv("ATLASSIAN_URL") != "" {
-		envVars = append(envVars, "URL")
+	if deleted == "" {
+		fmt.Fprintln(opts.Stdout, "Nothing to clear.")
+	} else {
+		fmt.Fprintf(opts.Stdout, "Removed key %q from keyring %s.\n", deleted, plan.Ref)
 	}
-	if os.Getenv("JIRA_EMAIL") != "" || os.Getenv("ATLASSIAN_EMAIL") != "" {
-		envVars = append(envVars, "Email")
-	}
-	if os.Getenv("JIRA_API_TOKEN") != "" || os.Getenv("ATLASSIAN_API_TOKEN") != "" {
-		envVars = append(envVars, "API Token")
-	}
-
-	model := jtkpresent.ConfigPresenter{}.PresentClearedWithEnvVars(configPath, envVars)
-	out := present.Render(model, opts.RenderStyle())
-	fmt.Fprint(opts.Stdout, out.Stdout)
-	fmt.Fprint(opts.Stderr, out.Stderr)
-
+	envNote()
 	return nil
 }
 

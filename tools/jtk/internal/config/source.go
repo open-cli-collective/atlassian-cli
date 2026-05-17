@@ -1,6 +1,11 @@
 package config
 
-import "os"
+import (
+	"os"
+
+	"github.com/open-cli-collective/atlassian-go/credstore"
+	"github.com/open-cli-collective/atlassian-go/keyring"
+)
 
 // ValuesWithSources holds all config values with their source information.
 // This is a projection helper that inspects env vars and config file to determine
@@ -10,8 +15,14 @@ type ValuesWithSources struct {
 	URLSource      string
 	Email          string
 	EmailSource    string
-	APIToken       string // Unmasked - caller should mask before passing to presenter
-	TokenSource    string
+	// The API token VALUE is never projected — the keyring is the source
+	// of truth and §1.12 forbids displaying it (or any prefix/suffix).
+	// Only presence + source + non-secret keyring metadata are shown.
+	TokenConfigured   bool
+	TokenSource       string
+	KeyringRef        string
+	KeyringBackend    string
+	KeyringPassphrase string // file backend only; "" otherwise
 	DefaultProject string
 	ProjectSource  string
 	AuthMethod     string
@@ -25,26 +36,48 @@ type ValuesWithSources struct {
 func GetValuesWithSources() ValuesWithSources {
 	url, urlSrc := GetURLWithSource()
 	email, emailSrc := GetEmailWithSource()
-	token, tokenSrc := GetAPITokenWithSource()
 	project, projectSrc := GetDefaultProjectWithSource()
 	authMethod, authMethodSrc := GetAuthMethodWithSource()
 	cloudID, cloudIDSrc := GetCloudIDWithSource()
 
-	return ValuesWithSources{
-		URL:            url,
-		URLSource:      urlSrc,
-		Email:          email,
-		EmailSource:    emailSrc,
-		APIToken:       token,
-		TokenSource:    tokenSrc,
-		DefaultProject: project,
-		ProjectSource:  projectSrc,
-		AuthMethod:     authMethod,
-		AuthMethodSrc:  authMethodSrc,
-		CloudID:        cloudID,
-		CloudIDSrc:     cloudIDSrc,
-		Path:           Path(),
+	// Non-migrating: `config show` is diagnostic and must stay usable
+	// even during an unresolved §1.8 conflict. A keyring error is folded
+	// into a clear source label rather than crashing show.
+	kr, err := keyring.InspectForTool(credstore.ToolJTK)
+	if err != nil {
+		kr.TokenSource = "keyring error: " + err.Error()
 	}
+
+	return ValuesWithSources{
+		URL:               url,
+		URLSource:         urlSrc,
+		Email:             email,
+		EmailSource:       emailSrc,
+		TokenConfigured:   kr.TokenConfigured,
+		TokenSource:       kr.TokenSource,
+		KeyringRef:        kr.Ref,
+		KeyringBackend:    keyringBackendLabel(kr),
+		KeyringPassphrase: kr.PassphraseSource,
+		DefaultProject:    project,
+		ProjectSource:     projectSrc,
+		AuthMethod:        authMethod,
+		AuthMethodSrc:     authMethodSrc,
+		CloudID:           cloudID,
+		CloudIDSrc:        cloudIDSrc,
+		Path:              Path(),
+	}
+}
+
+// keyringBackendLabel renders the backend and how it was selected, e.g.
+// "keychain (auto)". Empty when the keyring could not be opened.
+func keyringBackendLabel(kr keyring.Info) string {
+	if kr.Backend == "" {
+		return ""
+	}
+	if kr.BackendSource == "" {
+		return kr.Backend
+	}
+	return kr.Backend + " (" + kr.BackendSource + ")"
 }
 
 // GetURLWithSource returns the URL and its source.
@@ -88,25 +121,6 @@ func GetEmailWithSource() (value, source string) {
 	}
 	if cfg.Email != "" {
 		return cfg.Email, "config"
-	}
-	return "", "-"
-}
-
-// GetAPITokenWithSource returns the API token and its source.
-// Precedence: JIRA_API_TOKEN → ATLASSIAN_API_TOKEN → config api_token
-func GetAPITokenWithSource() (value, source string) {
-	if os.Getenv("JIRA_API_TOKEN") != "" {
-		return GetAPIToken(), "env (JIRA_API_TOKEN)"
-	}
-	if os.Getenv("ATLASSIAN_API_TOKEN") != "" {
-		return GetAPIToken(), "env (ATLASSIAN_API_TOKEN)"
-	}
-	cfg, err := Load()
-	if err != nil {
-		return "", "-"
-	}
-	if cfg.APIToken != "" {
-		return cfg.APIToken, "config"
 	}
 	return "", "-"
 }

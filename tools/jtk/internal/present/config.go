@@ -80,24 +80,24 @@ type configEntry struct {
 	source string
 }
 
-// MaskToken masks a token for display, showing only the first and last 4 chars.
-func MaskToken(token string) string {
-	if token == "" {
-		return ""
+// tokenStatus renders the api_token row VALUE — presence only. The token
+// value (and any prefix/suffix of it) is never displayed (§1.12).
+func tokenStatus(configured bool) string {
+	if configured {
+		return "configured"
 	}
-	if len(token) <= 8 {
-		return "********"
-	}
-	return token[:4] + "********" + token[len(token)-4:]
+	return "not set"
 }
 
 // PresentConfigShow creates config table + path info as single output.
-// Accepts pre-computed (value, source) pairs for each config field.
-// The raw token is masked internally.
+// Accepts pre-computed (value, source) pairs for each non-secret field
+// plus the non-secret keyring description. The API token is shown as a
+// presence status only — never its value or a masked slice of it.
 func (ConfigPresenter) PresentConfigShow(
 	url, urlSrc,
-	email, emailSrc,
-	rawToken, tokenSrc,
+	email, emailSrc string,
+	tokenConfigured bool, tokenSrc string,
+	keyringRef, keyringBackend, keyringPassphrase string,
 	defaultProject, projectSrc,
 	authMethod, authMethodSrc,
 	cloudID, cloudIDSrc,
@@ -106,10 +106,17 @@ func (ConfigPresenter) PresentConfigShow(
 	entries := []configEntry{
 		{key: "url", value: url, source: urlSrc},
 		{key: "email", value: email, source: emailSrc},
-		{key: "api_token", value: MaskToken(rawToken), source: tokenSrc},
+		{key: "api_token", value: tokenStatus(tokenConfigured), source: tokenSrc},
 		{key: "default_project", value: defaultProject, source: projectSrc},
 		{key: "auth_method", value: authMethod, source: authMethodSrc},
 		{key: "cloud_id", value: cloudID, source: cloudIDSrc},
+		{key: "keyring_ref", value: keyringRef, source: "fixed"},
+		{key: "keyring_backend", value: keyringBackend, source: "-"},
+	}
+	if keyringPassphrase != "" {
+		entries = append(entries, configEntry{
+			key: "keyring_passphrase", value: keyringPassphrase, source: "-",
+		})
 	}
 
 	rows := make([]present.Row, len(entries))

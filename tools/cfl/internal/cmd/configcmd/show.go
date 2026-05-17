@@ -7,6 +7,8 @@ import (
 	"github.com/spf13/cobra"
 
 	sharedconfig "github.com/open-cli-collective/atlassian-go/config"
+	"github.com/open-cli-collective/atlassian-go/credstore"
+	"github.com/open-cli-collective/atlassian-go/keyring"
 
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
 	"github.com/open-cli-collective/confluence-cli/internal/config"
@@ -16,9 +18,11 @@ func newShowCmd(opts *root.Options) *cobra.Command {
 	return &cobra.Command{
 		Use:   "show",
 		Short: "Show current configuration",
-		Long: `Display the current cfl configuration with masked credentials.
+		Long: `Display the current cfl configuration.
 
-Shows the source of each value (environment variable, config file, or not set).`,
+Shows the source of each value (environment variable, config file, or
+not set). The API token value is never displayed — only whether one is
+configured, where it resolves from, and the OS keyring backend in use.`,
 		Example: `  # Show current configuration
   cfl config show`,
 		RunE: func(_ *cobra.Command, _ []string) error {
@@ -40,7 +44,6 @@ func runShow(opts *root.Options) error {
 	// Check environment variables
 	envURL := sharedconfig.GetEnvWithFallback("CFL_URL", "ATLASSIAN_URL")
 	envEmail := sharedconfig.GetEnvWithFallback("CFL_EMAIL", "ATLASSIAN_EMAIL")
-	envToken := sharedconfig.GetEnvWithFallback("CFL_API_TOKEN", "ATLASSIAN_API_TOKEN")
 	envSpace := os.Getenv("CFL_DEFAULT_SPACE")
 	envAuthMethod := sharedconfig.GetEnvWithFallback("CFL_AUTH_METHOD", "ATLASSIAN_AUTH_METHOD")
 	envCloudID := sharedconfig.GetEnvWithFallback("CFL_CLOUD_ID", "ATLASSIAN_CLOUD_ID")
@@ -48,7 +51,6 @@ func runShow(opts *root.Options) error {
 	// Determine effective values and sources
 	url, urlSource := getValueAndSource(envURL, fileCfg.URL, getEnvVarName("CFL_URL", "ATLASSIAN_URL"))
 	email, emailSource := getValueAndSource(envEmail, fileCfg.Email, getEnvVarName("CFL_EMAIL", "ATLASSIAN_EMAIL"))
-	token, tokenSource := getValueAndSource(envToken, fileCfg.APIToken, getEnvVarName("CFL_API_TOKEN", "ATLASSIAN_API_TOKEN"))
 	space, spaceSource := getValueAndSource(envSpace, fileCfg.DefaultSpace, "CFL_DEFAULT_SPACE")
 	authMethod, authMethodSource := getValueAndSource(envAuthMethod, fileCfg.AuthMethod, getEnvVarName("CFL_AUTH_METHOD", "ATLASSIAN_AUTH_METHOD"))
 	cloudID, cloudIDSource := getValueAndSource(envCloudID, fileCfg.CloudID, getEnvVarName("CFL_CLOUD_ID", "ATLASSIAN_CLOUD_ID"))
@@ -59,13 +61,37 @@ func runShow(opts *root.Options) error {
 		authMethodSource = "default"
 	}
 
+	// Non-secret keyring description (non-migrating: show stays usable
+	// during an unresolved §1.8 conflict). The token VALUE is never
+	// shown — presence + source only (§1.12).
+	kr, krErr := keyring.InspectForTool(credstore.ToolCFL)
+	tokenStatus := "not set"
+	if kr.TokenConfigured {
+		tokenStatus = "configured"
+	}
+	tokenSource := kr.TokenSource
+	if krErr != nil {
+		tokenSource = "keyring error: " + krErr.Error()
+	}
+
 	// Display
 	v.RenderKeyValue("URL", formatValueWithSource(url, urlSource))
 	v.RenderKeyValue("Email", formatValueWithSource(email, emailSource))
-	v.RenderKeyValue("API Token", formatValueWithSource(maskToken(token), tokenSource))
+	v.RenderKeyValue("API Token", formatValueWithSource(tokenStatus, tokenSource))
 	v.RenderKeyValue("Default Space", formatValueWithSource(space, spaceSource))
 	v.RenderKeyValue("Auth Method", formatValueWithSource(authMethod, authMethodSource))
 	v.RenderKeyValue("Cloud ID", formatValueWithSource(cloudID, cloudIDSource))
+	v.RenderKeyValue("Keyring Ref", formatValueWithSource(kr.Ref, "fixed"))
+	if kr.Backend != "" {
+		backend := kr.Backend
+		if kr.BackendSource != "" {
+			backend += " (" + kr.BackendSource + ")"
+		}
+		v.RenderKeyValue("Keyring Backend", formatValueWithSource(backend, "-"))
+	}
+	if kr.PassphraseSource != "" {
+		v.RenderKeyValue("Keyring Passphrase", formatValueWithSource(kr.PassphraseSource, "-"))
+	}
 
 	_, _ = fmt.Fprintln(opts.Stderr)
 	_, _ = fmt.Fprintf(opts.Stderr, "Config file: %s\n", configPath)
@@ -104,15 +130,4 @@ func formatValueWithSource(value, source string) string {
 		return fmt.Sprintf("(source: %s)", source)
 	}
 	return fmt.Sprintf("%s  (source: %s)", value, source)
-}
-
-// maskToken masks the API token for display, showing first 4 and last 4 chars.
-func maskToken(token string) string {
-	if token == "" {
-		return ""
-	}
-	if len(token) <= 8 {
-		return "********"
-	}
-	return token[:4] + "********" + token[len(token)-4:]
 }

@@ -50,10 +50,12 @@ func SetCredential(in io.Reader, key, envVar string) error {
 		return errors.New("refusing to store an empty API token")
 	}
 
-	if err := EnsureMigrated(); err != nil {
-		return err
-	}
-	s, err := openCanonical() // the one fixed shared bundle
+	// A single migrating open: Open() runs the one-time §1.8 migration
+	// (so a pre-existing legacy token cannot later collide) and returns
+	// the open canonical bundle. Doing this in one open avoids a second
+	// keyring unlock — important for the file backend, which would
+	// otherwise prompt for the passphrase twice per invocation.
+	s, err := Open()
 	if err != nil {
 		return err
 	}

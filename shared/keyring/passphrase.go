@@ -24,6 +24,13 @@ func passphraseEnvVar(service string) string {
 // effectively-unencrypted keyring).
 func passphraseFunc(service string) func() (string, error) {
 	return func() (string, error) {
+		// Constraint: the file backend's interactive passphrase prompt
+		// needs a TTY on stdin. When the token itself is piped in (e.g.
+		// `echo tok | cfl set-credential`), stdin is the token stream and
+		// not a terminal, so this falls to the headless error — the user
+		// must supply ATLASSIAN_CLI_KEYRING_PASSPHRASE in that case (the
+		// error message says so). Token delivery and passphrase entry
+		// cannot share stdin.
 		if !term.IsTerminal(int(os.Stdin.Fd())) {
 			return "", fmt.Errorf(
 				"file keyring backend needs a passphrase: set %s, or run interactively",

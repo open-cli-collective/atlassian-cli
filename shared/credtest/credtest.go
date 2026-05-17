@@ -38,7 +38,9 @@ func Hermetic(t *testing.T) string {
 	}
 
 	keyring.ResetMigrationNotice()
+	keyring.ResetCorruptWarnOnce()
 	t.Cleanup(keyring.ResetMigrationNotice)
+	t.Cleanup(keyring.ResetCorruptWarnOnce)
 	return dir
 }
 

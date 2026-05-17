@@ -192,15 +192,10 @@ func runClear(ctx context.Context, opts *clearOptions) error {
 		fmt.Fprintln(opts.Stdout, "Cancelled. Nothing was cleared.")
 		return nil
 	}
-	deleted, err := keyring.ClearToolKey(credstore.ToolJTK)
-	if err != nil {
+	if err := keyring.ClearKey(plan.ToolKey); err != nil {
 		return err
 	}
-	if deleted == "" {
-		fmt.Fprintln(opts.Stdout, "Nothing to clear.")
-	} else {
-		fmt.Fprintf(opts.Stdout, "Removed key %q from keyring %s.\n", deleted, plan.Ref)
-	}
+	fmt.Fprintf(opts.Stdout, "Removed key %q from keyring %s.\n", plan.ToolKey, plan.Ref)
 	envNote()
 	return nil
 }

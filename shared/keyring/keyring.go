@@ -32,10 +32,9 @@ type Store struct {
 // effective-value conflict surfaces here as a hard error.
 func Open() (*Store, error) { return open(false, true) }
 
-// OpenForMigrationOverwrite is Open with the §1.8 `--overwrite`
-// resolution: an effective legacy value is forced over an existing keyring
-// entry. It still cannot resolve a legacy-vs-legacy disagreement.
-func OpenForMigrationOverwrite() (*Store, error) { return open(true, true) }
+// (There is intentionally no exported overwrite-migration entry point:
+// no user-facing `--overwrite` command exists, so the open(overwrite=…)
+// seam is reached only by tests of the pure conflict resolver.)
 
 // OpenNoMigrate opens WITHOUT the one-time migration — diagnostic /
 // remediation only (`config show`, `config clear`), so they stay usable
@@ -133,6 +132,12 @@ func (s *Store) get(key string) (string, bool, error) {
 
 // SetToken stores a token under an allowlisted key (ingress / migration).
 func (s *Store) SetToken(key, val string) error {
+	// Reject empty values for ALL ingress paths (SetCredential already
+	// trims+rejects; this also covers PersistToken). An empty per-tool
+	// override would make Token() silently fall back to the shared key.
+	if val == "" {
+		return fmt.Errorf("refusing to store an empty value at %s/%s", s.ref, key)
+	}
 	if err := s.cs.Set(s.profile, key, val, cccredstore.WithOverwrite()); err != nil {
 		return fmt.Errorf("store %s at %s: %w", key, s.ref, err)
 	}

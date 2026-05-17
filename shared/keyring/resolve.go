@@ -25,6 +25,14 @@ func warnCorruptOnce(err error) {
 	})
 }
 
+// ResetCorruptWarnOnce re-arms the one-shot corrupt-config warning (test
+// seam, mirrors ResetMigrationNotice). credtest.Hermetic calls it so a
+// test that exercises the corrupt path does not silently suppress the
+// warning for every later test in the same process.
+func ResetCorruptWarnOnce() {
+	corruptWarnOnce = sync.Once{}
+}
+
 // TokenSource describes where a resolved API token came from (for
 // `config show`). Never the value.
 type TokenSource string

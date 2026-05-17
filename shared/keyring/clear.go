@@ -89,25 +89,21 @@ func PlanClear(tool string) (ClearPlan, error) {
 	return p, nil
 }
 
-// ClearToolKey deletes only the active tool's resolved key (idempotent).
-// Returns the key that was deleted, or "" when there was nothing to do.
-func ClearToolKey(tool string) (string, error) {
-	p, err := PlanClear(tool)
-	if err != nil {
-		return "", err
-	}
-	if p.ToolKey == "" {
-		return "", nil
+// ClearKey deletes one already-resolved bundle key (idempotent; an empty
+// key is a no-op). The caller passes the key from a ClearPlan it already
+// computed, so this performs exactly ONE keyring open — avoiding both the
+// PlanClear→delete TOCTOU window and a second file-backend passphrase
+// prompt.
+func ClearKey(key string) error {
+	if key == "" {
+		return nil
 	}
 	s, err := OpenNoMigrate()
 	if err != nil {
-		return "", err
+		return err
 	}
 	defer func() { _ = s.Close() }()
-	if err := s.DeleteToken(p.ToolKey); err != nil {
-		return "", err
-	}
-	return p.ToolKey, nil
+	return s.DeleteToken(key)
 }
 
 // ClearAll is the explicit destructive path: the whole keyring bundle
@@ -129,10 +125,10 @@ func ClearAll() error {
 			return err
 		}
 	}
-	if err := scrubLegacyFile(credstore.LegacyCFLPath(), true); err != nil {
+	if err := scrubLegacyFile(credstore.LegacyCFLPath()); err != nil {
 		return err
 	}
-	return scrubLegacyFile(credstore.LegacyJTKPath(), false)
+	return scrubLegacyFile(credstore.LegacyJTKPath())
 }
 
 func fileExists(path string) bool {
@@ -144,9 +140,11 @@ func fileExists(path string) bool {
 }
 
 // scrubLegacyFile removes api_token from a surviving legacy plaintext
-// file in place (yaml for cfl, json for jtk), preserving non-secret
-// fields. Absent file is a no-op.
-func scrubLegacyFile(path string, isYAML bool) error {
+// file in place, preserving non-secret fields. Absent file is a no-op.
+// The codec is derived from the file EXTENSION (.json → JSON, otherwise
+// YAML — cfl uses .yml, jtk .json) rather than a positional bool, so a
+// reordered or new call site cannot silently apply the wrong parser.
+func scrubLegacyFile(path string) error {
 	if path == "" || !fileExists(path) {
 		return nil
 	}
@@ -155,8 +153,9 @@ func scrubLegacyFile(path string, isYAML bool) error {
 		return err
 	}
 	m := map[string]any{}
+	isJSON := strings.HasSuffix(path, ".json")
 	unmarshal := yaml.Unmarshal
-	if !isYAML {
+	if isJSON {
 		unmarshal = json.Unmarshal
 	}
 	if err := unmarshal(data, &m); err != nil {
@@ -172,10 +171,10 @@ func scrubLegacyFile(path string, isYAML bool) error {
 	}
 	delete(m, "api_token")
 	var out []byte
-	if isYAML {
-		out, err = yaml.Marshal(m)
-	} else {
+	if isJSON {
 		out, err = json.MarshalIndent(m, "", "  ")
+	} else {
+		out, err = yaml.Marshal(m)
 	}
 	if err != nil {
 		return err

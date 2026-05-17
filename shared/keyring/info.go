@@ -1,6 +1,10 @@
 package keyring
 
-import "fmt"
+import (
+	"fmt"
+
+	cccredstore "github.com/open-cli-collective/cli-common/credstore"
+)
 
 // Info is the non-secret description of the keyring state for a tool,
 // rendered by `config show`. It NEVER carries the token value or any
@@ -36,7 +40,9 @@ func InspectForTool(tool string) (Info, error) {
 	b, src := s.Backend()
 	info.Backend = fmt.Sprintf("%v", b)
 	info.BackendSource = fmt.Sprintf("%v", src)
-	if info.Backend == "file" {
+	// Decide passphrase relevance from the TYPED backend, not its string
+	// form — robust if cli-common ever changes Backend.String().
+	if b == cccredstore.BackendFile {
 		info.PassphraseSource = PassphraseSource(s.Service())
 	}
 

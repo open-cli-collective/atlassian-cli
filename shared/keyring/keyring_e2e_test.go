@@ -639,6 +639,16 @@ func TestMigration_ConcurrentWriter_IdenticalValue_Benign(t *testing.T) {
 	if strings.Contains(string(raw), "api_token") {
 		t.Fatalf("plaintext should still be scrubbed on the benign path:\n%s", raw)
 	}
+	// The consolidation is effective this run → the one-time notice
+	// fires (and never leaks the secret), even on the benign race path.
+	var nb bytes.Buffer
+	FlushMigrationNotice(&nb)
+	if nb.Len() == 0 {
+		t.Fatal("benign concurrent migration must still emit the notice")
+	}
+	if strings.Contains(nb.String(), secret) {
+		t.Fatalf("notice leaked the secret: %s", nb.String())
+	}
 }
 
 // Concurrent-writer race, DIVERGENT value: a writer sets api_token to a

@@ -44,12 +44,18 @@ var deprecatedKeys = []string{"cfl_api_token", "jtk_api_token"} //nolint:gosec /
 // migration open and OpenForClearAll; runtime / OpenNoMigrate stay strict.
 var migrationAllowedKeys = append(append([]string{}, allowedKeys...), deprecatedKeys...)
 
-// migrationApplyHook is a white-box test seam (nil in production),
-// invoked once (with the in-flight store) after phase-1 detect and
-// before the phase-2 write — the only point at which a test can
-// deterministically simulate a concurrent api_token writer racing the
-// migration, writing through the SAME open handle (a second open would
-// lock-conflict on the file backend).
+// migrationApplyHook is a TEST-ONLY white-box seam (always nil in
+// production; the nil guard means zero production behavior). It cannot
+// live in a _test.go file because migrateLegacyOverwrite — production
+// code — references it. It is invoked once (with the in-flight store)
+// after phase-1 detect and before the phase-2 write: the only point at
+// which a test can deterministically simulate a concurrent api_token
+// writer racing the migration, writing through the SAME open handle (a
+// second open would lock-conflict on the file backend).
+//
+// It has no mutex by design: it MUST never be set from a parallel test.
+// The tests that set it use the hermetic harness (t.Setenv), which is
+// already incompatible with t.Parallel(), so this holds structurally.
 var migrationApplyHook func(s *Store)
 
 // ErrMigrationConflict is the stable identity for a §1.8 conflict.
@@ -159,6 +165,10 @@ func migrateLegacyOverwrite(s *Store, overwrite bool) error {
 					append(sortedLocs(srcLoc), "keyring "+KeyAPIToken+" ("+s.ref+")"),
 					s.ref)
 			}
+			// Identical value: the racer committed exactly what we would
+			// have. The §1.8 consolidation IS effective this run (the
+			// notice should fire even with nothing left to scrub/delete).
+			changed = true
 		default:
 			return err
 		}

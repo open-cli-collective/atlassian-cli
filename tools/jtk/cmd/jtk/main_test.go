@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -10,6 +11,21 @@ import (
 
 	"github.com/open-cli-collective/atlassian-go/credtest"
 )
+
+// unreachableURL binds an ephemeral port and immediately closes it, so a
+// dial to the returned URL is refused fast and deterministically on any
+// host (unlike port 9, which a running discard service would accept and
+// stall).
+func unreachableURL(t *testing.T) string {
+	t.Helper()
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	addr := l.Addr().String()
+	_ = l.Close()
+	return "http://" + addr
+}
 
 // §1.11.6 acceptance: these tests invoke the REAL jtk entrypoint (this
 // package's main(), re-executed as a subprocess) on a migrating
@@ -103,7 +119,8 @@ func TestEntrypoint_PlaintextMigration_Exit0(t *testing.T) {
 
 func TestEntrypoint_Migration_SurvivesNonZeroExit(t *testing.T) {
 	dir := credtest.Hermetic(t)
-	writeLegacyShared(t, dir, "http://127.0.0.1:9", legacyTok)
+	// Closed ephemeral port → `me` fails fast after migration ran.
+	writeLegacyShared(t, dir, unreachableURL(t), legacyTok)
 
 	stderr, code := runCLI(t, dir, "", "me")
 	if code == 0 {

@@ -31,6 +31,14 @@ var deprecatedBundleKeys = []string{"cfl_api_token", "jtk_api_token"} //nolint:g
 // Hermetic configures. Test-harness only.
 func openBundle(t *testing.T) (*cccredstore.Store, string) {
 	t.Helper()
+	// Hermetic precondition guard: opening a BackendFile store with no
+	// passphrase rooted in the REAL HOME would read/write real keyring
+	// state silently. Fail loud if the caller skipped credtest.Hermetic
+	// (which sets the backend + passphrase + isolates HOME/XDG).
+	if os.Getenv(keyring.BackendEnvVar) != "file" || os.Getenv("ATLASSIAN_CLI_KEYRING_PASSPHRASE") == "" {
+		t.Fatalf("credtest: call credtest.Hermetic(t) before SeedDeprecatedKey/BundleKeys " +
+			"(file backend + passphrase + isolated HOME must be set first)")
+	}
 	service, profile, err := cccredstore.ParseRef(keyring.Ref)
 	if err != nil {
 		t.Fatalf("credtest: ParseRef(%q): %v", keyring.Ref, err)

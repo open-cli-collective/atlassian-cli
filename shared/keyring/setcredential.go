@@ -5,28 +5,22 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"slices"
 	"strings"
 )
 
 // SetCredential is the §Ingress write logic, kept here (a pure library)
 // so each tool only needs a thin cobra wrapper — shared/ never imports
 // cobra. It reads the token from envVar (when non-empty) else from in,
-// trims surrounding whitespace, refuses an empty value, validates the
-// key against the bundle allowlist, and stores it in the one canonical
-// shared bundle (the ref is a compile-time constant — there is no
-// user-facing ref: runtime resolution, migration, show, and clear all
-// target the same bundle, so storing elsewhere would be unreadable).
+// trims surrounding whitespace, refuses an empty value, and stores it as
+// the single shared api_token in the one canonical bundle (the ref is a
+// compile-time constant and there is one key per logical credential —
+// §1.11.10 — so there is no key or ref to choose: runtime resolution,
+// migration, show, and clear all target the same bundle).
 //
 // The token is never echoed: it is read, trimmed, and written; no caller
 // branch logs or returns it. The one-time §1.8 migration runs first so a
 // pre-existing legacy token cannot later collide.
-func SetCredential(in io.Reader, key, envVar string) (err error) {
-	if !slices.Contains(allowedKeys, key) {
-		return fmt.Errorf("unknown credential key %q (allowed: %s)",
-			key, strings.Join(allowedKeys, ", "))
-	}
-
+func SetCredential(in io.Reader, envVar string) (err error) {
 	var raw string
 	if strings.TrimSpace(envVar) != "" {
 		v, ok := os.LookupEnv(envVar)
@@ -67,5 +61,5 @@ func SetCredential(in io.Reader, key, envVar string) (err error) {
 			err = fmt.Errorf("set-credential: close keyring %s: %w", s.ref, cerr)
 		}
 	}()
-	return s.SetToken(key, token)
+	return s.SetToken(KeyAPIToken, token)
 }

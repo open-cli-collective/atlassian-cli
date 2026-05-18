@@ -15,7 +15,7 @@ import (
 // the token value (or any slice of it), even with a token configured.
 func TestRunShow_TokenPresenceNoLeak(t *testing.T) {
 	credtest.Hermetic(t)
-	credtest.SeedToken(t, keyring.KeyAPIToken, "SUPER-SECRET-show-token")
+	credtest.SeedToken(t, "SUPER-SECRET-show-token")
 
 	out, errBuf := &bytes.Buffer{}, &bytes.Buffer{}
 	opts := &root.Options{Output: "table", NoColor: true, Stdout: out, Stderr: errBuf}

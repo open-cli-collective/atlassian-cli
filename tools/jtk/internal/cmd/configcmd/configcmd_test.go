@@ -10,7 +10,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/open-cli-collective/atlassian-go/credstore"
 	"github.com/open-cli-collective/atlassian-go/credtest"
 	"github.com/open-cli-collective/atlassian-go/keyring"
 	"github.com/open-cli-collective/atlassian-go/testutil"
@@ -53,7 +52,7 @@ func TestShowCmd_TableOutput(t *testing.T) {
 
 func TestRunClear_All(t *testing.T) {
 	xdg := credtest.Hermetic(t)
-	credtest.SeedToken(t, keyring.KeyAPIToken, "shared-secret")
+	credtest.SeedToken(t, "shared-secret")
 
 	sharedPath := filepath.Join(xdg, "atlassian-cli", "config.yml")
 	testutil.RequireNoError(t, os.MkdirAll(filepath.Dir(sharedPath), 0o700))
@@ -186,7 +185,7 @@ func jtkTokenPresent(t *testing.T, key string) bool {
 
 func TestRunClear_DeletesSharedKey_Confirmed(t *testing.T) {
 	credtest.Hermetic(t)
-	credtest.SeedToken(t, keyring.KeyAPIToken, "shared-secret")
+	credtest.SeedToken(t, "shared-secret")
 
 	opts, _, errBuf := newClearOpts(t, false, "y\n")
 	testutil.RequireNoError(t, runClear(context.Background(), opts))
@@ -197,7 +196,7 @@ func TestRunClear_DeletesSharedKey_Confirmed(t *testing.T) {
 
 func TestRunClear_Cancelled(t *testing.T) {
 	credtest.Hermetic(t)
-	credtest.SeedToken(t, keyring.KeyAPIToken, "shared-secret")
+	credtest.SeedToken(t, "shared-secret")
 
 	opts, _, _ := newClearOpts(t, false, "n\n")
 	testutil.RequireNoError(t, runClear(context.Background(), opts))
@@ -205,17 +204,16 @@ func TestRunClear_Cancelled(t *testing.T) {
 	testutil.True(t, jtkTokenPresent(t, keyring.KeyAPIToken))
 }
 
-func TestRunClear_Force_DeletesJTKOverride(t *testing.T) {
+func TestRunClear_Force_DeletesSharedKey(t *testing.T) {
 	credtest.Hermetic(t)
-	credtest.SeedToken(t, keyring.KeyAPIToken, "shared-secret")
-	credtest.SeedToken(t, keyring.KeyFor(credstore.ToolJTK), "jtk-secret")
+	credtest.SeedToken(t, "shared-secret")
 
 	opts, _, _ := newClearOpts(t, true, "")
 	testutil.RequireNoError(t, runClear(context.Background(), opts))
 
-	// Only jtk's override key is removed; the shared default survives.
-	testutil.False(t, jtkTokenPresent(t, keyring.KeyFor(credstore.ToolJTK)))
-	testutil.True(t, jtkTokenPresent(t, keyring.KeyAPIToken))
+	// One key per logical credential (§1.11.10): the force path deletes
+	// the single shared api_token without prompting.
+	testutil.False(t, jtkTokenPresent(t, keyring.KeyAPIToken))
 }
 
 func TestRunClear_NothingToClear(t *testing.T) {

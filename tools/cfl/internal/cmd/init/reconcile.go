@@ -20,7 +20,7 @@ func hasUsableCreds(store *credstore.Store, tool string) (bool, error) {
 	if !store.HasUsableConfig(tool) {
 		return false, nil
 	}
-	return keyring.HasTokenForTool(tool)
+	return keyring.HasToken()
 }
 
 // writeTarget tells the post-form save logic which section of the
@@ -49,14 +49,6 @@ type reconcileResult struct {
 	// is currently reading from. Set when reuse=yes was chosen on a
 	// shared store that already had usable creds.
 	affectsSibling bool
-	// unifyBoth is set by the explicit mismatch choice "use <tool>'s
-	// credentials for both tools". It tells the save path to persist the
-	// chosen token as the shared api_token AND clear BOTH per-tool
-	// override keys, so neither tool stays shadowed on its old token.
-	// unifySource is the tool whose token was chosen (credstore.ToolCFL /
-	// ToolJTK); the command layer resolves THAT tool's keyring token.
-	unifyBoth   bool
-	unifySource string
 }
 
 // detectAndReconcile decides what to do given whatever configs already
@@ -278,20 +270,18 @@ func resultFromMismatch(cflLegacy, jtkLegacy *credstore.LegacyCreds, choice stri
 		store.CFL.Section = credstore.Section{}
 		store.JTK.Section = credstore.Section{}
 		var cfg *config.Config
-		chosenTool := credstore.ToolCFL
 		if choice == "use_cfl" {
 			cfg = configFromLegacy(cflLegacy)
 		} else {
 			cfg = configFromLegacy(jtkLegacy)
 			cfg.DefaultSpace = cflLegacy.DefaultSpace
 			cfg.OutputFormat = cflLegacy.OutputFormat
-			chosenTool = credstore.ToolJTK
 		}
 		applyFlagOverrides(cfg, prefillURL, prefillEmail, prefillAuthMethod, prefillCloudID)
-		// Signal the cross-tool unify; the command layer (init.go) does the
-		// keyring resolve+persist. reconcile.go stays keyring-free so it
-		// remains unit-testable without OS-keychain isolation.
-		return &reconcileResult{prefill: cfg, target: writeDefault, store: store, consumedLegacies: consumed, unifyBoth: true, unifySource: chosenTool}
+		// Non-secret connection reconcile only. The token is now a single
+		// shared key: divergent legacy tokens are caught by the keyring
+		// migration (fail-loud §1.8), not chosen here.
+		return &reconcileResult{prefill: cfg, target: writeDefault, store: store, consumedLegacies: consumed}
 	case "keep_different":
 		// Both tools land in their override sections so the split is
 		// stable: store.Default stays empty, cfl reads its override,

@@ -26,29 +26,19 @@ const (
 	// string-split by hand.
 	Ref = Service + "/" + Profile
 
-	// KeyAPIToken is the shared/default API token bundle key.
+	// KeyAPIToken is the single shared API token bundle key. There is
+	// one key per logical credential (Secret-Handling Standard §1.11.10);
+	// jtk and cfl resolve the same api_token. There are no per-tool
+	// override keys.
 	KeyAPIToken = "api_token" //nolint:gosec // G101: a bundle key name, not a credential
-	// KeyCFLAPIToken / KeyJTKAPIToken are the per-tool override keys.
-	KeyCFLAPIToken = "cfl_api_token" //nolint:gosec // G101: a bundle key name, not a credential
-	KeyJTKAPIToken = "jtk_api_token" //nolint:gosec // G101: a bundle key name, not a credential
 
-	// ToolCFL / ToolJTK identify the calling tool for per-tool resolution.
+	// ToolCFL / ToolJTK identify the calling tool for the unchanged
+	// per-tool env-var selection only (§ envVarsFor); the keyring key is
+	// shared regardless of tool.
 	ToolCFL = "cfl"
 	ToolJTK = "jtk"
 )
 
-// allowedKeys is the §1.5.2 allowlist: exactly the three token keys.
-var allowedKeys = []string{KeyAPIToken, KeyCFLAPIToken, KeyJTKAPIToken}
-
-// KeyFor returns the per-tool override key for a tool, or "" for an
-// unknown tool (callers fall back to KeyAPIToken).
-func KeyFor(tool string) string {
-	switch tool {
-	case ToolCFL:
-		return KeyCFLAPIToken
-	case ToolJTK:
-		return KeyJTKAPIToken
-	default:
-		return ""
-	}
-}
+// allowedKeys is the §1.5.2 allowlist and the §1.11.11 conforming bundle
+// key set: exactly the one shared token key.
+var allowedKeys = []string{KeyAPIToken}

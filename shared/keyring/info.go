@@ -51,7 +51,7 @@ func InspectForTool(tool string) (Info, error) {
 	if info.TokenSource == string(SourceEnv) {
 		return info, nil
 	}
-	v, tokSrc, gerr := resolveFromStore(s, tool)
+	v, tokSrc, gerr := resolveFromStore(s)
 	if gerr != nil {
 		return info, gerr
 	}

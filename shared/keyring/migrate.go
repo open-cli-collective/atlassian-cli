@@ -7,41 +7,46 @@ import (
 	"sort"
 	"strings"
 
-	cccredstore "github.com/open-cli-collective/cli-common/credstore"
-
 	"github.com/open-cli-collective/atlassian-go/credstore"
 )
 
-// One-time §1.8 migration (§2.x analog). The access secret is the
-// Atlassian api_token. Sources of a legacy plaintext token, in today's
-// persisted precedence (env is never persisted; the shared Store outranks
-// a legacy per-tool file):
+// One-time §1.8 migration. The access secret is the Atlassian api_token,
+// and there is exactly ONE keyring key for it (§1.11.10): jtk and cfl
+// share `api_token`. This migration unifies every legacy source onto that
+// one key:
 //
-//   - shared config.yml: Store.Default / Store.CFL / Store.JTK .APIToken
-//   - legacy cfl file (~/.config/cfl/config.yml)
-//   - legacy jtk file (os.UserConfigDir()/jira-ticket-cli/config.json)
+//   - legacy plaintext: shared config.yml (Default/CFL/JTK .APIToken) and
+//     the legacy per-tool files (cfl yml, jtk json);
+//   - deprecated keyring keys cfl_api_token / jtk_api_token left by an
+//     earlier build (B3 upgrade path: a user may hold ONLY these, with
+//     plaintext already scrubbed).
 //
-// The migrated value per scope is that scope's CURRENT EFFECTIVE token:
-//
-//   - api_token      <- Store.Default.APIToken
-//   - cfl_api_token  <- cfl's own-scope effective token, written ONLY when
-//     it is a genuine override (differs from the effective default and its
-//     source outranks the default). A legacy cfl FILE value shadowed by a
-//     non-empty shared Store value is dead data: scrubbed, never written,
-//     never a conflict. A value equal to the effective default is
-//     cleanup-only (no override key — writing it would pin cfl off future
-//     default changes).
-//   - jtk_api_token  <- symmetric.
-//
-// All plaintext token bytes are scrubbed afterwards (shared config.yml AND
-// the legacy files), whether or not they were written to a key. The only
-// fail-loud is a genuine EFFECTIVE value disagreeing with an existing
-// keyring value (cross-tool idempotency: equal => silent no-op + scrub).
+// Behavior (amended §1.8): collect every non-empty migration-source value;
+// if more than one DISTINCT value exists across all sources it is a hard
+// conflict (fail loud, name every source, never print a secret, never
+// precedence-pick). With exactly one distinct value it is compared to any
+// existing `api_token`: absent → write; equal → no-op; different →
+// conflict unless overwrite. All plaintext is scrubbed and both
+// deprecated keyring keys deleted afterwards. The whole thing is
+// strictly two-phase: collect + detect (pure, no mutation) THEN apply, so
+// a failed migration leaves every source untouched.
+
+// deprecatedKeys are the removed per-tool override keys. They are NOT in
+// allowedKeys (the §1.11.11 conforming bundle is exactly {api_token});
+// they exist only so this one-time migration and `config clear --all`
+// can read/delete residual B3 state. The migration store is opened with
+// migrationAllowedKeys so credstore permits Delete of these.
+var deprecatedKeys = []string{"cfl_api_token", "jtk_api_token"} //nolint:gosec // G101: bundle key names, not credentials
+
+// migrationAllowedKeys = allowedKeys ∪ deprecatedKeys. Used only by the
+// migration open and OpenForClearAll; runtime / OpenNoMigrate stay strict.
+var migrationAllowedKeys = append(append([]string{}, allowedKeys...), deprecatedKeys...)
 
 // ErrMigrationConflict is the stable identity for a §1.8 conflict.
 var ErrMigrationConflict = errors.New("keyring: legacy plaintext API token conflicts with the existing keyring value")
 
 func migrateLegacyOverwrite(s *Store, overwrite bool) error {
+	// ---- Phase 1: collect (no mutation) ----------------------------------
 	sharedPath := credstore.DefaultPath()
 	store, err := credstore.Load(sharedPath)
 	if err != nil {
@@ -60,77 +65,146 @@ func migrateLegacyOverwrite(s *Store, overwrite bool) error {
 		return deferLegacyLoadErr(errJ)
 	}
 
-	want, locs, anyPlaintext := gatherEffective(store, legacyCFL, legacyJTK)
+	// Existing target value (NOT a migration source — it is the target).
+	curAPI, _, err := s.get(KeyAPIToken)
+	if err != nil {
+		return err
+	}
 
-	// Current keyring values for the allowlist.
-	current := map[string]string{}
-	for _, k := range allowedKeys {
-		if v, ok, gerr := s.get(k); gerr != nil {
+	// Migration sources: value -> sorted, de-duplicated locations.
+	srcLoc := map[string]map[string]struct{}{}
+	add := func(val, loc string) {
+		if val == "" {
+			return
+		}
+		if srcLoc[val] == nil {
+			srcLoc[val] = map[string]struct{}{}
+		}
+		srcLoc[val][loc] = struct{}{}
+	}
+	add(store.Default.APIToken, "shared config default ("+sharedPath+")")
+	add(store.CFL.APIToken, "shared cfl override ("+sharedPath+")")
+	add(store.JTK.APIToken, "shared jtk override ("+sharedPath+")")
+	if legacyCFL != nil {
+		add(legacyCFL.APIToken, "legacy cfl config ("+legacyCFL.Path+")")
+	}
+	if legacyJTK != nil {
+		add(legacyJTK.APIToken, "legacy jtk config ("+legacyJTK.Path+")")
+	}
+	depPresent := map[string]string{} // key -> value, for deletion in phase 2
+	for _, dk := range deprecatedKeys {
+		v, ok, gerr := s.get(dk)
+		if gerr != nil {
 			return gerr
-		} else if ok {
-			current[k] = v
+		}
+		if ok {
+			depPresent[dk] = v
+			add(v, "keyring deprecated key "+dk+" ("+s.ref+")")
 		}
 	}
 
-	toWrite, conflicts := planWrites(want, current, overwrite)
-	if len(conflicts) > 0 {
-		return conflictError(conflicts, locs, s.ref)
+	anyPlaintext := store.Default.APIToken != "" || store.CFL.APIToken != "" ||
+		store.JTK.APIToken != "" ||
+		(legacyCFL != nil && legacyCFL.APIToken != "") ||
+		(legacyJTK != nil && legacyJTK.APIToken != "")
+
+	// ---- Phase 1: detect (pure) ------------------------------------------
+	plan, conflictLocs := planMigration(curAPI, srcLoc, overwrite)
+	if len(conflictLocs) > 0 {
+		return conflictError(conflictLocs, s.ref)
 	}
 
-	if len(toWrite) > 0 {
-		// Only force-overwrite on the explicit overwrite path. On the
-		// normal path planWrites already excluded every key that exists
-		// with a different value (those are fail-loud conflicts); writing
-		// without WithOverwrite keeps that contract even against a key
-		// that appeared between the preflight read and here (TOCTOU) —
-		// the backend errors instead of silently clobbering it.
-		var opts []cccredstore.SetOpt
-		if overwrite {
-			opts = append(opts, cccredstore.WithOverwrite())
+	// ---- Phase 2: apply (only reached with zero conflicts) ---------------
+	changed := false
+	if plan.write {
+		if err := s.SetToken(KeyAPIToken, plan.value); err != nil {
+			return err
 		}
-		if _, err := s.cs.SetBundle(s.profile, toWrite, opts...); err != nil {
-			return fmt.Errorf("migrate API token to keyring %s: %w", s.ref, err)
+		changed = true
+	}
+	for _, dk := range deprecatedKeys {
+		if _, ok := depPresent[dk]; ok {
+			if err := s.DeleteToken(dk); err != nil {
+				return fmt.Errorf("migrated to keyring %s but could not remove deprecated key %s: %w", s.ref, dk, err)
+			}
+			changed = true
 		}
+	}
+	if anyPlaintext {
+		if err := scrubSharedStore(store, sharedPath); err != nil {
+			return fmt.Errorf("migrated to keyring %s but could not scrub %s: %w", s.ref, sharedPath, err)
+		}
+		if legacyCFL != nil && legacyCFL.APIToken != "" {
+			if err := scrubLegacyFile(cflPath); err != nil {
+				return fmt.Errorf("migrated to keyring %s but could not scrub %s: %w", s.ref, cflPath, err)
+			}
+		}
+		if legacyJTK != nil && legacyJTK.APIToken != "" {
+			if err := scrubLegacyFile(jtkPath); err != nil {
+				return fmt.Errorf("migrated to keyring %s but could not scrub %s: %w", s.ref, jtkPath, err)
+			}
+		}
+		changed = true
 	}
 
-	if !anyPlaintext {
-		return nil // steady state — nothing legacy on disk
-	}
-
-	// Scrub every plaintext source (whether or not it fed a key). Failure
-	// here is real: we wrote the keyring but could not remove the
-	// plaintext — surface it so the user knows the secret still lingers.
-	if err := scrubSharedStore(store, sharedPath); err != nil {
-		return fmt.Errorf("migrated to keyring %s but could not scrub %s: %w", s.ref, sharedPath, err)
-	}
-	// Scrub the legacy files via the SAME generic map round-trip
-	// `config clear` uses (scrubLegacyFile): it deletes only api_token
-	// and preserves every other key verbatim — including fields a user
-	// hand-added or a future schema introduces. A hardcoded
-	// field-allowlist rewrite would silently drop those during this
-	// one-time, irreversible migration.
-	if legacyCFL != nil && legacyCFL.APIToken != "" {
-		if err := scrubLegacyFile(cflPath); err != nil {
-			return fmt.Errorf("migrated to keyring %s but could not scrub %s: %w", s.ref, cflPath, err)
-		}
-	}
-	if legacyJTK != nil && legacyJTK.APIToken != "" {
-		if err := scrubLegacyFile(jtkPath); err != nil {
-			return fmt.Errorf("migrated to keyring %s but could not scrub %s: %w", s.ref, jtkPath, err)
-		}
-	}
-
-	if len(toWrite) > 0 {
-		keys := make([]string, 0, len(toWrite))
-		for k := range toWrite {
-			keys = append(keys, k)
-		}
-		sort.Strings(keys)
+	if changed {
 		recordMigration(fmt.Sprintf(
-			"atlassian-cli: migrated the API token (%s) into the OS keyring %s; the plaintext copy was removed",
-			strings.Join(keys, ", "), s.ref))
+			"atlassian-cli: consolidated the API token into the OS keyring %s (%s); any plaintext copy and deprecated per-tool keys were removed",
+			s.ref, KeyAPIToken))
 	}
 	return nil
+}
+
+// migrationPlan is the pure decision: whether to write api_token and to
+// what value. Deletes/scrubs are unconditional in phase 2 (idempotent);
+// only the write is value-dependent.
+type migrationPlan struct {
+	write bool
+	value string
+}
+
+// planMigration is the pure §1.8 resolver over the collected sources.
+//   - >1 distinct source value           → conflict (every location).
+//   - exactly 1 distinct value v:
+//     curAPI == ""        → write v
+//     curAPI == v         → no write (cleanup/scrub only)
+//     curAPI != v         → conflict, unless overwrite (then write v)
+//   - 0 sources                           → no write (nothing to migrate)
+//
+// overwrite resolves source-vs-api_token ONLY; it never resolves a
+// >1-distinct-source conflict.
+func planMigration(curAPI string, srcLoc map[string]map[string]struct{}, overwrite bool) (migrationPlan, []string) {
+	if len(srcLoc) > 1 {
+		return migrationPlan{}, sortedLocs(srcLoc)
+	}
+	if len(srcLoc) == 0 {
+		return migrationPlan{}, nil
+	}
+	var v string
+	for val := range srcLoc {
+		v = val
+	}
+	switch {
+	case curAPI == "":
+		return migrationPlan{write: true, value: v}, nil
+	case curAPI == v:
+		return migrationPlan{}, nil
+	case overwrite:
+		return migrationPlan{write: true, value: v}, nil
+	default:
+		return migrationPlan{}, sortedLocs(srcLoc)
+	}
+}
+
+func sortedLocs(srcLoc map[string]map[string]struct{}) []string {
+	var locs []string
+	for _, set := range srcLoc {
+		for l := range set {
+			locs = append(locs, l)
+		}
+	}
+	sort.Strings(locs)
+	return locs
 }
 
 // deferLegacyLoadErr classifies ANY legacy-file load failure as
@@ -147,112 +221,14 @@ func deferLegacyLoadErr(err error) error {
 	return fmt.Errorf("%w: %w", credstore.ErrCorruptStore, err)
 }
 
-// gatherEffective computes the genuine per-scope key writes, a non-secret
-// location string per key (for conflict messages), and whether ANY
-// plaintext token existed anywhere (drives scrub even when every value is
-// shadowed/cleanup-only).
-func gatherEffective(store *credstore.Store, lc, lj *credstore.LegacyCreds) (want, locs map[string]string, anyPlaintext bool) {
-	want = map[string]string{}
-	locs = map[string]string{}
-
-	// Location strings name the concrete plaintext file so a conflict
-	// error tells the user exactly which file still holds a secret to
-	// remove/scrub — no separate diagnostic step.
-	sharedPath := credstore.DefaultPath()
-
-	effDefault := store.Default.APIToken
-	if effDefault != "" {
-		want[KeyAPIToken] = effDefault
-		locs[KeyAPIToken] = "shared config default (" + sharedPath + ")"
-	}
-
-	lcTok, ljTok := "", ""
-	lcPath, ljPath := "", ""
-	if lc != nil {
-		lcTok = lc.APIToken
-		lcPath = lc.Path
-	}
-	if lj != nil {
-		ljTok = lj.APIToken
-		ljPath = lj.Path
-	}
-	if effDefault != "" || store.CFL.APIToken != "" || store.JTK.APIToken != "" ||
-		lcTok != "" || ljTok != "" {
-		anyPlaintext = true
-	}
-
-	// cfl/jtk own-scope token under today's precedence, EXCLUDING the
-	// shared default (the default is its own key). The shared Store
-	// override outranks the legacy file, so a legacy-file value is only
-	// reachable when the Store override is empty AND no default shadows it.
-	cflOwn, cflLoc := firstNonEmptyLoc(
-		store.CFL.APIToken, "shared cfl override ("+sharedPath+")",
-		shadowed(lcTok, effDefault), "legacy cfl config ("+lcPath+")")
-	jtkOwn, jtkLoc := firstNonEmptyLoc(
-		store.JTK.APIToken, "shared jtk override ("+sharedPath+")",
-		shadowed(ljTok, effDefault), "legacy jtk config ("+ljPath+")")
-
-	if cflOwn != "" && cflOwn != effDefault {
-		want[KeyCFLAPIToken] = cflOwn
-		locs[KeyCFLAPIToken] = cflLoc
-	}
-	if jtkOwn != "" && jtkOwn != effDefault {
-		want[KeyJTKAPIToken] = jtkOwn
-		locs[KeyJTKAPIToken] = jtkLoc
-	}
-	return want, locs, anyPlaintext
-}
-
-// shadowed returns "" when a non-empty higher-precedence default exists
-// (the legacy-file value is dead data); otherwise it returns the value.
-func shadowed(legacyFileTok, effDefault string) string {
-	if effDefault != "" {
-		return ""
-	}
-	return legacyFileTok
-}
-
-func firstNonEmptyLoc(a, aLoc, b, bLoc string) (string, string) {
-	if a != "" {
-		return a, aLoc
-	}
-	if b != "" {
-		return b, bLoc
-	}
-	return "", ""
-}
-
-// planWrites is the pure §1.8 resolver: equal current value => idempotent
-// skip; differing current value => conflict (unless overwrite). Returns
-// only the keys to actually SetBundle.
-func planWrites(want, current map[string]string, overwrite bool) (toWrite map[string]string, conflicts []string) {
-	toWrite = map[string]string{}
-	for k, v := range want {
-		cur, present := current[k]
-		switch {
-		case !present:
-			toWrite[k] = v
-		case cur == v:
-			// already migrated — idempotent no-op (still scrub plaintext)
-		case overwrite:
-			toWrite[k] = v
-		default:
-			conflicts = append(conflicts, k)
-		}
-	}
-	sort.Strings(conflicts)
-	return toWrite, conflicts
-}
-
-// conflictError names the conflicting keys and their non-secret legacy
-// locations plus the keyring ref — never a value (§1.12).
-func conflictError(conflictKeys []string, locs map[string]string, ref string) error {
-	parts := make([]string, 0, len(conflictKeys))
-	for _, k := range conflictKeys {
-		parts = append(parts, fmt.Sprintf("%s (legacy %s vs keyring %s/%s)", k, locs[k], ref, k))
-	}
-	return fmt.Errorf("%w: %s; resolve by clearing one side (`config clear`, or remove/scrub the legacy plaintext file) then re-running",
-		ErrMigrationConflict, strings.Join(parts, ", "))
+// conflictError names every conflicting source location plus the keyring
+// ref — never a value (§1.12) — and points at the supported recovery
+// path now that per-tool `--key` is gone.
+func conflictError(locs []string, ref string) error {
+	return fmt.Errorf("%w: divergent API token values across %s; the migration will not pick a winner. "+
+		"Resolve by removing/scrubbing all but one source (or `config clear --all` then `set-credential` to start clean, "+
+		"or delete the conflicting entry from the OS keychain), then re-run. Keyring ref: %s",
+		ErrMigrationConflict, strings.Join(locs, ", "), ref)
 }
 
 // ---- plaintext scrub ------------------------------------------------------

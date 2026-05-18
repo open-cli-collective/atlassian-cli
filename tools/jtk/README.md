@@ -1629,7 +1629,7 @@ token non-interactively: `jtk set-credential` (reads stdin or
 
 Legacy per-tool config keeps working indefinitely (Linux: `~/.config/jira-ticket-cli/config.json`; macOS: `~/Library/Application Support/jira-ticket-cli/config.json`). The first command auto-migrates any pre-existing plaintext token into the keyring and scrubs the plaintext in place.
 
-Run `jtk config show` to inspect the resolved values, including the keyring ref, backend, and whether a token is configured (the token value itself is never displayed). Token/keyring reporting is authoritative; the non-secret rows reflect env + the legacy per-tool file only, so a value set solely in the shared store appears as "-" there even though jtk uses it at runtime. `jtk config clear` removes the tool's resolved key; `jtk config clear --all` removes the whole bundle plus the non-secret config file.
+Run `jtk config show` to inspect the resolved values, including the keyring ref, backend, and whether a token is configured (the token value itself is never displayed). Token/keyring reporting is authoritative; the non-secret rows reflect env + the legacy per-tool file only, so a value set solely in the shared store appears as "-" there even though jtk uses it at runtime. `jtk config clear` removes the single shared `api_token` (warning that cfl loses access too, since both tools resolve the same key); `jtk config clear --all` removes the whole bundle (including any deprecated per-tool keys) plus the non-secret config file.
 
 ### Environment Variables
 
@@ -1639,7 +1639,7 @@ Environment variables override file-based config. Variables are checked in order
 |---------|-------------------------------|
 | URL | `JIRA_URL` → `ATLASSIAN_URL` → shared `jtk` override → shared `default` → legacy → `JIRA_DOMAIN` |
 | Email | `JIRA_EMAIL` → `ATLASSIAN_EMAIL` → shared `jtk` → shared `default` → legacy |
-| API Token | `JIRA_API_TOKEN` → `ATLASSIAN_API_TOKEN` → keyring `jtk_api_token` → keyring `api_token` (OS keyring, never a plaintext file) |
+| API Token | `JIRA_API_TOKEN` → `ATLASSIAN_API_TOKEN` → keyring `api_token` (single shared key; OS keyring, never a plaintext file) |
 | Default Project | `JIRA_DEFAULT_PROJECT` → shared `jtk.default_project` → legacy |
 | Auth Method | `JIRA_AUTH_METHOD` → `ATLASSIAN_AUTH_METHOD` → shared → legacy → `basic` |
 | Cloud ID | `JIRA_CLOUD_ID` → `ATLASSIAN_CLOUD_ID` → shared → legacy |

@@ -141,8 +141,9 @@ Note: there is **no `api_token:` field** — the secret is in the keyring.
 The `cfl`/`jtk` sections may still carry non-secret per-tool overrides
 (`url`, `email`, `auth_method`, `cloud_id`); per-field merge applies.
 
-Keyring bundle: fixed ref `atlassian-cli/default`, keys `api_token`
-(shared default), `cfl_api_token`, `jtk_api_token` (per-tool overrides).
+Keyring bundle: fixed ref `atlassian-cli/default`, exactly one key
+`api_token` shared by cfl and jtk (Secret-Handling Standard §1.11.10:
+one key per logical credential — there are no per-tool override keys).
 Backend selection is env-only (`ATLASSIAN_CLI_KEYRING_BACKEND`); leave it
 unset to auto-select the OS keyring, or set it to `file` for the opt-in
 encrypted-file backend. The file-backend passphrase comes from
@@ -155,17 +156,20 @@ passphrase can never share stdin with a piped token.
 
 1. Tool-specific env (`CFL_API_TOKEN` / `JIRA_API_TOKEN`)
 2. `ATLASSIAN_API_TOKEN` env
-3. Keyring per-tool key (`cfl_api_token` / `jtk_api_token`)
-4. Keyring shared `api_token`
+3. Keyring shared `api_token`
 
 Non-secret fields keep their previous precedence (env → shared store
 override → shared default → legacy file).
 
 **One-time auto-migration:** the first API/`test`/`init` invocation that
 actually opens the keyring moves any pre-existing plaintext token (shared
-`config.yml` *or* a legacy per-tool file) into the keyring and scrubs the
-plaintext in place, printing a one-line notice. Legacy non-secret files
-keep working; init still detects/reconciles them. **Caveat:** when an
+`config.yml` *or* a legacy per-tool file) — and any deprecated per-tool
+keyring key left by an older build (B3 upgrade path) — into the single
+`api_token` and scrubs the plaintext in place, printing a one-line
+notice. If the collected sources hold **more than one distinct token**
+the migration fails loud, names every source (never the value), and
+mutates nothing — it never precedence-picks a secret winner. Legacy
+non-secret files keep working; init still detects/reconciles them. **Caveat:** when an
 API-token env var is set it wins outright and the keyring is not opened,
 so migration is deferred until an invocation actually needs the keyring
 (`init`/`set-credential`, or a command run without the env var). A user
@@ -176,10 +180,10 @@ override, so a read path is never forced to mutate disk behind it.
 **Non-interactive ingress:** `cfl set-credential` / `jtk set-credential`
 read a token from stdin or `--from-env VAR` and store it in the keyring
 (never echoed). `config show` reports token presence + source + keyring
-backend only (never the value). `config clear` removes the tool's
-resolved key (warning when it is the shared `api_token` that the sibling
-also uses); `config clear --all` removes the whole bundle plus the
-non-secret config file.
+backend only (never the value). `config clear` removes the single shared
+`api_token` (warning that the sibling tool loses access too, since both
+resolve the same key); `config clear --all` removes the whole bundle
+(including any deprecated per-tool keys) plus the non-secret config file.
 
 ## Git History
 

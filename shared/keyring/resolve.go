@@ -56,8 +56,6 @@ const (
 	SourceNone   TokenSource = "unset"
 	SourceEnv    TokenSource = "environment"
 	SourceKeyAPI TokenSource = "keyring (api_token)"
-	SourceKeyCFL TokenSource = "keyring (cfl_api_token)"
-	SourceKeyJTK TokenSource = "keyring (jtk_api_token)"
 )
 
 // envVarsFor returns the ordered API-token env vars for a tool: the
@@ -83,17 +81,6 @@ func envToken(tool string) (string, bool) {
 	return "", false
 }
 
-func sourceForKey(tool string) TokenSource {
-	switch KeyFor(tool) {
-	case KeyCFLAPIToken:
-		return SourceKeyCFL
-	case KeyJTKAPIToken:
-		return SourceKeyJTK
-	default:
-		return SourceKeyAPI
-	}
-}
-
 // ResolveToken is the RUNTIME token resolver (API commands, `config test`,
 // `init` credential need): env wins; otherwise the keyring is opened with
 // the one-time §1.8 migration (Open) and the effective key is read. Env
@@ -117,12 +104,12 @@ func ResolveToken(tool string) (string, TokenSource, error) {
 				return "", SourceNone, nerr
 			}
 			defer func() { _ = ns.Close() }()
-			return resolveFromStore(ns, tool)
+			return resolveFromStore(ns)
 		}
 		return "", SourceNone, err
 	}
 	defer func() { _ = s.Close() }()
-	return resolveFromStore(s, tool)
+	return resolveFromStore(s)
 }
 
 // ResolveTokenNoMigrate is the DIAGNOSTIC resolver (`config show` source
@@ -137,19 +124,12 @@ func ResolveTokenNoMigrate(tool string) (string, TokenSource, error) {
 		return "", SourceNone, err
 	}
 	defer func() { _ = s.Close() }()
-	return resolveFromStore(s, tool)
+	return resolveFromStore(s)
 }
 
-func resolveFromStore(s *Store, tool string) (string, TokenSource, error) {
-	// Per-tool override key first, then the shared default — surfacing the
-	// real source for the diagnostic column.
-	if k := KeyFor(tool); k != "" {
-		if v, ok, err := s.get(k); err != nil {
-			return "", SourceNone, err
-		} else if ok {
-			return v, sourceForKey(tool), nil
-		}
-	}
+// resolveFromStore reads the single shared api_token. One key per logical
+// credential (§1.11.10): jtk and cfl resolve the same key.
+func resolveFromStore(s *Store) (string, TokenSource, error) {
 	if v, ok, err := s.get(KeyAPIToken); err != nil {
 		return "", SourceNone, err
 	} else if ok {

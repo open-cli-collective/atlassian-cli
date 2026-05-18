@@ -142,7 +142,7 @@ Variables are checked in precedence order (first match wins):
 |---------|------------|
 | URL | `CFL_URL` → `ATLASSIAN_URL` → shared `cfl` override → shared `default` → legacy config |
 | Email | `CFL_EMAIL` → `ATLASSIAN_EMAIL` → shared `cfl` → shared `default` → legacy |
-| API Token | `CFL_API_TOKEN` → `ATLASSIAN_API_TOKEN` → keyring `cfl_api_token` → keyring `api_token` (OS keyring, **not** the config file) |
+| API Token | `CFL_API_TOKEN` → `ATLASSIAN_API_TOKEN` → keyring `api_token` (single shared key; OS keyring, **not** the config file) |
 | Default Space | `CFL_DEFAULT_SPACE` → shared `cfl.default_space` → legacy |
 | Auth Method | `CFL_AUTH_METHOD` → `ATLASSIAN_AUTH_METHOD` → shared `cfl` → shared `default` → legacy → `"basic"` |
 | Cloud ID | `CFL_CLOUD_ID` → `ATLASSIAN_CLOUD_ID` → shared `cfl` → shared `default` → legacy |

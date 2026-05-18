@@ -7,10 +7,81 @@
 package credtest
 
 import (
+	"os"
+	"sort"
 	"testing"
+
+	cccredstore "github.com/open-cli-collective/cli-common/credstore"
 
 	"github.com/open-cli-collective/atlassian-go/keyring"
 )
+
+// deprecatedBundleKeys are the removed per-tool override keys. Production
+// keyring exposes neither the names nor a writer for them (by design:
+// SetToken refuses non-allowlisted keys). Tests still need to fabricate
+// pre-migration "B3 upgrade" state — a user upgraded through the per-tool
+// build and holds only these — so credtest reaches the bundle through the
+// same cli-common credstore the keyring package uses, opened with the
+// superset allowlist. These literals must track keyring's deprecatedKeys.
+var deprecatedBundleKeys = []string{"cfl_api_token", "jtk_api_token"} //nolint:gosec // G101: bundle key names, not credentials
+
+// openBundle opens the canonical atlassian-cli bundle directly via
+// cli-common credstore with the superset allowlist (api_token + the two
+// deprecated keys), honoring the same file backend + passphrase env that
+// Hermetic configures. Test-harness only.
+func openBundle(t *testing.T) (*cccredstore.Store, string) {
+	t.Helper()
+	service, profile, err := cccredstore.ParseRef(keyring.Ref)
+	if err != nil {
+		t.Fatalf("credtest: ParseRef(%q): %v", keyring.Ref, err)
+	}
+	cs, err := cccredstore.Open(service, &cccredstore.Options{
+		AllowedKeys:   append([]string{keyring.KeyAPIToken}, deprecatedBundleKeys...),
+		ConfigBackend: cccredstore.BackendFile,
+		FilePassphrase: func() (string, error) {
+			return os.Getenv("ATLASSIAN_CLI_KEYRING_PASSPHRASE"), nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("credtest: open bundle: %v", err)
+	}
+	return cs, profile
+}
+
+// SeedDeprecatedKey writes a removed per-tool override key directly into
+// the bundle, standing in for B3 upgrade residue (plaintext already
+// scrubbed, only the old keyring key left). Production refuses to write
+// these, so the fixture goes through the underlying credstore.
+func SeedDeprecatedKey(t *testing.T, key, token string) {
+	t.Helper()
+	cs, profile := openBundle(t)
+	defer func() { _ = cs.Close() }()
+	if err := cs.Set(profile, key, token, cccredstore.WithOverwrite()); err != nil {
+		t.Fatalf("credtest.SeedDeprecatedKey(%s): %v", key, err)
+	}
+}
+
+// BundleKeys returns the EXACT set of bundle keys that currently hold a
+// value — api_token plus the deprecated per-tool keys — sorted. §1.11.11
+// conformance asserts against this: a healthy bundle is exactly
+// {api_token}; a cleared bundle is exactly empty.
+func BundleKeys(t *testing.T) []string {
+	t.Helper()
+	cs, profile := openBundle(t)
+	defer func() { _ = cs.Close() }()
+	var present []string
+	for _, k := range append([]string{keyring.KeyAPIToken}, deprecatedBundleKeys...) {
+		ok, err := cs.Exists(profile, k)
+		if err != nil {
+			t.Fatalf("credtest.BundleKeys: exists %s: %v", k, err)
+		}
+		if ok {
+			present = append(present, k)
+		}
+	}
+	sort.Strings(present)
+	return present
+}
 
 // tokenEnvVars are every API-token env var that would otherwise override
 // the keyring at runtime; cleared so tests exercise the keyring path.
@@ -44,12 +115,13 @@ func Hermetic(t *testing.T) string {
 	return dir
 }
 
-// SeedToken stores a token under key in the hermetic keyring (the same
+// SeedToken stores the shared api_token in the hermetic keyring (the same
 // file backend Hermetic configures). Use it to set up "token already in
-// the keyring" scenarios without going through init.
-func SeedToken(t *testing.T, key, token string) {
+// the keyring" scenarios without going through init. There is one key per
+// logical credential (§1.11.10), so no key argument.
+func SeedToken(t *testing.T, token string) {
 	t.Helper()
-	if err := keyring.PersistToken(key, token); err != nil {
-		t.Fatalf("credtest.SeedToken(%q): %v", key, err)
+	if err := keyring.PersistToken(token); err != nil {
+		t.Fatalf("credtest.SeedToken: %v", err)
 	}
 }

@@ -315,10 +315,6 @@ func TestResultFromMismatch_UseCFL_ClearsStaleJTKOverride(t *testing.T) {
 	testutil.Equal(t, "", r.store.CFL.URL)
 	testutil.Equal(t, "", r.store.CFL.APIToken)
 	testutil.Equal(t, "PROJ", r.store.JTK.DefaultProject)
-	// Signals the command layer to unify on cfl's keyring token and clear
-	// both per-tool override keys.
-	testutil.Equal(t, true, r.unifyBoth)
-	testutil.Equal(t, credstore.ToolCFL, r.unifySource)
 }
 
 // Symmetric to UseCFL_ClearsStaleJTKOverride: use_jtk also clears
@@ -344,8 +340,6 @@ func TestResultFromMismatch_UseJTK_ClearsBothOverrides(t *testing.T) {
 	testutil.Equal(t, "", r.store.JTK.URL)
 	testutil.Equal(t, "", r.store.JTK.APIToken)
 	testutil.Equal(t, "STALE", r.store.CFL.DefaultSpace) // per-tool default survives
-	testutil.Equal(t, true, r.unifyBoth)
-	testutil.Equal(t, credstore.ToolJTK, r.unifySource) // unify on jtk's token
 }
 
 func TestResultFromMismatch_UseJTK_PreservesCFLDefaults(t *testing.T) {
@@ -377,9 +371,6 @@ func TestResultFromMismatch_KeepDifferent(t *testing.T) {
 	testutil.Equal(t, "jtk-tok", r.store.JTK.APIToken)
 	testutil.Equal(t, "SPACE", r.store.CFL.DefaultSpace)
 	testutil.Equal(t, "PROJ", r.store.JTK.DefaultProject)
-	// keep_different keeps per-tool overrides — it is NOT a unify action.
-	testutil.Equal(t, false, r.unifyBoth)
-	testutil.Equal(t, "", r.unifySource)
 	if !strings.Contains(stdout.String(), "Keeping per-tool credentials") {
 		t.Errorf("expected keep-different note; got: %s", stdout.String())
 	}

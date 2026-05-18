@@ -26,12 +26,20 @@ type Store struct {
 	service string
 	profile string
 	ref     string
+	allow   []string // effective allowlist this handle was opened with
 }
 
 // Open opens the fixed shared ref and runs the one-time §1.8 migration
 // (used by API commands, `config test`, and `init`). A legacy-vs-keyring
 // effective-value conflict surfaces here as a hard error.
 func Open() (*Store, error) { return open(false, true) }
+
+// OpenForClearAll opens the bundle WITHOUT migration but with the
+// migration/superset allowlist (so `config clear --all` can delete any
+// residual deprecated per-tool key — the supported recovery path when a
+// divergent-deprecated state made migration fail loud). Runtime and
+// OpenNoMigrate keep the strict single-key allowlist (§1.11.11).
+func OpenForClearAll() (*Store, error) { return openWithAllow(false, false, migrationAllowedKeys) }
 
 // (There is intentionally no exported overwrite-migration entry point:
 // no user-facing `--overwrite` command exists, so the open(overwrite=…)
@@ -43,7 +51,18 @@ func Open() (*Store, error) { return open(false, true) }
 func OpenNoMigrate() (*Store, error) { return open(false, false) }
 
 func open(overwrite, runMigration bool) (*Store, error) {
-	s, err := openRef(Ref)
+	// The migration path needs to read and delete the deprecated per-tool
+	// keys (B3 upgrade), so it opens with the superset allowlist;
+	// non-migrating opens stay strict single-key (§1.11.11).
+	allow := allowedKeys
+	if runMigration {
+		allow = migrationAllowedKeys
+	}
+	return openWithAllow(overwrite, runMigration, allow)
+}
+
+func openWithAllow(overwrite, runMigration bool, allow []string) (*Store, error) {
+	s, err := openRef(Ref, allow)
 	if err != nil {
 		return nil, err
 	}
@@ -61,15 +80,15 @@ func open(overwrite, runMigration bool) (*Store, error) {
 // the ref is a compile-time constant — there is no caller-supplied ref
 // in the fixed-ref architecture.
 func openCanonical() (*Store, error) {
-	return openRef(Ref)
+	return openRef(Ref, allowedKeys)
 }
 
-func openRef(ref string) (*Store, error) {
+func openRef(ref string, allow []string) (*Store, error) {
 	service, profile, err := cccredstore.ParseRef(ref)
 	if err != nil {
 		return nil, fmt.Errorf("invalid credential ref %q: %w", ref, err)
 	}
-	opts := &cccredstore.Options{AllowedKeys: allowedKeys}
+	opts := &cccredstore.Options{AllowedKeys: allow}
 	switch b := strings.TrimSpace(os.Getenv(BackendEnvVar)); b {
 	case "":
 		// Auto-select per §1.4 (credstore decides; fail-closed on Linux).
@@ -90,7 +109,7 @@ func openRef(ref string) (*Store, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Store{cs: cs, service: service, profile: profile, ref: ref}, nil
+	return &Store{cs: cs, service: service, profile: profile, ref: ref, allow: allow}, nil
 }
 
 // Close releases the backing store. Safe on a nil receiver.
@@ -108,19 +127,10 @@ func (s *Store) Service() string { return s.service }
 // Backend reports the credstore backend and how it was selected (§1.6).
 func (s *Store) Backend() (cccredstore.Backend, cccredstore.Source) { return s.cs.Backend() }
 
-// Token returns the effective token for tool: the per-tool override key if
-// present, else the shared default key. Keyring errors propagate (never
-// folded into "absent").
-func (s *Store) Token(tool string) (string, bool, error) {
-	if k := KeyFor(tool); k != "" {
-		v, ok, err := s.get(k)
-		if err != nil {
-			return "", false, err
-		}
-		if ok {
-			return v, true, nil
-		}
-	}
+// Token returns the shared api_token. One key per logical credential
+// (§1.11.10): jtk and cfl resolve the same key. Keyring errors propagate
+// (never folded into "absent").
+func (s *Store) Token() (string, bool, error) {
 	return s.get(KeyAPIToken)
 }
 
@@ -148,8 +158,7 @@ func (s *Store) SetToken(key, val string) error {
 			key, s.ref, strings.Join(allowedKeys, ", "))
 	}
 	// Reject empty values for ALL ingress paths (SetCredential already
-	// trims+rejects; this also covers PersistToken). An empty per-tool
-	// override would make Token() silently fall back to the shared key.
+	// trims+rejects; this also covers PersistToken).
 	if val == "" {
 		return fmt.Errorf("refusing to store an empty value at %s/%s", s.ref, key)
 	}
@@ -189,7 +198,7 @@ func (s *Store) DeleteToken(key string) error {
 // (never the env-first resolver: env cannot be cleared).
 func (s *Store) ExistingKeys() ([]string, error) {
 	var out []string
-	for _, k := range allowedKeys {
+	for _, k := range s.allow {
 		ok, err := s.cs.Exists(s.profile, k)
 		if err != nil {
 			return nil, fmt.Errorf("check %s at %s: %w", k, s.ref, err)
@@ -213,7 +222,7 @@ func (s *Store) ClearBundle() error {
 // holds the token, so there is no io.Reader to read from). No migration
 // runs: init calls EnsureMigrated up front, so the §1.8 source is already
 // resolved before the new token is written.
-func PersistToken(key, token string) (err error) {
+func PersistToken(token string) (err error) {
 	s, err := openCanonical()
 	if err != nil {
 		return err
@@ -221,85 +230,27 @@ func PersistToken(key, token string) (err error) {
 	// Surface the Close error on this WRITE path: the encrypted-file
 	// backend may flush/sync on Close, so a swallowed Close error after a
 	// "successful" SetToken could mean the token was never durably
-	// written. Read-only callers (HasTokenForTool, EnsureMigrated) keep
-	// the cheap discard — there a Close error changes nothing.
+	// written. Read-only callers (HasToken, EnsureMigrated) keep the
+	// cheap discard — there a Close error changes nothing.
 	defer func() {
 		if cerr := s.Close(); cerr != nil && err == nil {
 			err = fmt.Errorf("persist token: close keyring %s: %w", s.ref, cerr)
 		}
 	}()
-	return s.SetToken(key, token)
+	return s.SetToken(KeyAPIToken, token)
 }
 
-// PersistTokenForTool stores token under the key matching init's write
-// target and keeps resolution consistent with that choice. The per-tool
-// override key (cfl_api_token / jtk_api_token) outranks the shared
-// api_token in resolveFromStore, so when init writes the shared default
-// (override=false) any pre-existing per-tool override for THIS tool would
-// silently shadow the value the user just saved (e.g. a prior
-// `set-credential --key cfl_api_token` or token-only legacy divergence).
-// Writing the default therefore also deletes this tool's override key so
-// the tool actually resolves the token init persisted. The sibling's
-// override is independent and left untouched. override=true writes the
-// per-tool key directly (already highest precedence — no cleanup needed).
-func PersistTokenForTool(tool string, override bool, token string) (err error) {
-	s, err := openCanonical()
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if cerr := s.Close(); cerr != nil && err == nil {
-			err = fmt.Errorf("persist token: close keyring %s: %w", s.ref, cerr)
-		}
-	}()
-	if override {
-		return s.SetToken(KeyFor(tool), token)
-	}
-	if err := s.SetToken(KeyAPIToken, token); err != nil {
-		return err
-	}
-	return s.DeleteToken(KeyFor(tool))
-}
-
-// PersistUnifiedToken stores token as the shared api_token and removes
-// BOTH per-tool override keys. It backs init's explicit mismatch choice
-// "use <tool>'s credentials for both tools": the user asked for one token
-// across cfl and jtk, so any per-tool override (either tool's) must go or
-// it would keep shadowing api_token in resolveFromStore and silently
-// leave that tool on its old token. Unlike PersistTokenForTool's
-// default-write path, the sibling override is intentionally cleared here
-// because the action is an explicit cross-tool unify, not a normal save.
-func PersistUnifiedToken(token string) (err error) {
-	s, err := openCanonical()
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if cerr := s.Close(); cerr != nil && err == nil {
-			err = fmt.Errorf("persist token: close keyring %s: %w", s.ref, cerr)
-		}
-	}()
-	if err := s.SetToken(KeyAPIToken, token); err != nil {
-		return err
-	}
-	if err := s.DeleteToken(KeyFor(ToolCFL)); err != nil {
-		return err
-	}
-	return s.DeleteToken(KeyFor(ToolJTK))
-}
-
-// HasTokenForTool reports whether a keyring token is already present for
-// tool (its override key, else the shared default) WITHOUT running the
-// migration or consulting env. Used by `init` detection to compose
-// readiness with credstore.HasUsableConfig. A genuine keyring error is
-// surfaced, never folded into false.
-func HasTokenForTool(tool string) (bool, error) {
+// HasToken reports whether the shared api_token is already present in the
+// keyring WITHOUT running the migration or consulting env. Used by `init`
+// detection to compose readiness with credstore.HasUsableConfig. A
+// genuine keyring error is surfaced, never folded into false.
+func HasToken() (bool, error) {
 	s, err := OpenNoMigrate()
 	if err != nil {
 		return false, err
 	}
 	defer func() { _ = s.Close() }()
-	_, ok, err := s.Token(tool)
+	_, ok, err := s.Token()
 	return ok, err
 }
 

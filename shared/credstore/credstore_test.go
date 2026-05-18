@@ -169,7 +169,7 @@ func TestResolveWithSource(t *testing.T) {
 
 // HasUsableConfig is NON-secret completeness only — the token lives in
 // the keyring, so it is intentionally NOT part of this check (callers
-// compose it with keyring.HasTokenForTool).
+// compose it with keyring.HasToken).
 func TestHasUsableConfig(t *testing.T) {
 	t.Parallel()
 	cases := []struct {

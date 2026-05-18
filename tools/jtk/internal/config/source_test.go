@@ -109,7 +109,7 @@ func TestTokenResolution_EnvAndKeyring(t *testing.T) {
 	testutil.False(t, r.TokenConfigured)
 
 	// Seeded into the keyring under the shared default key.
-	testutil.RequireNoError(t, keyring.PersistToken(keyring.KeyAPIToken, "kr-token"))
+	testutil.RequireNoError(t, keyring.PersistToken("kr-token"))
 	r = GetValuesWithSources()
 	testutil.True(t, r.TokenConfigured)
 	testutil.Equal(t, r.TokenSource, string(keyring.SourceKeyAPI))

@@ -99,22 +99,15 @@ func runInit(ctx context.Context, opts *root.Options, prefillURL, prefillEmail, 
 	cfg := result.prefill
 
 	// The up-front EnsureMigrated relocates any legacy plaintext token into
-	// the keyring and scrubs the file, so detectAndReconcile (which reads
-	// the now-scrubbed legacy/config files) leaves prefill.APIToken empty
-	// even though the token still exists. Backfill it from the keyring so a
-	// returning user isn't forced to re-enter a token that was just
-	// migrated. For an explicit "use X for both tools" mismatch choice,
-	// resolve the CHOSEN tool's token (migration moved each differing
-	// legacy token to its own per-tool key), not the current tool's, so
-	// the unify uses the token the user picked. NoMigrate: migration
-	// already ran above. Value stays password-masked in the form (same
-	// ingress as before); never displayed.
+	// the single shared keyring api_token and scrubs the file, so
+	// detectAndReconcile (which reads the now-scrubbed legacy/config files)
+	// leaves prefill.APIToken empty even though the token still exists.
+	// Backfill it from the keyring so a returning user isn't forced to
+	// re-enter a token that was just migrated. NoMigrate: migration already
+	// ran above. Value stays password-masked in the form (same ingress as
+	// before); never displayed.
 	if cfg.APIToken == "" {
-		backfillTool := credstore.ToolJTK
-		if result.unifyBoth && result.unifySource != "" {
-			backfillTool = result.unifySource
-		}
-		if tok, _, terr := keyring.ResolveTokenNoMigrate(backfillTool); terr == nil {
+		if tok, _, terr := keyring.ResolveTokenNoMigrate(credstore.ToolJTK); terr == nil {
 			cfg.APIToken = tok
 		}
 	}
@@ -279,19 +272,10 @@ func runInit(ctx context.Context, opts *root.Options, prefillURL, prefillEmail, 
 	}
 
 	// The token never lands in the plaintext store (Save strips it) — it
-	// goes to the OS keyring under the key matching the write target
-	// (shared default → api_token; jtk override → jtk_api_token), clearing
-	// any stale per-tool override that would otherwise shadow a default
-	// write so the tool resolves exactly what was just saved. An explicit
-	// "use X for both tools" mismatch choice unifies: api_token + clear
-	// BOTH overrides so the sibling switches too.
-	persist := func() error {
-		if result.unifyBoth {
-			return keyring.PersistUnifiedToken(cfg.APIToken)
-		}
-		return keyring.PersistTokenForTool(credstore.ToolJTK, result.target == writeJTKOverride, cfg.APIToken)
-	}
-	if err := persist(); err != nil {
+	// goes to the OS keyring under the single shared api_token (§1.11.10:
+	// one key for both jtk and cfl; the reconcile write-target governs
+	// only NON-secret placement, untouched here).
+	if err := keyring.PersistToken(cfg.APIToken); err != nil {
 		v.Error("Saved the non-secret config to %s, but could not store the API token in the keyring: %v", sharedPath, err)
 		v.Error("Recover by storing just the token (no need to re-run init): `jtk set-credential` (reads stdin or --from-env VAR).")
 		return err

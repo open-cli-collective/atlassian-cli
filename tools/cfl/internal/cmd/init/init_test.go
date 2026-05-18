@@ -162,8 +162,11 @@ func TestFinalizeInit_WritesToCorrectSection(t *testing.T) {
 		target  writeTarget
 		wantKey string
 	}{
+		// One key per logical credential (§1.11.10): the token always
+		// lands under the single shared api_token; writeTarget governs
+		// only NON-secret placement (default vs cfl section).
 		{"default", writeDefault, keyring.KeyAPIToken},
-		{"cfl_override", writeCFLOverride, keyring.KeyFor(credstore.ToolCFL)},
+		{"cfl_override", writeCFLOverride, keyring.KeyAPIToken},
 	}
 	for _, tc := range cases {
 		tc := tc

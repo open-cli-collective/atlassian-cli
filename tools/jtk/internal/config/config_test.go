@@ -260,7 +260,7 @@ func TestGetAPIToken_EnvOverride(t *testing.T) {
 	testutil.Equal(t, GetAPIToken(), "")
 
 	// Keyring is the store of truth.
-	testutil.RequireNoError(t, keyring.PersistToken(keyring.KeyAPIToken, "kr-token"))
+	testutil.RequireNoError(t, keyring.PersistToken("kr-token"))
 	testutil.Equal(t, GetAPIToken(), "kr-token")
 
 	// Env outranks the keyring.
@@ -291,7 +291,7 @@ func TestIsConfigured(t *testing.T) {
 	testutil.False(t, IsConfigured())
 
 	// Token in the keyring completes it.
-	testutil.RequireNoError(t, keyring.PersistToken(keyring.KeyAPIToken, "kr-token"))
+	testutil.RequireNoError(t, keyring.PersistToken("kr-token"))
 	testutil.True(t, IsConfigured())
 }
 
@@ -306,7 +306,7 @@ func TestIsConfigured_LegacyDomain(t *testing.T) {
 	}
 	err := Save(cfg)
 	testutil.RequireNoError(t, err)
-	testutil.RequireNoError(t, keyring.PersistToken(keyring.KeyAPIToken, "kr-token"))
+	testutil.RequireNoError(t, keyring.PersistToken("kr-token"))
 	testutil.True(t, IsConfigured())
 }
 
@@ -563,22 +563,6 @@ func TestSharedStore_FillsURLBetweenEnvAndLegacy(t *testing.T) {
 	testutil.Equal(t, "https://env.atlassian.net", GetURL())
 }
 
-func TestSharedStore_JTKOverrideBeatsDefault(t *testing.T) {
-	tempDir, cleanup := setupTestConfig(t)
-	defer cleanup()
-
-	sharedPath := filepath.Join(tempDir, "atlassian-cli", "config.yml")
-	store := &credstore.Store{
-		Default: credstore.Section{URL: "https://shared.atlassian.net"},
-	}
-	testutil.RequireNoError(t, store.Save(sharedPath))
-
-	// The per-tool override now lives in the KEYRING, not the YAML store.
-	testutil.RequireNoError(t, keyring.PersistToken(keyring.KeyAPIToken, "default-tok"))
-	testutil.RequireNoError(t, keyring.PersistToken(keyring.KeyFor(credstore.ToolJTK), "jtk-tok"))
-	testutil.Equal(t, "jtk-tok", GetAPIToken())
-}
-
 func TestSharedStore_LegacyWinsWhenSharedAbsent(t *testing.T) {
 	_, cleanup := setupTestConfig(t)
 	defer cleanup()
@@ -642,11 +626,10 @@ func TestSharedStore_FullPrecedenceChain(t *testing.T) {
 	testutil.Equal(t, "https://shared.atlassian.net", GetURL()) // shared default wins over legacy
 
 	// Token precedence is keyring-based (not the YAML store/legacy):
-	// shared default key, then the jtk override key, then env.
-	testutil.RequireNoError(t, keyring.PersistToken(keyring.KeyAPIToken, "shared-tok"))
+	// the single shared api_token key, then env. There is one key per
+	// logical credential (§1.11.10) — no per-tool keyring override.
+	testutil.RequireNoError(t, keyring.PersistToken("shared-tok"))
 	testutil.Equal(t, "shared-tok", GetAPIToken())
-	testutil.RequireNoError(t, keyring.PersistToken(keyring.KeyFor(credstore.ToolJTK), "jtk-tok"))
-	testutil.Equal(t, "jtk-tok", GetAPIToken())
 
 	// Layer 4: ATLASSIAN_* env beats the keyring.
 	t.Setenv("ATLASSIAN_API_TOKEN", "atlassian-env-tok")

@@ -7,7 +7,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/open-cli-collective/atlassian-go/credstore"
 	"github.com/open-cli-collective/atlassian-go/credtest"
 	"github.com/open-cli-collective/atlassian-go/keyring"
 	"github.com/open-cli-collective/atlassian-go/testutil"
@@ -43,7 +42,7 @@ func TestRunClear_NothingToClear(t *testing.T) {
 
 func TestRunClear_DeletesSharedKey_WithForce(t *testing.T) {
 	credtest.Hermetic(t)
-	credtest.SeedToken(t, keyring.KeyAPIToken, "shared-secret")
+	credtest.SeedToken(t, "shared-secret")
 
 	opts, _, errBuf := newClearOpts(true, "")
 	testutil.RequireNoError(t, runClear(opts))
@@ -53,23 +52,22 @@ func TestRunClear_DeletesSharedKey_WithForce(t *testing.T) {
 	testutil.Contains(t, errBuf.String(), "jtk will also lose access")
 }
 
-func TestRunClear_DeletesCFLOverride_Confirmed(t *testing.T) {
+func TestRunClear_DeletesSharedKey_Confirmed(t *testing.T) {
 	credtest.Hermetic(t)
-	credtest.SeedToken(t, keyring.KeyAPIToken, "shared-secret")
-	credtest.SeedToken(t, keyring.KeyFor(credstore.ToolCFL), "cfl-secret")
+	credtest.SeedToken(t, "shared-secret")
 
 	opts, _, errBuf := newClearOpts(false, "y\n")
 	testutil.RequireNoError(t, runClear(opts))
 
-	// Only cfl's override is removed; the shared default survives.
-	testutil.False(t, tokenPresent(t, keyring.KeyFor(credstore.ToolCFL)))
-	testutil.True(t, tokenPresent(t, keyring.KeyAPIToken))
-	testutil.Contains(t, errBuf.String(), "cfl_api_token")
+	// One key per logical credential (§1.11.10): a confirmed clear removes
+	// the single shared api_token and warns the sibling loses access.
+	testutil.False(t, tokenPresent(t, keyring.KeyAPIToken))
+	testutil.Contains(t, errBuf.String(), "jtk will also lose access")
 }
 
 func TestRunClear_Cancelled(t *testing.T) {
 	credtest.Hermetic(t)
-	credtest.SeedToken(t, keyring.KeyAPIToken, "shared-secret")
+	credtest.SeedToken(t, "shared-secret")
 
 	opts, _, _ := newClearOpts(false, "n\n")
 	testutil.RequireNoError(t, runClear(opts))
@@ -79,7 +77,7 @@ func TestRunClear_Cancelled(t *testing.T) {
 
 func TestRunClear_All(t *testing.T) {
 	xdg := credtest.Hermetic(t)
-	credtest.SeedToken(t, keyring.KeyAPIToken, "shared-secret")
+	credtest.SeedToken(t, "shared-secret")
 
 	sharedPath := filepath.Join(xdg, "atlassian-cli", "config.yml")
 	testutil.RequireNoError(t, os.MkdirAll(filepath.Dir(sharedPath), 0o700))

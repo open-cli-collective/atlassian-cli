@@ -550,10 +550,10 @@ cfl config test
 
 #### `cfl config clear`
 
-Remove cfl's resolved token key from the OS keyring (`cfl_api_token` if a
-cfl override exists, otherwise the shared `api_token` — you are warned
-when clearing the shared key, since jtk also uses it). `--all` removes the
-entire shared bundle plus the non-secret config file and scrubs any
+Remove the single shared `api_token` from the OS keyring — you are warned
+that jtk loses access too, since both tools resolve the same key. `--all`
+removes the entire shared bundle (including any deprecated per-tool keys
+left by an older build) plus the non-secret config file and scrubs any
 surviving legacy plaintext files; `--all` still cleans the plaintext
 artifacts even when the keyring itself cannot be opened (the recovery
 path).
@@ -820,7 +820,7 @@ Environment variables override file-based config. Variables are checked in order
 |---------|-------------------------------|
 | URL | `CFL_URL` → `ATLASSIAN_URL` → shared `cfl` override → shared `default` → legacy file |
 | Email | `CFL_EMAIL` → `ATLASSIAN_EMAIL` → shared `cfl` → shared `default` → legacy |
-| API Token | `CFL_API_TOKEN` → `ATLASSIAN_API_TOKEN` → keyring `cfl_api_token` → keyring `api_token` (OS keyring, never a plaintext file) |
+| API Token | `CFL_API_TOKEN` → `ATLASSIAN_API_TOKEN` → keyring `api_token` (single shared key; OS keyring, never a plaintext file) |
 | Default Space | `CFL_DEFAULT_SPACE` → shared `cfl.default_space` → legacy |
 | Auth Method | `CFL_AUTH_METHOD` → `ATLASSIAN_AUTH_METHOD` → shared → legacy → `basic` |
 | Cloud ID | `CFL_CLOUD_ID` → `ATLASSIAN_CLOUD_ID` → shared → legacy |

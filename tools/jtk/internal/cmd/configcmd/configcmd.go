@@ -122,7 +122,7 @@ func runClear(ctx context.Context, opts *clearOptions) error {
 	// store the delete/clear step reuses (no second passphrase prompt).
 	// The env + plaintext-file fields are populated even when the keyring
 	// cannot be opened, so `--all` can still clean plaintext artifacts.
-	plan, store, err := keyring.PlanClear(credstore.ToolJTK)
+	plan, store, err := keyring.PlanClear(credstore.ToolJTK, opts.all)
 	if store != nil {
 		defer func() { _ = store.Close() }()
 	}

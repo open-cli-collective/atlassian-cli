@@ -96,7 +96,8 @@ func TestReconcile_CorruptCFLLegacyAborts(t *testing.T) {
 	t.Parallel()
 	tmp := t.TempDir()
 	cflPath := filepath.Join(tmp, "cfl.yml")
-	testutil.RequireNoError(t, os.WriteFile(cflPath, []byte(": ::: ["), 0o600))
+	corrupt := []byte(": ::: [")
+	testutil.RequireNoError(t, os.WriteFile(cflPath, corrupt, 0o600))
 	v, _, stderr := newReconcileView()
 	_, err := detectAndReconcile(v, cflPath,
 		filepath.Join(tmp, "jtk.json"), filepath.Join(tmp, "shared.yml"),
@@ -104,6 +105,13 @@ func TestReconcile_CorruptCFLLegacyAborts(t *testing.T) {
 	testutil.RequireError(t, err)
 	if !strings.Contains(stderr.String(), "unreadable") {
 		t.Errorf("corrupt own-legacy must surface an actionable 'unreadable' message; got: %s", stderr.String())
+	}
+	// Fail-loud must mutate NOTHING: the unreadable file is byte-identical
+	// afterwards (a future refactor that truncates/overwrites before the
+	// early return would otherwise pass undetected).
+	after, _ := os.ReadFile(cflPath) //nolint:gosec // test reads its own temp file
+	if string(after) != string(corrupt) {
+		t.Errorf("corrupt legacy file was mutated by a failed detect; want byte-identical")
 	}
 }
 
@@ -218,7 +226,13 @@ func TestReconcile_DivergentWithToken_NoMutation(t *testing.T) {
 	}
 }
 
-func TestReconcile_AffectsSibling_WhenSharedUsable(t *testing.T) {
+// Re-running init with the connection UNCHANGED must NOT nag about
+// affecting the sibling: the resolved connection is byte-equivalent to
+// the shared default already on disk (implicit-vs-explicit basic and URL
+// normalization are canonicalized away). Pins the §2.2/MON-5328 fix for
+// the daemon-flagged UX regression (one shared default would otherwise
+// prompt on every re-init).
+func TestReconcile_NoNagWhenConnUnchanged(t *testing.T) {
 	t.Parallel()
 	tmp := t.TempDir()
 	sharedPath := filepath.Join(tmp, "shared.yml")
@@ -229,7 +243,48 @@ func TestReconcile_AffectsSibling_WhenSharedUsable(t *testing.T) {
 		filepath.Join(tmp, "cfl.yml"), filepath.Join(tmp, "jtk.json"),
 		sharedPath, "", "", "", "")
 	testutil.RequireNoError(t, err)
+	testutil.Equal(t, false, r.affectsSibling)
+}
+
+// When a usable shared default exists AND the resolved connection
+// actually DIFFERS from it (here a legacy file contributes a cloud_id
+// the default lacked), the save changes what jtk reads, so the sibling
+// confirmation MUST still fire.
+func TestReconcile_NagsWhenResolvedConnDiffers(t *testing.T) {
+	t.Parallel()
+	tmp := t.TempDir()
+	sharedPath := filepath.Join(tmp, "shared.yml")
+	testutil.RequireNoError(t, os.WriteFile(sharedPath,
+		[]byte("default:\n  url: https://acme.atlassian.net\n  email: u@e\n"), 0o600))
+	cflPath := filepath.Join(tmp, "cfl.yml")
+	testutil.RequireNoError(t, os.WriteFile(cflPath,
+		[]byte("url: https://acme.atlassian.net\nemail: u@e\ncloud_id: CID\n"), 0o600))
+	v, _, _ := newReconcileView()
+	r, err := detectAndReconcile(v, cflPath,
+		filepath.Join(tmp, "jtk.json"), sharedPath, "", "", "", "")
+	testutil.RequireNoError(t, err)
 	testutil.Equal(t, true, r.affectsSibling)
+}
+
+// A per-tool default the user already set in the SHARED store must win
+// over a stale value in a still-present legacy file: legacy only
+// backfills fields the shared store leaves empty. Pins the
+// daemon-flagged silent-revert regression in preserveDefaultsAndCollect.
+func TestReconcile_SharedPerToolDefaultWinsOverLegacy(t *testing.T) {
+	t.Parallel()
+	tmp := t.TempDir()
+	sharedPath := filepath.Join(tmp, "shared.yml")
+	testutil.RequireNoError(t, os.WriteFile(sharedPath,
+		[]byte("default:\n  url: https://acme.atlassian.net\n  email: u@e\ncfl:\n  default_space: NEW\n  output_format: json\n"), 0o600))
+	cflPath := filepath.Join(tmp, "cfl.yml")
+	testutil.RequireNoError(t, os.WriteFile(cflPath,
+		[]byte("url: https://acme.atlassian.net\nemail: u@e\ndefault_space: OLD\noutput_format: table\n"), 0o600))
+	v, _, _ := newReconcileView()
+	r, err := detectAndReconcile(v, cflPath,
+		filepath.Join(tmp, "jtk.json"), sharedPath, "", "", "", "")
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "NEW", r.store.CFL.DefaultSpace)  // shared store wins
+	testutil.Equal(t, "json", r.store.CFL.OutputFormat) // not reverted to legacy
 }
 
 func TestApplyResultToStore_WritesDefaultAndCFLDefault(t *testing.T) {

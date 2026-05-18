@@ -90,13 +90,24 @@ func detectAndReconcile(
 	// folding `chosen` in — otherwise a first-time migration from only a
 	// legacy file looks like it is overwriting an already-usable shared
 	// default and the user gets a misleading "Save will affect sibling"
-	// prompt. Pure (store.HasUsableConfig only): NO keyring I/O in
-	// reconcile (the B3 leak-regression rule).
-	affectsSibling := store.HasUsableConfig(credstore.ToolCFL)
+	// prompt. It is true only when the store already held usable creds
+	// AND the resolved connection actually DIFFERS from what is on disk:
+	// re-running `cfl init` without changing the connection is a no-op
+	// for jtk and must not nag (the prior per-tool model only prompted on
+	// an explicit reuse choice; one shared default would otherwise prompt
+	// on every re-init). Pure (HasUsableConfig + value compare only): NO
+	// keyring I/O in reconcile (the B3 leak-regression rule).
+	origDefault := store.Default
+	affectsSibling := store.HasUsableConfig(credstore.ToolCFL) &&
+		!credstore.ConnEqualsSection(chosen, origDefault)
 
 	// Aligned: fold the unified connection into the shared default and
 	// preserve per-tool non-secret defaults (cfl's space/output, jtk's
-	// project) so neither tool loses them on next read.
+	// project) so neither tool loses them on next read. This in-place
+	// write is intentionally redundant with applyResultToStore (which
+	// finalizeInit calls after the form, with the final URL-normalized
+	// values) — result.store.Default is never read between the two, so
+	// the transient pre-normalization state is not observable.
 	store.Default = credstore.Section{
 		URL:        chosen.URL,
 		Email:      chosen.Email,
@@ -122,19 +133,23 @@ func detectAndReconcile(
 	}, nil
 }
 
-// preserveDefaultsAndCollect keeps per-tool non-secret defaults from the
-// pre-strip projection and legacy files, and returns the legacy file
-// paths that contributed a connection (so init can offer to delete them).
+// preserveDefaultsAndCollect fills per-tool non-secret defaults from the
+// legacy files, and returns the legacy file paths that contributed a
+// connection (so init can offer to delete them). Legacy values only fill
+// fields the shared store leaves EMPTY: a value the user already set in
+// the shared store (e.g. via a prior init that changed default_space)
+// must not be silently reverted to a stale legacy value just because the
+// old file still exists. Shared store wins; legacy backfills absent.
 func preserveDefaultsAndCollect(
 	store *credstore.Store,
 	cflLegacy, jtkLegacy *credstore.LegacyCreds,
 ) []string {
 	var consumed []string
 	if cflLegacy != nil {
-		if cflLegacy.DefaultSpace != "" {
+		if store.CFL.DefaultSpace == "" && cflLegacy.DefaultSpace != "" {
 			store.CFL.DefaultSpace = cflLegacy.DefaultSpace
 		}
-		if cflLegacy.OutputFormat != "" {
+		if store.CFL.OutputFormat == "" && cflLegacy.OutputFormat != "" {
 			store.CFL.OutputFormat = cflLegacy.OutputFormat
 		}
 		if legacyHasConn(cflLegacy) {
@@ -142,7 +157,7 @@ func preserveDefaultsAndCollect(
 		}
 	}
 	if jtkLegacy != nil {
-		if jtkLegacy.DefaultProject != "" {
+		if store.JTK.DefaultProject == "" && jtkLegacy.DefaultProject != "" {
 			store.JTK.DefaultProject = jtkLegacy.DefaultProject
 		}
 		if legacyHasConn(jtkLegacy) {

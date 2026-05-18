@@ -85,6 +85,27 @@ func fieldVal(c ConnProfile, field string) string {
 	return ""
 }
 
+// canonConn is the fully-resolved single-source normal form: the same
+// canonicalization DetectConnDivergence applies (url/email/cloud_id
+// canonical, auth_method via effectiveAuth) plus the basic-materialization
+// fallback it does once the union is otherwise resolved. Comparing two
+// profiles via canonConn answers "do these resolve to the same
+// connection?" without false-diffing raw-vs-normalized — e.g. an
+// on-disk default that omits auth_method must compare EQUAL to a
+// detector `chosen` that materialized it to basic.
+func canonConn(c ConnProfile) ConnProfile {
+	am := effectiveAuth(c)
+	if am == "" {
+		am = auth.AuthMethodBasic
+	}
+	return ConnProfile{
+		URL:        canonURL(c.URL),
+		Email:      canonScalar(c.Email),
+		AuthMethod: am,
+		CloudID:    canonScalar(c.CloudID),
+	}
+}
+
 func sourceDesc(n NamedConn, field string) string {
 	key := field
 	if n.Section != "" {

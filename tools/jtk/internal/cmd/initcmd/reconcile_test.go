@@ -97,7 +97,8 @@ func TestReconcile_CorruptJTKLegacyAborts(t *testing.T) {
 	t.Parallel()
 	tmp := t.TempDir()
 	jtkPath := filepath.Join(tmp, "jtk.json")
-	testutil.RequireNoError(t, os.WriteFile(jtkPath, []byte("{not json"), 0o600))
+	corrupt := []byte("{not json")
+	testutil.RequireNoError(t, os.WriteFile(jtkPath, corrupt, 0o600))
 	v, _, stderr := newReconcileView()
 	_, err := detectAndReconcile(v, jtkPath,
 		filepath.Join(tmp, "cfl.yml"), filepath.Join(tmp, "shared.yml"),
@@ -105,6 +106,13 @@ func TestReconcile_CorruptJTKLegacyAborts(t *testing.T) {
 	testutil.RequireError(t, err)
 	if !strings.Contains(stderr.String(), "unreadable") {
 		t.Errorf("corrupt own-legacy must surface an actionable 'unreadable' message; got: %s", stderr.String())
+	}
+	// Fail-loud must mutate NOTHING: the unreadable file is byte-identical
+	// afterwards (a future refactor that truncates/overwrites before the
+	// early return would otherwise pass undetected).
+	after, _ := os.ReadFile(jtkPath) //nolint:gosec // test reads its own temp file
+	if string(after) != string(corrupt) {
+		t.Errorf("corrupt legacy file was mutated by a failed detect; want byte-identical")
 	}
 }
 
@@ -218,7 +226,11 @@ func TestReconcile_DivergentWithToken_NoMutation(t *testing.T) {
 	}
 }
 
-func TestReconcile_AffectsSibling_WhenSharedUsable(t *testing.T) {
+// Re-running init with the connection UNCHANGED must NOT nag about
+// affecting the sibling: the resolved connection is canonically
+// equivalent to the shared default already on disk. Pins the
+// §2.2/MON-5328 fix for the daemon-flagged UX regression.
+func TestReconcile_NoNagWhenConnUnchanged(t *testing.T) {
 	t.Parallel()
 	tmp := t.TempDir()
 	sharedPath := filepath.Join(tmp, "shared.yml")
@@ -229,7 +241,46 @@ func TestReconcile_AffectsSibling_WhenSharedUsable(t *testing.T) {
 		filepath.Join(tmp, "jtk.json"), filepath.Join(tmp, "cfl.yml"),
 		sharedPath, "", "", "", "", "")
 	testutil.RequireNoError(t, err)
-	testutil.Equal(t, true, r.affectsSibling) // usable shared default → editing affects cfl
+	testutil.Equal(t, false, r.affectsSibling)
+}
+
+// When a usable shared default exists AND the resolved connection
+// actually DIFFERS from it (a legacy file contributes a cloud_id the
+// default lacked), the save changes what cfl reads, so the sibling
+// confirmation MUST still fire.
+func TestReconcile_NagsWhenResolvedConnDiffers(t *testing.T) {
+	t.Parallel()
+	tmp := t.TempDir()
+	sharedPath := filepath.Join(tmp, "shared.yml")
+	testutil.RequireNoError(t, os.WriteFile(sharedPath,
+		[]byte("default:\n  url: https://acme.atlassian.net\n  email: u@e\n"), 0o600))
+	jtkPath := filepath.Join(tmp, "jtk.json")
+	body := `{"url":"https://acme.atlassian.net","email":"u@e","cloud_id":"CID"}`
+	testutil.RequireNoError(t, os.WriteFile(jtkPath, []byte(body), 0o600))
+	v, _, _ := newReconcileView()
+	r, err := detectAndReconcile(v, jtkPath,
+		filepath.Join(tmp, "cfl.yml"), sharedPath, "", "", "", "", "")
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, true, r.affectsSibling)
+}
+
+// A per-tool default the user already set in the SHARED store must win
+// over a stale value in a still-present legacy file. Pins the
+// daemon-flagged silent-revert regression in preserveDefaultsAndCollect.
+func TestReconcile_SharedPerToolDefaultWinsOverLegacy(t *testing.T) {
+	t.Parallel()
+	tmp := t.TempDir()
+	sharedPath := filepath.Join(tmp, "shared.yml")
+	testutil.RequireNoError(t, os.WriteFile(sharedPath,
+		[]byte("default:\n  url: https://acme.atlassian.net\n  email: u@e\njtk:\n  default_project: NEW\n"), 0o600))
+	jtkPath := filepath.Join(tmp, "jtk.json")
+	body := `{"url":"https://acme.atlassian.net","email":"u@e","default_project":"OLD"}`
+	testutil.RequireNoError(t, os.WriteFile(jtkPath, []byte(body), 0o600))
+	v, _, _ := newReconcileView()
+	r, err := detectAndReconcile(v, jtkPath,
+		filepath.Join(tmp, "cfl.yml"), sharedPath, "", "", "", "", "")
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "NEW", r.store.JTK.DefaultProject) // shared store wins
 }
 
 func TestApplyResultToStore_WritesDefaultAndJTKDefault(t *testing.T) {

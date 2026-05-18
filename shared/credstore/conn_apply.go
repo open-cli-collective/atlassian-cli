@@ -40,6 +40,23 @@ func effectiveConn(def, sec SharedLegacyConn) ConnProfile {
 	}
 }
 
+// ConnEqualsSection reports whether a resolved ConnProfile resolves to
+// the same connection as a Section. Used to decide whether folding
+// `chosen` into the shared default actually CHANGES anything: an init
+// re-run that resolves to the connection already on disk is a no-op for
+// the sibling tool and must not trigger the "save affects sibling"
+// confirmation. Compares in canonical space (canonConn) — `chosen` is
+// normalized + basic-materialized by the detector while the on-disk
+// Section is raw, so a naive field compare would false-diff implicit vs
+// explicit basic and never suppress the prompt. Pure, secret-free
+// (Section.APIToken is not compared — ConnProfile has no token field by
+// construction).
+func ConnEqualsSection(c ConnProfile, s Section) bool {
+	return canonConn(c) == canonConn(ConnProfile{
+		URL: s.URL, Email: s.Email, AuthMethod: s.AuthMethod, CloudID: s.CloudID,
+	})
+}
+
 // sharedConnHasField reports whether a raw pre-MON-5328 per-tool section
 // set ANY connection field of its own. A per-tool section with none is
 // "no opinion": it must NOT contribute a phantom candidate (effectiveConn
@@ -55,6 +72,14 @@ func sharedConnHasField(s SharedLegacyConn) bool {
 // ONLY when that per-tool section actually set a connection field of its
 // own — and the legacy cfl/jtk files. Tool-agnostic: the candidate set
 // is the same whichever tool runs init.
+//
+// `def` and `proj` are two reads of the SAME shared file (the canonical
+// Store and its pre-MON-5328 projection). They are not read atomically;
+// this is sound for a single-user CLI where init is the only writer and
+// is not run concurrently with itself. A concurrent external rewrite
+// between the two reads could surface a spurious divergence — which
+// fails loud and is recoverable by re-running init, never a silent
+// mispick.
 func ConnCandidates(
 	sharedPath string,
 	def Section,

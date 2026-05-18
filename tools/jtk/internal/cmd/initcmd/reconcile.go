@@ -74,10 +74,21 @@ func detectAndReconcile(
 
 	// affectsSibling judged on the ORIGINAL loaded store, BEFORE folding
 	// `chosen` (else a first-time legacy migration falsely looks like it
-	// overwrites a usable shared default). Pure: store.HasUsableConfig
-	// only — NO keyring I/O in reconcile (B3 leak-regression rule).
-	affectsSibling := store.HasUsableConfig(credstore.ToolJTK)
+	// overwrites a usable shared default). True only when the store
+	// already held usable creds AND the resolved connection actually
+	// DIFFERS from disk: re-running `jtk init` without changing the
+	// connection is a no-op for cfl and must not nag (one shared default
+	// would otherwise prompt on every re-init). Pure (HasUsableConfig +
+	// value compare only): NO keyring I/O in reconcile (B3 rule).
+	origDefault := store.Default
+	affectsSibling := store.HasUsableConfig(credstore.ToolJTK) &&
+		!credstore.ConnEqualsSection(chosen, origDefault)
 
+	// Fold the unified connection into the shared default. This in-place
+	// write is intentionally redundant with applyResultToStore (called
+	// by finalizeInit after the form, with the final URL-normalized
+	// values); result.store.Default is never read between the two, so
+	// the transient state is not observable.
 	store.Default = credstore.Section{
 		URL:        chosen.URL,
 		Email:      chosen.Email,
@@ -100,13 +111,19 @@ func detectAndReconcile(
 	}, nil
 }
 
+// preserveDefaultsAndCollect fills per-tool non-secret defaults from the
+// legacy files. Legacy values only fill fields the shared store leaves
+// EMPTY: a value the user already set in the shared store (e.g. a prior
+// init that changed default_project) must not be silently reverted to a
+// stale legacy value just because the old file still exists. Shared
+// store wins; legacy backfills absent.
 func preserveDefaultsAndCollect(
 	store *credstore.Store,
 	jtkLegacy, cflLegacy *credstore.LegacyCreds,
 ) []string {
 	var consumed []string
 	if jtkLegacy != nil {
-		if jtkLegacy.DefaultProject != "" {
+		if store.JTK.DefaultProject == "" && jtkLegacy.DefaultProject != "" {
 			store.JTK.DefaultProject = jtkLegacy.DefaultProject
 		}
 		if legacyHasConn(jtkLegacy) {
@@ -114,10 +131,10 @@ func preserveDefaultsAndCollect(
 		}
 	}
 	if cflLegacy != nil {
-		if cflLegacy.DefaultSpace != "" {
+		if store.CFL.DefaultSpace == "" && cflLegacy.DefaultSpace != "" {
 			store.CFL.DefaultSpace = cflLegacy.DefaultSpace
 		}
-		if cflLegacy.OutputFormat != "" {
+		if store.CFL.OutputFormat == "" && cflLegacy.OutputFormat != "" {
 			store.CFL.OutputFormat = cflLegacy.OutputFormat
 		}
 		if legacyHasConn(cflLegacy) {

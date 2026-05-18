@@ -192,6 +192,9 @@ func TestRunClear_DeletesSharedKey_Confirmed(t *testing.T) {
 
 	testutil.False(t, jtkTokenPresent(t, keyring.KeyAPIToken))
 	testutil.Contains(t, errBuf.String(), "cfl will also lose access")
+	// Removed per-tool override keys must never be advised again.
+	testutil.NotContains(t, errBuf.String(), "jtk_api_token")
+	testutil.NotContains(t, errBuf.String(), "override")
 }
 
 func TestRunClear_Cancelled(t *testing.T) {

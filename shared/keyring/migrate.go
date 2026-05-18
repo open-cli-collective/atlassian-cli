@@ -7,6 +7,8 @@ import (
 	"sort"
 	"strings"
 
+	cccredstore "github.com/open-cli-collective/cli-common/credstore"
+
 	"github.com/open-cli-collective/atlassian-go/credstore"
 )
 
@@ -43,7 +45,7 @@ var deprecatedKeys = []string{"cfl_api_token", "jtk_api_token"} //nolint:gosec /
 var migrationAllowedKeys = append(append([]string{}, allowedKeys...), deprecatedKeys...)
 
 // ErrMigrationConflict is the stable identity for a §1.8 conflict.
-var ErrMigrationConflict = errors.New("keyring: legacy plaintext API token conflicts with the existing keyring value")
+var ErrMigrationConflict = errors.New("keyring: API token migration sources disagree")
 
 func migrateLegacyOverwrite(s *Store, overwrite bool) error {
 	// ---- Phase 1: collect (no mutation) ----------------------------------
@@ -111,16 +113,41 @@ func migrateLegacyOverwrite(s *Store, overwrite bool) error {
 	// ---- Phase 1: detect (pure) ------------------------------------------
 	plan, conflictLocs := planMigration(curAPI, srcLoc, overwrite)
 	if len(conflictLocs) > 0 {
+		// When an api_token already exists it is one of the disagreeing
+		// parties (source-vs-existing, or "and the keyring value too" in a
+		// multi-source split) — name it so the message isn't "divergence
+		// across" a single source.
+		if curAPI != "" {
+			conflictLocs = append(conflictLocs, "keyring "+KeyAPIToken+" ("+s.ref+")")
+			sort.Strings(conflictLocs)
+		}
 		return conflictError(conflictLocs, s.ref)
 	}
 
 	// ---- Phase 2: apply (only reached with zero conflicts) ---------------
 	changed := false
 	if plan.write {
-		if err := s.SetToken(KeyAPIToken, plan.value); err != nil {
+		switch err := s.setToken(KeyAPIToken, plan.value, overwrite); {
+		case err == nil:
+			changed = true
+		case !overwrite && errors.Is(err, cccredstore.ErrExists):
+			// A concurrent writer set api_token between the phase-1 read
+			// and now. Re-resolve and apply the same no-precedence rule:
+			// an identical value is benign (fall through to cleanup); any
+			// difference is a conflict naming the now-present keyring
+			// value — never silently clobber it.
+			cur, _, gerr := s.get(KeyAPIToken)
+			if gerr != nil {
+				return gerr
+			}
+			if cur != plan.value {
+				return conflictError(
+					append(sortedLocs(srcLoc), "keyring "+KeyAPIToken+" ("+s.ref+")"),
+					s.ref)
+			}
+		default:
 			return err
 		}
-		changed = true
 	}
 	for _, dk := range deprecatedKeys {
 		if _, ok := depPresent[dk]; ok {

@@ -146,8 +146,19 @@ func (s *Store) get(key string) (string, bool, error) {
 	return v, true, nil
 }
 
-// SetToken stores a token under an allowlisted key (ingress / migration).
+// SetToken stores a token under an allowlisted key (explicit ingress:
+// PersistToken / SetCredential). Ingress is an intentional user action,
+// so it overwrites any existing value.
 func (s *Store) SetToken(key, val string) error {
+	return s.setToken(key, val, true)
+}
+
+// setToken is the single guarded write chokepoint. With overwrite=false a
+// value created between a caller's read and this write surfaces as
+// cccredstore.ErrExists instead of being silently clobbered — the §1.8
+// migration relies on this so a concurrent writer can never make it
+// re-introduce "pick a winner".
+func (s *Store) setToken(key, val string, overwrite bool) error {
 	// Enforce the allowlist at the lowest write chokepoint: SetCredential
 	// validates earlier (better message), but PersistToken (init) and any
 	// future caller reach the keyring only through here, so the security
@@ -162,7 +173,11 @@ func (s *Store) SetToken(key, val string) error {
 	if val == "" {
 		return fmt.Errorf("refusing to store an empty value at %s/%s", s.ref, key)
 	}
-	if err := s.cs.Set(s.profile, key, val, cccredstore.WithOverwrite()); err != nil {
+	opts := []cccredstore.SetOpt{}
+	if overwrite {
+		opts = append(opts, cccredstore.WithOverwrite())
+	}
+	if err := s.cs.Set(s.profile, key, val, opts...); err != nil {
 		return fmt.Errorf("store %s at %s: %w", key, s.ref, err)
 	}
 	return nil

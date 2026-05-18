@@ -395,6 +395,32 @@ func TestClear_BundleEmptyAfterClear(t *testing.T) {
 	wantKeys(t, bundleKeys(t)) // empty
 }
 
+// §1.8 recovery path: a user left with only deprecated per-tool keyring
+// keys whose values diverge cannot migrate (hard conflict). The
+// documented escape hatch is `config clear --all` — it must wipe the
+// WHOLE bundle, deprecated keys included, leaving it exactly empty so a
+// clean set-credential can follow.
+func TestClearAll_RemovesDeprecatedKeys(t *testing.T) {
+	hermetic(t)
+	seedDeprecatedKey(t, "cfl_api_token", "CFL-"+secret)
+	seedDeprecatedKey(t, "jtk_api_token", "JTK-"+secret)
+	wantKeys(t, bundleKeys(t), "cfl_api_token", "jtk_api_token") // precondition
+
+	_, store, perr := PlanClear(ToolCFL, true)
+	if perr != nil {
+		t.Fatalf("PlanClear: %v", perr)
+	}
+	defer func() { _ = store.Close() }()
+	cleared, err := ClearAll(store)
+	if err != nil {
+		t.Fatalf("ClearAll: %v", err)
+	}
+	if !cleared {
+		t.Fatal("ClearAll must report the bundle cleared")
+	}
+	wantKeys(t, bundleKeys(t)) // exactly empty — deprecated keys gone
+}
+
 // ClearAll must FAIL LOUD (naming the path) when a surviving legacy file
 // is unparseable — never claim success while plaintext may remain — AND,
 // because the plaintext scrub runs before the bundle clear, the keyring

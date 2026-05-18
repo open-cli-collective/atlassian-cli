@@ -85,3 +85,64 @@ func TestRuntimeMigration_TokenOnly_PreservesPerToolConn(t *testing.T) {
 		t.Fatalf("runtime scrub dropped default.url:\n%s", got)
 	}
 }
+
+// deleteYAMLKey must excise api_token ANYWHERE — nested mappings and
+// inside sequences — not just top-level sections (the "excise a single
+// api_token anywhere" claim).
+func TestScrubSharedStore_NestedAndSequenceRecursion(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "config.yml")
+	in := "default:\n  url: https://acme.atlassian.net\n  api_token: T0\n" +
+		"nested:\n  inner:\n    api_token: T1\n    keep: yes\n" +
+		"list:\n  - name: a\n    api_token: T2\n  - name: b\n"
+	if err := os.WriteFile(p, []byte(in), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := scrubSharedStore(p); err != nil {
+		t.Fatalf("scrub: %v", err)
+	}
+	raw, _ := os.ReadFile(p) //nolint:gosec // test reads its own temp file
+	got := string(raw)
+	for _, leaked := range []string{"api_token", "T0", "T1", "T2"} {
+		if strings.Contains(got, leaked) {
+			t.Fatalf("api_token must be excised everywhere (incl. nested/sequence); still has %q:\n%s", leaked, got)
+		}
+	}
+	for _, kept := range []string{"https://acme.atlassian.net", "keep: yes", "name: a", "name: b"} {
+		if !strings.Contains(got, kept) {
+			t.Fatalf("non-token content must be preserved; missing %q:\n%s", kept, got)
+		}
+	}
+}
+
+// No api_token present → scrubSharedStore is a no-op and leaves the file
+// byte-identical (no needless yaml.Node re-emit churn). Absent file is
+// also a no-op; unparseable yaml is a hard error.
+func TestScrubSharedStore_NoopAndError(t *testing.T) {
+	dir := t.TempDir()
+
+	clean := filepath.Join(dir, "clean.yml")
+	body := "default:\n  url: https://acme.atlassian.net\n  email: u@e\n"
+	if err := os.WriteFile(clean, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := scrubSharedStore(clean); err != nil {
+		t.Fatalf("no-op scrub must succeed: %v", err)
+	}
+	raw, _ := os.ReadFile(clean) //nolint:gosec // test reads its own temp file
+	if string(raw) != body {
+		t.Fatalf("token-free file must be byte-identical after scrub:\ngot:\n%s\nwant:\n%s", raw, body)
+	}
+
+	if err := scrubSharedStore(filepath.Join(dir, "absent.yml")); err != nil {
+		t.Fatalf("absent file must be a no-op, got: %v", err)
+	}
+
+	bad := filepath.Join(dir, "bad.yml")
+	if err := os.WriteFile(bad, []byte("default: : :: ["), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := scrubSharedStore(bad); err == nil {
+		t.Fatal("unparseable yaml must be a hard error")
+	}
+}

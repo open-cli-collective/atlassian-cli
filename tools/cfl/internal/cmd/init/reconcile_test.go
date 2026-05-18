@@ -57,6 +57,11 @@ func TestReconcile_OnlyCFLLegacy_FoldsIntoDefault(t *testing.T) {
 	testutil.Equal(t, "u@e", r.store.Default.Email)
 	testutil.Equal(t, "SP", r.store.CFL.DefaultSpace)
 	testutil.Equal(t, []string{cflPath}, r.consumedLegacies)
+	// First-time legacy migration: there was NO usable shared default,
+	// so this is not "editing a config the sibling already uses". Pins
+	// the documented pre-fold judgement (a post-fold check would wrongly
+	// see the just-folded connection and report true).
+	testutil.Equal(t, false, r.affectsSibling)
 }
 
 func TestReconcile_FlagOverridesPrefill(t *testing.T) {
@@ -155,6 +160,11 @@ func TestReconcile_DivergentLegacies_FailLoudNoValueLeak(t *testing.T) {
 	}
 	if !strings.Contains(msg, "url:") || !strings.Contains(msg, cflPath) || !strings.Contains(msg, jtkPath) {
 		t.Fatalf("fail-loud must name the field + every source path: %s", msg)
+	}
+	// email is identical across both sources → it must NOT be reported
+	// as a conflict (agreed fields stay folded; only `url` diverges).
+	if strings.Contains(msg, "email:") {
+		t.Fatalf("agreed field must not spuriously conflict: %s", msg)
 	}
 }
 

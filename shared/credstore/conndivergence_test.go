@@ -110,6 +110,19 @@ func TestDetectConnDivergence(t *testing.T) {
 		testutil.Equal(t, "cid", got.CloudID)
 	})
 
+	t.Run("explicit basic + implicit basic agree -> no conflict", func(t *testing.T) {
+		t.Parallel()
+		// usableBasic must not only PREVENT silent bearer-union; an
+		// explicit `basic` and an implicit-basic (url+email, no auth)
+		// source must canonically AGREE (the positive direction).
+		got, conf := DetectConnDivergence([]NamedConn{
+			nc("shared config", "default", "/c.yml", ConnProfile{URL: "https://acme.atlassian.net", Email: "u@e", AuthMethod: "basic"}),
+			nc("legacy cfl config", "", "/cfl.yml", ConnProfile{URL: "https://acme.atlassian.net", Email: "u@e"}),
+		})
+		testutil.Equal(t, 0, len(conf))
+		testutil.Equal(t, basic, got.AuthMethod)
+	})
+
 	t.Run("all-empty source ignored", func(t *testing.T) {
 		t.Parallel()
 		got, conf := DetectConnDivergence([]NamedConn{

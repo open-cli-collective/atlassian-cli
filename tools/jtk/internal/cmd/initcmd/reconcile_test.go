@@ -59,6 +59,10 @@ func TestReconcile_OnlyJTKLegacy_FoldsIntoDefault(t *testing.T) {
 	testutil.Equal(t, "u@e", r.store.Default.Email)
 	testutil.Equal(t, "PROJ", r.store.JTK.DefaultProject)
 	testutil.Equal(t, []string{jtkPath}, r.consumedLegacies)
+	// First-time legacy migration: no usable shared default existed, so
+	// affectsSibling must be false. Pins the documented pre-fold
+	// judgement (a post-fold check would wrongly report true).
+	testutil.Equal(t, false, r.affectsSibling)
 }
 
 func TestReconcile_FlagOverridesPrefill(t *testing.T) {
@@ -157,6 +161,10 @@ func TestReconcile_DivergentLegacies_FailLoudNoValueLeak(t *testing.T) {
 	}
 	if !strings.Contains(msg, "url:") || !strings.Contains(msg, jtkPath) || !strings.Contains(msg, cflPath) {
 		t.Fatalf("fail-loud must name the conflicting field + every source path: %s", msg)
+	}
+	// email is identical across sources → must NOT spuriously conflict.
+	if strings.Contains(msg, "email:") {
+		t.Fatalf("agreed field must not spuriously conflict: %s", msg)
 	}
 }
 

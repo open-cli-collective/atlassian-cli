@@ -60,8 +60,11 @@ func TestLoadSharedLegacyProjection_AbsentAndCorrupt(t *testing.T) {
 
 	bad := filepath.Join(dir, "bad.yml")
 	testutil.RequireNoError(t, os.WriteFile(bad, []byte("default: : :: ["), 0o600))
-	_, err = LoadSharedLegacyProjection(bad)
+	bp, err := LoadSharedLegacyProjection(bad)
 	if !errors.Is(err, ErrCorruptStore) {
 		t.Fatalf("corrupt file must return ErrCorruptStore, got %v", err)
+	}
+	if bp != nil {
+		t.Fatalf("corrupt file must return a nil projection (no half-decoded struct), got %+v", bp)
 	}
 }

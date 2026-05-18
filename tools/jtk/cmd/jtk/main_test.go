@@ -165,3 +165,37 @@ func TestEntrypoint_B3UpgradeFixture_DeprecatedKeysOnly(t *testing.T) {
 		t.Fatalf("§1.11.11: B3 upgrade must leave exactly [api_token]; got %v", got)
 	}
 }
+
+// §2.2/MON-5328 detect-before-mutate at the REAL entrypoint (jtk
+// mirror): divergent pre-MON-5328 per-tool connection + plaintext token
+// → `jtk init` fails loud from detectAndReconcile BEFORE
+// keyring.EnsureMigrated; token not migrated/scrubbed, file untouched.
+func TestEntrypoint_DivergentInit_NoMutationBeforeFailLoud(t *testing.T) {
+	dir := credtest.Hermetic(t)
+	p := filepath.Join(dir, "atlassian-cli", "config.yml")
+	if err := os.MkdirAll(filepath.Dir(p), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	pre := "default:\n  url: https://default.atlassian.net\n  email: u@e\n  api_token: PLAINTEXT_TOK\njtk:\n  url: https://jtk-only.atlassian.net\n"
+	if err := os.WriteFile(p, []byte(pre), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	stderr, code := runCLI(t, dir, "", "init", "--no-verify")
+	if code == 0 {
+		t.Fatalf("divergent init must exit non-zero; stderr:\n%s", stderr)
+	}
+	if !strings.Contains(stderr, "jtk.url") {
+		t.Fatalf("must fail loud naming the divergent field/source; stderr:\n%s", stderr)
+	}
+	if strings.Contains(stderr, "jtk-only.atlassian.net") || strings.Contains(stderr, "PLAINTEXT_TOK") {
+		t.Fatalf("fail-loud must not leak values; stderr:\n%s", stderr)
+	}
+	if got := credtest.BundleKeys(t); len(got) != 0 {
+		t.Fatalf("token must NOT be migrated before the fail-loud; bundle=%v", got)
+	}
+	raw, _ := os.ReadFile(p) //nolint:gosec // test reads its own temp file
+	if !strings.Contains(string(raw), "PLAINTEXT_TOK") || !strings.Contains(string(raw), "jtk-only.atlassian.net") {
+		t.Fatalf("divergent init must mutate NOTHING on disk:\n%s", raw)
+	}
+}

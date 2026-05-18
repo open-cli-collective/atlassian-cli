@@ -66,6 +66,9 @@ func TestRunClear_DeletesSharedKey_Confirmed(t *testing.T) {
 	// Removed per-tool override keys must never be advised again.
 	testutil.NotContains(t, errBuf.String(), "cfl_api_token")
 	testutil.NotContains(t, errBuf.String(), "override")
+	// §1.11.11 via the REAL command flow: exactly empty (no stray
+	// deprecated key survives a default clear).
+	testutil.Equal(t, 0, len(credtest.BundleKeys(t)))
 }
 
 func TestRunClear_Cancelled(t *testing.T) {

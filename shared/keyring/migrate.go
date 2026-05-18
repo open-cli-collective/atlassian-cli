@@ -44,6 +44,14 @@ var deprecatedKeys = []string{"cfl_api_token", "jtk_api_token"} //nolint:gosec /
 // migration open and OpenForClearAll; runtime / OpenNoMigrate stay strict.
 var migrationAllowedKeys = append(append([]string{}, allowedKeys...), deprecatedKeys...)
 
+// migrationApplyHook is a white-box test seam (nil in production),
+// invoked once (with the in-flight store) after phase-1 detect and
+// before the phase-2 write — the only point at which a test can
+// deterministically simulate a concurrent api_token writer racing the
+// migration, writing through the SAME open handle (a second open would
+// lock-conflict on the file backend).
+var migrationApplyHook func(s *Store)
+
 // ErrMigrationConflict is the stable identity for a §1.8 conflict.
 var ErrMigrationConflict = errors.New("keyring: API token migration sources disagree")
 
@@ -125,6 +133,12 @@ func migrateLegacyOverwrite(s *Store, overwrite bool) error {
 	}
 
 	// ---- Phase 2: apply (only reached with zero conflicts) ---------------
+	// Test seam: lets a white-box test create api_token AFTER phase-1's
+	// read but BEFORE the write, deterministically exercising the
+	// concurrent-writer ErrExists reconciliation below. nil in production.
+	if migrationApplyHook != nil {
+		migrationApplyHook(s)
+	}
 	changed := false
 	if plan.write {
 		switch err := s.setToken(KeyAPIToken, plan.value, overwrite); {

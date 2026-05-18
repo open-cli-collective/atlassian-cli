@@ -81,6 +81,21 @@ func seedDeprecatedKey(t *testing.T, key, val string) {
 	}
 }
 
+// seedRawAPIToken writes api_token WITHOUT running the migration (via
+// the no-migrate clear-all store), to stand up a "token already in the
+// keyring" precondition for conflict tests.
+func seedRawAPIToken(t *testing.T, val string) {
+	t.Helper()
+	s, err := OpenForClearAll()
+	if err != nil {
+		t.Fatalf("OpenForClearAll: %v", err)
+	}
+	defer func() { _ = s.Close() }()
+	if err := s.cs.Set(s.profile, KeyAPIToken, val, cccredstore.WithOverwrite()); err != nil {
+		t.Fatalf("seed api_token: %v", err)
+	}
+}
+
 func wantKeys(t *testing.T, got []string, want ...string) {
 	t.Helper()
 	sort.Strings(want)
@@ -116,6 +131,19 @@ func TestSetCredential_StdinAndEnv(t *testing.T) {
 		t.Fatalf("SetCredential(env): %v", err)
 	}
 	wantKeys(t, bundleKeys(t), KeyAPIToken)
+	// Ingress overwrites: the value must actually be replaced, not just
+	// "key still present" (guards a regression to no-overwrite ingress).
+	got2, ok2, err2 := func() (string, bool, error) {
+		s, e := OpenNoMigrate()
+		if e != nil {
+			return "", false, e
+		}
+		defer func() { _ = s.Close() }()
+		return s.Token()
+	}()
+	if err2 != nil || !ok2 || got2 != "env-"+secret {
+		t.Fatalf("--from-env must overwrite the stored value: got=%q ok=%v err=%v", got2, ok2, err2)
+	}
 }
 
 func TestSetCredential_Rejections(t *testing.T) {
@@ -369,6 +397,14 @@ func TestMigration_B3UpgradeFixture_DivergentDeprecatedKeys_Conflict(t *testing.
 	if _, ok, _ := s.Token(); ok {
 		t.Fatal("conflict must not write api_token")
 	}
+
+	// Stably reproducible: a second run must fail the same way (the
+	// no-mutation + stable-error pair, independent of map iteration
+	// order). State must still be untouched.
+	if err2 := EnsureMigrated(); !errors.Is(err2, ErrMigrationConflict) {
+		t.Fatalf("conflict must be stable on re-run, got: %v", err2)
+	}
+	wantKeys(t, bundleKeys(t), "cfl_api_token", "jtk_api_token")
 }
 
 // §1.11.11: after a default `config clear` the (single-key) bundle is
@@ -553,5 +589,207 @@ func TestResolveToken_CorruptSharedConfig_DegradesGracefully(t *testing.T) {
 	}
 	if strings.Contains(string(out), secret) {
 		t.Fatal("warning text leaked the secret")
+	}
+}
+
+// writeLegacyDefault writes a pre-migration shared config.yml with one
+// plaintext default api_token (credstore.Save strips tokens, so the
+// fixture is hand-written).
+func writeLegacyDefault(t *testing.T, dir, token string) string {
+	t.Helper()
+	p := filepath.Join(dir, "atlassian-cli", "config.yml")
+	if err := os.MkdirAll(filepath.Dir(p), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(p,
+		[]byte("default:\n  url: https://acme.atlassian.net\n  api_token: "+token+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return p
+}
+
+// Concurrent-writer race, IDENTICAL value: a writer sets api_token to the
+// same value between phase-1 read and phase-2 write. The no-overwrite
+// write hits ErrExists; re-resolve sees an equal value → benign,
+// migration completes (plaintext scrubbed), nothing clobbered.
+func TestMigration_ConcurrentWriter_IdenticalValue_Benign(t *testing.T) {
+	dir := hermetic(t)
+	shared := writeLegacyDefault(t, dir, secret)
+
+	migrationApplyHook = func(s *Store) {
+		if err := s.cs.Set(s.profile, KeyAPIToken, secret, cccredstore.WithOverwrite()); err != nil {
+			t.Fatalf("race-seed api_token: %v", err)
+		}
+	}
+	t.Cleanup(func() { migrationApplyHook = nil })
+
+	if err := EnsureMigrated(); err != nil {
+		t.Fatalf("identical concurrent value must be benign, got: %v", err)
+	}
+	s, err := OpenNoMigrate()
+	if err != nil {
+		t.Fatalf("OpenNoMigrate: %v", err)
+	}
+	defer func() { _ = s.Close() }()
+	if v, ok, _ := s.Token(); !ok || v != secret {
+		t.Fatalf("api_token: got=%q ok=%v", v, ok)
+	}
+	wantKeys(t, bundleKeys(t), KeyAPIToken)
+	raw, _ := os.ReadFile(shared) //nolint:gosec // G304: test reads its own temp file
+	if strings.Contains(string(raw), "api_token") {
+		t.Fatalf("plaintext should still be scrubbed on the benign path:\n%s", raw)
+	}
+}
+
+// Concurrent-writer race, DIVERGENT value: a writer sets api_token to a
+// DIFFERENT value mid-migration. The no-overwrite write hits ErrExists;
+// re-resolve sees a different value → hard conflict naming the keyring
+// value, the racer's token is NOT clobbered, and no plaintext is scrubbed.
+func TestMigration_ConcurrentWriter_DivergentValue_ConflictNoClobber(t *testing.T) {
+	dir := hermetic(t)
+	srcTok := "SRC-" + secret
+	raceTok := "RACE-" + secret
+	shared := writeLegacyDefault(t, dir, srcTok)
+
+	migrationApplyHook = func(s *Store) {
+		if err := s.cs.Set(s.profile, KeyAPIToken, raceTok, cccredstore.WithOverwrite()); err != nil {
+			t.Fatalf("race-seed api_token: %v", err)
+		}
+	}
+	t.Cleanup(func() { migrationApplyHook = nil })
+
+	err := EnsureMigrated()
+	if !errors.Is(err, ErrMigrationConflict) {
+		t.Fatalf("divergent concurrent value must conflict, got: %v", err)
+	}
+	msg := err.Error()
+	if strings.Contains(msg, srcTok) || strings.Contains(msg, raceTok) {
+		t.Fatalf("conflict error leaked a secret value: %s", msg)
+	}
+	if !strings.Contains(msg, shared) || !strings.Contains(msg, KeyAPIToken) {
+		t.Fatalf("conflict must name the source path AND the keyring api_token: %s", msg)
+	}
+	// The racer's token survives (never silently clobbered).
+	s, oerr := OpenNoMigrate()
+	if oerr != nil {
+		t.Fatalf("OpenNoMigrate: %v", oerr)
+	}
+	defer func() { _ = s.Close() }()
+	if v, ok, _ := s.Token(); !ok || v != raceTok {
+		t.Fatalf("racer api_token must be intact; got=%q ok=%v", v, ok)
+	}
+	raw, _ := os.ReadFile(shared) //nolint:gosec // G304: test reads its own temp file
+	if !strings.Contains(string(raw), "api_token") {
+		t.Fatalf("conflict must NOT scrub the source:\n%s", raw)
+	}
+}
+
+// A pre-existing keyring api_token that disagrees with a single legacy
+// source: the conflict message must name the keyring api_token as a
+// disagreeing party (not read as "divergence across" one source), no
+// mutation occurs, and no secret leaks.
+func TestMigration_ExistingAPIToken_NamedInConflict(t *testing.T) {
+	dir := hermetic(t)
+	existing := "EXISTING-" + secret
+	legacy := "LEGACY-" + secret
+	seedRawAPIToken(t, existing)
+	shared := writeLegacyDefault(t, dir, legacy)
+
+	err := EnsureMigrated()
+	if !errors.Is(err, ErrMigrationConflict) {
+		t.Fatalf("want ErrMigrationConflict, got %v", err)
+	}
+	msg := err.Error()
+	if strings.Contains(msg, existing) || strings.Contains(msg, legacy) {
+		t.Fatalf("conflict error leaked a secret value: %s", msg)
+	}
+	if !strings.Contains(msg, shared) || !strings.Contains(msg, KeyAPIToken) || !strings.Contains(msg, Ref) {
+		t.Fatalf("conflict must name the legacy path, api_token, and ref: %s", msg)
+	}
+	// No mutation: existing keyring value intact, plaintext not scrubbed.
+	s, oerr := OpenNoMigrate()
+	if oerr != nil {
+		t.Fatalf("OpenNoMigrate: %v", oerr)
+	}
+	defer func() { _ = s.Close() }()
+	if v, _, _ := s.Token(); v != existing {
+		t.Fatalf("existing api_token must be untouched; got %q", v)
+	}
+	raw, _ := os.ReadFile(shared) //nolint:gosec // G304: test reads its own temp file
+	if !strings.Contains(string(raw), "api_token") {
+		t.Fatalf("conflict must NOT scrub the source:\n%s", raw)
+	}
+}
+
+// Realistic B3 upgrade: a deprecated keyring key AND a plaintext file
+// both hold the SAME token → collapse to api_token, delete the
+// deprecated key, scrub the plaintext, all in one run; bundle exactly
+// {api_token}.
+func TestMigration_DeprecatedKeyAndPlaintext_SameValue_Collapses(t *testing.T) {
+	dir := hermetic(t)
+	seedDeprecatedKey(t, "jtk_api_token", secret)
+	shared := writeLegacyDefault(t, dir, secret)
+
+	if err := EnsureMigrated(); err != nil {
+		t.Fatalf("EnsureMigrated: %v", err)
+	}
+	s, err := OpenNoMigrate()
+	if err != nil {
+		t.Fatalf("OpenNoMigrate: %v", err)
+	}
+	defer func() { _ = s.Close() }()
+	if v, ok, _ := s.Token(); !ok || v != secret {
+		t.Fatalf("api_token: got=%q ok=%v", v, ok)
+	}
+	wantKeys(t, bundleKeys(t), KeyAPIToken)
+	raw, _ := os.ReadFile(shared) //nolint:gosec // G304: test reads its own temp file
+	if strings.Contains(string(raw), "api_token") {
+		t.Fatalf("plaintext not scrubbed:\n%s", raw)
+	}
+}
+
+// B3 upgrade where the deprecated keyring key and the plaintext file
+// DISAGREE → hard conflict, nothing mutated.
+func TestMigration_DeprecatedKeyAndPlaintext_Divergent_Conflict(t *testing.T) {
+	dir := hermetic(t)
+	seedDeprecatedKey(t, "jtk_api_token", "DEP-"+secret)
+	shared := writeLegacyDefault(t, dir, "PLAIN-"+secret)
+
+	err := EnsureMigrated()
+	if !errors.Is(err, ErrMigrationConflict) {
+		t.Fatalf("want ErrMigrationConflict, got %v", err)
+	}
+	if strings.Contains(err.Error(), secret) {
+		t.Fatalf("conflict error leaked a secret value: %s", err)
+	}
+	wantKeys(t, bundleKeys(t), "jtk_api_token") // deprecated key untouched
+	raw, _ := os.ReadFile(shared)               //nolint:gosec // G304: test reads its own temp file
+	if !strings.Contains(string(raw), "api_token") {
+		t.Fatalf("conflict must NOT scrub the source:\n%s", raw)
+	}
+}
+
+// The overwrite=true apply path (no production caller today, but
+// reachable code): an explicit-overwrite migration replaces an existing
+// api_token with the single legacy source value and scrubs plaintext.
+func TestMigrateOverwrite_ApplyReplacesExisting(t *testing.T) {
+	dir := hermetic(t)
+	seedRawAPIToken(t, "OLD-"+secret)
+	shared := writeLegacyDefault(t, dir, "NEW-"+secret)
+
+	s, err := OpenForClearAll() // migrationAllowedKeys, no auto-migrate
+	if err != nil {
+		t.Fatalf("OpenForClearAll: %v", err)
+	}
+	defer func() { _ = s.Close() }()
+	if err := migrateLegacyOverwrite(s, true); err != nil {
+		t.Fatalf("overwrite migration: %v", err)
+	}
+	if v, ok, _ := s.Token(); !ok || v != "NEW-"+secret {
+		t.Fatalf("overwrite must replace the existing token; got=%q ok=%v", v, ok)
+	}
+	raw, _ := os.ReadFile(shared) //nolint:gosec // G304: test reads its own temp file
+	if strings.Contains(string(raw), "api_token") {
+		t.Fatalf("overwrite path must still scrub plaintext:\n%s", raw)
 	}
 }

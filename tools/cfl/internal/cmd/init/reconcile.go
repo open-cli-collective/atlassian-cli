@@ -2,8 +2,6 @@ package init
 
 import (
 	"errors"
-	"fmt"
-	"strings"
 
 	"github.com/open-cli-collective/atlassian-go/credstore"
 	"github.com/open-cli-collective/atlassian-go/view"
@@ -81,11 +79,11 @@ func detectAndReconcile(
 	}
 
 	// Build the full named connection candidate set and detect
-	// divergence (pure, secret-free, no IO/keyring).
-	candidates := connCandidates(sharedPath, store, proj, cflLegacy, jtkLegacy)
+	// divergence (pure, secret-free, no IO/keyring — shared with jtk).
+	candidates := credstore.ConnCandidates(sharedPath, store.Default, proj, cflLegacy, jtkLegacy)
 	chosen, conflicts := credstore.DetectConnDivergence(candidates)
 	if len(conflicts) > 0 {
-		return nil, connConflictError(conflicts)
+		return nil, credstore.ConnConflictError(conflicts, candidates, "cfl")
 	}
 
 	// affectsSibling must be judged on the ORIGINAL loaded store, BEFORE
@@ -124,95 +122,6 @@ func detectAndReconcile(
 	}, nil
 }
 
-// connCandidates assembles the origin-labeled connection sources for the
-// divergence detector: shared default, the pre-MON-5328 shared per-tool
-// sections as effective overrides (default ⊕ section), and the legacy
-// cfl/jtk files. All-empty candidates are skipped (the detector also
-// treats them as "no opinion", but skipping keeps conflict labels tight).
-func connCandidates(
-	sharedPath string,
-	store *credstore.Store,
-	proj *credstore.SharedLegacyProjection,
-	cflLegacy, jtkLegacy *credstore.LegacyCreds,
-) []credstore.NamedConn {
-	var out []credstore.NamedConn
-	add := func(label, section, path string, c credstore.ConnProfile) {
-		if c.URL == "" && c.Email == "" && c.AuthMethod == "" && c.CloudID == "" {
-			return
-		}
-		out = append(out, credstore.NamedConn{Label: label, Section: section, Path: path, Conn: c})
-	}
-	def := credstore.ConnProfile{
-		URL: store.Default.URL, Email: store.Default.Email,
-		AuthMethod: store.Default.AuthMethod, CloudID: store.Default.CloudID,
-	}
-	add("shared config", "default", sharedPath, def)
-	add("shared config", "cfl", sharedPath, effectiveConn(proj.Default, proj.CFL))
-	add("shared config", "jtk", sharedPath, effectiveConn(proj.Default, proj.JTK))
-	if cflLegacy != nil {
-		add("legacy cfl config", "", cflLegacy.Path, legacyConn(cflLegacy))
-	}
-	if jtkLegacy != nil {
-		add("legacy jtk config", "", jtkLegacy.Path, legacyConn(jtkLegacy))
-	}
-	return out
-}
-
-// effectiveConn merges a pre-MON-5328 per-tool section over default
-// (the old per-field-merge semantics) so the detector compares what the
-// tool actually USED to resolve.
-func effectiveConn(def, sec credstore.SharedLegacyConn) credstore.ConnProfile {
-	pick := func(o, d string) string {
-		if o != "" {
-			return o
-		}
-		return d
-	}
-	return credstore.ConnProfile{
-		URL:        pick(sec.URL, def.URL),
-		Email:      pick(sec.Email, def.Email),
-		AuthMethod: pick(sec.AuthMethod, def.AuthMethod),
-		CloudID:    pick(sec.CloudID, def.CloudID),
-	}
-}
-
-func legacyConn(l *credstore.LegacyCreds) credstore.ConnProfile {
-	return credstore.ConnProfile{
-		URL: l.URL, Email: l.Email, AuthMethod: l.AuthMethod, CloudID: l.CloudID,
-	}
-}
-
-// connConflictError renders the fail-loud message: every conflicting
-// field with every contributing source descriptor
-// (`<label> <section>.<field> (<path>)`), NEVER a value (§1.12), and an
-// actionable remediation pointing at every distinct file.
-func connConflictError(conflicts []credstore.ConnConflict) error {
-	var b strings.Builder
-	b.WriteString("connection config diverges across sources; init will not pick a winner. Conflicts:\n")
-	paths := map[string]struct{}{}
-	for _, c := range conflicts {
-		fmt.Fprintf(&b, "  - %s: %s\n", c.Field, strings.Join(c.Sources, ", "))
-		for _, s := range c.Sources {
-			if i := strings.LastIndex(s, "("); i >= 0 {
-				if j := strings.Index(s[i:], ")"); j > 0 {
-					paths[s[i+1:i+j]] = struct{}{}
-				}
-			}
-		}
-	}
-	b.WriteString("Resolve by editing/removing all but one connection in: ")
-	first := true
-	for p := range paths {
-		if !first {
-			b.WriteString(", ")
-		}
-		b.WriteString(p)
-		first = false
-	}
-	b.WriteString(" — then re-run cfl init. (No values shown; secrets live only in the OS keyring.)")
-	return errors.New(b.String())
-}
-
 // preserveDefaultsAndCollect keeps per-tool non-secret defaults from the
 // pre-strip projection and legacy files, and returns the legacy file
 // paths that contributed a connection (so init can offer to delete them).
@@ -228,7 +137,7 @@ func preserveDefaultsAndCollect(
 		if cflLegacy.OutputFormat != "" {
 			store.CFL.OutputFormat = cflLegacy.OutputFormat
 		}
-		if hasConn(legacyConn(cflLegacy)) {
+		if legacyHasConn(cflLegacy) {
 			consumed = append(consumed, cflLegacy.Path)
 		}
 	}
@@ -236,15 +145,15 @@ func preserveDefaultsAndCollect(
 		if jtkLegacy.DefaultProject != "" {
 			store.JTK.DefaultProject = jtkLegacy.DefaultProject
 		}
-		if hasConn(legacyConn(jtkLegacy)) {
+		if legacyHasConn(jtkLegacy) {
 			consumed = append(consumed, jtkLegacy.Path)
 		}
 	}
 	return consumed
 }
 
-func hasConn(c credstore.ConnProfile) bool {
-	return c.URL != "" || c.Email != "" || c.AuthMethod != "" || c.CloudID != ""
+func legacyHasConn(l *credstore.LegacyCreds) bool {
+	return l.URL != "" || l.Email != "" || l.AuthMethod != "" || l.CloudID != ""
 }
 
 func configFromConn(c credstore.ConnProfile) *config.Config {

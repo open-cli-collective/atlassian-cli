@@ -97,11 +97,14 @@ func TestReconcile_CorruptCFLLegacyAborts(t *testing.T) {
 	tmp := t.TempDir()
 	cflPath := filepath.Join(tmp, "cfl.yml")
 	testutil.RequireNoError(t, os.WriteFile(cflPath, []byte(": ::: ["), 0o600))
-	v, _, _ := newReconcileView()
+	v, _, stderr := newReconcileView()
 	_, err := detectAndReconcile(v, cflPath,
 		filepath.Join(tmp, "jtk.json"), filepath.Join(tmp, "shared.yml"),
 		"", "", "", "")
 	testutil.RequireError(t, err)
+	if !strings.Contains(stderr.String(), "unreadable") {
+		t.Errorf("corrupt own-legacy must surface an actionable 'unreadable' message; got: %s", stderr.String())
+	}
 }
 
 func TestReconcile_CorruptJTKLegacyDowngradesToWarning(t *testing.T) {

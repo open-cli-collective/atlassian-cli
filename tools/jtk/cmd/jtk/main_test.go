@@ -83,7 +83,13 @@ func runCLI(t *testing.T, dir string, stdin string, args ...string) (stderr stri
 	var errBuf bytes.Buffer
 	cmd.Stdout = &bytes.Buffer{}
 	cmd.Stderr = &errBuf
-	_ = cmd.Run()
+	runErr := cmd.Run()
+	// A nil ProcessState means the subprocess never started (exec
+	// failure) — a test-infra error, not a CLI exit. Fail loud rather
+	// than panic in ExitCode().
+	if cmd.ProcessState == nil {
+		t.Fatalf("subprocess did not start: %v", runErr)
+	}
 	return errBuf.String(), cmd.ProcessState.ExitCode()
 }
 

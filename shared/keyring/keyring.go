@@ -231,6 +231,36 @@ func PersistToken(key, token string) (err error) {
 	return s.SetToken(key, token)
 }
 
+// PersistTokenForTool stores token under the key matching init's write
+// target and keeps resolution consistent with that choice. The per-tool
+// override key (cfl_api_token / jtk_api_token) outranks the shared
+// api_token in resolveFromStore, so when init writes the shared default
+// (override=false) any pre-existing per-tool override for THIS tool would
+// silently shadow the value the user just saved (e.g. a prior
+// `set-credential --key cfl_api_token` or token-only legacy divergence).
+// Writing the default therefore also deletes this tool's override key so
+// the tool actually resolves the token init persisted. The sibling's
+// override is independent and left untouched. override=true writes the
+// per-tool key directly (already highest precedence — no cleanup needed).
+func PersistTokenForTool(tool string, override bool, token string) (err error) {
+	s, err := openCanonical()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if cerr := s.Close(); cerr != nil && err == nil {
+			err = fmt.Errorf("persist token: close keyring %s: %w", s.ref, cerr)
+		}
+	}()
+	if override {
+		return s.SetToken(KeyFor(tool), token)
+	}
+	if err := s.SetToken(KeyAPIToken, token); err != nil {
+		return err
+	}
+	return s.DeleteToken(KeyFor(tool))
+}
+
 // HasTokenForTool reports whether a keyring token is already present for
 // tool (its override key, else the shared default) WITHOUT running the
 // migration or consulting env. Used by `init` detection to compose

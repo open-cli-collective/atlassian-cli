@@ -388,3 +388,48 @@ func TestResolveToken_CorruptSharedConfig_DegradesGracefully(t *testing.T) {
 		t.Fatal("warning text leaked the secret")
 	}
 }
+
+// A pre-existing per-tool override key outranks api_token in
+// resolveFromStore. When init writes the shared default it must drop that
+// override, otherwise the tool keeps resolving the stale override token
+// the user just replaced. PersistTokenForTool owns that invariant.
+func TestPersistTokenForTool_DefaultWriteClearsStaleOverride(t *testing.T) {
+	hermetic(t)
+
+	const stale = "OLD-cfl-override-token"
+	if err := PersistTokenForTool(credstore.ToolCFL, true, stale); err != nil {
+		t.Fatalf("seed cfl override: %v", err)
+	}
+	if tok, _, err := ResolveTokenNoMigrate(credstore.ToolCFL); err != nil || tok != stale {
+		t.Fatalf("precondition: cfl should resolve the override; got %q err=%v", tok, err)
+	}
+
+	// init reuses the shared default → write api_token. The stale
+	// cfl_api_token must be removed so cfl resolves the new value.
+	if err := PersistTokenForTool(credstore.ToolCFL, false, secret); err != nil {
+		t.Fatalf("PersistTokenForTool(default): %v", err)
+	}
+	if tok, src, err := ResolveTokenNoMigrate(credstore.ToolCFL); err != nil || tok != secret || src != SourceKeyAPI {
+		t.Fatalf("cfl must resolve the saved api_token, not the stale override; got %q src=%q err=%v", tok, src, err)
+	}
+
+	s, err := OpenNoMigrate()
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer func() { _ = s.Close() }()
+	if ok, herr := s.HasToken(KeyFor(credstore.ToolCFL)); herr != nil || ok {
+		t.Fatalf("cfl override key must be gone after a default write; present=%v err=%v", ok, herr)
+	}
+
+	// Sibling override is independent and must survive a cfl default write.
+	if err := PersistTokenForTool(credstore.ToolJTK, true, "jtk-only"); err != nil {
+		t.Fatalf("seed jtk override: %v", err)
+	}
+	if err := PersistTokenForTool(credstore.ToolCFL, false, secret); err != nil {
+		t.Fatalf("re-write cfl default: %v", err)
+	}
+	if tok, _, err := ResolveTokenNoMigrate(credstore.ToolJTK); err != nil || tok != "jtk-only" {
+		t.Fatalf("jtk override must be untouched by a cfl default write; got %q err=%v", tok, err)
+	}
+}

@@ -271,13 +271,11 @@ func runInit(ctx context.Context, opts *root.Options, prefillURL, prefillEmail, 
 	}
 
 	// The token never lands in the plaintext store (Save strips it) — it
-	// goes to the OS keyring under the key matching the write target:
-	// shared default → api_token; jtk override → jtk_api_token.
-	tokenKey := keyring.KeyAPIToken
-	if result.target == writeJTKOverride {
-		tokenKey = keyring.KeyFor(credstore.ToolJTK)
-	}
-	if err := keyring.PersistToken(tokenKey, cfg.APIToken); err != nil {
+	// goes to the OS keyring under the key matching the write target
+	// (shared default → api_token; jtk override → jtk_api_token), clearing
+	// any stale per-tool override that would otherwise shadow a default
+	// write so the tool resolves exactly what was just saved.
+	if err := keyring.PersistTokenForTool(credstore.ToolJTK, result.target == writeJTKOverride, cfg.APIToken); err != nil {
 		v.Error("Saved the non-secret config to %s, but could not store the API token in the keyring: %v", sharedPath, err)
 		v.Error("Recover by storing just the token (no need to re-run init): `jtk set-credential` (reads stdin or --from-env VAR).")
 		return err

@@ -297,13 +297,11 @@ func finalizeInit(
 	}
 
 	// The token never lands in the plaintext store (Save strips it) — it
-	// goes to the OS keyring under the key matching the write target:
-	// shared default → api_token; cfl override → cfl_api_token.
-	tokenKey := keyring.KeyAPIToken
-	if result.target == writeCFLOverride {
-		tokenKey = keyring.KeyFor(credstore.ToolCFL)
-	}
-	if err := keyring.PersistToken(tokenKey, cfg.APIToken); err != nil {
+	// goes to the OS keyring under the key matching the write target
+	// (shared default → api_token; cfl override → cfl_api_token), clearing
+	// any stale per-tool override that would otherwise shadow a default
+	// write so the tool resolves exactly what was just saved.
+	if err := keyring.PersistTokenForTool(credstore.ToolCFL, result.target == writeCFLOverride, cfg.APIToken); err != nil {
 		v.Error("Saved the non-secret config to %s, but could not store the API token in the keyring: %v", sharedPath, err)
 		v.Error("Recover by storing just the token (no need to re-run init): `cfl set-credential` (reads stdin or --from-env VAR).")
 		return err

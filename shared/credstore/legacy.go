@@ -36,6 +36,52 @@ func (l *LegacyCreds) Section() Section {
 	}
 }
 
+// SharedLegacyConn is one shared-store section's pre-MON-5328
+// connection + token fields. Decoded ONLY by the one-time migration so
+// it can still see legacy per-tool credentials before the stripped
+// schema is written. The canonical Store no longer exposes these — do
+// NOT use for runtime resolution.
+type SharedLegacyConn struct {
+	URL        string `yaml:"url"`
+	Email      string `yaml:"email"`
+	APIToken   string `yaml:"api_token"`
+	AuthMethod string `yaml:"auth_method"`
+	CloudID    string `yaml:"cloud_id"`
+}
+
+// SharedLegacyProjection is the migration-only decode of the shared
+// config.yml retaining the per-tool connection/token fields the
+// canonical Store dropped (§2.2 / MON-5328). Migration-only.
+type SharedLegacyProjection struct {
+	Path    string
+	Default SharedLegacyConn
+	CFL     SharedLegacyConn
+	JTK     SharedLegacyConn
+}
+
+// LoadSharedLegacyProjection decodes path retaining legacy per-tool
+// connection/token fields. Absent file → (nil, nil). Parse failure →
+// ErrCorruptStore (same contract as Load) so callers refuse to clobber
+// an unreadable file.
+func LoadSharedLegacyProjection(path string) (*SharedLegacyProjection, error) {
+	data, err := os.ReadFile(path) //nolint:gosec // CLI tool reading its own config
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("%w: reading %s: %s", ErrCorruptStore, path, err.Error())
+	}
+	var raw struct {
+		Default SharedLegacyConn `yaml:"default"`
+		CFL     SharedLegacyConn `yaml:"cfl"`
+		JTK     SharedLegacyConn `yaml:"jtk"`
+	}
+	if err := yaml.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("%w: parsing %s: %s", ErrCorruptStore, path, err.Error())
+	}
+	return &SharedLegacyProjection{Path: path, Default: raw.Default, CFL: raw.CFL, JTK: raw.JTK}, nil
+}
+
 // LegacyCFLPath returns the canonical cfl legacy config path.
 func LegacyCFLPath() string {
 	return tooledPath("cfl", "config.yml")

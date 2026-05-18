@@ -1637,12 +1637,14 @@ Environment variables override file-based config. Variables are checked in order
 
 | Setting | Precedence (highest to lowest) |
 |---------|-------------------------------|
-| URL | `JIRA_URL` → `ATLASSIAN_URL` → shared `jtk` override → shared `default` → legacy → `JIRA_DOMAIN` |
-| Email | `JIRA_EMAIL` → `ATLASSIAN_EMAIL` → shared `jtk` → shared `default` → legacy |
+| URL | `JIRA_URL` → `ATLASSIAN_URL` → shared `default` → legacy → `JIRA_DOMAIN` |
+| Email | `JIRA_EMAIL` → `ATLASSIAN_EMAIL` → shared `default` → legacy |
 | API Token | `JIRA_API_TOKEN` → `ATLASSIAN_API_TOKEN` → keyring `api_token` (single shared key; OS keyring, never a plaintext file) |
 | Default Project | `JIRA_DEFAULT_PROJECT` → shared `jtk.default_project` → legacy |
-| Auth Method | `JIRA_AUTH_METHOD` → `ATLASSIAN_AUTH_METHOD` → shared → legacy → `basic` |
-| Cloud ID | `JIRA_CLOUD_ID` → `ATLASSIAN_CLOUD_ID` → shared → legacy |
+| Auth Method | `JIRA_AUTH_METHOD` → `ATLASSIAN_AUTH_METHOD` → shared `default` → legacy → `basic` |
+| Cloud ID | `JIRA_CLOUD_ID` → `ATLASSIAN_CLOUD_ID` → shared `default` → legacy |
+
+Per §2.2 connection config is single-sourced from the shared `default` section — per-tool `cfl:`/`jtk:` sections carry only non-secret defaults and may not override `url`/`email`/`auth_method`/`cloud_id`.
 
 **Shared credentials:** If you use both `jtk` and `cfl` (Confluence CLI), set `ATLASSIAN_*` variables once:
 

@@ -292,7 +292,7 @@ func finalizeInit(
 		}
 	}
 
-	applyResultToStore(result.store, cfg, result.target)
+	applyResultToStore(result.store, cfg)
 	if err := result.store.Save(sharedPath); err != nil {
 		return fmt.Errorf("saving shared store: %w", err)
 	}

@@ -129,7 +129,7 @@ func TestRunInit_InvalidAuthMethod(t *testing.T) {
 // network call is made.
 
 func newFinalizeReconcileResult() *reconcileResult {
-	return &reconcileResult{store: &credstore.Store{}, target: writeDefault}
+	return &reconcileResult{store: &credstore.Store{}}
 }
 
 func newFinalizeOpts() *root.Options {
@@ -150,68 +150,49 @@ func userResponseServer(t *testing.T, body string, status int) *httptest.Server 
 	}))
 }
 
-// TestFinalizeInit_WritesToCorrectSection verifies the saved YAML
-// routes credentials to the section named by writeTarget. A regression
-// in target selection (e.g. credentials landing in default when an
-// override was intended) would be silently invisible without this
-// readback assertion.
-func TestFinalizeInit_WritesToCorrectSection(t *testing.T) {
-	// credtest.Hermetic uses t.Setenv → no t.Parallel here.
-	cases := []struct {
-		name    string
-		target  writeTarget
-		wantKey string
-	}{
-		// One key per logical credential (§1.11.10): the token always
-		// lands under the single shared api_token; writeTarget governs
-		// only NON-secret placement (default vs cfl section).
-		{"default", writeDefault, keyring.KeyAPIToken},
-		{"cfl_override", writeCFLOverride, keyring.KeyAPIToken},
+// TestFinalizeInit_WritesConnectionToDefault verifies the §2.2
+// (MON-5328) single-source model: connection always lands in the shared
+// `default` section (no per-tool override target), the token NEVER
+// touches the plaintext store (keyring only, single api_token), and the
+// cfl section carries no connection fields.
+func TestFinalizeInit_WritesConnectionToDefault(t *testing.T) {
+	credtest.Hermetic(t) // t.Setenv → no t.Parallel
+	server := userResponseServer(t, `{"accountId":"abc","displayName":"X","email":"x@e"}`, http.StatusOK)
+	defer server.Close()
+	build := func(_ *config.Config) (*api.Client, error) {
+		return api.NewClient(server.URL, "x@e", "tok"), nil
 	}
-	for _, tc := range cases {
-		tc := tc
-		t.Run(tc.name, func(t *testing.T) {
-			credtest.Hermetic(t)
-			server := userResponseServer(t, `{"accountId":"abc","displayName":"X","email":"x@e"}`, http.StatusOK)
-			defer server.Close()
-			build := func(_ *config.Config) (*api.Client, error) {
-				return api.NewClient(server.URL, "x@e", "tok"), nil
-			}
-			tmpDir := t.TempDir()
-			configPath := filepath.Join(tmpDir, "config.yml")
-			cfg := &config.Config{URL: server.URL + "/wiki", Email: "x@e", APIToken: "tok"}
-			result := &reconcileResult{store: &credstore.Store{}, target: tc.target}
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yml")
+	cfg := &config.Config{URL: server.URL + "/wiki", Email: "x@e", APIToken: "tok", DefaultSpace: "SP"}
+	result := &reconcileResult{store: &credstore.Store{}}
 
-			testutil.RequireNoError(t,
-				finalizeInit(context.Background(), newFinalizeOpts(), cfg, result, configPath, false, build))
+	testutil.RequireNoError(t,
+		finalizeInit(context.Background(), newFinalizeOpts(), cfg, result, configPath, false, build))
 
-			loaded, err := credstore.Load(configPath)
-			testutil.RequireNoError(t, err)
+	loaded, err := credstore.Load(configPath)
+	testutil.RequireNoError(t, err)
 
-			var got, leak credstore.Section
-			switch tc.target {
-			case writeDefault:
-				got, leak = loaded.Default, loaded.CFL.Section
-			case writeCFLOverride:
-				got, leak = loaded.CFL.Section, loaded.Default
-			}
-			// The token is NEVER persisted to the plaintext store — it
-			// goes to the keyring under the write-target key.
-			testutil.Equal(t, "", got.APIToken)
-			testutil.Equal(t, "x@e", got.Email)
-			testutil.Equal(t, server.URL, got.URL) // URL normalized: /wiki stripped
-			testutil.Equal(t, "", leak.APIToken)
-			testutil.Equal(t, "", leak.Email)
-			testutil.Equal(t, "", leak.URL)
+	// Connection in default; token never in plaintext.
+	testutil.Equal(t, "", loaded.Default.APIToken)
+	testutil.Equal(t, "x@e", loaded.Default.Email)
+	testutil.Equal(t, server.URL, loaded.Default.URL) // /wiki stripped
+	// cfl section carries only the non-secret default, no connection.
+	testutil.Equal(t, "SP", loaded.CFL.DefaultSpace)
 
-			s, err := keyring.OpenNoMigrate()
-			testutil.RequireNoError(t, err)
-			defer func() { _ = s.Close() }()
-			ok, err := s.HasToken(tc.wantKey)
-			testutil.RequireNoError(t, err)
-			testutil.True(t, ok)
-		})
+	// Raw file must contain no api_token and no per-tool connection key.
+	raw, rerr := os.ReadFile(configPath) //nolint:gosec // test reads its own temp file
+	testutil.RequireNoError(t, rerr)
+	if strings.Contains(string(raw), "api_token") {
+		t.Fatalf("plaintext store must never contain api_token:\n%s", raw)
 	}
+
+	s, err := keyring.OpenNoMigrate()
+	testutil.RequireNoError(t, err)
+	defer func() { _ = s.Close() }()
+	ok, err := s.HasToken(keyring.KeyAPIToken)
+	testutil.RequireNoError(t, err)
+	testutil.True(t, ok)
 }
 
 func TestFinalizeInit_BasicHappyPath(t *testing.T) {

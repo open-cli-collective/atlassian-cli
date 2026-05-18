@@ -266,7 +266,7 @@ func runInit(ctx context.Context, opts *root.Options, prefillURL, prefillEmail, 
 	// Save to shared credential store. Per-tool defaults always live in
 	// the jtk section; credential edits go to the section detectAndReconcile
 	// chose (default vs jtk override).
-	applyResultToStore(result.store, cfg, result.target)
+	applyResultToStore(result.store, cfg)
 	if err := result.store.Save(sharedPath); err != nil {
 		return fmt.Errorf("saving shared store: %w", err)
 	}

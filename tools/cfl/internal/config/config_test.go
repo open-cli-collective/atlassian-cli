@@ -454,17 +454,18 @@ func TestConfig_LoadFromShared(t *testing.T) {
 		testutil.Equal(t, "", cfg.APIToken)
 	})
 
-	t.Run("cfl override does not layer the token", func(t *testing.T) {
+	t.Run("connection comes from default; token never from the store", func(t *testing.T) {
 		t.Parallel()
+		// §2.2 (MON-5328): per-tool sections carry no connection/token;
+		// connection is single-sourced from default and the token lives
+		// only in the keyring.
 		store := &credstore.Store{
 			Default: credstore.Section{
 				URL:      "https://acme.atlassian.net",
 				Email:    "default@example.com",
 				APIToken: "default-tok",
 			},
-			CFL: credstore.ToolSection{
-				Section: credstore.Section{APIToken: "cfl-only-tok"},
-			},
+			CFL: credstore.ToolSection{DefaultSpace: "SP"},
 		}
 		cfg := &Config{}
 		cfg.LoadFromShared(store)

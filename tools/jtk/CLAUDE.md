@@ -179,14 +179,14 @@ Variables are checked in precedence order (first match wins):
 
 | Setting | Precedence |
 |---------|------------|
-| URL | `JIRA_URL` → `ATLASSIAN_URL` → shared `jtk` override → shared `default` → legacy config → `JIRA_DOMAIN` |
-| Email | `JIRA_EMAIL` → `ATLASSIAN_EMAIL` → shared `jtk` → shared `default` → legacy |
+| URL | `JIRA_URL` → `ATLASSIAN_URL` → shared `default` → legacy config → `JIRA_DOMAIN` |
+| Email | `JIRA_EMAIL` → `ATLASSIAN_EMAIL` → shared `default` → legacy |
 | API Token | `JIRA_API_TOKEN` → `ATLASSIAN_API_TOKEN` → keyring `api_token` (single shared key; OS keyring, **not** the config file) |
 | Default Project | `JIRA_DEFAULT_PROJECT` → shared `jtk.default_project` → legacy |
-| Auth Method | `JIRA_AUTH_METHOD` → `ATLASSIAN_AUTH_METHOD` → shared `jtk` → shared `default` → legacy → `"basic"` |
-| Cloud ID | `JIRA_CLOUD_ID` → `ATLASSIAN_CLOUD_ID` → shared `jtk` → shared `default` → legacy |
+| Auth Method | `JIRA_AUTH_METHOD` → `ATLASSIAN_AUTH_METHOD` → shared `default` → legacy → `"basic"` |
+| Cloud ID | `JIRA_CLOUD_ID` → `ATLASSIAN_CLOUD_ID` → shared `default` → legacy |
 
-The "shared" entries refer to the cross-tool credential store at `~/.config/atlassian-cli/config.yml` written by `jtk init` and `cfl init`. The `jtk` section overrides the `default` section per field. Legacy jtk config (Linux: `~/.config/jira-ticket-cli/config.json`; macOS: `~/Library/Application Support/jira-ticket-cli/config.json`) keeps working indefinitely; init migrates it on first run.
+The "shared" entries refer to the cross-tool credential store at `~/.config/atlassian-cli/config.yml` written by `jtk init` and `cfl init`. Per §2.2 (MON-5328) connection config is single-sourced from the `default` section — the `jtk` section carries only the non-secret `default_project` and may NOT override connection fields. Legacy jtk config (Linux: `~/.config/jira-ticket-cli/config.json`; macOS: `~/Library/Application Support/jira-ticket-cli/config.json`) keeps working indefinitely; init migrates it on first run (failing loud if a pre-MON-5328 per-tool connection diverges from `default`).
 
 Use `ATLASSIAN_*` for shared credentials across jtk and cfl. Use `JIRA_*` to override per-tool.
 

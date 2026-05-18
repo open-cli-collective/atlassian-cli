@@ -3,60 +3,44 @@ package init
 import (
 	"errors"
 	"fmt"
-
-	"github.com/charmbracelet/huh"
+	"strings"
 
 	"github.com/open-cli-collective/atlassian-go/credstore"
-	"github.com/open-cli-collective/atlassian-go/keyring"
 	"github.com/open-cli-collective/atlassian-go/view"
 
 	"github.com/open-cli-collective/confluence-cli/internal/config"
 )
 
-// hasUsableCreds composes the non-secret config completeness check
-// (credstore) with keyring token presence. The token no longer lives in
-// the shared store, so neither half alone means "already configured".
-func hasUsableCreds(store *credstore.Store, tool string) (bool, error) {
-	if !store.HasUsableConfig(tool) {
-		return false, nil
-	}
-	return keyring.HasToken()
-}
-
-// writeTarget tells the post-form save logic which section of the
-// shared store to write credential edits into. Tool-specific bits
-// (default_space/output_format) always go to the cfl section
-// regardless of target.
-type writeTarget int
-
-const (
-	writeDefault writeTarget = iota
-	writeCFLOverride
-)
-
 // reconcileResult captures everything finalizeInit needs after the
-// detection + prompt phase: a *Config to seed the form, a write target,
-// the shared store the user already had on disk (so save preserves
-// unrelated fields like the jtk section), and the list of legacy
-// files that the user might want to clean up after migration.
+// detection phase: a *Config to seed the form, the shared store the user
+// already had on disk (so save preserves unrelated fields like the jtk
+// section), and the legacy files the user might want to clean up.
+//
+// Per §2.2 (MON-5328) connection config is single-sourced from the
+// shared `default` section — there is no per-tool override and therefore
+// no write-target choice; finalizeInit always writes connection to
+// `default`.
 type reconcileResult struct {
 	prefill          *config.Config
-	target           writeTarget
 	store            *credstore.Store
-	consumedLegacies []string // paths of legacy files actually read into prefill
-	// affectsSibling is true when finalizeInit should confirm before
-	// writing because the save will mutate credentials the sibling tool
-	// is currently reading from. Set when reuse=yes was chosen on a
-	// shared store that already had usable creds.
+	consumedLegacies []string // legacy file paths folded into the result
+	// affectsSibling is true when the save will mutate connection
+	// credentials the sibling tool also reads (always, now that there is
+	// one shared default) AND the store already held usable creds — so
+	// finalizeInit confirms before overwriting a working shared config.
 	affectsSibling bool
 }
 
 // detectAndReconcile decides what to do given whatever configs already
-// exist on disk. It runs whatever interactive prompts are necessary to
-// disambiguate, then returns a deterministic result for finalizeInit.
+// exist on disk. Connection config is single-sourced (§2.2): it gathers
+// every connection candidate (shared default, the pre-MON-5328 shared
+// per-tool sections via the migration projection, and the legacy cfl/jtk
+// files), runs the pure divergence detector, and FAILS LOUD if they
+// disagree (naming every source + field, never a value) rather than
+// precedence-picking. Aligned → the unified connection is folded into
+// the shared default; per-tool non-secret defaults are preserved.
 //
-// Path arguments are injected so tests can point them at a tempdir;
-// production passes the canonical paths.
+// Path arguments are injected so tests can point them at a tempdir.
 func detectAndReconcile(
 	v *view.View,
 	cflLegacyPath, jtkLegacyPath, sharedPath string,
@@ -68,274 +52,210 @@ func detectAndReconcile(
 		v.Error("Refusing to overwrite. Fix or remove the file, then re-run cfl init.")
 		return nil, err
 	}
+	// Migration projection retains the pre-MON-5328 per-tool connection
+	// fields the canonical Store dropped (EnsureMigrated's token-only
+	// scrub preserves them, so they are still readable here).
+	proj, err := credstore.LoadSharedLegacyProjection(sharedPath)
+	if err != nil {
+		v.Error("Shared credential store at %s is unreadable: %v", sharedPath, err)
+		v.Error("Refusing to overwrite. Fix or remove the file, then re-run cfl init.")
+		return nil, err
+	}
+	if proj == nil {
+		proj = &credstore.SharedLegacyProjection{Path: sharedPath}
+	}
 
 	cflLegacy, cflErr := credstore.LoadLegacyCFL(cflLegacyPath)
 	if cflErr != nil {
 		if errors.Is(cflErr, credstore.ErrCorruptStore) {
 			v.Error("Legacy cfl config at %s is unreadable: %v", cflLegacyPath, cflErr)
 			v.Error("Refusing to overwrite. Fix or remove the file, then re-run cfl init.")
-			return nil, cflErr
 		}
 		return nil, cflErr
 	}
 	jtkLegacy, jtkErr := credstore.LoadLegacyJTK(jtkLegacyPath)
 	if jtkErr != nil {
-		// Sibling-corrupt is a warning, not a hard stop — we can still
-		// migrate this tool's data without touching the sibling file.
+		// Sibling-corrupt is a warning, not a hard stop.
 		v.Info("Note: sibling jtk config at %s is unreadable; ignoring. (%v)", jtkLegacyPath, jtkErr)
 		jtkLegacy = nil
 	}
 
-	// Case 1: shared store + keyring already hold usable creds for cfl.
-	usable, err := hasUsableCreds(store, credstore.ToolCFL)
-	if err != nil {
-		return nil, err
-	}
-	if usable {
-		// If the user already has a cfl override, edits go back to the
-		// override; otherwise the user picks default-vs-override.
-		hasOverride := !sectionEmpty(store.CFL.Section)
-		if hasOverride {
-			return resultFromSharedWithOverride(store, prefillURL, prefillEmail, prefillAuthMethod, prefillCloudID), nil
-		}
-		var reuse bool
-		err := huh.NewConfirm().
-			Title("Shared Atlassian credentials found").
-			Description(fmt.Sprintf(
-				"%s\n\nReuse these for cfl? (no = set up cfl-specific credentials)",
-				credstore.FormatSection("default", store.Default),
-			)).
-			Affirmative("Reuse").
-			Negative("Set cfl-specific").
-			Value(&reuse).
-			Run()
-		if err != nil {
-			return nil, err
-		}
-		if reuse {
-			v.Info("Note: editing these credentials will also affect jtk (writes go to shared default).")
-		}
-		return resultFromSharedNoOverride(store, reuse, prefillURL, prefillEmail, prefillAuthMethod, prefillCloudID), nil
+	// Build the full named connection candidate set and detect
+	// divergence (pure, secret-free, no IO/keyring).
+	candidates := connCandidates(sharedPath, store, proj, cflLegacy, jtkLegacy)
+	chosen, conflicts := credstore.DetectConnDivergence(candidates)
+	if len(conflicts) > 0 {
+		return nil, connConflictError(conflicts)
 	}
 
-	// Case 2: only this tool's legacy exists.
-	if cflLegacy != nil && jtkLegacy == nil {
-		v.Info("Migrating existing cfl config at %s to shared store.", cflLegacy.Path)
-		return resultFromCFLLegacy(cflLegacy, store, prefillURL, prefillEmail, prefillAuthMethod, prefillCloudID), nil
+	// Aligned: fold the unified connection into the shared default and
+	// preserve per-tool non-secret defaults (cfl's space/output, jtk's
+	// project) so neither tool loses them on next read.
+	store.Default = credstore.Section{
+		URL:        chosen.URL,
+		Email:      chosen.Email,
+		AuthMethod: chosen.AuthMethod,
+		CloudID:    chosen.CloudID,
 	}
+	consumed := preserveDefaultsAndCollect(store, cflLegacy, jtkLegacy)
 
-	// Case 3: only sibling legacy exists.
-	if cflLegacy == nil && jtkLegacy != nil {
-		var reuse bool
-		err := huh.NewConfirm().
-			Title("Found jtk credentials").
-			Description(fmt.Sprintf(
-				"%s\n\nReuse these for cfl? (Atlassian API tokens are account-wide and usually work across products.)",
-				credstore.FormatSection("jtk", jtkLegacy.Section()),
-			)).
-			Affirmative("Reuse").
-			Negative("Fresh setup").
-			Value(&reuse).
-			Run()
-		if err != nil {
-			return nil, err
-		}
-		return resultFromSiblingLegacy(jtkLegacy, store, reuse, prefillURL, prefillEmail, prefillAuthMethod, prefillCloudID), nil
+	// If the shared store already holds a usable connection, editing it
+	// also affects jtk (single shared default) — finalizeInit confirms.
+	// Pure (store.HasUsableConfig only): NO keyring I/O in reconcile (the
+	// B3 leak-regression rule — keyring access lives in the command
+	// layer, never in this pure path).
+	affectsSibling := store.HasUsableConfig(credstore.ToolCFL)
+
+	cfg := configFromConn(chosen)
+	if store.CFL.DefaultSpace != "" {
+		cfg.DefaultSpace = store.CFL.DefaultSpace
 	}
-
-	// Case 4: both legacies exist. Either way, preserve jtk's per-tool
-	// defaults into the store so jtk doesn't lose default_project on
-	// next read.
-	if cflLegacy != nil && jtkLegacy != nil {
-		store.JTK.DefaultProject = jtkLegacy.DefaultProject
-		if credstore.SectionsEqual(cflLegacy.Section(), jtkLegacy.Section()) {
-			v.Info("Found matching cfl and jtk credentials; migrating to shared store.")
-			cfg := configFromLegacy(cflLegacy)
-			applyFlagOverrides(cfg, prefillURL, prefillEmail, prefillAuthMethod, prefillCloudID)
-			return &reconcileResult{prefill: cfg, target: writeDefault, store: store, consumedLegacies: []string{cflLegacy.Path, jtkLegacy.Path}}, nil
-		}
-		choice, err := promptReconcileMismatch(cflLegacy, jtkLegacy)
-		if err != nil {
-			return nil, err
-		}
-		return resultFromMismatch(cflLegacy, jtkLegacy, choice, store, v, prefillURL, prefillEmail, prefillAuthMethod, prefillCloudID), nil
-	}
-
-	// Case 5: nothing on disk anywhere.
-	cfg := &config.Config{}
-	applyFlagOverrides(cfg, prefillURL, prefillEmail, prefillAuthMethod, prefillCloudID)
-	return &reconcileResult{prefill: cfg, target: writeDefault, store: store}, nil
-}
-
-// mismatchDescription is the prompt description for the both-legacies-
-// mismatch reconciliation. Extracted so tests can assert the
-// educational language without driving huh.
-func mismatchDescription(cflLegacy, jtkLegacy *credstore.LegacyCreds) string {
-	return fmt.Sprintf(
-		"%s\n\n%s\n\nNote: Atlassian API tokens are account-wide. One token usually works for both Jira and Confluence.\nManage tokens: https://id.atlassian.com/manage-profile/security/api-tokens",
-		credstore.FormatSection("cfl ("+cflLegacy.Path+")", cflLegacy.Section()),
-		credstore.FormatSection("jtk ("+jtkLegacy.Path+")", jtkLegacy.Section()),
-	)
-}
-
-func promptReconcileMismatch(cflLegacy, jtkLegacy *credstore.LegacyCreds) (string, error) {
-	desc := mismatchDescription(cflLegacy, jtkLegacy)
-	var choice string
-	err := huh.NewSelect[string]().
-		Title("Different Atlassian credentials found").
-		Description(desc).
-		Options(
-			huh.NewOption("Use cfl's credentials for both tools", "use_cfl"),
-			huh.NewOption("Use jtk's credentials for both tools", "use_jtk"),
-			huh.NewOption("Keep them different (advanced)", "keep_different"),
-		).
-		Value(&choice).
-		Run()
-	return choice, err
-}
-
-// resultFromCFLLegacy is the post-prompt branch for "only this tool's
-// legacy" — lifted out so tests can drive it without huh.
-func resultFromCFLLegacy(cflLegacy *credstore.LegacyCreds, store *credstore.Store, prefillURL, prefillEmail, prefillAuthMethod, prefillCloudID string) *reconcileResult {
-	cfg := configFromLegacy(cflLegacy)
-	applyFlagOverrides(cfg, prefillURL, prefillEmail, prefillAuthMethod, prefillCloudID)
-	return &reconcileResult{prefill: cfg, target: writeDefault, store: store, consumedLegacies: []string{cflLegacy.Path}}
-}
-
-// resultFromSiblingLegacy is the post-prompt branch for "only sibling
-// (jtk) legacy" — `reuse` is what huh returned. Either way, jtk's
-// per-tool defaults (default_project) are preserved into the store so
-// jtk doesn't lose them on next read.
-func resultFromSiblingLegacy(jtkLegacy *credstore.LegacyCreds, store *credstore.Store, reuse bool, prefillURL, prefillEmail, prefillAuthMethod, prefillCloudID string) *reconcileResult {
-	store.JTK.DefaultProject = jtkLegacy.DefaultProject
-	var cfg *config.Config
-	if reuse {
-		cfg = configFromLegacy(jtkLegacy)
-	} else {
-		cfg = &config.Config{}
+	if store.CFL.OutputFormat != "" {
+		cfg.OutputFormat = store.CFL.OutputFormat
 	}
 	applyFlagOverrides(cfg, prefillURL, prefillEmail, prefillAuthMethod, prefillCloudID)
-	consumed := []string{}
-	if reuse {
-		consumed = []string{jtkLegacy.Path}
-	}
-	return &reconcileResult{prefill: cfg, target: writeDefault, store: store, consumedLegacies: consumed}
-}
 
-// resultFromSharedNoOverride is the post-prompt branch for the
-// shared-store-present-no-override case in detectAndReconcile.
-// `reuse` is what huh returned.
-func resultFromSharedNoOverride(store *credstore.Store, reuse bool, prefillURL, prefillEmail, prefillAuthMethod, prefillCloudID string) *reconcileResult {
-	var cfg *config.Config
-	target := writeCFLOverride
-	if reuse {
-		cfg = configFromSection(store.Resolve(credstore.ToolCFL))
-		copyCFLDefaults(cfg, store.CFL)
-		target = writeDefault
-	} else {
-		cfg = &config.Config{}
-		copyCFLDefaults(cfg, store.CFL)
-	}
-	applyFlagOverrides(cfg, prefillURL, prefillEmail, prefillAuthMethod, prefillCloudID)
 	return &reconcileResult{
-		prefill:        cfg,
-		target:         target,
-		store:          store,
-		affectsSibling: reuse, // reuse=yes writes to default → affects jtk
-	}
+		prefill:          cfg,
+		store:            store,
+		consumedLegacies: consumed,
+		affectsSibling:   affectsSibling,
+	}, nil
 }
 
-// resultFromSharedWithOverride is the (no-prompt) branch when shared
-// store already has a populated cfl override section. Edits land in
-// the override; default isn't touched.
-func resultFromSharedWithOverride(store *credstore.Store, prefillURL, prefillEmail, prefillAuthMethod, prefillCloudID string) *reconcileResult {
-	cfg := configFromSection(store.Resolve(credstore.ToolCFL))
-	copyCFLDefaults(cfg, store.CFL)
-	applyFlagOverrides(cfg, prefillURL, prefillEmail, prefillAuthMethod, prefillCloudID)
-	return &reconcileResult{prefill: cfg, target: writeCFLOverride, store: store}
-}
-
-// resultFromMismatch is the post-prompt branch for "both legacies
-// exist with different creds". `choice` is the huh select value:
-// "use_cfl" | "use_jtk" | "keep_different".
-func resultFromMismatch(cflLegacy, jtkLegacy *credstore.LegacyCreds, choice string, store *credstore.Store, v *view.View, prefillURL, prefillEmail, prefillAuthMethod, prefillCloudID string) *reconcileResult {
-	consumed := []string{cflLegacy.Path, jtkLegacy.Path}
-	switch choice {
-	case "use_cfl", "use_jtk":
-		// User chose to unify on one tool's creds. Clear both
-		// override Sections so each tool resolves to the new default
-		// rather than a leftover override from a prior keep_different
-		// run. Per-tool defaults (default_space, default_project,
-		// output_format) are preserved.
-		store.CFL.Section = credstore.Section{}
-		store.JTK.Section = credstore.Section{}
-		var cfg *config.Config
-		if choice == "use_cfl" {
-			cfg = configFromLegacy(cflLegacy)
-		} else {
-			cfg = configFromLegacy(jtkLegacy)
-			cfg.DefaultSpace = cflLegacy.DefaultSpace
-			cfg.OutputFormat = cflLegacy.OutputFormat
+// connCandidates assembles the origin-labeled connection sources for the
+// divergence detector: shared default, the pre-MON-5328 shared per-tool
+// sections as effective overrides (default ⊕ section), and the legacy
+// cfl/jtk files. All-empty candidates are skipped (the detector also
+// treats them as "no opinion", but skipping keeps conflict labels tight).
+func connCandidates(
+	sharedPath string,
+	store *credstore.Store,
+	proj *credstore.SharedLegacyProjection,
+	cflLegacy, jtkLegacy *credstore.LegacyCreds,
+) []credstore.NamedConn {
+	var out []credstore.NamedConn
+	add := func(label, section, path string, c credstore.ConnProfile) {
+		if c.URL == "" && c.Email == "" && c.AuthMethod == "" && c.CloudID == "" {
+			return
 		}
-		applyFlagOverrides(cfg, prefillURL, prefillEmail, prefillAuthMethod, prefillCloudID)
-		// Non-secret connection reconcile only. The token is now a single
-		// shared key: divergent legacy tokens are caught by the keyring
-		// migration (fail-loud §1.8), not chosen here.
-		return &reconcileResult{prefill: cfg, target: writeDefault, store: store, consumedLegacies: consumed}
-	case "keep_different":
-		// Both tools land in their override sections so the split is
-		// stable: store.Default stays empty, cfl reads its override,
-		// jtk reads its override. Save target is writeCFLOverride so
-		// post-form edits stay in the cfl section.
-		store.CFL.Section = cflLegacy.Section()
-		store.CFL.DefaultSpace = cflLegacy.DefaultSpace
-		store.CFL.OutputFormat = cflLegacy.OutputFormat
-		store.JTK.Section = jtkLegacy.Section()
-		cfg := configFromLegacy(cflLegacy)
-		applyFlagOverrides(cfg, prefillURL, prefillEmail, prefillAuthMethod, prefillCloudID)
-		v.Info("Keeping per-tool credentials. cfl will use cfl's token; jtk will use jtk's token.")
-		return &reconcileResult{prefill: cfg, target: writeCFLOverride, store: store, consumedLegacies: consumed}
+		out = append(out, credstore.NamedConn{Label: label, Section: section, Path: path, Conn: c})
 	}
-	cfg := &config.Config{}
-	applyFlagOverrides(cfg, prefillURL, prefillEmail, prefillAuthMethod, prefillCloudID)
-	return &reconcileResult{prefill: cfg, target: writeDefault, store: store}
+	def := credstore.ConnProfile{
+		URL: store.Default.URL, Email: store.Default.Email,
+		AuthMethod: store.Default.AuthMethod, CloudID: store.Default.CloudID,
+	}
+	add("shared config", "default", sharedPath, def)
+	add("shared config", "cfl", sharedPath, effectiveConn(proj.Default, proj.CFL))
+	add("shared config", "jtk", sharedPath, effectiveConn(proj.Default, proj.JTK))
+	if cflLegacy != nil {
+		add("legacy cfl config", "", cflLegacy.Path, legacyConn(cflLegacy))
+	}
+	if jtkLegacy != nil {
+		add("legacy jtk config", "", jtkLegacy.Path, legacyConn(jtkLegacy))
+	}
+	return out
 }
 
-func sectionEmpty(s credstore.Section) bool {
-	return s.URL == "" && s.Email == "" && s.APIToken == "" && s.AuthMethod == "" && s.CloudID == ""
+// effectiveConn merges a pre-MON-5328 per-tool section over default
+// (the old per-field-merge semantics) so the detector compares what the
+// tool actually USED to resolve.
+func effectiveConn(def, sec credstore.SharedLegacyConn) credstore.ConnProfile {
+	pick := func(o, d string) string {
+		if o != "" {
+			return o
+		}
+		return d
+	}
+	return credstore.ConnProfile{
+		URL:        pick(sec.URL, def.URL),
+		Email:      pick(sec.Email, def.Email),
+		AuthMethod: pick(sec.AuthMethod, def.AuthMethod),
+		CloudID:    pick(sec.CloudID, def.CloudID),
+	}
 }
 
-func configFromSection(s credstore.Section) *config.Config {
+func legacyConn(l *credstore.LegacyCreds) credstore.ConnProfile {
+	return credstore.ConnProfile{
+		URL: l.URL, Email: l.Email, AuthMethod: l.AuthMethod, CloudID: l.CloudID,
+	}
+}
+
+// connConflictError renders the fail-loud message: every conflicting
+// field with every contributing source descriptor
+// (`<label> <section>.<field> (<path>)`), NEVER a value (§1.12), and an
+// actionable remediation pointing at every distinct file.
+func connConflictError(conflicts []credstore.ConnConflict) error {
+	var b strings.Builder
+	b.WriteString("connection config diverges across sources; init will not pick a winner. Conflicts:\n")
+	paths := map[string]struct{}{}
+	for _, c := range conflicts {
+		fmt.Fprintf(&b, "  - %s: %s\n", c.Field, strings.Join(c.Sources, ", "))
+		for _, s := range c.Sources {
+			if i := strings.LastIndex(s, "("); i >= 0 {
+				if j := strings.Index(s[i:], ")"); j > 0 {
+					paths[s[i+1:i+j]] = struct{}{}
+				}
+			}
+		}
+	}
+	b.WriteString("Resolve by editing/removing all but one connection in: ")
+	first := true
+	for p := range paths {
+		if !first {
+			b.WriteString(", ")
+		}
+		b.WriteString(p)
+		first = false
+	}
+	b.WriteString(" — then re-run cfl init. (No values shown; secrets live only in the OS keyring.)")
+	return errors.New(b.String())
+}
+
+// preserveDefaultsAndCollect keeps per-tool non-secret defaults from the
+// pre-strip projection and legacy files, and returns the legacy file
+// paths that contributed a connection (so init can offer to delete them).
+func preserveDefaultsAndCollect(
+	store *credstore.Store,
+	cflLegacy, jtkLegacy *credstore.LegacyCreds,
+) []string {
+	var consumed []string
+	if cflLegacy != nil {
+		if cflLegacy.DefaultSpace != "" {
+			store.CFL.DefaultSpace = cflLegacy.DefaultSpace
+		}
+		if cflLegacy.OutputFormat != "" {
+			store.CFL.OutputFormat = cflLegacy.OutputFormat
+		}
+		if hasConn(legacyConn(cflLegacy)) {
+			consumed = append(consumed, cflLegacy.Path)
+		}
+	}
+	if jtkLegacy != nil {
+		if jtkLegacy.DefaultProject != "" {
+			store.JTK.DefaultProject = jtkLegacy.DefaultProject
+		}
+		if hasConn(legacyConn(jtkLegacy)) {
+			consumed = append(consumed, jtkLegacy.Path)
+		}
+	}
+	return consumed
+}
+
+func hasConn(c credstore.ConnProfile) bool {
+	return c.URL != "" || c.Email != "" || c.AuthMethod != "" || c.CloudID != ""
+}
+
+func configFromConn(c credstore.ConnProfile) *config.Config {
 	cfg := &config.Config{
-		Email:      s.Email,
-		APIToken:   s.APIToken,
-		AuthMethod: s.AuthMethod,
-		CloudID:    s.CloudID,
+		Email:      c.Email,
+		AuthMethod: c.AuthMethod,
+		CloudID:    c.CloudID,
 	}
-	if s.URL != "" {
-		cfg.URL = credstore.URLForCFL(s.URL)
-	}
-	return cfg
-}
-
-func configFromLegacy(l *credstore.LegacyCreds) *config.Config {
-	cfg := configFromSection(l.Section())
-	if l.DefaultSpace != "" {
-		cfg.DefaultSpace = l.DefaultSpace
-	}
-	if l.OutputFormat != "" {
-		cfg.OutputFormat = l.OutputFormat
+	if c.URL != "" {
+		cfg.URL = credstore.URLForCFL(c.URL)
 	}
 	return cfg
-}
-
-func copyCFLDefaults(cfg *config.Config, t credstore.ToolSection) {
-	if t.DefaultSpace != "" {
-		cfg.DefaultSpace = t.DefaultSpace
-	}
-	if t.OutputFormat != "" {
-		cfg.OutputFormat = t.OutputFormat
-	}
 }
 
 func applyFlagOverrides(cfg *config.Config, url, email, authMethod, cloudID string) {
@@ -353,24 +273,16 @@ func applyFlagOverrides(cfg *config.Config, url, email, authMethod, cloudID stri
 	}
 }
 
-// applyResultToStore mutates the shared store so it carries the form's
-// final cfg in the right section. It preserves unrelated existing
-// fields (jtk section, jtk per-tool defaults) and only overwrites a
-// CFL per-tool default when the form actually produced a value, so a
-// freshly-set-up cfl doesn't stomp a previously-saved default_space.
-func applyResultToStore(store *credstore.Store, cfg *config.Config, target writeTarget) {
-	cred := credstore.Section{
+// applyResultToStore writes the form's final cfg into the shared default
+// (connection is single-sourced — §2.2) and preserves/sets the cfl
+// per-tool non-secret defaults. The jtk section and jtk defaults are
+// left untouched.
+func applyResultToStore(store *credstore.Store, cfg *config.Config) {
+	store.Default = credstore.Section{
 		URL:        credstore.NormalizeBaseURL(cfg.URL),
 		Email:      cfg.Email,
-		APIToken:   cfg.APIToken,
 		AuthMethod: cfg.AuthMethod,
 		CloudID:    cfg.CloudID,
-	}
-	switch target {
-	case writeDefault:
-		store.Default = cred
-	case writeCFLOverride:
-		store.CFL.Section = cred
 	}
 	if cfg.DefaultSpace != "" {
 		store.CFL.DefaultSpace = cfg.DefaultSpace

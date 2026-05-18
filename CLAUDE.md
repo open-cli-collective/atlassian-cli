@@ -138,8 +138,14 @@ jtk:
 ```
 
 Note: there is **no `api_token:` field** — the secret is in the keyring.
-The `cfl`/`jtk` sections may still carry non-secret per-tool overrides
-(`url`, `email`, `auth_method`, `cloud_id`); per-field merge applies.
+Per §2.2 (MON-5328) the `cfl`/`jtk` sections carry **only** non-secret
+per-tool defaults (`default_space`, `default_project`,
+`output_format`); they may **not** override connection fields
+(`url`/`email`/`auth_method`/`cloud_id`). Connection is single-sourced
+from `default` (env still overrides at runtime). A pre-MON-5328 file
+with per-tool connection fields is read once by the migration; if those
+diverge from `default`, `init` fails loud (naming every source + field,
+no value) instead of precedence-picking.
 
 Keyring bundle: fixed ref `atlassian-cli/default`, exactly one key
 `api_token` shared by cfl and jtk (Secret-Handling Standard §1.11.10:

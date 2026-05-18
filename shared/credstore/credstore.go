@@ -1,16 +1,19 @@
 // Package credstore reads and writes the shared Atlassian NON-SECRET
 // config at ~/.config/atlassian-cli/config.yml. The store has a single
-// "default" section that both cfl and jtk consume, plus optional
-// "cfl" and "jtk" sections that hold per-tool overrides (full or partial).
+// "default" section that both cfl and jtk consume for connection
+// config, plus optional "cfl" and "jtk" sections that hold ONLY
+// non-secret per-tool defaults (default_space/default_project/
+// output_format). Per §2.2 (MON-5328) a per-tool section may NOT
+// override connection credentials — connection is single-sourced from
+// "default" (env still overrides at the caller's runtime layer).
 //
 // The API token is NOT persisted here — it lives in the OS keyring via
 // the sibling shared/keyring package. The codec is intentionally
-// asymmetric: Load still READS a legacy api_token (it is the one-time
-// migration source) but Save NEVER writes one (see Store.MarshalYAML).
-//
-// Field resolution is per-field merge (tool override beats default, any
-// unset field falls through), so a partial override — say, a different
-// cloud_id for cfl — is fully supported.
+// asymmetric: Load still READS a legacy default api_token (it is the
+// one-time migration source) but Save NEVER writes one (see
+// Store.MarshalYAML). Pre-MON-5328 files that still carry per-tool
+// connection/token fields are decoded once by the migration projection
+// (LoadSharedLegacyProjection), never by the canonical Store.
 package credstore
 
 import (
@@ -46,10 +49,14 @@ type Section struct {
 	CloudID    string `yaml:"cloud_id,omitempty"`
 }
 
-// ToolSection embeds Section and adds per-tool defaults that aren't
-// shareable (e.g., default_space is meaningless to jtk).
+// ToolSection holds ONLY the non-secret per-tool defaults. Per §2.2
+// (MON-5328) a per-tool section may NOT override connection credentials
+// (url/email/auth_method/cloud_id) or carry api_token — connection is
+// single-sourced from the shared `default` section (env still overrides
+// at runtime). Legacy files that still carry per-tool connection fields
+// are handled once by the migration projection (see legacy.go), never by
+// this canonical struct.
 type ToolSection struct {
-	Section        `yaml:",inline"`
 	DefaultSpace   string `yaml:"default_space,omitempty"`   // cfl
 	DefaultProject string `yaml:"default_project,omitempty"` // jtk
 	OutputFormat   string `yaml:"output_format,omitempty"`   // cfl
@@ -134,36 +141,18 @@ func (s Store) MarshalYAML() (any, error) {
 	type alias Store
 	c := s
 	c.Default.APIToken = ""
-	c.CFL.APIToken = ""
-	c.JTK.APIToken = ""
+	// Per-tool sections no longer carry api_token (or any connection
+	// field) — the struct can't hold them, so nothing to strip there.
 	return alias(c), nil
 }
 
-func (s *Store) toolSection(tool string) ToolSection {
-	switch tool {
-	case ToolCFL:
-		return s.CFL
-	case ToolJTK:
-		return s.JTK
-	default:
-		return ToolSection{}
-	}
-}
-
-// Resolve returns the effective credentials for tool by merging the
-// tool's override section over default per field. Unset override fields
-// fall through to default; default fields fall through to zero.
-func (s *Store) Resolve(tool string) Section {
-	d := s.Default
-	o := s.toolSection(tool).Section
-	out := Section{
-		URL:        firstNonEmpty(o.URL, d.URL),
-		Email:      firstNonEmpty(o.Email, d.Email),
-		APIToken:   firstNonEmpty(o.APIToken, d.APIToken),
-		AuthMethod: firstNonEmpty(o.AuthMethod, d.AuthMethod),
-		CloudID:    firstNonEmpty(o.CloudID, d.CloudID),
-	}
-	return out
+// Resolve returns the effective credentials for tool. Per §2.2
+// (MON-5328) connection config is single-sourced from `default`; per-tool
+// sections no longer override it, so the tool argument no longer affects
+// the connection result (kept for signature stability — ~every command
+// calls this). Env overrides still apply at the caller's runtime layer.
+func (s *Store) Resolve(_ string) Section {
+	return s.Default
 }
 
 // Source describes where a resolved field came from. Used by
@@ -171,43 +160,31 @@ func (s *Store) Resolve(tool string) Section {
 type Source string
 
 const (
-	SourceUnset       Source = "unset"
-	SourceDefault     Source = "shared default"
-	SourceOverrideCFL Source = "shared cfl override"
-	SourceOverrideJTK Source = "shared jtk override"
+	SourceUnset   Source = "unset"
+	SourceDefault Source = "shared default"
 )
 
 // ResolveWithSource returns the resolved value and where it came from.
-// Field is the YAML field name (url, email, api_token, auth_method, cloud_id).
-func (s *Store) ResolveWithSource(tool, field string) (string, Source) {
-	o := s.toolSection(tool).Section
+// Field is the YAML field name (url, email, api_token, auth_method,
+// cloud_id). Per §2.2 (MON-5328) connection config is single-sourced
+// from `default`, so the only non-unset source is the shared default
+// (the tool argument no longer selects a per-tool override).
+func (s *Store) ResolveWithSource(_, field string) (string, Source) {
 	d := s.Default
-	get := func(sec Section) string {
-		switch field {
-		case "url":
-			return sec.URL
-		case "email":
-			return sec.Email
-		case "api_token":
-			return sec.APIToken
-		case "auth_method":
-			return sec.AuthMethod
-		case "cloud_id":
-			return sec.CloudID
-		}
-		return ""
+	var v string
+	switch field {
+	case "url":
+		v = d.URL
+	case "email":
+		v = d.Email
+	case "api_token":
+		v = d.APIToken
+	case "auth_method":
+		v = d.AuthMethod
+	case "cloud_id":
+		v = d.CloudID
 	}
-	if v := get(o); v != "" {
-		switch tool {
-		case ToolCFL:
-			return v, SourceOverrideCFL
-		case ToolJTK:
-			return v, SourceOverrideJTK
-		default:
-			return v, SourceUnset
-		}
-	}
-	if v := get(d); v != "" {
+	if v != "" {
 		return v, SourceDefault
 	}
 	return "", SourceUnset
@@ -258,13 +235,4 @@ func URLForCFL(base string) string {
 		return ""
 	}
 	return b + "/wiki"
-}
-
-func firstNonEmpty(vals ...string) string {
-	for _, v := range vals {
-		if v != "" {
-			return v
-		}
-	}
-	return ""
 }

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	cccredstore "github.com/open-cli-collective/cli-common/credstore"
+	"gopkg.in/yaml.v3"
 
 	"github.com/open-cli-collective/atlassian-go/credstore"
 )
@@ -64,11 +65,17 @@ var ErrMigrationConflict = errors.New("keyring: API token migration sources disa
 func migrateLegacyOverwrite(s *Store, overwrite bool) error {
 	// ---- Phase 1: collect (no mutation) ----------------------------------
 	sharedPath := credstore.DefaultPath()
-	store, err := credstore.Load(sharedPath)
+	// Migration-only projection: the canonical Store no longer carries
+	// per-tool connection/token fields (§2.2/MON-5328), but the §1.8
+	// token migration must still SEE a legacy per-tool api_token. Absent
+	// file → proj == nil. Parse failure → ErrCorruptStore (callers treat
+	// it as a hard error; never silently overwrite an unreadable file).
+	proj, err := credstore.LoadSharedLegacyProjection(sharedPath)
 	if err != nil {
-		// A corrupt shared store must not be silently overwritten; surface
-		// it (callers treat ErrCorruptStore as a hard error).
 		return err
+	}
+	if proj == nil {
+		proj = &credstore.SharedLegacyProjection{Path: sharedPath}
 	}
 	cflPath := credstore.LegacyCFLPath()
 	jtkPath := credstore.LegacyJTKPath()
@@ -98,9 +105,9 @@ func migrateLegacyOverwrite(s *Store, overwrite bool) error {
 		}
 		srcLoc[val][loc] = struct{}{}
 	}
-	add(store.Default.APIToken, "shared config default ("+sharedPath+")")
-	add(store.CFL.APIToken, "shared cfl override ("+sharedPath+")")
-	add(store.JTK.APIToken, "shared jtk override ("+sharedPath+")")
+	add(proj.Default.APIToken, "shared config default ("+sharedPath+")")
+	add(proj.CFL.APIToken, "shared config cfl.api_token ("+sharedPath+")")
+	add(proj.JTK.APIToken, "shared config jtk.api_token ("+sharedPath+")")
 	if legacyCFL != nil {
 		add(legacyCFL.APIToken, "legacy cfl config ("+legacyCFL.Path+")")
 	}
@@ -119,8 +126,9 @@ func migrateLegacyOverwrite(s *Store, overwrite bool) error {
 		}
 	}
 
-	anyPlaintext := store.Default.APIToken != "" || store.CFL.APIToken != "" ||
-		store.JTK.APIToken != "" ||
+	sharedHadToken := proj.Default.APIToken != "" || proj.CFL.APIToken != "" ||
+		proj.JTK.APIToken != ""
+	anyPlaintext := sharedHadToken ||
 		(legacyCFL != nil && legacyCFL.APIToken != "") ||
 		(legacyJTK != nil && legacyJTK.APIToken != "")
 
@@ -184,8 +192,10 @@ func migrateLegacyOverwrite(s *Store, overwrite bool) error {
 		}
 	}
 	if anyPlaintext {
-		if err := scrubSharedStore(store, sharedPath); err != nil {
-			return fmt.Errorf("migrated to keyring %s but could not scrub %s: %w", s.ref, sharedPath, err)
+		if sharedHadToken {
+			if err := scrubSharedStore(sharedPath); err != nil {
+				return fmt.Errorf("migrated to keyring %s but could not scrub %s: %w", s.ref, sharedPath, err)
+			}
 		}
 		if legacyCFL != nil && legacyCFL.APIToken != "" {
 			if err := scrubLegacyFile(cflPath); err != nil {
@@ -302,20 +312,85 @@ func conflictError(locs []string, ref string) error {
 
 // ---- plaintext scrub ------------------------------------------------------
 
-// scrubSharedStore rewrites the shared config.yml with every api_token
-// removed, preserving all non-secret fields. credstore.Save already omits
-// tokens, so a plain re-save scrubs it; absent file is a no-op.
-func scrubSharedStore(store *credstore.Store, path string) error {
-	if _, err := os.Stat(path); err != nil {
+// scrubSharedStore is a TOKEN-ONLY rewrite of the shared config.yml: it
+// deletes every `api_token` mapping entry (wherever it appears) and
+// preserves all other keys/values verbatim-enough (semantic, not
+// byte-identical — yaml.Node re-emit is not byte-stable). It must NOT
+// round-trip through the canonical Store: post-MON-5328 the struct no
+// longer carries per-tool connection fields, so a Load→Save here would
+// silently strip a user's legacy per-tool url/email/etc on a plain
+// runtime command. Per-tool connection stripping happens at exactly one
+// explicit point (init reconcile/Save, after the divergence detector).
+// Absent file is a no-op. The api_token node is DELETED, never blanked
+// to "" (an empty api_token: would weaken the no-plaintext invariant).
+func scrubSharedStore(path string) error {
+	data, err := os.ReadFile(path) //nolint:gosec // CLI tool scrubbing its own config
+	if err != nil {
 		if os.IsNotExist(err) {
 			return nil
 		}
 		return err
 	}
-	store.Default.APIToken = ""
-	store.CFL.APIToken = ""
-	store.JTK.APIToken = ""
-	return store.Save(path)
+	var doc yaml.Node
+	if err := yaml.Unmarshal(data, &doc); err != nil {
+		return fmt.Errorf("parsing %s: %w", path, err)
+	}
+	if !deleteYAMLKey(&doc, "api_token") {
+		return nil // nothing to scrub — leave the file untouched
+	}
+	out, err := yaml.Marshal(&doc)
+	if err != nil {
+		return fmt.Errorf("re-marshaling %s: %w", path, err)
+	}
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, out, 0o600); err != nil {
+		_ = os.Remove(tmp)
+		return fmt.Errorf("writing %s: %w", tmp, err)
+	}
+	if err := os.Rename(tmp, path); err != nil {
+		_ = os.Remove(tmp)
+		return fmt.Errorf("renaming %s -> %s: %w", tmp, path, err)
+	}
+	return nil
+}
+
+// deleteYAMLKey recursively removes every mapping entry whose key is
+// `key`, preserving all other nodes. Returns true if anything was
+// removed. Token-only scrub uses it so a single `api_token` anywhere in
+// the document is excised without disturbing sibling keys.
+func deleteYAMLKey(n *yaml.Node, key string) bool {
+	removed := false
+	switch n.Kind {
+	case yaml.DocumentNode:
+		for _, c := range n.Content {
+			if deleteYAMLKey(c, key) {
+				removed = true
+			}
+		}
+	case yaml.MappingNode:
+		kept := make([]*yaml.Node, 0, len(n.Content))
+		for i := 0; i+1 < len(n.Content); i += 2 {
+			k, v := n.Content[i], n.Content[i+1]
+			if k.Value == key {
+				removed = true
+				continue
+			}
+			if deleteYAMLKey(v, key) {
+				removed = true
+			}
+			kept = append(kept, k, v)
+		}
+		n.Content = kept
+	case yaml.SequenceNode:
+		for _, c := range n.Content {
+			if deleteYAMLKey(c, key) {
+				removed = true
+			}
+		}
+	case yaml.ScalarNode, yaml.AliasNode:
+		// Leaf nodes — nothing to recurse into or remove.
+	}
+	return removed
 }
 
 // (Legacy-file scrubbing is the generic, field-preserving scrubLegacyFile

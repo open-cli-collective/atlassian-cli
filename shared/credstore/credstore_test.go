@@ -18,7 +18,7 @@ func TestLoad_AbsentReturnsEmptyStore(t *testing.T) {
 	s, err := Load(filepath.Join(dir, "missing.yml"))
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, "", s.Default.URL)
-	testutil.Equal(t, "", s.CFL.APIToken)
+	testutil.Equal(t, "", s.CFL.DefaultSpace)
 }
 
 func TestLoad_CorruptReturnsErrCorrupt(t *testing.T) {
@@ -44,7 +44,6 @@ func TestSaveLoad_Roundtrip(t *testing.T) {
 			APIToken: "tok",
 		},
 		CFL: ToolSection{
-			Section:      Section{APIToken: "cfl-tok"},
 			DefaultSpace: "MYSPACE",
 		},
 	}
@@ -57,7 +56,6 @@ func TestSaveLoad_Roundtrip(t *testing.T) {
 	// Asymmetric codec: Save never persists the token, so a Save→Load
 	// roundtrip drops it (it now lives in the keyring).
 	testutil.Equal(t, "", out.Default.APIToken)
-	testutil.Equal(t, "", out.CFL.APIToken)
 }
 
 func TestSave_ModeIs0600(t *testing.T) {
@@ -114,7 +112,10 @@ func TestSave_NoLeftoverTempOnFailure(t *testing.T) {
 	}
 }
 
-func TestResolve_PerFieldMergeWithPartialOverride(t *testing.T) {
+// §2.2 (MON-5328): connection is single-sourced from `default`. A
+// per-tool section can no longer override connection fields, so Resolve
+// returns Default regardless of tool.
+func TestResolve_AlwaysReturnsDefault(t *testing.T) {
 	t.Parallel()
 	s := &Store{
 		Default: Section{
@@ -122,16 +123,15 @@ func TestResolve_PerFieldMergeWithPartialOverride(t *testing.T) {
 			Email:    "default@example.com",
 			APIToken: "default-tok",
 		},
-		CFL: ToolSection{
-			Section: Section{APIToken: "cfl-tok"}, // only token override
-		},
+		CFL: ToolSection{DefaultSpace: "SP"},
+		JTK: ToolSection{DefaultProject: "PR"},
 	}
-	got := s.Resolve(ToolCFL)
-	testutil.Equal(t, "https://acme.atlassian.net", got.URL)      // default
-	testutil.Equal(t, "default@example.com", got.Email)           // default
-	testutil.Equal(t, "cfl-tok", got.APIToken)                    // override
-	testutil.Equal(t, "default-tok", s.Default.APIToken)          // default untouched
-	testutil.Equal(t, "default-tok", s.Resolve(ToolJTK).APIToken) // jtk falls through to default
+	for _, tool := range []string{ToolCFL, ToolJTK, "unknown"} {
+		got := s.Resolve(tool)
+		testutil.Equal(t, "https://acme.atlassian.net", got.URL)
+		testutil.Equal(t, "default@example.com", got.Email)
+		testutil.Equal(t, "default-tok", got.APIToken)
+	}
 }
 
 func TestResolve_UnknownToolReturnsDefault(t *testing.T) {
@@ -144,8 +144,8 @@ func TestResolve_UnknownToolReturnsDefault(t *testing.T) {
 func TestResolveWithSource(t *testing.T) {
 	t.Parallel()
 	s := &Store{
-		Default: Section{URL: "https://acme.atlassian.net", Email: "u@e.com"},
-		CFL:     ToolSection{Section: Section{APIToken: "cfl-tok"}},
+		Default: Section{URL: "https://acme.atlassian.net", Email: "u@e.com", APIToken: "def-tok"},
+		CFL:     ToolSection{DefaultSpace: "SP"},
 	}
 	cases := []struct {
 		field     string
@@ -154,7 +154,7 @@ func TestResolveWithSource(t *testing.T) {
 	}{
 		{"url", "https://acme.atlassian.net", SourceDefault},
 		{"email", "u@e.com", SourceDefault},
-		{"api_token", "cfl-tok", SourceOverrideCFL},
+		{"api_token", "def-tok", SourceDefault},
 		{"cloud_id", "", SourceUnset},
 	}
 	for _, tc := range cases {
@@ -197,13 +197,13 @@ func TestHasUsableConfig(t *testing.T) {
 			want: false,
 		},
 		{
-			name: "basic completed by partial override",
+			name: "§2.2: a per-tool section can NOT complete connection",
 			s: &Store{
-				Default: Section{URL: "u"},
-				CFL:     ToolSection{Section: Section{Email: "e"}},
+				Default: Section{URL: "u"}, // missing email
+				CFL:     ToolSection{DefaultSpace: "SP"},
 			},
 			tool: ToolCFL,
-			want: true,
+			want: false, // per-tool no longer supplies email
 		},
 		{
 			name: "bearer needs cloud_id",
@@ -248,8 +248,8 @@ func TestSave_NeverWritesAnyToken(t *testing.T) {
 
 	in := &Store{
 		Default: Section{URL: "u", Email: "e", APIToken: "DEFAULT_SECRET"},
-		CFL:     ToolSection{Section: Section{APIToken: "CFL_SECRET"}, DefaultSpace: "SP"},
-		JTK:     ToolSection{Section: Section{APIToken: "JTK_SECRET"}, DefaultProject: "PR"},
+		CFL:     ToolSection{DefaultSpace: "SP"},
+		JTK:     ToolSection{DefaultProject: "PR"},
 	}
 	if err := in.Save(path); err != nil {
 		t.Fatalf("Save: %v", err)

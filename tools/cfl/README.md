@@ -818,12 +818,14 @@ Environment variables override file-based config. Variables are checked in order
 
 | Setting | Precedence (highest to lowest) |
 |---------|-------------------------------|
-| URL | `CFL_URL` → `ATLASSIAN_URL` → shared `cfl` override → shared `default` → legacy file |
-| Email | `CFL_EMAIL` → `ATLASSIAN_EMAIL` → shared `cfl` → shared `default` → legacy |
+| URL | `CFL_URL` → `ATLASSIAN_URL` → shared `default` → legacy file |
+| Email | `CFL_EMAIL` → `ATLASSIAN_EMAIL` → shared `default` → legacy |
 | API Token | `CFL_API_TOKEN` → `ATLASSIAN_API_TOKEN` → keyring `api_token` (single shared key; OS keyring, never a plaintext file) |
 | Default Space | `CFL_DEFAULT_SPACE` → shared `cfl.default_space` → legacy |
-| Auth Method | `CFL_AUTH_METHOD` → `ATLASSIAN_AUTH_METHOD` → shared → legacy → `basic` |
-| Cloud ID | `CFL_CLOUD_ID` → `ATLASSIAN_CLOUD_ID` → shared → legacy |
+| Auth Method | `CFL_AUTH_METHOD` → `ATLASSIAN_AUTH_METHOD` → shared `default` → legacy → `basic` |
+| Cloud ID | `CFL_CLOUD_ID` → `ATLASSIAN_CLOUD_ID` → shared `default` → legacy |
+
+Per §2.2 connection config is single-sourced from the shared `default` section — per-tool `cfl:`/`jtk:` sections carry only non-secret defaults and may not override `url`/`email`/`auth_method`/`cloud_id`.
 
 **Shared credentials:** If you use both `cfl` and `jtk` (Jira CLI), set `ATLASSIAN_*` variables once:
 

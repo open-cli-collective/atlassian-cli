@@ -74,6 +74,12 @@ func detectAndReconcile(
 		return nil, connConflictError(conflicts)
 	}
 
+	// affectsSibling judged on the ORIGINAL loaded store, BEFORE folding
+	// `chosen` (else a first-time legacy migration falsely looks like it
+	// overwrites a usable shared default). Pure: store.HasUsableConfig
+	// only — NO keyring I/O in reconcile (B3 leak-regression rule).
+	affectsSibling := store.HasUsableConfig(credstore.ToolJTK)
+
 	store.Default = credstore.Section{
 		URL:        chosen.URL,
 		Email:      chosen.Email,
@@ -81,11 +87,6 @@ func detectAndReconcile(
 		CloudID:    chosen.CloudID,
 	}
 	consumed := preserveDefaultsAndCollect(store, jtkLegacy, cflLegacy)
-
-	// Pure: store.HasUsableConfig only — NO keyring I/O in reconcile
-	// (B3 leak-regression rule). finalizeInit confirms before editing a
-	// shared connection cfl also reads.
-	affectsSibling := store.HasUsableConfig(credstore.ToolJTK)
 
 	cfg := configFromConn(chosen)
 	if store.JTK.DefaultProject != "" {

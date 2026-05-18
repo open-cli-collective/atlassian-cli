@@ -159,10 +159,11 @@ func Load(path string) (*Config, error) {
 	return &cfg, nil
 }
 
-// LoadFromShared layers credentials from the shared store (default
-// merged with cfl override) on top of the receiver. URLs from the
-// shared store are stored as base; this method appends "/wiki" so the
-// receiver matches cfl's legacy URL convention.
+// LoadFromShared layers connection credentials from the shared store's
+// `default` section (§2.2: single-sourced — no per-tool override) on
+// top of the receiver. URLs from the shared store are stored as base;
+// this method appends "/wiki" so the receiver matches cfl's legacy URL
+// convention.
 func (c *Config) LoadFromShared(s *credstore.Store) {
 	if s == nil {
 		return
@@ -203,10 +204,9 @@ func warnCorruptSharedOnce(err error) {
 // Non-secret fields (url, email, auth_method, cloud_id, default_space,
 // output_format):
 //  1. legacy file (lowest)
-//  2. shared store default
-//  3. shared store cfl override
-//  4. ATLASSIAN_* env
-//  5. CFL_* env (highest)
+//  2. shared store default (§2.2: single-sourced — no per-tool override)
+//  3. ATLASSIAN_* env
+//  4. CFL_* env (highest)
 //
 // The API token is resolved separately and authoritatively via
 // keyring.ResolveToken (env → OS keyring, running the one-time §1.8

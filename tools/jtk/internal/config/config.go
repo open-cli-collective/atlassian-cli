@@ -37,8 +37,8 @@ func warnCorruptSharedOnce(err error) {
 	})
 }
 
-// jtkSection returns the resolved Section for jtk merged from default
-// and the jtk override.
+// jtkSection returns the resolved connection Section from the shared
+// `default` (§2.2: single-sourced — no per-tool override).
 func jtkSection() credstore.Section {
 	return loadShared().Resolve(credstore.ToolJTK)
 }
@@ -144,7 +144,7 @@ func Clear() error {
 }
 
 // GetURL returns the Jira URL from config or environment.
-// Precedence: JIRA_URL → ATLASSIAN_URL → shared jtk override → shared default → legacy config url → JIRA_DOMAIN → legacy config domain.
+// Precedence: JIRA_URL → ATLASSIAN_URL → shared default → legacy config url → JIRA_DOMAIN → legacy config domain.
 func GetURL() string {
 	if v := os.Getenv("JIRA_URL"); v != "" {
 		return url.NormalizeURL(v)
@@ -186,7 +186,7 @@ func GetDomain() string {
 }
 
 // GetEmail returns the email from config or environment.
-// Precedence: JIRA_EMAIL → ATLASSIAN_EMAIL → shared jtk override → shared default → legacy config email.
+// Precedence: JIRA_EMAIL → ATLASSIAN_EMAIL → shared default → legacy config email.
 func GetEmail() string {
 	if v := os.Getenv("JIRA_EMAIL"); v != "" {
 		return v
@@ -249,7 +249,7 @@ func GetAuthMethod() string {
 }
 
 // GetAuthMethodWithSource returns the auth method and its source.
-// Precedence: JIRA_AUTH_METHOD → ATLASSIAN_AUTH_METHOD → shared jtk override → shared default → legacy config auth_method → "basic"
+// Precedence: JIRA_AUTH_METHOD → ATLASSIAN_AUTH_METHOD → shared default → legacy config auth_method → "basic"
 // Invalid values are skipped and fall through to the next source.
 // Validation happens at entry points (api.New, init --auth-method) not here.
 func GetAuthMethodWithSource() (value, source string) {
@@ -286,7 +286,7 @@ func GetCloudID() string {
 }
 
 // GetCloudIDWithSource returns the Cloud ID and its source.
-// Precedence: JIRA_CLOUD_ID → ATLASSIAN_CLOUD_ID → shared jtk override → shared default → legacy config cloud_id.
+// Precedence: JIRA_CLOUD_ID → ATLASSIAN_CLOUD_ID → shared default → legacy config cloud_id.
 func GetCloudIDWithSource() (value, source string) {
 	if v := os.Getenv("JIRA_CLOUD_ID"); v != "" {
 		return v, "env (JIRA_CLOUD_ID)"

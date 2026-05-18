@@ -94,18 +94,16 @@ func runInit(ctx context.Context, opts *root.Options, prefillURL, prefillEmail, 
 		}
 	}
 
-	// Run the one-time §1.8 migration up front so a pre-existing legacy
-	// plaintext token is relocated (and scrubbed) into the keyring before
-	// the user sets a new one — otherwise it could collide later.
-	if err := keyring.EnsureMigrated(); err != nil {
-		v.Error("Could not prepare secure credential storage: %v", err)
-		return err
-	}
-
 	legacyPath := config.DefaultConfigPath()
 	sharedPath := credstore.DefaultPath()
 	jtkLegacyPath := credstore.LegacyJTKPath()
 
+	// §2.2 ordering (MON-5328): detect connection divergence FIRST,
+	// before any mutation. detectAndReconcile reads the pre-migration
+	// projection and fails loud (mutating nothing) if per-tool / legacy
+	// connections diverge. Only once that passes do we run the §1.8
+	// token migration — so a connection conflict can never be preempted
+	// by a token migration/scrub, and a divergent file is never mutated.
 	result, err := detectAndReconcile(v, legacyPath, jtkLegacyPath, sharedPath,
 		prefillURL, prefillEmail, prefillAuthMethod, prefillCloudID)
 	if err != nil {
@@ -113,14 +111,21 @@ func runInit(ctx context.Context, opts *root.Options, prefillURL, prefillEmail, 
 	}
 	cfg := result.prefill
 
-	// The up-front EnsureMigrated relocates any legacy plaintext token into
-	// the single shared keyring api_token and scrubs the file, so
-	// detectAndReconcile (which reads the now-scrubbed legacy/config files)
-	// leaves prefill.APIToken empty even though the token still exists.
-	// Backfill it from the keyring so a returning user isn't forced to
-	// re-enter a token that was just migrated. NoMigrate: migration already
-	// ran above. Value stays password-masked in the form (same ingress as
-	// before); never displayed.
+	// Now the one-time §1.8 token migration: relocate any pre-existing
+	// legacy plaintext token into the single shared keyring api_token
+	// (token-only, connection-preserving scrub) before the user sets a
+	// new one.
+	if err := keyring.EnsureMigrated(); err != nil {
+		v.Error("Could not prepare secure credential storage: %v", err)
+		return err
+	}
+
+	// EnsureMigrated relocated any legacy plaintext token into the
+	// keyring and scrubbed it from disk, so prefill.APIToken is empty
+	// even though the token still exists. Backfill it from the keyring
+	// so a returning user isn't forced to re-enter a just-migrated
+	// token. NoMigrate: migration already ran. Value stays
+	// password-masked in the form; never displayed.
 	if cfg.APIToken == "" {
 		if tok, _, terr := keyring.ResolveTokenNoMigrate(credstore.ToolCFL); terr == nil {
 			cfg.APIToken = tok

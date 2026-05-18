@@ -88,6 +88,14 @@ func detectAndReconcile(
 		return nil, connConflictError(conflicts)
 	}
 
+	// affectsSibling must be judged on the ORIGINAL loaded store, BEFORE
+	// folding `chosen` in — otherwise a first-time migration from only a
+	// legacy file looks like it is overwriting an already-usable shared
+	// default and the user gets a misleading "Save will affect sibling"
+	// prompt. Pure (store.HasUsableConfig only): NO keyring I/O in
+	// reconcile (the B3 leak-regression rule).
+	affectsSibling := store.HasUsableConfig(credstore.ToolCFL)
+
 	// Aligned: fold the unified connection into the shared default and
 	// preserve per-tool non-secret defaults (cfl's space/output, jtk's
 	// project) so neither tool loses them on next read.
@@ -98,13 +106,6 @@ func detectAndReconcile(
 		CloudID:    chosen.CloudID,
 	}
 	consumed := preserveDefaultsAndCollect(store, cflLegacy, jtkLegacy)
-
-	// If the shared store already holds a usable connection, editing it
-	// also affects jtk (single shared default) — finalizeInit confirms.
-	// Pure (store.HasUsableConfig only): NO keyring I/O in reconcile (the
-	// B3 leak-regression rule — keyring access lives in the command
-	// layer, never in this pure path).
-	affectsSibling := store.HasUsableConfig(credstore.ToolCFL)
 
 	cfg := configFromConn(chosen)
 	if store.CFL.DefaultSpace != "" {

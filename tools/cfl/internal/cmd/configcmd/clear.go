@@ -140,10 +140,10 @@ func runClear(opts *clearOptions) error {
 	}
 
 	_, _ = fmt.Fprintf(opts.Stderr, "This will delete key %q from keyring %s.\n", plan.ToolKey, plan.Ref)
-	if plan.SharedDefault {
-		_, _ = fmt.Fprintln(opts.Stderr,
-			"Warning: this is the SHARED token (api_token). jtk will also lose access (cfl and jtk resolve the same key).")
-	}
+	// One key per logical credential (§1.11.10): the only deletable key
+	// is the shared api_token, so clearing it always deauths the sibling.
+	_, _ = fmt.Fprintln(opts.Stderr,
+		"Warning: this is the SHARED token (api_token). jtk will also lose access (cfl and jtk resolve the same key).")
 	ok, cerr := confirm("Proceed?")
 	if cerr != nil {
 		return cerr

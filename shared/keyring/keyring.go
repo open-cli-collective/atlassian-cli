@@ -164,6 +164,13 @@ func (s *Store) setToken(key, val string, overwrite bool) error {
 	// future caller reach the keyring only through here, so the security
 	// boundary for "what may be stored under the fixed ref" lives in one
 	// place rather than relying on each caller to re-check.
+	// Intentional asymmetry: writes are ALWAYS restricted to the strict
+	// conforming set (allowedKeys = {api_token}), never s.allow — even on
+	// a store opened with migrationAllowedKeys. That wider allowlist only
+	// exists so the migration / clear-all can READ and DELETE the
+	// deprecated per-tool keys to clean them up; nothing may ever WRITE a
+	// deprecated key back (§1.11.11). ExistingKeys/DeleteToken use s.allow
+	// (read/delete the residue); setToken stays strict (no resurrection).
 	if !slices.Contains(allowedKeys, key) {
 		return fmt.Errorf("refusing to store under non-allowlisted key %q at %s (allowed: %s)",
 			key, s.ref, strings.Join(allowedKeys, ", "))

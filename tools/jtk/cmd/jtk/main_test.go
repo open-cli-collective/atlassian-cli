@@ -12,19 +12,28 @@ import (
 	"github.com/open-cli-collective/atlassian-go/credtest"
 )
 
-// unreachableURL binds an ephemeral port and immediately closes it, so a
-// dial to the returned URL is refused fast and deterministically on any
-// host (unlike port 9, which a running discard service would accept and
-// stall).
+// unreachableURL returns a URL whose dial fails fast and
+// deterministically on any host: the listener stays bound for the test's
+// lifetime (no close-then-rebind TOCTOU) but every accepted connection is
+// closed immediately, so the HTTP client gets an instant EOF/reset
+// instead of a port-9-style stall or a spurious success.
 func unreachableURL(t *testing.T) string {
 	t.Helper()
 	l, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("listen: %v", err)
 	}
-	addr := l.Addr().String()
-	_ = l.Close()
-	return "http://" + addr
+	go func() {
+		for {
+			c, aerr := l.Accept()
+			if aerr != nil {
+				return
+			}
+			_ = c.Close()
+		}
+	}()
+	t.Cleanup(func() { _ = l.Close() })
+	return "http://" + l.Addr().String()
 }
 
 // §1.11.6 acceptance: these tests invoke the REAL jtk entrypoint (this

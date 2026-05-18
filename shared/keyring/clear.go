@@ -25,10 +25,6 @@ type ClearPlan struct {
 	// jtk and cfl.
 	ToolKey string
 
-	// SharedDefault is true whenever ToolKey is set: api_token is the one
-	// shared key, so clearing it always de-authenticates the sibling too.
-	SharedDefault bool
-
 	// ExistingKeys are all bundle keys currently holding a value (the
 	// --all blast radius). Empty when the keyring could not be opened.
 	ExistingKeys []string
@@ -104,7 +100,6 @@ func PlanClear(tool string, all bool) (ClearPlan, *Store, error) {
 	for _, e := range existing {
 		if e == KeyAPIToken {
 			p.ToolKey = KeyAPIToken
-			p.SharedDefault = true
 			break
 		}
 	}

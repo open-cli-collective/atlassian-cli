@@ -173,12 +173,14 @@ func migrateLegacyOverwrite(s *Store, overwrite bool) error {
 			return err
 		}
 	}
+	removedDeprecated := false
 	for _, dk := range deprecatedKeys {
 		if _, ok := depPresent[dk]; ok {
 			if err := s.DeleteToken(dk); err != nil {
 				return fmt.Errorf("migrated to keyring %s but could not remove deprecated key %s: %w", s.ref, dk, err)
 			}
 			changed = true
+			removedDeprecated = true
 		}
 	}
 	if anyPlaintext {
@@ -199,9 +201,20 @@ func migrateLegacyOverwrite(s *Store, overwrite bool) error {
 	}
 
 	if changed {
+		var cleaned string
+		switch {
+		case anyPlaintext && removedDeprecated:
+			cleaned = "; the legacy plaintext copy and deprecated per-tool keyring keys were removed"
+		case anyPlaintext:
+			cleaned = "; the legacy plaintext copy was removed"
+		case removedDeprecated:
+			cleaned = "; deprecated per-tool keyring keys were removed"
+		default:
+			cleaned = "" // benign concurrent path: nothing left to clean
+		}
 		recordMigration(fmt.Sprintf(
-			"atlassian-cli: consolidated the API token into the OS keyring %s (%s); any plaintext copy and deprecated per-tool keys were removed",
-			s.ref, KeyAPIToken))
+			"atlassian-cli: consolidated the API token into the OS keyring %s (%s)%s",
+			s.ref, KeyAPIToken, cleaned))
 	}
 	return nil
 }

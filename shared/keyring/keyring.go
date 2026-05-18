@@ -261,6 +261,33 @@ func PersistTokenForTool(tool string, override bool, token string) (err error) {
 	return s.DeleteToken(KeyFor(tool))
 }
 
+// PersistUnifiedToken stores token as the shared api_token and removes
+// BOTH per-tool override keys. It backs init's explicit mismatch choice
+// "use <tool>'s credentials for both tools": the user asked for one token
+// across cfl and jtk, so any per-tool override (either tool's) must go or
+// it would keep shadowing api_token in resolveFromStore and silently
+// leave that tool on its old token. Unlike PersistTokenForTool's
+// default-write path, the sibling override is intentionally cleared here
+// because the action is an explicit cross-tool unify, not a normal save.
+func PersistUnifiedToken(token string) (err error) {
+	s, err := openCanonical()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if cerr := s.Close(); cerr != nil && err == nil {
+			err = fmt.Errorf("persist token: close keyring %s: %w", s.ref, cerr)
+		}
+	}()
+	if err := s.SetToken(KeyAPIToken, token); err != nil {
+		return err
+	}
+	if err := s.DeleteToken(KeyFor(ToolCFL)); err != nil {
+		return err
+	}
+	return s.DeleteToken(KeyFor(ToolJTK))
+}
+
 // HasTokenForTool reports whether a keyring token is already present for
 // tool (its override key, else the shared default) WITHOUT running the
 // migration or consulting env. Used by `init` detection to compose

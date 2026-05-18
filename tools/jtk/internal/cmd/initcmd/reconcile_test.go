@@ -183,6 +183,10 @@ func TestResultFromMismatch_UseJTK_ClearsStaleCFLOverride(t *testing.T) {
 	testutil.Equal(t, "", r.store.JTK.URL)
 	testutil.Equal(t, "", r.store.JTK.APIToken)
 	testutil.Equal(t, "SPACE", r.store.CFL.DefaultSpace)
+	// Signals the command layer to unify on jtk's keyring token and clear
+	// both per-tool override keys.
+	testutil.Equal(t, true, r.unifyBoth)
+	testutil.Equal(t, credstore.ToolJTK, r.unifySource)
 }
 
 // Symmetric to UseJTK_ClearsStaleCFLOverride: use_cfl also clears
@@ -208,6 +212,8 @@ func TestResultFromMismatch_UseCFL_ClearsBothOverrides(t *testing.T) {
 	testutil.Equal(t, "", r.store.CFL.URL)
 	testutil.Equal(t, "", r.store.CFL.APIToken)
 	testutil.Equal(t, "STALE", r.store.JTK.DefaultProject) // per-tool default survives
+	testutil.Equal(t, true, r.unifyBoth)
+	testutil.Equal(t, credstore.ToolCFL, r.unifySource) // unify on cfl's token
 }
 
 func TestResultFromMismatch_UseCFL_PreservesJTKDefaults(t *testing.T) {
@@ -237,6 +243,9 @@ func TestResultFromMismatch_KeepDifferent(t *testing.T) {
 	testutil.Equal(t, "https://cfl.atlassian.net", r.store.CFL.URL)
 	testutil.Equal(t, "cfl-tok", r.store.CFL.APIToken)
 	testutil.Equal(t, "SPACE", r.store.CFL.DefaultSpace)
+	// keep_different keeps per-tool overrides — it is NOT a unify action.
+	testutil.Equal(t, false, r.unifyBoth)
+	testutil.Equal(t, "", r.unifySource)
 	if !strings.Contains(stdout.String(), "Keeping per-tool credentials") {
 		t.Errorf("expected keep-different note; got: %s", stdout.String())
 	}

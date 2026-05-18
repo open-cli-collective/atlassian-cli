@@ -433,3 +433,45 @@ func TestPersistTokenForTool_DefaultWriteClearsStaleOverride(t *testing.T) {
 		t.Fatalf("jtk override must be untouched by a cfl default write; got %q err=%v", tok, err)
 	}
 }
+
+// The mismatch "use X for both tools" choice must actually unify: after
+// PersistUnifiedToken both tools resolve the one api_token and neither
+// per-tool override remains to shadow it. This is the explicit cross-tool
+// action where, unlike a normal default write, the sibling override is
+// also cleared.
+func TestPersistUnifiedToken_BothToolsResolveSharedAndOverridesGone(t *testing.T) {
+	hermetic(t)
+
+	// Post-migration steady state of two divergent legacy files: each
+	// tool's old token sits under its own per-tool key.
+	if err := PersistTokenForTool(credstore.ToolCFL, true, "cfl-old"); err != nil {
+		t.Fatalf("seed cfl override: %v", err)
+	}
+	if err := PersistTokenForTool(credstore.ToolJTK, true, "jtk-old"); err != nil {
+		t.Fatalf("seed jtk override: %v", err)
+	}
+
+	// User chose "use jtk for both": jtk's token is persisted as the
+	// shared default and both overrides are wiped.
+	if err := PersistUnifiedToken("jtk-old"); err != nil {
+		t.Fatalf("PersistUnifiedToken: %v", err)
+	}
+
+	for _, tool := range []string{credstore.ToolCFL, credstore.ToolJTK} {
+		tok, src, err := ResolveTokenNoMigrate(tool)
+		if err != nil || tok != "jtk-old" || src != SourceKeyAPI {
+			t.Fatalf("%s must resolve the unified api_token; got %q src=%q err=%v", tool, tok, src, err)
+		}
+	}
+
+	s, err := OpenNoMigrate()
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer func() { _ = s.Close() }()
+	for _, k := range []string{KeyFor(credstore.ToolCFL), KeyFor(credstore.ToolJTK)} {
+		if ok, herr := s.HasToken(k); herr != nil || ok {
+			t.Fatalf("override key %s must be gone after unify; present=%v err=%v", k, ok, herr)
+		}
+	}
+}

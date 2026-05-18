@@ -174,6 +174,37 @@ func TestReconcile_SharedPerToolConnDivergence_FailLoud(t *testing.T) {
 	}
 }
 
+// Pins the prior Codex blocker: detectAndReconcile (which init runs
+// BEFORE keyring.EnsureMigrated) must fail loud AND mutate nothing when
+// a pre-MON-5328 shared config has a divergent per-tool connection plus
+// a plaintext api_token — the file is byte-identical afterwards and the
+// token is never migrated/scrubbed (init returns on this error before
+// EnsureMigrated ever runs).
+func TestReconcile_DivergentWithToken_NoMutation(t *testing.T) {
+	t.Parallel()
+	tmp := t.TempDir()
+	sharedPath := filepath.Join(tmp, "shared.yml")
+	pre := "default:\n  url: https://default.atlassian.net\n  email: u@e\n  api_token: PLAINTEXT_TOK\ncfl:\n  url: https://cfl-only.atlassian.net\n"
+	testutil.RequireNoError(t, os.WriteFile(sharedPath, []byte(pre), 0o600))
+	before, _ := os.ReadFile(sharedPath) //nolint:gosec // test reads its own temp file
+
+	v, _, _ := newReconcileView()
+	_, err := detectAndReconcile(v,
+		filepath.Join(tmp, "cfl.yml"), filepath.Join(tmp, "jtk.json"),
+		sharedPath, "", "", "", "")
+	testutil.RequireError(t, err)
+	if !strings.Contains(err.Error(), "cfl.url") {
+		t.Fatalf("expected connection divergence; got: %v", err)
+	}
+	after, _ := os.ReadFile(sharedPath) //nolint:gosec // test reads its own temp file
+	if string(before) != string(after) {
+		t.Fatalf("divergent detect must mutate NOTHING; file changed:\n%s", after)
+	}
+	if !strings.Contains(string(after), "PLAINTEXT_TOK") {
+		t.Fatalf("token must NOT be scrubbed on divergence:\n%s", after)
+	}
+}
+
 func TestReconcile_AffectsSibling_WhenSharedUsable(t *testing.T) {
 	t.Parallel()
 	tmp := t.TempDir()

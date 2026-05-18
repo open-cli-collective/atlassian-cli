@@ -22,7 +22,13 @@ import (
 // pre-migration "B3 upgrade" state — a user upgraded through the per-tool
 // build and holds only these — so credtest reaches the bundle through the
 // same cli-common credstore the keyring package uses, opened with the
-// superset allowlist. These literals must track keyring's deprecatedKeys.
+// superset allowlist.
+//
+// These mirror keyring.deprecatedKeys (unexported there). Duplication is
+// acceptable because the set is FROZEN historical state: it is exactly
+// the keys the B3 build wrote, and the whole point of MON-5326 is that
+// no new per-tool keys will ever be added — so there is nothing to drift
+// toward. Authority lives in shared/keyring/migrate.go.
 var deprecatedBundleKeys = []string{"cfl_api_token", "jtk_api_token"} //nolint:gosec // G101: bundle key names, not credentials
 
 // openBundle opens the canonical atlassian-cli bundle directly via

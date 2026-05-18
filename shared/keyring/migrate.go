@@ -210,7 +210,12 @@ func migrateLegacyOverwrite(s *Store, overwrite bool) error {
 		case removedDeprecated:
 			cleaned = "; deprecated per-tool keyring keys were removed"
 		default:
-			cleaned = "" // benign concurrent path: nothing left to clean
+			// Defensive only: changed=true with plan.write set implies a
+			// non-empty srcLoc, and every srcLoc source is either plaintext
+			// (anyPlaintext) or a deprecated key (removedDeprecated) — so
+			// this is unreachable today. Kept so a future source kind can't
+			// silently print a wrong cleanup clause.
+			cleaned = ""
 		}
 		recordMigration(fmt.Sprintf(
 			"atlassian-cli: consolidated the API token into the OS keyring %s (%s)%s",

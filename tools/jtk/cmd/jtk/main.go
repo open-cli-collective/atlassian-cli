@@ -14,6 +14,7 @@ import (
 	"syscall"
 
 	"github.com/open-cli-collective/atlassian-go/exitcode"
+	"github.com/open-cli-collective/atlassian-go/keyring"
 
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/attachments"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/automation"
@@ -40,7 +41,12 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	if err := run(ctx); err != nil {
+	err := run(ctx)
+	// Emit the one-time §1.8 migration notice (if migration ran this
+	// invocation) before exiting — flushed here, not in a defer, so it
+	// still prints when a command error triggers os.Exit.
+	keyring.FlushMigrationNotice(os.Stderr)
+	if err != nil {
 		if !errors.Is(err, root.ErrAlreadyReported) {
 			fmt.Fprintln(os.Stderr, err)
 		}

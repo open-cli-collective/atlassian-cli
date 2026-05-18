@@ -13,6 +13,7 @@ import (
 	"syscall"
 
 	"github.com/open-cli-collective/atlassian-go/exitcode"
+	"github.com/open-cli-collective/atlassian-go/keyring"
 
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/attachment"
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/completion"
@@ -44,7 +45,12 @@ func main() {
 		completion.Register,
 	)
 
-	if err := cmd.ExecuteContext(ctx); err != nil {
+	err := cmd.ExecuteContext(ctx)
+	// Emit the one-time §1.8 migration notice (if migration ran this
+	// invocation) before exiting — flushed here, not in a defer, so it
+	// still prints when a later command error triggers os.Exit.
+	keyring.FlushMigrationNotice(os.Stderr)
+	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
 		os.Exit(exitcode.GeneralError)
 	}

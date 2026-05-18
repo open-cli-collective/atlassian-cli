@@ -98,6 +98,19 @@ func runInit(ctx context.Context, opts *root.Options, prefillURL, prefillEmail, 
 	}
 	cfg := result.prefill
 
+	// The up-front EnsureMigrated relocates any legacy plaintext token into
+	// the keyring and scrubs the file, so detectAndReconcile (which reads
+	// the now-scrubbed legacy/config files) leaves prefill.APIToken empty
+	// even though the token still exists. Backfill it from the keyring so a
+	// returning user isn't forced to re-enter a token that was just
+	// migrated. NoMigrate: migration already ran above. Value stays
+	// password-masked in the form (same ingress as before); never displayed.
+	if cfg.APIToken == "" {
+		if tok, _, terr := keyring.ResolveTokenNoMigrate(credstore.ToolJTK); terr == nil {
+			cfg.APIToken = tok
+		}
+	}
+
 	// Determine auth method for form building
 	isBearer := cfg.AuthMethod == auth.AuthMethodBearer
 

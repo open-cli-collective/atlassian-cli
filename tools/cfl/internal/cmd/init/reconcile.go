@@ -51,8 +51,15 @@ func detectAndReconcile(
 	// mutate-nothing invariant.
 	rel, relErr := credstore.DetectSharedRelocation(sharedPath)
 	if relErr != nil {
-		v.Error("Shared credential store relocation check failed: %v", relErr)
-		v.Error("Refusing to mutate anything. Reconcile the named file(s), then re-run cfl init.")
+		if errors.Is(relErr, credstore.ErrCorruptStore) {
+			// A corrupt old OR new shared file: same contract/UX as the
+			// Load path below — unreadable, refuse to overwrite.
+			v.Error("Shared credential store at %s is unreadable: %v", sharedPath, relErr)
+			v.Error("Refusing to overwrite. Fix or remove the file, then re-run cfl init.")
+		} else {
+			v.Error("Shared credential store relocation check failed: %v", relErr)
+			v.Error("Refusing to mutate anything. Reconcile the named file(s), then re-run cfl init.")
+		}
 		return nil, relErr
 	}
 

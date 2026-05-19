@@ -42,8 +42,15 @@ func detectAndReconcile(
 	// both paths, mutating nothing.
 	rel, relErr := credstore.DetectSharedRelocation(sharedPath)
 	if relErr != nil {
-		v.Error("Shared credential store relocation check failed: %v", relErr)
-		v.Error("Refusing to mutate anything. Reconcile the named file(s), then re-run jtk init.")
+		if errors.Is(relErr, credstore.ErrCorruptStore) {
+			// A corrupt old OR new shared file: same contract/UX as the
+			// Load path below — unreadable, refuse to overwrite.
+			v.Error("Shared credential store at %s is unreadable: %v", sharedPath, relErr)
+			v.Error("Refusing to overwrite. Fix or remove the file, then re-run jtk init.")
+		} else {
+			v.Error("Shared credential store relocation check failed: %v", relErr)
+			v.Error("Refusing to mutate anything. Reconcile the named file(s), then re-run jtk init.")
+		}
 		return nil, relErr
 	}
 

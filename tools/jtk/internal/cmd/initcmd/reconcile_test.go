@@ -22,7 +22,12 @@ import (
 // §3.2 relocation engages on Linux (resolver would else collapse them).
 func oldSharedFixture(t *testing.T, body string) string {
 	t.Helper()
-	p := filepath.Join(os.Getenv("XDG_CONFIG_HOME"), "atlassian-cli", "config.yml")
+	// Explicit $XDG_CONFIG_HOME override (mirrors relocate_test.go's
+	// oldBase) so the old-shared path is deterministic and does not
+	// silently void if statedirtest's platform behavior changes.
+	base := filepath.Join(t.TempDir(), "oldbase")
+	t.Setenv("XDG_CONFIG_HOME", base)
+	p := filepath.Join(base, "atlassian-cli", "config.yml")
 	testutil.RequireNoError(t, os.MkdirAll(filepath.Dir(p), 0o700))
 	testutil.RequireNoError(t, os.WriteFile(p, []byte(body), 0o600))
 	return p

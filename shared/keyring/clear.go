@@ -158,13 +158,19 @@ func ClearFiles() error {
 	if err := scrubLegacyFile(credstore.LegacyJTKPath()); err != nil {
 		errs = append(errs, err)
 	}
-	if sp, perr := credstore.DefaultPath(); perr == nil {
+	if sp, perr := credstore.DefaultPath(); perr != nil {
+		// `clear --all` is the recovery path: an unresolvable shared
+		// path (e.g. relative $XDG_CONFIG_HOME) must NOT report success
+		// while a plaintext token may still sit at an unreachable
+		// location — surface it instead of silently dropping it.
+		errs = append(errs, fmt.Errorf("resolving shared config path: %w", perr))
+	} else {
 		if fileExists(sp) {
 			if err := os.Remove(sp); err != nil && !os.IsNotExist(err) {
 				errs = append(errs, err)
 			}
 		}
-		if op := credstore.OldSharedConfigPath(sp); op != "" {
+		if op := credstore.OldSharedConfigPath(sp); op != "" && fileExists(op) {
 			if err := os.Remove(op); err != nil && !os.IsNotExist(err) {
 				errs = append(errs, err)
 			}

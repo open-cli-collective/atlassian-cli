@@ -34,11 +34,7 @@ func oldBase(t *testing.T) string {
 func TestOldSharedPath_RelativeXDGSkipped(t *testing.T) {
 	statedirtest.Hermetic(t)
 	t.Setenv("XDG_CONFIG_HOME", "relative/not/abs")
-	got, err := oldSharedPath()
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if got != "" {
+	if got := oldSharedPath(); got != "" {
 		t.Fatalf("relative $XDG_CONFIG_HOME must skip the old-shared probe, got %q", got)
 	}
 }

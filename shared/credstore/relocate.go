@@ -23,18 +23,24 @@ var ErrRelocationConflict = errors.New("credstore: prior and current shared conf
 // relative/unresolvable old base ⇒ ("", nil): the old-shared probe is
 // skipped entirely (no enumeration, no copy, no cleanup target), never
 // silently cwd-relative.
-func oldSharedPath() (string, error) {
+// "" means the old-shared probe is SKIPPED entirely (relative
+// $XDG_CONFIG_HOME, or an unresolvable/relative home) — never a
+// cwd-relative fallback. There is intentionally no error return: every
+// unusable base collapses to the same "skip" sentinel, and a (string,
+// error) signature whose error is structurally always nil would be
+// misleading.
+func oldSharedPath() string {
 	if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
 		if !filepath.IsAbs(xdg) {
-			return "", nil
+			return ""
 		}
-		return filepath.Join(xdg, "atlassian-cli", "config.yml"), nil
+		return filepath.Join(xdg, "atlassian-cli", "config.yml")
 	}
 	home, err := os.UserHomeDir()
 	if err != nil || home == "" || !filepath.IsAbs(home) {
-		return "", nil
+		return ""
 	}
-	return filepath.Join(home, ".config", "atlassian-cli", "config.yml"), nil
+	return filepath.Join(home, ".config", "atlassian-cli", "config.yml")
 }
 
 // SharedRelocation is the PURE result of §3.2 old→new shared-config
@@ -66,45 +72,93 @@ type SharedRelocation struct {
 //     presence). Identical ⇒ no-op; divergent ⇒ ErrRelocationConflict
 //     naming BOTH absolute paths, mutating nothing.
 func DetectSharedRelocation(newPath string) (*SharedRelocation, error) {
-	r := &SharedRelocation{NewPath: newPath}
-	oldPath, _ := oldSharedPath()
+	st, err := classifyRelocation(newPath)
+	if err != nil {
+		return nil, err
+	}
+	r := &SharedRelocation{NewPath: newPath, OldPath: st.oldPath, OldProj: st.oldProj}
+	switch st.kind {
+	case relocOldOnly:
+		r.CopyNeeded = true
+	case relocBothDivergent:
+		return nil, relocationConflict(st.oldPath, newPath, "reconcile or remove one, then re-run init")
+	case relocNone, relocBothEqual:
+		// no-op: nothing to copy; old (if any) is inert at init
+	}
+	return r, nil
+}
+
+// relocKind classifies the old↔new shared-config relationship. The
+// divergent case is a KIND (not an error) so the init path can fail
+// loud while the runtime path keeps working on the canonical store —
+// the policy split lives in the callers, the detection in one place.
+type relocKind int
+
+const (
+	relocNone          relocKind = iota // no distinct old / old absent / path-identity
+	relocOldOnly                        // old present, new absent
+	relocBothEqual                      // both present, equal on the projection
+	relocBothDivergent                  // both present, divergent
+)
+
+type relocState struct {
+	oldPath  string
+	oldProj  *SharedLegacyProjection
+	newStore *Store
+	kind     relocKind
+}
+
+// classifyRelocation is the single PURE detection core shared by
+// DetectSharedRelocation (init) and loadSharedRuntime (runtime) so a
+// fix lands once. Reads only, never mutates. A corrupt old OR new file
+// returns ErrCorruptStore (same contract as Load); divergence is a
+// kind. Load(oldPath) is deferred to the both-present branch — the
+// common old-only first run never reads the old store here.
+func classifyRelocation(newPath string) (*relocState, error) {
+	newStore, err := Load(newPath)
+	if err != nil {
+		return nil, err
+	}
+	st := &relocState{newStore: newStore, kind: relocNone}
+	oldPath := oldSharedPath()
 	if oldPath == "" || oldPath == newPath {
-		return r, nil
+		return st, nil
 	}
 	oldProj, err := LoadSharedLegacyProjection(oldPath)
 	if err != nil {
 		return nil, err
 	}
 	if oldProj == nil {
-		return r, nil
+		return st, nil
 	}
-	oldStore, err := Load(oldPath)
-	if err != nil {
-		return nil, err
-	}
-	r.OldPath = oldPath
-	r.OldProj = oldProj
+	st.oldPath = oldPath
+	st.oldProj = oldProj
 
 	newProj, err := LoadSharedLegacyProjection(newPath)
 	if err != nil {
 		return nil, err
 	}
 	if newProj == nil {
-		r.CopyNeeded = true
-		return r, nil
+		st.kind = relocOldOnly
+		return st, nil
 	}
-	newStore, err := Load(newPath)
+	oldStore, err := Load(oldPath)
 	if err != nil {
 		return nil, err
 	}
 	if relocationEqual(oldStore, oldProj, newStore, newProj) {
-		return r, nil
+		st.kind = relocBothEqual
+	} else {
+		st.kind = relocBothDivergent
 	}
-	return nil, fmt.Errorf(
+	return st, nil
+}
+
+func relocationConflict(oldPath, newPath, remedy string) error {
+	return fmt.Errorf(
 		"%w: %s and %s hold different connection or non-secret defaults; "+
-			"reconcile or remove one, then re-run init (no values shown; "+
-			"secrets live only in the OS keyring)",
-		ErrRelocationConflict, oldPath, newPath)
+			"%s (no values shown; secrets live only in the OS keyring)",
+		ErrRelocationConflict, oldPath, newPath, remedy)
 }
 
 // relocationEqual is the dedicated relocation-equality projection. It
@@ -209,40 +263,25 @@ func LoadSharedRuntime() (*Store, error) {
 // branches hermetically testable on Linux (where the resolver would
 // otherwise collapse old≡new).
 func loadSharedRuntime(newPath string) (*Store, error) {
-	newStore, err := Load(newPath)
+	st, err := classifyRelocation(newPath)
 	if err != nil {
 		return nil, err
 	}
-	oldPath, _ := oldSharedPath()
-	if oldPath == "" || oldPath == newPath {
-		return newStore, nil
-	}
-	oldProj, err := LoadSharedLegacyProjection(oldPath)
-	if err != nil {
-		return nil, err
-	}
-	if oldProj == nil {
-		return newStore, nil
-	}
-	oldStore, err := Load(oldPath)
-	if err != nil {
-		return nil, err
-	}
-	newProj, err := LoadSharedLegacyProjection(newPath)
-	if err != nil {
-		return nil, err
-	}
-	if newProj == nil {
+	switch st.kind {
+	case relocOldOnly:
+		// Transparent read fallback (no copy on a read path): the old
+		// store IS the effective config until init materializes it.
+		oldStore, oerr := Load(st.oldPath)
+		if oerr != nil {
+			return nil, oerr
+		}
 		return oldStore, nil
+	case relocBothDivergent:
+		return st.newStore, relocationConflict(st.oldPath, newPath, "run init to reconcile")
+	case relocNone, relocBothEqual:
+		return st.newStore, nil
 	}
-	if relocationEqual(oldStore, oldProj, newStore, newProj) {
-		return newStore, nil
-	}
-	return newStore, fmt.Errorf(
-		"%w: %s and %s hold different connection or non-secret defaults; "+
-			"run init to reconcile (no values shown; secrets live only in "+
-			"the OS keyring)",
-		ErrRelocationConflict, oldPath, newPath)
+	return st.newStore, nil
 }
 
 // OldSharedConnCandidates yields the origin-labeled connection
@@ -252,9 +291,11 @@ func loadSharedRuntime(newPath string) (*Store, error) {
 // pending"). It reuses the canonical ConnCandidates assembly (default +
 // pre-MON-5328 per-tool effective overrides) over the old file, relabeled
 // "prior shared config" so a conflict message names the old path
-// distinctly. Empty when there is no old-shared file.
+// distinctly. Empty unless a copy is actually pending (old-only): when
+// both files exist and are equal the canonical file already contributes
+// its connection, so old-shared would only add redundant duplicates.
 func OldSharedConnCandidates(r *SharedRelocation) []NamedConn {
-	if r == nil || r.OldProj == nil || r.OldPath == "" {
+	if r == nil || !r.CopyNeeded || r.OldProj == nil || r.OldPath == "" {
 		return nil
 	}
 	oldDef := Section{
@@ -280,7 +321,7 @@ func OldSharedConnCandidates(r *SharedRelocation) []NamedConn {
 // ErrCorruptStore so the secret machinery fails loud rather than
 // scrubbing blindly.
 func OldSharedProjection(newPath string) (string, *SharedLegacyProjection, error) {
-	oldPath, _ := oldSharedPath()
+	oldPath := oldSharedPath()
 	if oldPath == "" || oldPath == newPath {
 		return "", nil, nil
 	}
@@ -300,7 +341,7 @@ func OldSharedProjection(newPath string) (string, *SharedLegacyProjection, error
 // double-remove the same file on Linux). Existence is the caller's
 // concern. "" ⇒ no distinct old-shared path to clear.
 func OldSharedConfigPath(newPath string) string {
-	oldPath, _ := oldSharedPath()
+	oldPath := oldSharedPath()
 	if oldPath == "" || oldPath == newPath {
 		return ""
 	}

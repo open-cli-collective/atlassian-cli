@@ -41,7 +41,11 @@ func TestNewListCmd(t *testing.T) {
 }
 
 func TestRunList_Table(t *testing.T) {
-	t.Parallel()
+	// NOT t.Parallel(): isolates the package-global cache so the boards
+	// lookup is a guaranteed miss and the mock server is exercised (was
+	// latently non-hermetic — read the dev's real ~/.jtk cache).
+	t.Cleanup(cache.SetRootForTest(t.TempDir()))
+	t.Cleanup(cache.SetInstanceKeyForTest("test.atlassian.net"))
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(api.BoardsResponse{
 			Values: []api.Board{
@@ -126,7 +130,9 @@ func TestRunList_Extended(t *testing.T) {
 }
 
 func TestRunList_IDOnly(t *testing.T) {
-	t.Parallel()
+	// NOT t.Parallel(): cache isolation (see TestRunList_Table).
+	t.Cleanup(cache.SetRootForTest(t.TempDir()))
+	t.Cleanup(cache.SetInstanceKeyForTest("test.atlassian.net"))
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(api.BoardsResponse{
 			Values: []api.Board{
@@ -154,7 +160,9 @@ func TestRunList_IDOnly(t *testing.T) {
 }
 
 func TestRunList_Empty(t *testing.T) {
-	t.Parallel()
+	// NOT t.Parallel(): cache isolation (see TestRunList_Table).
+	t.Cleanup(cache.SetRootForTest(t.TempDir()))
+	t.Cleanup(cache.SetInstanceKeyForTest("test.atlassian.net"))
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(api.BoardsResponse{
 			Values: []api.Board{},

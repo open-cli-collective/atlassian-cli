@@ -96,20 +96,15 @@ func detectAndReconcile(
 			v.Error("Could not relocate the shared credential store: %v", aerr)
 			return nil, aerr
 		}
+		// Reload only the canonical store: the divergence candidates
+		// (incl. old-shared) were already built and checked above, so
+		// `proj` is not read again — the materialized store is what the
+		// fold + preserveDefaults below operate on.
 		store, err = credstore.Load(sharedPath)
 		if err != nil {
 			v.Error("Shared credential store at %s is unreadable: %v", sharedPath, err)
 			return nil, err
 		}
-		reProj, rpErr := credstore.LoadSharedLegacyProjection(sharedPath)
-		if rpErr != nil {
-			v.Error("Shared credential store at %s is unreadable: %v", sharedPath, rpErr)
-			return nil, rpErr
-		}
-		if reProj == nil {
-			reProj = &credstore.SharedLegacyProjection{Path: sharedPath}
-		}
-		proj = reProj
 	}
 
 	// affectsSibling judged on the ORIGINAL loaded store, BEFORE folding

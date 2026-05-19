@@ -10,7 +10,10 @@ permissions:
 
 jobs:
   goreleaser:
-    runs-on: ubuntu-latest
+    # INT-450: darwin must build with cgo (Keychain backend). cgo+darwin
+    # cannot cross-compile from Linux, so this job runs on macOS. Pinned
+    # image (not the moving macos-latest label) for a reproducible release.
+    runs-on: macos-15
     outputs:
       version: ${{ steps.get_version.outputs.version }}
     steps:
@@ -29,20 +32,85 @@ jobs:
           go-version: '1.24'
           cache-dependency-path: tools/cfl/go.sum
 
+      - name: Install GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          version: "~> v2"
+          install-only: true
+
+      - name: GoReleaser check
+        run: goreleaser check -f .goreleaser-cfl.yml
+
       - name: Create temporary semver tag for GoReleaser
         run: |
           git tag v${{ steps.get_version.outputs.version }}
 
-      - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v6
-        with:
-          distribution: goreleaser
-          version: '~> v2'
-          args: release --clean --config .goreleaser-cfl.yml
+      - name: Build (snapshot, no publish)
+        env:
+          GORELEASER_CURRENT_TAG: v${{ steps.get_version.outputs.version }}
+        run: goreleaser release --snapshot --clean -f .goreleaser-cfl.yml
+
+      # INT-450 pre-publish gate: prove the darwin binaries actually carry
+      # the Keychain backend BEFORE anything is published. A CGO_ENABLED=0
+      # darwin build links no Security.framework and fails closed at
+      # runtime; this gate makes that impossible to ship silently.
+      - name: Pre-publish gate — darwin Keychain backend present
+        run: |
+          set -euo pipefail
+          art=dist/artifacts.json
+          arm_bin=$(jq -r '.[]|select(.type=="Binary" and .goos=="darwin" and .goarch=="arm64")|.path' "$art")
+          amd_bin=$(jq -r '.[]|select(.type=="Binary" and .goos=="darwin" and .goarch=="amd64")|.path' "$art")
+          [ -n "$arm_bin" ] && [ -n "$amd_bin" ] || { echo "missing a darwin binary in artifacts.json"; exit 1; }
+          # darwin archives: exactly one per arch, no duplicate names
+          tot=$(jq '[.[]|select(.type=="Archive" and .goos=="darwin")|.name]|length' "$art")
+          uniq=$(jq '[.[]|select(.type=="Archive" and .goos=="darwin")|.name]|unique|length' "$art")
+          [ "$tot" = "$uniq" ] || { echo "duplicate darwin archive names"; exit 1; }
+          [ "$(jq '[.[]|select(.type=="Archive" and .goos=="darwin" and .goarch=="arm64")]|length' "$art")" = 1 ] || { echo "expected exactly one darwin/arm64 archive"; exit 1; }
+          [ "$(jq '[.[]|select(.type=="Archive" and .goos=="darwin" and .goarch=="amd64")]|length' "$art")" = 1 ] || { echo "expected exactly one darwin/amd64 archive"; exit 1; }
+          # Mach-O arch sanity (both slices)
+          file "$arm_bin" | grep -q 'arm64'  || { echo "arm64 binary is not arm64 Mach-O";  exit 1; }
+          file "$amd_bin" | grep -q 'x86_64' || { echo "amd64 binary is not x86_64 Mach-O"; exit 1; }
+          lipo -archs "$arm_bin" | grep -qw arm64  || { echo "lipo: arm64 slice missing";  exit 1; }
+          lipo -archs "$amd_bin" | grep -qw x86_64 || { echo "lipo: x86_64 slice missing"; exit 1; }
+          # amd64 cannot run on the arm64 runner: assert Security.framework
+          # is linked. CGO_ENABLED=0 omits it entirely, so its presence is a
+          # sound *necessary* cgo signal for the slice we can't execute.
+          otool -L "$amd_bin" | grep -q '/System/Library/Frameworks/Security.framework' \
+            || { echo "amd64 binary not linked against Security.framework (cgo missing)"; exit 1; }
+          # arm64 authoritative functional check: with no backend override
+          # and isolated HOME/XDG, credstore must auto-select the Keychain.
+          # cfl config show --output json emits one {"Key": "Value"} per line;
+          # we grep for the Keyring Backend row containing "keychain (auto)".
+          tmp=$(mktemp -d)
+          mkdir -p "$tmp/Library/Application Support/atlassian-cli"
+          out=$(env -u ATLASSIAN_CLI_KEYRING_BACKEND \
+                    -u CFL_API_TOKEN -u ATLASSIAN_API_TOKEN \
+                    HOME="$tmp" XDG_CONFIG_HOME="$tmp/xdg" \
+                    "$arm_bin" --output json config show 2>/dev/null)
+          echo "$out"
+          echo "$out" | grep -q '"Keyring Backend":.*keychain (auto)' \
+            || { echo "GATE FAIL: keychain (auto) not found in cfl config show output"; exit 1; }
+          echo "GATE OK: darwin/arm64 reports keychain backend auto-selected; darwin/amd64 Security.framework linked"
+
+      - name: Release notes
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/release-notes.md" <<'EOF'
+          ### macOS Keychain storage restored
+
+          Builds since the credential-store migration were compiled without
+          cgo and failed closed on macOS (no Keychain backend). This release
+          builds the darwin binaries with cgo enabled, restoring native
+          macOS Keychain storage. Upgrade and re-run your normal commands;
+          no other action is required.
+          EOF
+
+      - name: Release (publish)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAP_GITHUB_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
           GORELEASER_CURRENT_TAG: v${{ steps.get_version.outputs.version }}
+        run: goreleaser release --clean -f .goreleaser-cfl.yml --release-notes="$RUNNER_TEMP/release-notes.md"
 
       - name: Fix release tag
         run: |
@@ -51,6 +119,17 @@ jobs:
           git push origin :refs/tags/v${VERSION}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify release notes published
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          VERSION=${{ steps.get_version.outputs.version }}
+          body=$(gh release view "cfl-v${VERSION}" --repo "$GITHUB_REPOSITORY" --json body -q .body)
+          if ! printf '%s' "$body" | grep -q 'macOS Keychain'; then
+            gh release edit "cfl-v${VERSION}" --repo "$GITHUB_REPOSITORY" --notes-file "$RUNNER_TEMP/release-notes.md"
+          fi
 
   # chocolatey-publish-cfl.yml and winget-publish-cfl.yml are dispatched
   # automatically by the trigger-publish job below. They remain in separate

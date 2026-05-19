@@ -7,15 +7,48 @@ before:
     - go mod tidy -C tools/cfl
     - go test ./tools/cfl/...
 
+# INT-450: darwin builds with CGO so 99designs/keyring's Keychain backend
+# (//go:build darwin && cgo) is compiled in; without it credstore fails
+# closed on macOS. linux/windows stay CGO-off static (their keyring
+# backends are pure Go; cgo there would regress glibc portability).
+# Split is by GOOS only — both darwin amd64 and arm64 are still produced.
 builds:
-  - id: cfl
+  - id: cfl-darwin
+    dir: tools/cfl
+    main: ./cmd/cfl
+    binary: cfl
+    env:
+      - CGO_ENABLED=1
+    goos:
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    overrides:
+      - goos: darwin
+        goarch: amd64
+        goamd64: v1
+        env:
+          - CGO_ENABLED=1
+          - "CC=xcrun clang -arch x86_64"
+      - goos: darwin
+        goarch: arm64
+        goarm64: v8.0
+        env:
+          - CGO_ENABLED=1
+          - "CC=xcrun clang -arch arm64"
+    ldflags:
+      - -s -w
+      - -X github.com/open-cli-collective/atlassian-go/version.Version={{.Version}}
+      - -X github.com/open-cli-collective/atlassian-go/version.Commit={{.Commit}}
+      - -X github.com/open-cli-collective/atlassian-go/version.BuildDate={{.Date}}
+  - id: cfl-unix-win
     dir: tools/cfl
     main: ./cmd/cfl
     binary: cfl
     env:
       - CGO_ENABLED=0
     goos:
-      - darwin
       - linux
       - windows
     goarch:
@@ -43,6 +76,11 @@ archives:
 # Linux packages (.deb and .rpm)
 nfpms:
   - id: cfl
+    # deb/rpm are linux-only: pull the static CGO-off build, never darwin.
+    # `ids` (the v2 build-id filter) — `builds` is deprecated and fails
+    # `goreleaser check`.
+    ids:
+      - cfl-unix-win
     package_name: cfl
     vendor: Open CLI Collective
     homepage: https://github.com/open-cli-collective/atlassian-cli

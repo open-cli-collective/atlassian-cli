@@ -29,19 +29,20 @@ func promoteLegacyOnMiss[T any](loc cccache.Locator, name string) (Envelope[T], 
 		return zero, false // hermetic test mode or no home → never probe a real dir
 	}
 
-	// Never overwrite an existing new envelope. We reach here on ErrCacheMiss,
-	// which also covers "present but version/identity-mismatched"; in that case
-	// the new file exists and must be left for a clean refetch to replace.
-	newPath, err := ResourceFile(name)
-	if err != nil {
-		return zero, false
-	}
+	// Best-effort "do not overwrite an existing new envelope": derived from
+	// the SAME already-resolved locator as the write path (not a second
+	// independent Root()/InstanceKey() resolution) so the guard and the
+	// write can never anchor to different paths. This is not locked against
+	// a concurrent WriteResource landing between this stat and the promote
+	// write — jtk is a short-lived single process so that race is accepted;
+	// worst case is one stale entry until TTL, never corruption.
+	newPath := filepath.Join(loc.Root, loc.InstanceKey, name+".json")
 	if _, statErr := os.Stat(newPath); statErr == nil {
 		return zero, false
 	}
 
 	legPath := filepath.Join(legRoot, loc.InstanceKey, name+".json")
-	data, err := os.ReadFile(legPath) //nolint:gosec // legRoot is the fixed ~/.jtk/cache (or a test override); InstanceKey/name are regex-validated by the shared Locator on write
+	data, err := os.ReadFile(legPath) //nolint:gosec // name is always a hardcoded registry key (never user input); legRoot is the fixed ~/.jtk/cache or a test override
 	if err != nil {
 		return zero, false // absent / unreadable → plain miss
 	}

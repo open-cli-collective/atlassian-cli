@@ -9,6 +9,7 @@ package cache
 
 import (
 	"errors"
+	"fmt"
 
 	cccache "github.com/open-cli-collective/cli-common/cache"
 )
@@ -62,11 +63,16 @@ func WriteResource[T any](name, ttl string, data T) error {
 
 // atomicWriteEnvelope writes a caller-supplied envelope verbatim (preserving
 // its FetchedAt — used by writeRaw/Touch to persist the zeroed "stale"
-// marker). The legacy first parameter is retained for call-site stability
-// (writeRaw and the *_lookup_test.go helpers pass it positionally); the
-// shared verbatim writer derives the file from env.Resource, which by
-// construction equals it.
-func atomicWriteEnvelope[T any](_ string, env Envelope[T]) error {
+// marker). The shared verbatim writer derives the file from env.Resource;
+// the legacy first parameter is retained for call-site stability (writeRaw
+// and the *_lookup_test.go helpers pass it positionally). The name ==
+// env.Resource invariant is enforced (not just assumed) so a future caller
+// passing a mismatched name fails loudly instead of silently writing to the
+// wrong cache file.
+func atomicWriteEnvelope[T any](name string, env Envelope[T]) error {
+	if name != "" && name != env.Resource {
+		return fmt.Errorf("cache: atomicWriteEnvelope name %q does not match envelope resource %q", name, env.Resource)
+	}
 	loc, err := locator()
 	if err != nil {
 		return err

@@ -163,6 +163,7 @@ func ApplySharedRelocation(r *SharedRelocation) error {
 		return fmt.Errorf("relocating shared config: creating %s: %w", dir, err)
 	}
 	tmp := r.NewPath + ".tmp"
+	//nolint:gosec // NewPath is the resolver-derived shared config path, not user input
 	if err := os.WriteFile(tmp, data, 0o600); err != nil {
 		_ = os.Remove(tmp)
 		return fmt.Errorf("relocating shared config: writing %s: %w", tmp, err)

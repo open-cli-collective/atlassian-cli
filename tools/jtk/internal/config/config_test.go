@@ -6,52 +6,32 @@ import (
 	"testing"
 
 	"github.com/open-cli-collective/atlassian-go/credstore"
+	"github.com/open-cli-collective/atlassian-go/credtest"
 	"github.com/open-cli-collective/atlassian-go/keyring"
 	"github.com/open-cli-collective/atlassian-go/testutil"
 	"github.com/open-cli-collective/atlassian-go/url"
 )
 
-// setupTestConfig creates a temporary config directory for testing
-// Uses t.Setenv for automatic cleanup and t.TempDir for automatic removal
+// setupTestConfig hermetically isolates the test environment and returns
+// the RESOLVED shared config path (credstore.DefaultPath under the
+// hermetic env) plus a no-op cleanup. credtest.Hermetic provides the
+// canonical 7-var isolation (cross-OS correct — no hand-built layout),
+// the file keyring backend, token-env clearing, and migration-notice
+// reset; this only adds the non-token JIRA_*/ATLASSIAN_* clears the
+// jtk accessors consult.
 func setupTestConfig(t *testing.T) (string, func()) {
 	t.Helper()
 
-	// Use t.TempDir() which auto-cleans after test
-	tempDir := t.TempDir()
+	credtest.Hermetic(t)
 
-	// Use t.Setenv which auto-restores after test (Go 1.17+)
-	// XDG_CONFIG_HOME is used on Linux, HOME+Library/App Support on macOS
-	t.Setenv("XDG_CONFIG_HOME", tempDir)
-	t.Setenv("HOME", tempDir)
+	for _, v := range []string{
+		"JIRA_URL", "JIRA_DOMAIN", "JIRA_EMAIL", "JIRA_AUTH_METHOD", "JIRA_CLOUD_ID",
+		"ATLASSIAN_URL", "ATLASSIAN_EMAIL", "ATLASSIAN_AUTH_METHOD", "ATLASSIAN_CLOUD_ID",
+	} {
+		t.Setenv(v, "")
+	}
 
-	// Clear any JIRA and ATLASSIAN env vars that might interfere
-	t.Setenv("JIRA_URL", "")
-	t.Setenv("JIRA_DOMAIN", "")
-	t.Setenv("JIRA_EMAIL", "")
-	t.Setenv("JIRA_API_TOKEN", "")
-	t.Setenv("JIRA_AUTH_METHOD", "")
-	t.Setenv("JIRA_CLOUD_ID", "")
-	t.Setenv("ATLASSIAN_URL", "")
-	t.Setenv("ATLASSIAN_EMAIL", "")
-	t.Setenv("ATLASSIAN_API_TOKEN", "")
-	t.Setenv("ATLASSIAN_AUTH_METHOD", "")
-	t.Setenv("ATLASSIAN_CLOUD_ID", "")
-
-	// Create macOS-style dir as well for fallback
-	libDir := filepath.Join(tempDir, "Library", "Application Support")
-	err := os.MkdirAll(libDir, 0700)
-	testutil.RequireNoError(t, err)
-
-	// Force the portable encrypted-file keyring backend so token
-	// resolution is deterministic and never touches the OS keychain.
-	t.Setenv(keyring.BackendEnvVar, "file")
-	t.Setenv("ATLASSIAN_CLI_KEYRING_PASSPHRASE", "jtk-test-passphrase")
-	t.Setenv("CFL_API_TOKEN", "")
-	keyring.ResetMigrationNotice()
-	t.Cleanup(keyring.ResetMigrationNotice)
-
-	// Return empty cleanup since t.TempDir and t.Setenv handle it
-	return tempDir, func() {}
+	return credtest.SharedConfigPath(t), func() {}
 }
 
 func TestConfig_SaveAndLoad(t *testing.T) {
@@ -545,11 +525,10 @@ func TestGetURL_FullPrecedenceChain(t *testing.T) {
 }
 
 func TestSharedStore_FillsURLBetweenEnvAndLegacy(t *testing.T) {
-	tempDir, cleanup := setupTestConfig(t)
+	sharedPath, cleanup := setupTestConfig(t)
 	defer cleanup()
 
 	// Seed shared store with a URL.
-	sharedPath := filepath.Join(tempDir, "atlassian-cli", "config.yml")
 	store := &credstore.Store{
 		Default: credstore.Section{URL: "https://shared.atlassian.net"},
 	}
@@ -580,10 +559,9 @@ func TestSharedStore_LegacyWinsWhenSharedAbsent(t *testing.T) {
 }
 
 func TestSharedStore_DefaultProject(t *testing.T) {
-	tempDir, cleanup := setupTestConfig(t)
+	sharedPath, cleanup := setupTestConfig(t)
 	defer cleanup()
 
-	sharedPath := filepath.Join(tempDir, "atlassian-cli", "config.yml")
 	store := &credstore.Store{
 		JTK: credstore.ToolSection{DefaultProject: "MON"},
 	}
@@ -595,10 +573,9 @@ func TestSharedStore_DefaultProject(t *testing.T) {
 }
 
 func TestSharedStore_AuthMethodWithSource(t *testing.T) {
-	tempDir, cleanup := setupTestConfig(t)
+	sharedPath, cleanup := setupTestConfig(t)
 	defer cleanup()
 
-	sharedPath := filepath.Join(tempDir, "atlassian-cli", "config.yml")
 	store := &credstore.Store{
 		Default: credstore.Section{AuthMethod: "bearer"},
 	}
@@ -610,7 +587,7 @@ func TestSharedStore_AuthMethodWithSource(t *testing.T) {
 }
 
 func TestSharedStore_FullPrecedenceChain(t *testing.T) {
-	tempDir, cleanup := setupTestConfig(t)
+	sharedPath, cleanup := setupTestConfig(t)
 	defer cleanup()
 
 	// Layer 1 (lowest): legacy file.
@@ -618,7 +595,6 @@ func TestSharedStore_FullPrecedenceChain(t *testing.T) {
 	testutil.RequireNoError(t, Save(cfg))
 
 	// Layer 2: shared default.
-	sharedPath := filepath.Join(tempDir, "atlassian-cli", "config.yml")
 	store := &credstore.Store{
 		Default: credstore.Section{URL: "https://shared.atlassian.net", APIToken: "shared-tok"},
 	}
@@ -641,11 +617,10 @@ func TestSharedStore_FullPrecedenceChain(t *testing.T) {
 }
 
 func TestSharedStore_CorruptDoesNotBlockAccessors(t *testing.T) {
-	tempDir, cleanup := setupTestConfig(t)
+	sharedPath, cleanup := setupTestConfig(t)
 	defer cleanup()
 
 	// Corrupt shared store.
-	sharedPath := filepath.Join(tempDir, "atlassian-cli", "config.yml")
 	testutil.RequireNoError(t, os.MkdirAll(filepath.Dir(sharedPath), 0o700))
 	testutil.RequireNoError(t, os.WriteFile(sharedPath, []byte("default: : :: ["), 0o600))
 

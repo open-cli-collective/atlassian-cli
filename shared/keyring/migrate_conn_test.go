@@ -18,11 +18,8 @@ import (
 // save on a plain runtime path. Without this, S1's schema strip would
 // silently drop a user's per-tool url/email on the first command.
 func TestRuntimeMigration_TokenOnly_PreservesPerToolConn(t *testing.T) {
-	dir := hermetic(t)
-	path := filepath.Join(dir, "atlassian-cli", "config.yml")
-	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-		t.Fatal(err)
-	}
+	hermetic(t)
+	path := sharedConfigPath(t)
 	pre := "default:\n" +
 		"  url: https://acme.atlassian.net\n" +
 		"  email: d@e\n" +

@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -51,11 +50,10 @@ func TestShowCmd_TableOutput(t *testing.T) {
 }
 
 func TestRunClear_All(t *testing.T) {
-	xdg := credtest.Hermetic(t)
+	credtest.Hermetic(t)
 	credtest.SeedToken(t, "shared-secret")
 
-	sharedPath := filepath.Join(xdg, "atlassian-cli", "config.yml")
-	testutil.RequireNoError(t, os.MkdirAll(filepath.Dir(sharedPath), 0o700))
+	sharedPath := credtest.SharedConfigPath(t)
 	testutil.RequireNoError(t, os.WriteFile(sharedPath, []byte("default:\n  url: https://x\n"), 0o600))
 
 	opts, _, _ := newClearOpts(t, true, "")

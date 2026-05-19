@@ -8,11 +8,14 @@ package credtest
 
 import (
 	"os"
+	"path/filepath"
 	"sort"
 	"testing"
 
 	cccredstore "github.com/open-cli-collective/cli-common/credstore"
+	"github.com/open-cli-collective/cli-common/statedirtest"
 
+	"github.com/open-cli-collective/atlassian-go/credstore"
 	"github.com/open-cli-collective/atlassian-go/keyring"
 )
 
@@ -106,14 +109,19 @@ var tokenEnvVars = []string{
 }
 
 // Hermetic isolates the process credential environment for the duration
-// of t and returns the temp directory used as HOME/XDG_CONFIG_HOME.
-// All mutations use t.Setenv / t.Cleanup, so they auto-revert.
+// of t and returns the temp ROOT. Directory isolation delegates to the
+// canonical cli-common statedirtest 7-var harness (HOME/USERPROFILE/
+// AppData/LocalAppData/XDG_CONFIG_HOME/XDG_CACHE_HOME/XDG_DATA_HOME) so
+// os.UserConfigDir/os.UserCacheDir never resolve to the developer's real
+// directories on ANY OS — HOME/XDG-only isolation was a macOS/Windows
+// real-dir leak. Callers MUST derive the shared config path from
+// SharedConfigPath(t) (the resolver), never hand-build a layout. All
+// mutations use t.Setenv / t.Cleanup, so they auto-revert. Not usable
+// under t.Parallel (t.Setenv).
 func Hermetic(t *testing.T) string {
 	t.Helper()
-	dir := t.TempDir()
+	root := statedirtest.Hermetic(t)
 
-	t.Setenv("HOME", dir)
-	t.Setenv("XDG_CONFIG_HOME", dir)
 	// Force the portable encrypted-file backend so tests never touch (or
 	// prompt for) the real OS keychain.
 	t.Setenv(keyring.BackendEnvVar, "file")
@@ -126,7 +134,24 @@ func Hermetic(t *testing.T) string {
 	keyring.ResetCorruptWarnOnce()
 	t.Cleanup(keyring.ResetMigrationNotice)
 	t.Cleanup(keyring.ResetCorruptWarnOnce)
-	return dir
+	return root
+}
+
+// SharedConfigPath resolves the shared store path through the production
+// resolver (credstore.DefaultPath) under the active hermetic env and
+// ensures its parent dir exists. Tests seed/inspect the shared store
+// here instead of hand-building "<root>/atlassian-cli/config.yml", which
+// only matched the resolver on Linux. Call after Hermetic(t).
+func SharedConfigPath(t *testing.T) string {
+	t.Helper()
+	p, err := credstore.DefaultPath()
+	if err != nil {
+		t.Fatalf("credtest.SharedConfigPath: resolving shared path: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(p), 0o700); err != nil {
+		t.Fatalf("credtest.SharedConfigPath: mkdir %s: %v", filepath.Dir(p), err)
+	}
+	return p
 }
 
 // SeedToken stores the shared api_token in the hermetic keyring (the same

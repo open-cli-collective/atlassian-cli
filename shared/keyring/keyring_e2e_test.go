@@ -10,19 +10,22 @@ import (
 	"testing"
 
 	cccredstore "github.com/open-cli-collective/cli-common/credstore"
+	"github.com/open-cli-collective/cli-common/statedirtest"
 
 	"github.com/open-cli-collective/atlassian-go/credstore"
 )
 
-// hermetic isolates HOME/XDG and forces the encrypted-file backend so
-// these tests never touch (or prompt for) the real OS keychain. It is a
-// local copy of credtest.Hermetic — keyring cannot import credtest
-// (credtest imports keyring; that would be an import cycle).
+// hermetic isolates the full cli-common statedirtest 7-var env set
+// (HOME/USERPROFILE/AppData/LocalAppData/XDG_*) so os.UserConfigDir
+// never resolves to a real directory on ANY OS, and forces the
+// encrypted-file backend so these tests never touch (or prompt for) the
+// real OS keychain. keyring cannot import credtest (credtest imports
+// keyring — an import cycle), so it composes statedirtest directly.
+// Tests MUST derive the shared path from sharedConfigPath(t), never
+// hand-build a layout. Returns the temp root.
 func hermetic(t *testing.T) string {
 	t.Helper()
-	dir := t.TempDir()
-	t.Setenv("HOME", dir)
-	t.Setenv("XDG_CONFIG_HOME", dir)
+	root := statedirtest.Hermetic(t)
 	t.Setenv(BackendEnvVar, "file")
 	t.Setenv("ATLASSIAN_CLI_KEYRING_PASSPHRASE", "e2e-passphrase")
 	for _, v := range []string{"ATLASSIAN_API_TOKEN", "CFL_API_TOKEN", "JIRA_API_TOKEN"} {
@@ -32,7 +35,23 @@ func hermetic(t *testing.T) string {
 	ResetCorruptWarnOnce()
 	t.Cleanup(ResetMigrationNotice)
 	t.Cleanup(ResetCorruptWarnOnce)
-	return dir
+	return root
+}
+
+// sharedConfigPath resolves the shared store path through the production
+// resolver under the active hermetic env and ensures its parent exists.
+// Replaces hand-building "<root>/atlassian-cli/config.yml", which only
+// matched the resolver on Linux.
+func sharedConfigPath(t *testing.T) string {
+	t.Helper()
+	p, err := credstore.DefaultPath()
+	if err != nil {
+		t.Fatalf("sharedConfigPath: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(p), 0o700); err != nil {
+		t.Fatalf("sharedConfigPath mkdir: %v", err)
+	}
+	return p
 }
 
 //nolint:gosec // G101: test fixture string, not a real credential
@@ -165,9 +184,9 @@ func TestSetCredential_Rejections(t *testing.T) {
 // into the keyring, the file is scrubbed, the signal fires exactly once,
 // and the secret never appears in the signal text.
 func TestMigration_EndToEnd_ScrubAndSignal(t *testing.T) {
-	dir := hermetic(t)
+	hermetic(t)
 
-	sharedPath := filepath.Join(dir, "atlassian-cli", "config.yml")
+	sharedPath := sharedConfigPath(t)
 	// credstore.Save strips the token, so write a pre-migration file by
 	// hand to stand in for a real legacy plaintext store.
 	if err := os.MkdirAll(filepath.Dir(sharedPath), 0o700); err != nil {
@@ -286,8 +305,8 @@ func TestMigration_DuplicateLegacy_CollapsesToSingleKey(t *testing.T) {
 // a secret winner. Two-phase guarantee: nothing is written and NO source
 // is scrubbed; the error names every location and never the value.
 func TestMigration_DivergentSources_ConflictNoMutation(t *testing.T) {
-	dir := hermetic(t)
-	sharedPath := filepath.Join(dir, "atlassian-cli", "config.yml")
+	hermetic(t)
+	sharedPath := sharedConfigPath(t)
 	if err := os.MkdirAll(filepath.Dir(sharedPath), 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -546,7 +565,7 @@ func TestResolveToken_CorruptSharedConfig_DegradesGracefully(t *testing.T) {
 	if err := SetCredential(strings.NewReader(secret), ""); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
-	sharedPath := filepath.Join(dir, "atlassian-cli", "config.yml")
+	sharedPath := sharedConfigPath(t)
 	if err := os.MkdirAll(filepath.Dir(sharedPath), 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -595,12 +614,9 @@ func TestResolveToken_CorruptSharedConfig_DegradesGracefully(t *testing.T) {
 // writeLegacyDefault writes a pre-migration shared config.yml with one
 // plaintext default api_token (credstore.Save strips tokens, so the
 // fixture is hand-written).
-func writeLegacyDefault(t *testing.T, dir, token string) string {
+func writeLegacyDefault(t *testing.T, token string) string {
 	t.Helper()
-	p := filepath.Join(dir, "atlassian-cli", "config.yml")
-	if err := os.MkdirAll(filepath.Dir(p), 0o700); err != nil {
-		t.Fatal(err)
-	}
+	p := sharedConfigPath(t)
 	if err := os.WriteFile(p,
 		[]byte("default:\n  url: https://acme.atlassian.net\n  api_token: "+token+"\n"), 0o600); err != nil {
 		t.Fatal(err)
@@ -613,8 +629,8 @@ func writeLegacyDefault(t *testing.T, dir, token string) string {
 // write hits ErrExists; re-resolve sees an equal value → benign,
 // migration completes (plaintext scrubbed), nothing clobbered.
 func TestMigration_ConcurrentWriter_IdenticalValue_Benign(t *testing.T) {
-	dir := hermetic(t)
-	shared := writeLegacyDefault(t, dir, secret)
+	hermetic(t)
+	shared := writeLegacyDefault(t, secret)
 
 	migrationApplyHook = func(s *Store) {
 		if err := s.cs.Set(s.profile, KeyAPIToken, secret, cccredstore.WithOverwrite()); err != nil {
@@ -656,10 +672,10 @@ func TestMigration_ConcurrentWriter_IdenticalValue_Benign(t *testing.T) {
 // re-resolve sees a different value → hard conflict naming the keyring
 // value, the racer's token is NOT clobbered, and no plaintext is scrubbed.
 func TestMigration_ConcurrentWriter_DivergentValue_ConflictNoClobber(t *testing.T) {
-	dir := hermetic(t)
+	hermetic(t)
 	srcTok := "SRC-" + secret
 	raceTok := "RACE-" + secret
-	shared := writeLegacyDefault(t, dir, srcTok)
+	shared := writeLegacyDefault(t, srcTok)
 
 	migrationApplyHook = func(s *Store) {
 		if err := s.cs.Set(s.profile, KeyAPIToken, raceTok, cccredstore.WithOverwrite()); err != nil {
@@ -699,11 +715,11 @@ func TestMigration_ConcurrentWriter_DivergentValue_ConflictNoClobber(t *testing.
 // disagreeing party (not read as "divergence across" one source), no
 // mutation occurs, and no secret leaks.
 func TestMigration_ExistingAPIToken_NamedInConflict(t *testing.T) {
-	dir := hermetic(t)
+	hermetic(t)
 	existing := "EXISTING-" + secret
 	legacy := "LEGACY-" + secret
 	seedRawAPIToken(t, existing)
-	shared := writeLegacyDefault(t, dir, legacy)
+	shared := writeLegacyDefault(t, legacy)
 
 	err := EnsureMigrated()
 	if !errors.Is(err, ErrMigrationConflict) {
@@ -736,9 +752,9 @@ func TestMigration_ExistingAPIToken_NamedInConflict(t *testing.T) {
 // deprecated key, scrub the plaintext, all in one run; bundle exactly
 // {api_token}.
 func TestMigration_DeprecatedKeyAndPlaintext_SameValue_Collapses(t *testing.T) {
-	dir := hermetic(t)
+	hermetic(t)
 	seedDeprecatedKey(t, "jtk_api_token", secret)
-	shared := writeLegacyDefault(t, dir, secret)
+	shared := writeLegacyDefault(t, secret)
 
 	if err := EnsureMigrated(); err != nil {
 		t.Fatalf("EnsureMigrated: %v", err)
@@ -761,9 +777,9 @@ func TestMigration_DeprecatedKeyAndPlaintext_SameValue_Collapses(t *testing.T) {
 // B3 upgrade where the deprecated keyring key and the plaintext file
 // DISAGREE → hard conflict, nothing mutated.
 func TestMigration_DeprecatedKeyAndPlaintext_Divergent_Conflict(t *testing.T) {
-	dir := hermetic(t)
+	hermetic(t)
 	seedDeprecatedKey(t, "jtk_api_token", "DEP-"+secret)
-	shared := writeLegacyDefault(t, dir, "PLAIN-"+secret)
+	shared := writeLegacyDefault(t, "PLAIN-"+secret)
 
 	err := EnsureMigrated()
 	if !errors.Is(err, ErrMigrationConflict) {
@@ -783,9 +799,9 @@ func TestMigration_DeprecatedKeyAndPlaintext_Divergent_Conflict(t *testing.T) {
 // reachable code): an explicit-overwrite migration replaces an existing
 // api_token with the single legacy source value and scrubs plaintext.
 func TestMigrateOverwrite_ApplyReplacesExisting(t *testing.T) {
-	dir := hermetic(t)
+	hermetic(t)
 	seedRawAPIToken(t, "OLD-"+secret)
-	shared := writeLegacyDefault(t, dir, "NEW-"+secret)
+	shared := writeLegacyDefault(t, "NEW-"+secret)
 
 	s, err := OpenForClearAll() // migrationAllowedKeys, no auto-migrate
 	if err != nil {

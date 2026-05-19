@@ -522,9 +522,9 @@ func TestConfig_LoadFromShared(t *testing.T) {
 }
 
 func TestLoadWithEnv_PrecedenceLegacyToSharedToEnv(t *testing.T) {
-	// Isolate XDG so credstore.DefaultPath points into a tempdir.
-	xdg := t.TempDir()
-	t.Setenv("XDG_CONFIG_HOME", xdg)
+	// Hermetic 7-var isolation; derive the shared path from the
+	// resolver (cross-OS correct) rather than hand-building the layout.
+	credtest.Hermetic(t)
 
 	// Seed legacy file (cfl-only).
 	legacyDir := t.TempDir()
@@ -537,7 +537,7 @@ func TestLoadWithEnv_PrecedenceLegacyToSharedToEnv(t *testing.T) {
 	testutil.RequireNoError(t, legacy.Save(legacyPath))
 
 	// Seed shared store (overrides URL + token via default).
-	sharedPath := filepath.Join(xdg, "atlassian-cli", "config.yml")
+	sharedPath := credtest.SharedConfigPath(t)
 	store := &credstore.Store{
 		Default: credstore.Section{
 			URL:      "https://shared.atlassian.net",
@@ -567,8 +567,8 @@ func TestLoadWithEnv_CorruptSharedFallsBackToLegacy(t *testing.T) {
 	// Hermetic: deterministic file-backend keyring (so the corrupt-store
 	// fallback resolves an empty token instead of touching the OS
 	// keychain) and isolated XDG.
-	xdg := credtest.Hermetic(t)
-	sharedPath := filepath.Join(xdg, "atlassian-cli", "config.yml")
+	credtest.Hermetic(t)
+	sharedPath := credtest.SharedConfigPath(t)
 	testutil.RequireNoError(t, os.MkdirAll(filepath.Dir(sharedPath), 0o700))
 	testutil.RequireNoError(t, os.WriteFile(sharedPath, []byte("default: : :: ["), 0o600))
 

@@ -160,7 +160,7 @@ func TestDetectSharedRelocation_MalformedFailsLoud(t *testing.T) {
 			t.Fatalf("malformed new must fail loud (never overwritten), got %v", err)
 		}
 		// new untouched
-		b, _ := os.ReadFile(newPath)
+		b, _ := os.ReadFile(newPath) //nolint:gosec // test reads its own temp file
 		if string(b) != "{not: valid: yaml: ::::" {
 			t.Fatal("malformed new must not be mutated")
 		}
@@ -187,6 +187,46 @@ func TestOldSharedConnCandidates_RelabelAndDefaultsCovered(t *testing.T) {
 		if c.Path != oldPath {
 			t.Fatalf("candidate path must name the old file, got %q", c.Path)
 		}
+	}
+}
+
+// On Linux oldSharedPath() ≡ DefaultPath() (both honor
+// $XDG_CONFIG_HOME), so old-shared MUST NOT be enumerated as a second
+// token/clear source for the very same file (Codex r2: "old==new not
+// double-enumerated"). These assert the dedup at the seams the keyring
+// migrate/clear sets consume.
+func TestOldSharedProjection_PathIdentityNotEnumerated(t *testing.T) {
+	oldPath := oldBase(t)
+	writeFile(t, oldPath, "default:\n  url: https://acme.atlassian.net\n  api_token: SECRET\n")
+	// new == old: the keyring source set already covers this file via
+	// the canonical DefaultPath; old-shared must contribute nothing.
+	gotPath, proj, err := OldSharedProjection(oldPath)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if gotPath != "" || proj != nil {
+		t.Fatalf("path-identity must not double-enumerate, got path=%q proj=%v", gotPath, proj)
+	}
+}
+
+func TestOldSharedConfigPath_PathIdentityDeduped(t *testing.T) {
+	oldPath := oldBase(t)
+	if got := OldSharedConfigPath(oldPath); got != "" {
+		t.Fatalf("path-identity must dedup the clear path set, got %q", got)
+	}
+}
+
+func TestOldSharedProjection_EnumeratesDistinctOldToken(t *testing.T) {
+	oldPath := oldBase(t)
+	newPath := filepath.Join(t.TempDir(), "new", "config.yml")
+	writeFile(t, oldPath, "default:\n  url: https://acme.atlassian.net\n  api_token: STALE\n")
+
+	gotPath, proj, err := OldSharedProjection(newPath)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if gotPath != oldPath || proj == nil || proj.Default.APIToken != "STALE" {
+		t.Fatalf("distinct old-shared with a token must be enumerated, got path=%q proj=%v", gotPath, proj)
 	}
 }
 

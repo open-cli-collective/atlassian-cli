@@ -5,6 +5,7 @@ go 1.24.0
 require (
 	github.com/charmbracelet/huh v0.8.0
 	github.com/open-cli-collective/atlassian-go v0.0.0-00010101000000-000000000000
+	github.com/open-cli-collective/cli-common v0.0.0-20260519134256-e67b2fc81f9d
 	github.com/spf13/cobra v1.10.2
 )
 
@@ -45,7 +46,6 @@ require (
 	github.com/muesli/ansi v0.0.0-20230316100256-276c6243b2f6 // indirect
 	github.com/muesli/cancelreader v0.2.2 // indirect
 	github.com/muesli/termenv v0.16.0 // indirect
-	github.com/open-cli-collective/cli-common v0.0.0-20260516182733-b753d5c62d14 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/spf13/pflag v1.0.9 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect

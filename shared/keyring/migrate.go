@@ -86,6 +86,24 @@ func migrateLegacyOverwrite(s *Store, overwrite bool) error {
 		}
 		proj = p
 	}
+	// Old-shared (§3.2): the prior hand-rolled shared location is an
+	// ADDITIVE pre-token legacy source. Enumerate (no copy) any
+	// plaintext api_token there so the macOS/Windows resolver move does
+	// not strand a secret on disk — it is consolidated/scrubbed BEFORE
+	// token resolution, exactly like the canonical shared file.
+	// Path-identity with the current resolver is deduped (no double
+	// source label, no double scrub). A parse failure fails loud rather
+	// than scrubbing blindly.
+	var oldProj *credstore.SharedLegacyProjection
+	var oldSharedPath string
+	if sperr == nil {
+		op, opProj, oerr := credstore.OldSharedProjection(sharedPath)
+		if oerr != nil {
+			return oerr
+		}
+		oldSharedPath, oldProj = op, opProj
+	}
+
 	cflPath := credstore.LegacyCFLPath()
 	jtkPath := credstore.LegacyJTKPath()
 	legacyCFL, errC := credstore.LoadLegacyCFL(cflPath)
@@ -117,6 +135,11 @@ func migrateLegacyOverwrite(s *Store, overwrite bool) error {
 	add(proj.Default.APIToken, "shared config default ("+sharedPath+")")
 	add(proj.CFL.APIToken, "shared config cfl.api_token ("+sharedPath+")")
 	add(proj.JTK.APIToken, "shared config jtk.api_token ("+sharedPath+")")
+	if oldProj != nil {
+		add(oldProj.Default.APIToken, "prior shared config default ("+oldSharedPath+")")
+		add(oldProj.CFL.APIToken, "prior shared config cfl.api_token ("+oldSharedPath+")")
+		add(oldProj.JTK.APIToken, "prior shared config jtk.api_token ("+oldSharedPath+")")
+	}
 	if legacyCFL != nil {
 		add(legacyCFL.APIToken, "legacy cfl config ("+legacyCFL.Path+")")
 	}
@@ -137,7 +160,9 @@ func migrateLegacyOverwrite(s *Store, overwrite bool) error {
 
 	sharedHadToken := proj.Default.APIToken != "" || proj.CFL.APIToken != "" ||
 		proj.JTK.APIToken != ""
-	anyPlaintext := sharedHadToken ||
+	oldSharedHadToken := oldProj != nil && (oldProj.Default.APIToken != "" ||
+		oldProj.CFL.APIToken != "" || oldProj.JTK.APIToken != "")
+	anyPlaintext := sharedHadToken || oldSharedHadToken ||
 		(legacyCFL != nil && legacyCFL.APIToken != "") ||
 		(legacyJTK != nil && legacyJTK.APIToken != "")
 
@@ -204,6 +229,11 @@ func migrateLegacyOverwrite(s *Store, overwrite bool) error {
 		if sharedHadToken {
 			if err := scrubSharedStore(sharedPath); err != nil {
 				return fmt.Errorf("migrated to keyring %s but could not scrub %s: %w", s.ref, sharedPath, err)
+			}
+		}
+		if oldSharedHadToken {
+			if err := scrubSharedStore(oldSharedPath); err != nil {
+				return fmt.Errorf("migrated to keyring %s but could not scrub %s: %w", s.ref, oldSharedPath, err)
 			}
 		}
 		if legacyCFL != nil && legacyCFL.APIToken != "" {

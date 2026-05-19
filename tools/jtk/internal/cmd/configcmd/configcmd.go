@@ -160,6 +160,9 @@ func runClear(ctx context.Context, opts *clearOptions) error {
 		if plan.SharedConfigPath != "" {
 			fmt.Fprintf(opts.Stderr, "It will also delete the shared config file: %s\n", plan.SharedConfigPath)
 		}
+		if plan.OldSharedConfigPath != "" {
+			fmt.Fprintf(opts.Stderr, "It will also delete the prior shared config file: %s\n", plan.OldSharedConfigPath)
+		}
 		for _, lp := range plan.LegacyPaths {
 			fmt.Fprintf(opts.Stderr, "It will scrub the legacy plaintext file: %s\n", lp)
 		}

@@ -39,6 +39,13 @@ type ClearPlan struct {
 	// itself is unopenable (the recovery path).
 	SharedConfigPath string
 	LegacyPaths      []string
+
+	// OldSharedConfigPath is the prior hand-rolled shared-config
+	// location (§3.2), distinct from SharedConfigPath only on the
+	// macOS/Windows resolver move (path-identity deduped on Linux).
+	// `--all` deletes it wholesale like SharedConfigPath so a stale
+	// plaintext token there is not stranded after relocation.
+	OldSharedConfigPath string
 }
 
 // PlanClear computes the ClearPlan for tool and, on success, returns the
@@ -72,8 +79,13 @@ func PlanClear(tool string, all bool) (ClearPlan, *Store, error) {
 			p.EnvActive = append(p.EnvActive, name)
 		}
 	}
-	if sp, perr := credstore.DefaultPath(); perr == nil && fileExists(sp) {
-		p.SharedConfigPath = sp
+	if sp, perr := credstore.DefaultPath(); perr == nil {
+		if fileExists(sp) {
+			p.SharedConfigPath = sp
+		}
+		if op := credstore.OldSharedConfigPath(sp); op != "" && fileExists(op) {
+			p.OldSharedConfigPath = op
+		}
 	}
 	for _, lp := range []string{credstore.LegacyCFLPath(), credstore.LegacyJTKPath()} {
 		if lp != "" && fileExists(lp) {
@@ -146,9 +158,16 @@ func ClearFiles() error {
 	if err := scrubLegacyFile(credstore.LegacyJTKPath()); err != nil {
 		errs = append(errs, err)
 	}
-	if sp, perr := credstore.DefaultPath(); perr == nil && fileExists(sp) {
-		if err := os.Remove(sp); err != nil && !os.IsNotExist(err) {
-			errs = append(errs, err)
+	if sp, perr := credstore.DefaultPath(); perr == nil {
+		if fileExists(sp) {
+			if err := os.Remove(sp); err != nil && !os.IsNotExist(err) {
+				errs = append(errs, err)
+			}
+		}
+		if op := credstore.OldSharedConfigPath(sp); op != "" {
+			if err := os.Remove(op); err != nil && !os.IsNotExist(err) {
+				errs = append(errs, err)
+			}
 		}
 	}
 	return errors.Join(errs...)

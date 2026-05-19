@@ -123,11 +123,14 @@ func DefaultConfigPath() string {
 	return filepath.Join(home, ".config", "cfl", "config.yml")
 }
 
-// Save writes the configuration to the specified path.
+// Save writes the configuration atomically (temp + rename) so a crash
+// mid-write never leaves a truncated config behind. Dir mode is 0700
+// and file mode 0600 (the §3 on-disk-state standard). On any error the
+// temp file is removed best-effort so a failed save leaves no stale
+// .tmp.
 func (c *Config) Save(path string) error {
-	// Create directory if it doesn't exist
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0750); err != nil {
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return fmt.Errorf("creating config directory: %w", err)
 	}
 
@@ -136,9 +139,14 @@ func (c *Config) Save(path string) error {
 		return fmt.Errorf("marshaling config: %w", err)
 	}
 
-	// Write with restricted permissions (user read/write only)
-	if err := os.WriteFile(path, data, 0600); err != nil {
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, data, 0o600); err != nil {
+		_ = os.Remove(tmp)
 		return fmt.Errorf("writing config file: %w", err)
+	}
+	if err := os.Rename(tmp, path); err != nil {
+		_ = os.Remove(tmp)
+		return fmt.Errorf("finalizing config file: %w", err)
 	}
 
 	return nil

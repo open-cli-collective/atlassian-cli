@@ -259,6 +259,25 @@ func TestConfig_Save_and_Load(t *testing.T) {
 	testutil.Equal(t, original.OutputFormat, loaded.OutputFormat)
 }
 
+// Save is atomic (temp+rename) with 0600 file / 0700 dir and leaves no
+// stale .tmp on success (the MON-5370 commit-4 hardening).
+func TestConfig_Save_AtomicPermsNoStaleTmp(t *testing.T) {
+	t.Parallel()
+	dir := filepath.Join(t.TempDir(), "cfl")
+	configPath := filepath.Join(dir, "config.yml")
+	testutil.RequireNoError(t, (&Config{URL: "https://acme.atlassian.net"}).Save(configPath))
+
+	fi, err := os.Stat(configPath)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, os.FileMode(0o600), fi.Mode().Perm())
+	di, err := os.Stat(dir)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, os.FileMode(0o700), di.Mode().Perm())
+	if _, statErr := os.Stat(configPath + ".tmp"); !os.IsNotExist(statErr) {
+		t.Fatal("atomic Save must leave no .tmp on success")
+	}
+}
+
 func TestLoad_FileNotFound(t *testing.T) {
 	t.Parallel()
 	_, err := Load("/nonexistent/path/config.yml")

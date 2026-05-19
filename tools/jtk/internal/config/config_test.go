@@ -125,6 +125,18 @@ func TestConfig_FilePermissions(t *testing.T) {
 	testutil.Equal(t, info.Mode().Perm(), os.FileMode(0600))
 }
 
+// Save is atomic (temp+rename) and leaves no stale .tmp on success
+// (the MON-5370 commit-5 hardening; modes are covered above).
+func TestConfig_Save_AtomicNoStaleTmp(t *testing.T) {
+	_, cleanup := setupTestConfig(t)
+	defer cleanup()
+
+	testutil.RequireNoError(t, Save(&Config{URL: "https://acme.atlassian.net"}))
+	if _, statErr := os.Stat(Path() + ".tmp"); !os.IsNotExist(statErr) {
+		t.Fatal("atomic Save must leave no .tmp on success")
+	}
+}
+
 func TestGetURL_EnvOverride(t *testing.T) {
 	_, cleanup := setupTestConfig(t)
 	defer cleanup()

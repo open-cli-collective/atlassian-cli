@@ -203,6 +203,11 @@ var corruptSharedWarnOnce sync.Once
 
 func warnCorruptSharedOnce(err error) {
 	corruptSharedWarnOnce.Do(func() {
+		if errors.Is(err, credstore.ErrRelocationConflict) {
+			// Readable, not a fallback: the canonical config is in use.
+			fmt.Fprintf(os.Stderr, "warning: prior and current shared config diverge (%v); using the current config. Run `cfl init` to reconcile.\n", err)
+			return
+		}
 		fmt.Fprintf(os.Stderr, "warning: shared credential store is unreadable (%v); falling back to per-tool config. Run `cfl init` to fix.\n", err)
 	})
 }

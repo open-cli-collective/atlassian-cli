@@ -8,6 +8,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/open-cli-collective/cli-common/statedir"
+	"github.com/open-cli-collective/cli-common/statedirtest"
+
 	"github.com/open-cli-collective/atlassian-go/auth"
 	"github.com/open-cli-collective/atlassian-go/testutil"
 )
@@ -323,8 +326,36 @@ func TestURLForCFL(t *testing.T) {
 	}
 }
 
-func TestDefaultPath_HonorsXDG(t *testing.T) {
-	t.Setenv("XDG_CONFIG_HOME", "/custom/xdg")
-	got := DefaultPath()
-	testutil.Equal(t, "/custom/xdg/atlassian-cli/config.yml", got)
+func TestDefaultPath_DelegatesToStatedir(t *testing.T) {
+	root := statedirtest.Hermetic(t)
+
+	got, err := DefaultPath()
+	if err != nil {
+		t.Fatalf("DefaultPath: unexpected error: %v", err)
+	}
+	dir, derr := statedir.Scope{Name: "atlassian-cli"}.ConfigDir()
+	if derr != nil {
+		t.Fatalf("statedir ConfigDir: %v", derr)
+	}
+	testutil.Equal(t, filepath.Join(dir, "config.yml"), got)
+	if !strings.HasPrefix(got, root) {
+		t.Fatalf("DefaultPath %q escaped hermetic root %q (real-dir leak)", got, root)
+	}
+}
+
+func TestDefaultPath_RelativeXDGErrorParity(t *testing.T) {
+	// statedir rejects a relative $XDG_CONFIG_HOME (the §1.1 tightening)
+	// instead of the prior silent ./.atlassian-cli fallback. The exact
+	// rejection semantics are owned by cli-common's resolver tests; here
+	// we only assert DefaultPath faithfully propagates whatever the
+	// resolver decides on this platform (delegation parity, not a
+	// hard-coded OS branch).
+	statedirtest.Hermetic(t)
+	t.Setenv("XDG_CONFIG_HOME", "relative/not/absolute")
+
+	_, resolverErr := statedir.Scope{Name: "atlassian-cli"}.ConfigDir()
+	_, gotErr := DefaultPath()
+	if (gotErr == nil) != (resolverErr == nil) {
+		t.Fatalf("DefaultPath error parity mismatch: DefaultPath=%v resolver=%v", gotErr, resolverErr)
+	}
 }

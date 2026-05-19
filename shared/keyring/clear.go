@@ -72,7 +72,7 @@ func PlanClear(tool string, all bool) (ClearPlan, *Store, error) {
 			p.EnvActive = append(p.EnvActive, name)
 		}
 	}
-	if sp := credstore.DefaultPath(); fileExists(sp) {
+	if sp, perr := credstore.DefaultPath(); perr == nil && fileExists(sp) {
 		p.SharedConfigPath = sp
 	}
 	for _, lp := range []string{credstore.LegacyCFLPath(), credstore.LegacyJTKPath()} {
@@ -146,7 +146,7 @@ func ClearFiles() error {
 	if err := scrubLegacyFile(credstore.LegacyJTKPath()); err != nil {
 		errs = append(errs, err)
 	}
-	if sp := credstore.DefaultPath(); fileExists(sp) {
+	if sp, perr := credstore.DefaultPath(); perr == nil && fileExists(sp) {
 		if err := os.Remove(sp); err != nil && !os.IsNotExist(err) {
 			errs = append(errs, err)
 		}

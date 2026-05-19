@@ -21,7 +21,12 @@ import (
 // reads. Init has a separate code path that surfaces corruption as a
 // hard error and refuses to clobber the file.
 func loadShared() *credstore.Store {
-	s, err := credstore.Load(credstore.DefaultPath())
+	path, perr := credstore.DefaultPath()
+	if perr != nil {
+		warnCorruptSharedOnce(perr)
+		return &credstore.Store{}
+	}
+	s, err := credstore.Load(path)
 	if err != nil {
 		warnCorruptSharedOnce(err)
 		return &credstore.Store{}

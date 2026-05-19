@@ -95,7 +95,12 @@ func runInit(ctx context.Context, opts *root.Options, prefillURL, prefillEmail, 
 	}
 
 	legacyPath := config.DefaultConfigPath()
-	sharedPath := credstore.DefaultPath()
+	sharedPath, err := credstore.DefaultPath()
+	if err != nil {
+		v.Error("Cannot resolve the shared credential store path: %v", err)
+		v.Error("Set XDG_CONFIG_HOME to an absolute path (or unset it), then re-run cfl init.")
+		return err
+	}
 	jtkLegacyPath := credstore.LegacyJTKPath()
 
 	// §2.2 ordering (MON-5328): detect connection divergence FIRST,

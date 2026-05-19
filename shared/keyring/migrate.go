@@ -64,18 +64,27 @@ var ErrMigrationConflict = errors.New("keyring: API token migration sources disa
 
 func migrateLegacyOverwrite(s *Store, overwrite bool) error {
 	// ---- Phase 1: collect (no mutation) ----------------------------------
-	sharedPath := credstore.DefaultPath()
-	// Migration-only projection: the canonical Store no longer carries
-	// per-tool connection/token fields (§2.2/MON-5328), but the §1.8
-	// token migration must still SEE a legacy per-tool api_token. Absent
-	// file → proj == nil. Parse failure → ErrCorruptStore (callers treat
-	// it as a hard error; never silently overwrite an unreadable file).
-	proj, err := credstore.LoadSharedLegacyProjection(sharedPath)
-	if err != nil {
-		return err
-	}
-	if proj == nil {
-		proj = &credstore.SharedLegacyProjection{Path: sharedPath}
+	// A resolver error (relative/unresolvable $XDG_CONFIG_HOME) means
+	// there is no addressable shared file: treat it as absent so the
+	// migration neither reads nor scrubs a cwd-relative path.
+	sharedPath, sperr := credstore.DefaultPath()
+	var proj *credstore.SharedLegacyProjection
+	if sperr != nil {
+		proj = &credstore.SharedLegacyProjection{}
+	} else {
+		// Migration-only projection: the canonical Store no longer carries
+		// per-tool connection/token fields (§2.2/MON-5328), but the §1.8
+		// token migration must still SEE a legacy per-tool api_token. Absent
+		// file → proj == nil. Parse failure → ErrCorruptStore (callers treat
+		// it as a hard error; never silently overwrite an unreadable file).
+		p, err := credstore.LoadSharedLegacyProjection(sharedPath)
+		if err != nil {
+			return err
+		}
+		if p == nil {
+			p = &credstore.SharedLegacyProjection{Path: sharedPath}
+		}
+		proj = p
 	}
 	cflPath := credstore.LegacyCFLPath()
 	jtkPath := credstore.LegacyJTKPath()

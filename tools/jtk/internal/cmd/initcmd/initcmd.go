@@ -79,7 +79,12 @@ func runInit(ctx context.Context, opts *root.Options, prefillURL, prefillEmail, 
 
 	v := opts.View()
 
-	sharedPath := credstore.DefaultPath()
+	sharedPath, err := credstore.DefaultPath()
+	if err != nil {
+		v.Error("Cannot resolve the shared credential store path: %v", err)
+		v.Error("Set XDG_CONFIG_HOME to an absolute path (or unset it), then re-run jtk init.")
+		return err
+	}
 	jtkLegacyPath := credstore.LegacyJTKPath()
 	cflLegacyPath := credstore.LegacyCFLPath()
 

@@ -25,6 +25,8 @@ import (
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/open-cli-collective/cli-common/statedir"
+
 	"github.com/open-cli-collective/atlassian-go/auth"
 )
 
@@ -69,17 +71,20 @@ type Store struct {
 	JTK     ToolSection `yaml:"jtk,omitempty"`
 }
 
-// DefaultPath returns the canonical shared store path, honoring
-// $XDG_CONFIG_HOME if set.
-func DefaultPath() string {
-	if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
-		return filepath.Join(xdg, "atlassian-cli", "config.yml")
-	}
-	home, err := os.UserHomeDir()
+// DefaultPath returns the canonical shared store path. It resolves via
+// the shared statedir resolver (os.UserConfigDir()/atlassian-cli),
+// which honors $XDG_CONFIG_HOME on Linux and returns the OS-native
+// config dir on macOS/Windows. A relative or unresolvable
+// $XDG_CONFIG_HOME now returns an error (the §1.1 intentional
+// tightening) instead of the prior silent cwd-relative
+// `./.atlassian-cli` fallback. Existence-check callers treat the error
+// as "no shared file".
+func DefaultPath() (string, error) {
+	dir, err := statedir.Scope{Name: "atlassian-cli"}.ConfigDir()
 	if err != nil {
-		return filepath.Join(".", ".atlassian-cli", "config.yml")
+		return "", err
 	}
-	return filepath.Join(home, ".config", "atlassian-cli", "config.yml")
+	return filepath.Join(dir, "config.yml"), nil
 }
 
 // Load reads the store at path. An absent file returns an empty Store

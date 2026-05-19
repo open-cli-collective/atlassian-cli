@@ -108,6 +108,10 @@ func TestInstanceKey_RejectsPathInjection(t *testing.T) {
 		{"cloudID with forward slash", "https://api.atlassian.com", "foo/bar"},
 		{"cloudID with backslash", "https://api.atlassian.com", `foo\bar`},
 		{"cloudID with space", "https://api.atlassian.com", "foo bar"},
+		// Trailing dot: the regex would accept it, so the HasSuffix guard is
+		// the sole protection (Windows strips trailing dots → collision).
+		{"cloudID with trailing dot", "https://api.atlassian.com", "foo."},
+		{"hostname with trailing dot", "https://foo./", ""},
 	}
 	for _, tc := range cases {
 		tc := tc
@@ -136,6 +140,7 @@ func TestSetInstanceKeyForTest_RejectsUnsafeKeys(t *testing.T) {
 		`foo\bar`,
 		"",
 		"foo bar",
+		"foo.", // trailing dot — sole-protected by the HasSuffix guard
 	}
 	for _, tc := range cases {
 		tc := tc

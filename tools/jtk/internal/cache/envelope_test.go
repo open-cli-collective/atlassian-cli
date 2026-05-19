@@ -129,6 +129,10 @@ func TestReadResource_VersionMismatchTreatedAsMiss(t *testing.T) {
 	tmpDir := t.TempDir()
 	cleanup := SetRootForTest(tmpDir)
 	defer cleanup()
+	// Stays hermetic post-facade: SetRootForTest is set but
+	// SetLegacyRootForTest is NOT, so legacyRoot()=="" and the version-miss
+	// never triggers a real ~/.jtk/cache promotion probe. Do not remove the
+	// root override expecting the same behavior.
 	t.Setenv("JIRA_URL", "https://test.atlassian.net")
 
 	// Write a current-version envelope, then overwrite the on-disk file with a

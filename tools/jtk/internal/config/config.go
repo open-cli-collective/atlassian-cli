@@ -127,8 +127,18 @@ func Save(cfg *Config) error {
 		return fmt.Errorf("marshaling config: %w", err)
 	}
 
-	if err := os.WriteFile(path, data, configFileMode); err != nil {
+	// Atomic write (temp + rename) so a crash mid-write never leaves a
+	// truncated config. Dir/file modes are already 0700/0600 (the §3
+	// on-disk-state standard). On any error the temp file is removed
+	// best-effort so a failed save leaves no stale .tmp.
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, data, configFileMode); err != nil {
+		_ = os.Remove(tmp)
 		return fmt.Errorf("writing config file: %w", err)
+	}
+	if err := os.Rename(tmp, path); err != nil {
+		_ = os.Remove(tmp)
+		return fmt.Errorf("finalizing config file: %w", err)
 	}
 
 	return nil

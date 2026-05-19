@@ -7,12 +7,66 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/open-cli-collective/cli-common/statedirtest"
+
 	"github.com/open-cli-collective/atlassian-go/credstore"
 	"github.com/open-cli-collective/atlassian-go/testutil"
 	"github.com/open-cli-collective/atlassian-go/view"
 
 	"github.com/open-cli-collective/jira-ticket-cli/internal/config"
 )
+
+// oldSharedFixture writes a fixture at the prior hand-rolled shared
+// location (statedirtest sets $XDG_CONFIG_HOME, so oldSharedPath
+// resolves there); the caller passes a DISTINCT sharedPath as "new" so
+// §3.2 relocation engages on Linux (resolver would else collapse them).
+func oldSharedFixture(t *testing.T, body string) string {
+	t.Helper()
+	p := filepath.Join(os.Getenv("XDG_CONFIG_HOME"), "atlassian-cli", "config.yml")
+	testutil.RequireNoError(t, os.MkdirAll(filepath.Dir(p), 0o700))
+	testutil.RequireNoError(t, os.WriteFile(p, []byte(body), 0o600))
+	return p
+}
+
+// Major (Codex): old-only shared config at the prior path is COPIED
+// (gated apply) into the new path during jtk init and reconciled in.
+func TestReconcile_OldSharedOnly_CopiedAtInit(t *testing.T) {
+	statedirtest.Hermetic(t)
+	tmp := t.TempDir()
+	oldSharedFixture(t, "default:\n  url: https://old-shared.atlassian.net\n  email: u@e\njtk:\n  default_project: PROJ\n")
+	newPath := filepath.Join(tmp, "newshared", "config.yml")
+
+	v, _, _ := newReconcileView()
+	r, err := detectAndReconcile(v,
+		filepath.Join(tmp, "jtk.json"), filepath.Join(tmp, "cfl.yml"),
+		newPath, "", "", "", "", "")
+	testutil.RequireNoError(t, err)
+	if _, statErr := os.Stat(newPath); statErr != nil {
+		t.Fatalf("old-only must be COPIED to the new path at init: %v", statErr)
+	}
+	testutil.Equal(t, "https://old-shared.atlassian.net", r.store.Default.URL)
+	testutil.Equal(t, "PROJ", r.store.JTK.DefaultProject)
+}
+
+// Major (Codex): a pending per-tool connection divergence blocks the
+// relocation copy entirely — fail loud, mutate nothing.
+func TestReconcile_OldShared_PerToolDivergencePending_NoCopy(t *testing.T) {
+	statedirtest.Hermetic(t)
+	tmp := t.TempDir()
+	oldSharedFixture(t, "default:\n  url: https://old-shared.atlassian.net\n  email: u@e\n")
+	newPath := filepath.Join(tmp, "newshared", "config.yml")
+	jtkPath := filepath.Join(tmp, "jtk.json")
+	testutil.RequireNoError(t, os.WriteFile(jtkPath,
+		[]byte(`{"url":"https://divergent.atlassian.net","email":"u@e","api_token":"t"}`), 0o600))
+
+	v, _, _ := newReconcileView()
+	_, err := detectAndReconcile(v, jtkPath, filepath.Join(tmp, "cfl.yml"),
+		newPath, "", "", "", "", "")
+	testutil.RequireError(t, err)
+	if _, statErr := os.Stat(newPath); !os.IsNotExist(statErr) {
+		t.Fatal("no copy may occur while a per-tool divergence is pending")
+	}
+}
 
 // These tests are pure: detectAndReconcile does NO keyring I/O (the B3
 // leak-regression rule — keyring access lives only in the command

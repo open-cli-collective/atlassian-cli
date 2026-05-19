@@ -230,6 +230,93 @@ func TestOldSharedProjection_EnumeratesDistinctOldToken(t *testing.T) {
 	}
 }
 
+// Minor 1 (Codex r2 architectural requirement): the relocation
+// projection MUST also catch a durable tool-default divergence — the
+// legacy projection alone (conn/token only) would mask it.
+func TestDetectSharedRelocation_ToolDefaultDivergenceConflict(t *testing.T) {
+	for _, tc := range []struct{ name, oldBody, newBody string }{
+		{"cfl.default_space",
+			"cfl:\n  default_space: ENG\n",
+			"cfl:\n  default_space: OPS\n"},
+		{"cfl.output_format",
+			"cfl:\n  output_format: json\n",
+			"cfl:\n  output_format: table\n"},
+		{"jtk.default_project",
+			"jtk:\n  default_project: MON\n",
+			"jtk:\n  default_project: INT\n"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			oldPath := oldBase(t)
+			newPath := filepath.Join(t.TempDir(), "new", "config.yml")
+			writeFile(t, oldPath, "default:\n  url: https://acme.atlassian.net\n"+tc.oldBody)
+			writeFile(t, newPath, "default:\n  url: https://acme.atlassian.net\n"+tc.newBody)
+			if _, err := DetectSharedRelocation(newPath); !errors.Is(err, ErrRelocationConflict) {
+				t.Fatalf("durable %s divergence must fail loud, got %v", tc.name, err)
+			}
+		})
+	}
+}
+
+func TestLoadSharedRuntime_OldOnlyReadFallbackNoCopy(t *testing.T) {
+	oldPath := oldBase(t)
+	newPath := filepath.Join(t.TempDir(), "new", "config.yml")
+	writeFile(t, oldPath, "default:\n  url: https://acme.atlassian.net\n  email: u@x.io\n")
+	// new absent: runtime reads old transparently, mutating nothing.
+	st, err := loadSharedRuntime(newPath)
+	if err != nil {
+		t.Fatalf("old-only runtime read: %v", err)
+	}
+	if st.Default.URL != "https://acme.atlassian.net" || st.Default.Email != "u@x.io" {
+		t.Fatalf("old-only must be read as the effective store, got %+v", st.Default)
+	}
+	if _, statErr := os.Stat(newPath); !errors.Is(statErr, os.ErrNotExist) {
+		t.Fatal("runtime read path must NOT copy/create the new file")
+	}
+}
+
+func TestLoadSharedRuntime_DivergentReturnsCanonicalPlusError(t *testing.T) {
+	oldPath := oldBase(t)
+	newPath := filepath.Join(t.TempDir(), "new", "config.yml")
+	writeFile(t, oldPath, "default:\n  url: https://OLD.atlassian.net\n")
+	writeFile(t, newPath, "default:\n  url: https://NEW.atlassian.net\n")
+
+	st, err := loadSharedRuntime(newPath)
+	if !errors.Is(err, ErrRelocationConflict) {
+		t.Fatalf("divergence must be surfaced, got %v", err)
+	}
+	if st == nil || st.Default.URL != "https://NEW.atlassian.net" {
+		t.Fatalf("divergence must still yield the canonical store so commands work, got %+v", st)
+	}
+}
+
+func TestLoadSharedRuntime_BothEqualUsesCanonical(t *testing.T) {
+	oldPath := oldBase(t)
+	newPath := filepath.Join(t.TempDir(), "new", "config.yml")
+	body := "default:\n  url: https://acme.atlassian.net\n  email: u@x.io\n"
+	writeFile(t, oldPath, body)
+	writeFile(t, newPath, body)
+	st, err := loadSharedRuntime(newPath)
+	if err != nil {
+		t.Fatalf("equal old/new must be clean, got %v", err)
+	}
+	if st.Default.Email != "u@x.io" {
+		t.Fatalf("unexpected store %+v", st.Default)
+	}
+}
+
+func TestLoadSharedRuntime_PathIdentityUsesCanonical(t *testing.T) {
+	// Linux reality: old≡new ⇒ no fallback, no double-handling.
+	oldPath := oldBase(t)
+	writeFile(t, oldPath, "default:\n  url: https://acme.atlassian.net\n")
+	st, err := loadSharedRuntime(oldPath)
+	if err != nil {
+		t.Fatalf("path-identity must be clean, got %v", err)
+	}
+	if st.Default.URL != "https://acme.atlassian.net" {
+		t.Fatalf("unexpected store %+v", st.Default)
+	}
+}
+
 func TestApplySharedRelocation_NoOpWhenNotNeeded(t *testing.T) {
 	if err := ApplySharedRelocation(nil); err != nil {
 		t.Fatalf("nil ⇒ no-op, got %v", err)

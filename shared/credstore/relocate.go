@@ -175,6 +175,76 @@ func ApplySharedRelocation(r *SharedRelocation) error {
 	return nil
 }
 
+// LoadSharedRuntime is the READ-ONLY runtime shared-store resolver used
+// by the cfl/jtk non-init load paths. It composes the §3.2 relocation
+// into normal commands WITHOUT mutating disk (the actual copy is
+// init-only and gated behind the per-tool divergence check):
+//
+//   - canonical (new) present, no distinct old / old absent / old≡new
+//     (Linux) ⇒ the new store.
+//   - new ABSENT, old present ⇒ the OLD store is read as the effective
+//     store (transparent read fallback, exactly like a legacy per-tool
+//     file — no copy on a read path).
+//   - BOTH present, equal on the relocation projection ⇒ the new store.
+//   - BOTH present, DIVERGENT ⇒ (new store, ErrRelocationConflict): the
+//     runtime caller warns once and proceeds on the canonical store
+//     (commands keep working); `init` is the fail-loud mutating gate.
+//   - corrupt old OR new ⇒ ErrCorruptStore (same contract as Load; the
+//     runtime caller warns-once and falls back).
+//
+// Returning a usable *Store alongside the divergence error lets the
+// caller surface the conflict loudly without de-configuring every
+// command.
+func LoadSharedRuntime() (*Store, error) {
+	newPath, err := DefaultPath()
+	if err != nil {
+		return nil, err
+	}
+	return loadSharedRuntime(newPath)
+}
+
+// loadSharedRuntime is LoadSharedRuntime with the canonical path
+// injected — the resolve-path vs load-with-relocation split mirrors
+// DetectSharedRelocation(newPath) and is what makes the old≠new
+// branches hermetically testable on Linux (where the resolver would
+// otherwise collapse old≡new).
+func loadSharedRuntime(newPath string) (*Store, error) {
+	newStore, err := Load(newPath)
+	if err != nil {
+		return nil, err
+	}
+	oldPath, _ := oldSharedPath()
+	if oldPath == "" || oldPath == newPath {
+		return newStore, nil
+	}
+	oldProj, err := LoadSharedLegacyProjection(oldPath)
+	if err != nil {
+		return nil, err
+	}
+	if oldProj == nil {
+		return newStore, nil
+	}
+	oldStore, err := Load(oldPath)
+	if err != nil {
+		return nil, err
+	}
+	newProj, err := LoadSharedLegacyProjection(newPath)
+	if err != nil {
+		return nil, err
+	}
+	if newProj == nil {
+		return oldStore, nil
+	}
+	if relocationEqual(oldStore, oldProj, newStore, newProj) {
+		return newStore, nil
+	}
+	return newStore, fmt.Errorf(
+		"%w: %s and %s hold different connection or non-secret defaults; "+
+			"run init to reconcile (no values shown; secrets live only in "+
+			"the OS keyring)",
+		ErrRelocationConflict, oldPath, newPath)
+}
+
 // OldSharedConnCandidates yields the origin-labeled connection
 // candidates contributed by the prior hand-rolled shared file, so the
 // per-tool connection-divergence detector COMPOSES with it (a copy is

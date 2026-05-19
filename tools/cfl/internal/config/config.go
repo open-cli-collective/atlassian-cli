@@ -235,19 +235,18 @@ func LoadWithEnv(path string) (*Config, error) {
 		cfg = &Config{}
 	}
 
-	sharedPath, pErr := credstore.DefaultPath()
-	if pErr != nil {
-		// Unresolvable shared path (relative $XDG_CONFIG_HOME): no
-		// addressable shared store. Fall back to legacy + env exactly as
-		// for a corrupt store; `cfl init` surfaces the error instead.
-		warnCorruptSharedOnce(pErr)
-	} else if store, sErr := credstore.Load(sharedPath); sErr != nil {
-		// Runtime callers can't propagate the error meaningfully — every
-		// cfl command would die. Warn once on stderr and fall back to
-		// legacy + env. `cfl init` uses credstore.Load directly so it
-		// can surface the error and refuse to clobber.
+	// Runtime shared resolver, §3.2 relocation-aware and mutation-free:
+	// reads the canonical store, transparently falls back to the prior
+	// hand-rolled location when only it exists, and on an old↔new
+	// divergence returns the canonical store alongside the error so the
+	// command keeps working while the conflict is surfaced once. A nil
+	// store (unresolvable/corrupt) → fall back to legacy + env. `cfl
+	// init` uses the fail-loud detect/gated-copy path instead.
+	store, sErr := credstore.LoadSharedRuntime()
+	if sErr != nil {
 		warnCorruptSharedOnce(sErr)
-	} else {
+	}
+	if store != nil {
 		cfg.LoadFromShared(store)
 	}
 

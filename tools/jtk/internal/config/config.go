@@ -21,15 +21,18 @@ import (
 // reads. Init has a separate code path that surfaces corruption as a
 // hard error and refuses to clobber the file.
 func loadShared() *credstore.Store {
-	path, perr := credstore.DefaultPath()
-	if perr != nil {
-		warnCorruptSharedOnce(perr)
-		return &credstore.Store{}
-	}
-	s, err := credstore.Load(path)
+	// §3.2 relocation-aware, mutation-free runtime resolver: canonical
+	// store, transparent read-fallback to the prior hand-rolled location
+	// when only it exists, and on an old↔new divergence the canonical
+	// store is returned alongside the error so commands keep working
+	// while the conflict is surfaced once. `jtk init` is the fail-loud
+	// mutating gate.
+	s, err := credstore.LoadSharedRuntime()
 	if err != nil {
 		warnCorruptSharedOnce(err)
-		return &credstore.Store{}
+		if s == nil {
+			return &credstore.Store{}
+		}
 	}
 	return s
 }

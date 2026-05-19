@@ -1,132 +1,75 @@
 // Package cache provides caching functionality for jtk resources.
+//
+// Tier-1 (the on-disk envelope, atomic writes, freshness classification) is a
+// thin facade over github.com/open-cli-collective/cli-common/cache — the
+// shared state component (working-with-state.md §5b). The public API here is
+// kept byte-stable so jtk's tier-2 (registry/fetchers/lookups/invalidate) and
+// the ~25 downstream test files do not churn; only the internals delegate.
 package cache
 
 import (
-	"encoding/json"
 	"errors"
-	"fmt"
-	"os"
-	"path/filepath"
-	"time"
+
+	cccache "github.com/open-cli-collective/cli-common/cache"
 )
 
-const Version = 1
+// Version is the on-disk envelope schema version (delegated to cli-common so
+// a schema bump self-heals identically everywhere).
+const Version = cccache.Version
 
-var ErrCacheMiss = errors.New("cache miss")
+// ErrCacheMiss is re-exported so existing errors.Is(err, cache.ErrCacheMiss)
+// call sites keep matching.
+var ErrCacheMiss = cccache.ErrCacheMiss
 
-// Envelope is the on-disk JSON shape for a single cached resource.
-type Envelope[T any] struct {
-	Resource  string    `json:"resource"`
-	Instance  string    `json:"instance"`
-	FetchedAt time.Time `json:"fetched_at"`
-	TTL       string    `json:"ttl"`
-	Version   int       `json:"version"`
-	Data      T         `json:"data"`
-}
+// Envelope is an alias for the shared envelope, so callers that reference
+// cache.Envelope / .FetchedAt / .TTL / .Data are unchanged.
+type Envelope[T any] = cccache.Envelope[T]
 
-// ReadResource reads the envelope for `name` from disk.
-//   - Returns (envelope, nil) on success.
-//   - Returns (zero, ErrCacheMiss) if the file does not exist.
-//   - Returns (zero, error) on I/O or JSON decode failure.
+// ReadResource reads the envelope for name.
+//   - (envelope, nil) on success.
+//   - (zero, ErrCacheMiss) if absent / version- or identity-mismatched and no
+//     valid legacy ~/.jtk/cache envelope can be promoted.
+//   - (zero, error) on path/instance resolution, I/O, or decode failure.
 //
-// ReadResource does NOT check freshness; callers use freshness.go.
+// On a miss against the new (os.UserCacheDir()/jtk) root, exactly one valid
+// legacy envelope is promoted in place if present (the one-time, per-resource,
+// non-destructive re-migration — see migrate.go). Reads never check freshness.
 func ReadResource[T any](name string) (Envelope[T], error) {
-	path, err := ResourceFile(name)
+	loc, err := locator()
 	if err != nil {
 		return Envelope[T]{}, err
 	}
-
-	data, err := os.ReadFile(path) //nolint:gosec // path derives from config, not user input
-	if err != nil {
-		if os.IsNotExist(err) {
-			return Envelope[T]{}, ErrCacheMiss
+	env, err := cccache.ReadResource[T](loc, name)
+	if errors.Is(err, ErrCacheMiss) {
+		if penv, ok := promoteLegacyOnMiss[T](loc, name); ok {
+			return penv, nil
 		}
-		return Envelope[T]{}, fmt.Errorf("reading resource file: %w", err)
-	}
-
-	var env Envelope[T]
-	if err := json.Unmarshal(data, &env); err != nil {
-		return Envelope[T]{}, fmt.Errorf("parsing resource file: %w", err)
-	}
-
-	// A version mismatch is treated as a miss — the next write will overwrite
-	// the envelope with the current schema. This makes schema bumps self-healing.
-	if env.Version != Version {
 		return Envelope[T]{}, ErrCacheMiss
 	}
-
-	return env, nil
+	return env, err
 }
 
-// WriteResource atomically writes an envelope for `name`.
-//   - TTL comes from the caller (registry entry). Resource, Instance, Version,
-//     and FetchedAt are set by WriteResource itself.
-//   - Atomic: write to a temp file in the same directory, then rename.
-//   - Ensures the instance directory exists with mode 0700.
-//   - Writes the file with mode 0600.
-func WriteResource[T any](name string, ttl string, data T) error {
-	instance, err := InstanceKey()
+// WriteResource atomically writes an envelope for name. Resource, Instance,
+// Version, and a fresh FetchedAt are set by the shared writer; ttl is the
+// caller's hard-coded per-resource value.
+func WriteResource[T any](name, ttl string, data T) error {
+	loc, err := locator()
 	if err != nil {
 		return err
 	}
-
-	env := Envelope[T]{
-		Resource:  name,
-		Instance:  instance,
-		FetchedAt: time.Now().UTC(),
-		TTL:       ttl,
-		Version:   Version,
-		Data:      data,
-	}
-	return atomicWriteEnvelope(name, env)
+	return cccache.WriteResource(loc, name, ttl, data)
 }
 
-// atomicWriteEnvelope marshals an envelope and writes it to the cache path for
-// `name` using a temp-file-rename pattern. Shared by WriteResource (which
-// constructs a fresh envelope) and writeRaw (which preserves existing metadata
-// for Touch-style invalidation).
-func atomicWriteEnvelope[T any](name string, env Envelope[T]) error {
-	path, err := ResourceFile(name)
+// atomicWriteEnvelope writes a caller-supplied envelope verbatim (preserving
+// its FetchedAt — used by writeRaw/Touch to persist the zeroed "stale"
+// marker). The legacy first parameter is retained for call-site stability
+// (writeRaw and the *_lookup_test.go helpers pass it positionally); the
+// shared verbatim writer derives the file from env.Resource, which by
+// construction equals it.
+func atomicWriteEnvelope[T any](_ string, env Envelope[T]) error {
+	loc, err := locator()
 	if err != nil {
 		return err
 	}
-
-	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return fmt.Errorf("creating cache directory: %w", err)
-	}
-
-	jsonData, err := json.MarshalIndent(env, "", "  ")
-	if err != nil {
-		return fmt.Errorf("marshaling envelope: %w", err)
-	}
-
-	tmp, err := os.CreateTemp(dir, name+"-*.json.tmp")
-	if err != nil {
-		return fmt.Errorf("creating temp file: %w", err)
-	}
-	tmpPath := tmp.Name()
-
-	if _, err := tmp.Write(jsonData); err != nil {
-		_ = tmp.Close()
-		_ = os.Remove(tmpPath)
-		return fmt.Errorf("writing temp file: %w", err)
-	}
-
-	if err := tmp.Close(); err != nil {
-		_ = os.Remove(tmpPath)
-		return fmt.Errorf("closing temp file: %w", err)
-	}
-
-	if err := os.Chmod(tmpPath, 0o600); err != nil {
-		_ = os.Remove(tmpPath)
-		return fmt.Errorf("setting file mode: %w", err)
-	}
-
-	if err := os.Rename(tmpPath, path); err != nil {
-		_ = os.Remove(tmpPath)
-		return fmt.Errorf("moving temp file to final path: %w", err)
-	}
-
-	return nil
+	return cccache.WriteEnvelope(loc, env)
 }

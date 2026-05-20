@@ -94,8 +94,8 @@ github.com/muesli/termenv v0.16.0 h1:S5AlUN9dENB57rsbnkPyfdGuWIlkmzJjbFf0Tf5FWUc
 github.com/muesli/termenv v0.16.0/go.mod h1:ZRfOIKPFDYQoDFF4Olj7/QJbW60Ol/kL1pU3VfY/Cnk=
 github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e h1:fD57ERR4JtEqsWbfPhv4DMiApHyliiK5xCTNVSPiaAs=
 github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e/go.mod h1:zD1mROLANZcx1PVRCS0qkT7pwLkGfwJo4zjcN/Tysno=
-github.com/open-cli-collective/cli-common v0.0.0-20260519134256-e67b2fc81f9d h1:fiyfxc/Wvpuen/u6Mk3bCUG0DLyOylF0K+eol4y9C64=
-github.com/open-cli-collective/cli-common v0.0.0-20260519134256-e67b2fc81f9d/go.mod h1:5i4MkFToMVPLBW29O01lsHS9d1m9pC0BxSOYjFDz7ds=
+github.com/open-cli-collective/cli-common v0.1.0 h1:BhdwBZhTaPeMi/2aRWzbuzNitImgn1ft7ahQqoul6qE=
+github.com/open-cli-collective/cli-common v0.1.0/go.mod h1:5i4MkFToMVPLBW29O01lsHS9d1m9pC0BxSOYjFDz7ds=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/rivo/uniseg v0.4.7 h1:WUdvkW8uEhrYfLC4ZzdpI2ztxP1I582+49Oc5Mq64VQ=

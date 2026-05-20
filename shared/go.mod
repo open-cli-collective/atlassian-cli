@@ -5,7 +5,7 @@ go 1.24.0
 require (
 	github.com/fatih/color v1.18.0
 	github.com/gohugoio/hugo-goldmark-extensions/extras v0.6.0
-	github.com/open-cli-collective/cli-common v0.0.0-20260519134256-e67b2fc81f9d
+	github.com/open-cli-collective/cli-common v0.1.0
 	github.com/yuin/goldmark v1.7.16
 	golang.org/x/term v0.3.0
 	gopkg.in/yaml.v3 v3.0.1

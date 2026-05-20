@@ -120,9 +120,11 @@ Tool-specific variables (`CFL_*`, `JIRA_*`) take precedence over shared variable
 
 The **API token is stored in the OS keyring** (macOS Keychain / Linux
 Secret Service / Windows Credential Manager, or an opt-in encrypted-file
-backend) — never in a plaintext file. Only **non-secret** config lives in
-`~/.config/atlassian-cli/config.yml` (mode 0600), written by `cfl init`
-and `jtk init`:
+backend) — never in a plaintext file. Only **non-secret** config lives
+in the shared OS-native config dir (`~/Library/Application
+Support/atlassian-cli/config.yml` on macOS, `%APPDATA%\atlassian-cli\
+config.yml` on Windows, `~/.config/atlassian-cli/config.yml` on Linux;
+mode 0600), written by `cfl init` and `jtk init`:
 
 ```yaml
 default:

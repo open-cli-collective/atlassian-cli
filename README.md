@@ -166,9 +166,14 @@ The init wizards will prompt for:
 - Email address
 - API token
 
-Configuration is stored in:
-- jtk: `~/.config/jira-ticket-cli/config.json`
-- cfl: `~/.config/cfl/config.yml`
+Configuration is stored under the shared `atlassian-cli` config dir (a
+single credential scope used by both binaries) at the OS-native location:
+- macOS: `~/Library/Application Support/atlassian-cli/config.yml`
+- Linux: `~/.config/atlassian-cli/config.yml` (or under `$XDG_CONFIG_HOME` if set)
+- Windows: `%APPDATA%\atlassian-cli\config.yml`
+
+`config.yml` carries only non-secret fields (URL, email, defaults); the
+API token lives in the OS keyring (see "Shared credential store" below).
 
 ### Authentication
 

@@ -152,10 +152,15 @@ no value) instead of precedence-picking.
 Keyring bundle: fixed ref `atlassian-cli/default`, exactly one key
 `api_token` shared by cfl and jtk (Secret-Handling Standard §1.11.10:
 one key per logical credential — there are no per-tool override keys).
-Backend selection is env-only (`ATLASSIAN_CLI_KEYRING_BACKEND`); leave it
-unset to auto-select the OS keyring, or set it to `file` for the opt-in
-encrypted-file backend. The file-backend passphrase comes from
-`ATLASSIAN_CLI_KEYRING_PASSPHRASE` or a no-echo TTY prompt. **The file
+Backend selection happens at three layers (precedence high → low):
+the `--backend` flag (root persistent, available on every command), the
+`ATLASSIAN_CLI_KEYRING_BACKEND` env var, the `keyring.backend` config
+key (jtk: `~/.config/jira-ticket-cli/config.json`; cfl:
+`~/.config/cfl/config.yml`), and finally the OS auto-default. Valid
+values: `keychain`, `wincred`, `secret-service`, `file`, `memory`
+(`credstore.ValidBackendNames()` is the source of truth). Leave all
+three unset to auto-select the OS keyring. The file-backend passphrase
+comes from `ATLASSIAN_CLI_KEYRING_PASSPHRASE` or a no-echo TTY prompt. **The file
 backend cannot prompt non-interactively:** any non-TTY invocation (CI, a
 piped token) MUST pre-set `ATLASSIAN_CLI_KEYRING_PASSPHRASE`, and the
 passphrase can never share stdin with a piped token.

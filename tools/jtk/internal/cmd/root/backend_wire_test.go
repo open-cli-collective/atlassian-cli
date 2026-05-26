@@ -90,6 +90,42 @@ func TestWireBackendSelection_ConfigPassthrough(t *testing.T) {
 // non-validation contract for config: a bogus config string is passed
 // through to Options.ConfigBackend verbatim and the failure surfaces
 // later at credstore.Open, not at the helper layer.
+// TestWireBackendSelection_ShadowingSubcommand is the regression guard
+// for the cobra-doesn't-chain-PersistentPreRunE bug. A subcommand that
+// defines its own PersistentPreRunE silently shadows the root's, so
+// without an explicit WireBackendSelection call at the top of each
+// shadowing PreRunE, --backend would silently stop applying on those
+// command paths. Asserts that running through a subcommand whose own
+// PreRunE invokes WireBackendSelection produces the expected backend
+// state — i.e., the wiring really does run on the shadowed path.
+func TestWireBackendSelection_ShadowingSubcommand(t *testing.T) {
+	keyring.SetBackendSelection("", "")
+	defer keyring.SetBackendSelection("", "")
+	t.Setenv(cccredstore.BackendEnvVar(keyring.Service), "")
+
+	rootCmd, _ := NewCmd()
+	// Simulate a shadowing subcommand: its own PersistentPreRunE calls
+	// WireBackendSelection explicitly (the contract every shadower in
+	// jtk's tree must follow — dashboards/boards/automation/sprints).
+	shadow := &cobra.Command{
+		Use: "shadow",
+		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
+			return WireBackendSelection(cmd)
+		},
+	}
+	leaf := newProbeCmd("leaf")
+	shadow.AddCommand(leaf)
+	rootCmd.AddCommand(shadow)
+	rootCmd.SetArgs([]string{"shadow", "leaf", "--backend", "memory"})
+	if err := rootCmd.Execute(); err != nil {
+		t.Fatalf("Execute through shadowing PreRunE: %v", err)
+	}
+	got, _ := keyring.GetBackendSelection()
+	if got != cccredstore.BackendMemory {
+		t.Errorf("Backend = %q, want %q — shadower's PreRunE failed to invoke WireBackendSelection", got, cccredstore.BackendMemory)
+	}
+}
+
 func TestWireBackendSelection_InvalidConfigDeferred(t *testing.T) {
 	t.Setenv(cccredstore.BackendEnvVar(keyring.Service), "")
 	opts := &cccredstore.Options{}

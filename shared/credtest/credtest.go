@@ -44,7 +44,7 @@ func openBundle(t *testing.T) (*cccredstore.Store, string) {
 	// passphrase rooted in the REAL HOME would read/write real keyring
 	// state silently. Fail loud if the caller skipped credtest.Hermetic
 	// (which sets the backend + passphrase + isolates HOME/XDG).
-	if os.Getenv(keyring.BackendEnvVar) != "file" || os.Getenv("ATLASSIAN_CLI_KEYRING_PASSPHRASE") == "" {
+	if os.Getenv(cccredstore.BackendEnvVar(keyring.Service)) != "file" || os.Getenv("ATLASSIAN_CLI_KEYRING_PASSPHRASE") == "" {
 		t.Fatalf("credtest: call credtest.Hermetic(t) before SeedDeprecatedKey/BundleKeys " +
 			"(file backend + passphrase + isolated HOME must be set first)")
 	}
@@ -124,7 +124,7 @@ func Hermetic(t *testing.T) string {
 
 	// Force the portable encrypted-file backend so tests never touch (or
 	// prompt for) the real OS keychain.
-	t.Setenv(keyring.BackendEnvVar, "file")
+	t.Setenv(cccredstore.BackendEnvVar(keyring.Service), "file")
 	t.Setenv("ATLASSIAN_CLI_KEYRING_PASSPHRASE", "credtest-passphrase")
 	for _, v := range tokenEnvVars {
 		t.Setenv(v, "")

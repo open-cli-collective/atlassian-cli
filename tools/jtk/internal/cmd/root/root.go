@@ -3,12 +3,16 @@ package root
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"os"
 
 	"github.com/spf13/cobra"
 
+	cccredstore "github.com/open-cli-collective/cli-common/credstore"
+
 	"github.com/open-cli-collective/atlassian-go/artifact"
+	"github.com/open-cli-collective/atlassian-go/keyring"
 	"github.com/open-cli-collective/atlassian-go/present"
 	"github.com/open-cli-collective/atlassian-go/version"
 	"github.com/open-cli-collective/atlassian-go/view"
@@ -125,8 +129,14 @@ func NewCmd() (*cobra.Command, *Options) {
 		Short:   "A CLI for managing Jira tickets",
 		Long:    "jtk is a command-line interface for managing Jira Cloud tickets.",
 		Version: version.Info(),
-		PersistentPreRun: func(_ *cobra.Command, _ []string) {
-			// Setup is done in flag binding
+		// PersistentPreRunE runs before any subcommand RunE. It wires the
+		// --backend flag and config keyring.backend into shared/keyring's
+		// SetBackendSelection so every subsequent keyring.Open* uses the
+		// caller-selected backend. Must NOT read ATLASSIAN_CLI_KEYRING_BACKEND
+		// directly — credstore reads it inside selectBackend, and remapping
+		// would corrupt SourceEnv attribution.
+		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
+			return wireBackendSelection(cmd)
 		},
 		SilenceUsage:  true,
 		SilenceErrors: true,
@@ -139,8 +149,45 @@ func NewCmd() (*cobra.Command, *Options) {
 	cmd.PersistentFlags().BoolVar(&opts.FullText, "fulltext", false, "Disable truncation of descriptions and comments")
 	cmd.PersistentFlags().BoolVar(&opts.IDOnly, "id", false, "Emit only the primary identifier (takes precedence over --extended and --fulltext)")
 	cmd.PersistentFlags().BoolVarP(&opts.Verbose, "verbose", "v", false, "Log each request's method/URL, JSON body, and any 4xx/5xx response body (each capped at 4 KB)")
+	cmd.PersistentFlags().String(cccredstore.BackendFlagName, "", cccredstore.BackendFlagUsage())
 
 	return cmd, opts
+}
+
+// wireBackendSelection reads --backend (looked up via cmd.Flag so the
+// lookup works on any subcommand path that inherits the root's
+// persistent flag) and the keyring.backend config key, validates them
+// via credstore.BindBackendFlag, and pushes the result into
+// shared/keyring's package-level state for every subsequent Open*.
+//
+// Failure paths:
+//   - --backend with an unrecognized value -> wrapping ErrBackendNotImplemented
+//   - --backend= (empty) -> fails closed instead of silent flag-loss
+//   - config keyring.backend invalid -> surfaces later at credstore.Open
+//     (intentional pass-through; the helper layer doesn't validate config).
+func wireBackendSelection(cmd *cobra.Command) error {
+	var flagValue string
+	var flagSet bool
+	if bf := cmd.Flag(cccredstore.BackendFlagName); bf != nil {
+		flagValue = bf.Value.String()
+		flagSet = bf.Changed
+	}
+
+	// Best-effort config load. A missing/unreadable config must not block
+	// commands that don't need credentials (e.g., `jtk completion`); the
+	// commands that do need them already handle their own load errors.
+	cfg, _ := config.Load()
+	var configBackend string
+	if cfg != nil {
+		configBackend = cfg.Keyring.Backend
+	}
+
+	opts := &cccredstore.Options{}
+	if err := cccredstore.BindBackendFlag(opts, flagValue, flagSet, configBackend); err != nil {
+		return fmt.Errorf("--%s: %w", cccredstore.BackendFlagName, err)
+	}
+	keyring.SetBackendSelection(opts.Backend, opts.ConfigBackend)
+	return nil
 }
 
 // RegisterCommands registers subcommands with the root command

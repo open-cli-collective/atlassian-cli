@@ -3,18 +3,47 @@ package keyring
 import (
 	"errors"
 	"fmt"
-	"os"
 	"slices"
 	"strings"
 
 	cccredstore "github.com/open-cli-collective/cli-common/credstore"
 )
 
-// BackendEnvVar selects the credstore backend (§1.4). Empty = auto-select
-// (OS keyring, fail-closed on Linux); "file" = the encrypted-file backend
-// (passphrase via ATLASSIAN_CLI_KEYRING_PASSPHRASE or a no-echo TTY
-// prompt). There is no config-file backend field — selection is env-only.
-const BackendEnvVar = "ATLASSIAN_CLI_KEYRING_BACKEND"
+// SetBackendSelection wires backend selection from the CLI root command
+// (which parsed --backend and read keyring.backend from config) into
+// the package-level state consulted by every Open* variant.
+//
+// Precedence is enforced inside credstore.Open against the final
+// Options: Options.Backend (set by --backend) > <SERVICE>_KEYRING_BACKEND
+// env > Options.ConfigBackend (set by config) > OS default. This package
+// MUST NOT read <SERVICE>_KEYRING_BACKEND itself — credstore reads it,
+// and remapping it here would corrupt SourceEnv attribution.
+//
+// Idempotent and concurrency-safe in practice because callers invoke
+// this exactly once during root-command PersistentPreRunE before any
+// Open* runs.
+func SetBackendSelection(backend, configBackend cccredstore.Backend) {
+	selectedBackend = backend
+	selectedConfigBackend = configBackend
+}
+
+// selectedBackend / selectedConfigBackend hold the values most recently
+// set by SetBackendSelection (typically once, by the root command's
+// PersistentPreRunE). Both default to the empty Backend, which makes
+// Open* equivalent to "no caller override," letting credstore's own
+// precedence machinery run unaffected.
+var (
+	selectedBackend       cccredstore.Backend
+	selectedConfigBackend cccredstore.Backend
+)
+
+// GetBackendSelection returns the current package-level backend
+// selection as set by SetBackendSelection. Intended for tests that
+// assert the root command's wiring populated the right values; not for
+// use in production code paths (those go through openRef).
+func GetBackendSelection() (backend, configBackend cccredstore.Backend) {
+	return selectedBackend, selectedConfigBackend
+}
 
 // ErrTokenNotFound indicates no API token exists in the keyring.
 var ErrTokenNotFound = errors.New("no API token found in secure storage")
@@ -88,20 +117,15 @@ func openRef(ref string, allow []string) (*Store, error) {
 	if err != nil {
 		return nil, fmt.Errorf("invalid credential ref %q: %w", ref, err)
 	}
-	opts := &cccredstore.Options{AllowedKeys: allow}
-	switch b := strings.TrimSpace(os.Getenv(BackendEnvVar)); b {
-	case "":
-		// Auto-select per §1.4 (credstore decides; fail-closed on Linux).
-	case "file":
-		opts.ConfigBackend = cccredstore.BackendFile
-	default:
-		// Fail closed: an unrecognized backend must not silently degrade.
-		// Be explicit that the OS keyring is the unset/auto default — a
-		// user typing "keychain"/"secret-service" is reaching for what
-		// they already get by leaving this unset.
-		return nil, fmt.Errorf(
-			"invalid %s %q: the only recognized value is \"file\" (opt-in encrypted-file backend); leave %s unset to auto-select the OS keyring (macOS Keychain / Linux Secret Service / Windows Credential Manager)",
-			BackendEnvVar, b, BackendEnvVar)
+	// Backend / ConfigBackend come from the root command (SetBackendSelection)
+	// — both default to empty when the root never wired the flag, which is
+	// the right behavior for code paths that build a Store outside the
+	// cobra layer (tests, internal helpers). Validation and precedence
+	// (--backend > env > config > default) are credstore.Open's job.
+	opts := &cccredstore.Options{
+		AllowedKeys:   allow,
+		Backend:       selectedBackend,
+		ConfigBackend: selectedConfigBackend,
 	}
 	opts.FilePassphrase = passphraseFunc(service)
 

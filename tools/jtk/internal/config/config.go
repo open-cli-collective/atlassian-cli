@@ -71,13 +71,24 @@ const (
 
 // Config holds the CLI configuration
 type Config struct {
-	URL            string `json:"url,omitempty"`
-	Domain         string `json:"domain,omitempty"` // Deprecated: use URL instead
-	Email          string `json:"email"`
-	APIToken       string `json:"api_token"`
-	DefaultProject string `json:"default_project,omitempty"`
-	AuthMethod     string `json:"auth_method,omitempty"` // "basic" (default) or "bearer"
-	CloudID        string `json:"cloud_id,omitempty"`    // Required for bearer auth (gateway URL)
+	URL            string         `json:"url,omitempty"`
+	Domain         string         `json:"domain,omitempty"` // Deprecated: use URL instead
+	Email          string         `json:"email"`
+	APIToken       string         `json:"api_token"`
+	DefaultProject string         `json:"default_project,omitempty"`
+	AuthMethod     string         `json:"auth_method,omitempty"` // "basic" (default) or "bearer"
+	CloudID        string         `json:"cloud_id,omitempty"`    // Required for bearer auth (gateway URL)
+	Keyring        KeyringConfig  `json:"keyring,omitempty"`
+}
+
+// KeyringConfig holds keyring-related user preferences.
+type KeyringConfig struct {
+	// Backend, when set, requests a specific credstore backend at runtime.
+	// Lower precedence than --backend and ATLASSIAN_CLI_KEYRING_BACKEND.
+	// Valid values: see credstore.ValidBackendNames(). Validation happens
+	// inside credstore.Open at startup; an unrecognized value fails closed
+	// with an error wrapping ErrBackendNotImplemented.
+	Backend string `json:"backend,omitempty"`
 }
 
 // configPath returns the path to the config file

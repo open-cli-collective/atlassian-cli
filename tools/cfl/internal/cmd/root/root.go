@@ -8,8 +8,11 @@ import (
 
 	"github.com/spf13/cobra"
 
+	cccredstore "github.com/open-cli-collective/cli-common/credstore"
+
 	"github.com/open-cli-collective/atlassian-go/artifact"
 	"github.com/open-cli-collective/atlassian-go/auth"
+	"github.com/open-cli-collective/atlassian-go/keyring"
 	"github.com/open-cli-collective/atlassian-go/version"
 	"github.com/open-cli-collective/atlassian-go/view"
 
@@ -114,6 +117,12 @@ Get started by running: cfl init`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		Version:       version.Version,
+		// PersistentPreRunE wires --backend and keyring.backend (config)
+		// into shared/keyring before any subcommand runs. Must NOT read
+		// ATLASSIAN_CLI_KEYRING_BACKEND directly — credstore reads it.
+		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
+			return wireBackendSelection(cmd)
+		},
 	}
 
 	// Global flags - bound to opts struct
@@ -121,11 +130,45 @@ Get started by running: cfl init`,
 	cmd.PersistentFlags().StringVarP(&opts.Output, "output", "o", "table", "output format: table, json, plain")
 	cmd.PersistentFlags().BoolVar(&opts.NoColor, "no-color", false, "disable colored output")
 	cmd.PersistentFlags().BoolVar(&opts.Full, "full", false, "show full inspection-oriented output (default: agent)")
+	cmd.PersistentFlags().String(cccredstore.BackendFlagName, "", cccredstore.BackendFlagUsage())
 
 	// Set version template
 	cmd.SetVersionTemplate("cfl version {{.Version}} (commit: " + version.Commit + ", built: " + version.BuildDate + ")\n")
 
 	return cmd, opts
+}
+
+// wireBackendSelection reads --backend (via cmd.Flag so the lookup
+// works on any subcommand path that inherits the root persistent flag)
+// and the keyring.backend config key, validates them via
+// credstore.BindBackendFlag, and pushes the result into shared/keyring.
+//
+// Best-effort config load: commands that don't need credentials (e.g.,
+// `cfl completion`) must not fail just because config is missing or
+// malformed; commands that do need them handle their own load errors.
+func wireBackendSelection(cmd *cobra.Command) error {
+	var flagValue string
+	var flagSet bool
+	if bf := cmd.Flag(cccredstore.BackendFlagName); bf != nil {
+		flagValue = bf.Value.String()
+		flagSet = bf.Changed
+	}
+
+	var configBackend string
+	cfgPath, _ := cmd.Root().PersistentFlags().GetString("config")
+	if cfgPath == "" {
+		cfgPath = config.DefaultConfigPath()
+	}
+	if cfg, err := config.Load(cfgPath); err == nil && cfg != nil {
+		configBackend = cfg.Keyring.Backend
+	}
+
+	opts := &cccredstore.Options{}
+	if err := cccredstore.BindBackendFlag(opts, flagValue, flagSet, configBackend); err != nil {
+		return fmt.Errorf("--%s: %w", cccredstore.BackendFlagName, err)
+	}
+	keyring.SetBackendSelection(opts.Backend, opts.ConfigBackend)
+	return nil
 }
 
 // RegisterCommands registers subcommands with the root command

@@ -18,13 +18,24 @@ import (
 
 // Config holds the cfl configuration.
 type Config struct {
-	URL          string `yaml:"url"`
-	Email        string `yaml:"email"`
-	APIToken     string `yaml:"api_token"`
-	DefaultSpace string `yaml:"default_space,omitempty"`
-	OutputFormat string `yaml:"output_format,omitempty"`
-	AuthMethod   string `yaml:"auth_method,omitempty"` // "basic" (default) or "bearer"
-	CloudID      string `yaml:"cloud_id,omitempty"`    // Required for bearer auth (gateway URL)
+	URL          string        `yaml:"url"`
+	Email        string        `yaml:"email"`
+	APIToken     string        `yaml:"api_token"`
+	DefaultSpace string        `yaml:"default_space,omitempty"`
+	OutputFormat string        `yaml:"output_format,omitempty"`
+	AuthMethod   string        `yaml:"auth_method,omitempty"` // "basic" (default) or "bearer"
+	CloudID      string        `yaml:"cloud_id,omitempty"`    // Required for bearer auth (gateway URL)
+	Keyring      KeyringConfig `yaml:"keyring,omitempty"`
+}
+
+// KeyringConfig holds keyring-related user preferences.
+type KeyringConfig struct {
+	// Backend, when set, requests a specific credstore backend at runtime.
+	// Lower precedence than --backend and ATLASSIAN_CLI_KEYRING_BACKEND.
+	// Valid values: see credstore.ValidBackendNames(). Validation happens
+	// inside credstore.Open at startup; an unrecognized value fails closed
+	// with an error wrapping ErrBackendNotImplemented.
+	Backend string `yaml:"backend,omitempty"`
 }
 
 // Validate checks that all required fields are present and valid.

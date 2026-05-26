@@ -26,7 +26,7 @@ import (
 func hermetic(t *testing.T) string {
 	t.Helper()
 	root := statedirtest.Hermetic(t)
-	t.Setenv(BackendEnvVar, "file")
+	t.Setenv(cccredstore.BackendEnvVar(Service), "file")
 	t.Setenv("ATLASSIAN_CLI_KEYRING_PASSPHRASE", "e2e-passphrase")
 	for _, v := range []string{"ATLASSIAN_API_TOKEN", "CFL_API_TOKEN", "JIRA_API_TOKEN"} {
 		t.Setenv(v, "")

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"sync"
 
 	cccredstore "github.com/open-cli-collective/cli-common/credstore"
 )
@@ -19,10 +20,14 @@ import (
 // MUST NOT read <SERVICE>_KEYRING_BACKEND itself — credstore reads it,
 // and remapping it here would corrupt SourceEnv attribution.
 //
-// Idempotent and concurrency-safe in practice because callers invoke
-// this exactly once during root-command PersistentPreRunE before any
-// Open* runs.
+// In practice callers invoke this once during root-command
+// PersistentPreRunE before any Open* runs, but the mutex guards against
+// surprise concurrent callers (test code rebuilding the command tree,
+// future goroutine-launching subcommands) so the read-then-write race
+// can't return torn or stale state.
 func SetBackendSelection(backend, configBackend cccredstore.Backend) {
+	backendMu.Lock()
+	defer backendMu.Unlock()
 	selectedBackend = backend
 	selectedConfigBackend = configBackend
 }
@@ -31,8 +36,10 @@ func SetBackendSelection(backend, configBackend cccredstore.Backend) {
 // set by SetBackendSelection (typically once, by the root command's
 // PersistentPreRunE). Both default to the empty Backend, which makes
 // Open* equivalent to "no caller override," letting credstore's own
-// precedence machinery run unaffected.
+// precedence machinery run unaffected. Always read/written under
+// backendMu.
 var (
+	backendMu             sync.RWMutex
 	selectedBackend       cccredstore.Backend
 	selectedConfigBackend cccredstore.Backend
 )
@@ -42,6 +49,8 @@ var (
 // assert the root command's wiring populated the right values; not for
 // use in production code paths (those go through openRef).
 func GetBackendSelection() (backend, configBackend cccredstore.Backend) {
+	backendMu.RLock()
+	defer backendMu.RUnlock()
 	return selectedBackend, selectedConfigBackend
 }
 
@@ -122,10 +131,11 @@ func openRef(ref string, allow []string) (*Store, error) {
 	// the right behavior for code paths that build a Store outside the
 	// cobra layer (tests, internal helpers). Validation and precedence
 	// (--backend > env > config > default) are credstore.Open's job.
+	selB, selCB := GetBackendSelection()
 	opts := &cccredstore.Options{
 		AllowedKeys:   allow,
-		Backend:       selectedBackend,
-		ConfigBackend: selectedConfigBackend,
+		Backend:       selB,
+		ConfigBackend: selCB,
 	}
 	opts.FilePassphrase = passphraseFunc(service)
 

@@ -23,7 +23,14 @@ func Register(parent *cobra.Command, opts *root.Options) {
 		Long:    "Commands for listing, creating, and managing Jira dashboards and their gadgets.",
 		// IsBearerAuth guards non-Agile scope-restricted APIs (Automation, Dashboard).
 		// Agile API commands (boards, sprints) use SupportsAgile() instead.
-		PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
+		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
+			// Cobra does not chain PersistentPreRunE — this hook shadows
+			// the root's, so we must invoke the backend-selection wiring
+			// explicitly. Without this, --backend / keyring.backend silently
+			// stop applying on the `dashboards` command path.
+			if err := root.WireBackendSelection(cmd); err != nil {
+				return err
+			}
 			client, err := opts.APIClient()
 			if err != nil {
 				return err

@@ -136,7 +136,7 @@ func NewCmd() (*cobra.Command, *Options) {
 		// directly — credstore reads it inside selectBackend, and remapping
 		// would corrupt SourceEnv attribution.
 		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
-			return wireBackendSelection(cmd)
+			return WireBackendSelection(cmd)
 		},
 		SilenceUsage:  true,
 		SilenceErrors: true,
@@ -154,18 +154,26 @@ func NewCmd() (*cobra.Command, *Options) {
 	return cmd, opts
 }
 
-// wireBackendSelection reads --backend (looked up via cmd.Flag so the
+// WireBackendSelection reads --backend (looked up via cmd.Flag so the
 // lookup works on any subcommand path that inherits the root's
 // persistent flag) and the keyring.backend config key, validates them
 // via credstore.BindBackendFlag, and pushes the result into
 // shared/keyring's package-level state for every subsequent Open*.
+//
+// Exported because cobra does NOT chain PersistentPreRunE — a
+// subcommand that defines its own PersistentPreRunE silently shadows
+// the root's. Such subcommands (jtk has four: dashboards, boards,
+// automation, sprints) must call WireBackendSelection(cmd) at the top
+// of their own PersistentPreRunE so the backend-selection wiring still
+// runs on those command paths. Subcommands without their own
+// PersistentPreRunE inherit the root's and get wiring for free.
 //
 // Failure paths:
 //   - --backend with an unrecognized value -> wrapping ErrBackendNotImplemented
 //   - --backend= (empty) -> fails closed instead of silent flag-loss
 //   - config keyring.backend invalid -> surfaces later at credstore.Open
 //     (intentional pass-through; the helper layer doesn't validate config).
-func wireBackendSelection(cmd *cobra.Command) error {
+func WireBackendSelection(cmd *cobra.Command) error {
 	var flagValue string
 	var flagSet bool
 	if bf := cmd.Flag(cccredstore.BackendFlagName); bf != nil {

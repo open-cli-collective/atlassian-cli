@@ -27,7 +27,14 @@ func Register(parent *cobra.Command, opts *root.Options) {
 		Long:    "Commands for viewing agile boards.",
 		// SupportsAgile checks AgileURL — the correct guard for Agile API commands.
 		// Non-Agile scope-restricted commands (automation, dashboards) use IsBearerAuth() instead.
-		PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
+		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
+			// Cobra does not chain PersistentPreRunE — this hook shadows
+			// the root's, so we must invoke the backend-selection wiring
+			// explicitly. Without this, --backend / keyring.backend silently
+			// stop applying on the `boards` command path.
+			if err := root.WireBackendSelection(cmd); err != nil {
+				return err
+			}
 			client, err := opts.APIClient()
 			if err != nil {
 				return err

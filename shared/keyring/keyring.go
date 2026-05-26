@@ -45,9 +45,12 @@ var (
 )
 
 // GetBackendSelection returns the current package-level backend
-// selection as set by SetBackendSelection. Intended for tests that
-// assert the root command's wiring populated the right values; not for
-// use in production code paths (those go through openRef).
+// selection as set by SetBackendSelection. openRef uses it internally
+// to source the Backend / ConfigBackend fields of credstore.Options,
+// and tests use it to assert that the root command's wiring populated
+// the right values. Callers outside this package must NOT use it to
+// drive their own credstore.Open calls — the selection is set once by
+// the CLI root command and consumed by Open* in this package.
 func GetBackendSelection() (backend, configBackend cccredstore.Backend) {
 	backendMu.RLock()
 	defer backendMu.RUnlock()

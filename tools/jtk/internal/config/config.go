@@ -71,14 +71,18 @@ const (
 
 // Config holds the CLI configuration
 type Config struct {
-	URL            string        `json:"url,omitempty"`
-	Domain         string        `json:"domain,omitempty"` // Deprecated: use URL instead
-	Email          string        `json:"email"`
-	APIToken       string        `json:"api_token"`
-	DefaultProject string        `json:"default_project,omitempty"`
-	AuthMethod     string        `json:"auth_method,omitempty"` // "basic" (default) or "bearer"
-	CloudID        string        `json:"cloud_id,omitempty"`    // Required for bearer auth (gateway URL)
-	Keyring        KeyringConfig `json:"keyring,omitempty"`
+	URL            string `json:"url,omitempty"`
+	Domain         string `json:"domain,omitempty"` // Deprecated: use URL instead
+	Email          string `json:"email"`
+	APIToken       string `json:"api_token"`
+	DefaultProject string `json:"default_project,omitempty"`
+	AuthMethod     string `json:"auth_method,omitempty"` // "basic" (default) or "bearer"
+	CloudID        string `json:"cloud_id,omitempty"`    // Required for bearer auth (gateway URL)
+	// Keyring's `omitempty` is a no-op on this struct type — encoding/json
+	// emits an empty {} for zero-valued struct fields regardless. Kept for
+	// stylistic consistency with the other optional fields; the empty
+	// section is harmless on read.
+	Keyring KeyringConfig `json:"keyring,omitempty"`
 }
 
 // KeyringConfig holds keyring-related user preferences.

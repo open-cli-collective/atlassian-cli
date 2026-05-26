@@ -70,7 +70,7 @@ func TestWireBackendSelection_FlagInvalid(t *testing.T) {
 // passthrough: when --backend is not supplied, Options.ConfigBackend
 // receives the cfg.Keyring.Backend value verbatim. We can't easily
 // populate jtk's config file in a unit test, so instead this test
-// exercises BindBackendFlag directly to mirror what wireBackendSelection
+// exercises BindBackendFlag directly to mirror what WireBackendSelection
 // does — proving the contract our code depends on.
 func TestWireBackendSelection_ConfigPassthrough(t *testing.T) {
 	t.Setenv(cccredstore.BackendEnvVar(keyring.Service), "")

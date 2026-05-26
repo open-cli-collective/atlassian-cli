@@ -71,14 +71,14 @@ const (
 
 // Config holds the CLI configuration
 type Config struct {
-	URL            string         `json:"url,omitempty"`
-	Domain         string         `json:"domain,omitempty"` // Deprecated: use URL instead
-	Email          string         `json:"email"`
-	APIToken       string         `json:"api_token"`
-	DefaultProject string         `json:"default_project,omitempty"`
-	AuthMethod     string         `json:"auth_method,omitempty"` // "basic" (default) or "bearer"
-	CloudID        string         `json:"cloud_id,omitempty"`    // Required for bearer auth (gateway URL)
-	Keyring        KeyringConfig  `json:"keyring,omitempty"`
+	URL            string        `json:"url,omitempty"`
+	Domain         string        `json:"domain,omitempty"` // Deprecated: use URL instead
+	Email          string        `json:"email"`
+	APIToken       string        `json:"api_token"`
+	DefaultProject string        `json:"default_project,omitempty"`
+	AuthMethod     string        `json:"auth_method,omitempty"` // "basic" (default) or "bearer"
+	CloudID        string        `json:"cloud_id,omitempty"`    // Required for bearer auth (gateway URL)
+	Keyring        KeyringConfig `json:"keyring,omitempty"`
 }
 
 // KeyringConfig holds keyring-related user preferences.
@@ -141,7 +141,10 @@ func Save(cfg *Config) error {
 	// one-time keyring migration can find it (asymmetric codec).
 	toWrite := *cfg
 	toWrite.APIToken = ""
-	data, err := json.MarshalIndent(&toWrite, "", "  ")
+	// The APIToken field is stripped above before marshaling, so this
+	// path never persists secret material. gosec G117's name-pattern
+	// check can't see the explicit zeroing.
+	data, err := json.MarshalIndent(&toWrite, "", "  ") //nolint:gosec // APIToken stripped above
 	if err != nil {
 		return fmt.Errorf("marshaling config: %w", err)
 	}

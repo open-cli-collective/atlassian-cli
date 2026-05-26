@@ -99,7 +99,7 @@ func Nil(t *testing.T, v any) {
 		return
 	}
 	rv := reflect.ValueOf(v)
-	if rv.Kind() == reflect.Ptr || rv.Kind() == reflect.Interface ||
+	if rv.Kind() == reflect.Pointer || rv.Kind() == reflect.Interface ||
 		rv.Kind() == reflect.Map || rv.Kind() == reflect.Slice ||
 		rv.Kind() == reflect.Chan || rv.Kind() == reflect.Func {
 		if rv.IsNil() {
@@ -117,7 +117,7 @@ func NotNil(t *testing.T, v any) {
 		return
 	}
 	rv := reflect.ValueOf(v)
-	if rv.Kind() == reflect.Ptr || rv.Kind() == reflect.Interface ||
+	if rv.Kind() == reflect.Pointer || rv.Kind() == reflect.Interface ||
 		rv.Kind() == reflect.Map || rv.Kind() == reflect.Slice ||
 		rv.Kind() == reflect.Chan || rv.Kind() == reflect.Func {
 		if rv.IsNil() {

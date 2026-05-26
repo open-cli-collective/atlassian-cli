@@ -7,8 +7,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	cccredstore "github.com/open-cli-collective/cli-common/credstore"
 	"github.com/open-cli-collective/atlassian-go/keyring"
+	cccredstore "github.com/open-cli-collective/cli-common/credstore"
 )
 
 // newProbeCmd returns a no-op subcommand suitable as a leaf for

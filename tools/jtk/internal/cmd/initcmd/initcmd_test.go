@@ -76,37 +76,34 @@ func TestRequireNonInteractiveFields_NamesFirstMissing(t *testing.T) {
 		name     string
 		cfg      *config.Config
 		isBearer bool
-		want     string
+		wants    []string
 	}{
 		{
-			name:     "basic auth — missing URL",
-			cfg:      &config.Config{},
-			isBearer: false,
-			want:     "--url",
+			name:  "basic auth — missing URL",
+			cfg:   &config.Config{},
+			wants: []string{"--url"},
 		},
 		{
-			name:     "basic auth — missing email",
-			cfg:      &config.Config{URL: "https://acme.atlassian.net"},
-			isBearer: false,
-			want:     "--email",
+			name:  "basic auth — missing email",
+			cfg:   &config.Config{URL: "https://acme.atlassian.net"},
+			wants: []string{"--email"},
 		},
 		{
 			name:     "bearer — missing cloud-id",
 			cfg:      &config.Config{URL: "https://acme.atlassian.net"},
 			isBearer: true,
-			want:     "--cloud-id",
+			wants:    []string{"--cloud-id"},
 		},
 		{
-			name:     "basic auth — missing token recommends --token-stdin",
-			cfg:      &config.Config{URL: "https://acme.atlassian.net", Email: "u@x.io"},
-			isBearer: false,
-			want:     "--token-stdin",
+			name:  "basic auth — missing token recommends --token-stdin + --token-from-env + set-credential",
+			cfg:   &config.Config{URL: "https://acme.atlassian.net", Email: "u@x.io"},
+			wants: []string{"--token-stdin", "--token-from-env", "set-credential"},
 		},
 		{
-			name:     "bearer — missing token recommends --token-stdin",
+			name:     "bearer — missing token recommends --token-stdin + --token-from-env + set-credential",
 			cfg:      &config.Config{URL: "https://acme.atlassian.net", CloudID: "cid"},
 			isBearer: true,
-			want:     "--token-stdin",
+			wants:    []string{"--token-stdin", "--token-from-env", "set-credential"},
 		},
 	}
 	for _, tc := range tests {
@@ -117,8 +114,10 @@ func TestRequireNonInteractiveFields_NamesFirstMissing(t *testing.T) {
 			if !strings.Contains(err.Error(), "--non-interactive: missing") {
 				t.Fatalf("error must mention --non-interactive prefix: %v", err)
 			}
-			if !strings.Contains(err.Error(), tc.want) {
-				t.Fatalf("error must name %s, got %v", tc.want, err)
+			for _, want := range tc.wants {
+				if !strings.Contains(err.Error(), want) {
+					t.Fatalf("error must name %s, got %v", want, err)
+				}
 			}
 		})
 	}
@@ -409,5 +408,48 @@ func TestRunInit_TokenFromEnv_NoDeprecationWarning(t *testing.T) {
 	testutil.RequireNoError(t, err)
 	if strings.Contains(stderr.String(), "deprecated") {
 		t.Fatalf("--token-from-env must NOT trigger the --token deprecation warning: %q", stderr.String())
+	}
+}
+
+// TestRunInit_TokenStdinAndTokenFromEnv_Fails — both new flags set
+// (without --token) must hit the helper's mutual-exclusion guard.
+// Pinned at the jtk integration layer so a jtk-specific short-circuit
+// regression that bypassed ReadSecretFromIngress would be loud.
+func TestRunInit_TokenStdinAndTokenFromEnv_Fails(t *testing.T) {
+	credtest.Hermetic(t)
+	t.Setenv("JTK_BOTH_VAR", initSentinel)
+	opts := &root.Options{
+		NoColor:        true,
+		NonInteractive: true,
+		Stdin:          strings.NewReader(initSentinel),
+		Stdout:         &bytes.Buffer{},
+		Stderr:         &bytes.Buffer{},
+	}
+	err := runInit(context.Background(), opts,
+		"https://acme.atlassian.net", "u@x.io", "", true, "JTK_BOTH_VAR", "", "", true)
+	testutil.RequireError(t, err)
+	if !strings.Contains(err.Error(), "mutually exclusive") {
+		t.Fatalf("error must mention mutual exclusion, got: %v", err)
+	}
+}
+
+// TestRunInit_TokenStdinWithoutNonInteractive_Fails — --token-stdin
+// drains stdin before the interactive form would read from it, so the
+// combination is loudly rejected rather than silently failing later
+// with EOF on the first prompt.
+func TestRunInit_TokenStdinWithoutNonInteractive_Fails(t *testing.T) {
+	credtest.Hermetic(t)
+	opts := &root.Options{
+		NoColor:        true,
+		NonInteractive: false, // intentionally not the canonical pair
+		Stdin:          strings.NewReader(initSentinel),
+		Stdout:         &bytes.Buffer{},
+		Stderr:         &bytes.Buffer{},
+	}
+	err := runInit(context.Background(), opts,
+		"https://acme.atlassian.net", "u@x.io", "", true, "", "", "", true)
+	testutil.RequireError(t, err)
+	if !strings.Contains(err.Error(), "--token-stdin requires --non-interactive") {
+		t.Fatalf("error must explain the --non-interactive requirement, got: %v", err)
 	}
 }

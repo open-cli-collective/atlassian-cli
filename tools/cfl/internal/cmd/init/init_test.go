@@ -614,3 +614,24 @@ func TestRunInit_TokenStdinOverridesKeyring(t *testing.T) {
 	testutil.RequireNoError(t, rerr)
 	testutil.Equal(t, cflInitSentinel, got)
 }
+
+// TestRunInit_TokenStdinWithoutNonInteractive_Fails — mirrors the jtk
+// guard: --token-stdin drains stdin, so without --non-interactive the
+// subsequent form prompts would EOF. Rejected loudly.
+func TestRunInit_TokenStdinWithoutNonInteractive_Fails(t *testing.T) {
+	credtest.Hermetic(t)
+	opts := &root.Options{
+		Output:         "table",
+		NoColor:        true,
+		NonInteractive: false,
+		Stdin:          strings.NewReader(cflInitSentinel),
+		Stdout:         &bytes.Buffer{},
+		Stderr:         &bytes.Buffer{},
+	}
+	err := runInit(context.Background(), opts,
+		"https://acme.atlassian.net", "u@x.io", true, "", "", "", true)
+	testutil.RequireError(t, err)
+	if !strings.Contains(err.Error(), "--token-stdin requires --non-interactive") {
+		t.Fatalf("error must explain the --non-interactive requirement, got: %v", err)
+	}
+}

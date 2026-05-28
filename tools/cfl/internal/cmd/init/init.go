@@ -3,6 +3,7 @@ package init
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 
@@ -147,6 +148,14 @@ func runInit(ctx context.Context, opts *root.Options, prefillURL, prefillEmail s
 	// so a returning user isn't forced to re-enter a just-migrated
 	// token. NoMigrate: migration already ran. Value stays
 	// password-masked in the form; never displayed.
+	// --token-stdin without --non-interactive drains stdin before the
+	// interactive form would read from it, causing every subsequent
+	// prompt to EOF. The canonical usage always pairs the two; reject
+	// the partial form loudly.
+	if tokenStdin && !opts.NonInteractive {
+		return errors.New("--token-stdin requires --non-interactive (otherwise the interactive form's prompts EOF on a drained stdin)")
+	}
+
 	// §1.5.1 token-ingress: explicit --token-stdin / --token-from-env
 	// win over the keyring backfill (token-rotation contract — a user
 	// must be able to re-run init with a new token to replace a stale

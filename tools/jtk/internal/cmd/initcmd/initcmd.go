@@ -105,6 +105,13 @@ func runInit(ctx context.Context, opts *root.Options, prefillURL, prefillEmail, 
 	case tokenFromEnv != "" && prefillToken != "":
 		return errors.New("--token and --token-from-env are mutually exclusive; pick one (and prefer --token-from-env — §1.5.1)")
 	}
+	// --token-stdin without --non-interactive drains stdin before the
+	// interactive form would read from it, causing every subsequent
+	// prompt to EOF. The canonical usage always pairs the two; reject
+	// the partial form loudly.
+	if tokenStdin && !opts.NonInteractive {
+		return errors.New("--token-stdin requires --non-interactive (otherwise the interactive form's prompts EOF on a drained stdin)")
+	}
 	if scripted, err := prompt.ReadSecretFromIngress(opts.Stdin, tokenStdin, tokenFromEnv); err != nil {
 		return err
 	} else if scripted != "" {

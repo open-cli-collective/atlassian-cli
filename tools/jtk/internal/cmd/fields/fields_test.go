@@ -4,11 +4,13 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
+	"github.com/open-cli-collective/atlassian-go/prompt"
 	"github.com/open-cli-collective/atlassian-go/testutil"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
@@ -1455,4 +1457,66 @@ func TestNewShowCmd(t *testing.T) {
 	cmd, _, err := rootCmd.Find([]string{"fields", "show"})
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, cmd.Name(), "show")
+}
+
+// TestFields_NonInteractive_DestructiveSites_FailLoud — single table
+// pinning the §3.4 contract across all three fields destructive call
+// sites (runDelete, runContextsDelete, runOptionsDelete). Each adopts
+// prompt.ConfirmOrFail; without --force they must return
+// ErrConfirmationRequired regardless of prior interactive state.
+func TestFields_NonInteractive_DestructiveSites_FailLoud(t *testing.T) {
+	t.Parallel()
+	mkOpts := func() *root.Options {
+		return &root.Options{
+			NonInteractive: true,
+			Stdout:         &bytes.Buffer{},
+			Stderr:         &bytes.Buffer{},
+			Stdin:          bytes.NewBufferString(""),
+		}
+	}
+
+	client, err := api.New(api.ClientConfig{URL: "https://test.atlassian.net", Email: "t@x.io", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	tests := []struct {
+		name string
+		fn   func() error
+	}{
+		{
+			name: "fields delete",
+			fn: func() error {
+				opts := mkOpts()
+				opts.SetAPIClient(client)
+				return runDelete(context.Background(), opts, "customfield_10100", false)
+			},
+		},
+		{
+			name: "fields contexts delete",
+			fn: func() error {
+				opts := mkOpts()
+				opts.SetAPIClient(client)
+				return runContextsDelete(context.Background(), opts, "customfield_10100", "ctx-1", false)
+			},
+		},
+		{
+			name: "fields options delete",
+			fn: func() error {
+				opts := mkOpts()
+				opts.SetAPIClient(client)
+				return runOptionsDelete(context.Background(), opts, "customfield_10100", "opt-1", "", false)
+			},
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			err := tc.fn()
+			if err == nil {
+				t.Fatal("expected ErrConfirmationRequired")
+			}
+			if !errors.Is(err, prompt.ErrConfirmationRequired) {
+				t.Fatalf("expected prompt.ErrConfirmationRequired, got %v", err)
+			}
+		})
+	}
 }

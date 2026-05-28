@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	"github.com/open-cli-collective/atlassian-go/prompt"
 	"github.com/open-cli-collective/atlassian-go/testutil"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
@@ -716,4 +718,60 @@ func TestRunTypes_IDOnly(t *testing.T) {
 
 	testutil.RequireNoError(t, runTypes(context.Background(), opts, ""))
 	testutil.Equal(t, stdout.String(), "software\nbusiness\n")
+}
+
+// TestRunDelete_NonInteractive_WithoutForce_FailsLoud — §3.4 contract:
+// destructive op under --non-interactive without --force surfaces
+// ErrConfirmationRequired with empty stdout/stderr.
+func TestRunDelete_NonInteractive_WithoutForce_FailsLoud(t *testing.T) {
+	t.Parallel()
+	client, err := api.New(api.ClientConfig{URL: "https://test.atlassian.net", Email: "t@x.io", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	var stdout, stderr bytes.Buffer
+	opts := &root.Options{
+		NonInteractive: true,
+		Stdout:         &stdout,
+		Stderr:         &stderr,
+		Stdin:          bytes.NewBufferString(""),
+	}
+	opts.SetAPIClient(client)
+
+	err = runDelete(context.Background(), opts, "TST", false)
+	if err == nil {
+		t.Fatal("expected ErrConfirmationRequired")
+	}
+	if !errors.Is(err, prompt.ErrConfirmationRequired) {
+		t.Fatalf("expected prompt.ErrConfirmationRequired, got %v", err)
+	}
+	if stdout.Len() != 0 {
+		t.Fatalf("stdout must be empty: %q", stdout.String())
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr must be empty: %q", stderr.String())
+	}
+}
+
+// TestRunDelete_NonInteractive_WithForce_Proceeds — --force bypasses
+// confirmation under --non-interactive (existing automation contract).
+func TestRunDelete_NonInteractive_WithForce_Proceeds(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@x.io", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{
+		NonInteractive: true,
+		Stdout:         &stdout,
+		Stderr:         &bytes.Buffer{},
+	}
+	opts.SetAPIClient(client)
+
+	err = runDelete(context.Background(), opts, "TST", true)
+	testutil.RequireNoError(t, err)
+	testutil.Contains(t, stdout.String(), "Deleted project TST")
 }

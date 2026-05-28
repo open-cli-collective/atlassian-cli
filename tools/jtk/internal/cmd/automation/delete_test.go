@@ -236,4 +236,46 @@ func TestRunDelete_NonInteractive_WithoutForce_ShortCircuits(t *testing.T) {
 	if stderr.Len() != 0 {
 		t.Fatalf("stderr must be empty: %q", stderr.String())
 	}
+	if stdout.Len() != 0 {
+		t.Fatalf("stdout must be empty (no PresentDeleteCancelled artifact): %q", stdout.String())
+	}
+}
+
+// TestRunDelete_NonInteractive_WithForce_Proceeds — --force still
+// bypasses confirmation under --non-interactive (matches the family
+// pattern in issues/page/attachment/configcmd tests).
+func TestRunDelete_NonInteractive_WithForce_Proceeds(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/_edge/tenant_info" {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"cloudId":"test-cloud"}`))
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		if r.Method == http.MethodGet {
+			rule := api.AutomationRule{
+				ID:    json.Number("42"),
+				Name:  "Test Rule",
+				State: "DISABLED",
+			}
+			_ = json.NewEncoder(w).Encode(rule)
+		}
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@x.io", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	var stdout, stderr bytes.Buffer
+	opts := &root.Options{
+		NonInteractive: true,
+		Stdout:         &stdout,
+		Stderr:         &stderr,
+	}
+	opts.SetAPIClient(client)
+
+	err = runDelete(context.Background(), opts, "42", true)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, stdout.String(), "Deleted automation 42\n")
 }

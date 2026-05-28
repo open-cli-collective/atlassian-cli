@@ -255,6 +255,20 @@ func TestRunClear_NonInteractive_WithoutForce_ShortCircuits(t *testing.T) {
 	testutil.True(t, jtkTokenPresent(t, keyring.KeyAPIToken))
 }
 
+// TestRunClear_NonInteractive_WithForce_Proceeds — --force still
+// bypasses confirmation under --non-interactive (mirrors the cfl
+// counterpart at tools/cfl/internal/cmd/configcmd/clear_test.go).
+func TestRunClear_NonInteractive_WithForce_Proceeds(t *testing.T) {
+	credtest.Hermetic(t)
+	credtest.SeedToken(t, "shared-secret")
+
+	opts, _, _ := newClearOpts(t, true, "")
+	opts.NonInteractive = true
+	testutil.RequireNoError(t, runClear(context.Background(), opts))
+
+	testutil.False(t, jtkTokenPresent(t, keyring.KeyAPIToken))
+}
+
 func TestGetDefaultProjectWithSource(t *testing.T) {
 	// Clear env vars
 	t.Setenv("JIRA_DEFAULT_PROJECT", "")

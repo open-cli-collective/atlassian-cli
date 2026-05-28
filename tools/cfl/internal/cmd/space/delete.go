@@ -41,15 +41,16 @@ func newDeleteCmd(rootOpts *root.Options) *cobra.Command {
 }
 
 func runDelete(ctx context.Context, spaceKey string, opts *deleteOptions) error {
-	if err := view.ValidateFormat(opts.Output); err != nil {
-		return err
-	}
-
-	// §3.4: short-circuit BEFORE any API call so --non-interactive without
-	// --force returns ErrConfirmationRequired even if the space lookup
-	// would have failed first (auth/not-found/network).
+	// §3.4: short-circuit BEFORE any side-effecting check so
+	// --non-interactive without --force returns ErrConfirmationRequired
+	// regardless of output-format validity, API auth/not-found, or
+	// network state. Other validation errors would mask the real cause.
 	if opts.NonInteractive && !opts.force {
 		return prompt.ErrConfirmationRequired
+	}
+
+	if err := view.ValidateFormat(opts.Output); err != nil {
+		return err
 	}
 
 	client, err := opts.APIClient()

@@ -57,7 +57,12 @@ func runDelete(ctx context.Context, opts *root.Options, ruleID string, force boo
 		return err
 	}
 
-	if !force {
+	// Defense-in-depth: the early --non-interactive short-circuit above
+	// would have returned by now, but pinning the gate on both `force`
+	// and `NonInteractive` keeps the policy consistent with issues/page/
+	// attachment delete so a future refactor that moves the short-circuit
+	// can't leak warning text to stderr under --non-interactive.
+	if !force && !opts.NonInteractive {
 		fmt.Fprintf(opts.Stderr, "This will permanently delete rule %q (%s). This action cannot be undone.\n", current.Name, ruleID)
 		fmt.Fprint(opts.Stderr, "Are you sure? [y/N]: ")
 	}

@@ -2,12 +2,14 @@ package configcmd
 
 import (
 	"bytes"
+	"errors"
 	"os"
 	"strings"
 	"testing"
 
 	"github.com/open-cli-collective/atlassian-go/credtest"
 	"github.com/open-cli-collective/atlassian-go/keyring"
+	"github.com/open-cli-collective/atlassian-go/prompt"
 	"github.com/open-cli-collective/atlassian-go/testutil"
 
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
@@ -78,6 +80,48 @@ func TestRunClear_Cancelled(t *testing.T) {
 	testutil.RequireNoError(t, runClear(opts))
 
 	testutil.True(t, tokenPresent(t, keyring.KeyAPIToken))
+}
+
+// TestRunClear_NonInteractive_WithoutForce_ShortCircuits — §3.4 contract
+// for the destructive config-clear path. The short-circuit fires BEFORE
+// keyring.PlanClear so a locked/unavailable keyring can't win first AND
+// the warning text never reaches stderr.
+func TestRunClear_NonInteractive_WithoutForce_ShortCircuits(t *testing.T) {
+	credtest.Hermetic(t)
+	credtest.SeedToken(t, "shared-secret")
+
+	opts, out, errBuf := newClearOpts(false, "")
+	opts.NonInteractive = true
+
+	err := runClear(opts)
+	if err == nil {
+		t.Fatal("expected ErrConfirmationRequired")
+	}
+	if !errors.Is(err, prompt.ErrConfirmationRequired) {
+		t.Fatalf("expected prompt.ErrConfirmationRequired, got %v", err)
+	}
+	// Critical: no warning text leaks before the short-circuit fires.
+	if errBuf.Len() != 0 {
+		t.Fatalf("stderr must be empty (no warning text before fail-loud): %q", errBuf.String())
+	}
+	if out.Len() != 0 {
+		t.Fatalf("stdout must be empty: %q", out.String())
+	}
+	// Token must remain — clear was rejected, not silently completed.
+	testutil.True(t, tokenPresent(t, keyring.KeyAPIToken))
+}
+
+// TestRunClear_NonInteractive_WithForce_Proceeds — --force still
+// bypasses confirmation under --non-interactive (existing contract).
+func TestRunClear_NonInteractive_WithForce_Proceeds(t *testing.T) {
+	credtest.Hermetic(t)
+	credtest.SeedToken(t, "shared-secret")
+
+	opts, _, _ := newClearOpts(true, "")
+	opts.NonInteractive = true
+	testutil.RequireNoError(t, runClear(opts))
+
+	testutil.False(t, tokenPresent(t, keyring.KeyAPIToken))
 }
 
 func TestRunClear_All(t *testing.T) {

@@ -3,11 +3,13 @@ package page
 import (
 	"bytes"
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
+	"github.com/open-cli-collective/atlassian-go/prompt"
 	"github.com/open-cli-collective/atlassian-go/testutil"
 
 	"github.com/open-cli-collective/confluence-cli/api"
@@ -267,4 +269,58 @@ func TestRunDelete_ConfirmationInputs(t *testing.T) {
 			testutil.Equal(t, deleteCalled, tt.shouldProceed)
 		})
 	}
+}
+
+// TestRunDelete_NonInteractive_WithoutForce_ShortCircuits — §3.4 contract
+// + the API-lookup-before-confirm short-circuit: --non-interactive
+// without --force MUST surface ErrConfirmationRequired BEFORE the
+// API.GetPage call, so a missing or auth-failing endpoint never wins
+// over the confirmation policy. Asserts the server is never hit.
+func TestRunDelete_NonInteractive_WithoutForce_ShortCircuits(t *testing.T) {
+	t.Parallel()
+
+	var hits int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		hits++
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	rootOpts := newDeleteTestRootOptions()
+	rootOpts.NonInteractive = true
+	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
+	opts := &deleteOptions{Options: rootOpts, force: false}
+	err := runDelete(context.Background(), "12345", opts)
+	if err == nil {
+		t.Fatal("expected ErrConfirmationRequired")
+	}
+	if !errors.Is(err, prompt.ErrConfirmationRequired) {
+		t.Fatalf("expected prompt.ErrConfirmationRequired, got %v", err)
+	}
+	if hits != 0 {
+		t.Fatalf("API must not be called under --non-interactive without --force; got %d hits", hits)
+	}
+	if rootOpts.Stderr.(*bytes.Buffer).Len() != 0 {
+		t.Fatalf("stderr must be empty: %q", rootOpts.Stderr.(*bytes.Buffer).String())
+	}
+}
+
+// TestRunDelete_NonInteractive_WithForce_Proceeds — --force still
+// bypasses confirmation under --non-interactive, so the existing
+// automation contract is preserved.
+func TestRunDelete_NonInteractive_WithForce_Proceeds(t *testing.T) {
+	t.Parallel()
+	server := mockPageServer(t, "12345", "Test Page", http.StatusNoContent)
+	defer server.Close()
+
+	rootOpts := newDeleteTestRootOptions()
+	rootOpts.NonInteractive = true
+	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
+	opts := &deleteOptions{Options: rootOpts, force: true}
+	err := runDelete(context.Background(), "12345", opts)
+	testutil.RequireNoError(t, err)
 }

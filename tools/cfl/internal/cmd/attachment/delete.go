@@ -40,6 +40,13 @@ func newDeleteCmd(rootOpts *root.Options) *cobra.Command {
 }
 
 func runDeleteAttachment(ctx context.Context, attachmentID string, opts *deleteOptions) error {
+	// §3.4: short-circuit BEFORE any API call so --non-interactive without
+	// --force returns ErrConfirmationRequired even if the attachment
+	// lookup would have failed first (auth/not-found/network).
+	if opts.NonInteractive && !opts.force {
+		return prompt.ErrConfirmationRequired
+	}
+
 	client, err := opts.APIClient()
 	if err != nil {
 		return err

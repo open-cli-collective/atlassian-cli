@@ -45,6 +45,13 @@ func runDelete(ctx context.Context, spaceKey string, opts *deleteOptions) error 
 		return err
 	}
 
+	// §3.4: short-circuit BEFORE any API call so --non-interactive without
+	// --force returns ErrConfirmationRequired even if the space lookup
+	// would have failed first (auth/not-found/network).
+	if opts.NonInteractive && !opts.force {
+		return prompt.ErrConfirmationRequired
+	}
+
 	client, err := opts.APIClient()
 	if err != nil {
 		return err

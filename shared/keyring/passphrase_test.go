@@ -1,8 +1,11 @@
 package keyring
 
 import (
+	"os"
 	"strings"
 	"testing"
+
+	"golang.org/x/term"
 )
 
 // TestPassphraseFunc_NonInteractiveFailsLoud — under --non-interactive
@@ -35,20 +38,19 @@ func TestPassphraseFunc_NonInteractiveFailsLoud(t *testing.T) {
 
 // TestPassphraseFunc_NonInteractiveOff_NonTTYPath — the non-TTY-stdin
 // path (the pre-existing contract) keeps working when --non-interactive
-// is NOT set. The error message format is different (includes "or run
-// interactively") so the two cases stay distinguishable in logs.
+// is NOT set. Skip when os.Stdin IS a real TTY (running tests in a
+// terminal) because the callback would enter term.ReadPassword and
+// block. The non-interactive-true branch above covers fail-loud; the
+// interactive prompt branch requires a PTY harness we don't have here.
 func TestPassphraseFunc_NonInteractiveOff_NonTTYPath(t *testing.T) {
 	SetNonInteractive(false)
-	// In the test process os.Stdin may or may not be a TTY depending on
-	// where the tests run; the assertion below only fires when it isn't.
-	// Both branches (--non-interactive=true above, the non-TTY fallback
-	// below) cover the loud-fail surface; the interactive prompt branch
-	// can't be unit-tested without a real PTY.
+	if term.IsTerminal(int(os.Stdin.Fd())) {
+		t.Skip("os.Stdin is a real TTY; the prompt path would block — skipping (covered by the --non-interactive=true branch)")
+	}
 	fn := passphraseFunc("atlassian-cli")
 	got, err := fn()
 	if err == nil {
-		// Real TTY — the prompt would run; nothing to assert here.
-		return
+		t.Fatalf("expected non-TTY-fallback error, got passphrase %q", got)
 	}
 	if got != "" {
 		t.Fatalf("passphrase must be empty on failure, got %q", got)

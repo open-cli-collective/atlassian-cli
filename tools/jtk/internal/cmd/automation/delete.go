@@ -40,6 +40,13 @@ This action cannot be undone.`,
 }
 
 func runDelete(ctx context.Context, opts *root.Options, ruleID string, force bool) error {
+	// §3.4: short-circuit BEFORE any API call so --non-interactive without
+	// --force returns ErrConfirmationRequired even if the API lookup
+	// would have failed first (auth/not-found/network).
+	if opts.NonInteractive && !force {
+		return prompt.ErrConfirmationRequired
+	}
+
 	client, err := opts.APIClient()
 	if err != nil {
 		return err
@@ -50,7 +57,7 @@ func runDelete(ctx context.Context, opts *root.Options, ruleID string, force boo
 		return err
 	}
 
-	if !force && !opts.NonInteractive {
+	if !force {
 		fmt.Fprintf(opts.Stderr, "This will permanently delete rule %q (%s). This action cannot be undone.\n", current.Name, ruleID)
 		fmt.Fprint(opts.Stderr, "Are you sure? [y/N]: ")
 	}

@@ -118,6 +118,14 @@ override at runtime and cannot be cleared by this command.`,
 func runClear(ctx context.Context, opts *clearOptions) error {
 	_ = ctx
 
+	// §3.4: short-circuit BEFORE any keyring inspection so
+	// --non-interactive without --force returns ErrConfirmationRequired
+	// even if PlanClear would have failed first on a locked/unavailable
+	// keyring or surface warning text that contaminates CI logs.
+	if opts.NonInteractive && !opts.force {
+		return promptpkg.ErrConfirmationRequired
+	}
+
 	// One keyring open for the whole flow: PlanClear hands back the open
 	// store the delete/clear step reuses (no second passphrase prompt).
 	// The env + plaintext-file fields are populated even when the keyring

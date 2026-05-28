@@ -226,9 +226,12 @@ func TestSetCredential_JSONSuccess(t *testing.T) {
 
 func TestSetCredential_JSONFailure_PreKeyring(t *testing.T) {
 	credtest.Hermetic(t)
-	stdout, _, _, err := runCmd(t, "", "--key", keyring.KeyAPIToken, "--stdin", "--json")
+	stdout, stderr, _, err := runCmd(t, "", "--key", keyring.KeyAPIToken, "--stdin", "--json")
 	if err == nil {
 		t.Fatal("expected pre-keyring error")
+	}
+	if stderr != "" {
+		t.Fatalf("stderr must be empty under --json failure: %q", stderr)
 	}
 	env := parseEnvelope(t, stdout)
 	testutil.Equal(t, "", env.Backend)
@@ -242,10 +245,13 @@ func TestSetCredential_JSONFailure_PostKeyring(t *testing.T) {
 	credtest.Hermetic(t)
 	credtest.SeedToken(t, "earlier-token")
 
-	stdout, _, _, err := runCmd(t, sentinel,
+	stdout, stderr, _, err := runCmd(t, sentinel,
 		"--ref", keyring.Ref, "--key", keyring.KeyAPIToken, "--stdin", "--json")
 	if err == nil {
 		t.Fatal("expected post-keyring error")
+	}
+	if stderr != "" {
+		t.Fatalf("stderr must be empty under --json failure: %q", stderr)
 	}
 	env := parseEnvelope(t, stdout)
 	if env.Backend == "" {
@@ -255,6 +261,28 @@ func TestSetCredential_JSONFailure_PostKeyring(t *testing.T) {
 	if !strings.Contains(env.Error, "--overwrite") {
 		t.Fatalf("envelope error must mention --overwrite, got %q", env.Error)
 	}
+}
+
+// TestSetCredential_JSONMigratingInvocation_StderrEmpty — when the §1.8
+// migration runs during set-credential's Open(), the human notice MUST
+// NOT leak to stderr under --json. Mirrors the library-layer drain test
+// but at the cobra wrapper so a regression in the wrapper or its main.go
+// wiring is caught here.
+func TestSetCredential_JSONMigratingInvocation_StderrEmpty(t *testing.T) {
+	keyring.ResetMigrationNotice()
+	t.Cleanup(keyring.ResetMigrationNotice)
+	credtest.Hermetic(t)
+	credtest.SeedDeprecatedKey(t, "jtk_api_token", "legacy-token-value")
+
+	stdout, stderr, _, err := runCmd(t, sentinel,
+		"--ref", keyring.Ref, "--key", keyring.KeyAPIToken,
+		"--stdin", "--json", "--overwrite")
+	testutil.RequireNoError(t, err)
+	if stderr != "" {
+		t.Fatalf("stderr must be empty under --json even during migration: %q", stderr)
+	}
+	env := parseEnvelope(t, stdout)
+	testutil.True(t, env.Written)
 }
 
 func TestSetCredential_NonCanonicalRef_Fails(t *testing.T) {

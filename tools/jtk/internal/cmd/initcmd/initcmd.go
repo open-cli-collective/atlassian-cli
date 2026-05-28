@@ -98,8 +98,12 @@ func runInit(ctx context.Context, opts *root.Options, prefillURL, prefillEmail, 
 	// §1.5.1 token-ingress resolution. Explicit ingress flags win over
 	// the keyring backfill below (token-rotation contract: a user must
 	// be able to re-run init --token-stdin to replace a stale value).
-	// Mutual exclusion + empty-value validation happen here.
+	// Mutual exclusion + empty-value validation happen here. Mutual-
+	// exclusion checks MUST precede the TTY guard so the more specific
+	// "pick one" error wins over the more general TTY conflict.
 	switch {
+	case tokenStdin && tokenFromEnv != "":
+		return errors.New("--token-stdin and --token-from-env are mutually exclusive; pick one")
 	case tokenStdin && prefillToken != "":
 		return errors.New("--token and --token-stdin are mutually exclusive; pick one (and prefer --token-stdin — §1.5.1)")
 	case tokenFromEnv != "" && prefillToken != "":

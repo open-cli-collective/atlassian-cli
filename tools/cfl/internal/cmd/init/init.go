@@ -148,6 +148,13 @@ func runInit(ctx context.Context, opts *root.Options, prefillURL, prefillEmail s
 	// so a returning user isn't forced to re-enter a just-migrated
 	// token. NoMigrate: migration already ran. Value stays
 	// password-masked in the form; never displayed.
+	// Mutual exclusion fires first so the more specific "pick one" error
+	// wins over the more general TTY conflict guard below. cfl has no
+	// --token flag, so only the --token-stdin/--token-from-env pair.
+	if tokenStdin && tokenFromEnv != "" {
+		return errors.New("--token-stdin and --token-from-env are mutually exclusive; pick one")
+	}
+
 	// --token-stdin drains stdin before the interactive form would read
 	// from it. This only matters when the form would actually run —
 	// i.e., a real TTY with no --non-interactive. Piped stdin is already

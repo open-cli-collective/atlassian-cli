@@ -6,6 +6,8 @@ The documentation (readme.md, cfl-intro.md) makes numerous claims about write op
 
 This document inventories all untested assertions and provides comprehensive test cases.
 
+> **#392 update:** Rows that exercise `-o json` / `--output json` on resource commands are obsolete — the resource JSON surface has been removed. They now error at the root. Skip those rows; the `cfl page create` ID-capture pattern (test 4.2.2) should be re-run by parsing the `ID:` key-value line from the default text output instead.
+
 ---
 
 ## Untested Claims Inventory

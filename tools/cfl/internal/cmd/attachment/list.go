@@ -97,7 +97,7 @@ func runList(ctx context.Context, opts *listOptions) error {
 		rows = append(rows, []string{att.ID, att.Title, att.MediaType, size})
 	}
 
-	if len(attachments) == 0 && opts.Output != "json" {
+	if len(attachments) == 0 {
 		if opts.unused {
 			_, _ = fmt.Fprintln(opts.Stderr, "No unused attachments found.")
 		} else {
@@ -108,7 +108,7 @@ func runList(ctx context.Context, opts *listOptions) error {
 
 	_ = v.RenderList(headers, rows, result.HasMore())
 
-	if result.HasMore() && opts.Output != "json" {
+	if result.HasMore() {
 		fmt.Fprintf(os.Stderr, "\n(showing first %d results, use --limit to see more)\n", len(attachments))
 	}
 

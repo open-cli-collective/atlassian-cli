@@ -95,10 +95,6 @@ func runCopy(ctx context.Context, pageID string, opts *copyOptions) error {
 
 	v := opts.View()
 
-	if opts.Output == "json" {
-		return v.JSON(newPage)
-	}
-
 	v.Success("Copied page to: %s", newPage.Title)
 	v.RenderKeyValue("ID", newPage.ID)
 	v.RenderKeyValue("Title", newPage.Title)

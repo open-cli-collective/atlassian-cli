@@ -9,11 +9,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/open-cli-collective/atlassian-go/artifact"
 	"github.com/open-cli-collective/atlassian-go/view"
 
 	"github.com/open-cli-collective/confluence-cli/api"
-	cflartifact "github.com/open-cli-collective/confluence-cli/internal/artifact"
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
 )
 
@@ -75,10 +73,7 @@ convenient flags for common filters, or provide raw CQL for advanced queries.`,
   cfl search "kubernetes" --space DEV --type page --label infrastructure
 
   # Power user: raw CQL query
-  cfl search --cql "type=page AND space=DEV AND lastModified > now('-7d')"
-
-  # Output as JSON for scripting
-  cfl search "config" -o json`,
+  cfl search --cql "type=page AND space=DEV AND lastModified > now('-7d')"`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 0 {
@@ -125,12 +120,7 @@ func runSearch(ctx context.Context, opts *searchOptions) error {
 
 	v := opts.View()
 
-	// Handle limit 0 - return empty
 	if opts.limit == 0 {
-		if opts.Output == "json" {
-			arts := cflartifact.ProjectSearchResults(nil, opts.ArtifactMode())
-			return v.RenderArtifactList(artifact.NewListResult(arts, false))
-		}
 		v.RenderText("No results.")
 		return nil
 	}
@@ -169,21 +159,10 @@ func runSearch(ctx context.Context, opts *searchOptions) error {
 	}
 
 	if len(result.Results) == 0 {
-		if opts.Output == "json" {
-			arts := cflartifact.ProjectSearchResults(nil, opts.ArtifactMode())
-			return v.RenderArtifactList(artifact.NewListResult(arts, false))
-		}
 		v.RenderText("No results found.")
 		return nil
 	}
 
-	// JSON output uses artifact projection
-	if opts.Output == "json" {
-		arts := cflartifact.ProjectSearchResults(result.Results, opts.ArtifactMode())
-		return v.RenderArtifactList(artifact.NewListResult(arts, result.HasMore()))
-	}
-
-	// Table output
 	headers := []string{"ID", "TYPE", "SPACE KEY", "TITLE"}
 	rows := make([][]string, 0, len(result.Results))
 

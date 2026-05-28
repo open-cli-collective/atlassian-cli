@@ -77,14 +77,6 @@ func runDelete(ctx context.Context, pageID string, opts *deleteOptions) error {
 		return fmt.Errorf("deleting page: %w", err)
 	}
 
-	if opts.Output == "json" {
-		return v.JSON(map[string]string{
-			"status":  "deleted",
-			"page_id": pageID,
-			"title":   page.Title,
-		})
-	}
-
 	v.Success("Deleted page: %s (ID: %s)", page.Title, pageID)
 
 	return nil

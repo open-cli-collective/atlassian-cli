@@ -66,10 +66,6 @@ func runUpload(ctx context.Context, opts *uploadOptions) error {
 
 	v := opts.View()
 
-	if opts.Output == "json" {
-		return v.JSON(attachment)
-	}
-
 	v.Success("Uploaded: %s", filename)
 	v.RenderKeyValue("ID", attachment.ID)
 	v.RenderKeyValue("Title", attachment.Title)

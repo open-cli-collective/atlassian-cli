@@ -60,7 +60,7 @@ Some commands expose a `--raw` mode for source-faithful content where transforma
 
 ## Output Format
 
-JTK uses text-first output. The `-o json/plain/table` flag has been removed from JTK (CFL retains it). JTK commands render through presenters; `automation export` is the only command that emits JSON directly.
+JTK and CFL both use text-first output. The `-o json` resource surface has been removed from both tools (JTK earlier, then CFL via #392); CFL retains `-o table` and `-o plain` only. Both tools render through presenters; JSON is reserved for control-plane envelopes (`cfl set-credential --json`, `jtk set-credential --json`) and round-trip payloads (`jtk automation export`).
 
 **Text output modes:**
 - Default = focused output for human and agent consumption (defined per-command)

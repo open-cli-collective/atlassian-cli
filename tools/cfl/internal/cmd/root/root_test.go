@@ -71,7 +71,7 @@ func TestOptions_View(t *testing.T) {
 	t.Parallel()
 	var stdout, stderr bytes.Buffer
 	opts := &Options{
-		Output:  "json",
+		Output:  "plain",
 		NoColor: true,
 		Stdout:  &stdout,
 		Stderr:  &stderr,
@@ -112,6 +112,67 @@ func TestRegisterCommands(t *testing.T) {
 
 	RegisterCommands(cmd, opts, registrar)
 	testutil.True(t, called)
+}
+
+func TestValidateOutputFormat(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		input   string
+		wantErr bool
+	}{
+		{"table accepted", "table", false},
+		{"plain accepted", "plain", false},
+		{"json rejected — §2 control-plane carve-out", "json", true},
+		{"yaml rejected — outside closed set", "yaml", true},
+		{"empty rejected", "", true},
+		{"random rejected", "csv", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			err := validateOutputFormat(tt.input)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("validateOutputFormat(%q) returned nil, want error", tt.input)
+				}
+				testutil.Contains(t, err.Error(), "valid formats: table, plain")
+				return
+			}
+			if err != nil {
+				t.Fatalf("validateOutputFormat(%q) returned error: %v", tt.input, err)
+			}
+		})
+	}
+}
+
+func TestRoot_RejectsInvalidOutput_AtPreRun(t *testing.T) {
+	t.Parallel()
+
+	for _, format := range []string{"json", "yaml", ""} {
+		format := format
+		t.Run("rejects "+format, func(t *testing.T) {
+			t.Parallel()
+			cmd, _ := NewCmd()
+			// Stub child so cobra reaches PersistentPreRunE.
+			cmd.AddCommand(&cobra.Command{
+				Use:  "probe",
+				RunE: func(*cobra.Command, []string) error { return nil },
+			})
+			cmd.SetArgs([]string{"-o", format, "probe"})
+			cmd.SetOut(&bytes.Buffer{})
+			cmd.SetErr(&bytes.Buffer{})
+
+			err := cmd.Execute()
+			if err == nil {
+				t.Fatalf("-o %q should be rejected, got nil error", format)
+			}
+			testutil.Contains(t, err.Error(), "invalid output format")
+			testutil.Contains(t, err.Error(), "valid formats: table, plain")
+		})
+	}
 }
 
 func TestOptions_View_UsesDefaultPolicy(t *testing.T) {

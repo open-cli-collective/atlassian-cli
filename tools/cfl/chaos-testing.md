@@ -3,6 +3,12 @@
 **Started:** 2026-01-03
 **Focus:** Read-only operations (list, view, download)
 
+> **Historical note (#392):** The `-o json` rows below describe behavior from
+> a session that pre-dates the removal of resource-read JSON. As of #392 the
+> closed set is `{table, plain}`; the `-o json` and `-o yaml` rows below are
+> no longer reproducible — both now error at the root with the same
+> "invalid output format" message.
+
 ---
 
 ## Bugs Found

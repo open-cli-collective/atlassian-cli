@@ -83,10 +83,6 @@ func runUpdate(ctx context.Context, spaceKey string, opts *updateOptions) error 
 
 	v := opts.View()
 
-	if opts.Output == "json" {
-		return v.JSON(space)
-	}
-
 	v.Success("Updated space: %s (%s)", space.Name, space.Key)
 
 	return nil

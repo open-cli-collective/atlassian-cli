@@ -2,6 +2,8 @@
 
 This document catalogs the manual integration test suite for `cfl`. These tests verify real-world behavior against a live Confluence instance and catch edge cases that are difficult to cover with unit tests.
 
+> **#392 update:** Rows that exercise `-o json` / `--output json` on resource commands are obsolete — the resource JSON surface has been removed. They now error at the root with `invalid output format: "json" (valid formats: table, plain)`. Skip those rows. The surviving JSON surface is `cfl set-credential --json` (control-plane envelope per cli-common §1.5.2); test that one normally.
+
 ## Auth Methods
 
 cfl supports two authentication methods. The full integration test suite should be run with both:

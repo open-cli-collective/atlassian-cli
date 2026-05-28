@@ -94,36 +94,6 @@ func TestRunSearch_EmptyResults(t *testing.T) {
 	testutil.RequireNoError(t, err)
 }
 
-func TestRunSearch_JSONOutput(t *testing.T) {
-	t.Parallel()
-	server := mockSearchServer(t, `{
-		"results": [
-			{
-				"content": {"id": "12345", "type": "page", "status": "current", "title": "Test Page"},
-				"resultGlobalContainer": {"title": "DEV"}
-			}
-		],
-		"start": 0,
-		"size": 1,
-		"totalSize": 1
-	}`)
-	defer server.Close()
-
-	rootOpts := newTestRootOptions()
-	rootOpts.Output = "json"
-	client := api.NewClient(server.URL, "test@example.com", "token")
-	rootOpts.SetAPIClient(client)
-
-	opts := &searchOptions{
-		Options: rootOpts,
-		query:   "test",
-		limit:   25,
-	}
-
-	err := runSearch(context.Background(), opts)
-	testutil.RequireNoError(t, err)
-}
-
 func TestRunSearch_PlainOutput(t *testing.T) {
 	t.Parallel()
 	server := mockSearchServer(t, `{

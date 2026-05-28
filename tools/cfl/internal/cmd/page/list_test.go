@@ -91,31 +91,6 @@ func TestRunList_PageList_EmptyResults(t *testing.T) {
 	testutil.RequireNoError(t, err)
 }
 
-func TestRunList_PageList_JSONOutput(t *testing.T) {
-	t.Parallel()
-	server := mockListServer(t, "DEV", "123456", `{
-		"results": [
-			{"id": "11111", "title": "Page One", "status": "current", "version": {"number": 1}}
-		]
-	}`)
-	defer server.Close()
-
-	rootOpts := newListPageTestRootOptions()
-	rootOpts.Output = "json"
-	client := api.NewClient(server.URL, "test@example.com", "token")
-	rootOpts.SetAPIClient(client)
-
-	opts := &listOptions{
-		Options: rootOpts,
-		space:   "DEV",
-		limit:   25,
-		status:  "current",
-	}
-
-	err := runList(context.Background(), opts)
-	testutil.RequireNoError(t, err)
-}
-
 func TestRunList_PageList_InvalidOutputFormat(t *testing.T) {
 	t.Parallel()
 	rootOpts := newListPageTestRootOptions()

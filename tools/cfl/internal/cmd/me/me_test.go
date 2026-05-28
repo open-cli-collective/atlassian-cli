@@ -92,22 +92,6 @@ func TestRun_MissingEmail(t *testing.T) {
 	testutil.Equal(t, "abc123 | Rian Stockbower | -\n", stdout)
 }
 
-func TestRun_JSONOutputFallsThroughToOneLiner(t *testing.T) {
-	t.Parallel()
-	server := userServer(t, `{"accountId":"abc123","displayName":"Rian Stockbower","email":"rian@example.com"}`)
-	defer server.Close()
-
-	opts := newTestRootOptions()
-	opts.Output = "json"
-	opts.SetAPIClient(api.NewClient(server.URL, "test@example.com", "token"))
-
-	err := Run(context.Background(), opts, false)
-	testutil.RequireNoError(t, err)
-
-	stdout := opts.Stdout.(*bytes.Buffer).String()
-	testutil.Equal(t, "abc123 | Rian Stockbower | rian@example.com\n", stdout)
-}
-
 func TestRun_MissingAccountID(t *testing.T) {
 	t.Parallel()
 	server := userServer(t, `{"displayName":"Joe","email":"joe@example.com"}`)

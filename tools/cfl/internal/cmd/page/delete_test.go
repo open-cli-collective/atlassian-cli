@@ -202,25 +202,6 @@ func TestRunDelete_DeleteFailed(t *testing.T) {
 	testutil.Contains(t, err.Error(), "deleting page")
 }
 
-func TestRunDelete_JSONOutput(t *testing.T) {
-	t.Parallel()
-	server := mockPageServer(t, "12345", "Test Page", http.StatusNoContent)
-	defer server.Close()
-
-	rootOpts := newDeleteTestRootOptions()
-	rootOpts.Output = "json"
-	client := api.NewClient(server.URL, "test@example.com", "token")
-	rootOpts.SetAPIClient(client)
-
-	opts := &deleteOptions{
-		Options: rootOpts,
-		force:   true,
-	}
-
-	err := runDelete(context.Background(), "12345", opts)
-	testutil.RequireNoError(t, err)
-}
-
 func TestRunDelete_ConfirmationInputs(t *testing.T) {
 	t.Parallel()
 	tests := []struct {

@@ -303,32 +303,6 @@ func TestRunCreate_WithParent(t *testing.T) {
 	testutil.Equal(t, "12345", receivedBody["parentId"])
 }
 
-func TestRunCreate_JSONOutput(t *testing.T) {
-	t.Parallel()
-	tmpDir := t.TempDir()
-	mdFile := filepath.Join(tmpDir, "content.md")
-	err := os.WriteFile(mdFile, []byte("# Hello"), 0600)
-	testutil.RequireNoError(t, err)
-
-	server := mockCreateServer(t, "DEV", "123456", http.StatusOK)
-	defer server.Close()
-
-	rootOpts := newCreateTestRootOptions()
-	rootOpts.Output = "json"
-	client := api.NewClient(server.URL, "test@example.com", "token")
-	rootOpts.SetAPIClient(client)
-
-	opts := &createOptions{
-		Options: rootOpts,
-		space:   "DEV",
-		title:   "Test Page",
-		file:    mdFile,
-	}
-
-	err = runCreate(context.Background(), opts)
-	testutil.RequireNoError(t, err)
-}
-
 func TestRunCreate_MarkdownConversion_Legacy(t *testing.T) {
 	t.Parallel()
 	tmpDir := t.TempDir()

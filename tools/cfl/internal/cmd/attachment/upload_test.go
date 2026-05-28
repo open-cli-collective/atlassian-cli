@@ -147,38 +147,3 @@ func TestRunUpload_APIError(t *testing.T) {
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "uploading attachment")
 }
-
-func TestRunUpload_JSONOutput(t *testing.T) {
-	t.Parallel()
-	tmpDir := t.TempDir()
-	testFile := filepath.Join(tmpDir, "upload.txt")
-	err := os.WriteFile(testFile, []byte("test content"), 0600)
-	testutil.RequireNoError(t, err)
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{
-			"results": [{
-				"id": "att123",
-				"title": "upload.txt",
-				"mediaType": "text/plain",
-				"fileSize": 12
-			}]
-		}`))
-	}))
-	defer server.Close()
-
-	rootOpts := newUploadTestRootOptions()
-	rootOpts.Output = "json"
-	client := api.NewClient(server.URL, "test@example.com", "token")
-	rootOpts.SetAPIClient(client)
-
-	opts := &uploadOptions{
-		Options: rootOpts,
-		pageID:  "12345",
-		file:    testFile,
-	}
-
-	err = runUpload(context.Background(), opts)
-	testutil.RequireNoError(t, err)
-}

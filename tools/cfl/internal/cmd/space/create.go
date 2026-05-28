@@ -82,10 +82,6 @@ func runCreate(ctx context.Context, opts *createOptions) error {
 
 	v := opts.View()
 
-	if opts.Output == "json" {
-		return v.JSON(space)
-	}
-
 	v.Success("Created space: %s", space.Name)
 	v.RenderKeyValue("Key", space.Key)
 	if space.Links.WebUI != "" {

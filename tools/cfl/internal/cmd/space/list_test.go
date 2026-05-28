@@ -84,32 +84,6 @@ func TestRunList_EmptyResults(t *testing.T) {
 	testutil.RequireNoError(t, err)
 }
 
-func TestRunList_JSONOutput(t *testing.T) {
-	t.Parallel()
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{
-			"results": [
-				{"id": "123456", "key": "DEV", "name": "Development", "type": "global"}
-			]
-		}`))
-	}))
-	defer server.Close()
-
-	rootOpts := newTestRootOptions()
-	rootOpts.Output = "json"
-	client := api.NewClient(server.URL, "test@example.com", "token")
-	rootOpts.SetAPIClient(client)
-
-	opts := &listOptions{
-		Options: rootOpts,
-		limit:   25,
-	}
-
-	err := runList(context.Background(), opts)
-	testutil.RequireNoError(t, err)
-}
-
 func TestRunList_InvalidOutputFormat(t *testing.T) {
 	t.Parallel()
 	rootOpts := newTestRootOptions()
@@ -149,21 +123,6 @@ func TestRunList_ZeroLimit(t *testing.T) {
 	}
 
 	// Zero limit should return empty without making API call
-	err := runList(context.Background(), opts)
-	testutil.RequireNoError(t, err)
-}
-
-func TestRunList_ZeroLimitJSON(t *testing.T) {
-	t.Parallel()
-	rootOpts := newTestRootOptions()
-	rootOpts.Output = "json"
-
-	opts := &listOptions{
-		Options: rootOpts,
-		limit:   0,
-	}
-
-	// Zero limit should return empty JSON array without making API call
 	err := runList(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 }

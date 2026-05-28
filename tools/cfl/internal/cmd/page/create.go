@@ -200,10 +200,6 @@ func runCreate(ctx context.Context, opts *createOptions) error {
 
 	v := opts.View()
 
-	if opts.Output == "json" {
-		return v.JSON(page)
-	}
-
 	v.Success("Created page: %s", page.Title)
 	v.RenderKeyValue("ID", page.ID)
 	v.RenderKeyValue("URL", cfg.URL+page.Links.WebUI)

@@ -7,11 +7,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/open-cli-collective/atlassian-go/artifact"
 	"github.com/open-cli-collective/atlassian-go/view"
 
 	"github.com/open-cli-collective/confluence-cli/api"
-	cflartifact "github.com/open-cli-collective/confluence-cli/internal/artifact"
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
 )
 
@@ -38,10 +36,7 @@ page content.`,
   cfl page list --space DEV
 
   # List with limit
-  cfl page list -s DEV -l 50
-
-  # Output as JSON
-  cfl page list -s DEV -o json`,
+  cfl page list -s DEV -l 50`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runList(cmd.Context(), opts)
 		},
@@ -78,10 +73,6 @@ func runList(ctx context.Context, opts *listOptions) error {
 	v := opts.View()
 
 	if opts.limit == 0 {
-		if opts.Output == "json" {
-			arts := cflartifact.ProjectPageListItems(nil, opts.ArtifactMode())
-			return v.RenderArtifactList(artifact.NewListResult(arts, false))
-		}
 		v.RenderText("No pages found.")
 		return nil
 	}
@@ -121,21 +112,10 @@ func runList(ctx context.Context, opts *listOptions) error {
 	}
 
 	if len(result.Results) == 0 {
-		if opts.Output == "json" {
-			arts := cflartifact.ProjectPageListItems(nil, opts.ArtifactMode())
-			return v.RenderArtifactList(artifact.NewListResult(arts, false))
-		}
 		v.RenderText(fmt.Sprintf("No pages found in space %s.", spaceKey))
 		return nil
 	}
 
-	// JSON output uses artifact projection
-	if opts.Output == "json" {
-		arts := cflartifact.ProjectPageListItems(result.Results, opts.ArtifactMode())
-		return v.RenderArtifactList(artifact.NewListResult(arts, result.HasMore()))
-	}
-
-	// Table output
 	headers := []string{"ID", "TITLE", "STATUS", "VERSION"}
 	rows := make([][]string, 0, len(result.Results))
 

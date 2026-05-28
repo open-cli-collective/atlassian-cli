@@ -231,10 +231,6 @@ cfl me
 # Show only the account ID (for scripting)
 cfl me --id
 # → 60e09bae7fcd820073089249
-
-# -o json falls through to the one-liner — there is no JSON representation of `cfl me`.
-cfl me -o json
-# → 60e09bae7fcd820073089249 | Rian Stockbower | rian@example.com
 ```
 
 | Flag | Short | Default | Description |
@@ -253,7 +249,7 @@ List Confluence spaces.
 cfl space list
 cfl space list --type global
 cfl space list --type personal
-cfl space list -l 50 -o json
+cfl space list -l 50
 ```
 
 | Flag | Short | Default | Description |
@@ -273,7 +269,6 @@ List pages in a space.
 cfl page list --space DEV
 cfl page list -s DEV -l 50
 cfl page list -s DEV --status archived
-cfl page list -s DEV -o json
 ```
 
 | Flag | Short | Default | Description |
@@ -292,7 +287,6 @@ View a Confluence page. **Content is displayed as markdown by default.**
 cfl page view 12345
 cfl page view 12345 --raw
 cfl page view 12345 --web
-cfl page view 12345 -o json
 cfl page view 12345 --content-only             # Output only content (no headers)
 cfl page view 12345 --show-macros --content-only | cfl page edit 12345 --legacy  # Roundtrip with macros
 ```
@@ -402,7 +396,7 @@ cfl page edit 12345 --file content.md --legacy
 echo "<p>Updated</p>" | cfl page edit 12345 --storage
 
 # Extract, transform, and re-upload storage-format content
-cfl page view 12345 --output json | jq -r '.body.storage.value' | \
+cfl page view 12345 --raw --content-only | \
   sed 's/old/new/g' | cfl page edit 12345 --storage
 ```
 
@@ -497,9 +491,6 @@ cfl search "kubernetes" --space DEV --type page --label infrastructure
 
 # Raw CQL for power users (find pages modified in last 7 days)
 cfl search --cql "type=page AND space=DEV AND lastModified > now('-7d')"
-
-# Output as JSON for scripting
-cfl search "config" -o json
 ```
 
 | Flag | Short | Default | Description |
@@ -581,7 +572,6 @@ List attachments on a page.
 ```bash
 cfl attachment list --page 12345
 cfl attachment list -p 12345 -l 50
-cfl attachment list -p 12345 -o json
 
 # List unused (orphaned) attachments not referenced in page content
 cfl attachment list --page 12345 --unused
@@ -881,9 +871,14 @@ Use `--output` or `-o` to change output format:
 
 ```bash
 cfl space list -o table  # Default: human-readable table
-cfl space list -o json   # JSON for scripting/automation
 cfl space list -o plain  # Tab-separated for piping to other tools
 ```
+
+**Breaking change (#392):** resource `-o json` has been removed. JSON is
+reserved for control-plane envelopes per cli-common
+`docs/output-and-rendering.md` §2. The surviving JSON surface is
+[`cfl set-credential --json`](#cfl-set-credential), which emits a §1.5.2
+write-confirmation envelope for scripted credential rotation.
 
 ---
 

@@ -165,35 +165,6 @@ func TestRunCopy_PageNotFound(t *testing.T) {
 	testutil.Contains(t, err.Error(), "copying page")
 }
 
-func TestRunCopy_JSONOutput(t *testing.T) {
-	t.Parallel()
-	server := mockCopyServer(t, nil, func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{
-			"id": "99999",
-			"title": "Copied Page",
-			"space": {"key": "TEST"},
-			"version": {"number": 1},
-			"_links": {}
-		}`))
-	})
-	defer server.Close()
-
-	rootOpts := newTestRootOptions()
-	rootOpts.Output = "json"
-	client := api.NewClient(server.URL, "user@example.com", "token")
-	rootOpts.SetAPIClient(client)
-
-	opts := &copyOptions{
-		Options: rootOpts,
-		title:   "Copied Page",
-		space:   "TEST",
-	}
-
-	err := runCopy(context.Background(), "12345", opts)
-	testutil.RequireNoError(t, err)
-}
-
 func TestRunCopy_InvalidOutputFormat(t *testing.T) {
 	t.Parallel()
 	rootOpts := newTestRootOptions()

@@ -88,33 +88,6 @@ func TestRunView_RawFormat(t *testing.T) {
 	testutil.Contains(t, stdout.String(), "<p>Raw HTML Content</p>")
 }
 
-func TestRunView_JSONOutput(t *testing.T) {
-	t.Parallel()
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{
-			"id": "12345",
-			"title": "Test Page",
-			"version": {"number": 1},
-			"body": {"storage": {"value": "<p>Content</p>"}},
-			"_links": {"webui": "/pages/12345"}
-		}`))
-	}))
-	defer server.Close()
-
-	rootOpts := newViewTestRootOptions()
-	rootOpts.Output = "json"
-	client := api.NewClient(server.URL, "test@example.com", "token")
-	rootOpts.SetAPIClient(client)
-
-	opts := &viewOptions{
-		Options: rootOpts,
-	}
-
-	err := runView(context.Background(), "12345", opts)
-	testutil.RequireNoError(t, err)
-}
-
 func TestRunView_PageNotFound(t *testing.T) {
 	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -286,21 +259,6 @@ func TestRunView_ContentOnly_ShowMacros(t *testing.T) {
 	err := runView(context.Background(), "12345", opts)
 	testutil.RequireNoError(t, err)
 	// Output should contain markdown with [TOC] macro placeholder
-}
-
-func TestRunView_ContentOnly_JSON_Error(t *testing.T) {
-	t.Parallel()
-	rootOpts := newViewTestRootOptions()
-	rootOpts.Output = "json"
-
-	opts := &viewOptions{
-		Options:     rootOpts,
-		contentOnly: true,
-	}
-
-	err := runView(context.Background(), "12345", opts)
-	testutil.RequireError(t, err)
-	testutil.Contains(t, err.Error(), "--content-only is incompatible with --output json")
 }
 
 func TestRunView_ContentOnly_Web_Error(t *testing.T) {

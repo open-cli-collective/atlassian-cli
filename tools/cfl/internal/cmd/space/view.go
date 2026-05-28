@@ -8,7 +8,6 @@ import (
 
 	"github.com/open-cli-collective/atlassian-go/view"
 
-	cflartifact "github.com/open-cli-collective/confluence-cli/internal/artifact"
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
 )
 
@@ -25,10 +24,7 @@ func newViewCmd(rootOpts *root.Options) *cobra.Command {
 		Short:   "View space details",
 		Long:    `View details of a Confluence space by its key.`,
 		Example: `  # View a space
-  cfl space view DEV
-
-  # View as JSON
-  cfl space view DEV -o json`,
+  cfl space view DEV`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runView(cmd.Context(), args[0], opts)
@@ -54,11 +50,6 @@ func runView(ctx context.Context, spaceKey string, opts *viewOptions) error {
 	}
 
 	v := opts.View()
-
-	if opts.Output == "json" {
-		art := cflartifact.ProjectSpace(space, opts.ArtifactMode())
-		return v.RenderArtifact(art)
-	}
 
 	v.RenderKeyValue("Key", space.Key)
 	v.RenderKeyValue("Name", space.Name)

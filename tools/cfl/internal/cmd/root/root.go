@@ -118,17 +118,23 @@ Get started by running: cfl init`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		Version:       version.Version,
-		// PersistentPreRunE wires --backend and keyring.backend (config)
-		// into shared/keyring before any subcommand runs. Must NOT read
-		// ATLASSIAN_CLI_KEYRING_BACKEND directly — credstore reads it.
+		// PersistentPreRunE validates the closed-set output format (§2:
+		// JSON is reserved for round-trip + control-plane envelopes; cfl
+		// resource output is text-only), then wires --backend and
+		// keyring.backend (config) into shared/keyring. Output validation
+		// runs first so a flag/policy error fails fast without touching
+		// config or keyring.
 		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
+			if err := validateOutputFormat(opts.Output); err != nil {
+				return err
+			}
 			return wireBackendSelection(cmd)
 		},
 	}
 
 	// Global flags - bound to opts struct
 	cmd.PersistentFlags().StringP("config", "c", "", "config file (default: ~/.config/cfl/config.yml)")
-	cmd.PersistentFlags().StringVarP(&opts.Output, "output", "o", "table", "output format: table, json, plain")
+	cmd.PersistentFlags().StringVarP(&opts.Output, "output", "o", "table", "output format: table, plain")
 	cmd.PersistentFlags().BoolVar(&opts.NoColor, "no-color", false, "disable colored output")
 	cmd.PersistentFlags().BoolVar(&opts.Full, "full", false, "show full inspection-oriented output (default: agent)")
 	cmd.PersistentFlags().BoolVar(&opts.NonInteractive, "non-interactive", false, "Never prompt; fail loud naming any required value missing from flags/env/stdin (§3.4)")
@@ -138,6 +144,20 @@ Get started by running: cfl init`,
 	cmd.SetVersionTemplate("cfl version {{.Version}} (commit: " + version.Commit + ", built: " + version.BuildDate + ")\n")
 
 	return cmd, opts
+}
+
+// validateOutputFormat enforces the §2 closed set for cfl's resource
+// surface. JSON is reserved for round-trip payloads + control-plane
+// envelopes (e.g. set-credential's local --json flag) and is rejected
+// here. Anything outside {table, plain} fails fast with the same error
+// shape so users get one unambiguous "valid formats" line.
+func validateOutputFormat(format string) error {
+	switch format {
+	case "table", "plain":
+		return nil
+	default:
+		return fmt.Errorf("invalid output format: %q (valid formats: table, plain)", format)
+	}
 }
 
 // wireBackendSelection reads --backend (via cmd.Flag so the lookup

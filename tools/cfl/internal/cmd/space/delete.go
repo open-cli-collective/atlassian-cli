@@ -82,14 +82,6 @@ func runDelete(ctx context.Context, spaceKey string, opts *deleteOptions) error 
 		return fmt.Errorf("deleting space: %w", err)
 	}
 
-	if opts.Output == "json" {
-		return v.JSON(map[string]string{
-			"status":    "deleted",
-			"space_key": spaceKey,
-			"name":      space.Name,
-		})
-	}
-
 	v.Success("Deleted space: %s (%s)", space.Name, spaceKey)
 
 	return nil

@@ -172,10 +172,13 @@ process_page() {
     fi
     printf '%s' "$md_content" > "$staging_md"
 
-    # Step 4: Create test page from markdown
+    # Step 4: Create test page from markdown.
+    # JSON output was removed in #392; parse the ID line from the default
+    # text output instead. --no-color keeps the parser robust against any
+    # future ANSI styling around the key:value pairs.
     local new_id
-    new_id=$(printf '%s' "$md_content" | cfl page create -s "$SPACE" -t "[Test] Roundtrip $id" --legacy -o json 2>/dev/null | jq -r '.id') || true
-    if [[ -z "$new_id" || "$new_id" == "null" ]]; then
+    new_id=$(printf '%s' "$md_content" | cfl --no-color page create -s "$SPACE" -t "[Test] Roundtrip $id" --legacy 2>/dev/null | awk -F': ' '/^ID:[[:space:]]/ {print $2; exit}') || true
+    if [[ -z "$new_id" ]]; then
         echo "[$id] FAIL: Could not create test page"
         FAIL=$((FAIL + 1))
         return 1

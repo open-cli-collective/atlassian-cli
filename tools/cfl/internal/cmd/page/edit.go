@@ -79,7 +79,7 @@ Content format:
   echo "<p>Updated</p>" | cfl page edit 12345 --storage
 
   # Extract, transform, and re-upload storage-format content
-  cfl page view 12345 --output json | jq -r '.body.storage.value' | \
+  cfl page view 12345 --raw --content-only | \
     sed 's/old/new/g' | cfl page edit 12345 --storage`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -231,10 +231,6 @@ func runEdit(ctx context.Context, opts *editOptions) error {
 	}
 
 	v := opts.View()
-
-	if opts.Output == "json" {
-		return v.JSON(page)
-	}
 
 	v.Success("Updated page: %s", page.Title)
 	v.RenderKeyValue("ID", page.ID)

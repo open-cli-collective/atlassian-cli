@@ -10,7 +10,6 @@ import (
 
 	"github.com/open-cli-collective/atlassian-go/view"
 
-	cflartifact "github.com/open-cli-collective/confluence-cli/internal/artifact"
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
 	"github.com/open-cli-collective/confluence-cli/pkg/md"
 )
@@ -42,8 +41,7 @@ markdown for display. Use --raw to see the original storage format.
 
 By default, output is truncated to 5000 characters for concise display.
 Use --no-truncate to show the complete page content without truncation.
-The --content-only flag implies --no-truncate since it is intended for piping.
-JSON output (--output json) always includes the full body.`,
+The --content-only flag implies --no-truncate since it is intended for piping.`,
 		Example: `  # View a page (markdown, truncated if large)
   cfl page view 12345
 
@@ -82,9 +80,6 @@ func runView(ctx context.Context, pageID string, opts *viewOptions) error {
 	}
 
 	if opts.contentOnly {
-		if opts.Output == "json" {
-			return fmt.Errorf("--content-only is incompatible with --output json")
-		}
 		if opts.web {
 			return fmt.Errorf("--content-only is incompatible with --web")
 		}
@@ -125,19 +120,6 @@ func runView(ctx context.Context, pageID string, opts *viewOptions) error {
 			spaceKey = space.Key
 		}
 		// Graceful fallback: if GetSpace fails, we just won't show the key
-	}
-
-	if opts.Output == "json" {
-		// Extract content (XHTML storage format by default, until #196 validates markdown)
-		content := ""
-		if hasStorageContent(page) {
-			content = page.Body.Storage.Value
-		} else if hasADFContent(page) {
-			content = page.Body.AtlasDocFormat.Value
-		}
-
-		art := cflartifact.ProjectPage(page, spaceKey, content, opts.ArtifactMode())
-		return v.RenderArtifact(art)
 	}
 
 	if !opts.contentOnly {

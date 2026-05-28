@@ -76,14 +76,6 @@ func runDeleteAttachment(ctx context.Context, attachmentID string, opts *deleteO
 		return fmt.Errorf("deleting attachment: %w", err)
 	}
 
-	if opts.Output == "json" {
-		return v.JSON(map[string]string{
-			"status":        "deleted",
-			"attachment_id": attachmentID,
-			"title":         attachment.Title,
-		})
-	}
-
 	v.Success("Deleted attachment: %s (ID: %s)", attachment.Title, attachmentID)
 
 	return nil

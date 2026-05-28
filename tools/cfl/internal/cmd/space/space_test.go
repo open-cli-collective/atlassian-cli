@@ -73,34 +73,6 @@ func TestRunView_Table(t *testing.T) {
 	testutil.Contains(t, output, "A test space")
 }
 
-func TestRunView_JSON(t *testing.T) {
-	t.Parallel()
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(spaceListResponse))
-	}))
-	defer server.Close()
-
-	stdout := &bytes.Buffer{}
-	rootOpts := &root.Options{
-		Output:  "json",
-		NoColor: true,
-		Stdout:  stdout,
-		Stderr:  &bytes.Buffer{},
-	}
-	client := api.NewClient(server.URL, "test@example.com", "token")
-	rootOpts.SetAPIClient(client)
-
-	opts := &viewOptions{Options: rootOpts}
-	err := runView(context.Background(), "TEST", opts)
-
-	testutil.RequireNoError(t, err)
-	var result map[string]any
-	err = json.Unmarshal(stdout.Bytes(), &result)
-	testutil.RequireNoError(t, err)
-	testutil.Equal(t, "TEST", result["key"])
-}
-
 func TestRunView_NotFound(t *testing.T) {
 	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -171,46 +143,6 @@ func TestRunCreate(t *testing.T) {
 	testutil.Contains(t, output, "Created space")
 	testutil.Contains(t, output, "Test Space")
 	testutil.Contains(t, output, "TEST")
-}
-
-func TestRunCreate_JSON(t *testing.T) {
-	t.Parallel()
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{
-			"id": "123456",
-			"key": "TEST",
-			"name": "Test Space",
-			"type": "global"
-		}`))
-	}))
-	defer server.Close()
-
-	stdout := &bytes.Buffer{}
-	rootOpts := &root.Options{
-		Output:  "json",
-		NoColor: true,
-		Stdout:  stdout,
-		Stderr:  &bytes.Buffer{},
-	}
-	client := api.NewClient(server.URL, "test@example.com", "token")
-	rootOpts.SetAPIClient(client)
-	rootOpts.SetConfig(&config.Config{URL: "https://example.atlassian.net/wiki"})
-
-	opts := &createOptions{
-		Options:   rootOpts,
-		key:       "TEST",
-		name:      "Test Space",
-		spaceType: "global",
-	}
-
-	err := runCreate(context.Background(), opts)
-
-	testutil.RequireNoError(t, err)
-	var result map[string]any
-	err = json.Unmarshal(stdout.Bytes(), &result)
-	testutil.RequireNoError(t, err)
-	testutil.Equal(t, "TEST", result["key"])
 }
 
 func TestRunCreate_WithDescription(t *testing.T) {
@@ -289,38 +221,6 @@ func TestRunUpdate(t *testing.T) {
 	output := stdout.String()
 	testutil.Contains(t, output, "Updated space")
 	testutil.Contains(t, output, "Updated Name")
-}
-
-func TestRunUpdate_JSON(t *testing.T) {
-	t.Parallel()
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(v1SpaceUpdateResponse))
-	}))
-	defer server.Close()
-
-	stdout := &bytes.Buffer{}
-	rootOpts := &root.Options{
-		Output:  "json",
-		NoColor: true,
-		Stdout:  stdout,
-		Stderr:  &bytes.Buffer{},
-	}
-	client := api.NewClient(server.URL, "test@example.com", "token")
-	rootOpts.SetAPIClient(client)
-
-	opts := &updateOptions{
-		Options: rootOpts,
-		name:    "Updated Name",
-	}
-
-	err := runUpdate(context.Background(), "TEST", opts)
-
-	testutil.RequireNoError(t, err)
-	var result map[string]any
-	err = json.Unmarshal(stdout.Bytes(), &result)
-	testutil.RequireNoError(t, err)
-	testutil.Equal(t, "TEST", result["key"])
 }
 
 func TestRunUpdate_NoFlags(t *testing.T) {
@@ -407,46 +307,6 @@ func TestRunDelete_Force(t *testing.T) {
 	output := stdout.String()
 	testutil.Contains(t, output, "Deleted space")
 	testutil.Contains(t, output, "Test Space")
-}
-
-func TestRunDelete_Force_JSON(t *testing.T) {
-	t.Parallel()
-	callCount := 0
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		callCount++
-		if callCount == 1 {
-			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte(spaceListResponse))
-			return
-		}
-		w.WriteHeader(http.StatusAccepted)
-	}))
-	defer server.Close()
-
-	stdout := &bytes.Buffer{}
-	rootOpts := &root.Options{
-		Output:  "json",
-		NoColor: true,
-		Stdout:  stdout,
-		Stderr:  &bytes.Buffer{},
-	}
-	client := api.NewClient(server.URL, "test@example.com", "token")
-	rootOpts.SetAPIClient(client)
-
-	opts := &deleteOptions{
-		Options: rootOpts,
-		force:   true,
-	}
-
-	err := runDelete(context.Background(), "TEST", opts)
-
-	testutil.RequireNoError(t, err)
-	var result map[string]string
-	err = json.Unmarshal(stdout.Bytes(), &result)
-	testutil.RequireNoError(t, err)
-	testutil.Equal(t, "deleted", result["status"])
-	testutil.Equal(t, "TEST", result["space_key"])
-	testutil.Equal(t, "Test Space", result["name"])
 }
 
 func TestRunDelete_NoForce_Declined(t *testing.T) {

@@ -94,33 +94,6 @@ func TestRunList_APIError(t *testing.T) {
 	testutil.Contains(t, err.Error(), "listing attachments")
 }
 
-func TestRunList_JSONOutput(t *testing.T) {
-	t.Parallel()
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{
-			"results": [
-				{"id": "att1", "title": "doc.pdf", "mediaType": "application/pdf", "fileSize": 1024}
-			]
-		}`))
-	}))
-	defer server.Close()
-
-	rootOpts := newListTestRootOptions()
-	rootOpts.Output = "json"
-	client := api.NewClient(server.URL, "test@example.com", "token")
-	rootOpts.SetAPIClient(client)
-
-	opts := &listOptions{
-		Options: rootOpts,
-		pageID:  "12345",
-		limit:   25,
-	}
-
-	err := runList(context.Background(), opts)
-	testutil.RequireNoError(t, err)
-}
-
 func TestRunList_InvalidOutputFormat(t *testing.T) {
 	t.Parallel()
 	// Don't need a server - should fail before API call

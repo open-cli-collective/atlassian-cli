@@ -113,7 +113,14 @@ func TestEntrypoint_PlaintextMigration_Exit0(t *testing.T) {
 	dir := credtest.Hermetic(t)
 	shared := writeLegacyShared(t, dir, "https://acme.atlassian.net", legacyTok)
 
-	stderr, code := runCLI(t, dir, "NEW-token-from-stdin\n", "set-credential")
+	// §1.5.2: set-credential needs --ref / --key / --stdin explicitly;
+	// --overwrite is required because the §1.8 migration writes legacyTok
+	// to the keyring during Open() before the new value lands.
+	stderr, code := runCLI(t, dir, "NEW-token-from-stdin\n",
+		"set-credential",
+		"--ref", "atlassian-cli/default",
+		"--key", "api_token",
+		"--stdin", "--overwrite")
 	if code != 0 {
 		t.Fatalf("set-credential should exit 0; got %d\nstderr:\n%s", code, stderr)
 	}
@@ -154,7 +161,14 @@ func TestEntrypoint_B3UpgradeFixture_DeprecatedKeysOnly(t *testing.T) {
 	credtest.SeedDeprecatedKey(t, "cfl_api_token", legacyTok)
 	credtest.SeedDeprecatedKey(t, "jtk_api_token", legacyTok)
 
-	stderr, code := runCLI(t, dir, "NEW-token-from-stdin\n", "set-credential")
+	// B3 upgrade: migration consolidates deprecated per-tool keys onto
+	// api_token, so by the time set-credential's write fires the entry
+	// already exists — --overwrite is required for the new value to land.
+	stderr, code := runCLI(t, dir, "NEW-token-from-stdin\n",
+		"set-credential",
+		"--ref", "atlassian-cli/default",
+		"--key", "api_token",
+		"--stdin", "--overwrite")
 	if code != 0 {
 		t.Fatalf("set-credential should exit 0; got %d\nstderr:\n%s", code, stderr)
 	}

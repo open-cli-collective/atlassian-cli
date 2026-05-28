@@ -190,6 +190,14 @@ func (s *Store) SetToken(key, val string) error {
 	return s.setToken(key, val, true)
 }
 
+// SetTokenStrict writes only if no entry already exists at <ref>/<key>.
+// Surfaces cccredstore.ErrExists when the entry is present. This is the
+// §1.5.2 --overwrite gate: callers that did NOT pass --overwrite must
+// fail loud rather than silently replacing a token.
+func (s *Store) SetTokenStrict(key, val string) error {
+	return s.setToken(key, val, false)
+}
+
 // setToken is the single guarded write chokepoint. With overwrite=false a
 // value created between a caller's read and this write surfaces as
 // cccredstore.ErrExists instead of being silently clobbered — the §1.8

@@ -284,7 +284,7 @@ func runInit(ctx context.Context, opts *root.Options, prefillURL, prefillEmail, 
 	// only NON-secret placement, untouched here).
 	if err := keyring.PersistToken(cfg.APIToken); err != nil {
 		v.Error("Saved the non-secret config to %s, but could not store the API token in the keyring: %v", sharedPath, err)
-		v.Error("Recover by storing just the token (no need to re-run init): `jtk set-credential` (reads stdin or --from-env VAR).")
+		v.Error("Recover by storing just the token (no need to re-run init): `jtk set-credential --ref atlassian-cli/default --key api_token --stdin --overwrite` (reads stdin; use --from-env VAR for env-driven setup).")
 		return err
 	}
 	v.Success("Configuration saved to %s (token stored in the OS keyring)", sharedPath)

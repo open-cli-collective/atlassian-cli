@@ -802,9 +802,39 @@ cfl:
 There is **no `api_token:` field** — the secret never touches a
 plaintext file. The same config file and keyring bundle are shared with
 `jtk` — one Atlassian token, both tools. Run `cfl init` after `jtk init`
-(or vice versa) and you'll be offered to reuse the credentials. To set a
-token non-interactively: `cfl set-credential` (reads stdin or
-`--from-env VAR`).
+(or vice versa) and you'll be offered to reuse the credentials.
+
+**Non-interactive token ingress (§1.5.2):** use `cfl set-credential` for
+installer scripts, CI, and credential-manager driven setup. Required
+flags:
+
+- `--ref atlassian-cli/default` (required on fresh installs; defaults to
+  the canonical ref when a shared config already exists)
+- `--key api_token` (always required)
+- exactly one of `--stdin` or `--from-env VAR` (mutually exclusive; no
+  `--value` — flag-passed secrets leak into process listings)
+- `--overwrite` to replace an existing entry (default: fail loud)
+- `--json` to emit the §1.5.2 control-plane envelope
+  `{"ref","key","backend","written","error?"}` on stdout (stderr stays
+  empty under `--json`)
+
+```bash
+# From a secrets manager
+op read 'op://Vault/Atlassian/token' | cfl set-credential \
+  --ref atlassian-cli/default --key api_token --stdin
+
+# From an environment variable
+cfl set-credential --ref atlassian-cli/default --key api_token \
+  --from-env CFL_API_TOKEN
+
+# Replace an existing entry
+op read 'op://Vault/Atlassian/token' | cfl set-credential \
+  --ref atlassian-cli/default --key api_token --stdin --overwrite
+
+# Installer-script control-plane envelope
+cfl set-credential --ref atlassian-cli/default --key api_token \
+  --from-env CFL_API_TOKEN --json
+```
 
 Legacy `~/.config/cfl/config.yml` keeps working indefinitely. The first
 command auto-migrates any pre-existing plaintext token into the keyring

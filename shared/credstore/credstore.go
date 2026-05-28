@@ -217,6 +217,54 @@ func (s *Store) HasUsableConfig(tool string) bool {
 	}
 }
 
+// HasSharedConfig reports whether a shared atlassian-cli config.yml
+// exists at any recognized location. Composes with §3.2 relocation:
+// an old-only hand-rolled file (pre-statedir layout) registers as
+// present, mirroring LoadSharedRuntime's transparent read-fallback.
+//
+// Corrupt/unparseable files surface as ErrCorruptStore — callers that
+// gate behavior on "config present" (set-credential's --ref defaulting)
+// must NOT silently fall back to the no-config branch when the user's
+// actual file is unreadable.
+func HasSharedConfig() (bool, error) {
+	canonical, err := DefaultPath()
+	if err != nil {
+		return false, err
+	}
+	return hasSharedConfigAt(canonical)
+}
+
+// hasSharedConfigAt is the testable seam — accepts the canonical path
+// as an argument so Linux CI (where oldSharedPath ≡ DefaultPath) can
+// exercise old≠new branches under a synthesized distinct canonical,
+// matching the loadSharedRuntime(newPath) split used by relocate.go.
+func hasSharedConfigAt(canonical string) (bool, error) {
+	if present, err := checkConfigAt(canonical); err != nil || present {
+		return present, err
+	}
+	old := oldSharedPath()
+	if old == "" || old == canonical {
+		return false, nil
+	}
+	return checkConfigAt(old)
+}
+
+func checkConfigAt(path string) (bool, error) {
+	_, err := os.Stat(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("checking shared config %s: %w", path, err)
+	}
+	// File present — validate parse so corruption surfaces as
+	// ErrCorruptStore rather than silently registering as absent.
+	if _, lerr := Load(path); lerr != nil {
+		return false, lerr
+	}
+	return true, nil
+}
+
 // NormalizeBaseURL strips the "/wiki" suffix and any trailing "/" so
 // the shared store always carries the bare instance URL. Idempotent.
 func NormalizeBaseURL(raw string) string {

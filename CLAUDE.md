@@ -190,9 +190,15 @@ who *permanently* exports the token via env therefore keeps the plaintext
 file until they run `init`/`set-credential` — env is an explicit runtime
 override, so a read path is never forced to mutate disk behind it.
 
-**Non-interactive ingress:** `cfl set-credential` / `jtk set-credential`
-read a token from stdin or `--from-env VAR` and store it in the keyring
-(never echoed). `config show` reports token presence + source + keyring
+**Non-interactive ingress (§1.5.2):** `cfl set-credential` / `jtk set-credential`
+read a token from `--stdin` or `--from-env VAR` (exactly one; mutually
+exclusive) and store it in the keyring (never echoed). `--key` is always
+required (`--key api_token`); `--ref` is required when no shared config
+exists (`--ref atlassian-cli/default`) and defaults to the canonical ref
+otherwise. Replacing an existing entry requires `--overwrite`. `--json`
+emits a control-plane envelope `{"ref","key","backend","written",
+"error?"}` per cli-common §1.5.2 with stderr empty (envelope is the only
+stdout artifact). `config show` reports token presence + source + keyring
 backend only (never the value). `config clear` removes the single shared
 `api_token` (warning that the sibling tool loses access too, since both
 resolve the same key); `config clear --all` removes the whole bundle

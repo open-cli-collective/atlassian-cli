@@ -7,6 +7,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -51,7 +52,11 @@ func main() {
 	// still prints when a later command error triggers os.Exit.
 	keyring.FlushMigrationNotice(os.Stderr)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+		// set-credential --json may have already emitted its envelope on
+		// stdout; in that case stderr stays empty per §1.5.2.
+		if !errors.Is(err, keyring.ErrSetCredentialEnvelopeEmitted) {
+			fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+		}
 		os.Exit(exitcode.GeneralError)
 	}
 }

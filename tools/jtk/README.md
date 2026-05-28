@@ -1623,9 +1623,39 @@ jtk:
 There is **no `api_token:` field** — the secret never touches a
 plaintext file. The same config file and keyring bundle are shared with
 `cfl` — one Atlassian token, both tools. Run `jtk init` after `cfl init`
-(or vice versa) and you'll be offered to reuse the credentials. To set a
-token non-interactively: `jtk set-credential` (reads stdin or
-`--from-env VAR`).
+(or vice versa) and you'll be offered to reuse the credentials.
+
+**Non-interactive token ingress (§1.5.2):** use `jtk set-credential` for
+installer scripts, CI, and credential-manager driven setup. Required
+flags:
+
+- `--ref atlassian-cli/default` (required on fresh installs; defaults to
+  the canonical ref when a shared config already exists)
+- `--key api_token` (always required)
+- exactly one of `--stdin` or `--from-env VAR` (mutually exclusive; no
+  `--value` — flag-passed secrets leak into process listings)
+- `--overwrite` to replace an existing entry (default: fail loud)
+- `--json` to emit the §1.5.2 control-plane envelope
+  `{"ref","key","backend","written","error?"}` on stdout (stderr stays
+  empty under `--json`)
+
+```bash
+# From a secrets manager
+op read 'op://Vault/Atlassian/token' | jtk set-credential \
+  --ref atlassian-cli/default --key api_token --stdin
+
+# From an environment variable
+jtk set-credential --ref atlassian-cli/default --key api_token \
+  --from-env JIRA_API_TOKEN
+
+# Replace an existing entry
+op read 'op://Vault/Atlassian/token' | jtk set-credential \
+  --ref atlassian-cli/default --key api_token --stdin --overwrite
+
+# Installer-script control-plane envelope
+jtk set-credential --ref atlassian-cli/default --key api_token \
+  --from-env JIRA_API_TOKEN --json
+```
 
 Legacy per-tool config keeps working indefinitely (Linux: `~/.config/jira-ticket-cli/config.json`; macOS: `~/Library/Application Support/jira-ticket-cli/config.json`). The first command auto-migrates any pre-existing plaintext token into the keyring and scrubs the plaintext in place.
 

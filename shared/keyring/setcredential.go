@@ -105,8 +105,6 @@ func SetCredentialV2(opts SetCredentialOpts) (SetCredentialResult, error) {
 	post := func(err error) (SetCredentialResult, error) {
 		if cerr := s.Close(); cerr != nil && err == nil {
 			err = fmt.Errorf("close keyring %s: %w", s.ref, cerr)
-		} else {
-			_ = s.Close()
 		}
 		return SetCredentialResult{
 			Ref:     opts.Ref,

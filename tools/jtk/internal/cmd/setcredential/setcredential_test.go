@@ -224,9 +224,13 @@ func TestSetCredential_JSONSuccess(t *testing.T) {
 	}
 }
 
-func TestSetCredential_JSONFailure_PreKeyring(t *testing.T) {
+// TestSetCredential_JSONFailure_PreKeyring_EmptyToken — empty-stdin
+// rejection is technically a "pre-keyring" failure (we never Open() with
+// no source). Asserts the envelope contract: backend:"", written:false,
+// error populated, stderr empty.
+func TestSetCredential_JSONFailure_PreKeyring_EmptyToken(t *testing.T) {
 	credtest.Hermetic(t)
-	stdout, stderr, _, err := runCmd(t, "", "--key", keyring.KeyAPIToken, "--stdin", "--json")
+	stdout, stderr, _, err := runCmd(t, "", "--ref", keyring.Ref, "--key", keyring.KeyAPIToken, "--stdin", "--json")
 	if err == nil {
 		t.Fatal("expected pre-keyring error")
 	}
@@ -238,6 +242,27 @@ func TestSetCredential_JSONFailure_PreKeyring(t *testing.T) {
 	testutil.False(t, env.Written)
 	if env.Error == "" {
 		t.Fatal("envelope error field must be populated on failure")
+	}
+}
+
+// TestSetCredential_JSONFailure_PreKeyring_MissingRef — ref-validation
+// failure path under --json. The envelope MUST carry backend:"" since
+// the keyring was never opened. Pairs with the EmptyToken case so both
+// pre-keyring routes (validation vs source-read) are covered.
+func TestSetCredential_JSONFailure_PreKeyring_MissingRef(t *testing.T) {
+	credtest.Hermetic(t) // no config — --ref omission is the failure
+	stdout, stderr, _, err := runCmd(t, sentinel, "--key", keyring.KeyAPIToken, "--stdin", "--json")
+	if err == nil {
+		t.Fatal("expected pre-keyring error on missing --ref")
+	}
+	if stderr != "" {
+		t.Fatalf("stderr must be empty under --json failure: %q", stderr)
+	}
+	env := parseEnvelope(t, stdout)
+	testutil.Equal(t, "", env.Backend)
+	testutil.False(t, env.Written)
+	if !strings.Contains(env.Error, "--ref") {
+		t.Fatalf("envelope error must hint at --ref, got %q", env.Error)
 	}
 }
 

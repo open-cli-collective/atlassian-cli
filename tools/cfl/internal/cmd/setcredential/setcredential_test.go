@@ -207,6 +207,44 @@ func TestSetCredential_JSONSuccess(t *testing.T) {
 	}
 }
 
+// TestSetCredential_ThroughRealRoot_LocalJSONFlagPreserved dispatches
+// set-credential --json through the real root.NewCmd() with its
+// PersistentPreRunE wired (closed-set output guard + wireBackendSelection).
+// runCmd() above uses a bare cobra.Command root so it bypasses the guard;
+// this test exercises the production path. The guarantee being pinned: the
+// global -o/--output closed-set guard does not interfere with the local
+// --json envelope flag (§1.5.2 control-plane carve-out).
+func TestSetCredential_ThroughRealRoot_LocalJSONFlagPreserved(t *testing.T) {
+	credtest.Hermetic(t)
+
+	rootCmd, opts := root.NewCmd()
+	opts.Stdin = strings.NewReader(sentinel)
+	opts.Stdout = &bytes.Buffer{}
+	opts.Stderr = &bytes.Buffer{}
+	Register(rootCmd, opts)
+
+	rootCmd.SetArgs([]string{
+		"set-credential",
+		"--ref", keyring.Ref,
+		"--key", keyring.KeyAPIToken,
+		"--stdin",
+		"--json",
+	})
+	if err := rootCmd.Execute(); err != nil {
+		t.Fatalf("set-credential --json failed through real root: %v", err)
+	}
+
+	stderr := opts.Stderr.(*bytes.Buffer).String()
+	if stderr != "" {
+		t.Fatalf("stderr must be empty under --json: %q", stderr)
+	}
+	env := parseEnvelope(t, opts.Stdout.(*bytes.Buffer).String())
+	testutil.True(t, env.Written)
+	if env.Backend == "" {
+		t.Fatal("Backend must be populated on success")
+	}
+}
+
 // TestSetCredential_JSONFailure_PreKeyring_EmptyToken — empty-stdin
 // rejection is technically a "pre-keyring" failure (we never Open() with
 // no source). Asserts the envelope contract: backend:"", written:false,

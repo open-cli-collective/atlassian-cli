@@ -220,8 +220,7 @@ var ErrSetCredentialEnvelopeEmitted = errors.New("set-credential envelope alread
 // now, --json runs that perform a migration silently consume the human
 // notice; the migration itself still occurred and is reflected in the
 // envelope's `written=true`.
-func RunSetCredential(opts SetCredentialOpts, stdout, stderr io.Writer, emitJSON bool, toolName string) error {
-	_ = toolName
+func RunSetCredential(opts SetCredentialOpts, stdout, stderr io.Writer, emitJSON bool) error {
 	res, err := SetCredentialV2(opts)
 	if emitJSON {
 		// Drain any pending §1.8 migration notice so main.go's

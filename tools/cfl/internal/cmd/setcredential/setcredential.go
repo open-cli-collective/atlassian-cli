@@ -65,7 +65,7 @@ installer-script parsing per cli-common §1.5.2.`,
 				FromEnv:   fromEnv,
 				UseStdin:  useStdin,
 				Overwrite: overwrite,
-			}, opts.Stdout, opts.Stderr, j, "cfl")
+			}, opts.Stdout, opts.Stderr, j)
 		},
 	}
 

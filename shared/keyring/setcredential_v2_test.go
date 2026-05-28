@@ -311,7 +311,7 @@ func TestRunSetCredential_JSONEmitsEnvelope_OnSuccess(t *testing.T) {
 		Ref:      keyring.Ref,
 		Key:      keyring.KeyAPIToken,
 		UseStdin: true,
-	}, &stdout, &stderr, true, "jtk")
+	}, &stdout, &stderr, true)
 	testutil.RequireNoError(t, err)
 
 	if stderr.Len() != 0 {
@@ -337,7 +337,7 @@ func TestRunSetCredential_JSONEmitsEnvelope_OnPreKeyringFailure(t *testing.T) {
 		Stdin:    strings.NewReader(v2Sentinel),
 		Key:      keyring.KeyAPIToken,
 		UseStdin: true,
-	}, &stdout, &stderr, true, "jtk")
+	}, &stdout, &stderr, true)
 	if err == nil {
 		t.Fatal("expected pre-keyring error")
 	}
@@ -366,7 +366,7 @@ func TestRunSetCredential_HumanLineOnSuccess(t *testing.T) {
 		Ref:      keyring.Ref,
 		Key:      keyring.KeyAPIToken,
 		UseStdin: true,
-	}, &stdout, &stderr, false, "cfl")
+	}, &stdout, &stderr, false)
 	testutil.RequireNoError(t, err)
 	if stdout.Len() != 0 {
 		t.Fatalf("stdout must be empty without --json, got %q", stdout.String())
@@ -402,7 +402,7 @@ func TestRunSetCredential_JSONDrainsMigrationNotice(t *testing.T) {
 		Key:       keyring.KeyAPIToken,
 		UseStdin:  true,
 		Overwrite: true, // migration consolidates to api_token; --overwrite required
-	}, &stdout, &stderr, true, "jtk")
+	}, &stdout, &stderr, true)
 	testutil.RequireNoError(t, err)
 
 	// Caller's downstream FlushMigrationNotice into a buffer to assert it

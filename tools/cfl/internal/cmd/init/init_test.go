@@ -119,7 +119,7 @@ func TestRunInit_InvalidAuthMethod(t *testing.T) {
 		Stdout:  &bytes.Buffer{},
 		Stderr:  &bytes.Buffer{},
 	}
-	err := runInit(context.Background(), opts, "", "", "Bearer", "", true)
+	err := runInit(context.Background(), opts, "", "", false, "", "Bearer", "", true)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "invalid auth method")
 }
@@ -188,7 +188,7 @@ func TestRunInit_NonInteractive_MissingURL_Fails(t *testing.T) {
 		Stdout:         &bytes.Buffer{},
 		Stderr:         &bytes.Buffer{},
 	}
-	err := runInit(context.Background(), opts, "", "", "", "", true)
+	err := runInit(context.Background(), opts, "", "", false, "", "", "", true)
 	testutil.RequireError(t, err)
 	if !strings.Contains(err.Error(), "--non-interactive") || !strings.Contains(err.Error(), "--url") {
 		t.Fatalf("expected --non-interactive missing --url error, got: %v", err)
@@ -208,7 +208,7 @@ func TestRunInit_NonInteractive_MissingToken_DirectsToSetCredential(t *testing.T
 		Stdout:         &bytes.Buffer{},
 		Stderr:         &bytes.Buffer{},
 	}
-	err := runInit(context.Background(), opts, "https://acme.atlassian.net", "u@x.io", "", "", true)
+	err := runInit(context.Background(), opts, "https://acme.atlassian.net", "u@x.io", false, "", "", "", true)
 	testutil.RequireError(t, err)
 	if !strings.Contains(err.Error(), "set-credential") {
 		t.Fatalf("error must direct user to set-credential, got: %v", err)
@@ -508,4 +508,103 @@ func TestFinalizeInit_NoVerify(t *testing.T) {
 
 	_, err = os.Stat(configPath)
 	testutil.RequireNoError(t, err)
+}
+
+const cflInitSentinel = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAcflInitTok"
+
+// TestRunInit_TokenStdin_PopulatesAPIToken — under --non-interactive,
+// --token-stdin populates cfg.APIToken so the run proceeds without
+// requiring a pre-staged keyring entry.
+func TestRunInit_TokenStdin_PopulatesAPIToken(t *testing.T) {
+	credtest.Hermetic(t)
+	opts := &root.Options{
+		Output:         "table",
+		NoColor:        true,
+		NonInteractive: true,
+		Stdin:          strings.NewReader(cflInitSentinel + "\n"),
+		Stdout:         &bytes.Buffer{},
+		Stderr:         &bytes.Buffer{},
+	}
+	err := runInit(context.Background(), opts,
+		"https://acme.atlassian.net", "u@x.io", true, "", "", "", true)
+	testutil.RequireNoError(t, err)
+}
+
+// TestRunInit_TokenFromEnv_PopulatesAPIToken — same with --token-from-env.
+func TestRunInit_TokenFromEnv_PopulatesAPIToken(t *testing.T) {
+	credtest.Hermetic(t)
+	t.Setenv("CFL_INIT_TOKEN_VAR", cflInitSentinel)
+	opts := &root.Options{
+		Output:         "table",
+		NoColor:        true,
+		NonInteractive: true,
+		Stdin:          strings.NewReader(""),
+		Stdout:         &bytes.Buffer{},
+		Stderr:         &bytes.Buffer{},
+	}
+	err := runInit(context.Background(), opts,
+		"https://acme.atlassian.net", "u@x.io", false, "CFL_INIT_TOKEN_VAR", "", "", true)
+	testutil.RequireNoError(t, err)
+}
+
+// TestRunInit_TokenStdinAndFromEnv_Fails — mutual exclusion.
+func TestRunInit_TokenStdinAndFromEnv_Fails(t *testing.T) {
+	credtest.Hermetic(t)
+	t.Setenv("CFL_INIT_TOKEN_VAR", cflInitSentinel)
+	opts := &root.Options{
+		Output:         "table",
+		NoColor:        true,
+		NonInteractive: true,
+		Stdin:          strings.NewReader(cflInitSentinel),
+		Stdout:         &bytes.Buffer{},
+		Stderr:         &bytes.Buffer{},
+	}
+	err := runInit(context.Background(), opts,
+		"https://acme.atlassian.net", "u@x.io", true, "CFL_INIT_TOKEN_VAR", "", "", true)
+	testutil.RequireError(t, err)
+	if !strings.Contains(err.Error(), "mutually exclusive") {
+		t.Fatalf("error must mention mutual exclusion, got: %v", err)
+	}
+}
+
+// TestRunInit_TokenStdinEmpty_Fails — empty stdin is rejected.
+func TestRunInit_TokenStdinEmpty_Fails(t *testing.T) {
+	credtest.Hermetic(t)
+	opts := &root.Options{
+		Output:         "table",
+		NoColor:        true,
+		NonInteractive: true,
+		Stdin:          strings.NewReader("   \n  "),
+		Stdout:         &bytes.Buffer{},
+		Stderr:         &bytes.Buffer{},
+	}
+	err := runInit(context.Background(), opts,
+		"https://acme.atlassian.net", "u@x.io", true, "", "", "", true)
+	testutil.RequireError(t, err)
+	if !strings.Contains(err.Error(), "empty") {
+		t.Fatalf("error must mention empty, got: %v", err)
+	}
+}
+
+// TestRunInit_TokenStdinOverridesKeyring — explicit ingress wins over
+// keyring backfill (token-rotation contract).
+func TestRunInit_TokenStdinOverridesKeyring(t *testing.T) {
+	credtest.Hermetic(t)
+	credtest.SeedToken(t, "stale-token-from-keyring")
+
+	opts := &root.Options{
+		Output:         "table",
+		NoColor:        true,
+		NonInteractive: true,
+		Stdin:          strings.NewReader(cflInitSentinel + "\n"),
+		Stdout:         &bytes.Buffer{},
+		Stderr:         &bytes.Buffer{},
+	}
+	err := runInit(context.Background(), opts,
+		"https://acme.atlassian.net", "u@x.io", true, "", "", "", true)
+	testutil.RequireNoError(t, err)
+
+	got, _, rerr := keyring.ResolveTokenNoMigrate(credstore.ToolCFL)
+	testutil.RequireNoError(t, rerr)
+	testutil.Equal(t, cflInitSentinel, got)
 }

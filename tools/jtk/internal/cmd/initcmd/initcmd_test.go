@@ -6,7 +6,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/open-cli-collective/atlassian-go/credstore"
 	"github.com/open-cli-collective/atlassian-go/credtest"
+	"github.com/open-cli-collective/atlassian-go/keyring"
 	"github.com/open-cli-collective/atlassian-go/testutil"
 	"github.com/spf13/cobra"
 
@@ -53,7 +55,7 @@ func TestRunInit_InvalidAuthMethod(t *testing.T) {
 		Stderr:  &bytes.Buffer{},
 	}
 	// An invalid auth method should be rejected before the interactive form runs
-	err := runInit(context.Background(), opts, "", "", "", "Bearer", "", true)
+	err := runInit(context.Background(), opts, "", "", "", false, "", "Bearer", "", true)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "invalid auth method")
 }
@@ -147,7 +149,7 @@ func TestRunInit_NonInteractive_MissingURL_Fails(t *testing.T) {
 		Stdout:         &bytes.Buffer{},
 		Stderr:         &bytes.Buffer{},
 	}
-	err := runInit(context.Background(), opts, "", "", "", "", "", true)
+	err := runInit(context.Background(), opts, "", "", "", false, "", "", "", true)
 	testutil.RequireError(t, err)
 	if !strings.Contains(err.Error(), "--non-interactive") || !strings.Contains(err.Error(), "--url") {
 		t.Fatalf("expected --non-interactive missing --url error, got: %v", err)
@@ -166,7 +168,7 @@ func TestRunInit_NonInteractive_MissingToken_FlagAndKeyringEmpty(t *testing.T) {
 		Stdout:         &bytes.Buffer{},
 		Stderr:         &bytes.Buffer{},
 	}
-	err := runInit(context.Background(), opts, "https://acme.atlassian.net", "u@x.io", "", "", "", true)
+	err := runInit(context.Background(), opts, "https://acme.atlassian.net", "u@x.io", "", false, "", "", "", true)
 	testutil.RequireError(t, err)
 	if !strings.Contains(err.Error(), "--token") {
 		t.Fatalf("error must hint at --token, got: %v", err)
@@ -213,4 +215,141 @@ func TestInitCommand_Flags(t *testing.T) {
 	cloudIDFlag := initCmd.Flags().Lookup("cloud-id")
 	testutil.NotNil(t, cloudIDFlag)
 	testutil.Equal(t, "", cloudIDFlag.DefValue)
+}
+
+const initSentinel = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAjtkInitTok"
+
+// TestRunInit_TokenStdin_PopulatesAPIToken — under --non-interactive,
+// --token-stdin populates cfg.APIToken and the run proceeds without
+// touching the form.
+func TestRunInit_TokenStdin_PopulatesAPIToken(t *testing.T) {
+	credtest.Hermetic(t)
+	opts := &root.Options{
+		NoColor:        true,
+		NonInteractive: true,
+		Stdin:          strings.NewReader(initSentinel + "\n"),
+		Stdout:         &bytes.Buffer{},
+		Stderr:         &bytes.Buffer{},
+	}
+	err := runInit(context.Background(), opts,
+		"https://acme.atlassian.net", "u@x.io", "", true, "", "", "", true)
+	testutil.RequireNoError(t, err)
+}
+
+// TestRunInit_TokenFromEnv_PopulatesAPIToken — same with --token-from-env.
+func TestRunInit_TokenFromEnv_PopulatesAPIToken(t *testing.T) {
+	credtest.Hermetic(t)
+	t.Setenv("JTK_INIT_TOKEN_VAR", initSentinel)
+	opts := &root.Options{
+		NoColor:        true,
+		NonInteractive: true,
+		Stdin:          strings.NewReader(""),
+		Stdout:         &bytes.Buffer{},
+		Stderr:         &bytes.Buffer{},
+	}
+	err := runInit(context.Background(), opts,
+		"https://acme.atlassian.net", "u@x.io", "", false, "JTK_INIT_TOKEN_VAR", "", "", true)
+	testutil.RequireNoError(t, err)
+}
+
+// TestRunInit_TokenAndTokenStdin_Fails — mutual exclusion.
+func TestRunInit_TokenAndTokenStdin_Fails(t *testing.T) {
+	credtest.Hermetic(t)
+	opts := &root.Options{
+		NoColor: true,
+		Stdin:   strings.NewReader(initSentinel),
+		Stdout:  &bytes.Buffer{},
+		Stderr:  &bytes.Buffer{},
+	}
+	err := runInit(context.Background(), opts,
+		"https://acme.atlassian.net", "u@x.io", "tok-value", true, "", "", "", true)
+	testutil.RequireError(t, err)
+	if !strings.Contains(err.Error(), "mutually exclusive") {
+		t.Fatalf("error must mention mutual exclusion, got: %v", err)
+	}
+}
+
+// TestRunInit_TokenAndTokenFromEnv_Fails — mutual exclusion.
+func TestRunInit_TokenAndTokenFromEnv_Fails(t *testing.T) {
+	credtest.Hermetic(t)
+	t.Setenv("JTK_INIT_TOKEN_VAR", initSentinel)
+	opts := &root.Options{
+		NoColor: true,
+		Stdin:   strings.NewReader(""),
+		Stdout:  &bytes.Buffer{},
+		Stderr:  &bytes.Buffer{},
+	}
+	err := runInit(context.Background(), opts,
+		"https://acme.atlassian.net", "u@x.io", "tok-value", false, "JTK_INIT_TOKEN_VAR", "", "", true)
+	testutil.RequireError(t, err)
+	if !strings.Contains(err.Error(), "mutually exclusive") {
+		t.Fatalf("error must mention mutual exclusion, got: %v", err)
+	}
+}
+
+// TestRunInit_TokenStdinEmpty_Fails — empty stdin is rejected.
+func TestRunInit_TokenStdinEmpty_Fails(t *testing.T) {
+	credtest.Hermetic(t)
+	opts := &root.Options{
+		NoColor:        true,
+		NonInteractive: true,
+		Stdin:          strings.NewReader("   \n  "),
+		Stdout:         &bytes.Buffer{},
+		Stderr:         &bytes.Buffer{},
+	}
+	err := runInit(context.Background(), opts,
+		"https://acme.atlassian.net", "u@x.io", "", true, "", "", "", true)
+	testutil.RequireError(t, err)
+	if !strings.Contains(err.Error(), "empty") {
+		t.Fatalf("error must mention empty, got: %v", err)
+	}
+}
+
+// TestRunInit_DeprecatedTokenFlag_PrintsWarning — --token <value>
+// triggers the §1.5.1 deprecation warning to stderr before the run
+// proceeds. Asserts the exact prefix so future regressions are loud.
+func TestRunInit_DeprecatedTokenFlag_PrintsWarning(t *testing.T) {
+	credtest.Hermetic(t)
+	var stderr bytes.Buffer
+	opts := &root.Options{
+		NoColor:        true,
+		NonInteractive: true,
+		Stdin:          strings.NewReader(""),
+		Stdout:         &bytes.Buffer{},
+		Stderr:         &stderr,
+	}
+	err := runInit(context.Background(), opts,
+		"https://acme.atlassian.net", "u@x.io", "tok-value", false, "", "", "", true)
+	testutil.RequireNoError(t, err)
+	if !strings.Contains(stderr.String(), "warning: --token is deprecated") {
+		t.Fatalf("stderr must contain deprecation warning, got: %q", stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "§1.5.1") {
+		t.Fatalf("stderr deprecation must reference §1.5.1, got: %q", stderr.String())
+	}
+}
+
+// TestRunInit_TokenStdinOverridesKeyring — explicit ingress wins over
+// keyring backfill. Pre-stage a different value, run with --token-stdin,
+// assert the keyring ends up with the NEW value (token-rotation
+// contract).
+func TestRunInit_TokenStdinOverridesKeyring(t *testing.T) {
+	credtest.Hermetic(t)
+	credtest.SeedToken(t, "stale-token-from-keyring")
+
+	opts := &root.Options{
+		NoColor:        true,
+		NonInteractive: true,
+		Stdin:          strings.NewReader(initSentinel + "\n"),
+		Stdout:         &bytes.Buffer{},
+		Stderr:         &bytes.Buffer{},
+	}
+	err := runInit(context.Background(), opts,
+		"https://acme.atlassian.net", "u@x.io", "", true, "", "", "", true)
+	testutil.RequireNoError(t, err)
+
+	// Assert via the resolver chain that the new value landed.
+	got, _, rerr := keyring.ResolveTokenNoMigrate(credstore.ToolJTK)
+	testutil.RequireNoError(t, rerr)
+	testutil.Equal(t, initSentinel, got)
 }

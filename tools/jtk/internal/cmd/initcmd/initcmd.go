@@ -9,6 +9,7 @@ package initcmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 
@@ -28,8 +29,8 @@ import (
 
 // Register registers the init command
 func Register(parent *cobra.Command, opts *root.Options) {
-	var url, email, token, authMethod, cloudID string
-	var noVerify bool
+	var url, email, token, tokenFromEnv, authMethod, cloudID string
+	var tokenStdin, noVerify bool
 
 	cmd := &cobra.Command{
 		Use:   "init",
@@ -44,26 +45,39 @@ For classic API tokens (basic auth):
 
 For service account scoped tokens (bearer auth):
   Use --auth-method bearer with your scoped API token and Cloud ID.
-  Find your Cloud ID at: https://your-site.atlassian.net/_edge/tenant_info`,
+  Find your Cloud ID at: https://your-site.atlassian.net/_edge/tenant_info
+
+Scripted ingress (§1.5.1): use --token-stdin or --token-from-env VAR for
+the API token. The legacy --token <value> flag is deprecated — it leaks
+the secret into shell history and process listings — and will be removed
+in a future release.`,
 		Example: `  # Interactive setup (basic auth)
   jtk init
 
-  # Non-interactive basic auth setup
-  jtk init --url https://mycompany.atlassian.net --email user@example.com --token YOUR_TOKEN
+  # Non-interactive basic auth setup via stdin pipe (§1.10 idiom)
+  op read 'op://Vault/Atlassian/token' | jtk init --non-interactive \
+    --url https://mycompany.atlassian.net --email user@example.com --token-stdin
+
+  # Non-interactive setup via env var
+  jtk init --non-interactive \
+    --url https://mycompany.atlassian.net --email user@example.com --token-from-env JIRA_API_TOKEN
 
   # Service account (bearer auth) setup
-  jtk init --auth-method bearer --url https://mycompany.atlassian.net --token SCOPED_TOKEN --cloud-id YOUR_CLOUD_ID
+  jtk init --auth-method bearer --url https://mycompany.atlassian.net \
+    --token-from-env JIRA_API_TOKEN --cloud-id YOUR_CLOUD_ID
 
   # Skip connection verification
   jtk init --no-verify`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runInit(cmd.Context(), opts, url, email, token, authMethod, cloudID, noVerify)
+			return runInit(cmd.Context(), opts, url, email, token, tokenStdin, tokenFromEnv, authMethod, cloudID, noVerify)
 		},
 	}
 
 	cmd.Flags().StringVar(&url, "url", "", "Jira URL (e.g., https://mycompany.atlassian.net)")
 	cmd.Flags().StringVar(&email, "email", "", "Email address for authentication")
-	cmd.Flags().StringVar(&token, "token", "", "API token")
+	cmd.Flags().StringVar(&token, "token", "", "DEPRECATED: API token literal (use --token-stdin or --token-from-env; §1.5.1)")
+	cmd.Flags().BoolVar(&tokenStdin, "token-stdin", false, "Read the API token from stdin (xor with --token-from-env)")
+	cmd.Flags().StringVar(&tokenFromEnv, "token-from-env", "", "Read the API token from this env var (xor with --token-stdin)")
 	cmd.Flags().StringVar(&authMethod, "auth-method", "", "Authentication method: basic (default) or bearer")
 	cmd.Flags().StringVar(&cloudID, "cloud-id", "", "Atlassian Cloud ID (required for bearer auth)")
 	cmd.Flags().BoolVar(&noVerify, "no-verify", false, "Skip connection verification")
@@ -71,7 +85,7 @@ For service account scoped tokens (bearer auth):
 	parent.AddCommand(cmd)
 }
 
-func runInit(ctx context.Context, opts *root.Options, prefillURL, prefillEmail, prefillToken, prefillAuthMethod, prefillCloudID string, noVerify bool) error {
+func runInit(ctx context.Context, opts *root.Options, prefillURL, prefillEmail, prefillToken string, tokenStdin bool, tokenFromEnv, prefillAuthMethod, prefillCloudID string, noVerify bool) error {
 	// Validate --auth-method flag early, before any interactive prompts
 	if prefillAuthMethod != "" {
 		if err := auth.ValidateAuthMethod(prefillAuthMethod); err != nil {
@@ -80,6 +94,31 @@ func runInit(ctx context.Context, opts *root.Options, prefillURL, prefillEmail, 
 	}
 
 	v := opts.View()
+
+	// §1.5.1 token-ingress resolution. Explicit ingress flags win over
+	// the keyring backfill below (token-rotation contract: a user must
+	// be able to re-run init --token-stdin to replace a stale value).
+	// Mutual exclusion + empty-value validation happen here.
+	switch {
+	case tokenStdin && prefillToken != "":
+		return errors.New("--token and --token-stdin are mutually exclusive; pick one (and prefer --token-stdin — §1.5.1)")
+	case tokenFromEnv != "" && prefillToken != "":
+		return errors.New("--token and --token-from-env are mutually exclusive; pick one (and prefer --token-from-env — §1.5.1)")
+	}
+	if scripted, err := prompt.ReadSecretFromIngress(opts.Stdin, tokenStdin, tokenFromEnv); err != nil {
+		return err
+	} else if scripted != "" {
+		prefillToken = scripted
+	} else if prefillToken != "" {
+		// User passed the deprecated --token <value> flag. Print the
+		// §1.5.1 deprecation warning to stderr before proceeding so the
+		// signal lands even when the run later errors for an unrelated
+		// reason.
+		fmt.Fprintln(opts.Stderr,
+			"warning: --token is deprecated and will be removed in a future release; "+
+				"use --token-stdin or --token-from-env VAR to avoid leaking the secret "+
+				"via shell history / process listings (cli-common §1.5.1).")
+	}
 
 	sharedPath, err := credstore.DefaultPath()
 	if err != nil {
@@ -365,7 +404,7 @@ func requireNonInteractiveFields(cfg *config.Config, isBearer bool) error {
 		}
 	}
 	if cfg.APIToken == "" {
-		return fmt.Errorf("--non-interactive: missing required value for --token (or pre-stage with `jtk set-credential --ref atlassian-cli/default --key api_token --stdin`)")
+		return fmt.Errorf("--non-interactive: missing required value for --token-stdin or --token-from-env VAR (or pre-stage with `jtk set-credential --ref atlassian-cli/default --key api_token --stdin`)")
 	}
 	return nil
 }

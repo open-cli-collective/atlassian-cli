@@ -40,11 +40,13 @@ func Register(rootCmd *cobra.Command, opts *root.Options) {
 // newInitCmd creates the init command.
 func newInitCmd(opts *root.Options) *cobra.Command {
 	var (
-		url        string
-		email      string
-		authMethod string
-		cloudID    string
-		noVerify   bool
+		url          string
+		email        string
+		tokenStdin   bool
+		tokenFromEnv string
+		authMethod   string
+		cloudID      string
+		noVerify     bool
 	)
 
 	cmd := &cobra.Command{
@@ -62,22 +64,35 @@ For classic API tokens (basic auth):
 
 For service account scoped tokens (bearer auth):
   Use --auth-method bearer with your scoped API token and Cloud ID.
-  Find your Cloud ID at: https://your-site.atlassian.net/_edge/tenant_info`,
+  Find your Cloud ID at: https://your-site.atlassian.net/_edge/tenant_info
+
+Scripted ingress (§1.5.1): use --token-stdin or --token-from-env VAR for
+the API token. cfl init has never had a --token <value> flag because
+flag-passed plaintext secrets leak into shell history and process
+listings.`,
 		Example: `  # Interactive setup (basic auth)
   cfl init
 
-  # Pre-populate URL
-  cfl init --url https://mycompany.atlassian.net
+  # Non-interactive setup via stdin pipe (§1.10 idiom)
+  op read 'op://Vault/Atlassian/token' | cfl init --non-interactive \
+    --url https://mycompany.atlassian.net --email user@example.com --token-stdin
+
+  # Non-interactive setup via env var
+  cfl init --non-interactive \
+    --url https://mycompany.atlassian.net --email user@example.com --token-from-env CFL_API_TOKEN
 
   # Service account (bearer auth) setup
-  cfl init --auth-method bearer --url https://mycompany.atlassian.net --cloud-id YOUR_CLOUD_ID`,
+  cfl init --auth-method bearer --url https://mycompany.atlassian.net \
+    --token-from-env CFL_API_TOKEN --cloud-id YOUR_CLOUD_ID`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runInit(cmd.Context(), opts, url, email, authMethod, cloudID, noVerify)
+			return runInit(cmd.Context(), opts, url, email, tokenStdin, tokenFromEnv, authMethod, cloudID, noVerify)
 		},
 	}
 
 	cmd.Flags().StringVar(&url, "url", "", "Confluence URL (e.g., https://mycompany.atlassian.net)")
 	cmd.Flags().StringVar(&email, "email", "", "Your Atlassian account email")
+	cmd.Flags().BoolVar(&tokenStdin, "token-stdin", false, "Read the API token from stdin (xor with --token-from-env)")
+	cmd.Flags().StringVar(&tokenFromEnv, "token-from-env", "", "Read the API token from this env var (xor with --token-stdin)")
 	cmd.Flags().StringVar(&authMethod, "auth-method", "", "Authentication method: basic (default) or bearer")
 	cmd.Flags().StringVar(&cloudID, "cloud-id", "", "Atlassian Cloud ID (required for bearer auth)")
 	cmd.Flags().BoolVar(&noVerify, "no-verify", false, "Skip connection verification")
@@ -85,7 +100,7 @@ For service account scoped tokens (bearer auth):
 	return cmd
 }
 
-func runInit(ctx context.Context, opts *root.Options, prefillURL, prefillEmail, prefillAuthMethod, prefillCloudID string, noVerify bool) error {
+func runInit(ctx context.Context, opts *root.Options, prefillURL, prefillEmail string, tokenStdin bool, tokenFromEnv, prefillAuthMethod, prefillCloudID string, noVerify bool) error {
 	v := opts.View()
 
 	// Validate --auth-method flag early, before any interactive prompts
@@ -136,6 +151,17 @@ func runInit(ctx context.Context, opts *root.Options, prefillURL, prefillEmail, 
 		if tok, _, terr := keyring.ResolveTokenNoMigrate(credstore.ToolCFL); terr == nil {
 			cfg.APIToken = tok
 		}
+	}
+
+	// §1.5.1 token-ingress: explicit --token-stdin / --token-from-env
+	// override the keyring backfill (token-rotation contract — a user
+	// must be able to re-run init with the new token to replace a stale
+	// keyring entry). Mutual exclusion + empty-value validation happen
+	// inside ReadSecretFromIngress.
+	if scripted, terr := prompt.ReadSecretFromIngress(opts.Stdin, tokenStdin, tokenFromEnv); terr != nil {
+		return terr
+	} else if scripted != "" {
+		cfg.APIToken = scripted
 	}
 
 	// Determine auth method for form building
@@ -403,7 +429,7 @@ func requireNonInteractiveFields(cfg *config.Config, isBearer bool) error {
 		}
 	}
 	if cfg.APIToken == "" {
-		return fmt.Errorf("--non-interactive: no API token (cfl init has no --token flag; pre-stage with `cfl set-credential --ref atlassian-cli/default --key api_token --stdin`)")
+		return fmt.Errorf("--non-interactive: missing required value for --token-stdin or --token-from-env VAR (or pre-stage with `cfl set-credential --ref atlassian-cli/default --key api_token --stdin`)")
 	}
 	return nil
 }

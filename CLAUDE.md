@@ -190,6 +190,16 @@ who *permanently* exports the token via env therefore keeps the plaintext
 file until they run `init`/`set-credential` — env is an explicit runtime
 override, so a read path is never forced to mutate disk behind it.
 
+**Init token-ingress (§1.5.1):** both `jtk init` and `cfl init` accept
+`--token-stdin` (drain stdin) and `--token-from-env VAR` (read env) as
+the canonical scripted ingress paths. Explicit ingress wins over the
+keyring backfill (token-rotation contract). `jtk init --token <value>`
+is deprecated — flag-passed plaintext leaks into shell history and
+process listings — and prints a §1.5.1 deprecation warning to stderr
+when used; it will be removed in a future release. `cfl init` never had
+`--token`. The canonical scripted shape: `op read 'op://Vault/token' |
+<tool> init --non-interactive --url ... --email ... --token-stdin`.
+
 **Non-interactive ingress (§1.5.2):** `cfl set-credential` / `jtk set-credential`
 read a token from `--stdin` or `--from-env VAR` (exactly one; mutually
 exclusive) and store it in the keyring (never echoed). `--key` is always

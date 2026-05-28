@@ -69,6 +69,9 @@ func TestRunList_Empty(t *testing.T) {
 
 	err := runList(context.Background(), opts)
 	testutil.RequireNoError(t, err)
+	// The empty-results banner used to be suppressed under -o json; #392
+	// removed that skip, so the banner now always prints to stderr.
+	testutil.Contains(t, rootOpts.Stderr.(*bytes.Buffer).String(), "No attachments found.")
 }
 
 func TestRunList_APIError(t *testing.T) {
@@ -325,4 +328,5 @@ func TestRunList_UnusedFlag_NoUnused(t *testing.T) {
 
 	err := runList(context.Background(), opts)
 	testutil.RequireNoError(t, err)
+	testutil.Contains(t, rootOpts.Stderr.(*bytes.Buffer).String(), "No unused attachments found.")
 }

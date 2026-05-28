@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	"github.com/open-cli-collective/atlassian-go/prompt"
 	"github.com/open-cli-collective/atlassian-go/testutil"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
@@ -196,4 +198,42 @@ func TestRunDelete_EmitsText(t *testing.T) {
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, stdout.String(), "Deleted automation 42\n")
 	testutil.Equal(t, stderr.String(), "")
+}
+
+// TestRunDelete_NonInteractive_WithoutForce_ShortCircuits — §3.4
+// early-fail: --non-interactive without --force returns
+// ErrConfirmationRequired BEFORE the API GetAutomationRule call.
+func TestRunDelete_NonInteractive_WithoutForce_ShortCircuits(t *testing.T) {
+	t.Parallel()
+	var hits int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		hits++
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@example.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout, stderr bytes.Buffer
+	opts := &root.Options{
+		NonInteractive: true,
+		Stdout:         &stdout,
+		Stderr:         &stderr,
+	}
+	opts.SetAPIClient(client)
+
+	err = runDelete(context.Background(), opts, "42", false)
+	if err == nil {
+		t.Fatal("expected ErrConfirmationRequired")
+	}
+	if !errors.Is(err, prompt.ErrConfirmationRequired) {
+		t.Fatalf("expected prompt.ErrConfirmationRequired, got %v", err)
+	}
+	if hits != 0 {
+		t.Fatalf("API must not be hit; got %d calls", hits)
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr must be empty: %q", stderr.String())
+	}
 }

@@ -3,6 +3,7 @@ package configcmd
 import (
 	"bytes"
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/open-cli-collective/atlassian-go/credtest"
 	"github.com/open-cli-collective/atlassian-go/keyring"
+	"github.com/open-cli-collective/atlassian-go/prompt"
 	"github.com/open-cli-collective/atlassian-go/testutil"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
@@ -225,6 +227,32 @@ func TestRunClear_NothingToClear(t *testing.T) {
 	opts, out, _ := newClearOpts(t, true, "")
 	testutil.RequireNoError(t, runClear(context.Background(), opts))
 	testutil.Contains(t, out.String(), "nothing to clear")
+}
+
+// TestRunClear_NonInteractive_WithoutForce_ShortCircuits — §3.4 contract
+// for the destructive config-clear path on jtk. The short-circuit fires
+// BEFORE keyring.PlanClear so the warning text never reaches stderr.
+func TestRunClear_NonInteractive_WithoutForce_ShortCircuits(t *testing.T) {
+	credtest.Hermetic(t)
+	credtest.SeedToken(t, "shared-secret")
+
+	opts, out, errBuf := newClearOpts(t, false, "")
+	opts.NonInteractive = true
+
+	err := runClear(context.Background(), opts)
+	if err == nil {
+		t.Fatal("expected ErrConfirmationRequired")
+	}
+	if !errors.Is(err, prompt.ErrConfirmationRequired) {
+		t.Fatalf("expected prompt.ErrConfirmationRequired, got %v", err)
+	}
+	if errBuf.Len() != 0 {
+		t.Fatalf("stderr must be empty (no warning text before fail-loud): %q", errBuf.String())
+	}
+	if out.Len() != 0 {
+		t.Fatalf("stdout must be empty: %q", out.String())
+	}
+	testutil.True(t, jtkTokenPresent(t, keyring.KeyAPIToken))
 }
 
 func TestGetDefaultProjectWithSource(t *testing.T) {

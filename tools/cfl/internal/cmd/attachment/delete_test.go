@@ -3,11 +3,13 @@ package attachment
 import (
 	"bytes"
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
+	"github.com/open-cli-collective/atlassian-go/prompt"
 	"github.com/open-cli-collective/atlassian-go/testutil"
 
 	"github.com/open-cli-collective/confluence-cli/api"
@@ -239,4 +241,37 @@ func TestRunDeleteAttachment_DeleteFails(t *testing.T) {
 	err := runDeleteAttachment(context.Background(), "att123", opts)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "deleting attachment")
+}
+
+// TestRunDeleteAttachment_NonInteractive_WithoutForce_ShortCircuits
+// pins the §3.4 early-fail contract: the API must NOT be called when
+// --non-interactive is set without --force.
+func TestRunDeleteAttachment_NonInteractive_WithoutForce_ShortCircuits(t *testing.T) {
+	t.Parallel()
+	var hits int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		hits++
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	rootOpts := newTestRootOptions()
+	rootOpts.NonInteractive = true
+	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
+	opts := &deleteOptions{Options: rootOpts, force: false}
+	err := runDeleteAttachment(context.Background(), "att123", opts)
+	if err == nil {
+		t.Fatal("expected ErrConfirmationRequired")
+	}
+	if !errors.Is(err, prompt.ErrConfirmationRequired) {
+		t.Fatalf("expected prompt.ErrConfirmationRequired, got %v", err)
+	}
+	if hits != 0 {
+		t.Fatalf("API must not be called; got %d hits", hits)
+	}
+	if rootOpts.Stderr.(*bytes.Buffer).Len() != 0 {
+		t.Fatalf("stderr must be empty: %q", rootOpts.Stderr.(*bytes.Buffer).String())
+	}
 }

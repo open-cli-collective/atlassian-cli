@@ -337,6 +337,16 @@ func TestRunInit_DeprecatedTokenFlag_PrintsWarning(t *testing.T) {
 // keyring backfill. Pre-stage a different value, run with --token-stdin,
 // assert the keyring ends up with the NEW value (token-rotation
 // contract).
+//
+// What this pins: the user-visible rotation outcome.
+// What this does NOT pin: the keyring-read side effect (whether
+// ResolveTokenNoMigrate was called). The production code's guard is
+// `if cfg.APIToken == ""` which only triggers the keyring backfill
+// when ingress didn't fire. A regression that swapped the order
+// (backfill first, then ingress overwrites) would still pass this test
+// because the final value is the same. Pinning the side-effect would
+// require instrumentation on shared/keyring; that's a separate
+// follow-up. The user-facing contract is what matters here.
 func TestRunInit_TokenStdinOverridesKeyring(t *testing.T) {
 	credtest.Hermetic(t)
 	credtest.SeedToken(t, "stale-token-from-keyring")
@@ -356,4 +366,48 @@ func TestRunInit_TokenStdinOverridesKeyring(t *testing.T) {
 	got, _, rerr := keyring.ResolveTokenNoMigrate(credstore.ToolJTK)
 	testutil.RequireNoError(t, rerr)
 	testutil.Equal(t, initSentinel, got)
+}
+
+// TestRunInit_TokenStdin_NoDeprecationWarning — --token-stdin is the
+// canonical §1.5.1 path; it MUST NOT trigger the --token deprecation
+// warning. A regression that emitted the warning for the new flags
+// would confuse users into thinking the recommended flag was also
+// deprecated.
+func TestRunInit_TokenStdin_NoDeprecationWarning(t *testing.T) {
+	credtest.Hermetic(t)
+	var stderr bytes.Buffer
+	opts := &root.Options{
+		NoColor:        true,
+		NonInteractive: true,
+		Stdin:          strings.NewReader(initSentinel + "\n"),
+		Stdout:         &bytes.Buffer{},
+		Stderr:         &stderr,
+	}
+	err := runInit(context.Background(), opts,
+		"https://acme.atlassian.net", "u@x.io", "", true, "", "", "", true)
+	testutil.RequireNoError(t, err)
+	if strings.Contains(stderr.String(), "deprecated") {
+		t.Fatalf("--token-stdin must NOT trigger the --token deprecation warning: %q", stderr.String())
+	}
+}
+
+// TestRunInit_TokenFromEnv_NoDeprecationWarning — same for
+// --token-from-env.
+func TestRunInit_TokenFromEnv_NoDeprecationWarning(t *testing.T) {
+	credtest.Hermetic(t)
+	t.Setenv("JTK_DEPRECATION_NEG_VAR", initSentinel)
+	var stderr bytes.Buffer
+	opts := &root.Options{
+		NoColor:        true,
+		NonInteractive: true,
+		Stdin:          strings.NewReader(""),
+		Stdout:         &bytes.Buffer{},
+		Stderr:         &stderr,
+	}
+	err := runInit(context.Background(), opts,
+		"https://acme.atlassian.net", "u@x.io", "", false, "JTK_DEPRECATION_NEG_VAR", "", "", true)
+	testutil.RequireNoError(t, err)
+	if strings.Contains(stderr.String(), "deprecated") {
+		t.Fatalf("--token-from-env must NOT trigger the --token deprecation warning: %q", stderr.String())
+	}
 }

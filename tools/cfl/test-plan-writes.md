@@ -177,7 +177,7 @@ This document inventories all untested assertions and provides comprehensive tes
 | # | Test Case | Command | Expected | Priority |
 |---|-----------|---------|----------|----------|
 | 1.8.1 | Default output | `cfl page create -s SPACE -t "Test" -f test.md` | Success message with ID, URL | HIGH |
-| 1.8.2 | JSON output | `cfl page create -s SPACE -t "Test" -f test.md -o json` | Valid JSON with page data | MEDIUM |
+| 1.8.2 | ~~JSON output~~ (#392 removed) | `cfl page create -s SPACE -t "Test" -f test.md -o json` | Errors: invalid output format | OBSOLETE |
 | 1.8.3 | Plain output | `cfl page create -s SPACE -t "Test" -f test.md -o plain` | Tab-separated | LOW |
 
 ---
@@ -216,7 +216,7 @@ This document inventories all untested assertions and provides comprehensive tes
 |---|-----------|---------|----------|----------|
 | 2.3.1 | List page with attachments | `cfl attachment list -p PAGE_ID` | Table with ID, name, type, size | HIGH |
 | 2.3.2 | List page without attachments | `cfl attachment list -p PAGE_NO_ATT` | "No attachments" message | MEDIUM |
-| 2.3.3 | JSON output | `cfl attachment list -p PAGE_ID -o json` | Valid JSON array | MEDIUM |
+| 2.3.3 | ~~JSON output~~ (#392 removed) | `cfl attachment list -p PAGE_ID -o json` | Errors: invalid output format | OBSOLETE |
 
 ---
 
@@ -269,7 +269,7 @@ This document inventories all untested assertions and provides comprehensive tes
 | # | Test Case | Command | Expected | Priority |
 |---|-----------|---------|----------|----------|
 | 4.2.1 | Pipe file content | `cat notes.md \| cfl page create -s SPACE -t "Test"` | Page created | HIGH |
-| 4.2.2 | Capture created ID | `cfl page create -s SPACE -t "Test" -f x.md -o json \| jq -r .id` | Extracts page ID | HIGH |
+| 4.2.2 | Capture created ID | `cfl page create -s SPACE -t "Test" -f x.md \| awk -F': ' '/^ID:/ {print $2; exit}'` | Extracts page ID (was `-o json \| jq -r .id` pre-#392) | HIGH |
 | 4.2.3 | Script: create many pages | Loop creating 10 pages | All succeed | MEDIUM |
 
 ---

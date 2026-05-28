@@ -175,6 +175,36 @@ func TestRoot_RejectsInvalidOutput_AtPreRun(t *testing.T) {
 	}
 }
 
+// Local --json flags (e.g. set-credential's control-plane envelope) must
+// not be confused with the global -o json guard. The guard inspects
+// opts.Output (the global -o/--output value); a child command's local
+// boolean --json flag has no bearing on it. This pins the invariant so a
+// future "uniform JSON rejection" sweep doesn't accidentally reach into
+// child command flags.
+func TestRoot_LocalJSONFlag_NotRejectedByOutputGuard(t *testing.T) {
+	t.Parallel()
+	cmd, _ := NewCmd()
+	probeJSON := false
+	probe := &cobra.Command{
+		Use: "probe",
+		RunE: func(*cobra.Command, []string) error {
+			return nil
+		},
+	}
+	probe.Flags().BoolVar(&probeJSON, "json", false, "local boolean flag (e.g. set-credential's control-plane envelope)")
+	cmd.AddCommand(probe)
+	cmd.SetArgs([]string{"probe", "--json"})
+	cmd.SetOut(&bytes.Buffer{})
+	cmd.SetErr(&bytes.Buffer{})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("local --json should not be rejected by the global -o guard, got: %v", err)
+	}
+	if !probeJSON {
+		t.Fatalf("local --json flag did not flip; cobra registration regression?")
+	}
+}
+
 func TestOptions_View_UsesDefaultPolicy(t *testing.T) {
 	t.Parallel()
 	opts := &Options{

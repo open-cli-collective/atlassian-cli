@@ -63,7 +63,7 @@ All cfl commands should work with both auth methods (no scope limitations for Co
 |-----------|---------|-----------------|
 | List pages in space | `cfl page list --space confluence` | Shows table of pages with ID, title, status, version |
 | List with limit | `cfl page list --space confluence --limit 5` | Shows only 5 pages with "showing first N results" message |
-| JSON output | `cfl page list --space confluence --output json` | Valid JSON array |
+| ~~JSON output~~ (#392 removed) | `cfl page list --space confluence --output json` | Valid JSON array |
 | Plain output | `cfl page list --space confluence --output plain` | Tab-separated values |
 | List trashed pages | `cfl page list --space confluence --status trashed` | Shows deleted pages |
 | List archived pages | `cfl page list --space confluence --status archived` | Shows archived pages |
@@ -75,13 +75,13 @@ All cfl commands should work with both auth methods (no scope limitations for Co
 |-----------|---------|-----------------|
 | View page content | `cfl page view <page-id>` | Shows title, ID, version, and markdown content |
 | View raw HTML | `cfl page view <page-id> --raw` | Shows Confluence storage format (XHTML) |
-| JSON output | `cfl page view <page-id> --output json` | Full page object as JSON |
+| ~~JSON output~~ (#392 removed) | `cfl page view <page-id> --output json` | Full page object as JSON |
 | Non-existent page | `cfl page view 99999999999` | Error: 404 not found |
 | View content only | `cfl page view <id> --content-only` | Markdown only, no Title/ID/Version headers |
 | Content only with raw | `cfl page view <id> --content-only --raw` | XHTML only, no headers |
 | Content only with macros | `cfl page view <id> --content-only --show-macros` | Markdown with [TOC] etc., no headers |
 | Roundtrip macros (content-only) | `cfl page view <id> --show-macros --content-only \| cfl page edit <id> --legacy` | Macros preserved |
-| Content only JSON error | `cfl page view <id> --content-only -o json` | Error: incompatible flags |
+| ~~Content only JSON error~~ (#392 removed; -o json itself errors before --content-only checks) | `cfl page view <id> --content-only -o json` | Errors: invalid output format |
 | Content only web error | `cfl page view <id> --content-only --web` | Error: incompatible flags |
 
 ### page create
@@ -154,7 +154,7 @@ All cfl commands should work with both auth methods (no scope limitations for Co
 |-----------|---------|-----------------|
 | List attachments | `cfl attachment list --page <id>` | Table of attachments with ID, title, type, size |
 | No attachments | List on page with none | "No attachments found" |
-| JSON output | `cfl attachment list --page <id> --output json` | Valid JSON array with full attachment metadata |
+| ~~JSON output~~ (#392 removed) | `cfl attachment list --page <id> --output json` | Valid JSON array with full attachment metadata |
 | List unused attachments | `cfl attachment list --page <id> --unused` | Only attachments not referenced in page content |
 | No unused attachments | `--unused` on page using all attachments | "No unused attachments found" |
 
@@ -198,7 +198,7 @@ All cfl commands should work with both auth methods (no scope limitations for Co
 | Test Case | Command | Expected Result |
 |-----------|---------|-----------------|
 | List all spaces | `cfl space list` | Table of spaces with key, name, type |
-| JSON output | `cfl space list --output json` | Valid JSON array |
+| ~~JSON output~~ (#392 removed) | `cfl space list --output json` | Valid JSON array |
 | Limit results | `cfl space list --limit 5` | Shows first 5 spaces |
 
 ### space view
@@ -206,7 +206,7 @@ All cfl commands should work with both auth methods (no scope limitations for Co
 | Test Case | Command | Expected Result |
 |-----------|---------|-----------------|
 | View space by key | `cfl space view confluence` | Key-value pairs: KEY, NAME, ID, TYPE, STATUS, DESCRIPTION |
-| JSON output | `cfl space view confluence -o json` | Valid JSON object with id, key, name, type, status, description |
+| ~~JSON output~~ (#392 removed) | `cfl space view confluence -o json` | Valid JSON object with id, key, name, type, status, description |
 | Non-existent space | `cfl space view NONEXISTENT` | Error: Space with key 'NONEXISTENT' not found |
 | View personal space | `cfl space view ~accountid` | Shows personal space details (if accessible) |
 | Alias: get | `cfl space get confluence` | Same output as `space view` |
@@ -216,7 +216,7 @@ All cfl commands should work with both auth methods (no scope limitations for Co
 | Test Case | Command | Expected Result |
 |-----------|---------|-----------------|
 | Create global space | `cfl space create --key INTTEST --name "[Test] Integration" --description "Test space"` | Space created, shows KEY, NAME, URL |
-| Create with JSON output | `cfl space create --key INTTEST2 --name "[Test] Int2" -o json` | Valid JSON with id, key, name, type |
+| ~~Create with JSON output~~ (#392 removed) | `cfl space create --key INTTEST2 --name "[Test] Int2" -o json` | Valid JSON with id, key, name, type |
 | Missing key flag | `cfl space create --name "Test"` | Error: required flag(s) "key" not set |
 | Missing name flag | `cfl space create --key TST` | Error: required flag(s) "name" not set |
 | Duplicate key | `cfl space create --key INTTEST --name "Duplicate"` (after creating INTTEST) | Error: API rejects duplicate key |
@@ -228,7 +228,7 @@ All cfl commands should work with both auth methods (no scope limitations for Co
 | Update name | `cfl space update INTTEST --name "[Test] Updated Name"` | Shows updated key and name |
 | Update description | `cfl space update INTTEST --description "Updated description"` | Shows updated key and name |
 | Update both | `cfl space update INTTEST --name "[Test] Both" --description "Both updated"` | Both name and description changed |
-| JSON output | `cfl space update INTTEST --name "[Test] JSON" -o json` | Valid JSON with updated fields |
+| ~~JSON output~~ (#392 removed) | `cfl space update INTTEST --name "[Test] JSON" -o json` | Valid JSON with updated fields |
 | No flags provided | `cfl space update INTTEST` | Error: at least one of --name or --description required |
 | Non-existent space | `cfl space update NONEXISTENT --name "X"` | Error: not found |
 | Verify update | `cfl space view INTTEST` | Shows new name and description |
@@ -240,7 +240,7 @@ All cfl commands should work with both auth methods (no scope limitations for Co
 | Delete with confirmation | `cfl space delete INTTEST` (type "y") | Space deleted after confirmation prompt |
 | Delete cancelled | `cfl space delete INTTEST` (type "n") | "Deletion cancelled" message |
 | Delete with --force | `cfl space delete INTTEST --force` | Space deleted without confirmation |
-| JSON output | `cfl space delete INTTEST --force -o json` | `{"status": "deleted", "space_key": "INTTEST", "name": "..."}` |
+| ~~JSON output~~ (#392 removed) | `cfl space delete INTTEST --force -o json` | `{"status": "deleted", "space_key": "INTTEST", "name": "..."}` |
 | Non-existent space | `cfl space delete NONEXISTENT --force` | Error: not found |
 
 ### Space CRUD End-to-End (sequential)
@@ -252,7 +252,7 @@ All cfl commands should work with both auth methods (no scope limitations for Co
 | 3. Update name | `cfl space update INTTEST --name "[Test] Updated"` | Name updated |
 | 4. Verify update | `cfl space view INTTEST` | Shows new name |
 | 5. Update desc | `cfl space update INTTEST --description "New description"` | Description updated |
-| 6. List includes it | `cfl space list -o json \| jq '.[] \| select(.key == "INTTEST")'` | Space appears in list |
+| 6. List includes it | `cfl space list \| grep INTTEST` | Space appears in list (was `-o json \| jq` pre-#392) |
 | 7. Delete | `cfl space delete INTTEST --force` | "Deleted space INTTEST" |
 | 8. Verify gone | `cfl space view INTTEST` | Error: not found |
 
@@ -271,7 +271,7 @@ All cfl commands should work with both auth methods (no scope limitations for Co
 | Search by label | `cfl search --label test-label` | Content with specified label |
 | Combined filters | `cfl search "deploy" --space DEV --type page` | Filtered results |
 | Raw CQL | `cfl search --cql "type=page AND space=DEV"` | CQL executed directly |
-| JSON output | `cfl search "test" -o json` | Valid JSON with results and _meta |
+| ~~JSON output~~ (#392 removed) | `cfl search "test" -o json` | Valid JSON with results and _meta |
 | Plain output | `cfl search "test" -o plain` | Tab-separated values |
 | Limit results | `cfl search "test" --limit 5` | Max 5 results |
 | No results | `cfl search "xyznonexistent123"` | "No results found" message |
@@ -533,7 +533,7 @@ Copies in the TEST space (originals from INT, CUS, PROD, PLAYBOOK):
 |-----------|---------|-----------------|
 | View ADF page (default) | `cfl page view <adf-id>` | Shows markdown content (not "(No content)") |
 | View ADF page (raw) | `cfl page view <adf-id> --raw` | Shows raw XHTML (or ADF JSON if storage was empty) |
-| View ADF page (JSON) | `cfl page view <adf-id> -o json` | `body.storage` populated (or `body.atlas_doc_format` if storage was empty) |
+| ~~View ADF page (JSON)~~ (#392 removed) | `cfl page view <adf-id> -o json` | Errors: invalid output format |
 | View ADF page (content-only) | `cfl page view <adf-id> --content-only` | Shows content without headers |
 | View legacy page (no regression) | `cfl page view <legacy-id>` | Shows markdown content via storage path |
 
@@ -580,7 +580,7 @@ Copies in the TEST space (originals from INT, CUS, PROD, PLAYBOOK):
 | Format | Flag | Verified With |
 |--------|------|---------------|
 | Table (default) | (none) | Visual inspection |
-| JSON | `--output json` | `jq .` parsing |
+| ~~JSON~~ (#392 removed) | `--output json` | errors at root |
 | Plain | `--output plain` | Tab-separated, scriptable |
 
 ---
@@ -622,7 +622,7 @@ All cfl commands work with both auth methods (no scope restrictions for Confluen
 #### ADF Body Fallback (#150)
 - [ ] View ADF page with empty storage → content displayed via ADF fallback
 - [ ] View ADF page (raw) → shows ADF JSON
-- [ ] View ADF page (JSON output) → body.atlas_doc_format populated
+- [ ] ~~View ADF page (JSON output)~~ (#392 removed)
 - [ ] Edit ADF page (title only) → ADF body preserved
 - [ ] Edit ADF page (new content) → submitted as ADF
 - [ ] View/edit legacy page → no regression (storage path used)
@@ -648,15 +648,15 @@ All cfl commands work with both auth methods (no scope restrictions for Confluen
 - [ ] Full-text search returns results
 - [ ] Space filter works
 - [ ] Type filter works
-- [ ] JSON output is valid
+- [ ] ~~JSON output is valid~~ (#392 removed; -o json errors at root)
 - [ ] Raw CQL works
 
 #### Space CRUD
 - [ ] View space (table output)
-- [ ] View space (JSON output)
+- [ ] ~~View space (JSON output)~~ (#392 removed)
 - [ ] View non-existent space (expect error)
 - [ ] Create space with key, name, description
-- [ ] Create space (JSON output)
+- [ ] ~~Create space (JSON output)~~ (#392 removed)
 - [ ] Create duplicate key (expect error)
 - [ ] Update space name
 - [ ] Update space description
@@ -715,7 +715,7 @@ All cfl commands work with both auth methods (no scope restrictions for Confluen
 #### ADF Body Fallback (#150)
 - [ ] View ADF page with empty storage → content displayed via ADF fallback
 - [ ] View ADF page (raw) → shows ADF JSON
-- [ ] View ADF page (JSON output) → body.atlas_doc_format populated
+- [ ] ~~View ADF page (JSON output)~~ (#392 removed)
 - [ ] Edit ADF page (title only) → ADF body preserved
 - [ ] Edit ADF page (new content) → submitted as ADF
 - [ ] View/edit legacy page → no regression (storage path used)
@@ -741,15 +741,15 @@ All cfl commands work with both auth methods (no scope restrictions for Confluen
 - [ ] Full-text search returns results
 - [ ] Space filter works
 - [ ] Type filter works
-- [ ] JSON output is valid
+- [ ] ~~JSON output is valid~~ (#392 removed; -o json errors at root)
 - [ ] Raw CQL works
 
 #### Space CRUD
 - [ ] View space (table output)
-- [ ] View space (JSON output)
+- [ ] ~~View space (JSON output)~~ (#392 removed)
 - [ ] View non-existent space (expect error)
 - [ ] Create space with key, name, description
-- [ ] Create space (JSON output)
+- [ ] ~~Create space (JSON output)~~ (#392 removed)
 - [ ] Create duplicate key (expect error)
 - [ ] Update space name
 - [ ] Update space description

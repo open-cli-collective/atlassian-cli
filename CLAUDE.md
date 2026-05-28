@@ -204,6 +204,21 @@ backend only (never the value). `config clear` removes the single shared
 resolve the same key); `config clear --all` removes the whole bundle
 (including any deprecated per-tool keys) plus the non-secret config file.
 
+**`--non-interactive` persistent root flag (§3.4):** both jtk and cfl
+accept `--non-interactive` on every command. Under it: no interactive
+prompts run (init wizards, destructive-confirm questions, file-backend
+passphrase TTY prompt). Init wizards fail loud naming the first missing
+required field (URL, email/cloud-id, token). Destructive commands
+(`issues/projects/automation/fields/config clear` on jtk;
+`page/space/attachment/config clear` on cfl) require `--force` to
+proceed; without it they return a clear "confirmation required;
+re-run with --force" error. Init's sibling-impact confirm and
+legacy-cleanup confirms default to safe behavior under
+`--non-interactive` (proceed-with-save, leave-legacy-files-in-place).
+The flag is forwarded into the keyring package via `WireBackendSelection`
+so the file-backend passphrase callback fails loud asking for
+`ATLASSIAN_CLI_KEYRING_PASSPHRASE` rather than prompting on a real TTY.
+
 ## Git History
 
 This monorepo was created using `git subtree` to preserve the full commit history of both tools. Use `git log --oneline` to see the complete history from both source repositories.

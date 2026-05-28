@@ -22,12 +22,13 @@ import (
 
 // Options contains global options for commands
 type Options struct {
-	Output  string
-	NoColor bool
-	Full    bool
-	Stdin   io.Reader
-	Stdout  io.Writer
-	Stderr  io.Writer
+	Output         string
+	NoColor        bool
+	Full           bool
+	NonInteractive bool // --non-interactive (§3.4): never prompt; fail loud on missing required values.
+	Stdin          io.Reader
+	Stdout         io.Writer
+	Stderr         io.Writer
 
 	// testClient is used for testing; if set, APIClient() returns this instead
 	testClient *api.Client
@@ -130,6 +131,7 @@ Get started by running: cfl init`,
 	cmd.PersistentFlags().StringVarP(&opts.Output, "output", "o", "table", "output format: table, json, plain")
 	cmd.PersistentFlags().BoolVar(&opts.NoColor, "no-color", false, "disable colored output")
 	cmd.PersistentFlags().BoolVar(&opts.Full, "full", false, "show full inspection-oriented output (default: agent)")
+	cmd.PersistentFlags().BoolVar(&opts.NonInteractive, "non-interactive", false, "Never prompt; fail loud naming any required value missing from flags/env/stdin (§3.4)")
 	cmd.PersistentFlags().String(cccredstore.BackendFlagName, "", cccredstore.BackendFlagUsage())
 
 	// Set version template
@@ -168,6 +170,18 @@ func wireBackendSelection(cmd *cobra.Command) error {
 		return fmt.Errorf("--%s: %w", cccredstore.BackendFlagName, err)
 	}
 	keyring.SetBackendSelection(opts.Backend, opts.ConfigBackend)
+
+	// §3.4: thread --non-interactive into the keyring package state so
+	// the file-backend passphrase callback fails loud under
+	// --non-interactive regardless of TTY. Folded into this single
+	// chokepoint so any future shadowing PersistentPreRunE that calls
+	// wireBackendSelection gets both wires.
+	var nonInteractive bool
+	if nif := cmd.Flag("non-interactive"); nif != nil {
+		nonInteractive = nif.Value.String() == "true"
+	}
+	keyring.SetNonInteractive(nonInteractive)
+
 	return nil
 }
 

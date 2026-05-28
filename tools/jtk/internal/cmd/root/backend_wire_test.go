@@ -43,6 +43,49 @@ func TestWireBackendSelection_FlagSet(t *testing.T) {
 	}
 }
 
+// TestWireBackendSelection_NonInteractiveFlagThreaded — the
+// --non-interactive root flag is folded into WireBackendSelection so
+// any shadowing subcommand (dashboards/boards/automation/sprints) that
+// calls WireBackendSelection at the top of its PersistentPreRunE also
+// gets the non-interactive wire. Pins that coupling.
+func TestWireBackendSelection_NonInteractiveFlagThreaded(t *testing.T) {
+	keyring.SetBackendSelection("", "")
+	keyring.SetNonInteractive(false)
+	defer keyring.SetBackendSelection("", "")
+	defer keyring.SetNonInteractive(false)
+
+	rootCmd, _ := NewCmd()
+	sub := newProbeCmd("probe")
+	rootCmd.AddCommand(sub)
+	rootCmd.SetArgs([]string{"probe", "--non-interactive"})
+	if err := rootCmd.Execute(); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if !keyring.GetNonInteractive() {
+		t.Fatal("WireBackendSelection must thread --non-interactive into the keyring package state")
+	}
+}
+
+// TestWireBackendSelection_NonInteractiveDefaultsFalse — without the
+// flag, the keyring package state must stay false (no accidental flip).
+func TestWireBackendSelection_NonInteractiveDefaultsFalse(t *testing.T) {
+	keyring.SetBackendSelection("", "")
+	keyring.SetNonInteractive(false)
+	defer keyring.SetBackendSelection("", "")
+	defer keyring.SetNonInteractive(false)
+
+	rootCmd, _ := NewCmd()
+	sub := newProbeCmd("probe")
+	rootCmd.AddCommand(sub)
+	rootCmd.SetArgs([]string{"probe"})
+	if err := rootCmd.Execute(); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if keyring.GetNonInteractive() {
+		t.Fatal("absence of --non-interactive must leave keyring state false")
+	}
+}
+
 // TestWireBackendSelection_FlagInvalid asserts a bogus --backend value
 // returns an error wrapping ErrBackendNotImplemented.
 func TestWireBackendSelection_FlagInvalid(t *testing.T) {

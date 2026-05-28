@@ -53,18 +53,17 @@ func runDelete(ctx context.Context, pageID string, opts *deleteOptions) error {
 
 	v := opts.View()
 
-	if !opts.force {
+	if !opts.force && !opts.NonInteractive {
 		_, _ = fmt.Fprintf(opts.Stderr, "About to delete page: %s (ID: %s)\n", page.Title, page.ID)
 		_, _ = fmt.Fprint(opts.Stderr, "Are you sure? [y/N]: ")
-
-		confirmed, err := prompt.Confirm(opts.Stdin)
-		if err != nil {
-			return fmt.Errorf("reading confirmation: %w", err)
-		}
-		if !confirmed {
-			_, _ = fmt.Fprintln(opts.Stderr, "Deletion cancelled.")
-			return nil
-		}
+	}
+	confirmed, err := prompt.ConfirmOrFail(opts.force, opts.NonInteractive, opts.Stdin)
+	if err != nil {
+		return err
+	}
+	if !confirmed {
+		_, _ = fmt.Fprintln(opts.Stderr, "Deletion cancelled.")
+		return nil
 	}
 
 	if err := client.DeletePage(ctx, pageID); err != nil {

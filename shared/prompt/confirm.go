@@ -3,8 +3,12 @@ package prompt
 
 import (
 	"bufio"
+	"errors"
 	"io"
+	"os"
 	"strings"
+
+	"golang.org/x/term"
 )
 
 // Confirm prompts the user for confirmation and returns true if they answer yes.
@@ -29,4 +33,39 @@ func ConfirmOrForce(force bool, stdin io.Reader) (bool, error) {
 		return true, nil
 	}
 	return Confirm(stdin)
+}
+
+// ErrConfirmationRequired is the §3.4 sentinel: destructive operations
+// under --non-interactive without --force MUST fail loud rather than
+// block on stdin or silently cancel. The text is the actionable hint.
+var ErrConfirmationRequired = errors.New("--non-interactive: confirmation required; re-run with --force to proceed")
+
+// ConfirmOrFail upgrades ConfirmOrForce with the §3.4 non-interactive
+// gate. Precedence: --force wins (returns true); --non-interactive
+// without --force returns ErrConfirmationRequired; otherwise prompts
+// via Confirm.
+func ConfirmOrFail(force, nonInteractive bool, stdin io.Reader) (bool, error) {
+	if force {
+		return true, nil
+	}
+	if nonInteractive {
+		return false, ErrConfirmationRequired
+	}
+	return Confirm(stdin)
+}
+
+// WantPrompt reports whether interactive prompts should run. Returns
+// false under --non-interactive (regardless of stdin) AND when stdin is
+// not a TTY. Used by init wizards to choose between a huh form (TTY +
+// interactive) and a fail-loud validator (non-interactive or non-TTY).
+func WantPrompt(nonInteractive bool, stdin io.Reader) bool {
+	if nonInteractive {
+		return false
+	}
+	return isTerminal(stdin)
+}
+
+func isTerminal(r io.Reader) bool {
+	f, ok := r.(*os.File)
+	return ok && term.IsTerminal(int(f.Fd()))
 }

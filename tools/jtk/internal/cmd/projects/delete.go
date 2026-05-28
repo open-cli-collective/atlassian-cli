@@ -40,20 +40,19 @@ The project can be restored from trash using 'jtk projects restore'.`,
 }
 
 func runDelete(ctx context.Context, opts *root.Options, keyOrID string, force bool) error {
-	if !force {
+	if !force && !opts.NonInteractive {
 		fmt.Fprintf(opts.Stderr, "This will delete project %s (moves to trash). It can be restored later.\n", keyOrID)
 		fmt.Fprint(opts.Stderr, "Are you sure? [y/N]: ")
-
-		confirmed, err := prompt.Confirm(opts.Stdin)
-		if err != nil {
-			return fmt.Errorf("reading confirmation: %w", err)
-		}
-		if !confirmed {
-			model := jtkpresent.ProjectPresenter{}.PresentDeleteCancelled()
-			out := present.Render(model, opts.RenderStyle())
-			_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
-			return nil
-		}
+	}
+	confirmed, err := prompt.ConfirmOrFail(force, opts.NonInteractive, opts.Stdin)
+	if err != nil {
+		return err
+	}
+	if !confirmed {
+		model := jtkpresent.ProjectPresenter{}.PresentDeleteCancelled()
+		out := present.Render(model, opts.RenderStyle())
+		_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
+		return nil
 	}
 
 	client, err := opts.APIClient()

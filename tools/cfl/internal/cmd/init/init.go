@@ -12,6 +12,7 @@ import (
 	"github.com/open-cli-collective/atlassian-go/auth"
 	"github.com/open-cli-collective/atlassian-go/credstore"
 	"github.com/open-cli-collective/atlassian-go/keyring"
+	"github.com/open-cli-collective/atlassian-go/prompt"
 
 	"github.com/open-cli-collective/confluence-cli/api"
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/me"
@@ -234,10 +235,21 @@ func runInit(ctx context.Context, opts *root.Options, prefillURL, prefillEmail, 
 		))
 	}
 
-	form := huh.NewForm(formGroups...)
-
-	if err := form.Run(); err != nil {
-		return err
+	// §3.4: under --non-interactive (or a non-TTY stdin), the huh form
+	// can't run — every required value must already be in cfg from the
+	// flag prefills and the keyring backfill. cfl init has no --token
+	// flag, so the token MUST come from a pre-staged keyring entry
+	// (via `cfl set-credential`). Fail loud naming the first missing
+	// field.
+	if !prompt.WantPrompt(opts.NonInteractive, opts.Stdin) {
+		if err := requireNonInteractiveFields(cfg, isBearer); err != nil {
+			return err
+		}
+	} else {
+		form := huh.NewForm(formGroups...)
+		if err := form.Run(); err != nil {
+			return err
+		}
 	}
 
 	cfg.NormalizeURL()
@@ -286,19 +298,26 @@ func finalizeInit(
 	}
 
 	if result.affectsSibling {
-		var confirm bool
-		if err := huh.NewConfirm().
-			Title("Save will affect jtk").
-			Description("These credentials are stored in shared `default` and used by both cfl and jtk. Continue?").
-			Affirmative("Save").
-			Negative("Cancel").
-			Value(&confirm).
-			Run(); err != nil {
-			return err
-		}
-		if !confirm {
-			v.Info("Initialization cancelled. No changes saved.")
-			return nil
+		if !prompt.WantPrompt(opts.NonInteractive, opts.Stdin) {
+			// §3.4: scripted ingress opted in to shared-store mutation by
+			// passing --non-interactive; surface the sibling impact on
+			// stderr for the audit trail but proceed with the save.
+			v.Info("Saving credentials affects jtk (shared default section); proceeding under --non-interactive.")
+		} else {
+			var confirm bool
+			if err := huh.NewConfirm().
+				Title("Save will affect jtk").
+				Description("These credentials are stored in shared `default` and used by both cfl and jtk. Continue?").
+				Affirmative("Save").
+				Negative("Cancel").
+				Value(&confirm).
+				Run(); err != nil {
+				return err
+			}
+			if !confirm {
+				v.Info("Initialization cancelled. No changes saved.")
+				return nil
+			}
 		}
 	}
 
@@ -320,6 +339,13 @@ func finalizeInit(
 
 	// Optional: clean up legacy files we just migrated.
 	for _, lp := range result.consumedLegacies {
+		if !prompt.WantPrompt(opts.NonInteractive, opts.Stdin) {
+			// §3.4 non-destructive default: under --non-interactive we
+			// neither prompt nor delete. The migration already moved the
+			// data; leaving the legacy file in place is safe and reversible.
+			v.Info("Skipping cleanup of %s under --non-interactive; remove manually if desired.", lp)
+			continue
+		}
 		var deleteIt bool
 		if err := huh.NewConfirm().
 			Title(fmt.Sprintf("Delete legacy config at %s?", lp)).
@@ -356,5 +382,28 @@ func finalizeInit(
 		v.Info("To switch back to basic auth later, run: cfl init --auth-method basic")
 	}
 
+	return nil
+}
+
+// requireNonInteractiveFields enforces the §3.4 fail-loud contract for
+// scripted/CI runs of `cfl init`. cfl init has no --token flag, so the
+// token MUST come from a pre-staged keyring entry via cfl set-credential;
+// the error names that path explicitly.
+func requireNonInteractiveFields(cfg *config.Config, isBearer bool) error {
+	if cfg.URL == "" {
+		return fmt.Errorf("--non-interactive: missing required value for --url")
+	}
+	if isBearer {
+		if cfg.CloudID == "" {
+			return fmt.Errorf("--non-interactive: missing required value for --cloud-id (bearer auth)")
+		}
+	} else {
+		if cfg.Email == "" {
+			return fmt.Errorf("--non-interactive: missing required value for --email (basic auth)")
+		}
+	}
+	if cfg.APIToken == "" {
+		return fmt.Errorf("--non-interactive: no API token (cfl init has no --token flag; pre-stage with `cfl set-credential --ref atlassian-cli/default --key api_token --stdin`)")
+	}
 	return nil
 }

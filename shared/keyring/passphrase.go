@@ -31,6 +31,15 @@ func passphraseFunc(service string) func() (string, error) {
 		// must supply ATLASSIAN_CLI_KEYRING_PASSPHRASE in that case (the
 		// error message says so). Token delivery and passphrase entry
 		// cannot share stdin.
+		//
+		// Additionally, the --non-interactive root flag (§3.4) forces
+		// fail-loud even on a real TTY: a scripted/CI run must never
+		// block on a prompt, regardless of where it is invoked from.
+		if GetNonInteractive() {
+			return "", fmt.Errorf(
+				"file keyring backend needs a passphrase: set %s (--non-interactive disables the TTY prompt fallback)",
+				passphraseEnvVar(service))
+		}
 		if !term.IsTerminal(int(os.Stdin.Fd())) {
 			return "", fmt.Errorf(
 				"file keyring backend needs a passphrase: set %s, or run interactively",

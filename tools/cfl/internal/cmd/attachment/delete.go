@@ -1,11 +1,12 @@
 package attachment
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
+
+	"github.com/open-cli-collective/atlassian-go/prompt"
 
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
 )
@@ -51,20 +52,17 @@ func runDeleteAttachment(ctx context.Context, attachmentID string, opts *deleteO
 
 	v := opts.View()
 
-	if !opts.force {
+	if !opts.force && !opts.NonInteractive {
 		_, _ = fmt.Fprintf(opts.Stderr, "About to delete attachment: %s (ID: %s)\n", attachment.Title, attachment.ID)
 		_, _ = fmt.Fprint(opts.Stderr, "Are you sure? [y/N]: ")
-
-		scanner := bufio.NewScanner(opts.Stdin)
-		var confirm string
-		if scanner.Scan() {
-			confirm = scanner.Text()
-		}
-
-		if confirm != "y" && confirm != "Y" {
-			_, _ = fmt.Fprintln(opts.Stderr, "Deletion cancelled.")
-			return nil
-		}
+	}
+	confirmed, err := prompt.ConfirmOrFail(opts.force, opts.NonInteractive, opts.Stdin)
+	if err != nil {
+		return err
+	}
+	if !confirmed {
+		_, _ = fmt.Fprintln(opts.Stderr, "Deletion cancelled.")
+		return nil
 	}
 
 	if err := client.DeleteAttachment(ctx, attachmentID); err != nil {

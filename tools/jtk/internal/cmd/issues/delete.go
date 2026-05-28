@@ -41,7 +41,7 @@ func newDeleteCmd(opts *root.Options) *cobra.Command {
 }
 
 func runDelete(ctx context.Context, opts *root.Options, issueKeys []string, force bool) error {
-	if !force {
+	if !force && !opts.NonInteractive {
 		var msg string
 		if len(issueKeys) == 1 {
 			msg = fmt.Sprintf("This will permanently delete issue %s. This action cannot be undone.", issueKeys[0])
@@ -50,17 +50,16 @@ func runDelete(ctx context.Context, opts *root.Options, issueKeys []string, forc
 		}
 		fmt.Fprintln(opts.Stderr, msg)
 		fmt.Fprint(opts.Stderr, "Are you sure? [y/N]: ")
-
-		confirmed, err := prompt.Confirm(opts.Stdin)
-		if err != nil {
-			return fmt.Errorf("reading confirmation: %w", err)
-		}
-		if !confirmed {
-			model := jtkpresent.IssuePresenter{}.PresentDeleteCancelled()
-			out := present.Render(model, opts.RenderStyle())
-			_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
-			return nil
-		}
+	}
+	confirmed, err := prompt.ConfirmOrFail(force, opts.NonInteractive, opts.Stdin)
+	if err != nil {
+		return err
+	}
+	if !confirmed {
+		model := jtkpresent.IssuePresenter{}.PresentDeleteCancelled()
+		out := present.Render(model, opts.RenderStyle())
+		_, _ = fmt.Fprint(opts.Stdout, out.Stdout)
+		return nil
 	}
 
 	client, err := opts.APIClient()

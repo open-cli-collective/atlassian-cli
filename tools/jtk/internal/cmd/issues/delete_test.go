@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/open-cli-collective/atlassian-go/prompt"
 	"github.com/open-cli-collective/atlassian-go/testutil"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
@@ -85,6 +86,68 @@ func TestRunDelete_PartialFailure(t *testing.T) {
 	}
 	testutil.Equal(t, stdout.String(), "Deleted PROJ-1\nDeleted PROJ-3\n")
 	testutil.Contains(t, stderr.String(), "Failed to delete PROJ-2")
+}
+
+// TestRunDelete_NonInteractive_WithoutForce_FailsLoud — §3.4 contract:
+// destructive ops under --non-interactive without --force surface the
+// ErrConfirmationRequired sentinel rather than blocking on stdin or
+// silently cancelling. Also asserts that the prompt-text emission is
+// suppressed (CI logs wouldn't see "Are you sure?" lines either).
+func TestRunDelete_NonInteractive_WithoutForce_FailsLoud(t *testing.T) {
+	t.Parallel()
+
+	client, err := api.New(api.ClientConfig{URL: "https://test.atlassian.net", Email: "test@example.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout, stderr bytes.Buffer
+	opts := &root.Options{
+		NonInteractive: true,
+		Stdout:         &stdout,
+		Stderr:         &stderr,
+		Stdin:          bytes.NewBufferString(""),
+	}
+	opts.SetAPIClient(client)
+
+	err = runDelete(context.Background(), opts, []string{"PROJ-123"}, false)
+	if err == nil {
+		t.Fatal("expected ErrConfirmationRequired, got nil")
+	}
+	if !errors.Is(err, prompt.ErrConfirmationRequired) {
+		t.Fatalf("expected prompt.ErrConfirmationRequired, got %v", err)
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr must be empty under --non-interactive (no Are-you-sure line): %q", stderr.String())
+	}
+	if stdout.Len() != 0 {
+		t.Fatalf("stdout must be empty (no cancellation marker either): %q", stdout.String())
+	}
+}
+
+// TestRunDelete_NonInteractive_WithForce_Proceeds — --force still
+// bypasses confirmation under --non-interactive (the existing automation
+// contract is preserved).
+func TestRunDelete_NonInteractive_WithForce_Proceeds(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@example.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout, stderr bytes.Buffer
+	opts := &root.Options{
+		NonInteractive: true,
+		Stdout:         &stdout,
+		Stderr:         &stderr,
+	}
+	opts.SetAPIClient(client)
+
+	err = runDelete(context.Background(), opts, []string{"PROJ-123"}, true)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, stdout.String(), "Deleted PROJ-123\n")
 }
 
 func TestRunDelete_PromptDeclined(t *testing.T) {

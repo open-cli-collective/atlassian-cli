@@ -200,21 +200,20 @@ Trashed fields are permanently deleted after 60 days.`,
 }
 
 func runDelete(ctx context.Context, opts *root.Options, fieldID string, force bool) error {
-	if !force {
+	if !force && !opts.NonInteractive {
 		fmt.Fprintf(opts.Stderr, "This will trash field %s. It can be restored later.\n", fieldID)
 		fmt.Fprint(opts.Stderr, "Are you sure? [y/N]: ")
-
-		confirmed, err := prompt.Confirm(opts.Stdin)
-		if err != nil {
-			return fmt.Errorf("reading confirmation: %w", err)
-		}
-		if !confirmed {
-			model := jtkpresent.FieldPresenter{}.PresentDeleteCancelled()
-			out := present.Render(model, opts.RenderStyle())
-			fmt.Fprint(opts.Stdout, out.Stdout)
-			fmt.Fprint(opts.Stderr, out.Stderr)
-			return nil
-		}
+	}
+	confirmed, err := prompt.ConfirmOrFail(force, opts.NonInteractive, opts.Stdin)
+	if err != nil {
+		return err
+	}
+	if !confirmed {
+		model := jtkpresent.FieldPresenter{}.PresentDeleteCancelled()
+		out := present.Render(model, opts.RenderStyle())
+		fmt.Fprint(opts.Stdout, out.Stdout)
+		fmt.Fprint(opts.Stderr, out.Stderr)
+		return nil
 	}
 
 	client, err := opts.APIClient()

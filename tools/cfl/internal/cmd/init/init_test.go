@@ -124,6 +124,97 @@ func TestRunInit_InvalidAuthMethod(t *testing.T) {
 	testutil.Contains(t, err.Error(), "invalid auth method")
 }
 
+// TestRequireNonInteractiveFields_NamesFirstMissing — cfl variant.
+// Critically, the token error names `cfl set-credential` rather than
+// `--token` because cfl init has no --token flag.
+func TestRequireNonInteractiveFields_NamesFirstMissing(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name     string
+		cfg      *config.Config
+		isBearer bool
+		want     string
+	}{
+		{"basic — missing URL", &config.Config{}, false, "--url"},
+		{"basic — missing email", &config.Config{URL: "https://acme.atlassian.net"}, false, "--email"},
+		{"bearer — missing cloud-id", &config.Config{URL: "https://acme.atlassian.net"}, true, "--cloud-id"},
+		{
+			name: "basic — missing token directs to set-credential",
+			cfg:  &config.Config{URL: "https://acme.atlassian.net", Email: "u@x.io"},
+			want: "set-credential",
+		},
+		{
+			name:     "bearer — missing token directs to set-credential",
+			cfg:      &config.Config{URL: "https://acme.atlassian.net", CloudID: "cid"},
+			isBearer: true,
+			want:     "set-credential",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			err := requireNonInteractiveFields(tc.cfg, tc.isBearer)
+			testutil.RequireError(t, err)
+			if !strings.Contains(err.Error(), "--non-interactive") {
+				t.Fatalf("error must mention --non-interactive: %v", err)
+			}
+			if !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("error must mention %s, got %v", tc.want, err)
+			}
+		})
+	}
+}
+
+func TestRequireNonInteractiveFields_AllSupplied_NoError(t *testing.T) {
+	t.Parallel()
+	cfg := &config.Config{
+		URL: "https://acme.atlassian.net", Email: "u@x.io",
+		APIToken: "tok-1234567890",
+	}
+	if err := requireNonInteractiveFields(cfg, false); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+// TestRunInit_NonInteractive_MissingURL_Fails — drives runInit through
+// the public surface; fail-loud surfaces before any keyring work runs.
+func TestRunInit_NonInteractive_MissingURL_Fails(t *testing.T) {
+	credtest.Hermetic(t)
+	opts := &root.Options{
+		Output:         "table",
+		NoColor:        true,
+		NonInteractive: true,
+		Stdin:          strings.NewReader(""),
+		Stdout:         &bytes.Buffer{},
+		Stderr:         &bytes.Buffer{},
+	}
+	err := runInit(context.Background(), opts, "", "", "", "", true)
+	testutil.RequireError(t, err)
+	if !strings.Contains(err.Error(), "--non-interactive") || !strings.Contains(err.Error(), "--url") {
+		t.Fatalf("expected --non-interactive missing --url error, got: %v", err)
+	}
+}
+
+// TestRunInit_NonInteractive_MissingToken_DirectsToSetCredential — cfl
+// has no --token flag so the fail-loud hint points to the canonical
+// pre-staging path.
+func TestRunInit_NonInteractive_MissingToken_DirectsToSetCredential(t *testing.T) {
+	credtest.Hermetic(t)
+	opts := &root.Options{
+		Output:         "table",
+		NoColor:        true,
+		NonInteractive: true,
+		Stdin:          strings.NewReader(""),
+		Stdout:         &bytes.Buffer{},
+		Stderr:         &bytes.Buffer{},
+	}
+	err := runInit(context.Background(), opts, "https://acme.atlassian.net", "u@x.io", "", "", true)
+	testutil.RequireError(t, err)
+	if !strings.Contains(err.Error(), "set-credential") {
+		t.Fatalf("error must direct user to set-credential, got: %v", err)
+	}
+}
+
 // finalizeInit tests use t.TempDir() for paths and an httptest-backed
 // clientBuilder so the user's real config is never touched and no real
 // network call is made.

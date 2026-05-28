@@ -13,6 +13,7 @@ import (
 	"github.com/open-cli-collective/atlassian-go/credstore"
 	"github.com/open-cli-collective/atlassian-go/keyring"
 	"github.com/open-cli-collective/atlassian-go/present"
+	promptpkg "github.com/open-cli-collective/atlassian-go/prompt"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
@@ -129,18 +130,11 @@ func runClear(ctx context.Context, opts *clearOptions) error {
 		return fmt.Errorf("inspecting keyring: %w", err)
 	}
 
-	confirm := func(prompt string) (bool, error) {
-		if opts.force {
-			return true, nil
+	confirm := func(promptText string) (bool, error) {
+		if !opts.force && !opts.NonInteractive {
+			fmt.Fprint(opts.Stderr, promptText+" [y/N]: ")
 		}
-		fmt.Fprint(opts.Stderr, prompt+" [y/N]: ")
-		var response string
-		_, ferr := fmt.Fscanln(opts.stdin, &response)
-		if ferr != nil && ferr.Error() != "unexpected newline" {
-			return false, ferr
-		}
-		response = strings.TrimSpace(strings.ToLower(response))
-		return response == "y" || response == "yes", nil
+		return promptpkg.ConfirmOrFail(opts.force, opts.NonInteractive, opts.stdin)
 	}
 
 	envNote := func() {

@@ -27,14 +27,15 @@ var ErrAlreadyReported = errors.New("already reported")
 
 // Options contains global options for commands
 type Options struct {
-	NoColor  bool
-	Extended bool // --extended: include admin/schema/audit fields.
-	FullText bool // --fulltext: disable truncation of descriptions/comments.
-	IDOnly   bool // --id: emit only the primary identifier; takes precedence over Extended/FullText.
-	Verbose  bool
-	Stdin    io.Reader
-	Stdout   io.Writer
-	Stderr   io.Writer
+	NoColor        bool
+	Extended       bool // --extended: include admin/schema/audit fields.
+	FullText       bool // --fulltext: disable truncation of descriptions/comments.
+	IDOnly         bool // --id: emit only the primary identifier; takes precedence over Extended/FullText.
+	Verbose        bool
+	NonInteractive bool // --non-interactive (§3.4): never prompt; fail loud on missing required values.
+	Stdin          io.Reader
+	Stdout         io.Writer
+	Stderr         io.Writer
 
 	// testClient is used for testing; if set, APIClient() returns this instead
 	testClient *api.Client
@@ -149,6 +150,7 @@ func NewCmd() (*cobra.Command, *Options) {
 	cmd.PersistentFlags().BoolVar(&opts.FullText, "fulltext", false, "Disable truncation of descriptions and comments")
 	cmd.PersistentFlags().BoolVar(&opts.IDOnly, "id", false, "Emit only the primary identifier (takes precedence over --extended and --fulltext)")
 	cmd.PersistentFlags().BoolVarP(&opts.Verbose, "verbose", "v", false, "Log each request's method/URL, JSON body, and any 4xx/5xx response body (each capped at 4 KB)")
+	cmd.PersistentFlags().BoolVar(&opts.NonInteractive, "non-interactive", false, "Never prompt; fail loud naming any required value missing from flags/env/stdin (§3.4)")
 	cmd.PersistentFlags().String(cccredstore.BackendFlagName, "", cccredstore.BackendFlagUsage())
 
 	return cmd, opts
@@ -159,6 +161,14 @@ func NewCmd() (*cobra.Command, *Options) {
 // persistent flag) and the keyring.backend config key, validates them
 // via credstore.BindBackendFlag, and pushes the result into
 // shared/keyring's package-level state for every subsequent Open*.
+//
+// It ALSO threads the --non-interactive root flag into shared/keyring's
+// package state so the file-backend passphrase callback fails loud
+// under --non-interactive even on a real TTY (§3.4). Folded into a
+// single chokepoint because cobra does NOT chain PersistentPreRunE: a
+// shadowing subcommand (jtk has four — dashboards, boards, automation,
+// sprints) that calls WireBackendSelection gets BOTH wires; splitting
+// them risks one wire missing on those paths.
 //
 // Exported because cobra does NOT chain PersistentPreRunE — a
 // subcommand that defines its own PersistentPreRunE silently shadows
@@ -195,6 +205,16 @@ func WireBackendSelection(cmd *cobra.Command) error {
 		return fmt.Errorf("--%s: %w", cccredstore.BackendFlagName, err)
 	}
 	keyring.SetBackendSelection(opts.Backend, opts.ConfigBackend)
+
+	// §3.4: thread --non-interactive into the keyring package state so
+	// the file-backend passphrase callback fails loud under
+	// --non-interactive regardless of TTY.
+	var nonInteractive bool
+	if nif := cmd.Flag("non-interactive"); nif != nil {
+		nonInteractive = nif.Value.String() == "true"
+	}
+	keyring.SetNonInteractive(nonInteractive)
+
 	return nil
 }
 

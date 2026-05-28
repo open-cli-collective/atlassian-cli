@@ -50,20 +50,19 @@ func runDelete(ctx context.Context, opts *root.Options, ruleID string, force boo
 		return err
 	}
 
-	if !force {
+	if !force && !opts.NonInteractive {
 		fmt.Fprintf(opts.Stderr, "This will permanently delete rule %q (%s). This action cannot be undone.\n", current.Name, ruleID)
 		fmt.Fprint(opts.Stderr, "Are you sure? [y/N]: ")
-
-		confirmed, err := prompt.Confirm(opts.Stdin)
-		if err != nil {
-			return fmt.Errorf("reading confirmation: %w", err)
-		}
-		if !confirmed {
-			model := jtkpresent.AutomationPresenter{}.PresentDeleteCancelled()
-			out := present.Render(model, opts.RenderStyle())
-			fmt.Fprint(opts.Stdout, out.Stdout)
-			return nil
-		}
+	}
+	confirmed, err := prompt.ConfirmOrFail(force, opts.NonInteractive, opts.Stdin)
+	if err != nil {
+		return err
+	}
+	if !confirmed {
+		model := jtkpresent.AutomationPresenter{}.PresentDeleteCancelled()
+		out := present.Render(model, opts.RenderStyle())
+		fmt.Fprint(opts.Stdout, out.Stdout)
+		return nil
 	}
 
 	// API rejects DELETE on ENABLED rules — disable first.

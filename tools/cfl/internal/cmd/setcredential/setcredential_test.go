@@ -53,8 +53,8 @@ func TestSetCredential_StdinExplicit_Success(t *testing.T) {
 	_, stderr, _, err := runCmd(t, sentinel+"\n",
 		"--ref", keyring.Ref, "--key", keyring.KeyAPIToken, "--stdin")
 	testutil.RequireNoError(t, err)
-	if !strings.Contains(stderr, "wrote api_token") || !strings.Contains(stderr, "(cfl)") {
-		t.Fatalf("stderr line missing or malformed: %q", stderr)
+	if !strings.HasPrefix(stderr, "wrote api_token to "+keyring.Ref+" via ") {
+		t.Fatalf("stderr line shape mismatch: %q", stderr)
 	}
 
 	s, oerr := keyring.OpenNoMigrate()

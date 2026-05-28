@@ -371,14 +371,46 @@ func TestRunSetCredential_HumanLineOnSuccess(t *testing.T) {
 	if stdout.Len() != 0 {
 		t.Fatalf("stdout must be empty without --json, got %q", stdout.String())
 	}
-	if !strings.Contains(stderr.String(), "wrote "+keyring.KeyAPIToken) {
-		t.Fatalf("stderr line missing wrote-line: %q", stderr.String())
+	// §1.5.2 verbatim — "wrote <key> to <ref> via <backend>"; no tool suffix.
+	want := "wrote " + keyring.KeyAPIToken + " to " + keyring.Ref + " via "
+	if !strings.HasPrefix(stderr.String(), want) {
+		t.Fatalf("stderr line shape mismatch: got %q, want prefix %q", stderr.String(), want)
 	}
-	if !strings.Contains(stderr.String(), "(cfl)") {
-		t.Fatalf("stderr line missing toolName: %q", stderr.String())
+	if strings.Contains(stderr.String(), "(") {
+		t.Fatalf("stderr line must not have tool suffix per §1.5.2: %q", stderr.String())
 	}
 	if strings.Contains(stderr.String(), v2Sentinel) {
 		t.Fatal("stderr leaked sentinel")
+	}
+}
+
+// TestRunSetCredential_JSONDrainsMigrationNotice — under --json, the
+// §1.8 one-time migration notice that SetCredentialV2's migrating Open()
+// may record MUST be drained so the caller's later FlushMigrationNotice
+// has nothing to write. Stderr stays empty even after a migration.
+func TestRunSetCredential_JSONDrainsMigrationNotice(t *testing.T) {
+	keyring.ResetMigrationNotice()
+	t.Cleanup(keyring.ResetMigrationNotice)
+	credtest.Hermetic(t)
+	// Seed a deprecated per-tool key so §1.8 migration runs during Open().
+	credtest.SeedDeprecatedKey(t, "cfl_api_token", "legacy-token-value")
+
+	var stdout, stderr bytes.Buffer
+	err := keyring.RunSetCredential(keyring.SetCredentialOpts{
+		Stdin:     strings.NewReader(v2Sentinel),
+		Ref:       keyring.Ref,
+		Key:       keyring.KeyAPIToken,
+		UseStdin:  true,
+		Overwrite: true, // migration consolidates to api_token; --overwrite required
+	}, &stdout, &stderr, true, "jtk")
+	testutil.RequireNoError(t, err)
+
+	// Caller's downstream FlushMigrationNotice into a buffer to assert it
+	// got drained by RunSetCredential.
+	var sink bytes.Buffer
+	keyring.FlushMigrationNotice(&sink)
+	if sink.Len() != 0 {
+		t.Fatalf("--json must drain the migration notice; caller would have written %q", sink.String())
 	}
 }
 

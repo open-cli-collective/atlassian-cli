@@ -117,18 +117,21 @@ func SetCredentialV2(opts SetCredentialOpts) (SetCredentialResult, error) {
 		}, err
 	}
 
-	if !opts.Overwrite {
-		exists, herr := s.HasToken(opts.Key)
-		if herr != nil {
-			return post(herr)
-		}
-		if exists {
+	// §1.5.2 default-fail-on-existing: use the atomic strict path so a
+	// concurrent writer between an exists-check and a set cannot slip a
+	// silent overwrite through. SetTokenStrict surfaces ErrExists from the
+	// underlying credstore; translate to the actionable hint.
+	var writeErr error
+	if opts.Overwrite {
+		writeErr = s.SetToken(opts.Key, token)
+	} else {
+		writeErr = s.SetTokenStrict(opts.Key, token)
+		if writeErr != nil && errors.Is(writeErr, cccredstore.ErrExists) {
 			return post(fmt.Errorf("entry exists at %s/%s; pass --overwrite to replace", opts.Ref, opts.Key))
 		}
 	}
-
-	if err := s.SetToken(opts.Key, token); err != nil {
-		return post(err)
+	if writeErr != nil {
+		return post(writeErr)
 	}
 	if cerr := s.Close(); cerr != nil {
 		return SetCredentialResult{
@@ -206,12 +209,25 @@ var ErrSetCredentialEnvelopeEmitted = errors.New("set-credential envelope alread
 // inspects it and suppresses its usual fmt.Fprintln(stderr, err)
 // fallback so the envelope is the sole stdout artifact.
 //
-// toolName feeds the human-facing stderr line so jtk and cfl produce
-// distinguishable output ("wrote api_token to atlassian-cli/default via
-// file (cfl)") without each tool re-implementing the formatting.
+// Migration-notice handling under --json: SetCredentialV2 calls the
+// migrating Open() path, which may record the §1.8 one-time notice in
+// the package sink. Each tool's main.go later calls FlushMigrationNotice
+// on stderr, which would contaminate the envelope-only stdout contract.
+// To keep stderr clean we drain the sink here under --json. The trade-off
+// is that the §1.8 structured `_migration` JSON signal is NOT YET added
+// to the §1.5.2 envelope schema — that schema expansion is tracked as a
+// family-wide follow-up (matches the current nrq #107 behavior). For
+// now, --json runs that perform a migration silently consume the human
+// notice; the migration itself still occurred and is reflected in the
+// envelope's `written=true`.
 func RunSetCredential(opts SetCredentialOpts, stdout, stderr io.Writer, emitJSON bool, toolName string) error {
+	_ = toolName
 	res, err := SetCredentialV2(opts)
 	if emitJSON {
+		// Drain any pending §1.8 migration notice so main.go's
+		// FlushMigrationNotice has nothing left to write to stderr.
+		FlushMigrationNotice(io.Discard)
+
 		enc, mErr := json.Marshal(res)
 		if mErr != nil {
 			return fmt.Errorf("marshal set-credential envelope: %w", mErr)
@@ -227,7 +243,9 @@ func RunSetCredential(opts SetCredentialOpts, stdout, stderr io.Writer, emitJSON
 	if err != nil {
 		return err
 	}
-	_, _ = fmt.Fprintf(stderr, "wrote %s to %s via %s (%s)\n", res.Key, res.Ref, res.Backend, toolName)
+	// §1.5.2 verbatim — no tool-name suffix; the binary name already
+	// distinguishes jtk from cfl in the user's shell history.
+	_, _ = fmt.Fprintf(stderr, "wrote %s to %s via %s\n", res.Key, res.Ref, res.Backend)
 	return nil
 }
 
@@ -251,8 +269,3 @@ func SetCredential(in io.Reader, envVar string) error {
 	})
 	return err
 }
-
-// Ensure cccredstore is referenced (imported above) — the SetCredentialV2
-// path uses cccredstore indirectly via Store.HasToken / Store.SetToken,
-// but the explicit import keeps the relationship visible.
-var _ = cccredstore.ErrNotFound

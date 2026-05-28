@@ -147,21 +147,22 @@ func runInit(ctx context.Context, opts *root.Options, prefillURL, prefillEmail s
 	// so a returning user isn't forced to re-enter a just-migrated
 	// token. NoMigrate: migration already ran. Value stays
 	// password-masked in the form; never displayed.
-	if cfg.APIToken == "" {
-		if tok, _, terr := keyring.ResolveTokenNoMigrate(credstore.ToolCFL); terr == nil {
-			cfg.APIToken = tok
-		}
-	}
-
 	// §1.5.1 token-ingress: explicit --token-stdin / --token-from-env
-	// override the keyring backfill (token-rotation contract — a user
-	// must be able to re-run init with the new token to replace a stale
+	// win over the keyring backfill (token-rotation contract — a user
+	// must be able to re-run init with a new token to replace a stale
 	// keyring entry). Mutual exclusion + empty-value validation happen
-	// inside ReadSecretFromIngress.
+	// inside ReadSecretFromIngress. Resolve BEFORE the keyring read so
+	// the read is skipped when explicit ingress provides the value.
 	if scripted, terr := prompt.ReadSecretFromIngress(opts.Stdin, tokenStdin, tokenFromEnv); terr != nil {
 		return terr
 	} else if scripted != "" {
 		cfg.APIToken = scripted
+	}
+
+	if cfg.APIToken == "" {
+		if tok, _, terr := keyring.ResolveTokenNoMigrate(credstore.ToolCFL); terr == nil {
+			cfg.APIToken = tok
+		}
 	}
 
 	// Determine auth method for form building

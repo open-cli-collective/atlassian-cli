@@ -125,29 +125,30 @@ func TestRunInit_InvalidAuthMethod(t *testing.T) {
 }
 
 // TestRequireNonInteractiveFields_NamesFirstMissing — cfl variant.
-// Critically, the token error names `cfl set-credential` rather than
-// `--token` because cfl init has no --token flag.
+// The token error must recommend --token-stdin / --token-from-env (added
+// in #390) first AND name `cfl set-credential` as the alternate
+// pre-stage path.
 func TestRequireNonInteractiveFields_NamesFirstMissing(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		name     string
 		cfg      *config.Config
 		isBearer bool
-		want     string
+		wants    []string
 	}{
-		{"basic — missing URL", &config.Config{}, false, "--url"},
-		{"basic — missing email", &config.Config{URL: "https://acme.atlassian.net"}, false, "--email"},
-		{"bearer — missing cloud-id", &config.Config{URL: "https://acme.atlassian.net"}, true, "--cloud-id"},
+		{"basic — missing URL", &config.Config{}, false, []string{"--url"}},
+		{"basic — missing email", &config.Config{URL: "https://acme.atlassian.net"}, false, []string{"--email"}},
+		{"bearer — missing cloud-id", &config.Config{URL: "https://acme.atlassian.net"}, true, []string{"--cloud-id"}},
 		{
-			name: "basic — missing token directs to set-credential",
-			cfg:  &config.Config{URL: "https://acme.atlassian.net", Email: "u@x.io"},
-			want: "set-credential",
+			name:  "basic — missing token recommends --token-stdin + --token-from-env + set-credential",
+			cfg:   &config.Config{URL: "https://acme.atlassian.net", Email: "u@x.io"},
+			wants: []string{"--token-stdin", "--token-from-env", "set-credential"},
 		},
 		{
-			name:     "bearer — missing token directs to set-credential",
+			name:     "bearer — missing token recommends --token-stdin + --token-from-env + set-credential",
 			cfg:      &config.Config{URL: "https://acme.atlassian.net", CloudID: "cid"},
 			isBearer: true,
-			want:     "set-credential",
+			wants:    []string{"--token-stdin", "--token-from-env", "set-credential"},
 		},
 	}
 	for _, tc := range tests {
@@ -158,8 +159,10 @@ func TestRequireNonInteractiveFields_NamesFirstMissing(t *testing.T) {
 			if !strings.Contains(err.Error(), "--non-interactive") {
 				t.Fatalf("error must mention --non-interactive: %v", err)
 			}
-			if !strings.Contains(err.Error(), tc.want) {
-				t.Fatalf("error must mention %s, got %v", tc.want, err)
+			for _, want := range tc.wants {
+				if !strings.Contains(err.Error(), want) {
+					t.Fatalf("error must mention %s, got %v", want, err)
+				}
 			}
 		})
 	}
@@ -195,10 +198,11 @@ func TestRunInit_NonInteractive_MissingURL_Fails(t *testing.T) {
 	}
 }
 
-// TestRunInit_NonInteractive_MissingToken_DirectsToSetCredential — cfl
-// has no --token flag so the fail-loud hint points to the canonical
-// pre-staging path.
-func TestRunInit_NonInteractive_MissingToken_DirectsToSetCredential(t *testing.T) {
+// TestRunInit_NonInteractive_MissingToken_RecommendsAllPaths — cfl
+// init has no --token flag; the §1.5.1 fail-loud hint must recommend
+// --token-stdin / --token-from-env (added in this PR) AND point to
+// `cfl set-credential` as the alternate pre-stage path.
+func TestRunInit_NonInteractive_MissingToken_RecommendsAllPaths(t *testing.T) {
 	credtest.Hermetic(t)
 	opts := &root.Options{
 		Output:         "table",
@@ -210,8 +214,10 @@ func TestRunInit_NonInteractive_MissingToken_DirectsToSetCredential(t *testing.T
 	}
 	err := runInit(context.Background(), opts, "https://acme.atlassian.net", "u@x.io", false, "", "", "", true)
 	testutil.RequireError(t, err)
-	if !strings.Contains(err.Error(), "set-credential") {
-		t.Fatalf("error must direct user to set-credential, got: %v", err)
+	for _, want := range []string{"--token-stdin", "--token-from-env", "set-credential"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Fatalf("error must mention %s, got: %v", want, err)
+		}
 	}
 }
 

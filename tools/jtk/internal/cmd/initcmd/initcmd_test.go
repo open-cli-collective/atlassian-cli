@@ -97,16 +97,16 @@ func TestRequireNonInteractiveFields_NamesFirstMissing(t *testing.T) {
 			want:     "--cloud-id",
 		},
 		{
-			name:     "basic auth — missing token",
+			name:     "basic auth — missing token recommends --token-stdin",
 			cfg:      &config.Config{URL: "https://acme.atlassian.net", Email: "u@x.io"},
 			isBearer: false,
-			want:     "--token",
+			want:     "--token-stdin",
 		},
 		{
-			name:     "bearer — missing token",
+			name:     "bearer — missing token recommends --token-stdin",
 			cfg:      &config.Config{URL: "https://acme.atlassian.net", CloudID: "cid"},
 			isBearer: true,
-			want:     "--token",
+			want:     "--token-stdin",
 		},
 	}
 	for _, tc := range tests {
@@ -157,8 +157,9 @@ func TestRunInit_NonInteractive_MissingURL_Fails(t *testing.T) {
 }
 
 // TestRunInit_NonInteractive_MissingToken_FlagAndKeyringEmpty — the
-// fail-loud hint must point to `jtk set-credential` when the user has
-// neither --token nor a pre-staged keyring entry.
+// fail-loud hint must point to --token-stdin / --token-from-env first
+// (the §1.5.1 canonical scripted shape) with `jtk set-credential` as
+// the alternate pre-stage path.
 func TestRunInit_NonInteractive_MissingToken_FlagAndKeyringEmpty(t *testing.T) {
 	credtest.Hermetic(t)
 	opts := &root.Options{
@@ -170,8 +171,11 @@ func TestRunInit_NonInteractive_MissingToken_FlagAndKeyringEmpty(t *testing.T) {
 	}
 	err := runInit(context.Background(), opts, "https://acme.atlassian.net", "u@x.io", "", false, "", "", "", true)
 	testutil.RequireError(t, err)
-	if !strings.Contains(err.Error(), "--token") {
-		t.Fatalf("error must hint at --token, got: %v", err)
+	if !strings.Contains(err.Error(), "--token-stdin") {
+		t.Fatalf("error must hint at --token-stdin, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "--token-from-env") {
+		t.Fatalf("error must hint at --token-from-env, got: %v", err)
 	}
 	if !strings.Contains(err.Error(), "set-credential") {
 		t.Fatalf("error must hint at set-credential pre-staging, got: %v", err)

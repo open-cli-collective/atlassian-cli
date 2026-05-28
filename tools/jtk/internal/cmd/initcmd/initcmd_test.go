@@ -433,23 +433,23 @@ func TestRunInit_TokenStdinAndTokenFromEnv_Fails(t *testing.T) {
 	}
 }
 
-// TestRunInit_TokenStdinWithoutNonInteractive_Fails — --token-stdin
-// drains stdin before the interactive form would read from it, so the
-// combination is loudly rejected rather than silently failing later
-// with EOF on the first prompt.
-func TestRunInit_TokenStdinWithoutNonInteractive_Fails(t *testing.T) {
+// TestRunInit_TokenStdinPipedStdin_NoNonInteractiveRequired — the
+// canonical CI usage `op read | jtk init --token-stdin --url ... --email ...`
+// pipes stdin (non-TTY), which makes WantPrompt false and skips the
+// huh form. --non-interactive is therefore NOT required for piped
+// usage; the guard only fires when stdin IS a real TTY (would-be
+// interactive form). Pinned so a future regression that re-tightens
+// the guard to require --non-interactive unconditionally is loud.
+func TestRunInit_TokenStdinPipedStdin_NoNonInteractiveRequired(t *testing.T) {
 	credtest.Hermetic(t)
 	opts := &root.Options{
 		NoColor:        true,
-		NonInteractive: false, // intentionally not the canonical pair
-		Stdin:          strings.NewReader(initSentinel),
+		NonInteractive: false, // intentionally — pipe is non-TTY, WantPrompt is false
+		Stdin:          strings.NewReader(initSentinel + "\n"),
 		Stdout:         &bytes.Buffer{},
 		Stderr:         &bytes.Buffer{},
 	}
 	err := runInit(context.Background(), opts,
 		"https://acme.atlassian.net", "u@x.io", "", true, "", "", "", true)
-	testutil.RequireError(t, err)
-	if !strings.Contains(err.Error(), "--token-stdin requires --non-interactive") {
-		t.Fatalf("error must explain the --non-interactive requirement, got: %v", err)
-	}
+	testutil.RequireNoError(t, err)
 }

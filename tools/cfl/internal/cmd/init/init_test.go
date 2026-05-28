@@ -615,23 +615,22 @@ func TestRunInit_TokenStdinOverridesKeyring(t *testing.T) {
 	testutil.Equal(t, cflInitSentinel, got)
 }
 
-// TestRunInit_TokenStdinWithoutNonInteractive_Fails — mirrors the jtk
-// guard: --token-stdin drains stdin, so without --non-interactive the
-// subsequent form prompts would EOF. Rejected loudly.
-func TestRunInit_TokenStdinWithoutNonInteractive_Fails(t *testing.T) {
+// TestRunInit_TokenStdinPipedStdin_NoNonInteractiveRequired — mirrors
+// the jtk test: canonical CI usage `op read | cfl init --token-stdin ...`
+// pipes stdin (non-TTY), so WantPrompt is false and the form skips
+// regardless of --non-interactive. The TTY-only guard does NOT fire on
+// a piped stdin.
+func TestRunInit_TokenStdinPipedStdin_NoNonInteractiveRequired(t *testing.T) {
 	credtest.Hermetic(t)
 	opts := &root.Options{
 		Output:         "table",
 		NoColor:        true,
 		NonInteractive: false,
-		Stdin:          strings.NewReader(cflInitSentinel),
+		Stdin:          strings.NewReader(cflInitSentinel + "\n"),
 		Stdout:         &bytes.Buffer{},
 		Stderr:         &bytes.Buffer{},
 	}
 	err := runInit(context.Background(), opts,
 		"https://acme.atlassian.net", "u@x.io", true, "", "", "", true)
-	testutil.RequireError(t, err)
-	if !strings.Contains(err.Error(), "--token-stdin requires --non-interactive") {
-		t.Fatalf("error must explain the --non-interactive requirement, got: %v", err)
-	}
+	testutil.RequireNoError(t, err)
 }

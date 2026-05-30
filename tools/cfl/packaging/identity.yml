@@ -1,0 +1,36 @@
+schema: open-cli-identity/v1
+repo: atlassian-cli
+binary: cfl
+# repo-root-relative (identity-check --repo-root; .github#15): goreleaser runs
+# from the monorepo root with go.work/shared context even though cfl's packaging
+# and version live under tools/cfl (--working-dir).
+goreleaser_config: .goreleaser-cfl.yml
+tag:
+  prefix: cfl-v
+  version_scheme: major_minor_run_patch
+# string-identical to .goreleaser-cfl.yml archives.name_template (identity-check
+# compares the literal template, not its expansion).
+archives:
+  name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+packages:
+  homebrew:
+    canonical_cask: cfl
+  winget: { id: OpenCLICollective.cfl }
+  chocolatey: { id: confluence-cli }
+  linux: { package_name: cfl }
+
+# Faithful port of the pre-migration darwin Keychain gate, fixed for the §2
+# output-rendering rollout: the old gate ran `--output json config show`, but
+# `--output` is now a closed set {table, plain} that rejects "json", so the gate
+# would fail at release. With the backend override + token envs unset and an
+# empty HOME, the arm64 binary auto-selects the macOS Keychain; `config show`
+# (text) reports it on the "Keyring Backend" row. No seed_config — auto-detect
+# selects keychain on darwin without one (the old gate didn't seed either).
+keychain_probe:
+  env_unset: [ATLASSIAN_CLI_KEYRING_BACKEND, CFL_API_TOKEN, ATLASSIAN_API_TOKEN]
+  command: ["config", "show"]
+  output: text
+  match:
+    - 'Keyring Backend: keychain \(auto\)'
+
+version_file: version.txt

@@ -1,0 +1,39 @@
+schema: open-cli-identity/v1
+repo: atlassian-cli
+binary: jtk
+# repo-root-relative (identity-check --repo-root; .github#15): goreleaser runs
+# from the monorepo root with go.work/shared context even though jtk's packaging
+# and version live under tools/jtk (--working-dir).
+goreleaser_config: .goreleaser-jtk.yml
+tag:
+  prefix: jtk-v
+  version_scheme: major_minor_run_patch
+# string-identical to .goreleaser-jtk.yml archives.name_template (identity-check
+# compares the literal template, not its expansion).
+archives:
+  name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+packages:
+  homebrew:
+    canonical_cask: jtk
+    # jira-ticket-cli is the legacy install name; GoReleaser Free can't emit a
+    # second cask, so the reusable release.yml's homebrew-alias step renders it
+    # from the canonical jtk cask (replacing the old sed in release-jtk.yml).
+    alias_casks: [jira-ticket-cli]
+  winget: { id: OpenCLICollective.jira-ticket-cli }
+  chocolatey: { id: jira-ticket-cli }
+  linux: { package_name: jtk }
+
+# Faithful port of the pre-migration darwin Keychain gate, fixed for the §2
+# output-rendering rollout (jtk has no --output/--json flag, so the old
+# `--output json` form never worked post-rollout). With the backend override +
+# token envs unset and an empty HOME, the arm64 binary auto-selects the macOS
+# Keychain; `config show` (text table) reports it on the "keyring_backend" row.
+# No seed_config — auto-detect selects keychain on darwin without one.
+keychain_probe:
+  env_unset: [ATLASSIAN_CLI_KEYRING_BACKEND, JIRA_API_TOKEN, ATLASSIAN_API_TOKEN]
+  command: ["config", "show"]
+  output: text
+  match:
+    - 'keyring_backend \| keychain \(auto\)'
+
+version_file: version.txt

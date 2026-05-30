@@ -74,17 +74,20 @@ Releases are automated with a dual-gate system:
 
 **Tag format**: `{tool}-v{base}.{run}` (e.g., `cfl-v0.9.150`, `jtk-v0.1.75`)
 
-When a release-triggering commit is merged to main:
-1. `auto-release-{tool}.yml` creates a tag (e.g., `cfl-v1.0.150`)
-2. Tag push triggers `release-{tool}.yml`
-3. A temporary semver tag (`v1.0.150`) is created for GoReleaser compatibility
-4. GoReleaser builds binaries, creates the GitHub release, and pushes the Homebrew cask
-5. The release is re-tagged from `v1.0.150` → `cfl-v1.0.150` and the temporary tag is deleted
-6. The release workflow's `trigger-publish` job dispatches `chocolatey-publish-{tool}.yml` and `winget-publish-{tool}.yml` via `gh workflow run` (manual `workflow_dispatch` is retained as a fallback)
+The mechanics now live in the shared reusable workflows
+(`open-cli-collective/.github`, `@v1`); `auto-release-{tool}.yml` and
+`release-{tool}.yml` are thin callers that pass `working-directory: tools/{tool}`
+and wire secrets. Per-tool identity (tag prefix, binary, channels, keychain
+probe) is declared once in `tools/{tool}/packaging/identity.yml` and consumed by
+the reusable jobs. When a release-triggering commit is merged to main:
+1. The `auto-release.yml@v1` gate (path + commit) mints `{tool}-v{base}.{run}` from the manifest prefix + `tools/{tool}/version.txt`
+2. Tag push triggers `release-{tool}.yml` → `release.yml@v1`
+3. Because the prefix (`cfl-v`/`jtk-v`) isn't SemVer, the reusable mints a temporary `v{version}` tag for GoReleaser, builds/gates/publishes, then renames the release to `{tool}-v{version}` and deletes the temp tag
+4. It fans out to the channels the manifest declares: Homebrew cask (+ the `jira-ticket-cli` alias for jtk), winget, chocolatey, linux
 
-**Fragile: tag rename and download URLs.** GoReleaser runs *before* the tag rename in step 5. Any GoReleaser-generated download URLs must use `url.template` to hardcode the final tool-prefixed tag — otherwise they'll reference the deleted temporary tag and 404. The `homebrew_casks` sections in `.goreleaser-{tool}.yml` have `url.template` set for this reason. If you add a new packaging integration that uses release download URLs, it must account for the tag rename.
+**Fragile: tag rename and download URLs.** GoReleaser runs *before* the tag rename in step 3. Any GoReleaser-generated download URLs must use `url.template` to hardcode the final tool-prefixed tag — otherwise they'll reference the deleted temporary tag and 404. The `homebrew_casks` sections in `.goreleaser-{tool}.yml` have `url.template` set for this reason. If you add a new packaging integration that uses release download URLs, it must account for the tag rename.
 
-**`jira-ticket-cli` alias cask.** GoReleaser Free doesn't support `alternative_names` for casks, so `jira-ticket-cli.rb` is auto-generated from `jtk.rb` via sed in the `release-jtk.yml` workflow (after the tag rename step).
+**`jira-ticket-cli` alias cask.** GoReleaser Free doesn't support `alternative_names` for casks. The canonical `jtk.rb` cask is rendered by GoReleaser with `skip_upload: true` (into `dist/`, not pushed); the reusable workflow's homebrew-alias step is the single atomic tap writer and renders `jira-ticket-cli.rb` from it (declared as `alias_casks: [jira-ticket-cli]` in `tools/jtk/packaging/identity.yml`). The old in-workflow `sed` is gone.
 
 ### Required Secrets
 

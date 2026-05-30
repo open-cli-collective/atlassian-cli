@@ -95,17 +95,23 @@ nfpms:
       - src: tools/jtk/LICENSE
         dst: /usr/share/licenses/jtk/LICENSE
 
-# Homebrew cask with auto-quarantine removal for unsigned binaries
-# Note: 'jira-ticket-cli' alias cask is auto-generated from jtk.rb in the release workflow
-# (alternative_names requires GoReleaser Pro)
+# Canonical Homebrew cask with auto-quarantine removal for unsigned binaries.
+# skip_upload: true → goreleaser RENDERS the canonical jtk cask into dist/ but
+# does NOT push it; the reusable release workflow's homebrew-alias step is the
+# single atomic writer that commits both the canonical jtk cask AND the
+# jira-ticket-cli alias cask to the tap (the manifest's alias_casks — replacing
+# the old sed in release-jtk.yml; GoReleaser Free has no alternative_names). No
+# `token:` here — the tap token belongs only to that alias job. The url.template
+# stays: goreleaser runs BEFORE the jtk-v* tag rename, so the download URL must
+# pin the final prefixed tag or it 404s on the temp tag.
 homebrew_casks:
   - name: jtk
+    skip_upload: true
     url:
       template: "https://github.com/open-cli-collective/atlassian-cli/releases/download/jtk-v{{ .Version }}/{{ .ArtifactName }}"
     repository:
       owner: open-cli-collective
       name: homebrew-tap
-      token: "{{ .Env.TAP_GITHUB_TOKEN }}"
     homepage: https://github.com/open-cli-collective/atlassian-cli
     description: "Command-line interface for Jira Cloud"
     binaries: [jtk]
@@ -145,6 +151,9 @@ changelog:
       order: 999
 
 release:
+  # idempotent re-runs: a retried release overwrites the same assets instead of
+  # erroring on "asset already exists" (release-preflight hard-requires this).
+  replace_existing_artifacts: true
   github:
     owner: open-cli-collective
     name: atlassian-cli

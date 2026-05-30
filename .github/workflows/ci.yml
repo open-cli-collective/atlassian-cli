@@ -171,3 +171,35 @@ jobs:
         with:
           working-directory: shared
           version: v2.12.2
+
+  # Per-tool identity drift guard (distribution.md §8.2): assert each tool's
+  # packaging/identity.yml matches its tool-native files. working-directory is
+  # the tool root; repo-root defaults to "." so the root-relative
+  # goreleaser_config resolves (distribution.md §8.3 / .github#15).
+  identity-check-cfl:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.cfl == 'true' || needs.detect-changes.outputs.shared == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: open-cli-collective/.github/actions/identity-check@v1
+        with:
+          working-directory: tools/cfl
+
+  identity-check-jtk:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.jtk == 'true' || needs.detect-changes.outputs.shared == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: open-cli-collective/.github/actions/identity-check@v1
+        with:
+          working-directory: tools/jtk
+
+  pr-title:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: open-cli-collective/.github/actions/pr-title@v1
+        with:
+          title: ${{ github.event.pull_request.title }}

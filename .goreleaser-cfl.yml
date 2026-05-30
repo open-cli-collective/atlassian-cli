@@ -95,15 +95,21 @@ nfpms:
       - src: tools/cfl/LICENSE
         dst: /usr/share/licenses/cfl/LICENSE
 
-# Homebrew cask with auto-quarantine removal for unsigned binaries
+# Canonical Homebrew cask with auto-quarantine removal for unsigned binaries.
+# skip_upload: true → goreleaser RENDERS the cask into dist/ but does NOT push
+# it; the reusable release workflow's homebrew-alias step is the single atomic
+# writer that commits the canonical cfl cask to the tap. No `token:` here — the
+# tap token belongs only to that alias job, and skip_upload needs none. The
+# url.template stays: goreleaser runs BEFORE the cfl-v* tag rename, so the
+# download URL must pin the final prefixed tag or it 404s on the temp tag.
 homebrew_casks:
   - name: cfl
+    skip_upload: true
     url:
       template: "https://github.com/open-cli-collective/atlassian-cli/releases/download/cfl-v{{ .Version }}/{{ .ArtifactName }}"
     repository:
       owner: open-cli-collective
       name: homebrew-tap
-      token: "{{ .Env.TAP_GITHUB_TOKEN }}"
     homepage: https://github.com/open-cli-collective/atlassian-cli
     description: "Command-line interface for Atlassian Confluence"
     binaries: [cfl]
@@ -138,6 +144,9 @@ changelog:
       order: 999
 
 release:
+  # idempotent re-runs: a retried release overwrites the same assets instead of
+  # erroring on "asset already exists" (release-preflight hard-requires this).
+  replace_existing_artifacts: true
   github:
     owner: open-cli-collective
     name: atlassian-cli

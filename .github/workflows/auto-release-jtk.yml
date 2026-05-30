@@ -1,38 +1,39 @@
 name: Auto Release jtk
 
+# On push to main, decide whether to cut a jtk release and mint the jtk-v tag.
+# Identity (tag prefix jtk-v, version file) comes from tools/jtk/packaging/
+# identity.yml. The gate logic + version.txt + GITHUB_RUN_NUMBER tag scheme live
+# in the shared reusable workflow; this caller wires triggers/scope/secrets.
 on:
   push:
     branches: [main]
-    paths:
-      - 'tools/jtk/**/*.go'
-      - 'tools/jtk/go.mod'
-      - 'tools/jtk/go.sum'
-      - 'shared/**/*.go'
-      - 'shared/**/go.mod'
-      - 'shared/**/go.sum'
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: "Compute the tag but do not push it"
+        type: boolean
+        default: true
+
+# The tag push uses the dedicated TAP_GITHUB_TOKEN via a credential helper, not
+# GITHUB_TOKEN — so the pushed tag retriggers release-jtk.yml.
+permissions:
+  contents: read
 
 jobs:
-  create-tag:
-    runs-on: ubuntu-latest
-    # Only create release for feat or fix commits (supports scoped conventional commits like feat(jtk):)
-    if: startsWith(github.event.head_commit.message, 'feat') || startsWith(github.event.head_commit.message, 'fix')
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          token: ${{ secrets.TAP_GITHUB_TOKEN }}
-
-      - name: Read version
-        id: version
-        run: |
-          BASE_VERSION=$(cat tools/jtk/version.txt | tr -d '\n')
-          VERSION="${BASE_VERSION}.${{ github.run_number }}"
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Version: $VERSION"
-
-      - name: Create and push tag
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag -a "jtk-v${{ steps.version.outputs.version }}" -m "Release jtk v${{ steps.version.outputs.version }}"
-          git push origin "jtk-v${{ steps.version.outputs.version }}"
+  auto-release:
+    uses: open-cli-collective/.github/.github/workflows/auto-release.yml@v1
+    with:
+      working-directory: tools/jtk
+      # Two-stage monorepo gate: a changed file must be under a tool-path AND
+      # match a release-path. tool-paths scopes to jtk + shared; release-paths is
+      # the NARROW code-file set (NOT tools/jtk/** — that would release on a
+      # docs/packaging change). version.txt is unioned in and matched
+      # tool-relative, so tools/jtk/version.txt bumps still release.
+      release-paths: "**.go,go.mod,go.sum,version.txt"
+      tool-paths: "tools/jtk/**,shared/**"
+      # push is live (false); workflow_dispatch honors the checkbox. Compare
+      # against both true and 'true' because a workflow_dispatch boolean input
+      # may surface as a real boolean or the string "true" depending on context.
+      dry-run: ${{ github.event_name == 'workflow_dispatch' && (inputs.dry-run == true || inputs.dry-run == 'true') }}
+    secrets:
+      tag-token: ${{ secrets.TAP_GITHUB_TOKEN }}

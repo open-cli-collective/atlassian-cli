@@ -3,6 +3,7 @@ package space
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -161,27 +162,25 @@ func TestRunList_PreservesRawSpaceTypes(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		if key := r.URL.Query().Get("keys"); key != "" {
-			spaceTypeByKey := map[string]string{
-				"GLOBAL":     "global",
-				"~123":       "personal",
-				"CONFLUENCE": "collaboration",
-				"Education":  "knowledge_base",
+			spaces := map[string]api.Space{
+				"GLOBAL":     {ID: "1", Key: "GLOBAL", Name: "Space With Words", Type: "global", Status: "current"},
+				"~123":       {ID: "2", Key: "~123", Name: "Space With Words", Type: "personal", Status: "current"},
+				"CONFLUENCE": {ID: "3", Key: "CONFLUENCE", Name: "Space With Words", Type: "collaboration", Status: "current"},
+				"Education":  {ID: "4", Key: "Education", Name: "Space With Words", Type: "knowledge_base", Status: "current"},
 			}
-			_, _ = w.Write([]byte(`{
-				"results": [
-					{"id": "3", "key": "` + key + `", "name": "Space With Words", "type": "` + spaceTypeByKey[key] + `", "status": "current"}
-				]
-			}`))
+			_ = json.NewEncoder(w).Encode(api.PaginatedResponse[api.Space]{
+				Results: []api.Space{spaces[key]},
+			})
 			return
 		}
-		_, _ = w.Write([]byte(`{
-			"results": [
-				{"id": "1", "key": "GLOBAL", "name": "Global Space", "type": "global", "status": "current"},
-				{"id": "2", "key": "~123", "name": "Personal Space", "type": "personal", "status": "current"},
-				{"id": "3", "key": "CONFLUENCE", "name": "Confluence CLI", "type": "collaboration", "status": "current"},
-				{"id": "4", "key": "Education", "name": "Education Space", "type": "knowledge_base", "status": "current"}
-			]
-		}`))
+		_ = json.NewEncoder(w).Encode(api.PaginatedResponse[api.Space]{
+			Results: []api.Space{
+				{ID: "1", Key: "GLOBAL", Name: "Global Space", Type: "global", Status: "current"},
+				{ID: "2", Key: "~123", Name: "Personal Space", Type: "personal", Status: "current"},
+				{ID: "3", Key: "CONFLUENCE", Name: "Confluence CLI", Type: "collaboration", Status: "current"},
+				{ID: "4", Key: "Education", Name: "Education Space", Type: "knowledge_base", Status: "current"},
+			},
+		})
 	}))
 	defer server.Close()
 

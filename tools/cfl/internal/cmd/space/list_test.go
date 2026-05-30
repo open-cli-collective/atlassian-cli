@@ -5,6 +5,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/open-cli-collective/atlassian-go/testutil"
@@ -157,13 +158,21 @@ func TestRunList_WithTypeFilter(t *testing.T) {
 
 func TestRunList_PreservesRawSpaceTypes(t *testing.T) {
 	t.Parallel()
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
+		if r.URL.Query().Get("keys") == "CONFLUENCE" {
+			_, _ = w.Write([]byte(`{
+				"results": [
+					{"id": "3", "key": "CONFLUENCE", "name": "ConfluenceCLI", "type": "collaboration", "status": "current"}
+				]
+			}`))
+			return
+		}
 		_, _ = w.Write([]byte(`{
 			"results": [
 				{"id": "1", "key": "GLOBAL", "name": "Global", "type": "global"},
 				{"id": "2", "key": "~123", "name": "Personal", "type": "personal"},
-				{"id": "3", "key": "CONFLUENCE", "name": "Confluence CLI", "type": "collaboration"},
+				{"id": "3", "key": "CONFLUENCE", "name": "ConfluenceCLI", "type": "collaboration"},
 				{"id": "4", "key": "Education", "name": "Education", "type": "knowledge_base"}
 			]
 		}`))
@@ -183,11 +192,32 @@ func TestRunList_PreservesRawSpaceTypes(t *testing.T) {
 
 	err := runList(context.Background(), opts)
 	testutil.RequireNoError(t, err)
-	output := stdout.String()
-	testutil.Contains(t, output, "global")
-	testutil.Contains(t, output, "personal")
-	testutil.Contains(t, output, "collaboration")
-	testutil.Contains(t, output, "knowledge_base")
+	gotTypes := spaceTypesByKey(stdout.String())
+	testutil.Equal(t, "global", gotTypes["GLOBAL"])
+	testutil.Equal(t, "personal", gotTypes["~123"])
+	testutil.Equal(t, "collaboration", gotTypes["CONFLUENCE"])
+	testutil.Equal(t, "knowledge_base", gotTypes["Education"])
+
+	viewStdout := &bytes.Buffer{}
+	viewRootOpts := newTestRootOptions()
+	viewRootOpts.Stdout = viewStdout
+	viewRootOpts.SetAPIClient(client)
+
+	viewOpts := &viewOptions{Options: viewRootOpts}
+	err = runView(context.Background(), "CONFLUENCE", viewOpts)
+	testutil.RequireNoError(t, err)
+	testutil.Contains(t, viewStdout.String(), "Type: "+gotTypes["CONFLUENCE"])
+}
+
+func spaceTypesByKey(output string) map[string]string {
+	types := make(map[string]string)
+	for _, line := range strings.Split(output, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) >= 3 && fields[0] != "KEY" {
+			types[fields[0]] = fields[2]
+		}
+	}
+	return types
 }
 
 func TestRunList_WithLimitParameter(t *testing.T) {

@@ -54,7 +54,6 @@ func New(cfg ClientConfig) (*Client, error) {
 		return nil, ErrAPITokenRequired
 	}
 
-	// Validate auth method if explicitly set
 	if cfg.AuthMethod != "" {
 		if err := auth.ValidateAuthMethod(cfg.AuthMethod); err != nil {
 			return nil, err
@@ -74,7 +73,6 @@ func New(cfg ClientConfig) (*Client, error) {
 	baseURL := url.NormalizeURL(cfg.URL)
 	restURL := baseURL + "/rest/api/3"
 
-	// Create shared client with verbose option
 	var opts *client.Options
 	if cfg.Verbose {
 		opts = &client.Options{Verbose: true}

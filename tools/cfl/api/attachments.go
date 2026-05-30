@@ -107,11 +107,9 @@ func (c *Client) DownloadAttachment(ctx context.Context, attachmentID string) (i
 // UploadAttachment uploads a file as an attachment to a page.
 // Note: This uses the v1 API as v2 doesn't support uploads yet.
 func (c *Client) UploadAttachment(ctx context.Context, pageID, filename string, content io.Reader, comment string) (*Attachment, error) {
-	// Create multipart form
 	var buf bytes.Buffer
 	writer := multipart.NewWriter(&buf)
 
-	// Add file part
 	part, err := writer.CreateFormFile("file", filename)
 	if err != nil {
 		return nil, fmt.Errorf("creating form file: %w", err)
@@ -120,7 +118,6 @@ func (c *Client) UploadAttachment(ctx context.Context, pageID, filename string, 
 		return nil, fmt.Errorf("copying file content: %w", err)
 	}
 
-	// Add comment if provided
 	if comment != "" {
 		if err := writer.WriteField("comment", comment); err != nil {
 			return nil, fmt.Errorf("writing comment field: %w", err)

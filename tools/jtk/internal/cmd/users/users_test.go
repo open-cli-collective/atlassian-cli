@@ -348,11 +348,11 @@ func TestRunSearch_PaginationUsesRawUpstreamResultCount(t *testing.T) {
 	opts := &root.Options{NoColor: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(newClient(t, server.URL))
 
-	testutil.RequireNoError(t, runSearch(context.Background(), opts, "a", 2, "", ""))
+	testutil.RequireNoError(t, runSearch(context.Background(), opts, "a", 2, "20", ""))
 
 	want := "ACCOUNT_ID | NAME | EMAIL | ACTIVE\n" +
 		"a1 | Alice | - | yes\n" +
-		"More results available (next: 2)\n"
+		"More results available (next: 22)\n"
 	if stdout.String() != want {
 		t.Errorf("users search filtered pagination:\ngot:  %q\nwant: %q", stdout.String(), want)
 	}

@@ -5,7 +5,7 @@ go 1.26
 require (
 	github.com/fatih/color v1.18.0
 	github.com/gohugoio/hugo-goldmark-extensions/extras v0.6.0
-	github.com/open-cli-collective/cli-common v0.2.1
+	github.com/open-cli-collective/cli-common v0.2.2
 	github.com/yuin/goldmark v1.7.16
 	golang.org/x/term v0.43.0
 	gopkg.in/yaml.v3 v3.0.1

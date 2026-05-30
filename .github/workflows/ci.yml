@@ -20,10 +20,19 @@ jobs:
           filters: |
             cfl:
               - 'tools/cfl/**'
+              - '.goreleaser-cfl.yml'
+              - '.github/workflows/ci.yml'
+              - '.github/workflows/release-cfl.yml'
             jtk:
               - 'tools/jtk/**'
+              - '.goreleaser-jtk.yml'
+              - '.github/workflows/ci.yml'
+              - '.github/workflows/release-jtk.yml'
             shared:
               - 'shared/**'
+              - 'go.work'
+              - 'Makefile'
+              - '.github/workflows/ci.yml'
 
   build-test-cfl:
     needs: detect-changes
@@ -38,6 +47,24 @@ jobs:
         run: cd tools/cfl && go mod tidy && git diff --exit-code go.mod go.sum
       - name: Build cfl
         run: go build -v ./tools/cfl/...
+      - name: Static release build guard cfl
+        run: |
+          set -euo pipefail
+          cd tools/cfl
+          for target in linux/amd64 linux/arm64 windows/amd64 windows/arm64; do
+            goos="${target%/*}"
+            goarch="${target#*/}"
+            CGO_ENABLED=0 GOOS="$goos" GOARCH="$goarch" \
+              go build -o "$RUNNER_TEMP/cfl-$goos-$goarch" ./cmd/cfl
+          done
+
+          for goarch in amd64 arm64; do
+            deps=$(CGO_ENABLED=0 GOOS=linux GOARCH="$goarch" go list -deps ./cmd/cfl)
+            if printf '%s\n' "$deps" | grep -E '^(github.com/byteness/keyring|github.com/1password/onepassword-sdk-go)(/|$)'; then
+              echo "static Linux cfl $goarch build graph must not include byteness/keyring or onepassword-sdk-go"
+              exit 1
+            fi
+          done
       - name: Test cfl
         run: go test -v -race -coverprofile=coverage-cfl.out ./tools/cfl/...
 
@@ -54,6 +81,24 @@ jobs:
         run: cd tools/jtk && go mod tidy && git diff --exit-code go.mod go.sum
       - name: Build jtk
         run: go build -v ./tools/jtk/...
+      - name: Static release build guard jtk
+        run: |
+          set -euo pipefail
+          cd tools/jtk
+          for target in linux/amd64 linux/arm64 windows/amd64 windows/arm64; do
+            goos="${target%/*}"
+            goarch="${target#*/}"
+            CGO_ENABLED=0 GOOS="$goos" GOARCH="$goarch" \
+              go build -o "$RUNNER_TEMP/jtk-$goos-$goarch" ./cmd/jtk
+          done
+
+          for goarch in amd64 arm64; do
+            deps=$(CGO_ENABLED=0 GOOS=linux GOARCH="$goarch" go list -deps ./cmd/jtk)
+            if printf '%s\n' "$deps" | grep -E '^(github.com/byteness/keyring|github.com/1password/onepassword-sdk-go)(/|$)'; then
+              echo "static Linux jtk $goarch build graph must not include byteness/keyring or onepassword-sdk-go"
+              exit 1
+            fi
+          done
       - name: Test jtk
         run: go test -v -race -coverprofile=coverage-jtk.out ./tools/jtk/...
 
@@ -98,6 +143,18 @@ jobs:
         run: cd shared && go mod tidy && git diff --exit-code go.mod go.sum
       - name: Build shared
         run: go build -v ./shared/...
+      - name: Static Linux build guard shared
+        run: |
+          set -euo pipefail
+          cd shared
+          for goarch in amd64 arm64; do
+            CGO_ENABLED=0 GOOS=linux GOARCH="$goarch" go build ./...
+            deps=$(CGO_ENABLED=0 GOOS=linux GOARCH="$goarch" go list -deps ./...)
+            if printf '%s\n' "$deps" | grep -E '^(github.com/byteness/keyring|github.com/1password/onepassword-sdk-go)(/|$)'; then
+              echo "static Linux shared $goarch build graph must not include byteness/keyring or onepassword-sdk-go"
+              exit 1
+            fi
+          done
       - name: Test shared
         run: go test -v -race -coverprofile=coverage-shared.out ./shared/...
 

@@ -137,6 +137,7 @@ func TestSearchUsers(t *testing.T) {
 		users := []User{
 			{
 				AccountID:    "5b10ac8d82e05b22cc7d4ef5",
+				AccountType:  "atlassian",
 				DisplayName:  "John Smith",
 				EmailAddress: "john@example.com",
 				Active:       true,
@@ -163,6 +164,7 @@ func TestSearchUsers(t *testing.T) {
 	users, err := client.SearchUsers(context.Background(), "john", 0, 0)
 	testutil.RequireNoError(t, err)
 	testutil.Len(t, users, 2)
+	testutil.Equal(t, users[0].AccountType, "atlassian")
 	testutil.Equal(t, users[0].DisplayName, "John Smith")
 	testutil.Equal(t, users[1].DisplayName, "John Doe")
 }

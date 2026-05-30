@@ -36,6 +36,14 @@ func newTestUsersServer(_ *testing.T, users []api.User) *httptest.Server {
 	}))
 }
 
+func humanUser(accountID, name string) api.User {
+	return api.User{AccountID: accountID, AccountType: "atlassian", DisplayName: name, Active: true}
+}
+
+func nonHumanUser(accountID, accountType, name string) api.User {
+	return api.User{AccountID: accountID, AccountType: accountType, DisplayName: name, Active: true}
+}
+
 // ----- users get -----
 
 func TestNewGetCmd(t *testing.T) {
@@ -177,8 +185,8 @@ func TestNewSearchCmd(t *testing.T) {
 func TestRunSearch_DefaultTableMatchesSpecColumnOrder(t *testing.T) {
 	t.Parallel()
 	users := []api.User{
-		{AccountID: "a1", DisplayName: "Alice", EmailAddress: "a@x.io", Active: true},
-		{AccountID: "b2", DisplayName: "Bob", Active: false},
+		{AccountID: "a1", AccountType: "atlassian", DisplayName: "Alice", EmailAddress: "a@x.io", Active: true},
+		{AccountID: "b2", AccountType: "atlassian", DisplayName: "Bob", Active: true},
 	}
 	server := newTestUsersServer(t, users)
 	defer server.Close()
@@ -191,7 +199,7 @@ func TestRunSearch_DefaultTableMatchesSpecColumnOrder(t *testing.T) {
 
 	want := "ACCOUNT_ID | NAME | EMAIL | ACTIVE\n" +
 		"a1 | Alice | a@x.io | yes\n" +
-		"b2 | Bob | - | no\n"
+		"b2 | Bob | - | yes\n"
 	if stdout.String() != want {
 		t.Errorf("users search default:\ngot:  %q\nwant: %q", stdout.String(), want)
 	}
@@ -200,7 +208,7 @@ func TestRunSearch_DefaultTableMatchesSpecColumnOrder(t *testing.T) {
 func TestRunSearch_Extended_AppendsTimezoneLocale(t *testing.T) {
 	t.Parallel()
 	users := []api.User{
-		{AccountID: "a1", DisplayName: "Alice", EmailAddress: "a@x.io", Active: true, TimeZone: "Etc/GMT", Locale: "en_US"},
+		{AccountID: "a1", AccountType: "atlassian", DisplayName: "Alice", EmailAddress: "a@x.io", Active: true, TimeZone: "Etc/GMT", Locale: "en_US"},
 	}
 	server := newTestUsersServer(t, users)
 	defer server.Close()
@@ -222,7 +230,7 @@ func TestRunSearch_Extended_DashesForRedactedFields(t *testing.T) {
 	t.Parallel()
 	// Instances that omit timeZone/locale from /user/search must not render
 	// literal "false"/empty strings in the table cells.
-	users := []api.User{{AccountID: "a1", DisplayName: "Alice", Active: true}}
+	users := []api.User{{AccountID: "a1", AccountType: "atlassian", DisplayName: "Alice", Active: true}}
 	server := newTestUsersServer(t, users)
 	defer server.Close()
 
@@ -242,8 +250,8 @@ func TestRunSearch_Extended_DashesForRedactedFields(t *testing.T) {
 func TestRunSearch_IDOnly_EmitsKeysOnly(t *testing.T) {
 	t.Parallel()
 	users := []api.User{
-		{AccountID: "a1", DisplayName: "Alice"},
-		{AccountID: "b2", DisplayName: "Bob"},
+		humanUser("a1", "Alice"),
+		humanUser("b2", "Bob"),
 	}
 	server := newTestUsersServer(t, users)
 	defer server.Close()
@@ -256,6 +264,49 @@ func TestRunSearch_IDOnly_EmitsKeysOnly(t *testing.T) {
 	testutil.Equal(t, stdout.String(), "a1\nb2\n")
 }
 
+func TestRunSearch_DefaultFiltersToActiveAtlassianUsers(t *testing.T) {
+	t.Parallel()
+	users := []api.User{
+		{AccountID: "human", AccountType: "atlassian", DisplayName: "Alice", EmailAddress: "alice@example.com", Active: true},
+		{AccountID: "inactive", AccountType: "atlassian", DisplayName: "Inactive Alice", Active: false},
+		nonHumanUser("app", "app", "Automation for Jira"),
+		nonHumanUser("customer", "customer", "Portal Customer"),
+		{AccountID: "missing", DisplayName: "Unknown Account", Active: true},
+	}
+	server := newTestUsersServer(t, users)
+	defer server.Close()
+
+	var stdout bytes.Buffer
+	opts := &root.Options{NoColor: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(newClient(t, server.URL))
+
+	testutil.RequireNoError(t, runSearch(context.Background(), opts, "a", 10, "", ""))
+
+	want := "ACCOUNT_ID | NAME | EMAIL | ACTIVE\n" +
+		"human | Alice | alice@example.com | yes\n"
+	if stdout.String() != want {
+		t.Errorf("users search filtered default:\ngot:  %q\nwant: %q", stdout.String(), want)
+	}
+}
+
+func TestRunSearch_IDOnlyFiltersToActiveAtlassianUsers(t *testing.T) {
+	t.Parallel()
+	users := []api.User{
+		humanUser("human", "Alice"),
+		nonHumanUser("app", "app", "Automation for Jira"),
+		{AccountID: "inactive", AccountType: "atlassian", DisplayName: "Inactive Alice", Active: false},
+	}
+	server := newTestUsersServer(t, users)
+	defer server.Close()
+
+	var stdout bytes.Buffer
+	opts := &root.Options{IDOnly: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(newClient(t, server.URL))
+
+	testutil.RequireNoError(t, runSearch(context.Background(), opts, "a", 10, "", ""))
+	testutil.Equal(t, stdout.String(), "human\n")
+}
+
 func TestRunSearch_HasMore_AppendsTokenizedContinuation(t *testing.T) {
 	t.Parallel()
 	// len(users) == --max triggers hasMore. Continuation line embeds next
@@ -263,8 +314,8 @@ func TestRunSearch_HasMore_AppendsTokenizedContinuation(t *testing.T) {
 	// (header + rows + continuation) so accidental drift in any of the three
 	// sections gets caught.
 	users := []api.User{
-		{AccountID: "a1", DisplayName: "Alice"},
-		{AccountID: "b2", DisplayName: "Bob"},
+		humanUser("a1", "Alice"),
+		humanUser("b2", "Bob"),
 	}
 	server := newTestUsersServer(t, users)
 	defer server.Close()
@@ -276,19 +327,81 @@ func TestRunSearch_HasMore_AppendsTokenizedContinuation(t *testing.T) {
 	testutil.RequireNoError(t, runSearch(context.Background(), opts, "al", 2, "", ""))
 
 	want := "ACCOUNT_ID | NAME | EMAIL | ACTIVE\n" +
-		"a1 | Alice | - | no\n" +
-		"b2 | Bob | - | no\n" +
+		"a1 | Alice | - | yes\n" +
+		"b2 | Bob | - | yes\n" +
 		"More results available (next: 2)\n"
 	if stdout.String() != want {
 		t.Errorf("users search with pagination:\ngot:  %q\nwant: %q", stdout.String(), want)
 	}
 }
 
+func TestRunSearch_PaginationUsesRawUpstreamResultCount(t *testing.T) {
+	t.Parallel()
+	users := []api.User{
+		humanUser("a1", "Alice"),
+		nonHumanUser("app", "app", "Automation for Jira"),
+	}
+	server := newTestUsersServer(t, users)
+	defer server.Close()
+
+	var stdout bytes.Buffer
+	opts := &root.Options{NoColor: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(newClient(t, server.URL))
+
+	testutil.RequireNoError(t, runSearch(context.Background(), opts, "a", 2, "", ""))
+
+	want := "ACCOUNT_ID | NAME | EMAIL | ACTIVE\n" +
+		"a1 | Alice | - | yes\n" +
+		"More results available (next: 2)\n"
+	if stdout.String() != want {
+		t.Errorf("users search filtered pagination:\ngot:  %q\nwant: %q", stdout.String(), want)
+	}
+}
+
+func TestRunSearch_EmptyFilteredPageKeepsContinuation(t *testing.T) {
+	t.Parallel()
+	users := []api.User{
+		nonHumanUser("app", "app", "Automation for Jira"),
+		{AccountID: "inactive", AccountType: "atlassian", DisplayName: "Inactive Alice", Active: false},
+	}
+	server := newTestUsersServer(t, users)
+	defer server.Close()
+
+	var stdout bytes.Buffer
+	opts := &root.Options{NoColor: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(newClient(t, server.URL))
+
+	testutil.RequireNoError(t, runSearch(context.Background(), opts, "a", 2, "", ""))
+
+	want := "No users found matching 'a'\n" +
+		"More results available (next: 2)\n"
+	if stdout.String() != want {
+		t.Errorf("users search empty filtered pagination:\ngot:  %q\nwant: %q", stdout.String(), want)
+	}
+}
+
+func TestRunSearch_IDOnlyEmptyFilteredPageKeepsContinuation(t *testing.T) {
+	t.Parallel()
+	users := []api.User{
+		nonHumanUser("app", "app", "Automation for Jira"),
+		{AccountID: "inactive", AccountType: "atlassian", DisplayName: "Inactive Alice", Active: false},
+	}
+	server := newTestUsersServer(t, users)
+	defer server.Close()
+
+	var stdout bytes.Buffer
+	opts := &root.Options{IDOnly: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(newClient(t, server.URL))
+
+	testutil.RequireNoError(t, runSearch(context.Background(), opts, "a", 2, "", ""))
+	testutil.Equal(t, stdout.String(), "More results available (next: 2)\n")
+}
+
 func TestRunSearch_IDOnly_EmitsTokenizedContinuation(t *testing.T) {
 	t.Parallel()
 	users := []api.User{
-		{AccountID: "a1", DisplayName: "Alice"},
-		{AccountID: "b2", DisplayName: "Bob"},
+		humanUser("a1", "Alice"),
+		humanUser("b2", "Bob"),
 	}
 	server := newTestUsersServer(t, users)
 	defer server.Close()
@@ -350,7 +463,7 @@ func TestRunSearch_NextPageToken_RejectsNegative(t *testing.T) {
 
 func TestRunSearch_Fields_ProjectsToSelectedColumns(t *testing.T) {
 	t.Parallel()
-	users := []api.User{{AccountID: "a1", DisplayName: "Alice", EmailAddress: "a@x.io", Active: true}}
+	users := []api.User{{AccountID: "a1", AccountType: "atlassian", DisplayName: "Alice", EmailAddress: "a@x.io", Active: true}}
 	server := newTestUsersServer(t, users)
 	defer server.Close()
 

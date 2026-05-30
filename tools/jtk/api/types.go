@@ -266,6 +266,7 @@ type Resolution struct {
 // User represents a Jira user
 type User struct {
 	AccountID        string            `json:"accountId"`
+	AccountType      string            `json:"accountType,omitempty"`
 	DisplayName      string            `json:"displayName"`
 	EmailAddress     string            `json:"emailAddress,omitempty"`
 	Active           bool              `json:"active"`

@@ -187,19 +187,20 @@ func runSearch(ctx context.Context, opts *root.Options, query string, maxResults
 		}
 	}
 
-	users, err := client.SearchUsers(ctx, query, startAt, maxResults)
+	rawUsers, err := client.SearchUsers(ctx, query, startAt, maxResults)
 	if err != nil {
 		return err
 	}
+	users := filterSearchUsers(rawUsers)
 
 	// /user/search has no native isLast; the heuristic is that a full page
 	// implies more pages may exist. Over-reporting in the last window is the
 	// documented tradeoff for a command whose endpoint lacks an authoritative
 	// terminator. When maxResults <= 0 (no cap), hasMore stays false.
-	hasMore := maxResults > 0 && len(users) == maxResults
+	hasMore := maxResults > 0 && len(rawUsers) == maxResults
 	nextToken := ""
 	if hasMore {
-		nextToken = strconv.Itoa(startAt + len(users))
+		nextToken = strconv.Itoa(startAt + len(rawUsers))
 	}
 
 	if idOnly {
@@ -211,7 +212,9 @@ func runSearch(ctx context.Context, opts *root.Options, query string, maxResults
 	}
 
 	if len(users) == 0 {
-		return jtkpresent.Emit(opts, jtkpresent.UserPresenter{}.PresentEmpty(query))
+		model := jtkpresent.UserPresenter{}.PresentEmpty(query)
+		model.Sections = jtkpresent.AppendPaginationHintWithToken(model.Sections, hasMore, nextToken)
+		return jtkpresent.Emit(opts, model)
 	}
 
 	model := jtkpresent.UserPresenter{}.PresentUserListWithPagination(users, opts.IsExtended(), hasMore, nextToken)
@@ -219,4 +222,14 @@ func runSearch(ctx context.Context, opts *root.Options, query string, maxResults
 		projection.ApplyToTableInModel(model, selected)
 	}
 	return jtkpresent.Emit(opts, model)
+}
+
+func filterSearchUsers(users []api.User) []api.User {
+	filtered := make([]api.User, 0, len(users))
+	for _, user := range users {
+		if user.Active && user.AccountType == "atlassian" {
+			filtered = append(filtered, user)
+		}
+	}
+	return filtered
 }

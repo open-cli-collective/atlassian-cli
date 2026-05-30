@@ -1,6 +1,6 @@
-# CLAUDE.md
+# AGENTS.md
 
-Claude entrypoint for the jtk tool.
+Codex entrypoint for the jtk tool.
 
 ## Start Here
 

@@ -1,6 +1,6 @@
-# CLAUDE.md
+# AGENTS.md
 
-Claude entrypoint for jtk command-surface work.
+Codex entrypoint for jtk command-surface work.
 
 ## Command Surface
 

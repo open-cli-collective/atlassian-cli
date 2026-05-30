@@ -1,6 +1,6 @@
-# CLAUDE.md
+# AGENTS.md
 
-Claude entrypoint for the cfl tool.
+Codex entrypoint for the cfl tool.
 
 ## Start Here
 

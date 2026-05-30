@@ -1,6 +1,6 @@
-# CLAUDE.md
+# AGENTS.md
 
-Claude entrypoint for the atlassian-cli monorepo.
+Codex entrypoint for the atlassian-cli monorepo.
 
 ## Start Here
 

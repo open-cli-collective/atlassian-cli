@@ -1,6 +1,6 @@
-# CLAUDE.md
+# AGENTS.md
 
-Claude entrypoint for repository workflow guidance.
+Codex entrypoint for repository workflow guidance.
 
 ## Shared Automation
 

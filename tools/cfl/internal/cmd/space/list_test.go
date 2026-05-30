@@ -160,20 +160,26 @@ func TestRunList_PreservesRawSpaceTypes(t *testing.T) {
 	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		if r.URL.Query().Get("keys") == "CONFLUENCE" {
+		if key := r.URL.Query().Get("keys"); key != "" {
+			spaceTypeByKey := map[string]string{
+				"GLOBAL":     "global",
+				"~123":       "personal",
+				"CONFLUENCE": "collaboration",
+				"Education":  "knowledge_base",
+			}
 			_, _ = w.Write([]byte(`{
 				"results": [
-					{"id": "3", "key": "CONFLUENCE", "name": "ConfluenceCLI", "type": "collaboration", "status": "current"}
+					{"id": "3", "key": "` + key + `", "name": "Space With Words", "type": "` + spaceTypeByKey[key] + `", "status": "current"}
 				]
 			}`))
 			return
 		}
 		_, _ = w.Write([]byte(`{
 			"results": [
-				{"id": "1", "key": "GLOBAL", "name": "Global", "type": "global"},
-				{"id": "2", "key": "~123", "name": "Personal", "type": "personal"},
-				{"id": "3", "key": "CONFLUENCE", "name": "ConfluenceCLI", "type": "collaboration"},
-				{"id": "4", "key": "Education", "name": "Education", "type": "knowledge_base"}
+				{"id": "1", "key": "GLOBAL", "name": "Global Space", "type": "global", "status": "current"},
+				{"id": "2", "key": "~123", "name": "Personal Space", "type": "personal", "status": "current"},
+				{"id": "3", "key": "CONFLUENCE", "name": "Confluence CLI", "type": "collaboration", "status": "current"},
+				{"id": "4", "key": "Education", "name": "Education Space", "type": "knowledge_base", "status": "current"}
 			]
 		}`))
 	}))
@@ -198,24 +204,44 @@ func TestRunList_PreservesRawSpaceTypes(t *testing.T) {
 	testutil.Equal(t, "collaboration", gotTypes["CONFLUENCE"])
 	testutil.Equal(t, "knowledge_base", gotTypes["Education"])
 
-	viewStdout := &bytes.Buffer{}
-	viewRootOpts := newTestRootOptions()
-	viewRootOpts.Stdout = viewStdout
-	viewRootOpts.SetAPIClient(client)
+	for key, listType := range gotTypes {
+		viewStdout := &bytes.Buffer{}
+		viewRootOpts := newTestRootOptions()
+		viewRootOpts.Stdout = viewStdout
+		viewRootOpts.SetAPIClient(client)
 
-	viewOpts := &viewOptions{Options: viewRootOpts}
-	err = runView(context.Background(), "CONFLUENCE", viewOpts)
-	testutil.RequireNoError(t, err)
-	testutil.Contains(t, viewStdout.String(), "Type: "+gotTypes["CONFLUENCE"])
+		viewOpts := &viewOptions{Options: viewRootOpts}
+		err = runView(context.Background(), key, viewOpts)
+		testutil.RequireNoError(t, err)
+		testutil.Contains(t, viewStdout.String(), "Type: "+listType)
+	}
 }
 
 func spaceTypesByKey(output string) map[string]string {
 	types := make(map[string]string)
-	for _, line := range strings.Split(output, "\n") {
-		fields := strings.Fields(line)
-		if len(fields) >= 3 && fields[0] != "KEY" {
-			types[fields[0]] = fields[2]
+	lines := strings.Split(output, "\n")
+	if len(lines) == 0 {
+		return types
+	}
+	header := lines[0]
+	typeStart := strings.Index(header, "TYPE")
+	descStart := strings.Index(header, "DESCRIPTION")
+	if typeStart < 0 || descStart < 0 || descStart <= typeStart {
+		return types
+	}
+	for _, line := range lines[1:] {
+		if strings.TrimSpace(line) == "" || len(line) <= typeStart {
+			continue
 		}
+		fields := strings.Fields(line)
+		if len(fields) == 0 {
+			continue
+		}
+		end := descStart
+		if len(line) < end {
+			end = len(line)
+		}
+		types[fields[0]] = strings.TrimSpace(line[typeStart:end])
 	}
 	return types
 }

@@ -73,6 +73,58 @@ func TestRunView_Table(t *testing.T) {
 	testutil.Contains(t, output, "A test space")
 }
 
+func TestRunView_PreservesRawSpaceType(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name      string
+		spaceKey  string
+		spaceType string
+	}{
+		{name: "collaboration", spaceKey: "CONFLUENCE", spaceType: "collaboration"},
+		{name: "knowledge base", spaceKey: "Education", spaceType: "knowledge_base"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				testutil.Equal(t, "GET", r.Method)
+				testutil.Equal(t, "/api/v2/spaces", r.URL.Path)
+				testutil.Equal(t, tt.spaceKey, r.URL.Query().Get("keys"))
+				testutil.Equal(t, "1", r.URL.Query().Get("limit"))
+
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(`{
+					"results": [{
+						"id": "123456",
+						"key": "` + tt.spaceKey + `",
+						"name": "Test Space",
+						"type": "` + tt.spaceType + `",
+						"status": "current"
+					}]
+				}`))
+			}))
+			defer server.Close()
+
+			stdout := &bytes.Buffer{}
+			rootOpts := &root.Options{
+				Output:  "table",
+				NoColor: true,
+				Stdout:  stdout,
+				Stderr:  &bytes.Buffer{},
+			}
+			client := api.NewClient(server.URL, "test@example.com", "token")
+			rootOpts.SetAPIClient(client)
+
+			opts := &viewOptions{Options: rootOpts}
+			err := runView(context.Background(), tt.spaceKey, opts)
+
+			testutil.RequireNoError(t, err)
+			testutil.Contains(t, stdout.String(), "Type: "+tt.spaceType)
+		})
+	}
+}
+
 func TestRunView_NotFound(t *testing.T) {
 	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

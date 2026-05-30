@@ -155,6 +155,41 @@ func TestRunList_WithTypeFilter(t *testing.T) {
 	testutil.RequireNoError(t, err)
 }
 
+func TestRunList_PreservesRawSpaceTypes(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{
+			"results": [
+				{"id": "1", "key": "GLOBAL", "name": "Global", "type": "global"},
+				{"id": "2", "key": "~123", "name": "Personal", "type": "personal"},
+				{"id": "3", "key": "CONFLUENCE", "name": "Confluence CLI", "type": "collaboration"},
+				{"id": "4", "key": "Education", "name": "Education", "type": "knowledge_base"}
+			]
+		}`))
+	}))
+	defer server.Close()
+
+	stdout := &bytes.Buffer{}
+	rootOpts := newTestRootOptions()
+	rootOpts.Stdout = stdout
+	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
+	opts := &listOptions{
+		Options: rootOpts,
+		limit:   25,
+	}
+
+	err := runList(context.Background(), opts)
+	testutil.RequireNoError(t, err)
+	output := stdout.String()
+	testutil.Contains(t, output, "global")
+	testutil.Contains(t, output, "personal")
+	testutil.Contains(t, output, "collaboration")
+	testutil.Contains(t, output, "knowledge_base")
+}
+
 func TestRunList_WithLimitParameter(t *testing.T) {
 	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

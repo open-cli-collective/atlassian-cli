@@ -42,6 +42,13 @@ builds:
       - -X github.com/open-cli-collective/atlassian-go/version.Version={{.Version}}
       - -X github.com/open-cli-collective/atlassian-go/version.Commit={{.Commit}}
       - -X github.com/open-cli-collective/atlassian-go/version.BuildDate={{.Date}}
+    # macOS code-signing — stable DR so Keychain "Always Allow" survives brew upgrade
+    # (cli-common distribution.md §2A). Logic + identity live in open-cli-collective/.github
+    # (macos-codesign-setup), which exports CODESIGN_DARWIN_SCRIPT (absolute). Unset in
+    # local builds → signing skipped.
+    hooks:
+      post:
+        - cmd: bash -c 'f="${CODESIGN_DARWIN_SCRIPT:-}"; if [ -z "$f" ]; then echo "skip codesign (CODESIGN_DARWIN_SCRIPT unset, local build)"; exit 0; fi; [ -x "$f" ] || { echo "CODESIGN_DARWIN_SCRIPT not executable ($f)" >&2; exit 1; }; exec "$f" "$0" "$1"' "{{ .Path }}" "{{ .Os }}"
   - id: cfl-unix-win
     dir: tools/cfl
     main: ./cmd/cfl
@@ -95,7 +102,8 @@ nfpms:
       - src: tools/cfl/LICENSE
         dst: /usr/share/licenses/cfl/LICENSE
 
-# Canonical Homebrew cask with auto-quarantine removal for unsigned binaries.
+# Canonical Homebrew cask with auto-quarantine removal for non-notarized binaries
+# (the darwin binary is code-signed per cli-common distribution.md §2A, not notarized).
 # skip_upload: true → goreleaser RENDERS the cask into dist/ but does NOT push
 # it; the reusable release workflow's homebrew-alias step is the single atomic
 # writer that commits the canonical cfl cask to the tap. No `token:` here — the

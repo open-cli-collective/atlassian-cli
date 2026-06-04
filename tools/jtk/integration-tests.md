@@ -6,10 +6,11 @@ If a test reveals a bug, **record the bug and continue testing** rather than sto
 
 ## Auth Methods
 
-jtk supports two authentication methods. The full integration test suite should be run with both:
+jtk supports three authentication methods. The full integration test suite should be run with Basic Auth and Proxy Auth, and the bearer-compatible subset should be run with Bearer Auth:
 
 - **Basic Auth** (default): Classic API tokens using `email:token` against the instance URL.
 - **Bearer Auth**: Scoped API tokens for service accounts using `Authorization: Bearer <token>` against the `api.atlassian.com` gateway.
+- **Proxy Auth**: Trusted proxy setup using `--auth-method proxy`; the CLI sends no `Authorization` header and requires only a URL.
 
 > **Scope limitations:** Scoped tokens don't have scopes for Agile (boards/sprints), Automation, or Dashboards. Sections 4 (Boards & Sprints), 6 (Dashboards), 8 (Automation), 13 (Dashboard Mutations), 14 (Automation Mutations), and 15 (Sprint Mutations) must be **skipped** when testing with Bearer Auth. Section 19 (Bearer Auth Guards) should be run **only** with Bearer Auth.
 
@@ -29,6 +30,10 @@ jtk supports two authentication methods. The full integration test suite should 
 - An Atlassian service account with a scoped API token
 - Your Cloud ID (find at `https://your-site.atlassian.net/_edge/tenant_info`)
 - `jtk init --auth-method bearer` completed
+
+### Proxy Auth Prerequisites
+- A trusted proxy that authenticates upstream and exposes Jira REST paths.
+- `jtk init --auth-method proxy --url <proxy-url>` completed.
 
 ### Build
 

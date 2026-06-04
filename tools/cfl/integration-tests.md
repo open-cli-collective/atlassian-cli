@@ -4,12 +4,13 @@ This document catalogs the manual integration test suite for `cfl`. These tests 
 
 ## Auth Methods
 
-cfl supports two authentication methods. The full integration test suite should be run with both:
+cfl supports three authentication methods. The full integration test suite should be run with each configured auth method:
 
 - **Basic Auth** (default): Classic API tokens using `email:token` against the instance URL.
 - **Bearer Auth**: Scoped API tokens for service accounts using `Authorization: Bearer <token>` against the `api.atlassian.com` gateway.
+- **Proxy Auth**: Trusted proxy setup using `--auth-method proxy`; the CLI sends no `Authorization` header and requires only a URL.
 
-All cfl commands should work with both auth methods (no scope limitations for Confluence).
+All cfl commands should work with all configured auth methods (no scope limitations for Confluence).
 
 ---
 
@@ -24,6 +25,10 @@ All cfl commands should work with both auth methods (no scope limitations for Co
 - An Atlassian service account with a scoped API token
 - Your Cloud ID (find at `https://your-site.atlassian.net/_edge/tenant_info`)
 - `cfl init --auth-method bearer` completed
+
+### Proxy Auth Prerequisites
+- A trusted proxy that authenticates upstream and exposes Confluence `/wiki` paths.
+- `cfl init --auth-method proxy --url <proxy-url>` completed.
 
 ### Test Data Conventions
 - Test pages use `[Test]` prefix: `[Test] My Page`
@@ -574,7 +579,7 @@ Copies in the TEST space (originals from INT, CUS, PROD, PLAYBOOK):
 
 ## Test Execution Checklist
 
-All cfl commands work with both auth methods (no scope restrictions for Confluence). Run the full checklist twice with separate passes to ensure both auth paths work.
+All cfl commands work with all configured auth methods (no scope restrictions for Confluence). Run the full checklist with separate passes to ensure each auth path works.
 
 ### Pass 1: Basic Auth
 

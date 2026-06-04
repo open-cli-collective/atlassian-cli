@@ -114,6 +114,7 @@ func TestValidateAuthMethod(t *testing.T) {
 	}{
 		{name: "basic is valid", method: "basic", wantErr: false},
 		{name: "bearer is valid", method: "bearer", wantErr: false},
+		{name: "proxy is valid", method: "proxy", wantErr: false},
 		{name: "empty string is invalid", method: "", wantErr: true},
 		{name: "capitalized Bearer is invalid", method: "Bearer", wantErr: true},
 		{name: "unknown method is invalid", method: "oauth", wantErr: true},
@@ -146,5 +147,8 @@ func TestAuthMethodConstants(t *testing.T) {
 	}
 	if AuthMethodBearer != "bearer" {
 		t.Errorf("AuthMethodBearer = %q, want %q", AuthMethodBearer, "bearer")
+	}
+	if AuthMethodProxy != "proxy" {
+		t.Errorf("AuthMethodProxy = %q, want %q", AuthMethodProxy, "proxy")
 	}
 }

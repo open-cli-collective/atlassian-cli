@@ -115,3 +115,31 @@ func TestTrimTrailingSlashes(t *testing.T) {
 		})
 	}
 }
+
+func TestIsLoopbackHTTP(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		input string
+		want  bool
+	}{
+		{"http://localhost:8080/atlassian", true},
+		{"http://LOCALHOST/atlassian", true},
+		{"http://127.0.0.1:8080/atlassian", true},
+		{"http://127.42.0.1:8080/atlassian", true},
+		{"http://[::1]:8080/atlassian", true},
+		{"https://localhost:8080/atlassian", false},
+		{"http://example.com/atlassian", false},
+		{"http://10.0.0.1/atlassian", false},
+		{"localhost:8080/atlassian", false},
+		{"", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			t.Parallel()
+			if got := IsLoopbackHTTP(tt.input); got != tt.want {
+				t.Errorf("IsLoopbackHTTP(%q) = %v, want %v", tt.input, got, tt.want)
+			}
+		})
+	}
+}

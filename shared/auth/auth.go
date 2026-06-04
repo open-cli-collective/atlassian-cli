@@ -13,15 +13,18 @@ const (
 
 	// AuthMethodBearer is the authentication method for service accounts with scoped API tokens.
 	AuthMethodBearer = "bearer"
+
+	// AuthMethodProxy sends no Authorization header and relies on a local or upstream proxy.
+	AuthMethodProxy = "proxy"
 )
 
 // ErrInvalidAuthMethod is returned when an unrecognized auth method is provided.
-var ErrInvalidAuthMethod = errors.New("invalid auth method: must be \"basic\" or \"bearer\"")
+var ErrInvalidAuthMethod = errors.New("invalid auth method: must be \"basic\", \"bearer\", or \"proxy\"")
 
 // ValidateAuthMethod returns nil if method is a recognized auth method, or ErrInvalidAuthMethod otherwise.
 func ValidateAuthMethod(method string) error {
 	switch method {
-	case AuthMethodBasic, AuthMethodBearer:
+	case AuthMethodBasic, AuthMethodBearer, AuthMethodProxy:
 		return nil
 	default:
 		return fmt.Errorf("%w: got %q", ErrInvalidAuthMethod, method)

@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/open-cli-collective/atlassian-go/auth"
 	"github.com/open-cli-collective/atlassian-go/credstore"
 	"github.com/open-cli-collective/atlassian-go/credtest"
 	"github.com/open-cli-collective/atlassian-go/keyring"
@@ -73,10 +74,9 @@ func TestRequireNonInteractiveFields_NamesFirstMissing(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name     string
-		cfg      *config.Config
-		isBearer bool
-		wants    []string
+		name  string
+		cfg   *config.Config
+		wants []string
 	}{
 		{
 			name:  "basic auth — missing URL",
@@ -89,10 +89,9 @@ func TestRequireNonInteractiveFields_NamesFirstMissing(t *testing.T) {
 			wants: []string{"--email"},
 		},
 		{
-			name:     "bearer — missing cloud-id",
-			cfg:      &config.Config{URL: "https://acme.atlassian.net"},
-			isBearer: true,
-			wants:    []string{"--cloud-id"},
+			name:  "bearer — missing cloud-id",
+			cfg:   &config.Config{URL: "https://acme.atlassian.net", AuthMethod: auth.AuthMethodBearer},
+			wants: []string{"--cloud-id"},
 		},
 		{
 			name:  "basic auth — missing token recommends --token-stdin + --token-from-env + set-credential",
@@ -100,16 +99,15 @@ func TestRequireNonInteractiveFields_NamesFirstMissing(t *testing.T) {
 			wants: []string{"--token-stdin", "--token-from-env", "set-credential"},
 		},
 		{
-			name:     "bearer — missing token recommends --token-stdin + --token-from-env + set-credential",
-			cfg:      &config.Config{URL: "https://acme.atlassian.net", CloudID: "cid"},
-			isBearer: true,
-			wants:    []string{"--token-stdin", "--token-from-env", "set-credential"},
+			name:  "bearer — missing token recommends --token-stdin + --token-from-env + set-credential",
+			cfg:   &config.Config{URL: "https://acme.atlassian.net", CloudID: "cid", AuthMethod: auth.AuthMethodBearer},
+			wants: []string{"--token-stdin", "--token-from-env", "set-credential"},
 		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			err := requireNonInteractiveFields(tc.cfg, tc.isBearer)
+			err := requireNonInteractiveFields(tc.cfg)
 			testutil.RequireError(t, err)
 			if !strings.Contains(err.Error(), "--non-interactive: missing") {
 				t.Fatalf("error must mention --non-interactive prefix: %v", err)
@@ -131,7 +129,18 @@ func TestRequireNonInteractiveFields_AllSupplied_NoError(t *testing.T) {
 		URL: "https://acme.atlassian.net", Email: "u@x.io",
 		APIToken: "tok-1234567890",
 	}
-	if err := requireNonInteractiveFields(cfg, false); err != nil {
+	if err := requireNonInteractiveFields(cfg); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestRequireNonInteractiveFields_ProxyNeedsOnlyURL(t *testing.T) {
+	t.Parallel()
+	cfg := &config.Config{
+		URL:        "http://127.0.0.1:8080/atlassian",
+		AuthMethod: auth.AuthMethodProxy,
+	}
+	if err := requireNonInteractiveFields(cfg); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
@@ -179,6 +188,34 @@ func TestRunInit_NonInteractive_MissingToken_FlagAndKeyringEmpty(t *testing.T) {
 	if !strings.Contains(err.Error(), "set-credential") {
 		t.Fatalf("error must hint at set-credential pre-staging, got: %v", err)
 	}
+}
+
+func TestRunInit_Proxy_NoTokenRequiredOrPersisted(t *testing.T) {
+	credtest.Hermetic(t)
+	opts := &root.Options{
+		NoColor:        true,
+		NonInteractive: true,
+		Stdin:          strings.NewReader(""),
+		Stdout:         &bytes.Buffer{},
+		Stderr:         &bytes.Buffer{},
+	}
+	err := runInit(context.Background(), opts,
+		"http://127.0.0.1:8080/atlassian", "", "", false, "", auth.AuthMethodProxy, "", true)
+	testutil.RequireNoError(t, err)
+
+	store, err := credstore.Load(credtest.SharedConfigPath(t))
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "http://127.0.0.1:8080/atlassian", store.Default.URL)
+	testutil.Equal(t, "", store.Default.Email)
+	testutil.Equal(t, auth.AuthMethodProxy, store.Default.AuthMethod)
+	testutil.Equal(t, "", store.Default.CloudID)
+
+	s, err := keyring.OpenNoMigrate()
+	testutil.RequireNoError(t, err)
+	defer func() { _ = s.Close() }()
+	ok, err := s.HasToken(keyring.KeyAPIToken)
+	testutil.RequireNoError(t, err)
+	testutil.False(t, ok)
 }
 
 func TestInitCommand_Flags(t *testing.T) {

@@ -3,6 +3,8 @@ package root
 import (
 	"bytes"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"path/filepath"
 	"testing"
 
@@ -138,6 +140,29 @@ func TestRegisterCommands(t *testing.T) {
 
 	RegisterCommands(cmd, opts, registrar)
 	testutil.True(t, called)
+}
+
+func TestOptions_APIClient_ProxySkipsAuthHeader(t *testing.T) {
+	var capturedAuth string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		capturedAuth = r.Header.Get("Authorization")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer server.Close()
+
+	_, opts := NewCmd()
+	opts.SetConfig(&config.Config{
+		URL:        server.URL,
+		AuthMethod: auth.AuthMethodProxy,
+	})
+	c, err := opts.APIClient()
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "", c.GetAuthHeader())
+
+	_, err = c.Get(t.Context(), "/api/v2/spaces")
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "", capturedAuth)
 }
 
 func TestValidateOutputFormat(t *testing.T) {

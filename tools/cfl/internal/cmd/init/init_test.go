@@ -131,30 +131,28 @@ func TestRunInit_InvalidAuthMethod(t *testing.T) {
 func TestRequireNonInteractiveFields_NamesFirstMissing(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
-		name     string
-		cfg      *config.Config
-		isBearer bool
-		wants    []string
+		name  string
+		cfg   *config.Config
+		wants []string
 	}{
-		{"basic — missing URL", &config.Config{}, false, []string{"--url"}},
-		{"basic — missing email", &config.Config{URL: "https://acme.atlassian.net"}, false, []string{"--email"}},
-		{"bearer — missing cloud-id", &config.Config{URL: "https://acme.atlassian.net"}, true, []string{"--cloud-id"}},
+		{"basic — missing URL", &config.Config{}, []string{"--url"}},
+		{"basic — missing email", &config.Config{URL: "https://acme.atlassian.net"}, []string{"--email"}},
+		{"bearer — missing cloud-id", &config.Config{URL: "https://acme.atlassian.net", AuthMethod: auth.AuthMethodBearer}, []string{"--cloud-id"}},
 		{
 			name:  "basic — missing token recommends --token-stdin + --token-from-env + set-credential",
 			cfg:   &config.Config{URL: "https://acme.atlassian.net", Email: "u@x.io"},
 			wants: []string{"--token-stdin", "--token-from-env", "set-credential"},
 		},
 		{
-			name:     "bearer — missing token recommends --token-stdin + --token-from-env + set-credential",
-			cfg:      &config.Config{URL: "https://acme.atlassian.net", CloudID: "cid"},
-			isBearer: true,
-			wants:    []string{"--token-stdin", "--token-from-env", "set-credential"},
+			name:  "bearer — missing token recommends --token-stdin + --token-from-env + set-credential",
+			cfg:   &config.Config{URL: "https://acme.atlassian.net", CloudID: "cid", AuthMethod: auth.AuthMethodBearer},
+			wants: []string{"--token-stdin", "--token-from-env", "set-credential"},
 		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			err := requireNonInteractiveFields(tc.cfg, tc.isBearer)
+			err := requireNonInteractiveFields(tc.cfg)
 			testutil.RequireError(t, err)
 			if !strings.Contains(err.Error(), "--non-interactive") {
 				t.Fatalf("error must mention --non-interactive: %v", err)
@@ -174,7 +172,18 @@ func TestRequireNonInteractiveFields_AllSupplied_NoError(t *testing.T) {
 		URL: "https://acme.atlassian.net", Email: "u@x.io",
 		APIToken: "tok-1234567890",
 	}
-	if err := requireNonInteractiveFields(cfg, false); err != nil {
+	if err := requireNonInteractiveFields(cfg); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestRequireNonInteractiveFields_ProxyNeedsOnlyURL(t *testing.T) {
+	t.Parallel()
+	cfg := &config.Config{
+		URL:        "http://127.0.0.1:8080/atlassian",
+		AuthMethod: auth.AuthMethodProxy,
+	}
+	if err := requireNonInteractiveFields(cfg); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
@@ -248,6 +257,35 @@ func TestRunInit_UsesConfiguredPathForReconciliation(t *testing.T) {
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, "EXPLICIT", store.CFL.DefaultSpace)
 	testutil.Equal(t, "https://configured.atlassian.net", store.Default.URL)
+}
+
+func TestRunInit_Proxy_NoTokenRequiredOrPersisted(t *testing.T) {
+	credtest.Hermetic(t)
+	opts := &root.Options{
+		Output:         "table",
+		NoColor:        true,
+		NonInteractive: true,
+		Stdin:          strings.NewReader(""),
+		Stdout:         &bytes.Buffer{},
+		Stderr:         &bytes.Buffer{},
+	}
+	err := runInit(context.Background(), opts,
+		"http://127.0.0.1:8080/atlassian", "", false, "", auth.AuthMethodProxy, "", true)
+	testutil.RequireNoError(t, err)
+
+	store, err := credstore.Load(credtest.SharedConfigPath(t))
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "http://127.0.0.1:8080/atlassian", store.Default.URL)
+	testutil.Equal(t, "", store.Default.Email)
+	testutil.Equal(t, auth.AuthMethodProxy, store.Default.AuthMethod)
+	testutil.Equal(t, "", store.Default.CloudID)
+
+	s, err := keyring.OpenNoMigrate()
+	testutil.RequireNoError(t, err)
+	defer func() { _ = s.Close() }()
+	ok, err := s.HasToken(keyring.KeyAPIToken)
+	testutil.RequireNoError(t, err)
+	testutil.False(t, ok)
 }
 
 // finalizeInit tests use t.TempDir() for paths and an httptest-backed
@@ -441,6 +479,48 @@ func TestDefaultClientBuilder(t *testing.T) {
 		_, err := defaultClientBuilder(cfg)
 		testutil.RequireError(t, err)
 	})
+
+	t.Run("proxy constructs no-auth client", func(t *testing.T) {
+		t.Parallel()
+		cfg := &config.Config{
+			URL:        "http://127.0.0.1:8080/atlassian",
+			AuthMethod: auth.AuthMethodProxy,
+		}
+		c, err := defaultClientBuilder(cfg)
+		testutil.RequireNoError(t, err)
+		testutil.Equal(t, "http://127.0.0.1:8080/atlassian/wiki", c.BaseURL)
+		testutil.Equal(t, "", c.AuthHeader)
+	})
+}
+
+func TestFinalizeInit_ProxyNoTokenPersisted(t *testing.T) {
+	credtest.Hermetic(t)
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yml")
+	opts := newFinalizeOpts()
+	cfg := &config.Config{
+		URL:          "http://127.0.0.1:8080/atlassian/wiki",
+		AuthMethod:   auth.AuthMethodProxy,
+		DefaultSpace: "DEV",
+	}
+
+	err := finalizeInit(context.Background(), opts, cfg, newFinalizeReconcileResult(), configPath, true, defaultClientBuilder)
+	testutil.RequireNoError(t, err)
+
+	loaded, err := credstore.Load(configPath)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "http://127.0.0.1:8080/atlassian", loaded.Default.URL)
+	testutil.Equal(t, "", loaded.Default.Email)
+	testutil.Equal(t, auth.AuthMethodProxy, loaded.Default.AuthMethod)
+	testutil.Equal(t, "", loaded.Default.CloudID)
+	testutil.Equal(t, "DEV", loaded.CFL.DefaultSpace)
+
+	s, err := keyring.OpenNoMigrate()
+	testutil.RequireNoError(t, err)
+	defer func() { _ = s.Close() }()
+	ok, err := s.HasToken(keyring.KeyAPIToken)
+	testutil.RequireNoError(t, err)
+	testutil.False(t, ok)
 }
 
 func TestFinalizeInit_AuthFailure(t *testing.T) {

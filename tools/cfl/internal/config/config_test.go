@@ -67,6 +67,31 @@ func TestConfig_Validate(t *testing.T) {
 			errMsg:  "url must use https",
 		},
 		{
+			name: "proxy with loopback http URL needs no token or email",
+			config: Config{
+				URL:        "http://127.0.0.1:8080/atlassian/wiki",
+				AuthMethod: "proxy",
+			},
+			wantErr: false,
+		},
+		{
+			name: "proxy with https URL needs no token or email",
+			config: Config{
+				URL:        "https://proxy.example.com/atlassian/wiki",
+				AuthMethod: "proxy",
+			},
+			wantErr: false,
+		},
+		{
+			name: "proxy rejects arbitrary http URL",
+			config: Config{
+				URL:        "http://example.com/atlassian/wiki",
+				AuthMethod: "proxy",
+			},
+			wantErr: true,
+			errMsg:  "url must use https",
+		},
+		{
 			name: "valid bearer config",
 			config: Config{
 				URL:        "https://example.atlassian.net",
@@ -590,5 +615,18 @@ func TestLoadWithEnv_CorruptSharedFallsBackToLegacy(t *testing.T) {
 	testutil.Equal(t, "https://x.atlassian.net/wiki", cfg.URL)
 	// Corrupt shared store defers migration; keyring is empty → no token,
 	// but the command still works (no error).
+	testutil.Equal(t, "", cfg.APIToken)
+}
+
+func TestLoadWithEnv_ProxySkipsTokenResolution(t *testing.T) {
+	credtest.Hermetic(t)
+	t.Setenv("ATLASSIAN_URL", "http://127.0.0.1:8080/atlassian")
+	t.Setenv("ATLASSIAN_AUTH_METHOD", "proxy")
+	t.Setenv("ATLASSIAN_API_TOKEN", "env-token-that-should-be-ignored")
+
+	cfg, err := LoadWithEnv(filepath.Join(t.TempDir(), "missing.yml"))
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "http://127.0.0.1:8080/atlassian", cfg.URL)
+	testutil.Equal(t, "proxy", cfg.AuthMethod)
 	testutil.Equal(t, "", cfg.APIToken)
 }

@@ -144,6 +144,9 @@ func (o *Options) APIClient() (*api.Client, error) {
 	if cfg.AuthMethod == auth.AuthMethodBearer {
 		return api.NewBearerClient(cfg.APIToken, cfg.CloudID)
 	}
+	if cfg.AuthMethod == auth.AuthMethodProxy {
+		return api.NewProxyClient(cfg.URL), nil
+	}
 	return api.NewClient(cfg.URL, cfg.Email, cfg.APIToken), nil
 }
 

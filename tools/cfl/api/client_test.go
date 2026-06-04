@@ -23,6 +23,27 @@ func TestNewClient(t *testing.T) {
 	testutil.Contains(t, client.GetAuthHeader(), "Basic ")
 }
 
+func TestNewProxyClient(t *testing.T) {
+	t.Parallel()
+	var capturedAuth string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		capturedAuth = r.Header.Get("Authorization")
+		testutil.Equal(t, "/wiki/api/v2/spaces", r.URL.Path)
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer server.Close()
+
+	client := NewProxyClient(server.URL)
+	testutil.NotNil(t, client)
+	testutil.Equal(t, server.URL+"/wiki", client.GetBaseURL())
+	testutil.Equal(t, "", client.GetAuthHeader())
+
+	_, err := client.Get(context.Background(), "/api/v2/spaces")
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "", capturedAuth)
+}
+
 func TestClient_AuthHeader(t *testing.T) {
 	t.Parallel()
 	var capturedAuth string
@@ -242,4 +263,12 @@ func TestNewBearerClient(t *testing.T) {
 		// Base URL should be the instance URL, not gateway
 		testutil.Equal(t, "https://example.atlassian.net/wiki", c.GetBaseURL())
 	})
+}
+
+func TestNewBearerClient_GatewayBaseFromEnv(t *testing.T) {
+	t.Setenv("CFL_GATEWAY_BASE_URL", "https://gateway.example/")
+	t.Setenv("ATLASSIAN_GATEWAY_BASE_URL", "")
+	c, err := NewBearerClient("scoped-token", "abc-123")
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "https://gateway.example/ex/confluence/abc-123/wiki", c.GetBaseURL())
 }

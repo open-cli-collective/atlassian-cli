@@ -17,10 +17,13 @@ import (
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 )
 
-// isolateCache points cache I/O at a temp directory and overrides the
-// derived instance key directly (bypassing env-var parsing) so tests can
-// run under t.Parallel() without the t.Setenv race. Matches the pattern
-// used by the rest of the package.
+// isolateCache points cache I/O at a temp directory and overrides the derived
+// instance key directly (bypassing env-var parsing), avoiding the t.Setenv
+// panic. The overrides are process-global (cache.rootOverride/instanceOverride),
+// so a test that seeds or reads the cache MUST NOT call t.Parallel(): concurrent
+// tests would clobber the shared root and one could read another's (or an empty)
+// cache dir. Tests in this package that don't touch the cache may still run in
+// parallel.
 func isolateCache(t *testing.T) {
 	t.Helper()
 	t.Cleanup(cache.SetRootForTest(t.TempDir()))
@@ -393,7 +396,7 @@ func seedLinkTypesForTest(t *testing.T) {
 }
 
 func TestRunCreate_CanonicalRow(t *testing.T) {
-	t.Parallel()
+	// no t.Parallel(): seeds the process-global cache override (see isolateCache).
 	server := createServerWithRefetch(t)
 	defer server.Close()
 
@@ -422,7 +425,7 @@ func TestRunCreate_CanonicalRow(t *testing.T) {
 }
 
 func TestRunCreate_IDOnly(t *testing.T) {
-	t.Parallel()
+	// no t.Parallel(): seeds the process-global cache override (see isolateCache).
 	server := createServerWithRefetch(t)
 	defer server.Close()
 

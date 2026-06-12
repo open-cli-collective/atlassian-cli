@@ -1,5 +1,9 @@
 .PHONY: build test lint tidy check all build-cfl build-jtk test-shared lint-shared install-hooks
 
+# Standard keyring opt-out tags (cli-common working-with-secrets.md §1.10):
+# exclude the 1Password and passage backends credstore never exposes.
+export GOFLAGS := -tags=keyring_no1password,keyring_nopassage
+
 # CI gate: everything that must pass before merge
 check: tidy lint test build
 

@@ -86,7 +86,12 @@ func envToken(tool string) (string, bool) {
 // the one-time §1.8 migration (Open) and the effective key is read. Env
 // winning does not force a keyring open — the migration then runs on the
 // next invocation that does open it (opportunistic, template-consistent).
-// Keyring errors propagate (never folded into "absent").
+// Keyring errors propagate (never folded into "absent"), but they are
+// wrapped with the headless/no-keyring escape hatches (see
+// keyringUnavailableError) so a user on a machine without a usable OS
+// keyring — or running the CLI headless under an agent, where the unlock
+// prompt never surfaces (issue #384) — gets an actionable, self-service
+// message instead of an opaque backend error.
 func ResolveToken(tool string) (string, TokenSource, error) {
 	if v, ok := envToken(tool); ok {
 		return v, SourceEnv, nil
@@ -96,20 +101,61 @@ func ResolveToken(tool string) (string, TokenSource, error) {
 		// A corrupt shared CONFIG file only blocks the migration source;
 		// it must not kill the command. Defer migration, warn once, and
 		// still resolve the token from the keyring (non-migrating).
-		// Genuine keyring-backend errors still propagate.
+		// Genuine keyring-backend errors still propagate (wrapped).
 		if errors.Is(err, credstore.ErrCorruptStore) {
 			warnCorruptOnce(err)
 			ns, nerr := OpenNoMigrate()
 			if nerr != nil {
-				return "", SourceNone, nerr
+				return "", SourceNone, keyringUnavailableError(tool, nerr)
 			}
 			defer func() { _ = ns.Close() }()
-			return resolveFromStore(ns)
+			tok, src, rerr := resolveFromStore(ns)
+			if rerr != nil {
+				return "", SourceNone, keyringUnavailableError(tool, rerr)
+			}
+			return tok, src, nil
 		}
-		return "", SourceNone, err
+		return "", SourceNone, keyringUnavailableError(tool, err)
 	}
 	defer func() { _ = s.Close() }()
-	return resolveFromStore(s)
+	tok, src, rerr := resolveFromStore(s)
+	if rerr != nil {
+		return "", SourceNone, keyringUnavailableError(tool, rerr)
+	}
+	return tok, src, nil
+}
+
+// keyringUnavailableError wraps a genuine keyring open/read failure with
+// the documented escape hatches so the headless / no-keyring case
+// (issue #384) is self-service instead of an opaque backend error. It is
+// applied ONLY to real backend errors — the §1.8 corrupt-shared-config
+// graceful path never reaches it, and a benign "no token present" result
+// is a nil error that is never wrapped.
+//
+// The wrapped error keeps the original via %w, so callers and tests that
+// classify with errors.Is (e.g. credstore.ErrSecretServiceFailClosed)
+// still match. The message names, in resolution order, the runtime escape
+// hatches the Secret-Handling Standard already supports:
+//   - the per-tool / shared API-token env vars (resolved before the
+//     keyring is ever opened — the canonical headless answer);
+//   - the encrypted-file backend (--backend file) and its passphrase env
+//     var, plus the pass backend (--backend pass) for password-store users.
+//
+// No new plaintext path is introduced: the env var and file backend are
+// the standard's own §1.4 fallbacks, surfaced here so users discover them
+// instead of hitting a silent keyring-unlock prompt that never appears.
+func keyringUnavailableError(tool string, err error) error {
+	if err == nil {
+		return nil
+	}
+	envVars := strings.Join(envVarsFor(tool), " or ")
+	return fmt.Errorf(
+		"could not read the API token from the OS keyring (%w). "+
+			"If you are running headless or have no usable keyring, supply the token via %s, "+
+			"or select the encrypted-file backend with --backend file "+
+			"(passphrase via %s) or the pass backend with --backend pass. "+
+			"See `cfl config show` / `jtk config show` for the active backend",
+		err, envVars, passphraseEnvVar(Service))
 }
 
 // ResolveTokenNoMigrate is the DIAGNOSTIC resolver (`config show` source

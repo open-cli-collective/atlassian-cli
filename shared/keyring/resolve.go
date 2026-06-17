@@ -7,6 +7,8 @@ import (
 	"strings"
 	"sync"
 
+	cccredstore "github.com/open-cli-collective/cli-common/credstore"
+
 	"github.com/open-cli-collective/atlassian-go/credstore"
 )
 
@@ -101,7 +103,8 @@ func ResolveToken(tool string) (string, TokenSource, error) {
 		// A corrupt shared CONFIG file only blocks the migration source;
 		// it must not kill the command. Defer migration, warn once, and
 		// still resolve the token from the keyring (non-migrating).
-		// Genuine keyring-backend errors still propagate (wrapped).
+		// Genuine keyring-backend errors still propagate (wrapped with
+		// the escape hatches); other failures propagate unwrapped.
 		if errors.Is(err, credstore.ErrCorruptStore) {
 			warnCorruptOnce(err)
 			ns, nerr := OpenNoMigrate()
@@ -125,12 +128,35 @@ func ResolveToken(tool string) (string, TokenSource, error) {
 	return tok, src, nil
 }
 
-// keyringUnavailableError wraps a genuine keyring open/read failure with
-// the documented escape hatches so the headless / no-keyring case
-// (issue #384) is self-service instead of an opaque backend error. It is
-// applied ONLY to real backend errors — the §1.8 corrupt-shared-config
-// graceful path never reaches it, and a benign "no token present" result
-// is a nil error that is never wrapped.
+// isBackendError reports whether err is a genuine keyring-BACKEND
+// availability failure — the only class for which the headless /
+// no-keyring escape-hatch advice (env vars, --backend file/pass) is
+// actually accurate. It matches the cli-common credstore sentinels that
+// mean "the backend itself could not be opened or used":
+//   - ErrSecretServiceFailClosed: Secret Service present but locked/denied
+//     (the issue #384 headless case);
+//   - ErrBackendNotImplemented: the selected/default backend is unavailable
+//     on this platform/build;
+//   - ErrFilePassphraseRequired: the file backend cannot open without its
+//     passphrase (the advice names that env var).
+//
+// A credential-decode failure, a format mismatch, ErrStoreClosed, or any
+// other non-backend error returns false so it propagates UNWRAPPED rather
+// than being mislabeled with "no usable keyring" remedies.
+func isBackendError(err error) bool {
+	return errors.Is(err, cccredstore.ErrSecretServiceFailClosed) ||
+		errors.Is(err, cccredstore.ErrBackendNotImplemented) ||
+		errors.Is(err, cccredstore.ErrFilePassphraseRequired)
+}
+
+// keyringUnavailableError wraps a genuine keyring backend-availability
+// failure with the documented escape hatches so the headless / no-keyring
+// case (issue #384) is self-service instead of an opaque backend error.
+// It wraps ONLY real backend errors (see isBackendError): the §1.8
+// corrupt-shared-config graceful path never reaches it, a benign "no token
+// present" result is a nil error, and a non-backend failure (decode,
+// format mismatch, store sentinel) is returned UNWRAPPED so it is not
+// mislabeled with "no usable keyring" advice that does not apply.
 //
 // The wrapped error keeps the original via %w, so callers and tests that
 // classify with errors.Is (e.g. credstore.ErrSecretServiceFailClosed)
@@ -148,14 +174,20 @@ func keyringUnavailableError(tool string, err error) error {
 	if err == nil {
 		return nil
 	}
+	// Only backend-availability failures get the headless/no-keyring
+	// remedies; anything else propagates unwrapped (the advice would be
+	// misleading for, e.g., a decode failure or ErrStoreClosed).
+	if !isBackendError(err) {
+		return err
+	}
 	envVars := strings.Join(envVarsFor(tool), " or ")
 	return fmt.Errorf(
 		"could not read the API token from the OS keyring (%w). "+
 			"If you are running headless or have no usable keyring, supply the token via %s, "+
 			"or select the encrypted-file backend with --backend file "+
 			"(passphrase via %s) or the pass backend with --backend pass. "+
-			"See `cfl config show` / `jtk config show` for the active backend",
-		err, envVars, passphraseEnvVar(Service))
+			"See `%s config show` for the active backend",
+		err, envVars, passphraseEnvVar(Service), tool)
 }
 
 // ResolveTokenNoMigrate is the DIAGNOSTIC resolver (`config show` source
@@ -175,7 +207,12 @@ func ResolveTokenNoMigrate(tool string) (string, TokenSource, error) {
 
 // resolveFromStore reads the single shared api_token. One key per logical
 // credential (§1.11.10): jtk and cfl resolve the same key.
-func resolveFromStore(s *Store) (string, TokenSource, error) {
+//
+// It is a package var (not a plain func) purely as a test seam: a test
+// must be able to exercise the "Open succeeded but the read failed" branch
+// of ResolveToken without a backend that can fail mid-read on every OS.
+// Production code never reassigns it.
+var resolveFromStore = func(s *Store) (string, TokenSource, error) {
 	if v, ok, err := s.get(KeyAPIToken); err != nil {
 		return "", SourceNone, err
 	} else if ok {

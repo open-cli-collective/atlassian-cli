@@ -97,6 +97,13 @@ func TestAddRemoteLink_EmptyURL(t *testing.T) {
 	testutil.Equal(t, err, ErrRemoteLinkURLRequired)
 }
 
+func TestAddRemoteLink_EmptyTitle(t *testing.T) {
+	_, err := (&Client{}).AddRemoteLink(context.Background(), "PROJ-123", CreateRemoteLinkRequest{
+		Object: RemoteLinkObject{URL: "https://example.com"},
+	})
+	testutil.Equal(t, err, ErrRemoteLinkTitleRequired)
+}
+
 func TestDeleteRemoteLink(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testutil.Equal(t, r.URL.Path, "/rest/api/3/issue/PROJ-123/remotelink/10001")
@@ -108,11 +115,12 @@ func TestDeleteRemoteLink(t *testing.T) {
 	client, err := New(ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
 	testutil.RequireNoError(t, err)
 
-	err = client.DeleteRemoteLink(context.Background(), "PROJ-123", "10001")
+	err = client.DeleteRemoteLink(context.Background(), "PROJ-123", 10001)
 	testutil.RequireNoError(t, err)
 }
 
 func TestDeleteRemoteLink_EmptyArgs(t *testing.T) {
-	testutil.Equal(t, (&Client{}).DeleteRemoteLink(context.Background(), "", "10001"), ErrIssueKeyRequired)
-	testutil.Equal(t, (&Client{}).DeleteRemoteLink(context.Background(), "PROJ-123", ""), ErrRemoteLinkIDRequired)
+	testutil.Equal(t, (&Client{}).DeleteRemoteLink(context.Background(), "", 10001), ErrIssueKeyRequired)
+	testutil.Equal(t, (&Client{}).DeleteRemoteLink(context.Background(), "PROJ-123", 0), ErrRemoteLinkIDRequired)
+	testutil.Equal(t, (&Client{}).DeleteRemoteLink(context.Background(), "PROJ-123", -1), ErrRemoteLinkIDRequired)
 }

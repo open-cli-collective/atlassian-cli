@@ -76,6 +76,9 @@ func (c *Client) AddRemoteLink(ctx context.Context, issueKey string, req CreateR
 	if req.Object.URL == "" {
 		return nil, ErrRemoteLinkURLRequired
 	}
+	if req.Object.Title == "" {
+		return nil, ErrRemoteLinkTitleRequired
+	}
 
 	urlStr := fmt.Sprintf("%s/issue/%s/remotelink", c.BaseURL, url.PathEscape(issueKey))
 	body, err := c.Post(ctx, urlStr, req)
@@ -97,18 +100,20 @@ func (c *Client) AddRemoteLink(ctx context.Context, issueKey string, req CreateR
 	}, nil
 }
 
-// DeleteRemoteLink deletes a remote link from an issue by its link ID.
-func (c *Client) DeleteRemoteLink(ctx context.Context, issueKey, linkID string) error {
+// DeleteRemoteLink deletes a remote link from an issue by its link ID. linkID
+// is an int to match the RemoteLink.ID domain type returned by AddRemoteLink
+// and GetRemoteLinks, so a list-then-delete flow needs no string conversion.
+func (c *Client) DeleteRemoteLink(ctx context.Context, issueKey string, linkID int) error {
 	if issueKey == "" {
 		return ErrIssueKeyRequired
 	}
-	if linkID == "" {
+	if linkID <= 0 {
 		return ErrRemoteLinkIDRequired
 	}
 
-	urlStr := fmt.Sprintf("%s/issue/%s/remotelink/%s", c.BaseURL, url.PathEscape(issueKey), url.PathEscape(linkID))
+	urlStr := fmt.Sprintf("%s/issue/%s/remotelink/%d", c.BaseURL, url.PathEscape(issueKey), linkID)
 	if _, err := c.Delete(ctx, urlStr); err != nil {
-		return fmt.Errorf("deleting remote link %s: %w", linkID, err)
+		return fmt.Errorf("deleting remote link %d: %w", linkID, err)
 	}
 	return nil
 }

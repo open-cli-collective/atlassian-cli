@@ -26,33 +26,40 @@ var RemoteLinkListSpec = projection.Registry{
 	{Header: "SUMMARY", Extended: true},
 }
 
-// PresentList creates a table presentation of remote links. Extended adds the
-// RELATIONSHIP and SUMMARY columns.
+// PresentList creates a table presentation of remote links. Both headers and
+// column selection are driven from RemoteLinkListSpec: a single row carrying
+// every column is built, then projected down to the active mode's columns via
+// the registry's Extended flags. Extended adds the RELATIONSHIP and SUMMARY
+// columns. This keeps the presenter from re-enumerating columns that the spec
+// already declares.
 func (RemoteLinkPresenter) PresentList(links []api.RemoteLink, extended bool) *present.OutputModel {
-	var headers []string
-	if extended {
-		headers = []string{"ID", "RELATIONSHIP", "TITLE", "URL", "SUMMARY"}
-	} else {
-		headers = []string{"ID", "TITLE", "URL"}
-	}
-
 	rows := make([]present.Row, len(links))
 	for i, l := range links {
-		id := strconv.Itoa(l.ID)
-		if extended {
-			rows[i] = present.Row{
-				Cells: []string{id, OrDash(l.Relationship), OrDash(l.Object.Title), l.Object.URL, OrDash(l.Object.Summary)},
-			}
-		} else {
-			rows[i] = present.Row{
-				Cells: []string{id, OrDash(l.Object.Title), l.Object.URL},
-			}
+		rows[i] = present.Row{
+			// Column order MUST match RemoteLinkListSpec.
+			Cells: []string{
+				strconv.Itoa(l.ID),
+				OrDash(l.Relationship),
+				OrDash(l.Object.Title),
+				l.Object.URL,
+				OrDash(l.Object.Summary),
+			},
 		}
 	}
+
+	headers := make([]string, len(RemoteLinkListSpec))
+	for i, spec := range RemoteLinkListSpec {
+		headers[i] = spec.Header
+	}
+
+	// Strip non-extended columns using the registry's Extended flags, the same
+	// path commands take via projection.ApplyToTableInModel for --fields.
+	section := projection.ProjectTable(
+		&present.TableSection{Headers: headers, Rows: rows},
+		RemoteLinkListSpec.ForMode(extended),
+	)
 	return &present.OutputModel{
-		Sections: []present.Section{
-			&present.TableSection{Headers: headers, Rows: rows},
-		},
+		Sections: []present.Section{section},
 	}
 }
 

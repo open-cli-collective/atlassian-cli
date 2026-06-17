@@ -4,6 +4,7 @@ package remotelinks
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 
 	"github.com/spf13/cobra"
@@ -180,7 +181,14 @@ func newRemoveCmd(opts *root.Options) *cobra.Command {
 	return cmd
 }
 
-func runRemove(ctx context.Context, opts *root.Options, issueKey, linkID string) error {
+func runRemove(ctx context.Context, opts *root.Options, issueKey, linkIDArg string) error {
+	// Remote link IDs are integers; reject typos before the API call so the
+	// user gets a clear message instead of a server-side 404.
+	linkID, err := strconv.Atoi(linkIDArg)
+	if err != nil {
+		return fmt.Errorf("invalid link ID %q: must be a number", linkIDArg)
+	}
+
 	client, err := opts.APIClient()
 	if err != nil {
 		return err
@@ -190,5 +198,5 @@ func runRemove(ctx context.Context, opts *root.Options, issueKey, linkID string)
 		return err
 	}
 
-	return jtkpresent.Emit(opts, jtkpresent.RemoteLinkPresenter{}.PresentRemoved(linkID, issueKey))
+	return jtkpresent.Emit(opts, jtkpresent.RemoteLinkPresenter{}.PresentRemoved(strconv.Itoa(linkID), issueKey))
 }

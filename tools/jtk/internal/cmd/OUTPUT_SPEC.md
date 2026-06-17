@@ -460,6 +460,42 @@ ID | NAME | INWARD | OUTWARD
 
 Cached during init/refresh. `links create` accepts the type name ("Blocker"), the outward verb ("blocks"), or the inward verb ("is blocked by").
 
+### `remotelinks`
+
+Remote (web) links are external URLs attached to an issue and shown in the Jira links sidebar — distinct from `links`, which connect two Jira issues.
+
+**`remotelinks list MON-4818`** — default:
+```
+ID | TITLE | URL
+10001 | GitHub #456: Some issue | https://github.com/owner/repo/issues/456
+10002 | Design doc | https://example.com/design
+```
+
+**`remotelinks list MON-4818 --extended`:**
+```
+ID | RELATIONSHIP | TITLE | URL | SUMMARY
+10001 | mentioned in | GitHub #456: Some issue | https://github.com/owner/repo/issues/456 | Tracks the upstream fix
+10002 | - | Design doc | https://example.com/design | -
+```
+
+Extended adds the relationship label and the link summary.
+
+**`remotelinks add MON-4818 --url ... --title ...`** — post-state detail:
+```
+Added remote link 10001 to MON-4818
+ID: 10001
+Issue: MON-4818
+Title: GitHub #456: Some issue
+URL: https://github.com/owner/repo/issues/456
+```
+
+`--title` defaults to the URL when omitted. `--id` emits only the new link ID.
+
+**`remotelinks remove MON-4818 10001`** — confirmation line only:
+```
+Removed remote link 10001 from MON-4818
+```
+
 ### `transitions`
 
 **`transitions list MON-4810`** — default:

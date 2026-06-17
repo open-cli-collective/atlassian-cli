@@ -316,6 +316,11 @@ jtk links list PROJ-123
 jtk links create PROJ-123 PROJ-456 --type Blocks
 jtk links types
 
+# Remote (web) links — external URLs in the issue sidebar
+jtk remotelinks list PROJ-123
+jtk remotelinks add PROJ-123 --url "https://github.com/owner/repo/issues/456" --title "GitHub #456"
+jtk remotelinks remove PROJ-123 12345
+
 # Dashboards
 jtk dashboards list
 jtk dashboards create --name "Sprint Board"

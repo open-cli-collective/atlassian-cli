@@ -178,7 +178,7 @@ func TestRemoteLinkPresenter_PresentAddedDetail_OmitsEmptyOptional(t *testing.T)
 
 func TestRemoteLinkPresenter_PresentRemoved(t *testing.T) {
 	t.Parallel()
-	model := RemoteLinkPresenter{}.PresentRemoved("10001", "PROJ-123")
+	model := RemoteLinkPresenter{}.PresentRemoved(10001, "PROJ-123")
 	msg := model.Sections[0].(*present.MessageSection)
 	if msg.Kind != present.MessageSuccess {
 		t.Errorf("want MessageSuccess, got %v", msg.Kind)

@@ -198,5 +198,5 @@ func runRemove(ctx context.Context, opts *root.Options, issueKey, linkIDArg stri
 		return err
 	}
 
-	return jtkpresent.Emit(opts, jtkpresent.RemoteLinkPresenter{}.PresentRemoved(strconv.Itoa(linkID), issueKey))
+	return jtkpresent.Emit(opts, jtkpresent.RemoteLinkPresenter{}.PresentRemoved(linkID, issueKey))
 }

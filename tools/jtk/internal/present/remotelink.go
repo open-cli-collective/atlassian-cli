@@ -91,12 +91,12 @@ func (RemoteLinkPresenter) PresentAddedDetail(issueKey string, l *api.RemoteLink
 }
 
 // PresentRemoved creates a success message for remote link removal.
-func (RemoteLinkPresenter) PresentRemoved(linkID, issueKey string) *present.OutputModel {
+func (RemoteLinkPresenter) PresentRemoved(linkID int, issueKey string) *present.OutputModel {
 	return &present.OutputModel{
 		Sections: []present.Section{
 			&present.MessageSection{
 				Kind:    present.MessageSuccess,
-				Message: fmt.Sprintf("Removed remote link %s from %s", linkID, issueKey),
+				Message: fmt.Sprintf("Removed remote link %d from %s", linkID, issueKey),
 				Stream:  present.StreamStdout,
 			},
 		},

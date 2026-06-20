@@ -30,6 +30,7 @@ func Register(rootCmd *cobra.Command, opts *root.Options) {
 
 	cmd.AddCommand(newListCmd(opts))
 	cmd.AddCommand(newViewCmd(opts))
+	cmd.AddCommand(newHistoryCmd(opts))
 	cmd.AddCommand(newCreateCmd(opts))
 	cmd.AddCommand(newEditCmd(opts))
 	cmd.AddCommand(newDeleteCmd(opts))

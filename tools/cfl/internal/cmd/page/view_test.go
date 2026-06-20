@@ -3,6 +3,7 @@ package page
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -259,6 +260,137 @@ func TestRunView_ContentOnly_ShowMacros(t *testing.T) {
 	err := runView(context.Background(), "12345", opts)
 	testutil.RequireNoError(t, err)
 	// Output should contain markdown with [TOC] macro placeholder
+}
+
+func TestRunView_VersionContentOnly(t *testing.T) {
+	t.Parallel()
+	server := mockVersionedViewServer(t, "<p>Historical <strong>Content</strong></p>")
+	defer server.Close()
+
+	rootOpts := newViewTestRootOptions()
+	rootOpts.SetAPIClient(api.NewClient(server.URL, "test@example.com", "token"))
+
+	opts := &viewOptions{
+		Options:     rootOpts,
+		version:     2,
+		contentOnly: true,
+	}
+
+	err := runView(context.Background(), "12345", opts)
+	testutil.RequireNoError(t, err)
+
+	stdout := rootOpts.Stdout.(*bytes.Buffer).String()
+	testutil.Contains(t, stdout, "Historical")
+	testutil.Contains(t, stdout, "Content")
+	testutil.False(t, strings.Contains(stdout, "Title:"), "content-only output should omit metadata")
+}
+
+func TestRunView_VersionRaw(t *testing.T) {
+	t.Parallel()
+	server := mockVersionedViewServer(t, "<p>Historical Raw</p>")
+	defer server.Close()
+
+	rootOpts := newViewTestRootOptions()
+	rootOpts.SetAPIClient(api.NewClient(server.URL, "test@example.com", "token"))
+
+	opts := &viewOptions{
+		Options: rootOpts,
+		version: 2,
+		raw:     true,
+	}
+
+	err := runView(context.Background(), "12345", opts)
+	testutil.RequireNoError(t, err)
+	testutil.Contains(t, rootOpts.Stdout.(*bytes.Buffer).String(), "<p>Historical Raw</p>")
+}
+
+func TestRunView_VersionTruncatesByDefault(t *testing.T) {
+	t.Parallel()
+	server := mockVersionedViewServer(t, "<p>"+strings.Repeat("a", maxViewChars+10)+"</p>")
+	defer server.Close()
+
+	rootOpts := newViewTestRootOptions()
+	rootOpts.SetAPIClient(api.NewClient(server.URL, "test@example.com", "token"))
+
+	opts := &viewOptions{
+		Options: rootOpts,
+		version: 2,
+		raw:     true,
+	}
+
+	err := runView(context.Background(), "12345", opts)
+	testutil.RequireNoError(t, err)
+	testutil.Contains(t, rootOpts.Stdout.(*bytes.Buffer).String(), "truncated at")
+}
+
+func TestRunView_VersionNoTruncate(t *testing.T) {
+	t.Parallel()
+	server := mockVersionedViewServer(t, "<p>"+strings.Repeat("a", maxViewChars+10)+"</p>")
+	defer server.Close()
+
+	rootOpts := newViewTestRootOptions()
+	rootOpts.SetAPIClient(api.NewClient(server.URL, "test@example.com", "token"))
+
+	opts := &viewOptions{
+		Options:    rootOpts,
+		version:    2,
+		raw:        true,
+		noTruncate: true,
+	}
+
+	err := runView(context.Background(), "12345", opts)
+	testutil.RequireNoError(t, err)
+	stdout := rootOpts.Stdout.(*bytes.Buffer).String()
+	testutil.False(t, strings.Contains(stdout, "truncated at"), "no-truncate should show full historical content")
+	testutil.Contains(t, stdout, strings.Repeat("a", maxViewChars+10))
+}
+
+func TestRunView_VersionShowMacros(t *testing.T) {
+	t.Parallel()
+	storage := `<ac:structured-macro ac:name="toc"><ac:parameter ac:name="maxLevel">2</ac:parameter></ac:structured-macro><p>Content</p>`
+	server := mockVersionedViewServer(t, storage)
+	defer server.Close()
+
+	rootOpts := newViewTestRootOptions()
+	rootOpts.SetAPIClient(api.NewClient(server.URL, "test@example.com", "token"))
+
+	opts := &viewOptions{
+		Options:     rootOpts,
+		version:     2,
+		contentOnly: true,
+		showMacros:  true,
+	}
+
+	err := runView(context.Background(), "12345", opts)
+	testutil.RequireNoError(t, err)
+	testutil.Contains(t, rootOpts.Stdout.(*bytes.Buffer).String(), "[TOC")
+}
+
+func TestRunView_VersionWebError(t *testing.T) {
+	t.Parallel()
+	rootOpts := newViewTestRootOptions()
+	opts := &viewOptions{
+		Options: rootOpts,
+		version: 2,
+		web:     true,
+	}
+
+	err := runView(context.Background(), "12345", opts)
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "--version is incompatible with --web")
+}
+
+func TestRunView_NegativeVersionError(t *testing.T) {
+	t.Parallel()
+	rootOpts := newViewTestRootOptions()
+	opts := &viewOptions{
+		Options: rootOpts,
+		version: -1,
+	}
+
+	err := runView(context.Background(), "12345", opts)
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "invalid version")
 }
 
 func TestRunView_ContentOnly_Web_Error(t *testing.T) {
@@ -616,4 +748,44 @@ func TestRunView_ADFPage_NullBody(t *testing.T) {
 
 	stdout := rootOpts.Stdout.(*bytes.Buffer)
 	testutil.Contains(t, stdout.String(), "(No content)")
+}
+
+func mockVersionedViewServer(t *testing.T, storage string) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/api/v2/pages/12345":
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{
+				"id": "12345",
+				"title": "Versioned Page",
+				"version": {"number": 2}
+			}`))
+		case r.URL.Path == "/api/v2/pages/12345/versions" && r.URL.Query().Get("body-format") == "":
+			testutil.Equal(t, "1", r.URL.Query().Get("limit"))
+			testutil.Equal(t, "-modified-date", r.URL.Query().Get("sort"))
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"results": [{"number": 2}]}`))
+		case r.URL.Path == "/api/v2/pages/12345/versions" && r.URL.Query().Get("body-format") == "storage":
+			testutil.Equal(t, "1", r.URL.Query().Get("limit"))
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"results": []map[string]any{{
+					"number": 2,
+					"page": map[string]any{
+						"id":    "12345",
+						"title": "Versioned Page",
+						"body": map[string]any{
+							"storage": map[string]string{
+								"representation": "storage",
+								"value":          storage,
+							},
+						},
+					},
+				}},
+			})
+		default:
+			t.Fatalf("unexpected request: %s?%s", r.URL.Path, r.URL.RawQuery)
+		}
+	}))
 }

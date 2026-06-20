@@ -8,6 +8,7 @@ A command-line interface for Atlassian Confluence Cloud, inspired by [jira-cli](
 - **Markdown-first**: Write and view pages in markdown, auto-converted to/from Confluence format
 - List and browse spaces
 - Create, view, edit, copy, and delete pages
+- Inspect page history and view specific page versions
 - **Search content** using CQL (Confluence Query Language)
 - Upload, download, list, and delete attachments
 - Find unused (orphaned) attachments
@@ -286,6 +287,7 @@ View a Confluence page. **Content is displayed as markdown by default.**
 ```bash
 cfl page view 12345
 cfl page view 12345 --raw
+cfl page view 12345 --version 7
 cfl page view 12345 --web
 cfl page view 12345 --content-only             # Output only content (no headers)
 cfl page view 12345 --show-macros --content-only | cfl page edit 12345 --legacy  # Roundtrip with macros
@@ -295,9 +297,34 @@ cfl page view 12345 --show-macros --content-only | cfl page edit 12345 --legacy 
 |------|-------|---------|-------------|
 | `--raw` | | `false` | Show raw Confluence format instead of markdown (XHTML storage format, or ADF JSON if storage is empty) |
 | `--web` | `-w` | `false` | Open page in browser instead of displaying |
-| `--full` | | `false` | Show full content without truncation |
+| `--version` | | `0` | View a specific page version |
+| `--no-truncate` | | `false` | Show full content without truncation |
 | `--show-macros` | | `false` | Show Confluence macro placeholders (e.g., `[TOC]`) instead of stripping them |
-| `--content-only` | | `false` | Output only page content (no Title/ID/Version headers); implies `--full` |
+| `--content-only` | | `false` | Output only page content (no Title/ID/Version headers); implies `--no-truncate` |
+
+**Arguments:**
+- `<page-id>` - The page ID (**required**)
+
+---
+
+### `cfl page history list <page-id>`
+
+List Confluence page versions in newest-first order.
+
+**Aliases:** `cfl page history ls`
+
+```bash
+cfl page history list 12345
+cfl page history list 12345 --limit 10
+cfl page history list 12345 --id                 # Print version numbers only
+cfl page history list 12345 --cursor "abc123"
+```
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--limit` | `-l` | `25` | Maximum number of versions to return |
+| `--cursor` | | | Pagination cursor from the previous result |
+| `--id` | | `false` | Print only version numbers |
 
 **Arguments:**
 - `<page-id>` - The page ID (**required**)

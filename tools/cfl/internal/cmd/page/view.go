@@ -10,6 +10,7 @@ import (
 
 	"github.com/open-cli-collective/atlassian-go/view"
 
+	"github.com/open-cli-collective/confluence-cli/api"
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
 	"github.com/open-cli-collective/confluence-cli/pkg/md"
 )
@@ -26,6 +27,7 @@ type viewOptions struct {
 	noTruncate  bool
 	showMacros  bool
 	contentOnly bool
+	version     int
 }
 
 func newViewCmd(rootOpts *root.Options) *cobra.Command {
@@ -51,6 +53,9 @@ The --content-only flag implies --no-truncate since it is intended for piping.`,
   # View raw storage format (XHTML)
   cfl page view 12345 --raw
 
+  # View a specific historical version
+  cfl page view 12345 --version 7
+
   # Open in browser
   cfl page view 12345 --web
 
@@ -70,6 +75,7 @@ The --content-only flag implies --no-truncate since it is intended for piping.`,
 	cmd.Flags().BoolVar(&opts.noTruncate, "no-truncate", false, "Show full content without truncation")
 	cmd.Flags().BoolVar(&opts.showMacros, "show-macros", false, "Show Confluence macro placeholders (e.g., [TOC]) instead of stripping them")
 	cmd.Flags().BoolVar(&opts.contentOnly, "content-only", false, "Output only page content (no metadata headers); implies --no-truncate")
+	cmd.Flags().IntVar(&opts.version, "version", 0, "View a specific page version")
 
 	return cmd
 }
@@ -83,6 +89,12 @@ func runView(ctx context.Context, pageID string, opts *viewOptions) error {
 		if opts.web {
 			return fmt.Errorf("--content-only is incompatible with --web")
 		}
+	}
+	if opts.version < 0 {
+		return fmt.Errorf("invalid version: %d (must be >= 0)", opts.version)
+	}
+	if opts.version > 0 && opts.web {
+		return fmt.Errorf("--version is incompatible with --web")
 	}
 
 	cfg, err := opts.Config()
@@ -105,7 +117,12 @@ func runView(ctx context.Context, pageID string, opts *viewOptions) error {
 		return openBrowser(url)
 	}
 
-	page, err := getPageWithBodyFallback(ctx, client, pageID)
+	var page *api.Page
+	if opts.version > 0 {
+		page, err = getPageVersionWithBodyFallback(ctx, client, pageID, opts.version)
+	} else {
+		page, err = getPageWithBodyFallback(ctx, client, pageID)
+	}
 	if err != nil {
 		return fmt.Errorf("getting page: %w", err)
 	}

@@ -163,27 +163,14 @@ func TestConfig_NormalizeURL(t *testing.T) {
 }
 
 func TestConfig_LoadFromEnv(t *testing.T) {
-	t.Parallel()
-	// Save original env vars
-	origURL := os.Getenv("CFL_URL")
-	origEmail := os.Getenv("CFL_EMAIL")
-	origToken := os.Getenv("CFL_API_TOKEN")
-	origSpace := os.Getenv("CFL_DEFAULT_SPACE")
-
-	// Cleanup
-	defer func() {
-		_ = os.Setenv("CFL_URL", origURL)
-		_ = os.Setenv("CFL_EMAIL", origEmail)
-		_ = os.Setenv("CFL_API_TOKEN", origToken)
-		_ = os.Setenv("CFL_DEFAULT_SPACE", origSpace)
-	}()
-
 	t.Run("loads all env vars", func(t *testing.T) {
-		t.Parallel()
-		_ = os.Setenv("CFL_URL", "https://env.atlassian.net")
-		_ = os.Setenv("CFL_EMAIL", "env@example.com")
-		_ = os.Setenv("CFL_API_TOKEN", "env-token")
-		_ = os.Setenv("CFL_DEFAULT_SPACE", "ENV")
+		t.Setenv("CFL_URL", "https://env.atlassian.net")
+		t.Setenv("CFL_EMAIL", "env@example.com")
+		t.Setenv("CFL_API_TOKEN", "env-token")
+		t.Setenv("CFL_DEFAULT_SPACE", "ENV")
+		t.Setenv("ATLASSIAN_URL", "")
+		t.Setenv("ATLASSIAN_EMAIL", "")
+		t.Setenv("ATLASSIAN_API_TOKEN", "")
 
 		cfg := &Config{}
 		cfg.LoadFromEnv()
@@ -197,11 +184,13 @@ func TestConfig_LoadFromEnv(t *testing.T) {
 	})
 
 	t.Run("env vars override existing values", func(t *testing.T) {
-		t.Parallel()
-		_ = os.Setenv("CFL_URL", "https://override.atlassian.net")
-		_ = os.Setenv("CFL_EMAIL", "")
-		_ = os.Setenv("CFL_API_TOKEN", "")
-		_ = os.Setenv("CFL_DEFAULT_SPACE", "")
+		t.Setenv("CFL_URL", "https://override.atlassian.net")
+		t.Setenv("CFL_EMAIL", "")
+		t.Setenv("CFL_API_TOKEN", "")
+		t.Setenv("CFL_DEFAULT_SPACE", "")
+		t.Setenv("ATLASSIAN_URL", "")
+		t.Setenv("ATLASSIAN_EMAIL", "")
+		t.Setenv("ATLASSIAN_API_TOKEN", "")
 
 		cfg := &Config{
 			URL:   "https://original.atlassian.net",

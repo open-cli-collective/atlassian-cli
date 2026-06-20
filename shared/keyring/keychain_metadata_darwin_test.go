@@ -6,7 +6,6 @@ import (
 	"errors"
 	"os"
 	"strconv"
-	"strings"
 	"testing"
 	"time"
 
@@ -109,12 +108,6 @@ func runKeychainMetadataScenario(t *testing.T, kr rawkeyring.Keyring, profile st
 
 func writeToken(t *testing.T, ref, key, value string) {
 	t.Helper()
-	if ref == Ref {
-		if err := SetCredential(strings.NewReader(value+"\n"), ""); err != nil {
-			t.Fatalf("SetCredential(%s): %v", key, err)
-		}
-		return
-	}
 	s, err := openRef(ref, allowedKeys)
 	if err != nil {
 		t.Fatalf("open shared keyring: %v", err)

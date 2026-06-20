@@ -283,6 +283,8 @@ func TestRunView_VersionContentOnly(t *testing.T) {
 	testutil.Contains(t, stdout, "Historical")
 	testutil.Contains(t, stdout, "Content")
 	testutil.False(t, strings.Contains(stdout, "Title:"), "content-only output should omit metadata")
+	testutil.False(t, strings.Contains(stdout, "ID:"), "content-only output should omit metadata")
+	testutil.False(t, strings.Contains(stdout, "Version:"), "content-only output should omit metadata")
 }
 
 func TestRunView_VersionRaw(t *testing.T) {
@@ -755,19 +757,29 @@ func mockVersionedViewServer(t *testing.T, storage string) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.URL.Path == "/api/v2/pages/12345":
+			testutil.Empty(t, r.URL.Query().Get("body-format"))
 			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write([]byte(`{
 				"id": "12345",
 				"title": "Versioned Page",
-				"version": {"number": 2}
+				"version": {"number": 3}
 			}`))
-		case r.URL.Path == "/api/v2/pages/12345/versions" && r.URL.Query().Get("body-format") == "":
+		case r.URL.Path == "/api/v2/pages/12345/versions" && r.URL.Query().Get("body-format") == "" && r.URL.Query().Get("cursor") == "":
+			testutil.Equal(t, "1", r.URL.Query().Get("limit"))
+			testutil.Equal(t, "-modified-date", r.URL.Query().Get("sort"))
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{
+				"results": [{"number": 3}],
+				"_links": {"next": "/api/v2/pages/12345/versions?cursor=cursor-v2"}
+			}`))
+		case r.URL.Path == "/api/v2/pages/12345/versions" && r.URL.Query().Get("body-format") == "" && r.URL.Query().Get("cursor") == "cursor-v2":
 			testutil.Equal(t, "1", r.URL.Query().Get("limit"))
 			testutil.Equal(t, "-modified-date", r.URL.Query().Get("sort"))
 			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write([]byte(`{"results": [{"number": 2}]}`))
 		case r.URL.Path == "/api/v2/pages/12345/versions" && r.URL.Query().Get("body-format") == "storage":
 			testutil.Equal(t, "1", r.URL.Query().Get("limit"))
+			testutil.Equal(t, "cursor-v2", r.URL.Query().Get("cursor"))
 			w.WriteHeader(http.StatusOK)
 			_ = json.NewEncoder(w).Encode(map[string]any{
 				"results": []map[string]any{{

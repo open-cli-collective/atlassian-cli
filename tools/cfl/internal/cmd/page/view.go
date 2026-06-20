@@ -17,7 +17,7 @@ import (
 
 // maxViewChars is the default character limit for page body output.
 // Content beyond this limit is truncated with an indicator.
-// Use --full to show complete content without truncation.
+// Use --no-truncate to show complete content without truncation.
 const maxViewChars = 5000
 
 type viewOptions struct {

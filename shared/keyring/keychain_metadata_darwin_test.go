@@ -54,13 +54,14 @@ func TestKeychainMetadataGated(t *testing.T) {
 	}
 	t.Logf("backed up existing Keychain item: %v", hadOriginal)
 	t.Cleanup(func() {
-		if err := removeRawItem(kr, account); err != nil {
-			t.Errorf("cleanup synthetic Keychain item: %v", err)
-		}
 		if hadOriginal {
 			if err := kr.Set(original); err != nil {
 				t.Errorf("restore original Keychain item: %v", err)
 			}
+			return
+		}
+		if err := removeRawItem(kr, account); err != nil {
+			t.Errorf("cleanup synthetic Keychain item: %v", err)
 		}
 	})
 

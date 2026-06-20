@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -24,10 +25,6 @@ func TestKeychainMetadataGated(t *testing.T) {
 	SetBackendSelection(cccredstore.BackendKeychain, "")
 	t.Cleanup(func() { SetBackendSelection("", "") })
 
-	profile := Profile
-	account := profile + "/" + KeyAPIToken
-	ref := Service + "/" + profile
-	t.Logf("target Keychain item service=%q account=%q", Service, account)
 	kr, err := rawkeyring.Open(rawkeyring.Config{
 		ServiceName:              Service,
 		AllowedBackends:          []rawkeyring.BackendType{rawkeyring.KeychainBackend},
@@ -37,17 +34,30 @@ func TestKeychainMetadataGated(t *testing.T) {
 		t.Fatalf("open raw Keychain: %v", err)
 	}
 
-	hadOriginal, err := hasRawMetadata(kr, account)
-	if err != nil {
-		t.Fatalf("inspect existing Keychain item metadata: %v", err)
-	}
-	if hadOriginal && os.Getenv("ATLASSIAN_KEYCHAIN_METADATA_BACKUP_EXISTING") != "1" {
-		profile = "metadata-" + strconv.FormatInt(time.Now().UnixNano(), 10)
-		account = profile + "/" + KeyAPIToken
-		ref = Service + "/" + profile
-		t.Logf("canonical Keychain item already exists; using synthetic account=%q for non-destructive metadata verification", account)
-		hadOriginal = false
-	}
+	t.Run("synthetic profile", func(t *testing.T) {
+		profile := "metadata-" + strconv.FormatInt(time.Now().UnixNano(), 10)
+		runKeychainMetadataScenario(t, kr, profile)
+	})
+
+	t.Run("canonical default profile", func(t *testing.T) {
+		hadOriginal, err := hasRawMetadata(kr, Profile+"/"+KeyAPIToken)
+		if err != nil {
+			t.Fatalf("inspect existing canonical Keychain item metadata: %v", err)
+		}
+		if hadOriginal && os.Getenv("ATLASSIAN_KEYCHAIN_METADATA_BACKUP_EXISTING") != "1" {
+			t.Skip("canonical Keychain item already exists; set ATLASSIAN_KEYCHAIN_METADATA_BACKUP_EXISTING=1 to allow secret-data backup/restore before mutation")
+		}
+		runKeychainMetadataScenario(t, kr, Profile)
+	})
+}
+
+func runKeychainMetadataScenario(t *testing.T, kr rawkeyring.Keyring, profile string) {
+	t.Helper()
+
+	account := profile + "/" + KeyAPIToken
+	ref := Service + "/" + profile
+	t.Logf("using Keychain item service=%q account=%q", Service, account)
+
 	original, hadOriginal, err := getRawItem(kr, account)
 	if err != nil {
 		t.Fatalf("backup existing Keychain item data: %v", err)
@@ -99,6 +109,12 @@ func TestKeychainMetadataGated(t *testing.T) {
 
 func writeToken(t *testing.T, ref, key, value string) {
 	t.Helper()
+	if ref == Ref {
+		if err := SetCredential(strings.NewReader(value+"\n"), ""); err != nil {
+			t.Fatalf("SetCredential(%s): %v", key, err)
+		}
+		return
+	}
 	s, err := openRef(ref, allowedKeys)
 	if err != nil {
 		t.Fatalf("open shared keyring: %v", err)

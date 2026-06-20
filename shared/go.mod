@@ -3,9 +3,10 @@ module github.com/open-cli-collective/atlassian-go
 go 1.26
 
 require (
+	github.com/byteness/keyring v1.11.0
 	github.com/fatih/color v1.18.0
 	github.com/gohugoio/hugo-goldmark-extensions/extras v0.6.0
-	github.com/open-cli-collective/cli-common v0.3.2
+	github.com/open-cli-collective/cli-common v0.4.1-0.20260620115552-351effa2004b
 	github.com/yuin/goldmark v1.7.16
 	golang.org/x/term v0.44.0
 	gopkg.in/yaml.v3 v3.0.1
@@ -16,7 +17,6 @@ require (
 	github.com/1password/onepassword-sdk-go v0.4.1-beta.1 // indirect
 	github.com/byteness/go-keychain v0.0.0-20191008050251-8e49817e8af4 // indirect
 	github.com/byteness/go-libsecret v0.0.0-20260108215642-107379d3dee0 // indirect
-	github.com/byteness/keyring v1.11.0 // indirect
 	github.com/byteness/percent v0.2.2 // indirect
 	github.com/danieljoos/wincred v1.2.3 // indirect
 	github.com/dvsekhvalnov/jose2go v1.8.0 // indirect

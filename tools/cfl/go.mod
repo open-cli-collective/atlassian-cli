@@ -6,7 +6,7 @@ require (
 	github.com/JohannesKaufmann/html-to-markdown/v2 v2.5.0
 	github.com/charmbracelet/huh v0.8.0
 	github.com/open-cli-collective/atlassian-go v0.0.0-00010101000000-000000000000
-	github.com/open-cli-collective/cli-common v0.3.2
+	github.com/open-cli-collective/cli-common v0.4.1-0.20260620115552-351effa2004b
 	github.com/spf13/cobra v1.8.1
 	github.com/yuin/goldmark v1.7.16
 	golang.org/x/text v0.37.0

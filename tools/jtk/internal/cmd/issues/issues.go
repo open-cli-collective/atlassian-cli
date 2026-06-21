@@ -18,6 +18,7 @@ func Register(parent *cobra.Command, opts *root.Options) {
 	cmd.AddCommand(newArchiveCmd(opts))
 	cmd.AddCommand(newCheckCmd(opts))
 	cmd.AddCommand(newGetCmd(opts))
+	cmd.AddCommand(newHistoryCmd(opts))
 	cmd.AddCommand(newListCmd(opts))
 	cmd.AddCommand(newSearchCmd(opts))
 	cmd.AddCommand(newCreateCmd(opts))

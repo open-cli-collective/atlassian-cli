@@ -29,7 +29,7 @@ var ErrAlreadyReported = errors.New("already reported")
 type Options struct {
 	NoColor        bool
 	Extended       bool // --extended: include admin/schema/audit fields.
-	FullText       bool // --fulltext: disable truncation of descriptions/comments.
+	FullText       bool // --fulltext: disable truncation of descriptions/comments/history values.
 	IDOnly         bool // --id: emit only the primary identifier; takes precedence over Extended/FullText.
 	Verbose        bool
 	NonInteractive bool // --non-interactive (§3.4): never prompt; fail loud on missing required values.
@@ -147,7 +147,7 @@ func NewCmd() (*cobra.Command, *Options) {
 	// Global flags - bound to opts struct
 	cmd.PersistentFlags().BoolVar(&opts.NoColor, "no-color", false, "Disable colored output")
 	cmd.PersistentFlags().BoolVar(&opts.Extended, "extended", false, "Include admin/schema/audit fields in output")
-	cmd.PersistentFlags().BoolVar(&opts.FullText, "fulltext", false, "Disable truncation of descriptions and comments")
+	cmd.PersistentFlags().BoolVar(&opts.FullText, "fulltext", false, "Disable truncation of descriptions, comments, and history values")
 	cmd.PersistentFlags().BoolVar(&opts.IDOnly, "id", false, "Emit only the primary identifier (takes precedence over --extended and --fulltext)")
 	cmd.PersistentFlags().BoolVarP(&opts.Verbose, "verbose", "v", false, "Log each request's method/URL, JSON body, and any 4xx/5xx response body (each capped at 4 KB)")
 	cmd.PersistentFlags().BoolVar(&opts.NonInteractive, "non-interactive", false, "Never prompt; fail loud naming any required value missing from flags/env/stdin (§3.4)")

@@ -313,7 +313,7 @@ ID | CREATED | AUTHOR | ACCOUNT_ID | FIELD | FIELD_ID | TYPE | FROM_ID | FROM | 
 113345 | 2026-04-16T07:06:42.000+0000 | Aaron Wong | 5f3a21... | assignee | assignee | jira | - | - | 60e09bae7fcd820073089249 | Rian Stockbower
 ```
 
-`--id` emits one changelog group ID per history group, not one ID per flattened item row. `--fields` projects fixed history columns and prepends `ID` when omitted. Extended-only columns such as `ACCOUNT_ID`, `FIELD_ID`, `FROM_ID`, and `TO_ID` require `--extended`.
+`--id` emits one changelog group ID per history group, not one ID per flattened item row. `--fields` projects fixed history columns and prepends `ID` when omitted. Extended-only columns such as `ACCOUNT_ID`, `FIELD_ID`, `TYPE`, `FROM_ID`, and `TO_ID` require `--extended`.
 
 **`issues fields MON-4810`** — default:
 ```

@@ -108,6 +108,40 @@ func TestRunHistory_IDOnlyEmitsGroupIDs(t *testing.T) {
 	testutil.Equal(t, "", stderr.String())
 }
 
+func TestRunHistory_ExtendedImpliesFullText(t *testing.T) {
+	t.Parallel()
+
+	longValue := strings.Repeat("A", 120)
+	body := fmt.Sprintf(`{
+		"startAt": 0,
+		"maxResults": 1,
+		"total": 1,
+		"values": [
+			{
+				"id": "10001",
+				"created": "2026-06-20T15:04:05.000+0000",
+				"author": {"accountId": "acct-1", "displayName": "Alice"},
+				"items": [
+					{"field": "description", "fieldtype": "jira", "fieldId": "description", "fromString": "%s", "toString": "Short"}
+				]
+			}
+		]
+	}`, longValue)
+	server := issueHistoryServer(t, body, nil)
+	defer server.Close()
+
+	opts, stdout, stderr := historyOpts(t, server)
+	opts.Extended = true
+	err := runHistory(context.Background(), opts, "TEST-1", 1, "", "")
+	testutil.RequireNoError(t, err)
+
+	out := stdout.String()
+	testutil.Contains(t, out, "ID | CREATED | AUTHOR | ACCOUNT_ID | FIELD | FIELD_ID | TYPE | FROM_ID | FROM | TO_ID | TO")
+	testutil.Contains(t, out, longValue)
+	testutil.NotContains(t, out, "...")
+	testutil.Equal(t, "", stderr.String())
+}
+
 func TestNewHistoryCmd_FieldsProjectionViaCobra(t *testing.T) {
 	t.Parallel()
 

@@ -340,6 +340,7 @@ jtk issues history PROJ-123 --next-page-token 50
 | `--max` | `-m` | `50` | Maximum number of changelog groups to return |
 | `--next-page-token` | | | Token for next page of results |
 | `--fields` | | | Comma-separated display columns |
+| `--extended` | | `false` | Include raw/audit history fields (global) |
 | `--fulltext` | | `false` | Show full history values without truncation (global) |
 | `--id` | | `false` | Emit changelog group IDs only (global) |
 

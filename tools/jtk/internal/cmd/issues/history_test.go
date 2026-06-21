@@ -72,6 +72,33 @@ func historyPageJSON(startAt, maxResults, total int) string {
 	}`, startAt, maxResults, total)
 }
 
+func multiHistoryPageJSON(startAt, maxResults, total int) string {
+	return fmt.Sprintf(`{
+		"startAt": %d,
+		"maxResults": %d,
+		"total": %d,
+		"values": [
+			{
+				"id": "10001",
+				"created": "2026-06-20T15:04:05.000+0000",
+				"author": {"accountId": "acct-1", "displayName": "Alice"},
+				"items": [
+					{"field": "status", "fieldtype": "jira", "fieldId": "status", "from": "1", "fromString": "Open", "to": "3", "toString": "Done"},
+					{"field": "summary", "fieldtype": "jira", "fieldId": "summary", "fromString": "Old", "toString": "New"}
+				]
+			},
+			{
+				"id": "10002",
+				"created": "2026-06-21T16:05:06.000+0000",
+				"author": {"accountId": "acct-2", "displayName": "Bob"},
+				"items": [
+					{"field": "assignee", "fieldtype": "jira", "fieldId": "assignee", "fromString": "Alice", "toString": "Bob"}
+				]
+			}
+		]
+	}`, startAt, maxResults, total)
+}
+
 func TestRunHistory_DefaultOutputAndPagination(t *testing.T) {
 	t.Parallel()
 
@@ -90,6 +117,26 @@ func TestRunHistory_DefaultOutputAndPagination(t *testing.T) {
 	testutil.Contains(t, out, "10001 | 2026-06-20 | Alice | status | Open | Done")
 	testutil.Contains(t, out, "10001 | 2026-06-20 | Alice | summary | Old | New")
 	testutil.Contains(t, out, "More results available (next: 1)")
+	testutil.Equal(t, "", stderr.String())
+}
+
+func TestRunHistory_PreservesMultipleGroupOrderAndIDs(t *testing.T) {
+	t.Parallel()
+
+	server := issueHistoryServer(t, multiHistoryPageJSON(0, 2, 2), nil)
+	defer server.Close()
+
+	opts, stdout, stderr := historyOpts(t, server)
+	err := runHistory(context.Background(), opts, "TEST-1", 2, "", "")
+	testutil.RequireNoError(t, err)
+
+	lines := strings.Split(strings.TrimRight(stdout.String(), "\n"), "\n")
+	testutil.Equal(t, []string{
+		"ID | CREATED | AUTHOR | FIELD | FROM | TO",
+		"10001 | 2026-06-20 | Alice | status | Open | Done",
+		"10001 | 2026-06-20 | Alice | summary | Old | New",
+		"10002 | 2026-06-21 | Bob | assignee | Alice | Bob",
+	}, lines)
 	testutil.Equal(t, "", stderr.String())
 }
 
@@ -159,6 +206,50 @@ func TestNewHistoryCmd_FieldsProjectionViaCobra(t *testing.T) {
 	}
 	testutil.Equal(t, "ID | CREATED | FIELD | TO", lines[0])
 	testutil.Contains(t, stdout.String(), "More results available (next: 1)")
+}
+
+func TestHistoryCommand_ExtendedFullTextAndNextPageTokenViaRoot(t *testing.T) {
+	longValue := strings.Repeat("B", 120)
+	body := fmt.Sprintf(`{
+		"startAt": 5,
+		"maxResults": 2,
+		"total": 9,
+		"values": [
+			{
+				"id": "10005",
+				"created": "2026-06-20T15:04:05.000+0000",
+				"author": {"accountId": "acct-1", "displayName": "Alice"},
+				"items": [
+					{"field": "description", "fieldtype": "jira", "fieldId": "description", "fromString": "%s", "toString": "Short"}
+				]
+			}
+		]
+	}`, longValue)
+	server := issueHistoryServer(t, body, func(r *http.Request) {
+		testutil.Equal(t, "/rest/api/3/issue/TEST-1/changelog", r.URL.EscapedPath())
+		testutil.Equal(t, "5", r.URL.Query().Get("startAt"))
+		testutil.Equal(t, "2", r.URL.Query().Get("maxResults"))
+	})
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@example.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+	var stdout, stderr bytes.Buffer
+	rootCmd, opts := root.NewCmd()
+	opts.Stdout = &stdout
+	opts.Stderr = &stderr
+	opts.SetAPIClient(client)
+	Register(rootCmd, opts)
+	rootCmd.SetArgs([]string{"--extended", "--fulltext", "issues", "history", "TEST-1", "--max", "2", "--next-page-token", "5"})
+
+	testutil.RequireNoError(t, rootCmd.Execute())
+
+	out := stdout.String()
+	testutil.Contains(t, out, "ID | CREATED | AUTHOR | ACCOUNT_ID | FIELD | FIELD_ID | TYPE | FROM_ID | FROM | TO_ID | TO")
+	testutil.Contains(t, out, "10005 | 2026-06-20T15:04:05.000+0000 | Alice | acct-1 | description | description | jira")
+	testutil.Contains(t, out, longValue)
+	testutil.Contains(t, out, "More results available (next: 6)")
+	testutil.Equal(t, "", stderr.String())
 }
 
 func TestRunHistory_FieldsExtendedOnlyError(t *testing.T) {

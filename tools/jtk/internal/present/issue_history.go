@@ -151,6 +151,7 @@ func historyDisplayValue(display, raw string) string {
 }
 
 func formatHistoryCell(s string, fulltext bool) string {
+	// Jira changelog values can contain embedded newlines and tabs that break table output.
 	s = strings.Join(strings.Fields(s), " ")
 	if s == "" {
 		return "-"

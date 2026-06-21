@@ -76,7 +76,7 @@ func runHistory(ctx context.Context, opts *root.Options, issueKey string, maxRes
 		return err
 	}
 
-	hasMore, nextToken := issueHistoryPagination(page)
+	hasMore, nextToken := computeHistoryPageCursor(page)
 
 	if idOnly {
 		ids := make([]string, len(page.Histories))
@@ -102,12 +102,13 @@ func runHistory(ctx context.Context, opts *root.Options, issueKey string, maxRes
 	return jtkpresent.Emit(opts, model)
 }
 
-func issueHistoryPagination(page *api.IssueChangelogPage) (bool, string) {
+func computeHistoryPageCursor(page *api.IssueChangelogPage) (bool, string) {
 	if page == nil {
 		return false, ""
 	}
 	advance := len(page.Histories)
 	if advance == 0 && page.MaxResults > 0 {
+		// Avoid re-emitting the current offset if Jira returns an empty page mid-set.
 		advance = page.MaxResults
 	}
 	nextStart := page.StartAt + advance

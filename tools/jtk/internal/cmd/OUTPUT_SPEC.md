@@ -306,6 +306,14 @@ More results available (next: 50)
 
 Rows are chronological in Jira's changelog order. Each row is one changed field item. The `ID` is the changelog group ID and may repeat when Jira groups multiple field changes in one history entry.
 
+**`issues history MON-4810 --id`:**
+```
+113344
+113345
+113346
+More results available (next: 50)
+```
+
 **`issues history MON-4810 --extended`:**
 ```
 ID | CREATED | AUTHOR | ACCOUNT_ID | FIELD | FIELD_ID | TYPE | FROM_ID | FROM | TO_ID | TO

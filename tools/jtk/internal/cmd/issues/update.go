@@ -17,6 +17,7 @@ import (
 	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/resolve"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/text"
+	"github.com/open-cli-collective/atlassian-go/adf"
 )
 
 func newUpdateCmd(opts *root.Options) *cobra.Command {
@@ -132,7 +133,23 @@ func runUpdate(ctx context.Context, opts *root.Options, issueKey, summary, descr
 	}
 
 	if description != "" {
-		fields["description"] = api.NewADFDocument(text.InterpretEscapes(description))
+		// Fetch current issue to preserve media (images, attachments) in description
+		existingIssue, fetchErr := client.GetIssue(ctx, issueKey)
+		if fetchErr == nil && existingIssue.Fields.Description != nil && existingIssue.Fields.Description.ADF != nil {
+			var mediaNodes []*adf.Node
+			for _, node := range existingIssue.Fields.Description.ADF.Content {
+				if node.Type == "mediaSingle" || node.Type == "mediaGroup" {
+					mediaNodes = append(mediaNodes, node)
+				}
+			}
+			newDoc := api.NewADFDocument(text.InterpretEscapes(description))
+			if newDoc != nil && len(mediaNodes) > 0 {
+				newDoc.Content = append(newDoc.Content, mediaNodes...)
+			}
+			fields["description"] = newDoc
+		} else {
+			fields["description"] = api.NewADFDocument(text.InterpretEscapes(description))
+		}
 	}
 
 	if parent != "" {

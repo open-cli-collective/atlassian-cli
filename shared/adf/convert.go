@@ -22,6 +22,7 @@ import (
 var mdParser = goldmark.New(
 	goldmark.WithExtensions(
 		extension.Table,
+		extension.Linkify,
 		extras.New(extras.Config{
 			Delete: extras.DeleteConfig{Enable: true},
 		}),
@@ -37,6 +38,7 @@ var mdParser = goldmark.New(
 var wikiParser = goldmark.New(
 	goldmark.WithExtensions(
 		extension.Table,
+		extension.Linkify,
 		extras.New(extras.Config{
 			Subscript:   extras.SubscriptConfig{Enable: true},
 			Superscript: extras.SuperscriptConfig{Enable: true},

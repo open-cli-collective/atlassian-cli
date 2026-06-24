@@ -60,19 +60,21 @@ Some commands expose a `--raw` mode for source-faithful content where transforma
 
 ## Output Format
 
-JTK and CFL both use text-first output. The `-o json` resource surface has been removed from both tools (JTK earlier, then CFL via #392); CFL retains `-o table` and `-o plain` only. Both tools render through presenters; JSON is reserved for control-plane envelopes (`cfl set-credential --json`, `jtk set-credential --json`) and round-trip payloads (`jtk automation export`).
+JTK and CFL both use text-first output. The `-o json` resource surface has been removed from both tools (JTK earlier, then CFL via #392); CFL retains `-o table` and `-o plain` only. JSON is reserved for control-plane envelopes (`cfl set-credential --json`, `jtk set-credential --json`) and round-trip payloads (`jtk automation export`).
+
+`jtk` already implements presenter-owned text output broadly. `cfl` is still migrating toward that boundary; its target command/output contract is defined in `tools/cfl/internal/cmd/OUTPUT_SPEC.md` and is implemented incrementally via the presenter work tracked in #271.
 
 **Text output modes:**
 - Default = focused output for human and agent consumption (defined per-command)
-- `--extended` = additional fields for inspection (defined per-command, still curated)
-- `--id` = primary identifier only, for scripting composition
-- `--fulltext` = disables truncation of descriptions and comments
+- Tool-specific detail/inspection flags stay tool-local: `jtk` uses flags such as
+  `--extended`, `--id`, and `--fulltext`; `cfl` uses `--full` plus command-specific
+  flags documented in `tools/cfl/internal/cmd/OUTPUT_SPEC.md`
 
 ## Design Principles
 
 1. **Intentional artifacts, not field stripping.** Commands project domain objects into purpose-built artifacts. They don't start with everything and strip fields away.
 
-2. **Agent is the default.** LLM/agent consumption is the primary use case. Human inspection is opt-in via `--full`.
+2. **Agent is the default.** LLM/agent consumption is the primary use case. Human inspection is opt-in via each tool's additive inspection flag set.
 
 3. **Raw is command-specific.** Not every command needs `--raw`. It's only for commands where content transformation occurs.
 

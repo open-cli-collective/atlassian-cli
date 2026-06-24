@@ -49,6 +49,13 @@ Local convenience copy, if present: `tools/jtk/internal/cmd/OUTPUT_SPEC.md`
 
 Use these for jtk command names, flags, mutation safety, pagination, and output shapes.
 
+### cfl Output Contract
+
+Source of truth: https://github.com/open-cli-collective/atlassian-cli/blob/main/tools/cfl/internal/cmd/OUTPUT_SPEC.md
+Local convenience copy, if present: `tools/cfl/internal/cmd/OUTPUT_SPEC.md`
+
+Use this for cfl text output modes, page-content display rules, mutation success output, and token-density constraints.
+
 ## Shared Open CLI Standards
 
 ### Repository Shape

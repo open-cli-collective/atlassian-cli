@@ -12,7 +12,7 @@ A command-line interface for Atlassian Confluence Cloud, inspired by [jira-cli](
 - **Search content** using CQL (Confluence Query Language)
 - Upload, download, list, and delete attachments
 - Find unused (orphaned) attachments
-- Multiple output formats (table, JSON, plain)
+- Multiple text output formats (table, plain)
 - Open pages in browser
 
 ## Installation
@@ -184,7 +184,7 @@ These flags are available on all commands:
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
 | `--config` | `-c` | `~/.config/cfl/config.yml` | Path to config file |
-| `--output` | `-o` | `table` | Output format: `table`, `json`, `plain` |
+| `--output` | `-o` | `table` | Output format: `table`, `plain` |
 | `--no-color` | | `false` | Disable colored output |
 | `--help` | `-h` | | Show help for command |
 | `--version` | `-v` | | Show version (root command only) |

@@ -197,6 +197,32 @@ func TestRunCreate(t *testing.T) {
 	testutil.Contains(t, output, "TEST")
 }
 
+func TestRunCreate_CreateFailed_NoDuplicatePrefix(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`{"message": "Space create failed"}`))
+	}))
+	defer server.Close()
+
+	rootOpts := newTestRootOptions()
+	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+	rootOpts.SetConfig(&config.Config{URL: "https://example.atlassian.net/wiki"})
+
+	opts := &createOptions{
+		Options:   rootOpts,
+		key:       "TEST",
+		name:      "Test Space",
+		spaceType: "global",
+	}
+
+	err := runCreate(context.Background(), opts)
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "creating space")
+	testutil.NotContains(t, err.Error(), "creating space: creating space:")
+}
+
 func TestRunCreate_WithDescription(t *testing.T) {
 	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -315,6 +341,29 @@ func TestRunUpdate_WithDescription(t *testing.T) {
 
 	err := runUpdate(context.Background(), "TEST", opts)
 	testutil.RequireNoError(t, err)
+}
+
+func TestRunUpdate_UpdateFailed_NoDuplicatePrefix(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = w.Write([]byte(`{"message": "Permission denied"}`))
+	}))
+	defer server.Close()
+
+	rootOpts := newTestRootOptions()
+	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
+	opts := &updateOptions{
+		Options: rootOpts,
+		name:    "Updated Name",
+	}
+
+	err := runUpdate(context.Background(), "TEST", opts)
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "updating space")
+	testutil.NotContains(t, err.Error(), "updating space: updating space:")
 }
 
 // --- Delete tests ---

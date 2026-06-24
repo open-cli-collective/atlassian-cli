@@ -195,7 +195,7 @@ func runCreate(ctx context.Context, opts *createOptions) error {
 
 	page, err := client.CreatePage(ctx, req)
 	if err != nil {
-		return fmt.Errorf("creating page: %w", err)
+		return err
 	}
 
 	v := opts.View()

@@ -2,7 +2,6 @@ package space
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/spf13/cobra"
 
@@ -77,7 +76,7 @@ func runCreate(ctx context.Context, opts *createOptions) error {
 
 	space, err := client.CreateSpace(ctx, req)
 	if err != nil {
-		return fmt.Errorf("creating space: %w", err)
+		return err
 	}
 
 	v := opts.View()

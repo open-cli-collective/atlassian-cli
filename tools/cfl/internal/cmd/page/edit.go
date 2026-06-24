@@ -133,7 +133,7 @@ func runEdit(ctx context.Context, opts *editOptions) error {
 
 	existingPage, err := getPageWithBodyFallback(ctx, client, opts.pageID)
 	if err != nil {
-		return fmt.Errorf("getting page: %w", err)
+		return err
 	}
 
 	newTitle := opts.title
@@ -221,7 +221,7 @@ func runEdit(ctx context.Context, opts *editOptions) error {
 
 	page, err := client.UpdatePage(ctx, opts.pageID, req)
 	if err != nil {
-		return fmt.Errorf("updating page: %w", err)
+		return err
 	}
 
 	if opts.parent != "" {

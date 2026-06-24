@@ -258,6 +258,7 @@ func TestRunCreate_CreateFailed(t *testing.T) {
 	err = runCreate(context.Background(), opts)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "creating page")
+	testutil.NotContains(t, err.Error(), "creating page: creating page:")
 }
 
 func TestRunCreate_WithParent(t *testing.T) {

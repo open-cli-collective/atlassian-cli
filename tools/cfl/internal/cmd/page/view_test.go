@@ -108,6 +108,7 @@ func TestRunView_PageNotFound(t *testing.T) {
 	err := runView(context.Background(), "99999", opts)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "getting page")
+	testutil.NotContains(t, err.Error(), "getting page: getting page:")
 }
 
 func TestRunView_EmptyContent(t *testing.T) {

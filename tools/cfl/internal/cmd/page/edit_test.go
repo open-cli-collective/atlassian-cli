@@ -153,6 +153,7 @@ func TestRunEdit_PageNotFound(t *testing.T) {
 	err := runEdit(context.Background(), opts)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "getting page")
+	testutil.NotContains(t, err.Error(), "getting page: getting page:")
 }
 
 func TestRunEdit_UpdateFailed(t *testing.T) {
@@ -195,6 +196,7 @@ func TestRunEdit_UpdateFailed(t *testing.T) {
 	err = runEdit(context.Background(), opts)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "updating page")
+	testutil.NotContains(t, err.Error(), "updating page: updating page:")
 }
 
 func TestRunEdit_VersionIncrement(t *testing.T) {

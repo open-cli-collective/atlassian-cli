@@ -90,7 +90,7 @@ func runCopy(ctx context.Context, pageID string, opts *copyOptions) error {
 
 	newPage, err := client.CopyPage(ctx, pageID, copyOpts)
 	if err != nil {
-		return fmt.Errorf("copying page: %w", err)
+		return err
 	}
 
 	v := opts.View()

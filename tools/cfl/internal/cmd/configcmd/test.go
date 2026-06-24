@@ -35,6 +35,8 @@ func runTest(ctx context.Context, opts *root.Options) error {
 		return fmt.Errorf("configuration error: %w", err)
 	}
 
+	_ = cflpresent.Emit(opts, cflpresent.ConfigPresenter{}.PresentTestProgress())
+
 	// Try to list spaces (limit 1) to verify connectivity
 	_, err = client.ListSpaces(ctx, nil)
 	if err != nil {

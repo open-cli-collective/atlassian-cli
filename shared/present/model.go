@@ -95,9 +95,10 @@ const (
 
 // MessageSection displays a status message (mutations, confirmations).
 type MessageSection struct {
-	Kind    MessageKind
-	Message string
-	Stream  Stream // Explicit stream routing (zero value = StreamStdout)
+	Kind      MessageKind
+	Message   string
+	Stream    Stream // Explicit stream routing (zero value = StreamStdout)
+	NoNewline bool   // For progress messages that intentionally complete later.
 }
 
 func (*MessageSection) sectionMarker() {}

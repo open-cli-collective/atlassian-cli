@@ -12,9 +12,20 @@ import (
 
 type ConfigPresenter struct{}
 
+func (ConfigPresenter) PresentTestProgress() *sharedpresent.OutputModel {
+	return &sharedpresent.OutputModel{Sections: []sharedpresent.Section{
+		&sharedpresent.MessageSection{
+			Kind:      sharedpresent.MessageInfo,
+			Message:   "Testing connection... ",
+			Stream:    sharedpresent.StreamStderr,
+			NoNewline: true,
+		},
+	}}
+}
+
 func (ConfigPresenter) PresentTestFailure() *sharedpresent.OutputModel {
 	return stderrOnly(strings.Join([]string{
-		"Testing connection... failed!",
+		"failed!",
 		"",
 		"Troubleshooting:",
 		"  - Verify your URL is correct (should include https://)",
@@ -28,7 +39,7 @@ func (ConfigPresenter) PresentTestFailure() *sharedpresent.OutputModel {
 }
 
 func (ConfigPresenter) PresentTestSuccess(user *api.User) *sharedpresent.OutputModel {
-	lines := []string{"Testing connection... success!", ""}
+	lines := []string{"success!", ""}
 	if user == nil {
 		lines = append(lines, "Your cfl configuration is working correctly.")
 		return stderrOnly(strings.Join(lines, "\n"))

@@ -14,6 +14,12 @@ import (
 func TestConfigPresenter_PresentTestSuccess(t *testing.T) {
 	t.Parallel()
 
+	progressModel := ConfigPresenter{}.PresentTestProgress()
+	progressMsg := requireMessageSection(t, progressModel, 0)
+	testutil.Equal(t, sharedpresent.StreamStderr, progressMsg.Stream)
+	testutil.Equal(t, true, progressMsg.NoNewline)
+	testutil.Equal(t, "Testing connection... ", progressMsg.Message)
+
 	model := ConfigPresenter{}.PresentTestSuccess(&api.User{
 		AccountID:   "acct-1",
 		DisplayName: "Test User",
@@ -22,7 +28,7 @@ func TestConfigPresenter_PresentTestSuccess(t *testing.T) {
 
 	msg := requireMessageSection(t, model, 0)
 	testutil.Equal(t, sharedpresent.StreamStderr, msg.Stream)
-	testutil.Equal(t, "Testing connection... success!\n\nAuthentication successful\nAPI access verified\n\nAuthenticated as: Test User (test@example.com)\nAccount ID: acct-1", msg.Message)
+	testutil.Equal(t, "success!\n\nAuthentication successful\nAPI access verified\n\nAuthenticated as: Test User (test@example.com)\nAccount ID: acct-1", msg.Message)
 }
 
 func TestConfigPresenter_PresentTestSuccessFallback(t *testing.T) {
@@ -32,7 +38,7 @@ func TestConfigPresenter_PresentTestSuccessFallback(t *testing.T) {
 
 	msg := requireMessageSection(t, model, 0)
 	testutil.Equal(t, sharedpresent.StreamStderr, msg.Stream)
-	testutil.Equal(t, "Testing connection... success!\n\nYour cfl configuration is working correctly.", msg.Message)
+	testutil.Equal(t, "success!\n\nYour cfl configuration is working correctly.", msg.Message)
 }
 
 func TestConfigPresenter_PresentTestFailure(t *testing.T) {
@@ -42,7 +48,7 @@ func TestConfigPresenter_PresentTestFailure(t *testing.T) {
 
 	msg := requireMessageSection(t, model, 0)
 	testutil.Equal(t, sharedpresent.StreamStderr, msg.Stream)
-	testutil.Equal(t, "Testing connection... failed!\n\nTroubleshooting:\n  - Verify your URL is correct (should include https://)\n  - Check your email and API token\n  - Ensure your API token hasn't expired\n  - Verify you have permission to access Confluence\n\nTo regenerate an API token:\n  https://id.atlassian.com/manage-profile/security/api-tokens", msg.Message)
+	testutil.Equal(t, "failed!\n\nTroubleshooting:\n  - Verify your URL is correct (should include https://)\n  - Check your email and API token\n  - Ensure your API token hasn't expired\n  - Verify you have permission to access Confluence\n\nTo regenerate an API token:\n  https://id.atlassian.com/manage-profile/security/api-tokens", msg.Message)
 }
 
 func TestConfigPresenter_PresentClearDefaultPlan(t *testing.T) {

@@ -210,6 +210,24 @@ func TestRender_MessageSection_Info_Human(t *testing.T) {
 	}
 }
 
+func TestRender_MessageSection_NoNewline(t *testing.T) {
+	t.Parallel()
+	model := &OutputModel{
+		Sections: []Section{
+			&MessageSection{Kind: MessageInfo, Message: "Testing connection... ", Stream: StreamStderr, NoNewline: true},
+			&MessageSection{Kind: MessageInfo, Message: "success!", Stream: StreamStderr},
+		},
+	}
+
+	out := Render(model, StyleHuman)
+	if out.Stdout != "" {
+		t.Errorf("progress stdout should be empty, got: %q", out.Stdout)
+	}
+	if out.Stderr != "Testing connection... success!\n" {
+		t.Errorf("progress stderr:\ngot: %q\nwant: %q", out.Stderr, "Testing connection... success!\n")
+	}
+}
+
 func TestRender_MixedSections_WithWarning(t *testing.T) {
 	t.Parallel()
 	model := &OutputModel{

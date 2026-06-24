@@ -147,20 +147,24 @@ func renderTSVTable(sec *TableSection) string {
 }
 
 func renderMessage(sec *MessageSection, style Style) string {
+	terminator := "\n"
+	if sec.NoNewline {
+		terminator = ""
+	}
 	if style == StyleAgent {
 		// Plain text, no decorators
-		return sec.Message + "\n"
+		return sec.Message + terminator
 	}
 	// Human style with decorators
 	switch sec.Kind {
 	case MessageSuccess:
-		return "✓ " + sec.Message + "\n"
+		return "✓ " + sec.Message + terminator
 	case MessageWarning:
-		return "⚠ " + sec.Message + "\n"
+		return "⚠ " + sec.Message + terminator
 	case MessageError:
-		return "✗ " + sec.Message + "\n"
+		return "✗ " + sec.Message + terminator
 	case MessageInfo:
-		return sec.Message + "\n"
+		return sec.Message + terminator
 	}
-	return sec.Message + "\n"
+	return sec.Message + terminator
 }

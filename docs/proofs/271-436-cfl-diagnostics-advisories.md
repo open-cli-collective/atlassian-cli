@@ -12,6 +12,8 @@ The migrated commands now:
 - orchestrate config, API, keyring, and prompt control flow only
 - emit presenter-owned diagnostic/status models through
   `tools/cfl/internal/present/config.go`
+- preserve `config test` progress timing through an explicit no-newline
+  presenter message section
 - keep one-shot confirmation prompt text as an explicit direct `stderr`
   exception
 - keep `cfl init` wizard output outside this ticket
@@ -43,7 +45,7 @@ rtk go test ./tools/cfl/internal/present ./tools/cfl/internal/cmd/configcmd ./to
 Result:
 
 ```text
-Go test: 283 passed in 5 packages
+Go test: 284 passed in 5 packages
 ```
 
 Executed:
@@ -67,7 +69,7 @@ rtk go test ./tools/cfl/... ./shared/...
 Result:
 
 ```text
-Go test: 1633 passed in 34 packages
+Go test: 1634 passed in 34 packages
 ```
 
 Executed:
@@ -119,6 +121,7 @@ Presenter tests in `tools/cfl/internal/present/config_test.go` assert exact
 `OutputModel` messages and stderr routing for:
 
 - config-test success with user details
+- config-test no-newline progress
 - config-test fallback success when user lookup fails after connectivity works
 - config-test failure/troubleshooting
 - clear planned default action

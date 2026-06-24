@@ -9,7 +9,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
-	cflpresent "github.com/open-cli-collective/confluence-cli/internal/present"
 )
 
 type uploadOptions struct {
@@ -78,7 +77,7 @@ func runUpload(ctx context.Context, opts *uploadOptions) error {
 	v.Success("Uploaded: %s", filename)
 	v.RenderKeyValue("ID", attachment.ID)
 	v.RenderKeyValue("Title", attachment.Title)
-	v.RenderKeyValue("Size", cflpresent.FormatAttachmentFileSize(reportedSize))
+	v.RenderKeyValue("Size", formatFileSize(reportedSize))
 
 	return nil
 }

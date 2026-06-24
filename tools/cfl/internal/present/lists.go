@@ -166,7 +166,7 @@ func (AttachmentPresenter) PresentList(attachments []api.Attachment, full, hasMo
 			orDash(attachment.ID),
 			orDash(attachment.Title),
 			orDash(attachment.MediaType),
-			FormatAttachmentFileSize(attachment.FileSize),
+			formatAttachmentFileSize(attachment.FileSize),
 		}
 		if full {
 			cells = append(cells, orDash(attachment.Status), orDash(attachment.Comment))
@@ -262,7 +262,7 @@ func ExtractCursor(nextLink string) string {
 	return parsed.Query().Get("cursor")
 }
 
-func FormatAttachmentFileSize(bytes int64) string {
+func formatAttachmentFileSize(bytes int64) string {
 	const (
 		kb = 1024
 		mb = kb * 1024

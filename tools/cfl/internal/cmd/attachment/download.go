@@ -10,7 +10,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
-	cflpresent "github.com/open-cli-collective/confluence-cli/internal/present"
 )
 
 type downloadOptions struct {
@@ -88,7 +87,7 @@ func runDownload(ctx context.Context, attachmentID string, opts *downloadOptions
 	v := opts.View()
 
 	v.Success("Downloaded: %s", outputPath)
-	v.RenderKeyValue("Size", cflpresent.FormatAttachmentFileSize(bytesWritten))
+	v.RenderKeyValue("Size", formatFileSize(bytesWritten))
 
 	return nil
 }

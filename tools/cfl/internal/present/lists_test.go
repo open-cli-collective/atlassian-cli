@@ -149,8 +149,8 @@ func TestListPresenterHelpers(t *testing.T) {
 	testutil.Equal(t, "-", pageVersionCell(nil))
 	testutil.Equal(t, "v2", pageVersionCell(&api.Version{Number: 2}))
 	testutil.Equal(t, "-", formatHistoryTime(nil))
-	testutil.Equal(t, "0 B", FormatAttachmentFileSize(0))
-	testutil.Equal(t, "1.0 KB", FormatAttachmentFileSize(1024))
+	testutil.Equal(t, "0 B", formatAttachmentFileSize(0))
+	testutil.Equal(t, "1.0 KB", formatAttachmentFileSize(1024))
 }
 
 func requireTableSection(t *testing.T, model *sharedpresent.OutputModel, idx int) *sharedpresent.TableSection {

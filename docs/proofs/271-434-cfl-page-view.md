@@ -98,7 +98,7 @@ no legacy view/direct-output matches in page/view.go
 Executed:
 
 ```bash
-rtk proxy go test ./tools/cfl/internal/pageview ./tools/cfl/internal/present ./tools/cfl/internal/cmd/page -run 'TestProject_DefaultStorageMarkdown|TestProject_ContentOnlyRawStorage|TestProject_ADFConversionFallback|TestProject_StorageConversionFallback|TestProject_EmptyContent|TestTruncateContent|TestPagePresenter_PresentView_Default|TestPagePresenter_PresentView_ContentOnlyWithAdvisory|TestPagePresenter_PresentView_EmptyAndTruncated|TestRunView_ExactOutput_Default|TestRunView_ExactOutput_ContentOnly|TestRunView_ExactOutput_Raw|TestRunView_ExactOutput_NoTruncate|TestRunView_ExactOutput_ConversionFallback|TestRunView_ExactOutput_StorageConversionFallback_Default|TestRunView_ExactOutput_VersionDefault|TestRunView_VersionContentOnly|TestRunView_VersionRaw' -count=1 -v
+rtk proxy go test ./tools/cfl/internal/pageview ./tools/cfl/internal/present ./tools/cfl/internal/cmd/page -run 'TestProject_DefaultStorageMarkdown|TestProject_ContentOnlyRawStorage|TestProject_ADFConversionFallback|TestProject_StorageConversionFallback|TestProject_EmptyContent|TestTruncateContent|TestPagePresenter_PresentView_Default|TestPagePresenter_PresentView_ContentOnlyWithAdvisory|TestPagePresenter_PresentView_EmptyAndTruncated|TestRunView_ExactOutput_Default|TestRunView_ExactOutput_ContentOnly|TestRunView_ExactOutput_Raw|TestRunView_ExactOutput_RawContentOnly_NoTruncate|TestRunView_ExactOutput_DefaultMarkdown_NoTruncate|TestRunView_ExactOutput_ConversionFallback|TestRunView_ExactOutput_StorageConversionFallback_Default|TestRunView_ExactOutput_VersionDefault|TestRunView_VersionContentOnly|TestRunView_VersionRaw|TestRunView_EmptyContent|TestRunView_ContentOnly_EmptyBody|TestRunView_ShowMacros' -count=1 -v
 ```
 
 Result:
@@ -123,8 +123,11 @@ These tests prove:
   - `--content-only`
   - `--raw`
   - `--content-only --raw --no-truncate`
+  - default markdown `--no-truncate`
   - ADF conversion fallback
   - storage conversion fallback
+  - empty-content default and content-only output
+  - `--show-macros`
   - historical version default view
   - historical version content-only
   - historical version raw

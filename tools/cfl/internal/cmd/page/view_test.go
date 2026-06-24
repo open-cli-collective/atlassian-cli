@@ -164,7 +164,7 @@ func TestRunView_ExactOutput_Raw(t *testing.T) {
 	testutil.Equal(t, "", rootOpts.Stderr.(*bytes.Buffer).String())
 }
 
-func TestRunView_ExactOutput_NoTruncate(t *testing.T) {
+func TestRunView_ExactOutput_RawContentOnly_NoTruncate(t *testing.T) {
 	t.Parallel()
 
 	content := "<p>" + strings.Repeat("a", maxViewChars+10) + "</p>"
@@ -192,6 +192,38 @@ func TestRunView_ExactOutput_NoTruncate(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	testutil.Equal(t, content+"\n", rootOpts.Stdout.(*bytes.Buffer).String())
+	testutil.Equal(t, "", rootOpts.Stderr.(*bytes.Buffer).String())
+}
+
+func TestRunView_ExactOutput_DefaultMarkdown_NoTruncate(t *testing.T) {
+	t.Parallel()
+
+	content := "<p>" + strings.Repeat("a", maxViewChars+10) + "</p>"
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{
+			"id": "12345",
+			"title": "Long Markdown Page",
+			"version": {"number": 2},
+			"body": {"storage": {"value": "` + content + `"}},
+			"_links": {"webui": "/pages/12345"}
+		}`))
+	}))
+	defer server.Close()
+
+	rootOpts := newViewTestRootOptions()
+	rootOpts.SetAPIClient(api.NewClient(server.URL, "test@example.com", "token"))
+
+	expectedBody, err := md.FromConfluenceStorageWithOptions(content, md.ConvertOptions{})
+	testutil.RequireNoError(t, err)
+
+	err = runView(context.Background(), "12345", &viewOptions{
+		Options:    rootOpts,
+		noTruncate: true,
+	})
+	testutil.RequireNoError(t, err)
+
+	testutil.Equal(t, "Title: Long Markdown Page\nID: 12345\nVersion: 2\n\n"+expectedBody+"\n", rootOpts.Stdout.(*bytes.Buffer).String())
 	testutil.Equal(t, "", rootOpts.Stderr.(*bytes.Buffer).String())
 }
 
@@ -242,6 +274,8 @@ func TestRunView_ExactOutput_ConversionFallback(t *testing.T) {
 }
 
 func TestRunView_ExactOutput_StorageConversionFallback_Default(t *testing.T) {
+	// Must remain non-parallel: the test overrides package-level converter hooks
+	// to force the storage fallback path end-to-end.
 	restore := pageview.OverrideConvertersForTest(func(string, md.ConvertOptions) (string, error) {
 		return "", errors.New("boom")
 	}, nil)
@@ -353,6 +387,9 @@ func TestRunView_EmptyContent(t *testing.T) {
 
 	err := runView(context.Background(), "12345", opts)
 	testutil.RequireNoError(t, err)
+
+	testutil.Equal(t, "Title: Empty Page\nID: 12345\nVersion: 1\n\n(No content)\n", rootOpts.Stdout.(*bytes.Buffer).String())
+	testutil.Equal(t, "", rootOpts.Stderr.(*bytes.Buffer).String())
 }
 
 func TestRunView_InvalidOutputFormat(t *testing.T) {
@@ -395,6 +432,15 @@ func TestRunView_ShowMacros(t *testing.T) {
 
 	err := runView(context.Background(), "12345", opts)
 	testutil.RequireNoError(t, err)
+
+	expectedBody, err := md.FromConfluenceStorageWithOptions(
+		`<ac:structured-macro ac:name="toc"><ac:parameter ac:name="maxLevel">2</ac:parameter></ac:structured-macro><p>Content</p>`,
+		md.ConvertOptions{ShowMacros: true},
+	)
+	testutil.RequireNoError(t, err)
+
+	testutil.Equal(t, "Title: Page with Macros\nID: 12345\nVersion: 1\n\n"+expectedBody+"\n", rootOpts.Stdout.(*bytes.Buffer).String())
+	testutil.Equal(t, "", rootOpts.Stderr.(*bytes.Buffer).String())
 }
 
 func TestRunView_ContentOnly(t *testing.T) {
@@ -715,7 +761,9 @@ func TestRunView_ContentOnly_EmptyBody(t *testing.T) {
 
 	err := runView(context.Background(), "12345", opts)
 	testutil.RequireNoError(t, err)
-	// Output should be "(No content)" without metadata headers
+
+	testutil.Equal(t, "(No content)\n", rootOpts.Stdout.(*bytes.Buffer).String())
+	testutil.Equal(t, "", rootOpts.Stderr.(*bytes.Buffer).String())
 }
 
 func TestRunView_WithSpaceKey(t *testing.T) {

@@ -22,7 +22,7 @@ func (SpacePresenter) PresentDetail(space *api.Space, full bool) *sharedpresent.
 	if full && space.Status != "" {
 		fields = append(fields, sharedpresent.Field{Label: "Status", Value: space.Status})
 	}
-	if full && space.Description != nil && space.Description.Plain != nil && space.Description.Plain.Value != "" {
+	if full && hasPlainDescription(space) {
 		fields = append(fields, sharedpresent.Field{Label: "Description", Value: space.Description.Plain.Value})
 	}
 
@@ -74,4 +74,11 @@ func formatValueWithSource(v cflconfig.ShowValue) string {
 		return fmt.Sprintf("(source: %s)", v.Source)
 	}
 	return fmt.Sprintf("%s  (source: %s)", v.Value, v.Source)
+}
+
+func hasPlainDescription(space *api.Space) bool {
+	return space != nil &&
+		space.Description != nil &&
+		space.Description.Plain != nil &&
+		space.Description.Plain.Value != ""
 }

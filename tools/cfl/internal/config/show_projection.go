@@ -34,26 +34,26 @@ func ProjectShow(configPath string, fileCfg *Config, fileErr error, kr keyring.I
 		fileCfg = &Config{}
 	}
 
-	url := projectValue(
+	url := resolveShowValue(
 		sharedconfig.GetEnvWithFallback("CFL_URL", "ATLASSIAN_URL"),
 		fileCfg.URL,
-		setEnvName("CFL_URL", "ATLASSIAN_URL"),
+		activeEnvVarName("CFL_URL", "ATLASSIAN_URL"),
 	)
-	email := projectValue(
+	email := resolveShowValue(
 		sharedconfig.GetEnvWithFallback("CFL_EMAIL", "ATLASSIAN_EMAIL"),
 		fileCfg.Email,
-		setEnvName("CFL_EMAIL", "ATLASSIAN_EMAIL"),
+		activeEnvVarName("CFL_EMAIL", "ATLASSIAN_EMAIL"),
 	)
-	defaultSpace := projectValue(os.Getenv("CFL_DEFAULT_SPACE"), fileCfg.DefaultSpace, "CFL_DEFAULT_SPACE")
-	authMethod := projectValue(
+	defaultSpace := resolveShowValue(os.Getenv("CFL_DEFAULT_SPACE"), fileCfg.DefaultSpace, "CFL_DEFAULT_SPACE")
+	authMethod := resolveShowValue(
 		sharedconfig.GetEnvWithFallback("CFL_AUTH_METHOD", "ATLASSIAN_AUTH_METHOD"),
 		fileCfg.AuthMethod,
-		setEnvName("CFL_AUTH_METHOD", "ATLASSIAN_AUTH_METHOD"),
+		activeEnvVarName("CFL_AUTH_METHOD", "ATLASSIAN_AUTH_METHOD"),
 	)
-	cloudID := projectValue(
+	cloudID := resolveShowValue(
 		sharedconfig.GetEnvWithFallback("CFL_CLOUD_ID", "ATLASSIAN_CLOUD_ID"),
 		fileCfg.CloudID,
-		setEnvName("CFL_CLOUD_ID", "ATLASSIAN_CLOUD_ID"),
+		activeEnvVarName("CFL_CLOUD_ID", "ATLASSIAN_CLOUD_ID"),
 	)
 
 	if authMethod.Value == "" {
@@ -101,7 +101,7 @@ func ProjectShow(configPath string, fileCfg *Config, fileErr error, kr keyring.I
 	return projection
 }
 
-func projectValue(envValue, fileValue, envVarName string) ShowValue {
+func resolveShowValue(envValue, fileValue, envVarName string) ShowValue {
 	if envValue != "" {
 		return ShowValue{Value: envValue, Source: envVarName}
 	}
@@ -111,7 +111,7 @@ func projectValue(envValue, fileValue, envVarName string) ShowValue {
 	return ShowValue{Source: "not set"}
 }
 
-func setEnvName(primary, fallback string) string {
+func activeEnvVarName(primary, fallback string) string {
 	if os.Getenv(primary) != "" {
 		return primary
 	}

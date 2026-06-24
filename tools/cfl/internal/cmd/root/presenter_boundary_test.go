@@ -37,6 +37,7 @@ func TestCFLPresenterBoundaryEnforcement(t *testing.T) {
 				violations = append(violations, rel+": direct shared/view import outside root/init exception")
 			}
 		}
+		imports := boundaryImports(file.Imports)
 
 		file, err = parser.ParseFile(fset, path, nil, 0)
 		if err != nil {
@@ -48,7 +49,7 @@ func TestCFLPresenterBoundaryEnforcement(t *testing.T) {
 				return true
 			}
 			pos := fset.Position(call.Pos())
-			if violation := presenterBoundaryViolation(fset, rel, pos.Line, call); violation != "" {
+			if violation := presenterBoundaryViolation(fset, rel, pos.Line, call, imports); violation != "" {
 				violations = append(violations, violation)
 			}
 			return true
@@ -63,7 +64,14 @@ func TestCFLPresenterBoundaryEnforcement(t *testing.T) {
 	}
 }
 
-func presenterBoundaryViolation(fset *token.FileSet, rel string, line int, call *ast.CallExpr) string {
+type importNames struct {
+	fmt map[string]bool
+	io  map[string]bool
+	log map[string]bool
+	os  map[string]bool
+}
+
+func presenterBoundaryViolation(fset *token.FileSet, rel string, line int, call *ast.CallExpr, imports importNames) string {
 	sel, ok := call.Fun.(*ast.SelectorExpr)
 	if !ok {
 		return ""
@@ -82,14 +90,26 @@ func presenterBoundaryViolation(fset *token.FileSet, rel string, line int, call 
 	if name == "View" && !allowedInitException(rel) {
 		return location + ": opts.View() is only allowed for root/init transitional exceptions"
 	}
-	if receiver == "fmt" && fmtOutputCall(name) && len(call.Args) > 0 {
+	if imports.fmt[receiver] && fmtOutputCall(name) && len(call.Args) > 0 {
 		target := exprString(fset, call.Args[0])
-		if outputWriteTarget(target) && !allowedPromptWrite(fset, rel, call) && !allowedInitException(rel) {
+		if outputWriteTarget(target, imports) && !allowedPromptWrite(fset, rel, call) && !allowedInitException(rel) {
 			return location + ": command-local " + name + " write to " + target + " is not presenter-owned"
 		}
 	}
-	if receiver == "fmt" && fmtBareOutputCall(name) && !allowedInitException(rel) {
+	if imports.fmt[receiver] && fmtBareOutputCall(name) && !allowedInitException(rel) {
 		return location + ": command-local fmt." + name + " writes to process stdout/stderr outside presenter boundary"
+	}
+	if imports.io[receiver] && name == "WriteString" && len(call.Args) > 0 {
+		target := exprString(fset, call.Args[0])
+		if outputWriteTarget(target, imports) && !allowedInitException(rel) {
+			return location + ": command-local io.WriteString write to " + target + " is not presenter-owned"
+		}
+	}
+	if outputWriteTarget(receiver, imports) && name == "Write" && !allowedInitException(rel) {
+		return location + ": command-local Write call on " + receiver + " is not presenter-owned"
+	}
+	if imports.log[receiver] && logOutputCall(name) && !allowedInitException(rel) {
+		return location + ": command-local log." + name + " output is not presenter-owned"
 	}
 
 	return ""
@@ -136,10 +156,15 @@ func fmtOutputCall(name string) bool {
 	return false
 }
 
-func outputWriteTarget(target string) bool {
+func outputWriteTarget(target string, imports importNames) bool {
 	switch target {
-	case "opts.Stdout", "opts.Stderr", "v.Out", "os.Stdout", "os.Stderr":
+	case "opts.Stdout", "opts.Stderr", "v.Out":
 		return true
+	}
+	for osName := range imports.os {
+		if target == osName+".Stdout" || target == osName+".Stderr" {
+			return true
+		}
 	}
 	return false
 }
@@ -150,6 +175,55 @@ func fmtBareOutputCall(name string) bool {
 		return true
 	}
 	return false
+}
+
+func logOutputCall(name string) bool {
+	switch name {
+	case "Print", "Printf", "Println", "Fatal", "Fatalf", "Fatalln", "Panic", "Panicf", "Panicln":
+		return true
+	}
+	return false
+}
+
+func boundaryImports(imports []*ast.ImportSpec) importNames {
+	names := importNames{
+		fmt: map[string]bool{},
+		io:  map[string]bool{},
+		log: map[string]bool{},
+		os:  map[string]bool{},
+	}
+	for _, imp := range imports {
+		path := strings.Trim(imp.Path.Value, `"`)
+		name := importName(imp, path)
+		if name == "" {
+			continue
+		}
+		switch path {
+		case "fmt":
+			names.fmt[name] = true
+		case "io":
+			names.io[name] = true
+		case "log":
+			names.log[name] = true
+		case "os":
+			names.os[name] = true
+		}
+	}
+	return names
+}
+
+func importName(imp *ast.ImportSpec, path string) string {
+	if imp.Name != nil {
+		if imp.Name.Name == "_" || imp.Name.Name == "." {
+			return ""
+		}
+		return imp.Name.Name
+	}
+	idx := strings.LastIndex(path, "/")
+	if idx >= 0 {
+		return path[idx+1:]
+	}
+	return path
 }
 
 func exprString(fset *token.FileSet, expr ast.Expr) string {

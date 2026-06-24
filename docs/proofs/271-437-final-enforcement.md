@@ -42,6 +42,9 @@ the Go AST and fails on:
 - command-local `fmt.Fprint*` writes to `opts.Stdout`, `opts.Stderr`, `v.Out`,
   `os.Stdout`, or `os.Stderr` outside prompt/init exceptions
 - bare `fmt.Print`, `fmt.Printf`, or `fmt.Println` outside `init`
+- import-alias variants of `fmt`, `io`, `log`, and `os`
+- `io.WriteString` or direct `.Write` calls to command output streams
+- `log.Print*`, `log.Fatal*`, or `log.Panic*` output outside `init`
 - `view.ValidateFormat`
 - `opts.View()` outside `init`
 - direct `shared/view` imports outside root/init exceptions

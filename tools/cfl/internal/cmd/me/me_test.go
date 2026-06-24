@@ -5,6 +5,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"testing"
 
 	"github.com/open-cli-collective/atlassian-go/testutil"
@@ -250,9 +251,10 @@ func TestExecute_DefaultOutputWiredThroughCobra(t *testing.T) {
 	opts.Stderr = &stderr
 	opts.NoColor = true
 	opts.SetAPIClient(api.NewClient(server.URL, "test@example.com", "token"))
+	configPath := filepath.Join(t.TempDir(), "config.yml")
 
 	Register(rootCmd, opts)
-	rootCmd.SetArgs([]string{"me"})
+	rootCmd.SetArgs([]string{"--config", configPath, "me"})
 
 	err := rootCmd.Execute()
 	testutil.RequireNoError(t, err)
@@ -271,9 +273,10 @@ func TestExecute_PlainOutputWiredThroughRootFlag(t *testing.T) {
 	opts.Stderr = &stderr
 	opts.NoColor = true
 	opts.SetAPIClient(api.NewClient(server.URL, "test@example.com", "token"))
+	configPath := filepath.Join(t.TempDir(), "config.yml")
 
 	Register(rootCmd, opts)
-	rootCmd.SetArgs([]string{"-o", "plain", "me"})
+	rootCmd.SetArgs([]string{"--config", configPath, "-o", "plain", "me"})
 
 	err := rootCmd.Execute()
 	testutil.RequireNoError(t, err)
@@ -292,9 +295,10 @@ func TestExecute_PlainIDOutputWiredThroughRootFlag(t *testing.T) {
 	opts.Stderr = &stderr
 	opts.NoColor = true
 	opts.SetAPIClient(api.NewClient(server.URL, "test@example.com", "token"))
+	configPath := filepath.Join(t.TempDir(), "config.yml")
 
 	Register(rootCmd, opts)
-	rootCmd.SetArgs([]string{"-o", "plain", "me", "--id"})
+	rootCmd.SetArgs([]string{"--config", configPath, "-o", "plain", "me", "--id"})
 
 	err := rootCmd.Execute()
 	testutil.RequireNoError(t, err)

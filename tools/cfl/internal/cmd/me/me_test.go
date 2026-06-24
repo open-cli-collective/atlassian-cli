@@ -45,6 +45,7 @@ func TestRun_Default(t *testing.T) {
 
 	stdout := opts.Stdout.(*bytes.Buffer).String()
 	testutil.Equal(t, "abc123 | Rian Stockbower | rian@example.com\n", stdout)
+	testutil.Equal(t, "", opts.Stderr.(*bytes.Buffer).String())
 }
 
 func TestRun_IDOnly(t *testing.T) {
@@ -60,6 +61,7 @@ func TestRun_IDOnly(t *testing.T) {
 
 	stdout := opts.Stdout.(*bytes.Buffer).String()
 	testutil.Equal(t, "abc123\n", stdout)
+	testutil.Equal(t, "", opts.Stderr.(*bytes.Buffer).String())
 }
 
 func TestRun_MissingDisplayName(t *testing.T) {
@@ -75,6 +77,7 @@ func TestRun_MissingDisplayName(t *testing.T) {
 
 	stdout := opts.Stdout.(*bytes.Buffer).String()
 	testutil.Equal(t, "abc123 | - | rian@example.com\n", stdout)
+	testutil.Equal(t, "", opts.Stderr.(*bytes.Buffer).String())
 }
 
 func TestRun_MissingEmail(t *testing.T) {
@@ -90,6 +93,7 @@ func TestRun_MissingEmail(t *testing.T) {
 
 	stdout := opts.Stdout.(*bytes.Buffer).String()
 	testutil.Equal(t, "abc123 | Rian Stockbower | -\n", stdout)
+	testutil.Equal(t, "", opts.Stderr.(*bytes.Buffer).String())
 }
 
 func TestRun_MissingAccountID(t *testing.T) {
@@ -103,6 +107,7 @@ func TestRun_MissingAccountID(t *testing.T) {
 	err := Run(context.Background(), opts, false)
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, "- | Joe | joe@example.com\n", opts.Stdout.(*bytes.Buffer).String())
+	testutil.Equal(t, "", opts.Stderr.(*bytes.Buffer).String())
 }
 
 func TestRun_NormalizesPipesAndNewlines(t *testing.T) {
@@ -122,6 +127,7 @@ func TestRun_NormalizesPipesAndNewlines(t *testing.T) {
 
 	stdout := opts.Stdout.(*bytes.Buffer).String()
 	testutil.Equal(t, "abc123 | Joe \\| Pwn Next End | joe@example.com\n", stdout)
+	testutil.Equal(t, "", opts.Stderr.(*bytes.Buffer).String())
 }
 
 func TestRun_IDOnly_NormalizesAccountID(t *testing.T) {
@@ -139,6 +145,7 @@ func TestRun_IDOnly_NormalizesAccountID(t *testing.T) {
 		err := Run(context.Background(), opts, true)
 		testutil.RequireNoError(t, err)
 		testutil.Equal(t, "-\n", opts.Stdout.(*bytes.Buffer).String())
+		testutil.Equal(t, "", opts.Stderr.(*bytes.Buffer).String())
 	})
 
 	t.Run("pathological AccountID is normalized", func(t *testing.T) {
@@ -152,7 +159,38 @@ func TestRun_IDOnly_NormalizesAccountID(t *testing.T) {
 		err := Run(context.Background(), opts, true)
 		testutil.RequireNoError(t, err)
 		testutil.Equal(t, "abc\\|def ghi\n", opts.Stdout.(*bytes.Buffer).String())
+		testutil.Equal(t, "", opts.Stderr.(*bytes.Buffer).String())
 	})
+}
+
+func TestRun_Default_PlainOutput(t *testing.T) {
+	t.Parallel()
+	server := userServer(t, `{"accountId":"abc123","displayName":"Rian Stockbower","email":"rian@example.com"}`)
+	defer server.Close()
+
+	opts := newTestRootOptions()
+	opts.Output = "plain"
+	opts.SetAPIClient(api.NewClient(server.URL, "test@example.com", "token"))
+
+	err := Run(context.Background(), opts, false)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "abc123 | Rian Stockbower | rian@example.com\n", opts.Stdout.(*bytes.Buffer).String())
+	testutil.Equal(t, "", opts.Stderr.(*bytes.Buffer).String())
+}
+
+func TestRun_IDOnly_PlainOutput(t *testing.T) {
+	t.Parallel()
+	server := userServer(t, `{"accountId":"abc123","displayName":"Rian Stockbower","email":"rian@example.com"}`)
+	defer server.Close()
+
+	opts := newTestRootOptions()
+	opts.Output = "plain"
+	opts.SetAPIClient(api.NewClient(server.URL, "test@example.com", "token"))
+
+	err := Run(context.Background(), opts, true)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "abc123\n", opts.Stdout.(*bytes.Buffer).String())
+	testutil.Equal(t, "", opts.Stderr.(*bytes.Buffer).String())
 }
 
 func TestRegister_RegistersMeWithIDFlag(t *testing.T) {
@@ -198,6 +236,70 @@ func TestExecute_IDFlagWiredThroughCobra(t *testing.T) {
 
 	stdout := opts.Stdout.(*bytes.Buffer).String()
 	testutil.Equal(t, "abc123\n", stdout)
+	testutil.Equal(t, "", opts.Stderr.(*bytes.Buffer).String())
+}
+
+func TestExecute_DefaultOutputWiredThroughCobra(t *testing.T) {
+	t.Parallel()
+	server := userServer(t, `{"accountId":"abc123","displayName":"Rian Stockbower","email":"rian@example.com"}`)
+	defer server.Close()
+
+	rootCmd, opts := root.NewCmd()
+	var stdout, stderr bytes.Buffer
+	opts.Stdout = &stdout
+	opts.Stderr = &stderr
+	opts.NoColor = true
+	opts.SetAPIClient(api.NewClient(server.URL, "test@example.com", "token"))
+
+	Register(rootCmd, opts)
+	rootCmd.SetArgs([]string{"me"})
+
+	err := rootCmd.Execute()
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "abc123 | Rian Stockbower | rian@example.com\n", stdout.String())
+	testutil.Equal(t, "", stderr.String())
+}
+
+func TestExecute_PlainOutputWiredThroughRootFlag(t *testing.T) {
+	t.Parallel()
+	server := userServer(t, `{"accountId":"abc123","displayName":"Rian Stockbower","email":"rian@example.com"}`)
+	defer server.Close()
+
+	rootCmd, opts := root.NewCmd()
+	var stdout, stderr bytes.Buffer
+	opts.Stdout = &stdout
+	opts.Stderr = &stderr
+	opts.NoColor = true
+	opts.SetAPIClient(api.NewClient(server.URL, "test@example.com", "token"))
+
+	Register(rootCmd, opts)
+	rootCmd.SetArgs([]string{"-o", "plain", "me"})
+
+	err := rootCmd.Execute()
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "abc123 | Rian Stockbower | rian@example.com\n", stdout.String())
+	testutil.Equal(t, "", stderr.String())
+}
+
+func TestExecute_PlainIDOutputWiredThroughRootFlag(t *testing.T) {
+	t.Parallel()
+	server := userServer(t, `{"accountId":"abc123","displayName":"Rian Stockbower","email":"rian@example.com"}`)
+	defer server.Close()
+
+	rootCmd, opts := root.NewCmd()
+	var stdout, stderr bytes.Buffer
+	opts.Stdout = &stdout
+	opts.Stderr = &stderr
+	opts.NoColor = true
+	opts.SetAPIClient(api.NewClient(server.URL, "test@example.com", "token"))
+
+	Register(rootCmd, opts)
+	rootCmd.SetArgs([]string{"-o", "plain", "me", "--id"})
+
+	err := rootCmd.Execute()
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "abc123\n", stdout.String())
+	testutil.Equal(t, "", stderr.String())
 }
 
 func TestRun_APIError(t *testing.T) {

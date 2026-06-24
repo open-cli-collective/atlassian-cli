@@ -4,14 +4,11 @@ package me
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/spf13/cobra"
 
-	"github.com/open-cli-collective/atlassian-go/view"
-
-	"github.com/open-cli-collective/confluence-cli/api"
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
+	cflpresent "github.com/open-cli-collective/confluence-cli/internal/present"
 )
 
 // Register adds the me command to the root command.
@@ -51,37 +48,9 @@ func Run(ctx context.Context, opts *root.Options, idOnly bool) error {
 		return fmt.Errorf("getting current user: %w", err)
 	}
 
-	v := opts.View()
+	presenter := cflpresent.UserPresenter{}
 	if idOnly {
-		v.Println("%s", normalizeField(user.AccountID))
-		return nil
+		return cflpresent.Emit(opts, presenter.PresentUserIDOnly(user))
 	}
-	RenderUserOneLiner(v, user)
-	return nil
-}
-
-// RenderUserOneLiner writes the canonical 3-field user one-liner to v.
-// Exported so cfl init can render the same output after a successful save
-// without re-fetching the user or going through opts.APIClient().
-//
-// Field values are normalized so the output is always exactly three
-// pipe-delimited fields on a single line — newlines collapse to spaces and
-// embedded pipes are escaped to "\|" so downstream parsers can rely on
-// `split('|')` returning three columns.
-func RenderUserOneLiner(v *view.View, user *api.User) {
-	id := normalizeField(user.AccountID)
-	name := normalizeField(user.DisplayName)
-	email := normalizeField(user.Email)
-	v.Println("%s | %s | %s", id, name, email)
-}
-
-func normalizeField(s string) string {
-	if s == "" {
-		return "-"
-	}
-	s = strings.ReplaceAll(s, "\r\n", " ")
-	s = strings.ReplaceAll(s, "\n", " ")
-	s = strings.ReplaceAll(s, "\r", " ")
-	s = strings.ReplaceAll(s, "|", `\|`)
-	return s
+	return cflpresent.Emit(opts, presenter.PresentUserOneLiner(user))
 }

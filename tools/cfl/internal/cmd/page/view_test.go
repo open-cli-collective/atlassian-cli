@@ -14,6 +14,7 @@ import (
 
 	"github.com/open-cli-collective/confluence-cli/api"
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
+	"github.com/open-cli-collective/confluence-cli/pkg/md"
 )
 
 func newViewTestRootOptions() *root.Options {
@@ -57,6 +58,186 @@ func TestRunView_Success(t *testing.T) {
 	stdout := rootOpts.Stdout.(*bytes.Buffer)
 	testutil.Contains(t, stdout.String(), "Hello")
 	testutil.Contains(t, stdout.String(), "World")
+}
+
+func TestRunView_ExactOutput_Default(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == "GET" && strings.Contains(r.URL.Path, "/pages/12345"):
+			testutil.Equal(t, "storage", r.URL.Query().Get("body-format"))
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{
+				"id": "12345",
+				"title": "Test Page",
+				"spaceId": "98765",
+				"version": {"number": 3},
+				"body": {"storage": {"value": "<p>Hello <strong>World</strong></p>"}},
+				"_links": {"webui": "/pages/12345"}
+			}`))
+		case r.Method == "GET" && strings.Contains(r.URL.Path, "/spaces/98765"):
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"id": "98765", "key": "TEST"}`))
+		default:
+			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	rootOpts := newViewTestRootOptions()
+	rootOpts.SetAPIClient(api.NewClient(server.URL, "test@example.com", "token"))
+
+	expectedBody, err := md.FromConfluenceStorageWithOptions(
+		"<p>Hello <strong>World</strong></p>",
+		md.ConvertOptions{},
+	)
+	testutil.RequireNoError(t, err)
+
+	err = runView(context.Background(), "12345", &viewOptions{Options: rootOpts})
+	testutil.RequireNoError(t, err)
+
+	testutil.Equal(t, "Title: Test Page\nID: 12345\nSpace: TEST (ID: 98765)\nVersion: 3\n\n"+expectedBody+"\n", rootOpts.Stdout.(*bytes.Buffer).String())
+	testutil.Equal(t, "", rootOpts.Stderr.(*bytes.Buffer).String())
+}
+
+func TestRunView_ExactOutput_ContentOnly(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{
+			"id": "12345",
+			"title": "Test Page",
+			"version": {"number": 3},
+			"body": {"storage": {"value": "<p>Hello <strong>World</strong></p>"}},
+			"_links": {"webui": "/pages/12345"}
+		}`))
+	}))
+	defer server.Close()
+
+	rootOpts := newViewTestRootOptions()
+	rootOpts.SetAPIClient(api.NewClient(server.URL, "test@example.com", "token"))
+
+	expectedBody, err := md.FromConfluenceStorageWithOptions(
+		"<p>Hello <strong>World</strong></p>",
+		md.ConvertOptions{},
+	)
+	testutil.RequireNoError(t, err)
+
+	err = runView(context.Background(), "12345", &viewOptions{
+		Options:     rootOpts,
+		contentOnly: true,
+	})
+	testutil.RequireNoError(t, err)
+
+	testutil.Equal(t, expectedBody+"\n", rootOpts.Stdout.(*bytes.Buffer).String())
+	testutil.Equal(t, "", rootOpts.Stderr.(*bytes.Buffer).String())
+}
+
+func TestRunView_ExactOutput_Raw(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{
+			"id": "12345",
+			"title": "Raw Page",
+			"version": {"number": 1},
+			"body": {"storage": {"value": "<p>Raw HTML Content</p>"}},
+			"_links": {"webui": "/pages/12345"}
+		}`))
+	}))
+	defer server.Close()
+
+	rootOpts := newViewTestRootOptions()
+	rootOpts.SetAPIClient(api.NewClient(server.URL, "test@example.com", "token"))
+
+	err := runView(context.Background(), "12345", &viewOptions{
+		Options: rootOpts,
+		raw:     true,
+	})
+	testutil.RequireNoError(t, err)
+
+	testutil.Equal(t, "Title: Raw Page\nID: 12345\nVersion: 1\n\n<p>Raw HTML Content</p>\n", rootOpts.Stdout.(*bytes.Buffer).String())
+	testutil.Equal(t, "", rootOpts.Stderr.(*bytes.Buffer).String())
+}
+
+func TestRunView_ExactOutput_NoTruncate(t *testing.T) {
+	t.Parallel()
+
+	content := "<p>" + strings.Repeat("a", maxViewChars+10) + "</p>"
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{
+			"id": "12345",
+			"title": "Long Page",
+			"version": {"number": 1},
+			"body": {"storage": {"value": "` + content + `"}},
+			"_links": {"webui": "/pages/12345"}
+		}`))
+	}))
+	defer server.Close()
+
+	rootOpts := newViewTestRootOptions()
+	rootOpts.SetAPIClient(api.NewClient(server.URL, "test@example.com", "token"))
+
+	err := runView(context.Background(), "12345", &viewOptions{
+		Options:     rootOpts,
+		raw:         true,
+		contentOnly: true,
+		noTruncate:  true,
+	})
+	testutil.RequireNoError(t, err)
+
+	testutil.Equal(t, content+"\n", rootOpts.Stdout.(*bytes.Buffer).String())
+	testutil.Equal(t, "", rootOpts.Stderr.(*bytes.Buffer).String())
+}
+
+func TestRunView_ExactOutput_ConversionFallback(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "/pages/12345") {
+			switch r.URL.Query().Get("body-format") {
+			case "storage":
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(`{
+					"id": "12345",
+					"title": "ADF Page",
+					"version": {"number": 1},
+					"body": {"storage": {"representation": "storage", "value": ""}},
+					"_links": {"webui": "/pages/12345"}
+				}`))
+			case "atlas_doc_format":
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(`{
+					"id": "12345",
+					"title": "ADF Page",
+					"version": {"number": 1},
+					"body": {"atlas_doc_format": {"representation": "atlas_doc_format", "value": "{not-json"}},
+					"_links": {"webui": "/pages/12345"}
+				}`))
+			default:
+				t.Fatalf("unexpected body-format: %q", r.URL.Query().Get("body-format"))
+			}
+			return
+		}
+		t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
+	}))
+	defer server.Close()
+
+	rootOpts := newViewTestRootOptions()
+	rootOpts.SetAPIClient(api.NewClient(server.URL, "test@example.com", "token"))
+
+	err := runView(context.Background(), "12345", &viewOptions{
+		Options:     rootOpts,
+		contentOnly: true,
+	})
+	testutil.RequireNoError(t, err)
+
+	testutil.Equal(t, "{not-json\n", rootOpts.Stdout.(*bytes.Buffer).String())
+	testutil.Equal(t, "(Failed to convert ADF to markdown, showing raw ADF)\n", rootOpts.Stderr.(*bytes.Buffer).String())
 }
 
 func TestRunView_RawFormat(t *testing.T) {
@@ -138,16 +319,17 @@ func TestRunView_EmptyContent(t *testing.T) {
 
 func TestRunView_InvalidOutputFormat(t *testing.T) {
 	t.Parallel()
-	rootOpts := newViewTestRootOptions()
+	rootCmd, rootOpts := root.NewCmd()
 	rootOpts.Output = "invalid"
+	rootOpts.NoColor = true
+	rootOpts.Stdout = &bytes.Buffer{}
+	rootOpts.Stderr = &bytes.Buffer{}
+	Register(rootCmd, rootOpts)
+	rootCmd.SetArgs([]string{"page", "view", "12345"})
 
-	opts := &viewOptions{
-		Options: rootOpts,
-	}
-
-	err := runView(context.Background(), "12345", opts)
+	err := rootCmd.Execute()
 	testutil.RequireError(t, err)
-	testutil.Contains(t, err.Error(), "invalid output format")
+	testutil.Contains(t, err.Error(), `invalid output format: "invalid"`)
 }
 
 func TestRunView_ShowMacros(t *testing.T) {

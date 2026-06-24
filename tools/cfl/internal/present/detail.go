@@ -7,6 +7,7 @@ import (
 
 	"github.com/open-cli-collective/confluence-cli/api"
 	cflconfig "github.com/open-cli-collective/confluence-cli/internal/config"
+	"github.com/open-cli-collective/confluence-cli/internal/pageview"
 )
 
 type ConfigShowPresenter struct{}
@@ -67,6 +68,48 @@ func (ConfigShowPresenter) PresentDetail(proj cflconfig.ShowProjection) *sharedp
 			stderrInfo(stderr),
 		},
 	}
+}
+
+func (PagePresenter) PresentView(proj pageview.Projection) *sharedpresent.OutputModel {
+	sections := make([]sharedpresent.Section, 0, 3)
+
+	if !proj.ContentOnly {
+		fields := []sharedpresent.Field{
+			{Label: "Title", Value: orDash(proj.Title)},
+			{Label: "ID", Value: orDash(proj.ID)},
+		}
+		switch {
+		case proj.SpaceKey != "" && proj.SpaceID != "":
+			fields = append(fields, sharedpresent.Field{
+				Label: "Space",
+				Value: fmt.Sprintf("%s (ID: %s)", proj.SpaceKey, proj.SpaceID),
+			})
+		case proj.SpaceID != "":
+			fields = append(fields, sharedpresent.Field{
+				Label: "Space ID",
+				Value: proj.SpaceID,
+			})
+		}
+		if proj.HasVersion {
+			fields = append(fields, sharedpresent.Field{
+				Label: "Version",
+				Value: fmt.Sprintf("%d", proj.Version),
+			})
+		}
+		sections = append(sections, &sharedpresent.DetailSection{Fields: fields})
+	}
+
+	if proj.Advisory != "" {
+		sections = append(sections, stderrInfo(proj.Advisory))
+	}
+
+	body := proj.Body
+	if !proj.ContentOnly {
+		body = "\n" + body
+	}
+	sections = append(sections, stdoutInfo(body))
+
+	return &sharedpresent.OutputModel{Sections: sections}
 }
 
 func formatValueWithSource(v cflconfig.ShowValue) string {

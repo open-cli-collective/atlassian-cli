@@ -8,6 +8,7 @@ import (
 
 	"github.com/open-cli-collective/confluence-cli/api"
 	cflconfig "github.com/open-cli-collective/confluence-cli/internal/config"
+	"github.com/open-cli-collective/confluence-cli/internal/pageview"
 )
 
 func TestSpacePresenter_PresentDetail(t *testing.T) {
@@ -101,6 +102,50 @@ func TestFormatValueWithSource(t *testing.T) {
 		Source: "config",
 	}))
 	testutil.Equal(t, "(source: not set)", formatValueWithSource(cflconfig.ShowValue{Source: "not set"}))
+}
+
+func TestPagePresenter_PresentView_Default(t *testing.T) {
+	t.Parallel()
+
+	model := PagePresenter{}.PresentView(pageview.Projection{
+		Title:      "Test Page",
+		ID:         "12345",
+		SpaceKey:   "TEST",
+		SpaceID:    "98765",
+		Version:    3,
+		HasVersion: true,
+		Body:       "Hello world",
+	})
+
+	detail := requireDetailSection(t, model, 0)
+	testutil.Equal(t, []sharedpresent.Field{
+		{Label: "Title", Value: "Test Page"},
+		{Label: "ID", Value: "12345"},
+		{Label: "Space", Value: "TEST (ID: 98765)"},
+		{Label: "Version", Value: "3"},
+	}, detail.Fields)
+
+	body := requireMessageSection(t, model, 1)
+	testutil.Equal(t, sharedpresent.StreamStdout, body.Stream)
+	testutil.Equal(t, "\nHello world", body.Message)
+}
+
+func TestPagePresenter_PresentView_ContentOnlyWithAdvisory(t *testing.T) {
+	t.Parallel()
+
+	model := PagePresenter{}.PresentView(pageview.Projection{
+		ContentOnly: true,
+		Body:        "<p>Raw</p>",
+		Advisory:    "(Failed to convert to markdown, showing raw HTML)",
+	})
+
+	msg := requireMessageSection(t, model, 0)
+	testutil.Equal(t, sharedpresent.StreamStderr, msg.Stream)
+	testutil.Equal(t, "(Failed to convert to markdown, showing raw HTML)", msg.Message)
+
+	body := requireMessageSection(t, model, 1)
+	testutil.Equal(t, sharedpresent.StreamStdout, body.Stream)
+	testutil.Equal(t, "<p>Raw</p>", body.Message)
 }
 
 func requireDetailSection(t *testing.T, model *sharedpresent.OutputModel, idx int) *sharedpresent.DetailSection {

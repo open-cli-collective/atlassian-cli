@@ -141,17 +141,6 @@ func runView(ctx context.Context, pageID string, opts *viewOptions) error {
 
 	return cflpresent.Emit(opts.Options, cflpresent.PagePresenter{}.PresentView(proj))
 }
-
-// truncateContent truncates content if it exceeds the character limit.
-// Uses rune count to avoid splitting multi-byte UTF-8 characters.
-// --content-only implies --no-truncate since it is intended for piping.
-func truncateContent(content string, opts *viewOptions) string {
-	return pageview.TruncateContent(content, pageview.Options{
-		NoTruncate:  opts.noTruncate,
-		ContentOnly: opts.contentOnly,
-	})
-}
-
 func openBrowser(url string) error {
 	var cmd *exec.Cmd
 

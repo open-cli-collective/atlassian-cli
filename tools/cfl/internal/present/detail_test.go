@@ -115,6 +115,8 @@ func TestPagePresenter_PresentView_Default(t *testing.T) {
 		Version:    3,
 		HasVersion: true,
 		Body:       "Hello world",
+		BodyKind:   pageview.BodyKindMarkdown,
+		HasContent: true,
 	})
 
 	detail := requireDetailSection(t, model, 0)
@@ -136,7 +138,9 @@ func TestPagePresenter_PresentView_ContentOnlyWithAdvisory(t *testing.T) {
 	model := PagePresenter{}.PresentView(pageview.Projection{
 		ContentOnly: true,
 		Body:        "<p>Raw</p>",
-		Advisory:    "(Failed to convert to markdown, showing raw HTML)",
+		BodyKind:    pageview.BodyKindStorageRaw,
+		Fallback:    pageview.FallbackStorageRaw,
+		HasContent:  true,
 	})
 
 	msg := requireMessageSection(t, model, 0)
@@ -146,6 +150,24 @@ func TestPagePresenter_PresentView_ContentOnlyWithAdvisory(t *testing.T) {
 	body := requireMessageSection(t, model, 1)
 	testutil.Equal(t, sharedpresent.StreamStdout, body.Stream)
 	testutil.Equal(t, "<p>Raw</p>", body.Message)
+}
+
+func TestPagePresenter_PresentView_EmptyAndTruncated(t *testing.T) {
+	t.Parallel()
+
+	emptyModel := PagePresenter{}.PresentView(pageview.Projection{ContentOnly: true})
+	emptyBody := requireMessageSection(t, emptyModel, 0)
+	testutil.Equal(t, "(No content)", emptyBody.Message)
+
+	truncatedModel := PagePresenter{}.PresentView(pageview.Projection{
+		ContentOnly: true,
+		Body:        "abc",
+		BodyKind:    pageview.BodyKindMarkdown,
+		HasContent:  true,
+		Truncated:   true,
+	})
+	truncatedBody := requireMessageSection(t, truncatedModel, 0)
+	testutil.Equal(t, "abc\n\n... [truncated at 5000 chars, use --no-truncate for complete text]", truncatedBody.Message)
 }
 
 func requireDetailSection(t *testing.T, model *sharedpresent.OutputModel, idx int) *sharedpresent.DetailSection {

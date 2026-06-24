@@ -1,7 +1,7 @@
 package pageview
 
 import (
-	"fmt"
+	"errors"
 	"strings"
 	"testing"
 
@@ -41,6 +41,10 @@ func TestProject_DefaultStorageMarkdown(t *testing.T) {
 		HasVersion:  true,
 		ContentOnly: false,
 		Body:        expectedBody,
+		BodyKind:    BodyKindMarkdown,
+		Fallback:    FallbackNone,
+		HasContent:  true,
+		Truncated:   false,
 	}, proj)
 }
 
@@ -54,8 +58,10 @@ func TestProject_ContentOnlyRawStorage(t *testing.T) {
 	}, "", Options{Raw: true, ContentOnly: true})
 
 	testutil.Equal(t, "<p>Raw HTML</p>", proj.Body)
-	testutil.Equal(t, "", proj.Advisory)
 	testutil.True(t, proj.ContentOnly)
+	testutil.Equal(t, BodyKindStorageRaw, proj.BodyKind)
+	testutil.Equal(t, FallbackNone, proj.Fallback)
+	testutil.True(t, proj.HasContent)
 }
 
 func TestProject_ADFConversionFallback(t *testing.T) {
@@ -68,7 +74,27 @@ func TestProject_ADFConversionFallback(t *testing.T) {
 	}, "", Options{})
 
 	testutil.Equal(t, "{not-json", proj.Body)
-	testutil.Equal(t, "(Failed to convert ADF to markdown, showing raw ADF)", proj.Advisory)
+	testutil.Equal(t, BodyKindADFRaw, proj.BodyKind)
+	testutil.Equal(t, FallbackADFRaw, proj.Fallback)
+	testutil.True(t, proj.HasContent)
+}
+
+func TestProject_StorageConversionFallback(t *testing.T) {
+	restore := OverrideConvertersForTest(func(string, md.ConvertOptions) (string, error) {
+		return "", errors.New("boom")
+	}, nil)
+	defer restore()
+
+	proj := Project(&api.Page{
+		Body: &api.Body{
+			Storage: &api.BodyRepresentation{Value: "<p>Raw fallback</p>"},
+		},
+	}, "", Options{})
+
+	testutil.Equal(t, "<p>Raw fallback</p>", proj.Body)
+	testutil.Equal(t, BodyKindStorageRaw, proj.BodyKind)
+	testutil.Equal(t, FallbackStorageRaw, proj.Fallback)
+	testutil.True(t, proj.HasContent)
 }
 
 func TestProject_EmptyContent(t *testing.T) {
@@ -79,23 +105,29 @@ func TestProject_EmptyContent(t *testing.T) {
 		Title: "Empty Page",
 	}, "", Options{})
 
-	testutil.Equal(t, "(No content)", proj.Body)
-	testutil.Equal(t, "", proj.Advisory)
+	testutil.Equal(t, "", proj.Body)
+	testutil.Equal(t, BodyKindNone, proj.BodyKind)
+	testutil.Equal(t, FallbackNone, proj.Fallback)
+	testutil.False(t, proj.HasContent)
 }
 
 func TestTruncateContent(t *testing.T) {
 	t.Parallel()
 
-	short := TruncateContent("short", Options{})
+	short, shortTruncated := TruncateContent("short", Options{})
 	testutil.Equal(t, "short", short)
+	testutil.False(t, shortTruncated)
 
 	long := strings.Repeat("x", MaxChars+10)
-	truncated := TruncateContent(long, Options{})
-	testutil.Contains(t, truncated, fmt.Sprintf("... [truncated at %d chars, use --no-truncate for complete text]", MaxChars))
+	truncated, wasTruncated := TruncateContent(long, Options{})
+	testutil.Equal(t, strings.Repeat("x", MaxChars), truncated)
+	testutil.True(t, wasTruncated)
 
-	full := TruncateContent(long, Options{NoTruncate: true})
+	full, fullTruncated := TruncateContent(long, Options{NoTruncate: true})
 	testutil.Equal(t, long, full)
+	testutil.False(t, fullTruncated)
 
-	contentOnly := TruncateContent(long, Options{ContentOnly: true})
+	contentOnly, contentOnlyTruncated := TruncateContent(long, Options{ContentOnly: true})
 	testutil.Equal(t, long, contentOnly)
+	testutil.False(t, contentOnlyTruncated)
 }

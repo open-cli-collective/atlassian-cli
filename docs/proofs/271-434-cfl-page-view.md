@@ -9,19 +9,19 @@
   - metadata preservation
   - storage vs ADF body selection
   - markdown conversion
-  - raw/source-faithful body output
+  - raw/source-faithful body selection
+  - typed conversion-fallback facts
+  - typed truncation facts
   - content-only mode
-  - truncation
-  - conversion-fallback advisory generation
-- Added presenter-owned page-view output in
-  `tools/cfl/internal/present/detail.go` through
-  `PagePresenter.PresentView(...)`.
+- Moved empty-content wording, conversion-fallback wording, and truncation
+  trailer wording into `PagePresenter.PresentView(...)` in
+  `tools/cfl/internal/present/detail.go`.
 - Routed migrated `page view` output through `cflpresent.Emit(...)` so the
   command now fetches, projects, presents, and emits.
 - Preserved `--web` as the explicit direct browser-handoff exception.
-- Added exact projection tests, presenter tests, and command stdout/stderr
-  tests for default, raw, content-only, no-truncate, and conversion-fallback
-  paths.
+- Added exact projection tests, presenter tests, command stdout/stderr tests,
+  and live CLI transcript proof for default, raw, content-only, truncation,
+  conversion-fallback, and historical version paths.
 
 ## Verification Commands
 
@@ -40,6 +40,18 @@ Go test: 256 passed in 5 packages
 Executed:
 
 ```bash
+rtk go test ./tools/cfl/internal/pageview ./tools/cfl/internal/present ./tools/cfl/internal/cmd/page
+```
+
+Result:
+
+```text
+Go test: 198 passed in 3 packages
+```
+
+Executed:
+
+```bash
 rtk go test ./tools/cfl/... ./shared/...
 ```
 
@@ -47,6 +59,18 @@ Result:
 
 ```text
 Go test: 1613 passed in 34 packages
+```
+
+Executed:
+
+```bash
+rtk golangci-lint run ./tools/cfl/...
+```
+
+Result:
+
+```text
+golangci-lint: No issues found
 ```
 
 Executed:
@@ -74,96 +98,130 @@ no legacy view/direct-output matches in page/view.go
 Executed:
 
 ```bash
-rtk proxy go test ./tools/cfl/internal/pageview ./tools/cfl/internal/present ./tools/cfl/internal/cmd/page -run 'TestProject_DefaultStorageMarkdown|TestProject_ContentOnlyRawStorage|TestProject_ADFConversionFallback|TestProject_EmptyContent|TestTruncateContent|TestPagePresenter_PresentView_Default|TestPagePresenter_PresentView_ContentOnlyWithAdvisory|TestRunView_ExactOutput_Default|TestRunView_ExactOutput_ContentOnly|TestRunView_ExactOutput_Raw|TestRunView_ExactOutput_NoTruncate|TestRunView_ExactOutput_ConversionFallback|TestRunView_VersionContentOnly|TestRunView_VersionRaw' -count=1 -v
+rtk proxy go test ./tools/cfl/internal/pageview ./tools/cfl/internal/present ./tools/cfl/internal/cmd/page -run 'TestProject_DefaultStorageMarkdown|TestProject_ContentOnlyRawStorage|TestProject_ADFConversionFallback|TestProject_StorageConversionFallback|TestProject_EmptyContent|TestTruncateContent|TestPagePresenter_PresentView_Default|TestPagePresenter_PresentView_ContentOnlyWithAdvisory|TestPagePresenter_PresentView_EmptyAndTruncated|TestRunView_ExactOutput_Default|TestRunView_ExactOutput_ContentOnly|TestRunView_ExactOutput_Raw|TestRunView_ExactOutput_NoTruncate|TestRunView_ExactOutput_ConversionFallback|TestRunView_ExactOutput_StorageConversionFallback_Default|TestRunView_ExactOutput_VersionDefault|TestRunView_VersionContentOnly|TestRunView_VersionRaw' -count=1 -v
 ```
 
 Result:
 
 ```text
-=== RUN   TestProject_DefaultStorageMarkdown
-=== RUN   TestProject_ContentOnlyRawStorage
-=== RUN   TestProject_ADFConversionFallback
-=== RUN   TestProject_EmptyContent
-=== RUN   TestTruncateContent
---- PASS: TestProject_DefaultStorageMarkdown (0.00s)
---- PASS: TestProject_ContentOnlyRawStorage (0.00s)
---- PASS: TestProject_ADFConversionFallback (0.00s)
---- PASS: TestProject_EmptyContent (0.00s)
---- PASS: TestTruncateContent (0.00s)
 PASS
 ok  	github.com/open-cli-collective/confluence-cli/internal/pageview
-=== RUN   TestPagePresenter_PresentView_Default
-=== RUN   TestPagePresenter_PresentView_ContentOnlyWithAdvisory
---- PASS: TestPagePresenter_PresentView_Default (0.00s)
---- PASS: TestPagePresenter_PresentView_ContentOnlyWithAdvisory (0.00s)
 PASS
 ok  	github.com/open-cli-collective/confluence-cli/internal/present
-=== RUN   TestRunView_ExactOutput_Default
-=== RUN   TestRunView_ExactOutput_ContentOnly
-=== RUN   TestRunView_ExactOutput_Raw
-=== RUN   TestRunView_ExactOutput_NoTruncate
-=== RUN   TestRunView_ExactOutput_ConversionFallback
-=== RUN   TestRunView_VersionContentOnly
-=== RUN   TestRunView_VersionRaw
---- PASS: TestRunView_ExactOutput_Default (0.00s)
---- PASS: TestRunView_ExactOutput_ContentOnly (0.00s)
---- PASS: TestRunView_ExactOutput_Raw (0.00s)
---- PASS: TestRunView_ExactOutput_NoTruncate (0.00s)
---- PASS: TestRunView_ExactOutput_ConversionFallback (0.00s)
---- PASS: TestRunView_VersionContentOnly (0.00s)
---- PASS: TestRunView_VersionRaw (0.00s)
 PASS
 ok  	github.com/open-cli-collective/confluence-cli/internal/cmd/page
 ```
 
 These tests prove:
 
-- exact projection decisions for markdown, raw, ADF fallback, empty content,
-  and truncation
-- exact presenter-owned `OutputModel` shape for metadata/body and
-  advisory/content-only modes
+- projection returns typed facts for markdown/raw selection, fallback kind,
+  content presence, and truncation
+- presenter owns empty-state wording, conversion-fallback wording, and the
+  truncation trailer
 - exact command stdout/stderr split for:
   - default view
   - `--content-only`
   - `--raw`
   - `--content-only --raw --no-truncate`
-  - conversion fallback advisory
-  - historical version content-only/raw flows
+  - ADF conversion fallback
+  - storage conversion fallback
+  - historical version default view
+  - historical version content-only
+  - historical version raw
 
-## Deterministic CLI Proof
+## Live CLI Proof
 
-Live smoke for these commands was not recorded in this proof note because no
-stable CI-safe Confluence credentials or scratch page identifiers were
-provisioned for the repo-local run:
+Live smoke was recorded with real Confluence credentials on this machine using
+environment-variable auth to avoid interactive keyring access:
 
 ```bash
-bin/cfl --no-color page view $CFL_SMOKE_PAGE_ID
-bin/cfl --no-color page view $CFL_SMOKE_PAGE_ID --content-only --no-truncate
-bin/cfl --no-color page view $CFL_SMOKE_PAGE_ID --raw --no-truncate
-bin/cfl --no-color page view $CFL_SMOKE_PAGE_ID --version $CFL_SMOKE_PAGE_VERSION --content-only --no-truncate
+TOKEN=$(security find-generic-password -s atlassian-cli -a default/api_token -w)
+ATLASSIAN_API_TOKEN="$TOKEN" ./bin/cfl --no-color page list --space MONIT --limit 5
+ATLASSIAN_API_TOKEN="$TOKEN" ./bin/cfl --no-color page view 2237596283
+ATLASSIAN_API_TOKEN="$TOKEN" ./bin/cfl --no-color page view 2237596283 --content-only --no-truncate
+ATLASSIAN_API_TOKEN="$TOKEN" ./bin/cfl --no-color page view 2237596283 --raw --no-truncate
+ATLASSIAN_API_TOKEN="$TOKEN" ./bin/cfl --no-color page view 2237596283 --version 1 --content-only --no-truncate
 ```
 
-Instead, deterministic httptest-backed command execution covered the same
-externally visible output shapes:
+Page selection:
 
-- default `page view` stdout:
-  - `Title: Test Page\nID: 12345\nSpace: TEST (ID: 98765)\nVersion: 3\n\n<converted markdown>\n`
-  - stderr: empty
-- `page view --content-only` stdout:
-  - `<converted markdown>\n`
-  - stderr: empty
-- `page view --raw` stdout:
-  - `Title: Raw Page\nID: 12345\nVersion: 1\n\n<p>Raw HTML Content</p>\n`
-  - stderr: empty
-- `page view --content-only --raw --no-truncate` stdout:
-  - full untruncated raw body plus trailing newline
-  - stderr: empty
-- conversion-fallback path stdout/stderr:
-  - stdout: `{not-json\n`
-  - stderr: `(Failed to convert ADF to markdown, showing raw ADF)\n`
-- historical version content-only/raw:
-  - stdout contains only historical body content with no metadata headers
-  - stderr: empty
+- `page list --space MONIT --limit 5` returned page `2237596283` (`2021 Recap`)
+- that page currently renders as `Version: 2`, so it provides both current and
+  historical content without creating scratch content
+
+Cleanup:
+
+- no temporary Confluence pages were created
+- no cleanup was required because the proof reused an existing page
+
+Observed output shape:
+
+- `page list --space MONIT --limit 5` stdout:
+
+```text
+ID          TITLE                           STATUS
+163989      Monit                           current
+2219376652  2021-Q4 Direction Setting       current
+2237596283  2021 Recap                      current
+2238054401  2022-Q1 Direction Setting       current
+2239627329  Product Sales Mock Ups Desired  current
+```
+
+- `page list --space MONIT --limit 5` stderr:
+
+```text
+(showing first 5 results, use --limit to see more)
+```
+
+- `page view 2237596283` stdout begins:
+
+```text
+Title: 2021 Recap
+ID: 2237596283
+Space: MONIT (ID: 163988)
+Version: 2
+
+Monit Investors: as we close out an exciting year, I wanted to take a moment to cover recent highlights and look forward to what Monit has on tap for 2022.
+```
+
+- `page view 2237596283` stderr: empty
+
+- `page view 2237596283 --content-only --no-truncate` stdout begins directly
+  with body content and has no metadata header:
+
+```text
+Monit Investors: as we close out an exciting year, I wanted to take a moment to cover recent highlights and look forward to what Monit has on tap for 2022.
+```
+
+- `page view 2237596283 --content-only --no-truncate` stderr: empty
+
+- `page view 2237596283 --raw --no-truncate` stdout begins:
+
+```text
+Title: 2021 Recap
+ID: 2237596283
+Space: MONIT (ID: 163988)
+Version: 2
+
+<p>Monit Investors: as we close out an exciting year, I wanted to take a moment to cover recent highlights and look forward to what Monit has on tap for 2022.</p>
+```
+
+- `page view 2237596283 --raw --no-truncate` stderr: empty
+
+- `page view 2237596283 --version 1 --content-only --no-truncate` stdout begins
+  directly with historical body content and differs from the current version
+  body:
+
+```text
+Monit Investors: as we close out an exciting year, I wanted to take a moment to cover recent highlights and look forward to what Monit has on tap for 2022.
+```
+
+Observed historical difference in the live transcript:
+
+- version 1 body says `The team now includes 11 employees`
+- current version body says `The team now includes 12 employees`
+
+- `page view 2237596283 --version 1 --content-only --no-truncate` stderr: empty
 
 ## Residual Notes
 

@@ -99,17 +99,44 @@ func (PagePresenter) PresentView(proj pageview.Projection) *sharedpresent.Output
 		sections = append(sections, &sharedpresent.DetailSection{Fields: fields})
 	}
 
-	if proj.Advisory != "" {
-		sections = append(sections, stderrInfo(proj.Advisory))
+	if advisory := pageViewAdvisory(proj.Fallback); advisory != "" {
+		sections = append(sections, stderrInfo(advisory))
 	}
 
-	body := proj.Body
+	body := pageViewBody(proj)
 	if !proj.ContentOnly {
+		// The shared renderer does not currently model a blank-line separator
+		// between a detail block and a following stdout message section.
 		body = "\n" + body
 	}
 	sections = append(sections, stdoutInfo(body))
 
 	return &sharedpresent.OutputModel{Sections: sections}
+}
+
+func pageViewBody(proj pageview.Projection) string {
+	if !proj.HasContent {
+		return "(No content)"
+	}
+
+	body := proj.Body
+	if proj.Truncated {
+		body += fmt.Sprintf("\n\n... [truncated at %d chars, use --no-truncate for complete text]", pageview.MaxChars)
+	}
+	return body
+}
+
+func pageViewAdvisory(fallback pageview.FallbackKind) string {
+	switch fallback {
+	case pageview.FallbackNone:
+		return ""
+	case pageview.FallbackStorageRaw:
+		return "(Failed to convert to markdown, showing raw HTML)"
+	case pageview.FallbackADFRaw:
+		return "(Failed to convert ADF to markdown, showing raw ADF)"
+	default:
+		return ""
+	}
 }
 
 func formatValueWithSource(v cflconfig.ShowValue) string {

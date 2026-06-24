@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -14,6 +14,7 @@ import (
 
 	"github.com/open-cli-collective/confluence-cli/api"
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
+	"github.com/open-cli-collective/confluence-cli/internal/pageview"
 	"github.com/open-cli-collective/confluence-cli/pkg/md"
 )
 
@@ -240,6 +241,43 @@ func TestRunView_ExactOutput_ConversionFallback(t *testing.T) {
 	testutil.Equal(t, "(Failed to convert ADF to markdown, showing raw ADF)\n", rootOpts.Stderr.(*bytes.Buffer).String())
 }
 
+func TestRunView_ExactOutput_StorageConversionFallback_Default(t *testing.T) {
+	restore := pageview.OverrideConvertersForTest(func(string, md.ConvertOptions) (string, error) {
+		return "", errors.New("boom")
+	}, nil)
+	defer restore()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == "GET" && strings.Contains(r.URL.Path, "/pages/12345"):
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{
+				"id": "12345",
+				"title": "Broken Storage Page",
+				"spaceId": "98765",
+				"version": {"number": 7},
+				"body": {"storage": {"value": "<p>Fallback HTML</p>"}},
+				"_links": {"webui": "/pages/12345"}
+			}`))
+		case r.Method == "GET" && strings.Contains(r.URL.Path, "/spaces/98765"):
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"id": "98765", "key": "TEST"}`))
+		default:
+			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	rootOpts := newViewTestRootOptions()
+	rootOpts.SetAPIClient(api.NewClient(server.URL, "test@example.com", "token"))
+
+	err := runView(context.Background(), "12345", &viewOptions{Options: rootOpts})
+	testutil.RequireNoError(t, err)
+
+	testutil.Equal(t, "Title: Broken Storage Page\nID: 12345\nSpace: TEST (ID: 98765)\nVersion: 7\n\n<p>Fallback HTML</p>\n", rootOpts.Stdout.(*bytes.Buffer).String())
+	testutil.Equal(t, "(Failed to convert to markdown, showing raw HTML)\n", rootOpts.Stderr.(*bytes.Buffer).String())
+}
+
 func TestRunView_RawFormat(t *testing.T) {
 	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -462,12 +500,39 @@ func TestRunView_VersionContentOnly(t *testing.T) {
 	err := runView(context.Background(), "12345", opts)
 	testutil.RequireNoError(t, err)
 
-	stdout := rootOpts.Stdout.(*bytes.Buffer).String()
-	testutil.Contains(t, stdout, "Historical")
-	testutil.Contains(t, stdout, "Content")
-	testutil.False(t, strings.Contains(stdout, "Title:"), "content-only output should omit metadata")
-	testutil.False(t, strings.Contains(stdout, "ID:"), "content-only output should omit metadata")
-	testutil.False(t, strings.Contains(stdout, "Version:"), "content-only output should omit metadata")
+	expectedBody, err := md.FromConfluenceStorageWithOptions(
+		"<p>Historical <strong>Content</strong></p>",
+		md.ConvertOptions{},
+	)
+	testutil.RequireNoError(t, err)
+
+	testutil.Equal(t, expectedBody+"\n", rootOpts.Stdout.(*bytes.Buffer).String())
+	testutil.Equal(t, "", rootOpts.Stderr.(*bytes.Buffer).String())
+}
+
+func TestRunView_ExactOutput_VersionDefault(t *testing.T) {
+	t.Parallel()
+
+	server := mockVersionedViewServer(t, "<p>Historical <strong>Content</strong></p>")
+	defer server.Close()
+
+	rootOpts := newViewTestRootOptions()
+	rootOpts.SetAPIClient(api.NewClient(server.URL, "test@example.com", "token"))
+
+	expectedBody, err := md.FromConfluenceStorageWithOptions(
+		"<p>Historical <strong>Content</strong></p>",
+		md.ConvertOptions{},
+	)
+	testutil.RequireNoError(t, err)
+
+	err = runView(context.Background(), "12345", &viewOptions{
+		Options: rootOpts,
+		version: 2,
+	})
+	testutil.RequireNoError(t, err)
+
+	testutil.Equal(t, "Title: Versioned Page\nID: 12345\nVersion: 2\n\n"+expectedBody+"\n", rootOpts.Stdout.(*bytes.Buffer).String())
+	testutil.Equal(t, "", rootOpts.Stderr.(*bytes.Buffer).String())
 }
 
 func TestRunView_VersionRaw(t *testing.T) {
@@ -486,7 +551,8 @@ func TestRunView_VersionRaw(t *testing.T) {
 
 	err := runView(context.Background(), "12345", opts)
 	testutil.RequireNoError(t, err)
-	testutil.Contains(t, rootOpts.Stdout.(*bytes.Buffer).String(), "<p>Historical Raw</p>")
+	testutil.Equal(t, "Title: Versioned Page\nID: 12345\nVersion: 2\n\n<p>Historical Raw</p>\n", rootOpts.Stdout.(*bytes.Buffer).String())
+	testutil.Equal(t, "", rootOpts.Stderr.(*bytes.Buffer).String())
 }
 
 func TestRunView_VersionNewerThanCurrent_PreservesVersionContext(t *testing.T) {
@@ -737,42 +803,41 @@ func TestTruncateContent(t *testing.T) {
 	t.Parallel()
 	t.Run("short content is not truncated", func(t *testing.T) {
 		t.Parallel()
-		opts := &viewOptions{}
-		result := truncateContent("short", opts)
+		result, truncated := pageview.TruncateContent("short", pageview.Options{})
 		testutil.Equal(t, "short", result)
+		testutil.False(t, truncated)
 	})
 
 	t.Run("long content is truncated by default", func(t *testing.T) {
 		t.Parallel()
-		opts := &viewOptions{}
 		long := strings.Repeat("x", maxViewChars+100)
-		result := truncateContent(long, opts)
-		testutil.Len(t, strings.SplitN(result, "\n\n... [truncated", 2)[0], maxViewChars)
-		testutil.Contains(t, result, fmt.Sprintf("... [truncated at %d chars, use --no-truncate for complete text]", maxViewChars))
+		result, truncated := pageview.TruncateContent(long, pageview.Options{})
+		testutil.Len(t, result, maxViewChars)
+		testutil.True(t, truncated)
 	})
 
 	t.Run("--full bypasses truncation", func(t *testing.T) {
 		t.Parallel()
-		opts := &viewOptions{noTruncate: true}
 		long := strings.Repeat("x", maxViewChars+100)
-		result := truncateContent(long, opts)
+		result, truncated := pageview.TruncateContent(long, pageview.Options{NoTruncate: true})
 		testutil.Equal(t, long, result)
+		testutil.False(t, truncated)
 	})
 
 	t.Run("--content-only implies full", func(t *testing.T) {
 		t.Parallel()
-		opts := &viewOptions{contentOnly: true}
 		long := strings.Repeat("x", maxViewChars+100)
-		result := truncateContent(long, opts)
+		result, truncated := pageview.TruncateContent(long, pageview.Options{ContentOnly: true})
 		testutil.Equal(t, long, result)
+		testutil.False(t, truncated)
 	})
 
 	t.Run("content at exact limit is not truncated", func(t *testing.T) {
 		t.Parallel()
-		opts := &viewOptions{}
 		exact := strings.Repeat("x", maxViewChars)
-		result := truncateContent(exact, opts)
+		result, truncated := pageview.TruncateContent(exact, pageview.Options{})
 		testutil.Equal(t, exact, result)
+		testutil.False(t, truncated)
 	})
 }
 

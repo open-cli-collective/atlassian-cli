@@ -109,8 +109,8 @@ func runSearch(ctx context.Context, opts *searchOptions) error {
 	}
 
 	// Validate that we have something to search for
-	if opts.cql == "" && opts.query == "" && opts.space == "" && opts.title == "" && opts.label == "" {
-		return fmt.Errorf("search requires a query, --cql, or at least one filter (--space, --title, --label)")
+	if opts.cql == "" && opts.query == "" && opts.space == "" && opts.contentType == "" && opts.title == "" && opts.label == "" {
+		return fmt.Errorf("search requires a query, --cql, or at least one filter (--space, --type, --title, --label)")
 	}
 
 	// Validate limit
@@ -163,7 +163,7 @@ func runSearch(ctx context.Context, opts *searchOptions) error {
 		return nil
 	}
 
-	headers := []string{"ID", "TYPE", "SPACE KEY", "TITLE"}
+	headers := []string{"ID", "TYPE", "SPACE", "TITLE"}
 	rows := make([][]string, 0, len(result.Results))
 
 	for _, r := range result.Results {

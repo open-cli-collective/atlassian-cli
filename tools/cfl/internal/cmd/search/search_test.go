@@ -12,6 +12,7 @@ import (
 
 	"github.com/open-cli-collective/confluence-cli/api"
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
+	"github.com/open-cli-collective/confluence-cli/internal/config"
 )
 
 // mockSearchServer creates a test server for search operations
@@ -196,6 +197,7 @@ func TestRunSearch_NoQuery(t *testing.T) {
 	err := runSearch(context.Background(), opts)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "search requires a query")
+	testutil.Contains(t, err.Error(), "--type")
 }
 
 func TestRunSearch_NegativeLimit(t *testing.T) {
@@ -274,6 +276,33 @@ func TestRunSearch_WithTypeFilter(t *testing.T) {
 		query:       "test",
 		contentType: "page",
 		limit:       25,
+	}
+
+	err := runSearch(context.Background(), opts)
+	testutil.RequireNoError(t, err)
+}
+
+func TestRunSearch_TypeOnly_UsesDefaultSpaceAfterValidation(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		cql := r.URL.Query().Get("cql")
+		testutil.Contains(t, cql, `type = "page"`)
+		testutil.Contains(t, cql, `space = "DEV"`)
+
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"results": [], "totalSize": 0}`))
+	}))
+	defer server.Close()
+
+	rootOpts := newTestRootOptions()
+	rootOpts.SetConfig(&config.Config{DefaultSpace: "DEV"})
+	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
+	opts := &searchOptions{
+		Options:     rootOpts,
+		contentType: "page",
+		limit:       1,
 	}
 
 	err := runSearch(context.Background(), opts)
@@ -567,7 +596,7 @@ func TestExtractSpaceKey(t *testing.T) {
 	}
 }
 
-func TestRunSearch_DisplaysSpaceKey(t *testing.T) {
+func TestRunSearch_DisplaysSpaceHeaderAndKeyValue(t *testing.T) {
 	t.Parallel()
 	server := mockSearchServer(t, `{
 		"results": [
@@ -596,5 +625,7 @@ func TestRunSearch_DisplaysSpaceKey(t *testing.T) {
 
 	err := runSearch(context.Background(), opts)
 	testutil.RequireNoError(t, err)
-	// The output should contain the space key "DEV" extracted from displayUrl
+	testutil.Contains(t, stdout.String(), "SPACE")
+	testutil.NotContains(t, stdout.String(), "SPACE KEY")
+	testutil.Contains(t, stdout.String(), "DEV")
 }

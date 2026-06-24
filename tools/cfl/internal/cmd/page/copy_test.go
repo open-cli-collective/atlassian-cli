@@ -84,6 +84,8 @@ func TestRunCopy_Success(t *testing.T) {
 
 	err := runCopy(context.Background(), "12345", opts)
 	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "Copied page: Copied Page\nID: 99999\nSpace: TEST\nVersion: 1\n", rootOpts.Stdout.(*bytes.Buffer).String())
+	testutil.Equal(t, "", rootOpts.Stderr.(*bytes.Buffer).String())
 }
 
 func TestRunCopy_InfersSourceSpace(t *testing.T) {
@@ -166,20 +168,18 @@ func TestRunCopy_PageNotFound(t *testing.T) {
 	testutil.NotContains(t, err.Error(), "copying page: copying page:")
 }
 
-func TestRunCopy_InvalidOutputFormat(t *testing.T) {
+func TestExecuteCopy_InvalidOutputFormat(t *testing.T) {
 	t.Parallel()
-	rootOpts := newTestRootOptions()
+
+	rootCmd, rootOpts := root.NewCmd()
 	rootOpts.Output = "invalid"
-	client := api.NewClient("http://unused", "user@example.com", "token")
-	rootOpts.SetAPIClient(client)
+	rootOpts.NoColor = true
+	rootOpts.Stdout = &bytes.Buffer{}
+	rootOpts.Stderr = &bytes.Buffer{}
+	Register(rootCmd, rootOpts)
+	rootCmd.SetArgs([]string{"page", "copy", "12345", "--title", "Copied Page", "--space", "TEST"})
 
-	opts := &copyOptions{
-		Options: rootOpts,
-		title:   "Copied Page",
-		space:   "TEST",
-	}
-
-	err := runCopy(context.Background(), "12345", opts)
+	err := rootCmd.Execute()
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "invalid output format")
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/open-cli-collective/atlassian-go/prompt"
 
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
+	cflpresent "github.com/open-cli-collective/confluence-cli/internal/present"
 )
 
 type deleteOptions struct {
@@ -57,8 +58,6 @@ func runDeleteAttachment(ctx context.Context, attachmentID string, opts *deleteO
 		return fmt.Errorf("getting attachment: %w", err)
 	}
 
-	v := opts.View()
-
 	if !opts.force && !opts.NonInteractive {
 		_, _ = fmt.Fprintf(opts.Stderr, "About to delete attachment: %s (ID: %s)\n", attachment.Title, attachment.ID)
 		_, _ = fmt.Fprint(opts.Stderr, "Are you sure? [y/N]: ")
@@ -68,15 +67,12 @@ func runDeleteAttachment(ctx context.Context, attachmentID string, opts *deleteO
 		return err
 	}
 	if !confirmed {
-		_, _ = fmt.Fprintln(opts.Stderr, "Deletion cancelled.")
-		return nil
+		return cflpresent.Emit(opts.Options, cflpresent.PresentDeletionCancelled())
 	}
 
 	if err := client.DeleteAttachment(ctx, attachmentID); err != nil {
 		return fmt.Errorf("deleting attachment: %w", err)
 	}
 
-	v.Success("Deleted attachment: %s (ID: %s)", attachment.Title, attachmentID)
-
-	return nil
+	return cflpresent.Emit(opts.Options, cflpresent.AttachmentPresenter{}.PresentDelete(attachment))
 }

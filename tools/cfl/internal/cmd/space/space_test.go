@@ -233,10 +233,8 @@ func TestRunCreate(t *testing.T) {
 	err := runCreate(context.Background(), opts)
 
 	testutil.RequireNoError(t, err)
-	output := stdout.String()
-	testutil.Contains(t, output, "Created space")
-	testutil.Contains(t, output, "Test Space")
-	testutil.Contains(t, output, "TEST")
+	testutil.Equal(t, "Created space: Test Space\nKey: TEST\nURL: https://example.atlassian.net/wiki/spaces/TEST\n", stdout.String())
+	testutil.Equal(t, "", rootOpts.Stderr.(*bytes.Buffer).String())
 }
 
 func TestRunCreate_CreateFailed_NoDuplicatePrefix(t *testing.T) {
@@ -340,9 +338,8 @@ func TestRunUpdate(t *testing.T) {
 	err := runUpdate(context.Background(), "TEST", opts)
 
 	testutil.RequireNoError(t, err)
-	output := stdout.String()
-	testutil.Contains(t, output, "Updated space")
-	testutil.Contains(t, output, "Updated Name")
+	testutil.Equal(t, "Updated space: Updated Name (TEST)\n", stdout.String())
+	testutil.Equal(t, "", rootOpts.Stderr.(*bytes.Buffer).String())
 }
 
 func TestRunUpdate_NoFlags(t *testing.T) {
@@ -449,9 +446,8 @@ func TestRunDelete_Force(t *testing.T) {
 	err := runDelete(context.Background(), "TEST", opts)
 
 	testutil.RequireNoError(t, err)
-	output := stdout.String()
-	testutil.Contains(t, output, "Deleted space")
-	testutil.Contains(t, output, "Test Space")
+	testutil.Equal(t, "Deleted space: Test Space (TEST)\n", stdout.String())
+	testutil.Equal(t, "", rootOpts.Stderr.(*bytes.Buffer).String())
 }
 
 func TestRunDelete_NoForce_Declined(t *testing.T) {
@@ -475,6 +471,8 @@ func TestRunDelete_NoForce_Declined(t *testing.T) {
 	err := runDelete(context.Background(), "TEST", opts)
 
 	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "", rootOpts.Stdout.(*bytes.Buffer).String())
+	testutil.Equal(t, "About to delete space: Test Space (TEST)\nAre you sure? [y/N]: Deletion cancelled.\n", rootOpts.Stderr.(*bytes.Buffer).String())
 }
 
 func TestRunDelete_NoForce_Accepted(t *testing.T) {
@@ -505,6 +503,8 @@ func TestRunDelete_NoForce_Accepted(t *testing.T) {
 
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, 2, callCount)
+	testutil.Equal(t, "Deleted space: Test Space (TEST)\n", rootOpts.Stdout.(*bytes.Buffer).String())
+	testutil.Equal(t, "About to delete space: Test Space (TEST)\nAre you sure? [y/N]: ", rootOpts.Stderr.(*bytes.Buffer).String())
 }
 
 func TestRunDelete_NotFound(t *testing.T) {

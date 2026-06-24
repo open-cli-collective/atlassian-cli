@@ -82,6 +82,8 @@ func TestRunCreate_Success(t *testing.T) {
 
 	err = runCreate(context.Background(), opts)
 	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "Created page: Test Page\nID: 99999\nURL: /spaces/DEV/pages/99999\n", rootOpts.Stdout.(*bytes.Buffer).String())
+	testutil.Equal(t, "", rootOpts.Stderr.(*bytes.Buffer).String())
 }
 
 func TestRunCreate_HTMLFile_Legacy(t *testing.T) {

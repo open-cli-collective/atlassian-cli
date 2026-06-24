@@ -153,6 +153,8 @@ func TestRunDownload_Success(t *testing.T) {
 
 	err := runDownload(context.Background(), "att123", opts)
 	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "Downloaded: document.pdf\nSize: 16 B\n", rootOpts.Stdout.(*bytes.Buffer).String())
+	testutil.Equal(t, "", rootOpts.Stderr.(*bytes.Buffer).String())
 
 	// Verify file was created
 	content, err := os.ReadFile(filepath.Join(tmpDir, "document.pdf")) //nolint:gosec // reading test output file
@@ -179,6 +181,8 @@ func TestRunDownload_CustomOutputFile(t *testing.T) {
 
 	err := runDownload(context.Background(), "att123", opts)
 	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "Downloaded: "+outputPath+"\nSize: 16 B\n", rootOpts.Stdout.(*bytes.Buffer).String())
+	testutil.Equal(t, "", rootOpts.Stderr.(*bytes.Buffer).String())
 
 	// Verify file was created with custom name
 	content, err := os.ReadFile(outputPath) //nolint:gosec // reading test output file
@@ -244,6 +248,8 @@ func TestRunDownload_FileExists_WithForce(t *testing.T) {
 
 	err = runDownload(context.Background(), "att123", opts)
 	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "Downloaded: document.pdf\nSize: 16 B\n", rootOpts.Stdout.(*bytes.Buffer).String())
+	testutil.Equal(t, "", rootOpts.Stderr.(*bytes.Buffer).String())
 
 	// Verify file was overwritten
 	content, _ := os.ReadFile(existingFile) //nolint:gosec // reading test fixture file

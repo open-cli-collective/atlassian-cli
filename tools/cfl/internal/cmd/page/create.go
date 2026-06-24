@@ -13,6 +13,7 @@ import (
 
 	"github.com/open-cli-collective/confluence-cli/api"
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
+	cflpresent "github.com/open-cli-collective/confluence-cli/internal/present"
 	"github.com/open-cli-collective/confluence-cli/pkg/md"
 )
 
@@ -201,13 +202,7 @@ func runCreate(ctx context.Context, opts *createOptions) error {
 		return err
 	}
 
-	v := opts.View()
-
-	v.Success("Created page: %s", page.Title)
-	v.RenderKeyValue("ID", page.ID)
-	v.RenderKeyValue("URL", cfg.URL+page.Links.WebUI)
-
-	return nil
+	return cflpresent.Emit(opts.Options, cflpresent.PagePresenter{}.PresentCreate(page, cfg.URL))
 }
 
 // getContent reads content and returns (content, isMarkdown, error).

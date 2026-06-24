@@ -7,13 +7,13 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/open-cli-collective/confluence-cli/api"
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
+	cflpresent "github.com/open-cli-collective/confluence-cli/internal/present"
 	"github.com/open-cli-collective/confluence-cli/pkg/md"
 )
 
@@ -184,11 +184,6 @@ func runEdit(ctx context.Context, opts *editOptions) error {
 
 	if hasNewContent {
 		if opts.storage || opts.legacy {
-			if opts.legacy {
-				v := opts.View()
-				v.Warning("Using --legacy flag. If this page uses the cloud editor, it may switch to the legacy editor.")
-			}
-
 			req.Body = &api.Body{
 				Storage: &api.BodyRepresentation{
 					Representation: "storage",
@@ -218,14 +213,7 @@ func runEdit(ctx context.Context, opts *editOptions) error {
 		}
 	}
 
-	v := opts.View()
-
-	v.Success("Updated page: %s", page.Title)
-	v.RenderKeyValue("ID", page.ID)
-	v.RenderKeyValue("Version", strconv.Itoa(page.Version.Number))
-	v.RenderKeyValue("URL", cfg.URL+page.Links.WebUI)
-
-	return nil
+	return cflpresent.Emit(opts.Options, cflpresent.PagePresenter{}.PresentEdit(page, cfg.URL, opts.legacy && hasNewContent))
 }
 
 // convertEditContent converts content based on markdown flag and legacy mode.

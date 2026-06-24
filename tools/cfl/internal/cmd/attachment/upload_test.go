@@ -60,7 +60,8 @@ func TestRunUpload_Success(t *testing.T) {
 
 	err = runUpload(context.Background(), opts)
 	testutil.RequireNoError(t, err)
-	testutil.Contains(t, rootOpts.Stdout.(*bytes.Buffer).String(), "Size: 12 B")
+	testutil.Equal(t, "Uploaded: upload.txt\nID: att123\nTitle: upload.txt\nSize: 12 B\n", rootOpts.Stdout.(*bytes.Buffer).String())
+	testutil.Equal(t, "", rootOpts.Stderr.(*bytes.Buffer).String())
 }
 
 func TestRunUpload_WithComment(t *testing.T) {
@@ -102,7 +103,8 @@ func TestRunUpload_WithComment(t *testing.T) {
 	err = runUpload(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, "My upload comment", receivedComment)
-	testutil.Contains(t, rootOpts.Stdout.(*bytes.Buffer).String(), "Size: 12 B")
+	testutil.Equal(t, "Uploaded: upload.txt\nID: att123\nTitle: upload.txt\nSize: 12 B\n", rootOpts.Stdout.(*bytes.Buffer).String())
+	testutil.Equal(t, "", rootOpts.Stderr.(*bytes.Buffer).String())
 }
 
 func TestRunUpload_Success_UsesLocalSizeWhenResponseFileSizeIsZero(t *testing.T) {
@@ -137,9 +139,8 @@ func TestRunUpload_Success_UsesLocalSizeWhenResponseFileSizeIsZero(t *testing.T)
 
 	err = runUpload(context.Background(), opts)
 	testutil.RequireNoError(t, err)
-	output := rootOpts.Stdout.(*bytes.Buffer).String()
-	testutil.Contains(t, output, "Size: 12 B")
-	testutil.NotContains(t, output, "Size: 0 B")
+	testutil.Equal(t, "Uploaded: upload.txt\nID: att123\nTitle: upload.txt\nSize: 12 B\n", rootOpts.Stdout.(*bytes.Buffer).String())
+	testutil.Equal(t, "", rootOpts.Stderr.(*bytes.Buffer).String())
 }
 
 func TestRunUpload_FileNotFound(t *testing.T) {

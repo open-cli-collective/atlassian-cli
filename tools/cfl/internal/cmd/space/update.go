@@ -6,10 +6,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/open-cli-collective/atlassian-go/view"
-
 	"github.com/open-cli-collective/confluence-cli/api"
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
+	cflpresent "github.com/open-cli-collective/confluence-cli/internal/present"
 )
 
 type updateOptions struct {
@@ -50,10 +49,6 @@ func runUpdate(ctx context.Context, spaceKey string, opts *updateOptions) error 
 		return fmt.Errorf("at least one of --name or --description is required")
 	}
 
-	if err := view.ValidateFormat(opts.Output); err != nil {
-		return err
-	}
-
 	client, err := opts.APIClient()
 	if err != nil {
 		return err
@@ -81,9 +76,5 @@ func runUpdate(ctx context.Context, spaceKey string, opts *updateOptions) error 
 		return err
 	}
 
-	v := opts.View()
-
-	v.Success("Updated space: %s (%s)", space.Name, space.Key)
-
-	return nil
+	return cflpresent.Emit(opts.Options, cflpresent.SpacePresenter{}.PresentUpdate(space))
 }

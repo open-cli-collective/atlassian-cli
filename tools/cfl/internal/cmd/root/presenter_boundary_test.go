@@ -78,41 +78,45 @@ func presenterBoundaryViolation(fset *token.FileSet, rel string, line int, call 
 	}
 
 	receiver := exprString(fset, sel.X)
-	name := sel.Sel.Name
+	methodName := sel.Sel.Name
 	location := rel + ":" + itoa(line)
 
-	if receiver == "v" && legacyViewHelper(name) && !allowedInitException(rel) {
-		return location + ": legacy shared/view helper v." + name + " outside init exception"
+	if receiver == "v" && legacyViewHelper(methodName) && !allowedInitException(rel) {
+		return boundaryMessage(location, "legacy shared/view helper v."+methodName+" outside init exception")
 	}
-	if receiver == "view" && name == "ValidateFormat" {
-		return location + ": view.ValidateFormat is not allowed in cfl command output paths"
+	if receiver == "view" && methodName == "ValidateFormat" {
+		return boundaryMessage(location, "view.ValidateFormat is not allowed in cfl command output paths")
 	}
-	if name == "View" && !allowedInitException(rel) {
-		return location + ": opts.View() is only allowed for root/init transitional exceptions"
+	if methodName == "View" && !allowedInitException(rel) {
+		return boundaryMessage(location, "opts.View() is only allowed for root/init transitional exceptions")
 	}
-	if imports.fmt[receiver] && fmtOutputCall(name) && len(call.Args) > 0 {
+	if imports.fmt[receiver] && fmtOutputCall(methodName) && len(call.Args) > 0 {
 		target := exprString(fset, call.Args[0])
 		if outputWriteTarget(target, imports) && !allowedPromptWrite(fset, rel, call) && !allowedInitException(rel) {
-			return location + ": command-local " + name + " write to " + target + " is not presenter-owned"
+			return boundaryMessage(location, "command-local "+methodName+" write to "+target+" is not presenter-owned")
 		}
 	}
-	if imports.fmt[receiver] && fmtBareOutputCall(name) && !allowedInitException(rel) {
-		return location + ": command-local fmt." + name + " writes to process stdout/stderr outside presenter boundary"
+	if imports.fmt[receiver] && fmtBareOutputCall(methodName) && !allowedInitException(rel) {
+		return boundaryMessage(location, "command-local fmt."+methodName+" writes to process stdout/stderr outside presenter boundary")
 	}
-	if imports.io[receiver] && name == "WriteString" && len(call.Args) > 0 {
+	if imports.io[receiver] && methodName == "WriteString" && len(call.Args) > 0 {
 		target := exprString(fset, call.Args[0])
 		if outputWriteTarget(target, imports) && !allowedInitException(rel) {
-			return location + ": command-local io.WriteString write to " + target + " is not presenter-owned"
+			return boundaryMessage(location, "command-local io.WriteString write to "+target+" is not presenter-owned")
 		}
 	}
-	if outputWriteTarget(receiver, imports) && name == "Write" && !allowedInitException(rel) {
-		return location + ": command-local Write call on " + receiver + " is not presenter-owned"
+	if outputWriteTarget(receiver, imports) && methodName == "Write" && !allowedInitException(rel) {
+		return boundaryMessage(location, "command-local Write call on "+receiver+" is not presenter-owned")
 	}
-	if imports.log[receiver] && logOutputCall(name) && !allowedInitException(rel) {
-		return location + ": command-local log." + name + " output is not presenter-owned"
+	if imports.log[receiver] && logOutputCall(methodName) && !allowedInitException(rel) {
+		return boundaryMessage(location, "command-local log."+methodName+" output is not presenter-owned")
 	}
 
 	return ""
+}
+
+func boundaryMessage(location, problem string) string {
+	return location + ": " + problem + "; use present.Emit or a tools/cfl/internal/present presenter"
 }
 
 func allowedViewImport(rel string) bool {
@@ -130,12 +134,20 @@ func allowedPromptWrite(fset *token.FileSet, rel string, call *ast.CallExpr) boo
 	if rel == "../configcmd/clear.go" {
 		return len(call.Args) == 2 && exprString(fset, call.Args[1]) == `promptText + " [y/N]: "`
 	}
-	if rel == "../space/delete.go" || rel == "../page/delete.go" || rel == "../attachment/delete.go" {
+	if isDeleteCommandFile(rel) {
 		if len(call.Args) < 2 {
 			return false
 		}
 		arg := exprString(fset, call.Args[1])
 		return strings.Contains(arg, "About to delete") || strings.Contains(arg, "Are you sure? [y/N]:")
+	}
+	return false
+}
+
+func isDeleteCommandFile(rel string) bool {
+	switch rel {
+	case "../space/delete.go", "../page/delete.go", "../attachment/delete.go":
+		return true
 	}
 	return false
 }

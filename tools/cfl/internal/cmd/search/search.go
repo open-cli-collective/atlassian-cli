@@ -4,15 +4,13 @@ package search
 import (
 	"context"
 	"fmt"
-	"regexp"
 	"strings"
 
 	"github.com/spf13/cobra"
 
-	"github.com/open-cli-collective/atlassian-go/view"
-
 	"github.com/open-cli-collective/confluence-cli/api"
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
+	cflpresent "github.com/open-cli-collective/confluence-cli/internal/present"
 )
 
 type searchOptions struct {
@@ -97,11 +95,6 @@ convenient flags for common filters, or provide raw CQL for advanced queries.`,
 }
 
 func runSearch(ctx context.Context, opts *searchOptions) error {
-	// Validate output format
-	if err := view.ValidateFormat(opts.Output); err != nil {
-		return err
-	}
-
 	// Validate type if provided
 	if opts.contentType != "" && !validTypes[opts.contentType] {
 		validList := []string{"page", "blogpost", "attachment", "comment"}
@@ -118,11 +111,8 @@ func runSearch(ctx context.Context, opts *searchOptions) error {
 		return fmt.Errorf("invalid limit: %d (must be >= 0)", opts.limit)
 	}
 
-	v := opts.View()
-
 	if opts.limit == 0 {
-		v.RenderText("No results.")
-		return nil
+		return cflpresent.Emit(opts.Options, cflpresent.SearchPresenter{}.PresentEmpty())
 	}
 
 	// Get config for default space
@@ -159,44 +149,7 @@ func runSearch(ctx context.Context, opts *searchOptions) error {
 	}
 
 	if len(result.Results) == 0 {
-		v.RenderText("No results found.")
-		return nil
+		return cflpresent.Emit(opts.Options, cflpresent.SearchPresenter{}.PresentEmpty())
 	}
-
-	headers := []string{"ID", "TYPE", "SPACE", "TITLE"}
-	rows := make([][]string, 0, len(result.Results))
-
-	for _, r := range result.Results {
-		spaceKey := extractSpaceKey(r.ResultGlobalContainer.DisplayURL)
-		rows = append(rows, []string{
-			r.Content.ID,
-			r.Content.Type,
-			spaceKey,
-			view.Truncate(r.Content.Title, 50),
-		})
-	}
-
-	if err := v.Table(headers, rows); err != nil {
-		return err
-	}
-
-	if result.HasMore() {
-		_, _ = fmt.Fprintf(opts.Stderr, "\n(showing %d of %d results, use --limit to see more)\n",
-			len(result.Results), result.TotalSize)
-	}
-
-	return nil
-}
-
-// spaceKeyRegex matches space keys in Confluence URLs.
-// Patterns: /spaces/SPACEKEY/... or /wiki/spaces/SPACEKEY/...
-var spaceKeyRegex = regexp.MustCompile(`/spaces/([^/]+)`)
-
-// extractSpaceKey extracts the space key from a Confluence displayUrl.
-func extractSpaceKey(displayURL string) string {
-	matches := spaceKeyRegex.FindStringSubmatch(displayURL)
-	if len(matches) >= 2 {
-		return matches[1]
-	}
-	return ""
+	return cflpresent.Emit(opts.Options, cflpresent.SearchPresenter{}.PresentList(result.Results, opts.Full, result.TotalSize, result.HasMore()))
 }

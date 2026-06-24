@@ -105,6 +105,30 @@ func TestRender_TableSection_Human(t *testing.T) {
 	}
 }
 
+func TestRender_TableSection_HumanPlain(t *testing.T) {
+	t.Parallel()
+	model := &OutputModel{
+		Sections: []Section{
+			&TableSection{
+				Headers: []string{"KEY", "SUMMARY"},
+				Rows: []Row{
+					{Cells: []string{"PROJ-1", "First\tissue"}},
+					{Cells: []string{"PROJ-2", "Second\nissue"}},
+				},
+			},
+		},
+	}
+
+	out := Render(model, StyleHumanPlain)
+	want := "KEY\tSUMMARY\nPROJ-1\tFirst issue\nPROJ-2\tSecond issue\n"
+	if out.Stdout != want {
+		t.Errorf("table human plain stdout:\ngot:\n%s\nwant:\n%s", out.Stdout, want)
+	}
+	if out.Stderr != "" {
+		t.Errorf("table human plain stderr should be empty, got: %q", out.Stderr)
+	}
+}
+
 func TestRender_MessageSection_Success_Agent(t *testing.T) {
 	t.Parallel()
 	model := &OutputModel{

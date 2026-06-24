@@ -240,3 +240,11 @@ func TestOptions_RenderStyle(t *testing.T) {
 		t.Errorf("RenderStyle() = %v, want StyleHuman", got)
 	}
 }
+
+func TestOptions_RenderStyle_PlainOutput(t *testing.T) {
+	t.Parallel()
+	opts := &Options{Output: "plain"}
+	if got := opts.RenderStyle(); got != present.StyleHumanPlain {
+		t.Errorf("RenderStyle() = %v, want StyleHumanPlain", got)
+	}
+}

@@ -3,19 +3,13 @@ package page
 import (
 	"context"
 	"fmt"
-	"net/url"
-	"strconv"
 
 	"github.com/spf13/cobra"
 
-	"github.com/open-cli-collective/atlassian-go/atime"
-	"github.com/open-cli-collective/atlassian-go/view"
-
 	"github.com/open-cli-collective/confluence-cli/api"
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
+	cflpresent "github.com/open-cli-collective/confluence-cli/internal/present"
 )
-
-const historyMessageMaxChars = 80
 
 type historyListOptions struct {
 	*root.Options
@@ -65,17 +59,11 @@ func newHistoryListCmd(rootOpts *root.Options) *cobra.Command {
 }
 
 func runHistoryList(ctx context.Context, pageID string, opts *historyListOptions) error {
-	if err := view.ValidateFormat(opts.Output); err != nil {
-		return err
-	}
 	if opts.limit < 0 {
 		return fmt.Errorf("invalid limit: %d (must be >= 0)", opts.limit)
 	}
-
-	v := opts.View()
 	if opts.limit == 0 {
-		v.RenderText("No page versions found.")
-		return nil
+		return cflpresent.Emit(opts.Options, cflpresent.PageHistoryPresenter{}.PresentEmpty())
 	}
 
 	client, err := opts.APIClient()
@@ -93,80 +81,11 @@ func runHistoryList(ctx context.Context, pageID string, opts *historyListOptions
 	}
 
 	if len(result.Results) == 0 {
-		v.RenderText("No page versions found.")
-		return nil
+		return cflpresent.Emit(opts.Options, cflpresent.PageHistoryPresenter{}.PresentEmpty())
 	}
-
+	nextCursor := cflpresent.ExtractCursor(result.Links.Next)
 	if opts.idOnly {
-		for _, version := range result.Results {
-			_, _ = fmt.Fprintln(v.Out, version.Number)
-		}
-	} else {
-		headers := []string{"VERSION", "CREATED", "AUTHOR", "MINOR", "MESSAGE"}
-		rows := make([][]string, 0, len(result.Results))
-
-		for _, version := range result.Results {
-			rows = append(rows, []string{
-				strconv.Itoa(version.Number),
-				formatHistoryTime(version.CreatedAt),
-				emptyDash(version.AuthorID),
-				formatHistoryBool(version.MinorEdit),
-				formatHistoryMessage(version.Message),
-			})
-		}
-
-		if err := v.Table(headers, rows); err != nil {
-			return err
-		}
+		return cflpresent.Emit(opts.Options, cflpresent.PageHistoryPresenter{}.PresentIDs(result.Results, nextCursor, pageID))
 	}
-
-	if result.HasMore() {
-		nextCursor := extractHistoryCursor(result.Links.Next)
-		if nextCursor != "" {
-			_, _ = fmt.Fprintf(opts.Stderr, "\nNext page: cfl page history list %s --cursor %q\n", pageID, nextCursor)
-		} else {
-			_, _ = fmt.Fprintf(opts.Stderr, "\n(showing first %d results, use --limit to see more)\n", len(result.Results))
-		}
-	}
-
-	return nil
-}
-
-func formatHistoryTime(t *atime.AtlassianTime) string {
-	if t == nil || t.IsZero() {
-		return "-"
-	}
-	return t.UTC().Format("2006-01-02T15:04:05Z07:00")
-}
-
-func formatHistoryBool(value bool) string {
-	if value {
-		return "yes"
-	}
-	return "no"
-}
-
-func formatHistoryMessage(message string) string {
-	if message == "" {
-		return "-"
-	}
-	return view.Truncate(message, historyMessageMaxChars)
-}
-
-func emptyDash(value string) string {
-	if value == "" {
-		return "-"
-	}
-	return value
-}
-
-func extractHistoryCursor(nextLink string) string {
-	if nextLink == "" {
-		return ""
-	}
-	parsed, err := url.Parse(nextLink)
-	if err != nil {
-		return ""
-	}
-	return parsed.Query().Get("cursor")
+	return cflpresent.Emit(opts.Options, cflpresent.PageHistoryPresenter{}.PresentList(result.Results, nextCursor, pageID))
 }

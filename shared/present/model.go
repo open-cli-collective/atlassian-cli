@@ -28,8 +28,9 @@ type Style int
 
 // Style constants.
 const (
-	StyleHuman Style = iota // Padded tables, decorators (checkmark, warning)
-	StyleAgent              // Pipe-delimited, plain text, token-efficient
+	StyleHuman      Style = iota // Padded tables, decorators (checkmark, warning)
+	StyleAgent                   // Pipe-delimited, plain text, token-efficient
+	StyleHumanPlain              // Human-oriented detail/message text plus TSV tables
 )
 
 // StyleFromMode converts RenderMode to Style.

@@ -59,9 +59,9 @@ func TestRunHistoryList_RendersTableAndTruncatesMessage(t *testing.T) {
 	testutil.Contains(t, stdout, "VERSION")
 	testutil.Contains(t, stdout, "15")
 	testutil.Contains(t, stdout, "author-1")
-	testutil.Contains(t, stdout, "yes")
-	testutil.Contains(t, stdout, strings.Repeat("a", 77)+"...")
-	testutil.False(t, strings.Contains(stdout, "tail-marker"), "message tail should be truncated")
+	testutil.NotContains(t, stdout, "MESSAGE")
+	testutil.NotContains(t, stdout, "MINOR")
+	testutil.False(t, strings.Contains(stdout, "tail-marker"), "message should not be rendered in default history output")
 }
 
 func TestRunHistoryList_IDOnly(t *testing.T) {
@@ -88,6 +88,54 @@ func TestRunHistoryList_IDOnly(t *testing.T) {
 	err := runHistoryList(context.Background(), "12345", opts)
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, "3\n2\n", rootOpts.Stdout.(*bytes.Buffer).String())
+}
+
+func TestRunHistoryList_PlainOutputExact(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{
+			"results": [{"number": 15, "createdAt": "2024-01-02T03:04:05Z", "authorId": "author-1"}],
+			"_links": {"next": "/api/v2/pages/12345/versions?cursor=cursor-out"}
+		}`))
+	}))
+	defer server.Close()
+
+	rootOpts := newHistoryTestRootOptions()
+	rootOpts.Output = "plain"
+	rootOpts.SetAPIClient(api.NewClient(server.URL, "test@example.com", "token"))
+	opts := &historyListOptions{
+		Options: rootOpts,
+		limit:   25,
+	}
+
+	err := runHistoryList(context.Background(), "12345", opts)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "VERSION\tCREATED\tAUTHOR\n15\t2024-01-02T03:04:05Z\tauthor-1\n", rootOpts.Stdout.(*bytes.Buffer).String())
+	testutil.Equal(t, "Next page: cfl page history list 12345 --cursor \"cursor-out\"\n", rootOpts.Stderr.(*bytes.Buffer).String())
+}
+
+func TestRunHistoryList_TableOutputExact(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{
+			"results": [{"number": 15, "createdAt": "2024-01-02T03:04:05Z", "authorId": "author-1"}]
+		}`))
+	}))
+	defer server.Close()
+
+	rootOpts := newHistoryTestRootOptions()
+	rootOpts.SetAPIClient(api.NewClient(server.URL, "test@example.com", "token"))
+	opts := &historyListOptions{
+		Options: rootOpts,
+		limit:   25,
+	}
+
+	err := runHistoryList(context.Background(), "12345", opts)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "VERSION  CREATED               AUTHOR\n15       2024-01-02T03:04:05Z  author-1\n", rootOpts.Stdout.(*bytes.Buffer).String())
+	testutil.Equal(t, "", rootOpts.Stderr.(*bytes.Buffer).String())
 }
 
 func TestExecuteHistoryListAliasWiredThroughCobra(t *testing.T) {
@@ -127,7 +175,7 @@ func TestRunHistoryList_LimitZeroDoesNotCallAPI(t *testing.T) {
 
 	err := runHistoryList(context.Background(), "12345", opts)
 	testutil.RequireNoError(t, err)
-	testutil.Contains(t, rootOpts.Stdout.(*bytes.Buffer).String(), "No page versions found.")
+	testutil.Contains(t, rootOpts.Stderr.(*bytes.Buffer).String(), "No page versions found.")
 }
 
 func TestRunHistoryList_CursorAndNextHint(t *testing.T) {

@@ -69,6 +69,9 @@ func renderTable(sec *TableSection, style Style) string {
 	if style == StyleAgent {
 		return renderAgentTable(sec)
 	}
+	if style == StyleHumanPlain {
+		return renderTSVTable(sec)
+	}
 	return renderHumanTable(sec)
 }
 
@@ -111,6 +114,35 @@ func renderHumanTable(sec *TableSection) string {
 		_, _ = w.Write([]byte(strings.Join(row.Cells, "\t") + "\n"))
 	}
 	_ = w.Flush()
+	return buf.String()
+}
+
+func renderTSVTable(sec *TableSection) string {
+	var buf bytes.Buffer
+	sanitize := func(s string) string {
+		s = strings.ReplaceAll(s, "\r\n", " ")
+		s = strings.ReplaceAll(s, "\n", " ")
+		s = strings.ReplaceAll(s, "\r", " ")
+		s = strings.ReplaceAll(s, "\t", " ")
+		return s
+	}
+
+	headers := make([]string, len(sec.Headers))
+	for i, h := range sec.Headers {
+		headers[i] = sanitize(h)
+	}
+	buf.WriteString(strings.Join(headers, "\t"))
+	buf.WriteByte('\n')
+
+	for _, row := range sec.Rows {
+		cells := make([]string, len(row.Cells))
+		for i, cell := range row.Cells {
+			cells[i] = sanitize(cell)
+		}
+		buf.WriteString(strings.Join(cells, "\t"))
+		buf.WriteByte('\n')
+	}
+
 	return buf.String()
 }
 

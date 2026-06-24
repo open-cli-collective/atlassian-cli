@@ -65,6 +65,9 @@ func (o *Options) RenderMode() present.RenderMode {
 
 // RenderStyle returns the pure-renderer style derived from RenderMode().
 func (o *Options) RenderStyle() present.Style {
+	if o.RenderMode() == present.RenderModeHuman && o.Output == "plain" {
+		return present.StyleHumanPlain
+	}
 	return present.StyleFromMode(o.RenderMode())
 }
 

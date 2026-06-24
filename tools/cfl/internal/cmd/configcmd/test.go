@@ -43,6 +43,9 @@ func runTest(ctx context.Context, opts *root.Options) error {
 		_ = cflpresent.Emit(opts, cflpresent.ConfigPresenter{}.PresentTestFailure())
 		return fmt.Errorf("connection test failed: %w", err)
 	}
+	if err := cflpresent.Emit(opts, cflpresent.ConfigPresenter{}.PresentTestConnectionSuccess()); err != nil {
+		return err
+	}
 
 	// Get current user details
 	user, err := client.GetCurrentUser(ctx)

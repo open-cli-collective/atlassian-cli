@@ -38,14 +38,16 @@ func (ConfigPresenter) PresentTestFailure() *sharedpresent.OutputModel {
 	}, "\n"))
 }
 
+func (ConfigPresenter) PresentTestConnectionSuccess() *sharedpresent.OutputModel {
+	return stderrOnly("success!\n")
+}
+
 func (ConfigPresenter) PresentTestSuccess(user *api.User) *sharedpresent.OutputModel {
-	lines := []string{"success!", ""}
 	if user == nil {
-		lines = append(lines, "Your cfl configuration is working correctly.")
-		return stderrOnly(strings.Join(lines, "\n"))
+		return stderrOnly("Your cfl configuration is working correctly.")
 	}
 
-	lines = append(lines, "Authentication successful", "API access verified", "")
+	lines := []string{"Authentication successful", "API access verified", ""}
 	displayName := user.DisplayName
 	if displayName == "" {
 		displayName = user.PublicName

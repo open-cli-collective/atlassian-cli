@@ -20,6 +20,11 @@ func TestConfigPresenter_PresentTestSuccess(t *testing.T) {
 	testutil.Equal(t, true, progressMsg.NoNewline)
 	testutil.Equal(t, "Testing connection... ", progressMsg.Message)
 
+	connectionModel := ConfigPresenter{}.PresentTestConnectionSuccess()
+	connectionMsg := requireMessageSection(t, connectionModel, 0)
+	testutil.Equal(t, sharedpresent.StreamStderr, connectionMsg.Stream)
+	testutil.Equal(t, "success!\n", connectionMsg.Message)
+
 	model := ConfigPresenter{}.PresentTestSuccess(&api.User{
 		AccountID:   "acct-1",
 		DisplayName: "Test User",
@@ -28,7 +33,7 @@ func TestConfigPresenter_PresentTestSuccess(t *testing.T) {
 
 	msg := requireMessageSection(t, model, 0)
 	testutil.Equal(t, sharedpresent.StreamStderr, msg.Stream)
-	testutil.Equal(t, "success!\n\nAuthentication successful\nAPI access verified\n\nAuthenticated as: Test User (test@example.com)\nAccount ID: acct-1", msg.Message)
+	testutil.Equal(t, "Authentication successful\nAPI access verified\n\nAuthenticated as: Test User (test@example.com)\nAccount ID: acct-1", msg.Message)
 }
 
 func TestConfigPresenter_PresentTestSuccessFallback(t *testing.T) {
@@ -38,7 +43,7 @@ func TestConfigPresenter_PresentTestSuccessFallback(t *testing.T) {
 
 	msg := requireMessageSection(t, model, 0)
 	testutil.Equal(t, sharedpresent.StreamStderr, msg.Stream)
-	testutil.Equal(t, "success!\n\nYour cfl configuration is working correctly.", msg.Message)
+	testutil.Equal(t, "Your cfl configuration is working correctly.", msg.Message)
 }
 
 func TestConfigPresenter_PresentTestFailure(t *testing.T) {

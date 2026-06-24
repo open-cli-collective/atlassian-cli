@@ -176,14 +176,14 @@ func TestRemoteLinkPresenter_PresentAddedDetail_OmitsEmptyOptional(t *testing.T)
 	}
 }
 
-func TestRemoteLinkPresenter_PresentRemoved(t *testing.T) {
+func TestRemoteLinkPresenter_PresentDeleted(t *testing.T) {
 	t.Parallel()
-	model := RemoteLinkPresenter{}.PresentRemoved(10001, "PROJ-123")
+	model := RemoteLinkPresenter{}.PresentDeleted(10001, "PROJ-123")
 	msg := model.Sections[0].(*present.MessageSection)
 	if msg.Kind != present.MessageSuccess {
 		t.Errorf("want MessageSuccess, got %v", msg.Kind)
 	}
-	if msg.Message != "Removed remote link 10001 from PROJ-123" {
+	if msg.Message != "Deleted remote link 10001 from PROJ-123" {
 		t.Errorf("unexpected message: %q", msg.Message)
 	}
 }

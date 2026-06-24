@@ -227,7 +227,7 @@ func TestRunAdd_IDOnly(t *testing.T) {
 	testutil.Equal(t, stdout.String(), "10012\n")
 }
 
-func TestRunRemove(t *testing.T) {
+func TestRunDelete(t *testing.T) {
 	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testutil.Equal(t, r.URL.Path, "/rest/api/3/issue/PROJ-123/remotelink/10001")
@@ -243,19 +243,19 @@ func TestRunRemove(t *testing.T) {
 	opts := &root.Options{Stdout: &stdout, Stderr: &stderr}
 	opts.SetAPIClient(client)
 
-	err = runRemove(context.Background(), opts, "PROJ-123", "10001")
+	err = runDelete(context.Background(), opts, "PROJ-123", "10001")
 	testutil.RequireNoError(t, err)
-	testutil.Equal(t, stdout.String(), "Removed remote link 10001 from PROJ-123\n")
+	testutil.Equal(t, stdout.String(), "Deleted remote link 10001 from PROJ-123\n")
 	testutil.Equal(t, stderr.String(), "")
 }
 
-func TestRunRemove_NonNumericID(t *testing.T) {
+func TestRunDelete_NonNumericID(t *testing.T) {
 	t.Parallel()
 	// A non-numeric link ID is rejected before any API call. No client is set
 	// on opts, so reaching the API would panic — proving validation comes first.
 	opts := &root.Options{Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
 
-	err := runRemove(context.Background(), opts, "PROJ-123", "not-a-number")
+	err := runDelete(context.Background(), opts, "PROJ-123", "not-a-number")
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "invalid link ID")
 }

@@ -491,9 +491,9 @@ URL: https://github.com/owner/repo/issues/456
 
 `--title` defaults to the URL when omitted. `--id` emits only the new link ID.
 
-**`remotelinks remove MON-4818 10001`** — confirmation line only:
+**`remotelinks delete MON-4818 10001`** — confirmation line only:
 ```
-Removed remote link 10001 from MON-4818
+Deleted remote link 10001 from MON-4818
 ```
 
 ### `transitions`

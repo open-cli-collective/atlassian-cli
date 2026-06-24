@@ -28,12 +28,12 @@ func Register(parent *cobra.Command, opts *root.Options) {
 		Use:     "remotelinks",
 		Aliases: []string{"remotelink", "rl"},
 		Short:   "Manage issue remote (web) links",
-		Long:    "Commands for listing, adding, and removing an issue's remote (web) links — external URLs shown in the Jira issue links sidebar.",
+		Long:    "Commands for listing, adding, and deleting an issue's remote (web) links — external URLs shown in the Jira issue links sidebar.",
 	}
 
 	cmd.AddCommand(newListCmd(opts))
 	cmd.AddCommand(newAddCmd(opts))
-	cmd.AddCommand(newRemoveCmd(opts))
+	cmd.AddCommand(newDeleteCmd(opts))
 
 	parent.AddCommand(cmd)
 }
@@ -165,23 +165,23 @@ func runAdd(ctx context.Context, opts *root.Options, issueKey, url, title, summa
 	return jtkpresent.Emit(opts, jtkpresent.RemoteLinkPresenter{}.PresentAddedDetail(issueKey, link))
 }
 
-func newRemoveCmd(opts *root.Options) *cobra.Command {
+func newDeleteCmd(opts *root.Options) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "remove <issue-key> <link-id>",
-		Short: "Remove a remote (web) link from an issue",
-		Long:  "Remove a remote (web) link from an issue by its ID. Use 'jtk remotelinks list' to find link IDs.",
-		Example: `  jtk remotelinks remove PROJ-123 12345
+		Use:   "delete <issue-key> <link-id>",
+		Short: "Delete a remote (web) link from an issue",
+		Long:  "Delete a remote (web) link from an issue by its ID. Use 'jtk remotelinks list' to find link IDs.",
+		Example: `  jtk remotelinks delete PROJ-123 12345
   jtk remotelinks list PROJ-123   # find link IDs first`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runRemove(cmd.Context(), opts, args[0], args[1])
+			return runDelete(cmd.Context(), opts, args[0], args[1])
 		},
 	}
 
 	return cmd
 }
 
-func runRemove(ctx context.Context, opts *root.Options, issueKey, linkIDArg string) error {
+func runDelete(ctx context.Context, opts *root.Options, issueKey, linkIDArg string) error {
 	// Remote link IDs are integers; reject typos before the API call so the
 	// user gets a clear message instead of a server-side 404.
 	linkID, err := strconv.Atoi(linkIDArg)
@@ -198,5 +198,5 @@ func runRemove(ctx context.Context, opts *root.Options, issueKey, linkIDArg stri
 		return err
 	}
 
-	return jtkpresent.Emit(opts, jtkpresent.RemoteLinkPresenter{}.PresentRemoved(linkID, issueKey))
+	return jtkpresent.Emit(opts, jtkpresent.RemoteLinkPresenter{}.PresentDeleted(linkID, issueKey))
 }

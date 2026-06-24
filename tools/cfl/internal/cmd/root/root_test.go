@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/open-cli-collective/atlassian-go/artifact"
+	"github.com/open-cli-collective/atlassian-go/present"
 	"github.com/open-cli-collective/atlassian-go/testutil"
 	"github.com/open-cli-collective/atlassian-go/view"
 	"github.com/spf13/cobra"
@@ -82,6 +83,7 @@ func TestOptions_View(t *testing.T) {
 	testutil.Equal(t, v.Out, &stdout)
 	testutil.Equal(t, v.Err, &stderr)
 	testutil.True(t, v.NoColor)
+	testutil.Equal(t, view.FormatPlain, v.Format)
 }
 
 func TestOptions_ArtifactMode(t *testing.T) {
@@ -208,14 +210,33 @@ func TestRoot_LocalJSONFlag_NotRejectedByOutputGuard(t *testing.T) {
 func TestOptions_View_UsesDefaultPolicy(t *testing.T) {
 	t.Parallel()
 	opts := &Options{
-		Output: "table",
-		Stdout: &bytes.Buffer{},
-		Stderr: &bytes.Buffer{},
+		Output:  "table",
+		NoColor: true,
+		Stdout:  &bytes.Buffer{},
+		Stderr:  &bytes.Buffer{},
 	}
 	v := opts.View()
 
 	// cfl should NOT use PolicyAgent - it keeps human-oriented output
 	if v.Policy != view.PolicyDefault {
 		t.Errorf("cfl View should use PolicyDefault, got %v", v.Policy)
+	}
+	testutil.Equal(t, view.FormatTable, v.Format)
+	testutil.True(t, v.NoColor)
+}
+
+func TestOptions_RenderMode(t *testing.T) {
+	t.Parallel()
+	opts := &Options{}
+	if got := opts.RenderMode(); got != present.RenderModeHuman {
+		t.Errorf("RenderMode() = %v, want RenderModeHuman", got)
+	}
+}
+
+func TestOptions_RenderStyle(t *testing.T) {
+	t.Parallel()
+	opts := &Options{}
+	if got := opts.RenderStyle(); got != present.StyleHuman {
+		t.Errorf("RenderStyle() = %v, want StyleHuman", got)
 	}
 }

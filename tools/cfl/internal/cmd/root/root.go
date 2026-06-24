@@ -13,6 +13,7 @@ import (
 	"github.com/open-cli-collective/atlassian-go/artifact"
 	"github.com/open-cli-collective/atlassian-go/auth"
 	"github.com/open-cli-collective/atlassian-go/keyring"
+	"github.com/open-cli-collective/atlassian-go/present"
 	"github.com/open-cli-collective/atlassian-go/version"
 	"github.com/open-cli-collective/atlassian-go/view"
 
@@ -37,9 +38,14 @@ type Options struct {
 	cachedConfig *config.Config
 }
 
-// View returns a configured View instance
+// View returns a configured View instance.
+// During migration, both legacy view.Policy and new present.Style derive from
+// RenderMode() so one root-level choice controls both pathways.
 func (o *Options) View() *view.View {
 	v := view.NewWithFormat(o.Output, o.NoColor)
+	if o.RenderMode() == present.RenderModeAgent {
+		v.SetPolicy(view.PolicyAgent)
+	}
 	v.Out = o.Stdout
 	v.Err = o.Stderr
 	return v
@@ -48,6 +54,18 @@ func (o *Options) View() *view.View {
 // ArtifactMode returns the artifact type based on the --full flag.
 func (o *Options) ArtifactMode() artifact.Type {
 	return artifact.Mode(o.Full)
+}
+
+// RenderMode returns cfl's authoritative rendering mode.
+// This prework slice keeps cfl on the existing human-oriented text policy while
+// establishing the shared root-level knob that future presenter-backed paths use.
+func (o *Options) RenderMode() present.RenderMode {
+	return present.RenderModeHuman
+}
+
+// RenderStyle returns the pure-renderer style derived from RenderMode().
+func (o *Options) RenderStyle() present.Style {
+	return present.StyleFromMode(o.RenderMode())
 }
 
 // Config loads and returns the config, caching it for reuse.

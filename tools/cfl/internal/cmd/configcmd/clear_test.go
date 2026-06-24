@@ -62,6 +62,19 @@ func TestRunClear_DeletesSharedKey_WithForce(t *testing.T) {
 	testutil.Equal(t, fmt.Sprintf("This will delete key %q from keyring %s.\nWarning: this is the SHARED token (api_token). jtk will also lose access (cfl and jtk resolve the same key).\nRemoved key %q from keyring %s.\n", keyring.KeyAPIToken, keyring.Ref, keyring.KeyAPIToken, keyring.Ref), errBuf.String())
 }
 
+func TestRunClear_DeletesSharedKey_WithForceAndEnvOverrideNote(t *testing.T) {
+	credtest.Hermetic(t)
+	t.Setenv("CFL_API_TOKEN", "env-token")
+	credtest.SeedToken(t, "shared-secret")
+
+	opts, _, errBuf := newClearOpts(true, "")
+	testutil.RequireNoError(t, runClear(opts))
+
+	testutil.False(t, tokenPresent(t, keyring.KeyAPIToken))
+	testutil.Equal(t, fmt.Sprintf("This will delete key %q from keyring %s.\nWarning: this is the SHARED token (api_token). jtk will also lose access (cfl and jtk resolve the same key).\nRemoved key %q from keyring %s.\nNote: CFL_API_TOKEN still set in the environment and will continue to override at runtime (not cleared).\n", keyring.KeyAPIToken, keyring.Ref, keyring.KeyAPIToken, keyring.Ref), errBuf.String())
+	testutil.NotContains(t, errBuf.String(), "env-token")
+}
+
 func TestRunClear_DeletesSharedKey_Confirmed(t *testing.T) {
 	credtest.Hermetic(t)
 	credtest.SeedToken(t, "shared-secret")
@@ -150,4 +163,56 @@ func TestRunClear_All(t *testing.T) {
 	_, statErr := os.Stat(sharedPath)
 	testutil.True(t, os.IsNotExist(statErr))
 	testutil.Equal(t, fmt.Sprintf("This will remove the ENTIRE shared keyring bundle %s (keys: %s).\nIt will also delete the shared config file: %s\nRemoved the shared keyring bundle and config file.\n", keyring.Ref, keyring.KeyAPIToken, sharedPath), opts.Stderr.(*bytes.Buffer).String())
+}
+
+func TestRunClear_All_KeyringUnavailableStillReportsPlanAndCleansPlaintext(t *testing.T) {
+	credtest.Hermetic(t)
+	sharedPath := credtest.SharedConfigPath(t)
+	testutil.RequireNoError(t, os.WriteFile(sharedPath, []byte("default:\n  url: https://x\n"), 0o600))
+	origPlanClear := planClear
+	planClear = func(string, bool) (keyring.ClearPlan, *keyring.Store, error) {
+		return keyring.ClearPlan{Ref: keyring.Ref, SharedConfigPath: sharedPath}, nil, errors.New("locked")
+	}
+	t.Cleanup(func() { planClear = origPlanClear })
+
+	opts, _, errBuf := newClearOpts(true, "")
+	opts.all = true
+	err := runClear(opts)
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "plaintext artifacts were cleaned")
+	testutil.Contains(t, err.Error(), "keyring bundle")
+	_, statErr := os.Stat(sharedPath)
+	testutil.True(t, os.IsNotExist(statErr))
+	testutil.Contains(t, errBuf.String(), fmt.Sprintf("This will remove the ENTIRE shared keyring bundle %s.\n", keyring.Ref))
+	testutil.Contains(t, errBuf.String(), fmt.Sprintf("It will also delete the shared config file: %s\n", sharedPath))
+	testutil.Contains(t, errBuf.String(), "Note: the keyring could not be opened")
+	testutil.Contains(t, errBuf.String(), "plaintext artifacts will still be cleaned")
+}
+
+func TestConfigDiagnosticsPresenterBoundaryGrepGate(t *testing.T) {
+	t.Parallel()
+
+	testSource, err := os.ReadFile("test.go") //nolint:gosec // test reads package source.
+	testutil.RequireNoError(t, err)
+	clearSource, err := os.ReadFile("clear.go") //nolint:gosec // test reads package source.
+	testutil.RequireNoError(t, err)
+
+	combined := string(testSource) + "\n" + string(clearSource)
+	for _, phrase := range []string{
+		"Testing connection",
+		"Troubleshooting",
+		"Authenticated as",
+		"No stored API token",
+		"Cancelled. Nothing was cleared",
+		"Removed key",
+		"Removed the shared keyring bundle",
+		"Warning: this is the SHARED token",
+		"Note: %s still set in the environment",
+	} {
+		testutil.NotContains(t, combined, phrase)
+	}
+
+	testutil.Equal(t, 1, strings.Count(string(clearSource), "fmt.Fprint("))
+	testutil.Contains(t, string(clearSource), `fmt.Fprint(opts.Stderr, promptText+" [y/N]: ")`)
+	testutil.NotContains(t, string(testSource), "fmt.Fprint")
 }

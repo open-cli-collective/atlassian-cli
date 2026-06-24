@@ -22,6 +22,11 @@ type clearOptions struct {
 	stdin io.Reader // For testing
 }
 
+var (
+	planClear = keyring.PlanClear
+	clearAll  = keyring.ClearAll
+)
+
 func newClearCmd(opts *root.Options) *cobra.Command {
 	clearOpts := &clearOptions{
 		Options: opts,
@@ -74,7 +79,7 @@ func runClear(opts *clearOptions) error {
 	// store the delete/clear step reuses (no second passphrase prompt).
 	// The env + plaintext-file fields are populated even when the keyring
 	// cannot be opened, so `--all` can still clean plaintext artifacts.
-	plan, store, err := keyring.PlanClear(credstore.ToolCFL, opts.all)
+	plan, store, err := planClear(credstore.ToolCFL, opts.all)
 	if store != nil {
 		defer func() { _ = store.Close() }()
 	}
@@ -98,7 +103,7 @@ func runClear(opts *clearOptions) error {
 		if !ok {
 			return cflpresent.Emit(opts.Options, cflpresent.ConfigPresenter{}.PresentClearCancelled())
 		}
-		cleared, aerr := keyring.ClearAll(store)
+		cleared, aerr := clearAll(store)
 		if aerr != nil {
 			return aerr
 		}

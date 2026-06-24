@@ -33,7 +33,7 @@ rtk go test ./tools/cfl/internal/cmd/configcmd ./tools/cfl/internal/present
 Result:
 
 ```text
-Go test: 54 passed in 2 packages
+Go test: 57 passed in 2 packages
 ```
 
 Executed:
@@ -45,7 +45,7 @@ rtk go test ./tools/cfl/internal/present ./tools/cfl/internal/cmd/configcmd ./to
 Result:
 
 ```text
-Go test: 284 passed in 5 packages
+Go test: 287 passed in 5 packages
 ```
 
 Executed:
@@ -69,7 +69,7 @@ rtk go test ./tools/cfl/... ./shared/...
 Result:
 
 ```text
-Go test: 1634 passed in 34 packages
+Go test: 1637 passed in 34 packages
 ```
 
 Executed:
@@ -142,11 +142,18 @@ Command tests now assert exact stdout/stderr for:
 - `config clear` no-op with an environment override note, without exposing the
   token value
 - `config clear --force` default deletion
+- `config clear --force` default deletion with an environment override note,
+  without exposing the token value
 - interactive `config clear` confirm/cancel prompt behavior
 - `config clear --non-interactive` without `--force`, proving no preview or
   warning leaks before `prompt.ErrConfirmationRequired`
 - `config clear --non-interactive --force`
 - `config clear --all`
+- `config clear --all` when keyring planning fails but plaintext cleanup can
+  still proceed
+- an executable source gate that permits only the prompt `fmt.Fprint` exception
+  and rejects migrated diagnostic/status strings in `configcmd/test.go` and
+  `configcmd/clear.go`
 
 ## Live CLI Transcript
 

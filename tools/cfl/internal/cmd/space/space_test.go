@@ -66,11 +66,37 @@ func TestRunView_Table(t *testing.T) {
 	err := runView(context.Background(), "TEST", opts)
 
 	testutil.RequireNoError(t, err)
-	output := stdout.String()
-	testutil.Contains(t, output, "TEST")
-	testutil.Contains(t, output, "Test Space")
-	testutil.Contains(t, output, "global")
-	testutil.Contains(t, output, "A test space")
+	testutil.Equal(t, "Key: TEST\nName: Test Space\nID: 123456\nType: global\n", stdout.String())
+}
+
+func TestRunView_FullPlain(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		testutil.Equal(t, "GET", r.Method)
+		testutil.Contains(t, r.URL.Path, "/spaces")
+		testutil.Equal(t, "TEST", r.URL.Query().Get("keys"))
+
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(spaceListResponse))
+	}))
+	defer server.Close()
+
+	stdout := &bytes.Buffer{}
+	rootOpts := &root.Options{
+		Output:  "plain",
+		NoColor: true,
+		Full:    true,
+		Stdout:  stdout,
+		Stderr:  &bytes.Buffer{},
+	}
+	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
+	opts := &viewOptions{Options: rootOpts}
+	err := runView(context.Background(), "TEST", opts)
+
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "Key: TEST\nName: Test Space\nID: 123456\nType: global\nStatus: current\nDescription: A test space\n", stdout.String())
 }
 
 func TestRunView_PreservesRawSpaceType(t *testing.T) {

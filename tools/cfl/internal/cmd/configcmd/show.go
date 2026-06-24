@@ -1,17 +1,14 @@
 package configcmd
 
 import (
-	"fmt"
-	"os"
-
 	"github.com/spf13/cobra"
 
-	sharedconfig "github.com/open-cli-collective/atlassian-go/config"
 	"github.com/open-cli-collective/atlassian-go/credstore"
 	"github.com/open-cli-collective/atlassian-go/keyring"
 
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
 	"github.com/open-cli-collective/confluence-cli/internal/config"
+	cflpresent "github.com/open-cli-collective/confluence-cli/internal/present"
 )
 
 func newShowCmd(opts *root.Options) *cobra.Command {
@@ -39,7 +36,6 @@ command to confirm effective configuration.`,
 
 func runShow(opts *root.Options) error {
 	configPath := config.DefaultConfigPath()
-	v := opts.View()
 
 	// Load config file (if exists)
 	fileCfg, fileErr := config.Load(configPath)
@@ -47,93 +43,11 @@ func runShow(opts *root.Options) error {
 		fileCfg = &config.Config{}
 	}
 
-	// Check environment variables
-	envURL := sharedconfig.GetEnvWithFallback("CFL_URL", "ATLASSIAN_URL")
-	envEmail := sharedconfig.GetEnvWithFallback("CFL_EMAIL", "ATLASSIAN_EMAIL")
-	envSpace := os.Getenv("CFL_DEFAULT_SPACE")
-	envAuthMethod := sharedconfig.GetEnvWithFallback("CFL_AUTH_METHOD", "ATLASSIAN_AUTH_METHOD")
-	envCloudID := sharedconfig.GetEnvWithFallback("CFL_CLOUD_ID", "ATLASSIAN_CLOUD_ID")
-
-	// Determine effective values and sources
-	url, urlSource := getValueAndSource(envURL, fileCfg.URL, getEnvVarName("CFL_URL", "ATLASSIAN_URL"))
-	email, emailSource := getValueAndSource(envEmail, fileCfg.Email, getEnvVarName("CFL_EMAIL", "ATLASSIAN_EMAIL"))
-	space, spaceSource := getValueAndSource(envSpace, fileCfg.DefaultSpace, "CFL_DEFAULT_SPACE")
-	authMethod, authMethodSource := getValueAndSource(envAuthMethod, fileCfg.AuthMethod, getEnvVarName("CFL_AUTH_METHOD", "ATLASSIAN_AUTH_METHOD"))
-	cloudID, cloudIDSource := getValueAndSource(envCloudID, fileCfg.CloudID, getEnvVarName("CFL_CLOUD_ID", "ATLASSIAN_CLOUD_ID"))
-
-	// Default auth method display
-	if authMethod == "" {
-		authMethod = "basic"
-		authMethodSource = "default"
-	}
-
 	// Non-secret keyring description (non-migrating: show stays usable
 	// during an unresolved §1.8 conflict). The token VALUE is never
 	// shown — presence + source only (§1.12).
 	kr, krErr := keyring.InspectForTool(credstore.ToolCFL)
-	tokenStatus := "not set"
-	if kr.TokenConfigured {
-		tokenStatus = "configured"
-	}
-	tokenSource := kr.TokenSource
-	if krErr != nil {
-		tokenSource = "keyring error: " + krErr.Error()
-	}
 
-	// Display
-	v.RenderKeyValue("URL", formatValueWithSource(url, urlSource))
-	v.RenderKeyValue("Email", formatValueWithSource(email, emailSource))
-	v.RenderKeyValue("API Token", formatValueWithSource(tokenStatus, tokenSource))
-	v.RenderKeyValue("Default Space", formatValueWithSource(space, spaceSource))
-	v.RenderKeyValue("Auth Method", formatValueWithSource(authMethod, authMethodSource))
-	v.RenderKeyValue("Cloud ID", formatValueWithSource(cloudID, cloudIDSource))
-	v.RenderKeyValue("Keyring Ref", formatValueWithSource(kr.Ref, "fixed"))
-	if kr.Backend != "" {
-		backend := kr.Backend
-		if kr.BackendSource != "" {
-			backend += " (" + kr.BackendSource + ")"
-		}
-		v.RenderKeyValue("Keyring Backend", formatValueWithSource(backend, "-"))
-	}
-	if kr.PassphraseSource != "" {
-		v.RenderKeyValue("Keyring Passphrase", formatValueWithSource(kr.PassphraseSource, "-"))
-	}
-
-	_, _ = fmt.Fprintln(opts.Stderr)
-	_, _ = fmt.Fprintf(opts.Stderr, "Config file: %s\n", configPath)
-	if fileErr != nil {
-		_, _ = fmt.Fprintf(opts.Stderr, "  (file not found or unreadable)\n")
-	}
-
-	return nil
-}
-
-// getValueAndSource returns the effective value and its source.
-func getValueAndSource(envValue, fileValue, envVarName string) (string, string) {
-	if envValue != "" {
-		return envValue, envVarName
-	}
-	if fileValue != "" {
-		return fileValue, "config"
-	}
-	return "", "not set"
-}
-
-// getEnvVarName returns the name of the environment variable that is set.
-func getEnvVarName(primary, fallback string) string {
-	if os.Getenv(primary) != "" {
-		return primary
-	}
-	if os.Getenv(fallback) != "" {
-		return fallback
-	}
-	return primary // Default to primary if neither is set
-}
-
-// formatValueWithSource formats a value with its source indicator.
-func formatValueWithSource(value, source string) string {
-	if value == "" {
-		return fmt.Sprintf("(source: %s)", source)
-	}
-	return fmt.Sprintf("%s  (source: %s)", value, source)
+	proj := config.ProjectShow(configPath, fileCfg, fileErr, kr, krErr)
+	return cflpresent.Emit(opts, cflpresent.ConfigShowPresenter{}.PresentDetail(proj))
 }

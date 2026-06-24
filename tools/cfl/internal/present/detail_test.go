@@ -1,0 +1,107 @@
+package present
+
+import (
+	"testing"
+
+	sharedpresent "github.com/open-cli-collective/atlassian-go/present"
+	"github.com/open-cli-collective/atlassian-go/testutil"
+
+	"github.com/open-cli-collective/confluence-cli/api"
+	cflconfig "github.com/open-cli-collective/confluence-cli/internal/config"
+)
+
+func TestSpacePresenter_PresentDetail(t *testing.T) {
+	t.Parallel()
+
+	model := SpacePresenter{}.PresentDetail(&api.Space{
+		ID:     "123456",
+		Key:    "TEST",
+		Name:   "Test Space",
+		Type:   "global",
+		Status: "current",
+		Description: &api.SpaceDescription{
+			Plain: &api.DescriptionValue{Value: "A test space"},
+		},
+	}, false)
+
+	detail := requireDetailSection(t, model, 0)
+	testutil.Equal(t, []sharedpresent.Field{
+		{Label: "Key", Value: "TEST"},
+		{Label: "Name", Value: "Test Space"},
+		{Label: "ID", Value: "123456"},
+		{Label: "Type", Value: "global"},
+	}, detail.Fields)
+}
+
+func TestSpacePresenter_PresentDetail_Full(t *testing.T) {
+	t.Parallel()
+
+	model := SpacePresenter{}.PresentDetail(&api.Space{
+		ID:     "123456",
+		Key:    "TEST",
+		Name:   "Test Space",
+		Type:   "global",
+		Status: "current",
+		Description: &api.SpaceDescription{
+			Plain: &api.DescriptionValue{Value: "A test space"},
+		},
+	}, true)
+
+	detail := requireDetailSection(t, model, 0)
+	testutil.Equal(t, []sharedpresent.Field{
+		{Label: "Key", Value: "TEST"},
+		{Label: "Name", Value: "Test Space"},
+		{Label: "ID", Value: "123456"},
+		{Label: "Type", Value: "global"},
+		{Label: "Status", Value: "current"},
+		{Label: "Description", Value: "A test space"},
+	}, detail.Fields)
+}
+
+func TestConfigShowPresenter_PresentDetail(t *testing.T) {
+	t.Parallel()
+
+	model := ConfigShowPresenter{}.PresentDetail(cflconfig.ShowProjection{
+		URL:               cflconfig.ShowValue{Value: "https://example.com/wiki", Source: "config"},
+		Email:             cflconfig.ShowValue{Value: "test@example.com", Source: "ATLASSIAN_EMAIL"},
+		APIToken:          cflconfig.ShowValue{Value: "configured", Source: "environment"},
+		DefaultSpace:      cflconfig.ShowValue{Value: "TEST", Source: "config"},
+		AuthMethod:        cflconfig.ShowValue{Value: "basic", Source: "default"},
+		CloudID:           cflconfig.ShowValue{Source: "not set"},
+		KeyringRef:        cflconfig.ShowValue{Value: "atlassian-cli/default", Source: "fixed"},
+		KeyringBackend:    cflconfig.ShowValue{Value: "file (flag)", Source: "-"},
+		KeyringPassphrase: cflconfig.ShowValue{Value: "env:ATLASSIAN_CLI_KEYRING_PASSPHRASE", Source: "-"},
+		HasKeyringBackend: true, HasKeyringPassphrase: true,
+		ConfigPath: "/tmp/config.yml", ConfigReadable: false,
+	})
+
+	detail := requireDetailSection(t, model, 0)
+	testutil.Equal(t, []sharedpresent.Field{
+		{Label: "URL", Value: "https://example.com/wiki  (source: config)"},
+		{Label: "Email", Value: "test@example.com  (source: ATLASSIAN_EMAIL)"},
+		{Label: "API Token", Value: "configured  (source: environment)"},
+		{Label: "Default Space", Value: "TEST  (source: config)"},
+		{Label: "Auth Method", Value: "basic  (source: default)"},
+		{Label: "Cloud ID", Value: "(source: not set)"},
+		{Label: "Keyring Ref", Value: "atlassian-cli/default  (source: fixed)"},
+		{Label: "Keyring Backend", Value: "file (flag)  (source: -)"},
+		{Label: "Keyring Passphrase", Value: "env:ATLASSIAN_CLI_KEYRING_PASSPHRASE  (source: -)"},
+	}, detail.Fields)
+
+	msg := requireMessageSection(t, model, 1)
+	testutil.Equal(t, sharedpresent.StreamStderr, msg.Stream)
+	testutil.Equal(t, "\nConfig file: /tmp/config.yml\n  (file not found or unreadable)", msg.Message)
+}
+
+func requireDetailSection(t *testing.T, model *sharedpresent.OutputModel, idx int) *sharedpresent.DetailSection {
+	t.Helper()
+
+	if len(model.Sections) <= idx {
+		t.Fatalf("expected section index %d, got %d sections", idx, len(model.Sections))
+	}
+	sec, ok := model.Sections[idx].(*sharedpresent.DetailSection)
+	if !ok {
+		t.Fatalf("expected DetailSection at %d, got %T", idx, model.Sections[idx])
+	}
+	return sec
+}

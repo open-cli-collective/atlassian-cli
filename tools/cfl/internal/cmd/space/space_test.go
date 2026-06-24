@@ -150,18 +150,18 @@ func TestRunCreate(t *testing.T) {
 	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testutil.Equal(t, "POST", r.Method)
-		testutil.Equal(t, "/api/v2/spaces", r.URL.Path)
+		testutil.Equal(t, "/rest/api/space", r.URL.Path)
 
-		var req api.CreateSpaceRequest
+		var req map[string]any
 		err := json.NewDecoder(r.Body).Decode(&req)
 		testutil.RequireNoError(t, err)
-		testutil.Equal(t, "TEST", req.Key)
-		testutil.Equal(t, "Test Space", req.Name)
-		testutil.Equal(t, "global", req.Type)
+		testutil.Equal(t, "TEST", req["key"])
+		testutil.Equal(t, "Test Space", req["name"])
+		testutil.Equal(t, "global", req["type"])
 
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{
-			"id": "123456",
+			"id": 123456,
 			"key": "TEST",
 			"name": "Test Space",
 			"type": "global",
@@ -226,15 +226,17 @@ func TestRunCreate_CreateFailed_NoDuplicatePrefix(t *testing.T) {
 func TestRunCreate_WithDescription(t *testing.T) {
 	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var req api.CreateSpaceRequest
+		var req map[string]any
 		err := json.NewDecoder(r.Body).Decode(&req)
 		testutil.RequireNoError(t, err)
-		testutil.NotNil(t, req.Description)
-		testutil.Equal(t, "A test space", req.Description.Plain.Value)
+		desc := req["description"].(map[string]any)
+		plain := desc["plain"].(map[string]any)
+		testutil.Equal(t, "A test space", plain["value"])
+		testutil.Equal(t, "plain", plain["representation"])
 
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{
-			"id": "123456",
+			"id": 123456,
 			"key": "TEST",
 			"name": "Test Space",
 			"type": "global"

@@ -105,9 +105,7 @@ func (PagePresenter) PresentView(proj pageview.Projection) *sharedpresent.Output
 
 	body := pageViewBody(proj)
 	if !proj.ContentOnly {
-		// The shared renderer does not currently model a blank-line separator
-		// between a detail block and a following stdout message section.
-		body = "\n" + body
+		sections = append(sections, stdoutInfo(""))
 	}
 	sections = append(sections, stdoutInfo(body))
 

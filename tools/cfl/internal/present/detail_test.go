@@ -127,9 +127,13 @@ func TestPagePresenter_PresentView_Default(t *testing.T) {
 		{Label: "Version", Value: "3"},
 	}, detail.Fields)
 
-	body := requireMessageSection(t, model, 1)
+	separator := requireMessageSection(t, model, 1)
+	testutil.Equal(t, sharedpresent.StreamStdout, separator.Stream)
+	testutil.Equal(t, "", separator.Message)
+
+	body := requireMessageSection(t, model, 2)
 	testutil.Equal(t, sharedpresent.StreamStdout, body.Stream)
-	testutil.Equal(t, "\nHello world", body.Message)
+	testutil.Equal(t, "Hello world", body.Message)
 }
 
 func TestPagePresenter_PresentView_ContentOnlyWithAdvisory(t *testing.T) {

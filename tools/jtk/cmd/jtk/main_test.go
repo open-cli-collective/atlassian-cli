@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"net"
 	"os"
 	"os/exec"
@@ -10,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/open-cli-collective/atlassian-go/credtest"
+	"github.com/open-cli-collective/atlassian-go/testutil"
 )
 
 // unreachableURL returns a URL whose dial fails fast and
@@ -91,6 +93,35 @@ func runCLI(t *testing.T, dir string, stdin string, args ...string) (stderr stri
 		t.Fatalf("subprocess did not start: %v", runErr)
 	}
 	return errBuf.String(), cmd.ProcessState.ExitCode()
+}
+
+func runCLIWithOutput(t *testing.T, dir string, stdin string, args ...string) (stdout string, stderr string, code int) {
+	t.Helper()
+	exe, err := os.Executable()
+	if err != nil {
+		t.Fatalf("os.Executable: %v", err)
+	}
+	cmd := exec.Command(exe, args...) //nolint:gosec // G204: exe is this test binary
+	cmd.Env = append(os.Environ(),
+		entrypointEnv+"=1",
+		"HOME="+dir,
+		"XDG_CONFIG_HOME="+dir,
+		"ATLASSIAN_CLI_KEYRING_BACKEND=file",
+		"ATLASSIAN_CLI_KEYRING_PASSPHRASE=credtest-passphrase",
+		"ATLASSIAN_API_TOKEN=", "JIRA_API_TOKEN=", "CFL_API_TOKEN=",
+		"ATLASSIAN_URL=", "JIRA_URL=",
+	)
+	if stdin != "" {
+		cmd.Stdin = strings.NewReader(stdin)
+	}
+	var outBuf, errBuf bytes.Buffer
+	cmd.Stdout = &outBuf
+	cmd.Stderr = &errBuf
+	runErr := cmd.Run()
+	if cmd.ProcessState == nil {
+		t.Fatalf("subprocess did not start: %v", runErr)
+	}
+	return outBuf.String(), errBuf.String(), cmd.ProcessState.ExitCode()
 }
 
 func writeLegacyShared(t *testing.T, dir, url, token string) string {
@@ -212,4 +243,25 @@ func TestEntrypoint_DivergentInit_NoMutationBeforeFailLoud(t *testing.T) {
 	if !strings.Contains(string(raw), "PLAINTEXT_TOK") || !strings.Contains(string(raw), "jtk-only.atlassian.net") {
 		t.Fatalf("divergent init must mutate NOTHING on disk:\n%s", raw)
 	}
+}
+
+func TestRun_RemotelinksRegisteredInMain(t *testing.T) {
+	t.Parallel()
+
+	oldArgs := os.Args
+	t.Cleanup(func() { os.Args = oldArgs })
+	os.Args = []string{"jtk", "remotelinks", "--help"}
+
+	err := run(context.Background())
+	testutil.RequireNoError(t, err)
+}
+
+func TestRun_RemotelinksRemoveRejected(t *testing.T) {
+	dir := credtest.Hermetic(t)
+	stdout, stderr, code := runCLIWithOutput(t, dir, "", "remotelinks", "remove", "PROJ-123", "10001")
+	if code != 0 {
+		t.Fatalf("expected remotelinks remove help path to exit 0; got %d\nstdout:\n%s\nstderr:\n%s", code, stdout, stderr)
+	}
+	testutil.Contains(t, stdout, "delete")
+	testutil.NotContains(t, stdout, "\n  remove")
 }

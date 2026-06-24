@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/open-cli-collective/atlassian-go/testutil"
@@ -29,6 +30,66 @@ func TestNewAddCmd_RequiresURL(t *testing.T) {
 	// --url is marked required.
 	flag := cmd.Flags().Lookup("url")
 	testutil.NotNil(t, flag)
+}
+
+func TestRegister_ExecutesCanonicalAndAliasCommands(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name string
+		args []string
+	}{
+		{name: "canonical", args: []string{"remotelinks", "list", "PROJ-123", "--id"}},
+		{name: "singular-alias", args: []string{"remotelink", "list", "PROJ-123", "--id"}},
+		{name: "short-alias", args: []string{"rl", "list", "PROJ-123", "--id"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			server := remoteLinkListServer(t)
+			defer server.Close()
+
+			client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
+			testutil.RequireNoError(t, err)
+
+			rootCmd, opts := root.NewCmd()
+			var stdout bytes.Buffer
+			opts.Stdout = &stdout
+			opts.Stderr = &bytes.Buffer{}
+			opts.SetAPIClient(client)
+			Register(rootCmd, opts)
+			rootCmd.SetArgs(tc.args)
+
+			err = rootCmd.Execute()
+			testutil.RequireNoError(t, err)
+			testutil.Equal(t, stdout.String(), "10001\n")
+		})
+	}
+}
+
+func TestRegister_RemoveVerbRejected(t *testing.T) {
+	t.Parallel()
+
+	rootCmd, opts := root.NewCmd()
+	Register(rootCmd, opts)
+
+	cmd, _, err := rootCmd.Find([]string{"remotelinks"})
+	testutil.RequireNoError(t, err)
+	testutil.NotNil(t, cmd)
+
+	subcommands := cmd.Commands()
+	testutil.Equal(t, len(subcommands), 3)
+
+	var names []string
+	for _, subcommand := range subcommands {
+		names = append(names, subcommand.Name())
+	}
+
+	joined := "," + strings.Join(names, ",") + ","
+	testutil.Contains(t, joined, ",list,")
+	testutil.Contains(t, joined, ",add,")
+	testutil.Contains(t, joined, ",delete,")
+	testutil.NotContains(t, joined, ",remove,")
 }
 
 func remoteLinkListServer(t *testing.T) *httptest.Server {
@@ -180,6 +241,42 @@ func TestRunAdd(t *testing.T) {
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, sent.Object.URL, "https://example.com")
 	testutil.Equal(t, sent.Object.Title, "Example")
+}
+
+func TestRunAdd_SummaryAndRelationshipRoundTrip(t *testing.T) {
+	t.Parallel()
+	var capturedBody []byte
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		testutil.Equal(t, r.URL.Path, "/rest/api/3/issue/PROJ-123/remotelink")
+		testutil.Equal(t, r.Method, http.MethodPost)
+		capturedBody, _ = io.ReadAll(r.Body)
+		w.WriteHeader(http.StatusCreated)
+		_ = json.NewEncoder(w).Encode(map[string]any{"id": 10013})
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	opts := &root.Options{Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runAdd(
+		context.Background(),
+		opts,
+		"PROJ-123",
+		"https://example.com",
+		"Example",
+		"Reference docs",
+		"mentioned in",
+	)
+	testutil.RequireNoError(t, err)
+
+	var sent api.CreateRemoteLinkRequest
+	err = json.Unmarshal(capturedBody, &sent)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, sent.Relationship, "mentioned in")
+	testutil.Equal(t, sent.Object.Summary, "Reference docs")
 }
 
 func TestRunAdd_TitleDefaultsToURL(t *testing.T) {

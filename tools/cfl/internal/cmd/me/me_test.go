@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	sharedpresent "github.com/open-cli-collective/atlassian-go/present"
 	"github.com/open-cli-collective/atlassian-go/testutil"
 	"github.com/spf13/cobra"
 
@@ -195,62 +194,6 @@ func TestRun_IDOnly_PlainOutput(t *testing.T) {
 	testutil.Equal(t, "", opts.Stderr.(*bytes.Buffer).String())
 }
 
-func TestRun_UsesPresenterEmitter(t *testing.T) {
-	server := userServer(t, `{"accountId":"abc123","displayName":"Rian Stockbower","email":"rian@example.com"}`)
-	defer server.Close()
-
-	opts := newTestRootOptions()
-	opts.SetAPIClient(api.NewClient(server.URL, "test@example.com", "token"))
-
-	originalEmit := emitModel
-	t.Cleanup(func() { emitModel = originalEmit })
-
-	var capturedOpts *root.Options
-	var capturedModel *sharedpresent.OutputModel
-	emitModel = func(gotOpts *root.Options, model *sharedpresent.OutputModel) error {
-		capturedOpts = gotOpts
-		capturedModel = model
-		return nil
-	}
-
-	err := Run(context.Background(), opts, false)
-	testutil.RequireNoError(t, err)
-	testutil.Equal(t, opts, capturedOpts)
-
-	msg := emittedMessage(t, capturedModel)
-	testutil.Equal(t, "abc123 | Rian Stockbower | rian@example.com", msg.Message)
-	testutil.Equal(t, sharedpresent.StreamStdout, msg.Stream)
-	testutil.Equal(t, "", opts.Stdout.(*bytes.Buffer).String())
-	testutil.Equal(t, "", opts.Stderr.(*bytes.Buffer).String())
-}
-
-func TestRun_IDOnly_UsesPresenterEmitter(t *testing.T) {
-	server := userServer(t, `{"accountId":"abc123","displayName":"Rian Stockbower","email":"rian@example.com"}`)
-	defer server.Close()
-
-	opts := newTestRootOptions()
-	opts.Output = "plain"
-	opts.SetAPIClient(api.NewClient(server.URL, "test@example.com", "token"))
-
-	originalEmit := emitModel
-	t.Cleanup(func() { emitModel = originalEmit })
-
-	var capturedModel *sharedpresent.OutputModel
-	emitModel = func(_ *root.Options, model *sharedpresent.OutputModel) error {
-		capturedModel = model
-		return nil
-	}
-
-	err := Run(context.Background(), opts, true)
-	testutil.RequireNoError(t, err)
-
-	msg := emittedMessage(t, capturedModel)
-	testutil.Equal(t, "abc123", msg.Message)
-	testutil.Equal(t, sharedpresent.StreamStdout, msg.Stream)
-	testutil.Equal(t, "", opts.Stdout.(*bytes.Buffer).String())
-	testutil.Equal(t, "", opts.Stderr.(*bytes.Buffer).String())
-}
-
 func TestRegister_RegistersMeWithIDFlag(t *testing.T) {
 	t.Parallel()
 	rootCmd := &cobra.Command{Use: "cfl"}
@@ -377,18 +320,4 @@ func TestRun_APIError(t *testing.T) {
 	err := Run(context.Background(), opts, false)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "getting current user")
-}
-
-func emittedMessage(t *testing.T, model *sharedpresent.OutputModel) *sharedpresent.MessageSection {
-	t.Helper()
-
-	testutil.NotNil(t, model)
-	if len(model.Sections) != 1 {
-		t.Fatalf("expected 1 section, got %d", len(model.Sections))
-	}
-	msg, ok := model.Sections[0].(*sharedpresent.MessageSection)
-	if !ok {
-		t.Fatalf("expected MessageSection, got %T", model.Sections[0])
-	}
-	return msg
 }

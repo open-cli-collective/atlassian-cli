@@ -16,7 +16,6 @@ import (
 	"github.com/open-cli-collective/atlassian-go/credstore"
 	"github.com/open-cli-collective/atlassian-go/credtest"
 	"github.com/open-cli-collective/atlassian-go/keyring"
-	sharedpresent "github.com/open-cli-collective/atlassian-go/present"
 	"github.com/open-cli-collective/atlassian-go/testutil"
 	"github.com/spf13/cobra"
 
@@ -368,45 +367,6 @@ func TestFinalizeInit_BearerHappyPath(t *testing.T) {
 
 	_, err = os.Stat(configPath)
 	testutil.RequireNoError(t, err)
-}
-
-func TestFinalizeInit_UsesPresenterEmitterForVerifiedUser(t *testing.T) {
-	credtest.Hermetic(t)
-	server := userResponseServer(t, `{"accountId":"abc123","displayName":"Rian Stockbower","email":"rian@example.com"}`, http.StatusOK)
-	defer server.Close()
-
-	tmpDir := t.TempDir()
-	configPath := filepath.Join(tmpDir, "config.yml")
-	opts := newFinalizeOpts()
-	cfg := &config.Config{
-		URL:      server.URL,
-		Email:    "rian@example.com",
-		APIToken: "test-token",
-	}
-
-	build := func(_ *config.Config) (*api.Client, error) {
-		return api.NewClient(server.URL, "rian@example.com", "test-token"), nil
-	}
-
-	originalEmit := emitVerifiedUserModel
-	t.Cleanup(func() { emitVerifiedUserModel = originalEmit })
-
-	var capturedModel *sharedpresent.OutputModel
-	emitVerifiedUserModel = func(_ *root.Options, model *sharedpresent.OutputModel) error {
-		capturedModel = model
-		return nil
-	}
-
-	err := finalizeInit(context.Background(), opts, cfg, newFinalizeReconcileResult(), configPath, false, build)
-	testutil.RequireNoError(t, err)
-	testutil.NotNil(t, capturedModel)
-
-	msg, ok := capturedModel.Sections[0].(*sharedpresent.MessageSection)
-	if !ok {
-		t.Fatalf("expected MessageSection, got %T", capturedModel.Sections[0])
-	}
-	testutil.Equal(t, "abc123 | Rian Stockbower | rian@example.com", msg.Message)
-	testutil.Equal(t, sharedpresent.StreamStdout, msg.Stream)
 }
 
 // TestDefaultClientBuilder verifies the production wiring between

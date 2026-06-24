@@ -93,6 +93,16 @@ func TestConfigShowPresenter_PresentDetail(t *testing.T) {
 	testutil.Equal(t, "\nConfig file: /tmp/config.yml\n  (file not found or unreadable)", msg.Message)
 }
 
+func TestFormatValueWithSource(t *testing.T) {
+	t.Parallel()
+
+	testutil.Equal(t, "https://example.com  (source: config)", formatValueWithSource(cflconfig.ShowValue{
+		Value:  "https://example.com",
+		Source: "config",
+	}))
+	testutil.Equal(t, "(source: not set)", formatValueWithSource(cflconfig.ShowValue{Source: "not set"}))
+}
+
 func requireDetailSection(t *testing.T, model *sharedpresent.OutputModel, idx int) *sharedpresent.DetailSection {
 	t.Helper()
 

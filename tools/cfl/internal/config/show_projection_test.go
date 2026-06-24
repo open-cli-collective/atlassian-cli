@@ -9,6 +9,16 @@ import (
 )
 
 func TestProjectShow_EnvOverridesFile(t *testing.T) {
+	t.Setenv("CFL_URL", "")
+	t.Setenv("ATLASSIAN_URL", "")
+	t.Setenv("CFL_EMAIL", "")
+	t.Setenv("ATLASSIAN_EMAIL", "")
+	t.Setenv("CFL_DEFAULT_SPACE", "")
+	t.Setenv("CFL_AUTH_METHOD", "")
+	t.Setenv("ATLASSIAN_AUTH_METHOD", "")
+	t.Setenv("CFL_CLOUD_ID", "")
+	t.Setenv("ATLASSIAN_CLOUD_ID", "")
+
 	t.Setenv("CFL_URL", "https://env.example/wiki")
 	t.Setenv("ATLASSIAN_EMAIL", "env@example.com")
 	t.Setenv("CFL_DEFAULT_SPACE", "ENV")
@@ -90,14 +100,4 @@ func TestProjectShow_KeyringMetadataAndUnreadableConfig(t *testing.T) {
 	testutil.True(t, proj.HasKeyringPassphrase)
 	testutil.Equal(t, ShowValue{Value: "env:ATLASSIAN_CLI_KEYRING_PASSPHRASE", Source: "-"}, proj.KeyringPassphrase)
 	testutil.Equal(t, ShowValue{Value: "not set", Source: "keyring error: backend unavailable"}, proj.APIToken)
-}
-
-func TestFormatValueWithSource(t *testing.T) {
-	t.Parallel()
-
-	testutil.Equal(t, "https://example.com  (source: config)", FormatValueWithSource(ShowValue{
-		Value:  "https://example.com",
-		Source: "config",
-	}))
-	testutil.Equal(t, "(source: not set)", FormatValueWithSource(ShowValue{Source: "not set"}))
 }

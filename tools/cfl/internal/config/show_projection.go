@@ -1,7 +1,6 @@
 package config
 
 import (
-	"fmt"
 	"os"
 
 	sharedconfig "github.com/open-cli-collective/atlassian-go/config"
@@ -120,11 +119,4 @@ func setEnvName(primary, fallback string) string {
 		return fallback
 	}
 	return primary
-}
-
-func FormatValueWithSource(v ShowValue) string {
-	if v.Value == "" {
-		return fmt.Sprintf("(source: %s)", v.Source)
-	}
-	return fmt.Sprintf("%s  (source: %s)", v.Value, v.Source)
 }

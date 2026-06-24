@@ -35,24 +35,24 @@ func (SpacePresenter) PresentDetail(space *api.Space, full bool) *sharedpresent.
 
 func (ConfigShowPresenter) PresentDetail(proj cflconfig.ShowProjection) *sharedpresent.OutputModel {
 	fields := []sharedpresent.Field{
-		{Label: "URL", Value: cflconfig.FormatValueWithSource(proj.URL)},
-		{Label: "Email", Value: cflconfig.FormatValueWithSource(proj.Email)},
-		{Label: "API Token", Value: cflconfig.FormatValueWithSource(proj.APIToken)},
-		{Label: "Default Space", Value: cflconfig.FormatValueWithSource(proj.DefaultSpace)},
-		{Label: "Auth Method", Value: cflconfig.FormatValueWithSource(proj.AuthMethod)},
-		{Label: "Cloud ID", Value: cflconfig.FormatValueWithSource(proj.CloudID)},
-		{Label: "Keyring Ref", Value: cflconfig.FormatValueWithSource(proj.KeyringRef)},
+		{Label: "URL", Value: formatValueWithSource(proj.URL)},
+		{Label: "Email", Value: formatValueWithSource(proj.Email)},
+		{Label: "API Token", Value: formatValueWithSource(proj.APIToken)},
+		{Label: "Default Space", Value: formatValueWithSource(proj.DefaultSpace)},
+		{Label: "Auth Method", Value: formatValueWithSource(proj.AuthMethod)},
+		{Label: "Cloud ID", Value: formatValueWithSource(proj.CloudID)},
+		{Label: "Keyring Ref", Value: formatValueWithSource(proj.KeyringRef)},
 	}
 	if proj.HasKeyringBackend {
 		fields = append(fields, sharedpresent.Field{
 			Label: "Keyring Backend",
-			Value: cflconfig.FormatValueWithSource(proj.KeyringBackend),
+			Value: formatValueWithSource(proj.KeyringBackend),
 		})
 	}
 	if proj.HasKeyringPassphrase {
 		fields = append(fields, sharedpresent.Field{
 			Label: "Keyring Passphrase",
-			Value: cflconfig.FormatValueWithSource(proj.KeyringPassphrase),
+			Value: formatValueWithSource(proj.KeyringPassphrase),
 		})
 	}
 
@@ -67,4 +67,11 @@ func (ConfigShowPresenter) PresentDetail(proj cflconfig.ShowProjection) *sharedp
 			stderrInfo(stderr),
 		},
 	}
+}
+
+func formatValueWithSource(v cflconfig.ShowValue) string {
+	if v.Value == "" {
+		return fmt.Sprintf("(source: %s)", v.Source)
+	}
+	return fmt.Sprintf("%s  (source: %s)", v.Value, v.Source)
 }

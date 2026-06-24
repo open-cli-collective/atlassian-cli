@@ -60,7 +60,7 @@ func runDelete(ctx context.Context, spaceKey string, opts *deleteOptions) error 
 
 	space, err := client.GetSpaceByKey(ctx, spaceKey)
 	if err != nil {
-		return fmt.Errorf("getting space: %w", err)
+		return err
 	}
 
 	v := opts.View()
@@ -79,7 +79,7 @@ func runDelete(ctx context.Context, spaceKey string, opts *deleteOptions) error 
 	}
 
 	if err := client.DeleteSpace(ctx, spaceKey); err != nil {
-		return fmt.Errorf("deleting space: %w", err)
+		return err
 	}
 
 	v.Success("Deleted space: %s (%s)", space.Name, spaceKey)

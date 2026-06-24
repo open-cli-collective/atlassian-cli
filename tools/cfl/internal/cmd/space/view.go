@@ -2,7 +2,6 @@ package space
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/spf13/cobra"
 
@@ -46,7 +45,7 @@ func runView(ctx context.Context, spaceKey string, opts *viewOptions) error {
 
 	space, err := client.GetSpaceByKey(ctx, spaceKey)
 	if err != nil {
-		return fmt.Errorf("getting space: %w", err)
+		return err
 	}
 
 	v := opts.View()

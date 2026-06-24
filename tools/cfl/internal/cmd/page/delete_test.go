@@ -181,6 +181,7 @@ func TestRunDelete_PageNotFound(t *testing.T) {
 	err := runDelete(context.Background(), "99999", opts)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "getting page")
+	testutil.NotContains(t, err.Error(), "getting page: getting page:")
 }
 
 func TestRunDelete_DeleteFailed(t *testing.T) {
@@ -200,6 +201,7 @@ func TestRunDelete_DeleteFailed(t *testing.T) {
 	err := runDelete(context.Background(), "12345", opts)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "deleting page")
+	testutil.NotContains(t, err.Error(), "deleting page: deleting page")
 }
 
 func TestRunDelete_ConfirmationInputs(t *testing.T) {

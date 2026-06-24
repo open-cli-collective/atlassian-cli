@@ -89,7 +89,7 @@ func runHistoryList(ctx context.Context, pageID string, opts *historyListOptions
 		Sort:   "-modified-date",
 	})
 	if err != nil {
-		return fmt.Errorf("listing page versions: %w", err)
+		return err
 	}
 
 	if len(result.Results) == 0 {

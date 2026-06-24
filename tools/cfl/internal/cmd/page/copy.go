@@ -69,11 +69,11 @@ func runCopy(ctx context.Context, pageID string, opts *copyOptions) error {
 		// nil opts: body content is not needed, only SpaceID for determining destination
 		sourcePage, err := client.GetPage(ctx, pageID, nil)
 		if err != nil {
-			return fmt.Errorf("getting source page: %w", err)
+			return err
 		}
 		space, err := client.GetSpace(ctx, sourcePage.SpaceID)
 		if err != nil {
-			return fmt.Errorf("getting space: %w", err)
+			return err
 		}
 		destSpace = space.Key
 	}

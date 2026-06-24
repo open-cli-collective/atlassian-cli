@@ -486,4 +486,5 @@ func TestRunDelete_NotFound(t *testing.T) {
 
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "not found")
+	testutil.NotContains(t, err.Error(), "getting space: getting space")
 }

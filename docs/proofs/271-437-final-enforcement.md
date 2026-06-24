@@ -40,7 +40,8 @@ the Go AST and fails on:
   `v.Info`, `v.Warning`, `v.Error`, `v.Println`, or `v.Render` outside the
   `init` exception
 - command-local `fmt.Fprint*` writes to `opts.Stdout`, `opts.Stderr`, `v.Out`,
-  or `os.Stderr` outside prompt/init exceptions
+  `os.Stdout`, or `os.Stderr` outside prompt/init exceptions
+- bare `fmt.Print`, `fmt.Printf`, or `fmt.Println` outside `init`
 - `view.ValidateFormat`
 - `opts.View()` outside `init`
 - direct `shared/view` imports outside root/init exceptions
@@ -49,7 +50,7 @@ Allowed exceptions:
 
 - `tools/cfl/internal/cmd/init/**`: interactive wizard and migration UX
 - root `Options.View()` bridge while `init` remains on `shared/view`
-- one-shot delete/config confirmation prompt text
+- one-shot delete/config confirmation prompt text on `opts.Stderr`
 
 ## Verification Commands
 

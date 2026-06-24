@@ -103,12 +103,15 @@ These exceptions are allowed when deliberate and tested:
 - one-shot confirmation prompts such as delete confirmations
 - editor handoffs for page create/edit
 - browser handoffs such as `page view --web`
-- source-faithful content output such as `page view --raw` or `--content-only`
 - root `Options.View()` plumbing while an allowed exception still needs
   `shared/view`
 
 Exceptions should stay small and named in code review. They must not become a
 general escape hatch for command-local formatting.
+
+Source-faithful modes such as `page view --raw` and `--content-only` are not
+presenter-boundary exceptions. They are presenter/projection-owned output modes
+whose content selection is intentional.
 
 Progress messages that intentionally complete later may use
 `present.MessageSection{NoNewline: true}`. The wording and stream still belong

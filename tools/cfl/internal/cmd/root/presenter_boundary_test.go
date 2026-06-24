@@ -88,6 +88,9 @@ func presenterBoundaryViolation(fset *token.FileSet, rel string, line int, call 
 			return location + ": command-local " + name + " write to " + target + " is not presenter-owned"
 		}
 	}
+	if receiver == "fmt" && fmtBareOutputCall(name) && !allowedInitException(rel) {
+		return location + ": command-local fmt." + name + " writes to process stdout/stderr outside presenter boundary"
+	}
 
 	return ""
 }
@@ -101,6 +104,9 @@ func allowedInitException(rel string) bool {
 }
 
 func allowedPromptWrite(fset *token.FileSet, rel string, call *ast.CallExpr) bool {
+	if len(call.Args) == 0 || exprString(fset, call.Args[0]) != "opts.Stderr" {
+		return false
+	}
 	if rel == "../configcmd/clear.go" {
 		return len(call.Args) == 2 && exprString(fset, call.Args[1]) == `promptText + " [y/N]: "`
 	}
@@ -132,7 +138,15 @@ func fmtOutputCall(name string) bool {
 
 func outputWriteTarget(target string) bool {
 	switch target {
-	case "opts.Stdout", "opts.Stderr", "v.Out", "os.Stderr":
+	case "opts.Stdout", "opts.Stderr", "v.Out", "os.Stdout", "os.Stderr":
+		return true
+	}
+	return false
+}
+
+func fmtBareOutputCall(name string) bool {
+	switch name {
+	case "Print", "Printf", "Println":
 		return true
 	}
 	return false

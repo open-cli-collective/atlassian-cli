@@ -43,7 +43,7 @@ Use --legacy to update pages in the legacy editor format.
 Content can be provided via:
 - --file flag to read from a file (use --file - to read from stdin)
 - Standard input (pipe content)
-- Interactive editor (default, or with --editor flag)
+- Interactive editor with --editor
 
 Content format:
 - Markdown is the default for stdin, editor, and .md files
@@ -51,8 +51,8 @@ Content format:
 - Use --storage to provide raw Confluence storage format (XHTML) and send it directly
   via the storage representation API, regardless of the page's editor type
 - Files with .html/.xhtml extensions are treated as storage format`,
-		Example: `  # Edit a page (opens editor with current content)
-  cfl page edit 12345
+		Example: `  # Edit a page in the editor with current content
+  cfl page edit 12345 --editor
 
   # Update page content from file
   cfl page edit 12345 --file content.md
@@ -126,6 +126,11 @@ func runEdit(ctx context.Context, opts *editOptions) error {
 		return err
 	}
 
+	if opts.title == "" && opts.parent == "" &&
+		!hasContentSource(opts.Options, opts.file, opts.editor) {
+		return errMissingContentSource()
+	}
+
 	client, err := opts.APIClient()
 	if err != nil {
 		return err
@@ -152,23 +157,6 @@ func runEdit(ctx context.Context, opts *editOptions) error {
 
 	if opts.file != "" || opts.editor || hasStdinData {
 		content, isMarkdown, err := getEditContent(opts, existingPage)
-		if err != nil {
-			return err
-		}
-
-		if strings.TrimSpace(content) == "" {
-			return fmt.Errorf("page content cannot be empty")
-		}
-
-		newContent, err = convertEditContent(content, isMarkdown, opts.storage || opts.legacy)
-		if err != nil {
-			return err
-		}
-		hasNewContent = true
-	}
-
-	if !hasNewContent && opts.title == "" && opts.parent == "" {
-		content, isMarkdown, err := getEditContent(&editOptions{Options: opts.Options, editor: true, markdown: opts.markdown}, existingPage)
 		if err != nil {
 			return err
 		}
@@ -305,13 +293,16 @@ func getEditContent(opts *editOptions, existingPage *api.Page) (string, bool, er
 		return string(data), useMarkdown(""), nil
 	}
 
-	stat, _ := os.Stdin.Stat()
-	if (stat.Mode() & os.ModeCharDevice) == 0 {
+	if hasPipedOSStdin(opts.Options) {
 		data, err := io.ReadAll(os.Stdin)
 		if err != nil {
 			return "", false, fmt.Errorf("reading stdin: %w", err)
 		}
 		return string(data), useMarkdown(""), nil
+	}
+
+	if !opts.editor {
+		return "", false, errMissingContentSource()
 	}
 
 	isMarkdown := useMarkdown("")

@@ -261,6 +261,36 @@ func TestRunCreate_CreateFailed(t *testing.T) {
 	testutil.NotContains(t, err.Error(), "creating page: creating page:")
 }
 
+func TestRunCreate_NoContentSource_NoTTY_FailsBeforeAPICall(t *testing.T) {
+	t.Parallel()
+	oldStdinIsTTY := stdinIsTTY
+	stdinIsTTY = func() bool { return false }
+	t.Cleanup(func() { stdinIsTTY = oldStdinIsTTY })
+
+	hits := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		hits++
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	rootOpts := newCreateTestRootOptions()
+	rootOpts.Stdin = nil
+	rootOpts.SetAPIClient(api.NewClient(server.URL, "test@example.com", "token"))
+
+	opts := &createOptions{
+		Options: rootOpts,
+		space:   "DEV",
+		title:   "Test Page",
+	}
+
+	err := runCreate(context.Background(), opts)
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "page content source is required")
+	testutil.NotContains(t, err.Error(), "editor failed")
+	testutil.Equal(t, 0, hits)
+}
+
 func TestRunCreate_WithParent(t *testing.T) {
 	t.Parallel()
 	tmpDir := t.TempDir()

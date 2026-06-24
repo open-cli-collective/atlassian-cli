@@ -3,14 +3,12 @@ package page
 import (
 	"context"
 	"fmt"
-	"os"
 
 	"github.com/spf13/cobra"
 
-	"github.com/open-cli-collective/atlassian-go/view"
-
 	"github.com/open-cli-collective/confluence-cli/api"
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
+	cflpresent "github.com/open-cli-collective/confluence-cli/internal/present"
 )
 
 type listOptions struct {
@@ -58,10 +56,6 @@ var validStatuses = map[string]bool{
 }
 
 func runList(ctx context.Context, opts *listOptions) error {
-	if err := view.ValidateFormat(opts.Output); err != nil {
-		return err
-	}
-
 	if !validStatuses[opts.status] {
 		return fmt.Errorf("invalid status %q: must be one of current, archived, trashed", opts.status)
 	}
@@ -70,11 +64,8 @@ func runList(ctx context.Context, opts *listOptions) error {
 		return fmt.Errorf("invalid limit: %d (must be >= 0)", opts.limit)
 	}
 
-	v := opts.View()
-
 	if opts.limit == 0 {
-		v.RenderText("No pages found.")
-		return nil
+		return cflpresent.Emit(opts.Options, cflpresent.PagePresenter{}.PresentEmpty(""))
 	}
 
 	cfg, err := opts.Config()
@@ -112,33 +103,7 @@ func runList(ctx context.Context, opts *listOptions) error {
 	}
 
 	if len(result.Results) == 0 {
-		v.RenderText(fmt.Sprintf("No pages found in space %s.", spaceKey))
-		return nil
+		return cflpresent.Emit(opts.Options, cflpresent.PagePresenter{}.PresentEmpty(spaceKey))
 	}
-
-	headers := []string{"ID", "TITLE", "STATUS", "VERSION"}
-	rows := make([][]string, 0, len(result.Results))
-
-	for _, page := range result.Results {
-		version := ""
-		if page.Version != nil {
-			version = fmt.Sprintf("v%d", page.Version.Number)
-		}
-		rows = append(rows, []string{
-			page.ID,
-			view.Truncate(page.Title, 60),
-			page.Status,
-			version,
-		})
-	}
-
-	if err := v.Table(headers, rows); err != nil {
-		return err
-	}
-
-	if result.HasMore() {
-		fmt.Fprintf(os.Stderr, "\n(showing first %d results, use --limit to see more)\n", len(result.Results))
-	}
-
-	return nil
+	return cflpresent.Emit(opts.Options, cflpresent.PagePresenter{}.PresentList(result.Results, opts.Full, result.HasMore()))
 }

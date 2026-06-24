@@ -72,6 +72,8 @@ func TestRunDeleteAttachment_ForceDelete(t *testing.T) {
 
 	err := runDeleteAttachment(context.Background(), "att123", opts)
 	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "Deleted attachment: test-file.txt (ID: att123)\n", rootOpts.Stdout.(*bytes.Buffer).String())
+	testutil.Equal(t, "", rootOpts.Stderr.(*bytes.Buffer).String())
 }
 
 func TestRunDeleteAttachment_ConfirmWithY(t *testing.T) {
@@ -95,6 +97,8 @@ func TestRunDeleteAttachment_ConfirmWithY(t *testing.T) {
 
 	err := runDeleteAttachment(context.Background(), "att123", opts)
 	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "Deleted attachment: test-file.txt (ID: att123)\n", rootOpts.Stdout.(*bytes.Buffer).String())
+	testutil.Equal(t, "About to delete attachment: test-file.txt (ID: att123)\nAre you sure? [y/N]: ", rootOpts.Stderr.(*bytes.Buffer).String())
 	testutil.True(t, deleted, "attachment should have been deleted")
 }
 
@@ -119,6 +123,8 @@ func TestRunDeleteAttachment_ConfirmWithUpperY(t *testing.T) {
 
 	err := runDeleteAttachment(context.Background(), "att123", opts)
 	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "Deleted attachment: test-file.txt (ID: att123)\n", rootOpts.Stdout.(*bytes.Buffer).String())
+	testutil.Equal(t, "About to delete attachment: test-file.txt (ID: att123)\nAre you sure? [y/N]: ", rootOpts.Stderr.(*bytes.Buffer).String())
 	testutil.True(t, deleted, "attachment should have been deleted")
 }
 
@@ -143,6 +149,8 @@ func TestRunDeleteAttachment_CancelWithN(t *testing.T) {
 
 	err := runDeleteAttachment(context.Background(), "att123", opts)
 	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "", rootOpts.Stdout.(*bytes.Buffer).String())
+	testutil.Equal(t, "About to delete attachment: test-file.txt (ID: att123)\nAre you sure? [y/N]: Deletion cancelled.\n", rootOpts.Stderr.(*bytes.Buffer).String())
 	testutil.False(t, deleted, "attachment should NOT have been deleted")
 }
 
@@ -167,6 +175,8 @@ func TestRunDeleteAttachment_CancelWithEmpty(t *testing.T) {
 
 	err := runDeleteAttachment(context.Background(), "att123", opts)
 	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "", rootOpts.Stdout.(*bytes.Buffer).String())
+	testutil.Equal(t, "About to delete attachment: test-file.txt (ID: att123)\nAre you sure? [y/N]: Deletion cancelled.\n", rootOpts.Stderr.(*bytes.Buffer).String())
 	testutil.False(t, deleted, "attachment should NOT have been deleted")
 }
 
@@ -191,6 +201,8 @@ func TestRunDeleteAttachment_CancelWithOther(t *testing.T) {
 
 	err := runDeleteAttachment(context.Background(), "att123", opts)
 	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "", rootOpts.Stdout.(*bytes.Buffer).String())
+	testutil.Equal(t, "About to delete attachment: test-file.txt (ID: att123)\nAre you sure? [y/N]: Deletion cancelled.\n", rootOpts.Stderr.(*bytes.Buffer).String())
 	testutil.False(t, deleted, "attachment should NOT have been deleted")
 }
 

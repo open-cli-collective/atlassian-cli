@@ -23,6 +23,27 @@ type GetPageOptions struct {
 	BodyFormat string // storage, atlas_doc_format, view
 }
 
+// ListPageVersionsOptions contains options for listing page versions.
+type ListPageVersionsOptions struct {
+	Limit      int
+	Cursor     string
+	Sort       string // modified-date, -modified-date
+	BodyFormat string // storage, atlas_doc_format
+}
+
+// GetPageVersionOptions contains options for getting a page version body.
+type GetPageVersionOptions struct {
+	BodyFormat string // storage, atlas_doc_format
+}
+
+// PageVersionLocation identifies a specific page version in a sorted versions list.
+type PageVersionLocation struct {
+	Version     Version
+	Cursor      string
+	Sort        string
+	CurrentPage *Page
+}
+
 // ListPages returns a list of pages in a space.
 func (c *Client) ListPages(ctx context.Context, spaceID string, opts *ListPagesOptions) (*PaginatedResponse[Page], error) {
 	params := url.Values{}
@@ -86,6 +107,185 @@ func (c *Client) GetPage(ctx context.Context, pageID string, opts *GetPageOption
 	}
 
 	return &page, nil
+}
+
+// ListPageVersions returns versions for a page.
+func (c *Client) ListPageVersions(ctx context.Context, pageID string, opts *ListPageVersionsOptions) (*PaginatedResponse[Version], error) {
+	params := url.Values{}
+	params.Set("limit", "25") // Default limit
+
+	if opts != nil {
+		if opts.Limit > 0 {
+			params.Set("limit", strconv.Itoa(opts.Limit))
+		}
+		if opts.Cursor != "" {
+			params.Set("cursor", opts.Cursor)
+		}
+		if opts.Sort != "" {
+			params.Set("sort", opts.Sort)
+		}
+		if opts.BodyFormat != "" {
+			params.Set("body-format", opts.BodyFormat)
+		}
+	}
+
+	path := fmt.Sprintf("/api/v2/pages/%s/versions?%s", pageID, params.Encode())
+	body, err := c.Get(ctx, path)
+	if err != nil {
+		return nil, fmt.Errorf("listing page versions: %w", err)
+	}
+
+	var result PaginatedResponse[Version]
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("parsing page versions response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// LocatePageVersion finds the cursor and sort order needed to retrieve a specific page version.
+func (c *Client) LocatePageVersion(ctx context.Context, pageID string, version int) (*PageVersionLocation, error) {
+	if version < 1 {
+		return nil, fmt.Errorf("invalid page version: %d (must be >= 1)", version)
+	}
+
+	currentPage, err := c.GetPage(ctx, pageID, nil)
+	if err != nil {
+		return nil, fmt.Errorf("getting current page: %w", err)
+	}
+
+	sort := "-modified-date"
+	if currentPage != nil && currentPage.Version != nil && currentPage.Version.Number > 0 {
+		currentVersion := currentPage.Version.Number
+		if version > currentVersion {
+			return nil, fmt.Errorf("page version %d is newer than current version %d", version, currentVersion)
+		}
+		if version-1 < currentVersion-version {
+			sort = "modified-date"
+		}
+	}
+
+	cursor := ""
+	for {
+		result, err := c.ListPageVersions(ctx, pageID, &ListPageVersionsOptions{
+			Limit:  1,
+			Cursor: cursor,
+			Sort:   sort,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("locating page version: %w", err)
+		}
+		if len(result.Results) == 0 {
+			return nil, fmt.Errorf("page version %d not found", version)
+		}
+
+		row := result.Results[0]
+		if row.Number == version {
+			row.Page = nil
+			return &PageVersionLocation{
+				Version:     row,
+				Cursor:      cursor,
+				Sort:        sort,
+				CurrentPage: currentPage,
+			}, nil
+		}
+		if sort == "-modified-date" && row.Number < version {
+			return nil, fmt.Errorf("page version %d not found", version)
+		}
+		if sort == "modified-date" && row.Number > version {
+			return nil, fmt.Errorf("page version %d not found", version)
+		}
+
+		nextCursor := cursorFromNextLink(result.Links.Next)
+		if nextCursor == "" {
+			return nil, fmt.Errorf("page version %d not found", version)
+		}
+		cursor = nextCursor
+	}
+}
+
+// GetLocatedPageVersion returns the page body for a previously located page version.
+func (c *Client) GetLocatedPageVersion(
+	ctx context.Context,
+	pageID string,
+	location *PageVersionLocation,
+	bodyFormat string,
+) (*Page, error) {
+	if location == nil {
+		return nil, fmt.Errorf("page version location is required")
+	}
+	if bodyFormat == "" {
+		bodyFormat = "storage"
+	}
+
+	result, err := c.ListPageVersions(ctx, pageID, &ListPageVersionsOptions{
+		Limit:      1,
+		Cursor:     location.Cursor,
+		Sort:       location.Sort,
+		BodyFormat: bodyFormat,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(result.Results) == 0 {
+		return nil, fmt.Errorf("page version %d not found", location.Version.Number)
+	}
+
+	row := result.Results[0]
+	if row.Number != location.Version.Number {
+		return nil, fmt.Errorf("expected page version %d, got %d", location.Version.Number, row.Number)
+	}
+	if row.Page == nil {
+		return nil, fmt.Errorf("page version %d response did not include page content", row.Number)
+	}
+
+	page := row.Page
+	normalizeVersionedPage(page, pageID, row, location.CurrentPage)
+	return page, nil
+}
+
+// GetPageVersion returns a specific page version body.
+func (c *Client) GetPageVersion(ctx context.Context, pageID string, version int, opts *GetPageVersionOptions) (*Page, error) {
+	location, err := c.LocatePageVersion(ctx, pageID, version)
+	if err != nil {
+		return nil, err
+	}
+
+	bodyFormat := "storage"
+	if opts != nil && opts.BodyFormat != "" {
+		bodyFormat = opts.BodyFormat
+	}
+	return c.GetLocatedPageVersion(ctx, pageID, location, bodyFormat)
+}
+
+func normalizeVersionedPage(page *Page, pageID string, version Version, currentPage *Page) {
+	if page.ID == "" {
+		page.ID = pageID
+	}
+	if currentPage != nil {
+		if page.Title == "" {
+			page.Title = currentPage.Title
+		}
+		if page.SpaceID == "" {
+			page.SpaceID = currentPage.SpaceID
+		}
+		if page.Links.WebUI == "" {
+			page.Links.WebUI = currentPage.Links.WebUI
+		}
+	}
+	version.Page = nil
+	page.Version = &version
+}
+
+func cursorFromNextLink(nextLink string) string {
+	if nextLink == "" {
+		return ""
+	}
+	parsed, err := url.Parse(nextLink)
+	if err != nil {
+		return ""
+	}
+	return parsed.Query().Get("cursor")
 }
 
 // CreatePage creates a new page.

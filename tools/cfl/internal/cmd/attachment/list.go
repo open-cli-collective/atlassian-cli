@@ -3,15 +3,13 @@ package attachment
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
 
-	"github.com/open-cli-collective/atlassian-go/view"
-
 	"github.com/open-cli-collective/confluence-cli/api"
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
+	cflpresent "github.com/open-cli-collective/confluence-cli/internal/present"
 )
 
 type listOptions struct {
@@ -52,10 +50,6 @@ func newListCmd(rootOpts *root.Options) *cobra.Command {
 }
 
 func runList(ctx context.Context, opts *listOptions) error {
-	if err := view.ValidateFormat(opts.Output); err != nil {
-		return err
-	}
-
 	client, err := opts.APIClient()
 	if err != nil {
 		return err
@@ -88,31 +82,11 @@ func runList(ctx context.Context, opts *listOptions) error {
 		attachments = filterUnusedAttachments(attachments, pageContent)
 	}
 
-	v := opts.View()
-
-	headers := []string{"ID", "Title", "Media Type", "File Size"}
-	rows := make([][]string, 0, len(attachments))
-	for _, att := range attachments {
-		size := formatFileSize(att.FileSize)
-		rows = append(rows, []string{att.ID, att.Title, att.MediaType, size})
-	}
-
 	if len(attachments) == 0 {
-		if opts.unused {
-			_, _ = fmt.Fprintln(opts.Stderr, "No unused attachments found.")
-		} else {
-			_, _ = fmt.Fprintln(opts.Stderr, "No attachments found.")
-		}
-		return nil
+		return cflpresent.Emit(opts.Options, cflpresent.AttachmentPresenter{}.PresentEmpty(opts.unused))
 	}
 
-	_ = v.RenderList(headers, rows, result.HasMore())
-
-	if result.HasMore() {
-		fmt.Fprintf(os.Stderr, "\n(showing first %d results, use --limit to see more)\n", len(attachments))
-	}
-
-	return nil
+	return cflpresent.Emit(opts.Options, cflpresent.AttachmentPresenter{}.PresentList(attachments, opts.Full, result.HasMore()))
 }
 
 // filterUnusedAttachments returns attachments that are not referenced in the page content.
@@ -145,23 +119,4 @@ func isAttachmentReferenced(filename, content string) bool {
 	}
 
 	return false
-}
-
-func formatFileSize(bytes int64) string {
-	const (
-		KB = 1024
-		MB = KB * 1024
-		GB = MB * 1024
-	)
-
-	switch {
-	case bytes >= GB:
-		return fmt.Sprintf("%.1f GB", float64(bytes)/GB)
-	case bytes >= MB:
-		return fmt.Sprintf("%.1f MB", float64(bytes)/MB)
-	case bytes >= KB:
-		return fmt.Sprintf("%.1f KB", float64(bytes)/KB)
-	default:
-		return fmt.Sprintf("%d B", bytes)
-	}
 }

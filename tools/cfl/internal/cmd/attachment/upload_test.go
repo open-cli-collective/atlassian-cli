@@ -60,6 +60,8 @@ func TestRunUpload_Success(t *testing.T) {
 
 	err = runUpload(context.Background(), opts)
 	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "Uploaded: upload.txt\nID: att123\nTitle: upload.txt\nSize: 12 B\n", rootOpts.Stdout.(*bytes.Buffer).String())
+	testutil.Equal(t, "", rootOpts.Stderr.(*bytes.Buffer).String())
 }
 
 func TestRunUpload_WithComment(t *testing.T) {
@@ -101,6 +103,44 @@ func TestRunUpload_WithComment(t *testing.T) {
 	err = runUpload(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, "My upload comment", receivedComment)
+	testutil.Equal(t, "Uploaded: upload.txt\nID: att123\nTitle: upload.txt\nSize: 12 B\n", rootOpts.Stdout.(*bytes.Buffer).String())
+	testutil.Equal(t, "", rootOpts.Stderr.(*bytes.Buffer).String())
+}
+
+func TestRunUpload_Success_UsesLocalSizeWhenResponseFileSizeIsZero(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+	testFile := filepath.Join(tmpDir, "upload.txt")
+	err := os.WriteFile(testFile, []byte("test content"), 0600)
+	testutil.RequireNoError(t, err)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{
+			"results": [{
+				"id": "att123",
+				"title": "upload.txt",
+				"mediaType": "text/plain",
+				"fileSize": 0
+			}]
+		}`))
+	}))
+	defer server.Close()
+
+	rootOpts := newUploadTestRootOptions()
+	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
+	opts := &uploadOptions{
+		Options: rootOpts,
+		pageID:  "12345",
+		file:    testFile,
+	}
+
+	err = runUpload(context.Background(), opts)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "Uploaded: upload.txt\nID: att123\nTitle: upload.txt\nSize: 12 B\n", rootOpts.Stdout.(*bytes.Buffer).String())
+	testutil.Equal(t, "", rootOpts.Stderr.(*bytes.Buffer).String())
 }
 
 func TestRunUpload_FileNotFound(t *testing.T) {

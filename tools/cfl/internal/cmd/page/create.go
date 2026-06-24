@@ -13,6 +13,7 @@ import (
 
 	"github.com/open-cli-collective/confluence-cli/api"
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
+	cflpresent "github.com/open-cli-collective/confluence-cli/internal/present"
 	"github.com/open-cli-collective/confluence-cli/pkg/md"
 )
 
@@ -42,7 +43,7 @@ Use --legacy to create pages in the legacy editor format.
 Content can be provided via:
 - --file flag to read from a file (use --file - to read from stdin)
 - Standard input (pipe content)
-- Interactive editor (default, or with --editor flag)
+- Interactive editor with --editor
 
 Content format:
 - Markdown is the default for stdin, editor, and .md files
@@ -50,8 +51,8 @@ Content format:
 - Use --storage to provide raw Confluence storage format (XHTML) and send it directly
   via the storage representation API, regardless of the page's editor type
 - Files with .html/.xhtml extensions are treated as storage format`,
-		Example: `  # Create a page with title (opens markdown editor, cloud editor format)
-  cfl page create --space DEV --title "My Page"
+		Example: `  # Create a page with title in the editor (cloud editor format)
+  cfl page create --space DEV --title "My Page" --editor
 
   # Create from markdown file
   cfl page create -s DEV -t "My Page" --file content.md
@@ -115,6 +116,9 @@ func runCreate(ctx context.Context, opts *createOptions) error {
 		if _, err := os.Stat(opts.file); err != nil {
 			return fmt.Errorf("reading file: %w", err)
 		}
+	}
+	if !hasContentSource(opts.Options, opts.file, opts.editor) {
+		return errMissingContentSource()
 	}
 
 	cfg, err := opts.Config()
@@ -195,16 +199,10 @@ func runCreate(ctx context.Context, opts *createOptions) error {
 
 	page, err := client.CreatePage(ctx, req)
 	if err != nil {
-		return fmt.Errorf("creating page: %w", err)
+		return err
 	}
 
-	v := opts.View()
-
-	v.Success("Created page: %s", page.Title)
-	v.RenderKeyValue("ID", page.ID)
-	v.RenderKeyValue("URL", cfg.URL+page.Links.WebUI)
-
-	return nil
+	return cflpresent.Emit(opts.Options, cflpresent.PagePresenter{}.PresentCreate(page, cfg.URL))
 }
 
 // getContent reads content and returns (content, isMarkdown, error).
@@ -250,13 +248,16 @@ func getContent(opts *createOptions) (string, bool, error) {
 		return string(data), useMarkdown(""), nil
 	}
 
-	stat, _ := os.Stdin.Stat()
-	if (stat.Mode() & os.ModeCharDevice) == 0 {
+	if hasPipedOSStdin(opts.Options) {
 		data, err := io.ReadAll(os.Stdin)
 		if err != nil {
 			return "", false, fmt.Errorf("reading stdin: %w", err)
 		}
 		return string(data), useMarkdown(""), nil
+	}
+
+	if !opts.editor {
+		return "", false, errMissingContentSource()
 	}
 
 	isMarkdown := useMarkdown("")

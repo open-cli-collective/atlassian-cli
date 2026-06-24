@@ -2,13 +2,11 @@ package space
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/spf13/cobra"
 
-	"github.com/open-cli-collective/atlassian-go/view"
-
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
+	cflpresent "github.com/open-cli-collective/confluence-cli/internal/present"
 )
 
 type viewOptions struct {
@@ -35,10 +33,6 @@ func newViewCmd(rootOpts *root.Options) *cobra.Command {
 }
 
 func runView(ctx context.Context, spaceKey string, opts *viewOptions) error {
-	if err := view.ValidateFormat(opts.Output); err != nil {
-		return err
-	}
-
 	client, err := opts.APIClient()
 	if err != nil {
 		return err
@@ -46,21 +40,8 @@ func runView(ctx context.Context, spaceKey string, opts *viewOptions) error {
 
 	space, err := client.GetSpaceByKey(ctx, spaceKey)
 	if err != nil {
-		return fmt.Errorf("getting space: %w", err)
+		return err
 	}
 
-	v := opts.View()
-
-	v.RenderKeyValue("Key", space.Key)
-	v.RenderKeyValue("Name", space.Name)
-	v.RenderKeyValue("ID", space.ID)
-	v.RenderKeyValue("Type", space.Type)
-	if space.Status != "" {
-		v.RenderKeyValue("Status", space.Status)
-	}
-	if space.Description != nil && space.Description.Plain != nil && space.Description.Plain.Value != "" {
-		v.RenderKeyValue("Description", space.Description.Plain.Value)
-	}
-
-	return nil
+	return cflpresent.Emit(opts.Options, cflpresent.SpacePresenter{}.PresentDetail(space, opts.Full))
 }

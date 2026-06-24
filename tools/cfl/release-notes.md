@@ -1,5 +1,15 @@
 # Release Notes
 
+## v1.3.0 (Unreleased)
+
+Adds read-only page history inspection and historical page rendering.
+
+### Features
+- Add `cfl page history list <page-id>` for compact page version metadata ([#419](https://github.com/open-cli-collective/atlassian-cli/issues/419))
+- Add `cfl page view <page-id> --version <number>` to render a specific page version with existing markdown/raw/content-only behavior ([#419](https://github.com/open-cli-collective/atlassian-cli/issues/419))
+
+---
+
 ## v0.10.0 (2026-01-17)
 
 Adds Windows ARM64 binary distribution.

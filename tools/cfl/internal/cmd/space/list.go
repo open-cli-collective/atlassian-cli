@@ -3,14 +3,12 @@ package space
 import (
 	"context"
 	"fmt"
-	"net/url"
 
 	"github.com/spf13/cobra"
 
-	"github.com/open-cli-collective/atlassian-go/view"
-
 	"github.com/open-cli-collective/confluence-cli/api"
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
+	cflpresent "github.com/open-cli-collective/confluence-cli/internal/present"
 )
 
 type listOptions struct {
@@ -49,19 +47,12 @@ func newListCmd(rootOpts *root.Options) *cobra.Command {
 }
 
 func runList(ctx context.Context, opts *listOptions) error {
-	if err := view.ValidateFormat(opts.Output); err != nil {
-		return err
-	}
-
 	if opts.limit < 0 {
 		return fmt.Errorf("invalid limit: %d (must be >= 0)", opts.limit)
 	}
 
-	v := opts.View()
-
 	if opts.limit == 0 {
-		v.RenderText("No spaces found.")
-		return nil
+		return cflpresent.Emit(opts.Options, cflpresent.SpacePresenter{}.PresentEmpty())
 	}
 
 	client, err := opts.APIClient()
@@ -81,50 +72,7 @@ func runList(ctx context.Context, opts *listOptions) error {
 	}
 
 	if len(result.Results) == 0 {
-		v.RenderText("No spaces found.")
-		return nil
+		return cflpresent.Emit(opts.Options, cflpresent.SpacePresenter{}.PresentEmpty())
 	}
-
-	headers := []string{"KEY", "NAME", "TYPE", "DESCRIPTION"}
-	rows := make([][]string, 0, len(result.Results))
-
-	for _, space := range result.Results {
-		desc := ""
-		if space.Description != nil && space.Description.Plain != nil {
-			desc = view.Truncate(space.Description.Plain.Value, 50)
-		}
-		rows = append(rows, []string{
-			space.Key,
-			space.Name,
-			space.Type,
-			desc,
-		})
-	}
-
-	if err := v.Table(headers, rows); err != nil {
-		return err
-	}
-
-	if result.HasMore() {
-		nextCursor := extractCursor(result.Links.Next)
-		if nextCursor != "" {
-			_, _ = fmt.Fprintf(opts.Stderr, "\nNext page: cfl space list --cursor %q\n", nextCursor)
-		} else {
-			_, _ = fmt.Fprintf(opts.Stderr, "\n(showing first %d results, use --limit to see more)\n", len(result.Results))
-		}
-	}
-
-	return nil
-}
-
-// extractCursor parses the cursor query parameter from a next link URL.
-func extractCursor(nextLink string) string {
-	if nextLink == "" {
-		return ""
-	}
-	parsed, err := url.Parse(nextLink)
-	if err != nil {
-		return ""
-	}
-	return parsed.Query().Get("cursor")
+	return cflpresent.Emit(opts.Options, cflpresent.SpacePresenter{}.PresentList(result.Results, opts.Full, cflpresent.ExtractCursor(result.Links.Next), result.HasMore()))
 }

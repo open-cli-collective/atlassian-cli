@@ -295,6 +295,34 @@ Primary audit artifact:
 
 Extended always implies `--fulltext`. Adds: reporter with ID, raw timestamps with timezone, status category, sprint dates and ID, component IDs, watchers, resolution, fix versions (even when empty), all non-null custom fields (by name and ID), and available transitions.
 
+**`issues history MON-4810`** — default:
+```
+ID | CREATED | AUTHOR | FIELD | FROM | TO
+113344 | 2026-04-16 | Aaron Wong | status | Backlog | Ready for Development
+113345 | 2026-04-16 | Aaron Wong | assignee | - | Rian Stockbower
+113346 | 2026-04-17 | Rian Stockbower | summary | Initial placeholder | Audit and remediate accessibility issues on CapOne-specific surfaces
+More results available (next: 50)
+```
+
+Rows are chronological in Jira's changelog order. Each row is one changed field item. The `ID` is the changelog group ID and may repeat when Jira groups multiple field changes in one history entry.
+
+**`issues history MON-4810 --id`:**
+```
+113344
+113345
+113346
+More results available (next: 50)
+```
+
+**`issues history MON-4810 --extended`:**
+```
+ID | CREATED | AUTHOR | ACCOUNT_ID | FIELD | FIELD_ID | TYPE | FROM_ID | FROM | TO_ID | TO
+113344 | 2026-04-16T07:05:10.000+0000 | Aaron Wong | 5f3a21... | status | status | jira | 10000 | Backlog | 10001 | Ready for Development
+113345 | 2026-04-16T07:06:42.000+0000 | Aaron Wong | 5f3a21... | assignee | assignee | jira | - | - | 60e09bae7fcd820073089249 | Rian Stockbower
+```
+
+`--id` emits one changelog group ID per history group, not one ID per flattened item row. `--fields` projects fixed history columns and prepends `ID` when omitted. Extended-only columns such as `ACCOUNT_ID`, `FIELD_ID`, `TYPE`, `FROM_ID`, and `TO_ID` require `--extended`.
+
 **`issues fields MON-4810`** — default:
 ```
 FIELD_ID | NAME | TYPE | VALUE

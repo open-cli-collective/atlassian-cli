@@ -65,6 +65,8 @@ func TestRunDelete_ConfirmYes(t *testing.T) {
 
 	err := runDelete(context.Background(), "12345", opts)
 	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "Deleted page: Test Page (ID: 12345)\n", rootOpts.Stdout.(*bytes.Buffer).String())
+	testutil.Equal(t, "About to delete page: Test Page (ID: 12345)\nAre you sure? [y/N]: ", rootOpts.Stderr.(*bytes.Buffer).String())
 }
 
 func TestRunDelete_ConfirmYesUppercase(t *testing.T) {
@@ -84,6 +86,8 @@ func TestRunDelete_ConfirmYesUppercase(t *testing.T) {
 
 	err := runDelete(context.Background(), "12345", opts)
 	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "Deleted page: Test Page (ID: 12345)\n", rootOpts.Stdout.(*bytes.Buffer).String())
+	testutil.Equal(t, "About to delete page: Test Page (ID: 12345)\nAre you sure? [y/N]: ", rootOpts.Stderr.(*bytes.Buffer).String())
 }
 
 func TestRunDelete_ConfirmNo(t *testing.T) {
@@ -103,6 +107,8 @@ func TestRunDelete_ConfirmNo(t *testing.T) {
 
 	err := runDelete(context.Background(), "12345", opts)
 	testutil.RequireNoError(t, err) // Cancellation is not an error
+	testutil.Equal(t, "", rootOpts.Stdout.(*bytes.Buffer).String())
+	testutil.Equal(t, "About to delete page: Test Page (ID: 12345)\nAre you sure? [y/N]: Deletion cancelled.\n", rootOpts.Stderr.(*bytes.Buffer).String())
 }
 
 func TestRunDelete_ConfirmEmpty(t *testing.T) {
@@ -122,6 +128,8 @@ func TestRunDelete_ConfirmEmpty(t *testing.T) {
 
 	err := runDelete(context.Background(), "12345", opts)
 	testutil.RequireNoError(t, err) // Empty input should cancel
+	testutil.Equal(t, "", rootOpts.Stdout.(*bytes.Buffer).String())
+	testutil.Equal(t, "About to delete page: Test Page (ID: 12345)\nAre you sure? [y/N]: Deletion cancelled.\n", rootOpts.Stderr.(*bytes.Buffer).String())
 }
 
 func TestRunDelete_ConfirmOther(t *testing.T) {
@@ -141,6 +149,8 @@ func TestRunDelete_ConfirmOther(t *testing.T) {
 
 	err := runDelete(context.Background(), "12345", opts)
 	testutil.RequireNoError(t, err) // Any non-y/Y input should cancel
+	testutil.Equal(t, "", rootOpts.Stdout.(*bytes.Buffer).String())
+	testutil.Equal(t, "About to delete page: Test Page (ID: 12345)\nAre you sure? [y/N]: Deletion cancelled.\n", rootOpts.Stderr.(*bytes.Buffer).String())
 }
 
 func TestRunDelete_Force(t *testing.T) {
@@ -159,6 +169,8 @@ func TestRunDelete_Force(t *testing.T) {
 
 	err := runDelete(context.Background(), "12345", opts)
 	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "Deleted page: Test Page (ID: 12345)\n", rootOpts.Stdout.(*bytes.Buffer).String())
+	testutil.Equal(t, "", rootOpts.Stderr.(*bytes.Buffer).String())
 }
 
 func TestRunDelete_PageNotFound(t *testing.T) {
@@ -181,6 +193,7 @@ func TestRunDelete_PageNotFound(t *testing.T) {
 	err := runDelete(context.Background(), "99999", opts)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "getting page")
+	testutil.NotContains(t, err.Error(), "getting page: getting page:")
 }
 
 func TestRunDelete_DeleteFailed(t *testing.T) {
@@ -200,6 +213,7 @@ func TestRunDelete_DeleteFailed(t *testing.T) {
 	err := runDelete(context.Background(), "12345", opts)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "deleting page")
+	testutil.NotContains(t, err.Error(), "deleting page: deleting page")
 }
 
 func TestRunDelete_ConfirmationInputs(t *testing.T) {

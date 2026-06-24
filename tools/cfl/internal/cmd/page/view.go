@@ -8,16 +8,16 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/open-cli-collective/atlassian-go/view"
-
+	"github.com/open-cli-collective/confluence-cli/api"
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
-	"github.com/open-cli-collective/confluence-cli/pkg/md"
+	"github.com/open-cli-collective/confluence-cli/internal/pageview"
+	cflpresent "github.com/open-cli-collective/confluence-cli/internal/present"
 )
 
 // maxViewChars is the default character limit for page body output.
 // Content beyond this limit is truncated with an indicator.
-// Use --full to show complete content without truncation.
-const maxViewChars = 5000
+// Use --no-truncate to show complete content without truncation.
+const maxViewChars = pageview.MaxChars
 
 type viewOptions struct {
 	*root.Options
@@ -26,6 +26,7 @@ type viewOptions struct {
 	noTruncate  bool
 	showMacros  bool
 	contentOnly bool
+	version     int
 }
 
 func newViewCmd(rootOpts *root.Options) *cobra.Command {
@@ -51,6 +52,9 @@ The --content-only flag implies --no-truncate since it is intended for piping.`,
   # View raw storage format (XHTML)
   cfl page view 12345 --raw
 
+  # View a specific historical version
+  cfl page view 12345 --version 7
+
   # Open in browser
   cfl page view 12345 --web
 
@@ -70,19 +74,22 @@ The --content-only flag implies --no-truncate since it is intended for piping.`,
 	cmd.Flags().BoolVar(&opts.noTruncate, "no-truncate", false, "Show full content without truncation")
 	cmd.Flags().BoolVar(&opts.showMacros, "show-macros", false, "Show Confluence macro placeholders (e.g., [TOC]) instead of stripping them")
 	cmd.Flags().BoolVar(&opts.contentOnly, "content-only", false, "Output only page content (no metadata headers); implies --no-truncate")
+	cmd.Flags().IntVar(&opts.version, "version", 0, "View a specific page version")
 
 	return cmd
 }
 
 func runView(ctx context.Context, pageID string, opts *viewOptions) error {
-	if err := view.ValidateFormat(opts.Output); err != nil {
-		return err
-	}
-
 	if opts.contentOnly {
 		if opts.web {
 			return fmt.Errorf("--content-only is incompatible with --web")
 		}
+	}
+	if opts.version < 0 {
+		return fmt.Errorf("invalid version: %d (must be >= 0)", opts.version)
+	}
+	if opts.version > 0 && opts.web {
+		return fmt.Errorf("--version is incompatible with --web")
 	}
 
 	cfg, err := opts.Config()
@@ -99,18 +106,21 @@ func runView(ctx context.Context, pageID string, opts *viewOptions) error {
 	if opts.web {
 		page, err := client.GetPage(ctx, pageID, nil)
 		if err != nil {
-			return fmt.Errorf("getting page: %w", err)
+			return err
 		}
 		url := cfg.URL + page.Links.WebUI
 		return openBrowser(url)
 	}
 
-	page, err := getPageWithBodyFallback(ctx, client, pageID)
-	if err != nil {
-		return fmt.Errorf("getting page: %w", err)
+	var page *api.Page
+	if opts.version > 0 {
+		page, err = getPageVersionWithBodyFallback(ctx, client, pageID, opts.version)
+	} else {
+		page, err = getPageWithBodyFallback(ctx, client, pageID)
 	}
-
-	v := opts.View()
+	if err != nil {
+		return err
+	}
 
 	// Look up space key for display
 	spaceKey := ""
@@ -122,72 +132,15 @@ func runView(ctx context.Context, pageID string, opts *viewOptions) error {
 		// Graceful fallback: if GetSpace fails, we just won't show the key
 	}
 
-	if !opts.contentOnly {
-		v.RenderKeyValue("Title", page.Title)
-		v.RenderKeyValue("ID", page.ID)
-		if spaceKey != "" {
-			v.RenderKeyValue("Space", fmt.Sprintf("%s (ID: %s)", spaceKey, page.SpaceID))
-		} else if page.SpaceID != "" {
-			v.RenderKeyValue("Space ID", page.SpaceID)
-		}
-		if page.Version != nil {
-			v.RenderKeyValue("Version", fmt.Sprintf("%d", page.Version.Number))
-		}
-		_, _ = fmt.Fprintln(v.Out)
-	}
+	proj := pageview.Project(page, spaceKey, pageview.Options{
+		Raw:         opts.raw,
+		NoTruncate:  opts.noTruncate,
+		ShowMacros:  opts.showMacros,
+		ContentOnly: opts.contentOnly,
+	})
 
-	if hasStorageContent(page) {
-		content := page.Body.Storage.Value
-		if opts.raw {
-			_, _ = fmt.Fprintln(v.Out, truncateContent(content, opts))
-		} else {
-			convertOpts := md.ConvertOptions{
-				ShowMacros: opts.showMacros,
-			}
-			markdown, err := md.FromConfluenceStorageWithOptions(content, convertOpts)
-			if err != nil {
-				_, _ = fmt.Fprintln(v.Out, "(Failed to convert to markdown, showing raw HTML)")
-				_, _ = fmt.Fprintln(v.Out)
-				_, _ = fmt.Fprintln(v.Out, truncateContent(content, opts))
-			} else {
-				_, _ = fmt.Fprintln(v.Out, truncateContent(markdown, opts))
-			}
-		}
-	} else if hasADFContent(page) {
-		content := page.Body.AtlasDocFormat.Value
-		if opts.raw {
-			_, _ = fmt.Fprintln(v.Out, truncateContent(content, opts))
-		} else {
-			markdown, err := md.FromADF(content)
-			if err != nil {
-				_, _ = fmt.Fprintln(v.Out, "(Failed to convert ADF to markdown, showing raw ADF)")
-				_, _ = fmt.Fprintln(v.Out)
-				_, _ = fmt.Fprintln(v.Out, truncateContent(content, opts))
-			} else {
-				_, _ = fmt.Fprintln(v.Out, truncateContent(markdown, opts))
-			}
-		}
-	} else {
-		_, _ = fmt.Fprintln(v.Out, "(No content)")
-	}
-
-	return nil
+	return cflpresent.Emit(opts.Options, cflpresent.PagePresenter{}.PresentView(proj))
 }
-
-// truncateContent truncates content if it exceeds the character limit.
-// Uses rune count to avoid splitting multi-byte UTF-8 characters.
-// --content-only implies --no-truncate since it is intended for piping.
-func truncateContent(content string, opts *viewOptions) string {
-	if opts.noTruncate || opts.contentOnly {
-		return content
-	}
-	runes := []rune(content)
-	if len(runes) > maxViewChars {
-		return string(runes[:maxViewChars]) + fmt.Sprintf("\n\n... [truncated at %d chars, use --no-truncate for complete text]", maxViewChars)
-	}
-	return content
-}
-
 func openBrowser(url string) error {
 	var cmd *exec.Cmd
 

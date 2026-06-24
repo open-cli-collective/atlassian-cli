@@ -71,6 +71,61 @@ func TestRunList_PageList_Success(t *testing.T) {
 	testutil.RequireNoError(t, err)
 }
 
+func TestRunList_PageList_PlainFullExact(t *testing.T) {
+	t.Parallel()
+	server := mockListServer(t, "DEV", "123456", `{
+		"results": [
+			{"id": "11111", "title": "Page One", "status": "current", "version": {"number": 1}, "parentId": "999"}
+		],
+		"_links": {"next": "/wiki/api/v2/spaces/123456/pages?cursor=abc"}
+	}`)
+	defer server.Close()
+
+	rootOpts := newListPageTestRootOptions()
+	rootOpts.Output = "plain"
+	rootOpts.Full = true
+	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
+	opts := &listOptions{
+		Options: rootOpts,
+		space:   "DEV",
+		limit:   25,
+		status:  "current",
+	}
+
+	err := runList(context.Background(), opts)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "ID\tTITLE\tSTATUS\tVERSION\tPARENT ID\n11111\tPage One\tcurrent\tv1\t999\n", rootOpts.Stdout.(*bytes.Buffer).String())
+	testutil.Equal(t, "(showing first 1 results, use --limit to see more)\n", rootOpts.Stderr.(*bytes.Buffer).String())
+}
+
+func TestRunList_PageList_TableOutputExact(t *testing.T) {
+	t.Parallel()
+	server := mockListServer(t, "DEV", "123456", `{
+		"results": [
+			{"id": "11111", "title": "Page One", "status": "current"}
+		]
+	}`)
+	defer server.Close()
+
+	rootOpts := newListPageTestRootOptions()
+	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
+	opts := &listOptions{
+		Options: rootOpts,
+		space:   "DEV",
+		limit:   25,
+		status:  "current",
+	}
+
+	err := runList(context.Background(), opts)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "ID     TITLE     STATUS\n11111  Page One  current\n", rootOpts.Stdout.(*bytes.Buffer).String())
+	testutil.Equal(t, "", rootOpts.Stderr.(*bytes.Buffer).String())
+}
+
 func TestRunList_PageList_EmptyResults(t *testing.T) {
 	t.Parallel()
 	server := mockListServer(t, "DEV", "123456", `{"results": []}`)
@@ -89,22 +144,8 @@ func TestRunList_PageList_EmptyResults(t *testing.T) {
 
 	err := runList(context.Background(), opts)
 	testutil.RequireNoError(t, err)
-}
-
-func TestRunList_PageList_InvalidOutputFormat(t *testing.T) {
-	t.Parallel()
-	rootOpts := newListPageTestRootOptions()
-	rootOpts.Output = "invalid"
-
-	opts := &listOptions{
-		Options: rootOpts,
-		space:   "DEV",
-		limit:   25,
-	}
-
-	err := runList(context.Background(), opts)
-	testutil.RequireError(t, err)
-	testutil.Contains(t, err.Error(), "invalid output format")
+	testutil.Equal(t, "", rootOpts.Stdout.(*bytes.Buffer).String())
+	testutil.Equal(t, "No pages found in space DEV.\n", rootOpts.Stderr.(*bytes.Buffer).String())
 }
 
 func TestRunList_PageList_NegativeLimit(t *testing.T) {

@@ -114,8 +114,8 @@ github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e h1:fD57ERR4JtEqsWb
 github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e/go.mod h1:zD1mROLANZcx1PVRCS0qkT7pwLkGfwJo4zjcN/Tysno=
 github.com/noamcohen97/touchid-go v0.3.0 h1:fcXxVCizysD7KHRR6hrURt3nyNIs5JBGSbOIidD/3wo=
 github.com/noamcohen97/touchid-go v0.3.0/go.mod h1:X9MRNIBGEmPqwpDm1G3fQOAQX7fwBlhzUbnkDTxuta0=
-github.com/open-cli-collective/cli-common v0.3.2 h1:jj3swzbzmZE9xALMOzTpCQXPylXDxuxWoSTT96G0Q84=
-github.com/open-cli-collective/cli-common v0.3.2/go.mod h1:3AzjCT0V8xgslHlGi1+rUkcV+Vf5wONGwISQkufLZLQ=
+github.com/open-cli-collective/cli-common v0.4.1-0.20260620115552-351effa2004b h1:85ps+R5ae8xyipytCzmyQLMQVDm1xMh+dQrEKCv9Hto=
+github.com/open-cli-collective/cli-common v0.4.1-0.20260620115552-351effa2004b/go.mod h1:3AzjCT0V8xgslHlGi1+rUkcV+Vf5wONGwISQkufLZLQ=
 github.com/opentracing/opentracing-go v1.2.0 h1:uEJPy/1a5RIPAJ0Ov+OIO8OxWu77jEv+1B0VhjKrZUs=
 github.com/opentracing/opentracing-go v1.2.0/go.mod h1:GxEUsuufX4nBwe+T+Wl9TAgYrxe9dPLANfrWvHYVTgc=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=

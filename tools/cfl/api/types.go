@@ -67,6 +67,7 @@ type Version struct {
 	MinorEdit bool                 `json:"minorEdit,omitempty"`
 	AuthorID  string               `json:"authorId,omitempty"`
 	CreatedAt *atime.AtlassianTime `json:"createdAt,omitempty"`
+	Page      *Page                `json:"page,omitempty"`
 }
 
 // Body contains page content in various representations.

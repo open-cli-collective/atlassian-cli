@@ -103,6 +103,172 @@ func TestClient_GetPage_WithBodyFormat(t *testing.T) {
 	testutil.RequireNoError(t, err)
 }
 
+func TestClient_ListPageVersions_WithOptions(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		testutil.Equal(t, "/api/v2/pages/12345/versions", r.URL.Path)
+		testutil.Equal(t, "GET", r.Method)
+		testutil.Equal(t, "5", r.URL.Query().Get("limit"))
+		testutil.Equal(t, "abc123", r.URL.Query().Get("cursor"))
+		testutil.Equal(t, "-modified-date", r.URL.Query().Get("sort"))
+		testutil.Equal(t, "storage", r.URL.Query().Get("body-format"))
+
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{
+			"results": [{
+				"number": 7,
+				"message": "Updated intro",
+				"minorEdit": true,
+				"authorId": "abc",
+				"page": {
+					"id": "12345",
+					"title": "History Page",
+					"body": {"storage": {"representation": "storage", "value": "<p>v7</p>"}}
+				}
+			}],
+			"_links": {"next": "/api/v2/pages/12345/versions?cursor=next123"}
+		}`))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "user@example.com", "token")
+	result, err := client.ListPageVersions(context.Background(), "12345", &ListPageVersionsOptions{
+		Limit:      5,
+		Cursor:     "abc123",
+		Sort:       "-modified-date",
+		BodyFormat: "storage",
+	})
+
+	testutil.RequireNoError(t, err)
+	testutil.Len(t, result.Results, 1)
+	testutil.True(t, result.HasMore())
+	version := result.Results[0]
+	testutil.Equal(t, 7, version.Number)
+	testutil.True(t, version.MinorEdit)
+	testutil.NotNil(t, version.Page)
+	testutil.NotNil(t, version.Page.Body.Storage)
+	testutil.Equal(t, "<p>v7</p>", version.Page.Body.Storage.Value)
+}
+
+func TestClient_GetPageVersion_LocatesAndFetchesSingleBody(t *testing.T) {
+	t.Parallel()
+	callCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		callCount++
+		switch callCount {
+		case 1:
+			testutil.Equal(t, "/api/v2/pages/12345", r.URL.Path)
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{
+				"id": "12345",
+				"title": "History Page",
+				"spaceId": "987",
+				"version": {"number": 3},
+				"_links": {"webui": "/spaces/DEV/pages/12345"}
+			}`))
+		case 2:
+			testutil.Equal(t, "/api/v2/pages/12345/versions", r.URL.Path)
+			testutil.Equal(t, "1", r.URL.Query().Get("limit"))
+			testutil.Equal(t, "-modified-date", r.URL.Query().Get("sort"))
+			testutil.Empty(t, r.URL.Query().Get("cursor"))
+			testutil.Empty(t, r.URL.Query().Get("body-format"))
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{
+				"results": [{"number": 3}],
+				"_links": {"next": "/api/v2/pages/12345/versions?cursor=cursor-v2"}
+			}`))
+		case 3:
+			testutil.Equal(t, "1", r.URL.Query().Get("limit"))
+			testutil.Equal(t, "cursor-v2", r.URL.Query().Get("cursor"))
+			testutil.Empty(t, r.URL.Query().Get("body-format"))
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"results": [{"number": 2, "authorId": "author-2"}]}`))
+		case 4:
+			testutil.Equal(t, "1", r.URL.Query().Get("limit"))
+			testutil.Equal(t, "cursor-v2", r.URL.Query().Get("cursor"))
+			testutil.Equal(t, "-modified-date", r.URL.Query().Get("sort"))
+			testutil.Equal(t, "storage", r.URL.Query().Get("body-format"))
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{
+				"results": [{
+					"number": 2,
+					"authorId": "author-2",
+					"page": {
+						"body": {"storage": {"representation": "storage", "value": "<p>Version 2</p>"}}
+					}
+				}]
+			}`))
+		default:
+			t.Fatalf("unexpected call %d to %s", callCount, r.URL.String())
+		}
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "user@example.com", "token")
+	page, err := client.GetPageVersion(context.Background(), "12345", 2, &GetPageVersionOptions{BodyFormat: "storage"})
+
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, 4, callCount)
+	testutil.Equal(t, "12345", page.ID)
+	testutil.Equal(t, "History Page", page.Title)
+	testutil.Equal(t, "987", page.SpaceID)
+	testutil.Equal(t, 2, page.Version.Number)
+	testutil.Equal(t, "author-2", page.Version.AuthorID)
+	testutil.Equal(t, "<p>Version 2</p>", page.Body.Storage.Value)
+}
+
+func TestClient_LocatePageVersion_ChoosesAscendingForOlderVersion(t *testing.T) {
+	t.Parallel()
+	callCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		callCount++
+		switch callCount {
+		case 1:
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"id": "12345", "version": {"number": 10}}`))
+		case 2:
+			testutil.Equal(t, "modified-date", r.URL.Query().Get("sort"))
+			testutil.Empty(t, r.URL.Query().Get("cursor"))
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{
+				"results": [{"number": 1}],
+				"_links": {"next": "/api/v2/pages/12345/versions?cursor=cursor-v2"}
+			}`))
+		case 3:
+			testutil.Equal(t, "modified-date", r.URL.Query().Get("sort"))
+			testutil.Equal(t, "cursor-v2", r.URL.Query().Get("cursor"))
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"results": [{"number": 2}]}`))
+		default:
+			t.Fatalf("unexpected call %d", callCount)
+		}
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "user@example.com", "token")
+	location, err := client.LocatePageVersion(context.Background(), "12345", 2)
+
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "modified-date", location.Sort)
+	testutil.Equal(t, "cursor-v2", location.Cursor)
+	testutil.Equal(t, 2, location.Version.Number)
+}
+
+func TestClient_LocatePageVersion_NewerThanCurrent(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"id": "12345", "version": {"number": 2}}`))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "user@example.com", "token")
+	_, err := client.LocatePageVersion(context.Background(), "12345", 3)
+
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "newer than current version")
+}
+
 func TestClient_CreatePage(t *testing.T) {
 	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

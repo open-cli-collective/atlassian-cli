@@ -7,9 +7,9 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/open-cli-collective/atlassian-go/prompt"
-	"github.com/open-cli-collective/atlassian-go/view"
 
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
+	cflpresent "github.com/open-cli-collective/confluence-cli/internal/present"
 )
 
 type deleteOptions struct {
@@ -49,10 +49,6 @@ func runDelete(ctx context.Context, spaceKey string, opts *deleteOptions) error 
 		return prompt.ErrConfirmationRequired
 	}
 
-	if err := view.ValidateFormat(opts.Output); err != nil {
-		return err
-	}
-
 	client, err := opts.APIClient()
 	if err != nil {
 		return err
@@ -60,10 +56,8 @@ func runDelete(ctx context.Context, spaceKey string, opts *deleteOptions) error 
 
 	space, err := client.GetSpaceByKey(ctx, spaceKey)
 	if err != nil {
-		return fmt.Errorf("getting space: %w", err)
+		return err
 	}
-
-	v := opts.View()
 
 	if !opts.force && !opts.NonInteractive {
 		_, _ = fmt.Fprintf(opts.Stderr, "About to delete space: %s (%s)\n", space.Name, space.Key)
@@ -74,15 +68,12 @@ func runDelete(ctx context.Context, spaceKey string, opts *deleteOptions) error 
 		return err
 	}
 	if !confirmed {
-		_, _ = fmt.Fprintln(opts.Stderr, "Deletion cancelled.")
-		return nil
+		return cflpresent.Emit(opts.Options, cflpresent.PresentDeletionCancelled())
 	}
 
 	if err := client.DeleteSpace(ctx, spaceKey); err != nil {
-		return fmt.Errorf("deleting space: %w", err)
+		return err
 	}
 
-	v.Success("Deleted space: %s (%s)", space.Name, spaceKey)
-
-	return nil
+	return cflpresent.Emit(opts.Options, cflpresent.SpacePresenter{}.PresentDelete(space))
 }

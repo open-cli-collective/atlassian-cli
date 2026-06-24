@@ -28,8 +28,9 @@ type Style int
 
 // Style constants.
 const (
-	StyleHuman Style = iota // Padded tables, decorators (checkmark, warning)
-	StyleAgent              // Pipe-delimited, plain text, token-efficient
+	StyleHuman      Style = iota // Padded tables, decorators (checkmark, warning)
+	StyleAgent                   // Pipe-delimited, plain text, token-efficient
+	StyleHumanPlain              // Human-oriented detail/message text plus TSV tables
 )
 
 // StyleFromMode converts RenderMode to Style.
@@ -94,9 +95,10 @@ const (
 
 // MessageSection displays a status message (mutations, confirmations).
 type MessageSection struct {
-	Kind    MessageKind
-	Message string
-	Stream  Stream // Explicit stream routing (zero value = StreamStdout)
+	Kind      MessageKind
+	Message   string
+	Stream    Stream // Explicit stream routing (zero value = StreamStdout)
+	NoNewline bool   // For progress messages that intentionally complete later.
 }
 
 func (*MessageSection) sectionMarker() {}

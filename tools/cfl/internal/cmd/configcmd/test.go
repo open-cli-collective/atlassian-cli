@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
+	cflpresent "github.com/open-cli-collective/confluence-cli/internal/present"
 )
 
 func newTestCmd(opts *root.Options) *cobra.Command {
@@ -34,55 +35,24 @@ func runTest(ctx context.Context, opts *root.Options) error {
 		return fmt.Errorf("configuration error: %w", err)
 	}
 
-	_, _ = fmt.Fprint(opts.Stderr, "Testing connection... ")
+	_ = cflpresent.Emit(opts, cflpresent.ConfigPresenter{}.PresentTestProgress())
 
 	// Try to list spaces (limit 1) to verify connectivity
 	_, err = client.ListSpaces(ctx, nil)
 	if err != nil {
-		_, _ = fmt.Fprintln(opts.Stderr, "failed!")
-		_, _ = fmt.Fprintln(opts.Stderr)
-		_, _ = fmt.Fprintln(opts.Stderr, "Troubleshooting:")
-		_, _ = fmt.Fprintln(opts.Stderr, "  - Verify your URL is correct (should include https://)")
-		_, _ = fmt.Fprintln(opts.Stderr, "  - Check your email and API token")
-		_, _ = fmt.Fprintln(opts.Stderr, "  - Ensure your API token hasn't expired")
-		_, _ = fmt.Fprintln(opts.Stderr, "  - Verify you have permission to access Confluence")
-		_, _ = fmt.Fprintln(opts.Stderr)
-		_, _ = fmt.Fprintln(opts.Stderr, "To regenerate an API token:")
-		_, _ = fmt.Fprintln(opts.Stderr, "  https://id.atlassian.com/manage-profile/security/api-tokens")
+		_ = cflpresent.Emit(opts, cflpresent.ConfigPresenter{}.PresentTestFailure())
 		return fmt.Errorf("connection test failed: %w", err)
 	}
-
-	_, _ = fmt.Fprintln(opts.Stderr, "success!")
-	_, _ = fmt.Fprintln(opts.Stderr)
+	if err := cflpresent.Emit(opts, cflpresent.ConfigPresenter{}.PresentTestConnectionSuccess()); err != nil {
+		return err
+	}
 
 	// Get current user details
 	user, err := client.GetCurrentUser(ctx)
 	if err != nil {
 		// User details failed but connection worked - show basic success
-		_, _ = fmt.Fprintln(opts.Stderr, "Your cfl configuration is working correctly.")
-		return nil
+		return cflpresent.Emit(opts, cflpresent.ConfigPresenter{}.PresentTestSuccess(nil))
 	}
 
-	_, _ = fmt.Fprintln(opts.Stderr, "Authentication successful")
-	_, _ = fmt.Fprintln(opts.Stderr, "API access verified")
-	_, _ = fmt.Fprintln(opts.Stderr)
-
-	// Display user info - try DisplayName first, fall back to PublicName
-	displayName := user.DisplayName
-	if displayName == "" {
-		displayName = user.PublicName
-	}
-
-	if displayName != "" {
-		if user.Email != "" {
-			_, _ = fmt.Fprintf(opts.Stderr, "Authenticated as: %s (%s)\n", displayName, user.Email)
-		} else {
-			_, _ = fmt.Fprintf(opts.Stderr, "Authenticated as: %s\n", displayName)
-		}
-	}
-	if user.AccountID != "" {
-		_, _ = fmt.Fprintf(opts.Stderr, "Account ID: %s\n", user.AccountID)
-	}
-
-	return nil
+	return cflpresent.Emit(opts, cflpresent.ConfigPresenter{}.PresentTestSuccess(user))
 }

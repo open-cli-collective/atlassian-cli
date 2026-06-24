@@ -45,6 +45,26 @@ func TestProjectShow_EnvOverridesFile(t *testing.T) {
 	testutil.Equal(t, ShowValue{Value: "configured", Source: "environment"}, proj.APIToken)
 }
 
+func TestProjectShow_PrimaryEnvWinsOverFallback(t *testing.T) {
+	t.Setenv("CFL_EMAIL", "")
+	t.Setenv("ATLASSIAN_EMAIL", "")
+	t.Setenv("CFL_AUTH_METHOD", "")
+	t.Setenv("ATLASSIAN_AUTH_METHOD", "")
+
+	t.Setenv("CFL_EMAIL", "primary@example.com")
+	t.Setenv("ATLASSIAN_EMAIL", "fallback@example.com")
+	t.Setenv("CFL_AUTH_METHOD", "basic")
+	t.Setenv("ATLASSIAN_AUTH_METHOD", "bearer")
+
+	proj := ProjectShow("/tmp/config.yml", &Config{}, nil, keyring.Info{
+		Ref:         keyring.Ref,
+		TokenSource: "unset",
+	}, nil)
+
+	testutil.Equal(t, ShowValue{Value: "primary@example.com", Source: "CFL_EMAIL"}, proj.Email)
+	testutil.Equal(t, ShowValue{Value: "basic", Source: "CFL_AUTH_METHOD"}, proj.AuthMethod)
+}
+
 func TestProjectShow_FileFallbackAndDefaults(t *testing.T) {
 	t.Setenv("CFL_URL", "")
 	t.Setenv("ATLASSIAN_URL", "")

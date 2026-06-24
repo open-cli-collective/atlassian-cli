@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/open-cli-collective/atlassian-go/credtest"
@@ -65,6 +66,18 @@ func TestRunShow_ExactOutput(t *testing.T) {
 	testutil.Contains(t, out.String(), "Cloud ID: (source: not set)\n")
 	testutil.Contains(t, out.String(), "Keyring Ref: atlassian-cli/default  (source: fixed)\n")
 	testutil.Contains(t, out.String(), "Keyring Backend:")
+	lines := strings.Split(strings.TrimSuffix(out.String(), "\n"), "\n")
+	testutil.True(t, len(lines) == 8 || len(lines) == 9)
+	testutil.Equal(t, "URL: https://example.atlassian.net/wiki  (source: config)", lines[0])
+	testutil.Equal(t, "Email: test@example.com  (source: config)", lines[1])
+	testutil.Equal(t, "API Token: not set  (source: unset)", lines[2])
+	testutil.Equal(t, "Default Space: TEST  (source: config)", lines[3])
+	testutil.Equal(t, "Auth Method: basic  (source: default)", lines[4])
+	testutil.Equal(t, "Cloud ID: (source: not set)", lines[5])
+	testutil.Equal(t, "Keyring Ref: atlassian-cli/default  (source: fixed)", lines[6])
+	if len(lines) == 9 {
+		testutil.Contains(t, lines[8], "Keyring Passphrase:")
+	}
 	testutil.Equal(t, "\nConfig file: "+cfgPath+"\n", errBuf.String())
 }
 

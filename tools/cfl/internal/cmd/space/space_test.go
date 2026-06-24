@@ -99,6 +99,22 @@ func TestRunView_FullPlain(t *testing.T) {
 	testutil.Equal(t, "Key: TEST\nName: Test Space\nID: 123456\nType: global\nStatus: current\nDescription: A test space\n", stdout.String())
 }
 
+func TestExecuteView_InvalidOutputFormat(t *testing.T) {
+	t.Parallel()
+
+	rootCmd, rootOpts := root.NewCmd()
+	rootOpts.Output = "invalid"
+	rootOpts.NoColor = true
+	rootOpts.Stdout = &bytes.Buffer{}
+	rootOpts.Stderr = &bytes.Buffer{}
+	Register(rootCmd, rootOpts)
+	rootCmd.SetArgs([]string{"space", "view", "TEST"})
+
+	err := rootCmd.Execute()
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), `invalid output format: "invalid"`)
+}
+
 func TestRunView_PreservesRawSpaceType(t *testing.T) {
 	t.Parallel()
 	tests := []struct {

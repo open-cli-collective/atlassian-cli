@@ -3,6 +3,7 @@ package configcmd
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -38,7 +39,16 @@ func TestRunClear_NothingToClear(t *testing.T) {
 	credtest.Hermetic(t)
 	opts, _, errBuf := newClearOpts(true, "")
 	testutil.RequireNoError(t, runClear(opts))
-	testutil.Contains(t, errBuf.String(), "nothing to clear")
+	testutil.Equal(t, fmt.Sprintf("No stored API token in keyring %s for cfl; nothing to clear.\n", keyring.Ref), errBuf.String())
+}
+
+func TestRunClear_NothingToClear_WithEnvOverrideNote(t *testing.T) {
+	credtest.Hermetic(t)
+	t.Setenv("CFL_API_TOKEN", "env-token")
+	opts, _, errBuf := newClearOpts(true, "")
+	testutil.RequireNoError(t, runClear(opts))
+	testutil.Equal(t, fmt.Sprintf("No stored API token in keyring %s for cfl; nothing to clear.\nNote: CFL_API_TOKEN still set in the environment and will continue to override at runtime (not cleared).\n", keyring.Ref), errBuf.String())
+	testutil.NotContains(t, errBuf.String(), "env-token")
 }
 
 func TestRunClear_DeletesSharedKey_WithForce(t *testing.T) {
@@ -49,8 +59,7 @@ func TestRunClear_DeletesSharedKey_WithForce(t *testing.T) {
 	testutil.RequireNoError(t, runClear(opts))
 
 	testutil.False(t, tokenPresent(t, keyring.KeyAPIToken))
-	// Shared-default deletion must warn that the sibling loses access.
-	testutil.Contains(t, errBuf.String(), "jtk will also lose access")
+	testutil.Equal(t, fmt.Sprintf("This will delete key %q from keyring %s.\nWarning: this is the SHARED token (api_token). jtk will also lose access (cfl and jtk resolve the same key).\nRemoved key %q from keyring %s.\n", keyring.KeyAPIToken, keyring.Ref, keyring.KeyAPIToken, keyring.Ref), errBuf.String())
 }
 
 func TestRunClear_DeletesSharedKey_Confirmed(t *testing.T) {
@@ -63,7 +72,7 @@ func TestRunClear_DeletesSharedKey_Confirmed(t *testing.T) {
 	// One key per logical credential (§1.11.10): a confirmed clear removes
 	// the single shared api_token and warns the sibling loses access.
 	testutil.False(t, tokenPresent(t, keyring.KeyAPIToken))
-	testutil.Contains(t, errBuf.String(), "jtk will also lose access")
+	testutil.Equal(t, fmt.Sprintf("This will delete key %q from keyring %s.\nWarning: this is the SHARED token (api_token). jtk will also lose access (cfl and jtk resolve the same key).\nProceed? [y/N]: Removed key %q from keyring %s.\n", keyring.KeyAPIToken, keyring.Ref, keyring.KeyAPIToken, keyring.Ref), errBuf.String())
 	// Removed per-tool override keys must never be advised again.
 	testutil.NotContains(t, errBuf.String(), "cfl_api_token")
 	testutil.NotContains(t, errBuf.String(), "override")
@@ -76,10 +85,11 @@ func TestRunClear_Cancelled(t *testing.T) {
 	credtest.Hermetic(t)
 	credtest.SeedToken(t, "shared-secret")
 
-	opts, _, _ := newClearOpts(false, "n\n")
+	opts, _, errBuf := newClearOpts(false, "n\n")
 	testutil.RequireNoError(t, runClear(opts))
 
 	testutil.True(t, tokenPresent(t, keyring.KeyAPIToken))
+	testutil.Equal(t, fmt.Sprintf("This will delete key %q from keyring %s.\nWarning: this is the SHARED token (api_token). jtk will also lose access (cfl and jtk resolve the same key).\nProceed? [y/N]: Cancelled. Nothing was cleared.\n", keyring.KeyAPIToken, keyring.Ref), errBuf.String())
 }
 
 // TestRunClear_NonInteractive_WithoutForce_ShortCircuits — §3.4 contract
@@ -122,6 +132,7 @@ func TestRunClear_NonInteractive_WithForce_Proceeds(t *testing.T) {
 	testutil.RequireNoError(t, runClear(opts))
 
 	testutil.False(t, tokenPresent(t, keyring.KeyAPIToken))
+	testutil.Equal(t, fmt.Sprintf("This will delete key %q from keyring %s.\nWarning: this is the SHARED token (api_token). jtk will also lose access (cfl and jtk resolve the same key).\nRemoved key %q from keyring %s.\n", keyring.KeyAPIToken, keyring.Ref, keyring.KeyAPIToken, keyring.Ref), opts.Stderr.(*bytes.Buffer).String())
 }
 
 func TestRunClear_All(t *testing.T) {
@@ -138,4 +149,5 @@ func TestRunClear_All(t *testing.T) {
 	testutil.False(t, tokenPresent(t, keyring.KeyAPIToken))
 	_, statErr := os.Stat(sharedPath)
 	testutil.True(t, os.IsNotExist(statErr))
+	testutil.Equal(t, fmt.Sprintf("This will remove the ENTIRE shared keyring bundle %s (keys: %s).\nIt will also delete the shared config file: %s\nRemoved the shared keyring bundle and config file.\n", keyring.Ref, keyring.KeyAPIToken, sharedPath), opts.Stderr.(*bytes.Buffer).String())
 }

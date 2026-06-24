@@ -54,6 +54,11 @@ Local convenience copy, if present: `../tools/jtk/internal/cmd/OUTPUT_SPEC.md`
 Source of truth: https://github.com/open-cli-collective/atlassian-cli/blob/main/tools/cfl/internal/cmd/OUTPUT_SPEC.md
 Local convenience copy, if present: `../tools/cfl/internal/cmd/OUTPUT_SPEC.md`
 
+### cfl Presenter Migration
+
+Source of truth: https://github.com/open-cli-collective/atlassian-cli/blob/main/tools/cfl/internal/present/README.md
+Local convenience copy, if present: `../tools/cfl/internal/present/README.md`
+
 ## Shared Sources
 
 ### Shared Open CLI Standards
@@ -110,7 +115,7 @@ The repository separates domain values, presentation models, renderers, and comm
 `jtk` is text-first and keeps its command-surface and output contracts in `tools/jtk/internal/cmd/GUARDRAILS.md` and `tools/jtk/internal/cmd/OUTPUT_SPEC.md`.
 
 `cfl` is Confluence-focused and markdown-first. Its page content flow converts between Markdown and Confluence storage XHTML through `tools/cfl/pkg/md`.
-Its target text-output contract lives in `tools/cfl/internal/cmd/OUTPUT_SPEC.md`; the presenter-boundary implementation work that converges on that contract is tracked separately.
+Its target text-output contract lives in `tools/cfl/internal/cmd/OUTPUT_SPEC.md`; cfl-specific presenter migration guidance lives in `tools/cfl/internal/present/README.md`.
 
 ## Tool Guides
 

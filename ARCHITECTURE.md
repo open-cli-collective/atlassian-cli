@@ -55,6 +55,7 @@ It is responsible for deciding:
 - truncation
 - normalization
 - empty-state wording
+- stream destination for diagnostics, advisory messages, and primary output
 - whether a value is represented as detail, table, message, or nested sections
 
 This layer should be pure:
@@ -103,6 +104,7 @@ The command layer should not:
 
 - manually build user-facing tables
 - manually assemble `Key: Value` strings
+- manually construct presenter-owned DTOs, fields, rows, labels, or section order
 - perform inline truncation/escaping/label selection except as transitional code during migration
 
 ## Required separation
@@ -230,6 +232,7 @@ For new rendering work in this repo:
 4. Do not pass raw Atlassian API DTOs directly into low-level rendering helpers.
 5. Do not encode presentation intent as `[][]string` in new code when a structured presentation model would make the boundary clearer.
 6. Do not add output policy by sprinkling ad hoc conditionals through commands.
+7. Do not make commands construct presenter-owned DTOs, fields, rows, labels, or section ordering.
 
 ## TDD expectations
 

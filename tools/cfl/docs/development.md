@@ -31,6 +31,11 @@ Local convenience copy, if present: `../../../docs/ARTIFACT_CONTRACT.md`
 Source of truth: https://github.com/open-cli-collective/atlassian-cli/blob/main/tools/cfl/internal/cmd/OUTPUT_SPEC.md
 Local convenience copy, if present: `../internal/cmd/OUTPUT_SPEC.md`
 
+### cfl Presenter Migration
+
+Source of truth: https://github.com/open-cli-collective/atlassian-cli/blob/main/tools/cfl/internal/present/README.md
+Local convenience copy, if present: `../internal/present/README.md`
+
 ## Shared Sources
 
 ### Shared Open CLI Standards
@@ -83,7 +88,7 @@ Basic auth uses an instance URL plus email and token. Bearer auth routes through
 
 ## Output
 
-`cfl` is markdown-first for page content. The target text-output contract lives in `internal/cmd/OUTPUT_SPEC.md`. Resource `-o json` is removed; JSON is reserved for control-plane envelopes documented by the shared standards.
+`cfl` is markdown-first for page content. The target text-output contract lives in `internal/cmd/OUTPUT_SPEC.md`. The presenter migration guide lives in `internal/present/README.md` and records the cfl-specific command/presenter/renderer boundaries for #271. Resource `-o json` is removed; JSON is reserved for control-plane envelopes documented by the shared standards.
 
 ## Testing Notes
 

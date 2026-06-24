@@ -92,6 +92,32 @@ func TestRunList_PlainOutputExact(t *testing.T) {
 	testutil.Equal(t, "Next page: cfl space list --cursor \"cursor-123\"\n", rootOpts.Stderr.(*bytes.Buffer).String())
 }
 
+func TestRunList_FullPlainOutputExact(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{
+			"results": [
+				{"id": "123456", "key": "DEV", "name": "Development", "type": "global", "status": "current"}
+			]
+		}`))
+	}))
+	defer server.Close()
+
+	rootOpts := newTestRootOptions()
+	rootOpts.Output = "plain"
+	rootOpts.Full = true
+	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
+	opts := &listOptions{Options: rootOpts, limit: 25}
+
+	err := runList(context.Background(), opts)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "ID\tKEY\tTYPE\tSTATUS\tNAME\n123456\tDEV\tglobal\tcurrent\tDevelopment\n", rootOpts.Stdout.(*bytes.Buffer).String())
+	testutil.Equal(t, "", rootOpts.Stderr.(*bytes.Buffer).String())
+}
+
 func TestRunList_TableOutputExact(t *testing.T) {
 	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

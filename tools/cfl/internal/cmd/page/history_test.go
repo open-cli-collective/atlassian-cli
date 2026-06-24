@@ -88,6 +88,7 @@ func TestRunHistoryList_IDOnly(t *testing.T) {
 	err := runHistoryList(context.Background(), "12345", opts)
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, "3\n2\n", rootOpts.Stdout.(*bytes.Buffer).String())
+	testutil.Equal(t, "", rootOpts.Stderr.(*bytes.Buffer).String())
 }
 
 func TestRunHistoryList_PlainOutputExact(t *testing.T) {

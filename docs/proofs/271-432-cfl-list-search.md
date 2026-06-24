@@ -32,7 +32,7 @@ rtk go test ./tools/cfl/internal/present ./tools/cfl/internal/cmd/space ./tools/
 Result:
 
 ```text
-Go test: 365 passed in 7 packages
+Go test: 367 passed in 7 packages
 ```
 
 Executed:
@@ -44,7 +44,7 @@ rtk go test ./tools/cfl/... ./shared/...
 Result:
 
 ```text
-Go test: 1594 passed in 33 packages
+Go test: 1596 passed in 33 packages
 ```
 
 Executed:
@@ -169,6 +169,9 @@ Those tests assert these exact stdout/stderr contracts:
 - `space list` table:
   - stdout: `ID      KEY  TYPE    NAME\n123456  DEV  global  Development\n`
   - stderr: empty
+- `space list --full -o plain`:
+  - stdout: `ID\tKEY\tTYPE\tSTATUS\tNAME\n123456\tDEV\tglobal\tcurrent\tDevelopment\n`
+  - stderr: empty
 - `space list -o plain`:
   - stdout: `ID\tKEY\tTYPE\tNAME\n123456\tDEV\tglobal\tDevelopment\n`
   - stderr: `Next page: cfl space list --cursor "cursor-123"\n`
@@ -190,6 +193,9 @@ Those tests assert these exact stdout/stderr contracts:
 - `search -o plain`:
   - stdout: `ID\tTYPE\tSPACE\tTITLE\n12345\tpage\tDEV\tTest Page\n`
   - stderr: `(showing 1 of 2 results, use --limit to see more)\n`
+- `search --full -o plain`:
+  - stdout: `ID\tTYPE\tSPACE\tTITLE\tMODIFIED\tURL\n12345\tpage\tDEV\tTest Page\t2024-02-03\t/wiki/spaces/DEV/pages/12345\n`
+  - stderr: empty
 - `attachment list` table:
   - stdout: `ID    TITLE    MEDIA TYPE       FILE SIZE\natt1  doc.pdf  application/pdf  1.0 KB\n`
   - stderr: empty

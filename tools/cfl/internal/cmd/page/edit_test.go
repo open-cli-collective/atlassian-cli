@@ -1735,6 +1735,8 @@ func TestRunEdit_FileDash_Stdin_Legacy(t *testing.T) {
 
 	err := runEdit(context.Background(), opts)
 	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "Updated page: Test\nID: 12345\nVersion: 2\nURL: /pages/12345\n", rootOpts.Stdout.(*bytes.Buffer).String())
+	testutil.Equal(t, "⚠ Using --legacy flag. If this page uses the cloud editor, it may switch to the legacy editor.\n", rootOpts.Stderr.(*bytes.Buffer).String())
 
 	bodyMap := receivedBody["body"].(map[string]any)
 	storageMap := bodyMap["storage"].(map[string]any)

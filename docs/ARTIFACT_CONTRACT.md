@@ -62,7 +62,7 @@ Some commands expose a `--raw` mode for source-faithful content where transforma
 
 JTK and CFL both use text-first output. The `-o json` resource surface has been removed from both tools (JTK earlier, then CFL via #392); CFL retains `-o table` and `-o plain` only. JSON is reserved for control-plane envelopes (`cfl set-credential --json`, `jtk set-credential --json`) and round-trip payloads (`jtk automation export`).
 
-`jtk` already implements presenter-owned text output broadly. `cfl` is still migrating toward that boundary; its target command/output contract is defined in `tools/cfl/internal/cmd/OUTPUT_SPEC.md` and is implemented incrementally via the presenter work tracked in #271.
+`jtk` and `cfl` both use presenter-owned text output for default CLI rendering. `cfl`'s command/output contract is defined in `tools/cfl/internal/cmd/OUTPUT_SPEC.md`; its presenter-boundary guidance and documented exceptions live in `tools/cfl/internal/present/README.md`.
 
 **Text output modes:**
 - Default = focused output for human and agent consumption (defined per-command)

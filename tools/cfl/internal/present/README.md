@@ -11,12 +11,12 @@ It accepts a shared `present.OutputModel`, renders it with the shared pure
 renderer, and writes the split stdout/stderr result through root options.
 
 `tools/cfl/internal/cmd/root.Options` already exposes `RenderMode()` and
-`RenderStyle()`. During migration, legacy `Options.View()` and new presenter
-paths must derive from that one root mode so cfl does not grow competing output
-policy knobs.
+`RenderStyle()`. Legacy `Options.View()` remains only for documented
+exceptions, primarily `cfl init`, and derives from that same root mode so cfl
+does not grow competing output policy knobs.
 
-Most cfl commands still use transitional `shared/view` helpers. This guide
-describes the target migration boundary for the remaining #271 work.
+Default cfl text output is presenter-backed after #271. This guide documents
+the boundary that new command work must preserve.
 
 ## Target Pipeline
 
@@ -104,13 +104,20 @@ These exceptions are allowed when deliberate and tested:
 - editor handoffs for page create/edit
 - browser handoffs such as `page view --web`
 - source-faithful content output such as `page view --raw` or `--content-only`
+- root `Options.View()` plumbing while an allowed exception still needs
+  `shared/view`
 
 Exceptions should stay small and named in code review. They must not become a
 general escape hatch for command-local formatting.
 
-## Migration Inventory
+Progress messages that intentionally complete later may use
+`present.MessageSection{NoNewline: true}`. The wording and stream still belong
+to the presenter; commands should only decide when to emit the progress model.
 
-Migrate by output shape rather than by scattered helper replacement.
+## Presenter Inventory
+
+Keep output ownership grouped by output shape rather than by scattered helper
+replacement.
 
 ### Table/List
 
@@ -120,8 +127,8 @@ Migrate by output shape rather than by scattered helper replacement.
 - `search`
 - `attachment list`
 
-List presenters own headers, row fields, empty states, and pagination hints.
-Preserve `-o plain` TSV semantics until there is a presenter-backed TSV path.
+List presenters own headers, row fields, empty states, pagination hints, and
+`-o plain` TSV semantics through the shared renderer.
 
 ### Detail
 
@@ -161,8 +168,12 @@ messages.
 
 ## Verification Gates
 
-Use these greps during #271 migration PRs. They should trend toward only
-documented exceptions.
+`tools/cfl/internal/cmd/root/presenter_boundary_test.go` is the authoritative
+package-wide enforcement gate. It scans production command files with Go's AST
+and allowlists only documented exceptions.
+
+Use these greps as human-readable proof commands. Unexpected matches should be
+explained by the enforcement allowlist or fixed.
 
 The target patterns include legacy helpers such as `v.Table`, `v.Success`, and
 `v.RenderKeyValue`, plus direct writes such as `fmt.Fprint`, `fmt.Fprintf`, and
@@ -191,3 +202,16 @@ Presenter tests should assert exact `present.OutputModel` values. Renderer
 tests should assert exact stdout/stderr strings for representative cfl shapes.
 Command tests should stay lighter and verify wiring, mode selection, exceptions,
 and preserved control-plane JSON/raw behavior.
+
+## #271 Proof Index
+
+- `docs/proofs/271-431-cfl-me.md`
+- `docs/proofs/271-432-cfl-list-search.md`
+- `docs/proofs/271-433-cfl-detail-config.md`
+- `docs/proofs/271-434-cfl-page-view.md`
+- `docs/proofs/271-435-cfl-mutation-success.md`
+- `docs/proofs/271-436-cfl-diagnostics-advisories.md`
+
+Proof transcript directories under `/tmp` are intentionally ephemeral. The
+proof files contain the durable redacted excerpts and created/deleted IDs needed
+to audit behavior after those temporary directories disappear.

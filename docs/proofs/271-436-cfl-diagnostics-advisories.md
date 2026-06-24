@@ -19,8 +19,8 @@ The migrated commands now:
 - keep `cfl init` wizard output outside this ticket
 
 Pagination advisories and the `page edit --legacy` warning were already moved
-to presenters in earlier child tickets. `#435` contains the exact command and
-live proof for the legacy-editor advisory.
+to presenters in earlier child tickets. `docs/proofs/271-435-cfl-mutation-success.md`
+contains the exact command and live proof for the legacy-editor advisory.
 
 ## Verification Commands
 
@@ -168,6 +168,9 @@ Transcript directory:
 ```text
 /tmp/cfl-436-proof.u3byyu
 ```
+
+This path was an intentionally ephemeral local capture directory. The redacted
+durable excerpts needed for review are included below.
 
 Executed:
 

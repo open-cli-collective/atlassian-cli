@@ -188,31 +188,3 @@ func TestRunClear_All_KeyringUnavailableStillReportsPlanAndCleansPlaintext(t *te
 	testutil.Contains(t, errBuf.String(), "Note: the keyring could not be opened")
 	testutil.Contains(t, errBuf.String(), "plaintext artifacts will still be cleaned")
 }
-
-func TestConfigDiagnosticsPresenterBoundaryGrepGate(t *testing.T) {
-	t.Parallel()
-
-	testSource, err := os.ReadFile("test.go") //nolint:gosec // test reads package source.
-	testutil.RequireNoError(t, err)
-	clearSource, err := os.ReadFile("clear.go") //nolint:gosec // test reads package source.
-	testutil.RequireNoError(t, err)
-
-	combined := string(testSource) + "\n" + string(clearSource)
-	for _, phrase := range []string{
-		"Testing connection",
-		"Troubleshooting",
-		"Authenticated as",
-		"No stored API token",
-		"Cancelled. Nothing was cleared",
-		"Removed key",
-		"Removed the shared keyring bundle",
-		"Warning: this is the SHARED token",
-		"Note: %s still set in the environment",
-	} {
-		testutil.NotContains(t, combined, phrase)
-	}
-
-	testutil.Equal(t, 1, strings.Count(string(clearSource), "fmt.Fprint("))
-	testutil.Contains(t, string(clearSource), `fmt.Fprint(opts.Stderr, promptText+" [y/N]: ")`)
-	testutil.NotContains(t, string(testSource), "fmt.Fprint")
-}

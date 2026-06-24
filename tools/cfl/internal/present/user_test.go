@@ -32,6 +32,8 @@ func TestUserPresenter_PresentUserIDOnly(t *testing.T) {
 	})
 
 	msg := userMessageSection(t, model)
+	testutil.Equal(t, sharedpresent.MessageInfo, msg.Kind)
+	testutil.Equal(t, sharedpresent.StreamStdout, msg.Stream)
 	testutil.Equal(t, "abc123", msg.Message)
 }
 

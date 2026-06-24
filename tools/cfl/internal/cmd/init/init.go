@@ -13,6 +13,7 @@ import (
 	"github.com/open-cli-collective/atlassian-go/auth"
 	"github.com/open-cli-collective/atlassian-go/credstore"
 	"github.com/open-cli-collective/atlassian-go/keyring"
+	sharedpresent "github.com/open-cli-collective/atlassian-go/present"
 	"github.com/open-cli-collective/atlassian-go/prompt"
 
 	"github.com/open-cli-collective/confluence-cli/api"
@@ -25,6 +26,10 @@ import (
 // Pulled out as a parameter so tests can inject an httptest-pointed client
 // without depending on api.NewBearerClient's hardcoded gateway URL.
 type clientBuilder func(cfg *config.Config) (*api.Client, error)
+
+var emitVerifiedUserModel = func(opts *root.Options, model *sharedpresent.OutputModel) error {
+	return cflpresent.Emit(opts, model)
+}
 
 func defaultClientBuilder(cfg *config.Config) (*api.Client, error) {
 	if cfg.AuthMethod == auth.AuthMethodBearer {
@@ -415,7 +420,7 @@ func finalizeInit(
 	// during verify. No second API call, no opts state mutation.
 	if verifiedUser != nil {
 		v.Println("")
-		if err := cflpresent.Emit(opts, cflpresent.UserPresenter{}.PresentUserOneLiner(verifiedUser)); err != nil {
+		if err := emitVerifiedUserModel(opts, cflpresent.UserPresenter{}.PresentUserOneLiner(verifiedUser)); err != nil {
 			return err
 		}
 	}

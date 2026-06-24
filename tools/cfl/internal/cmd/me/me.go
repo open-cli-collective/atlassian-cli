@@ -5,11 +5,16 @@ import (
 	"context"
 	"fmt"
 
+	sharedpresent "github.com/open-cli-collective/atlassian-go/present"
 	"github.com/spf13/cobra"
 
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
 	cflpresent "github.com/open-cli-collective/confluence-cli/internal/present"
 )
+
+var emitModel = func(opts *root.Options, model *sharedpresent.OutputModel) error {
+	return cflpresent.Emit(opts, model)
+}
 
 // Register adds the me command to the root command.
 func Register(rootCmd *cobra.Command, opts *root.Options) {
@@ -50,7 +55,7 @@ func Run(ctx context.Context, opts *root.Options, idOnly bool) error {
 
 	presenter := cflpresent.UserPresenter{}
 	if idOnly {
-		return cflpresent.Emit(opts, presenter.PresentUserIDOnly(user))
+		return emitModel(opts, presenter.PresentUserIDOnly(user))
 	}
-	return cflpresent.Emit(opts, presenter.PresentUserOneLiner(user))
+	return emitModel(opts, presenter.PresentUserOneLiner(user))
 }

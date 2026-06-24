@@ -85,7 +85,7 @@ func runHistoryList(ctx context.Context, pageID string, opts *historyListOptions
 	}
 	nextCursor := cflpresent.ExtractCursor(result.Links.Next)
 	if opts.idOnly {
-		return cflpresent.Emit(opts.Options, cflpresent.PageHistoryPresenter{}.PresentIDs(result.Results, nextCursor, pageID))
+		return cflpresent.Emit(opts.Options, cflpresent.PageHistoryPresenter{}.PresentIDs(result.Results, nextCursor, pageID, result.HasMore()))
 	}
-	return cflpresent.Emit(opts.Options, cflpresent.PageHistoryPresenter{}.PresentList(result.Results, nextCursor, pageID))
+	return cflpresent.Emit(opts.Options, cflpresent.PageHistoryPresenter{}.PresentList(result.Results, nextCursor, pageID, result.HasMore()))
 }

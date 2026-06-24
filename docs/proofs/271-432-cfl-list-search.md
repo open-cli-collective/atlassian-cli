@@ -32,7 +32,7 @@ rtk go test ./tools/cfl/internal/present ./tools/cfl/internal/cmd/space ./tools/
 Result:
 
 ```text
-Go test: 371 passed in 7 packages
+Go test: 365 passed in 7 packages
 ```
 
 Executed:
@@ -44,7 +44,7 @@ rtk go test ./tools/cfl/... ./shared/...
 Result:
 
 ```text
-Go test: 1600 passed in 33 packages
+Go test: 1594 passed in 33 packages
 ```
 
 Executed:
@@ -101,6 +101,7 @@ These tests assert exact presenter-owned:
 
 - table headers and row cells
 - empty-state message wording and stream routing
+- fallback pagination wording when the API reports more results but no cursor is parseable
 - `--full` field expansion
 - pagination wording
 - history `--id` stdout behavior

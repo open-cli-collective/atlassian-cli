@@ -74,5 +74,5 @@ func runList(ctx context.Context, opts *listOptions) error {
 	if len(result.Results) == 0 {
 		return cflpresent.Emit(opts.Options, cflpresent.SpacePresenter{}.PresentEmpty())
 	}
-	return cflpresent.Emit(opts.Options, cflpresent.SpacePresenter{}.PresentList(result.Results, opts.Full, cflpresent.ExtractCursor(result.Links.Next)))
+	return cflpresent.Emit(opts.Options, cflpresent.SpacePresenter{}.PresentList(result.Results, opts.Full, cflpresent.ExtractCursor(result.Links.Next), result.HasMore()))
 }

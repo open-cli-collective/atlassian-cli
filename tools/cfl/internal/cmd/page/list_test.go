@@ -144,6 +144,8 @@ func TestRunList_PageList_EmptyResults(t *testing.T) {
 
 	err := runList(context.Background(), opts)
 	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "", rootOpts.Stdout.(*bytes.Buffer).String())
+	testutil.Equal(t, "No pages found in space DEV.\n", rootOpts.Stderr.(*bytes.Buffer).String())
 }
 
 func TestRunList_PageList_NegativeLimit(t *testing.T) {

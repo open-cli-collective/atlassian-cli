@@ -16,7 +16,7 @@ func TestSpacePresenter_PresentList(t *testing.T) {
 
 	model := SpacePresenter{}.PresentList([]api.Space{
 		{ID: "100", Key: "DEV", Type: "global", Name: "Development", Status: "current"},
-	}, true, "cursor-123")
+	}, true, "cursor-123", true)
 
 	table := requireTableSection(t, model, 0)
 	testutil.Equal(t, []string{"ID", "KEY", "TYPE", "STATUS", "NAME"}, table.Headers)
@@ -67,7 +67,7 @@ func TestPageHistoryPresenter_PresentListAndIDs(t *testing.T) {
 	createdAt := atlassianTime(t, "2024-01-02T03:04:05Z")
 	versions := []api.Version{{Number: 15, AuthorID: "user-1", CreatedAt: createdAt}}
 
-	model := PageHistoryPresenter{}.PresentList(versions, "next-1", "12345")
+	model := PageHistoryPresenter{}.PresentList(versions, "next-1", "12345", true)
 	table := requireTableSection(t, model, 0)
 	testutil.Equal(t, []string{"VERSION", "CREATED", "AUTHOR"}, table.Headers)
 	testutil.Equal(t, []string{"15", "2024-01-02T03:04:05Z", "user-1"}, table.Rows[0].Cells)
@@ -75,7 +75,7 @@ func TestPageHistoryPresenter_PresentListAndIDs(t *testing.T) {
 	msg := requireMessageSection(t, model, 1)
 	testutil.Equal(t, `Next page: cfl page history list 12345 --cursor "next-1"`, msg.Message)
 
-	idModel := PageHistoryPresenter{}.PresentIDs(versions, "next-1", "12345")
+	idModel := PageHistoryPresenter{}.PresentIDs(versions, "next-1", "12345", true)
 	idMsg := requireMessageSection(t, idModel, 0)
 	testutil.Equal(t, "15", idMsg.Message)
 	testutil.Equal(t, sharedpresent.StreamStdout, idMsg.Stream)
@@ -122,6 +122,22 @@ func TestAttachmentPresenter_PresentListAndEmpty(t *testing.T) {
 	testutil.Equal(t, "No unused attachments found.", emptyMsg.Message)
 }
 
+func TestListPresenters_FallbackPaginationHintWithoutCursor(t *testing.T) {
+	t.Parallel()
+
+	spaceModel := SpacePresenter{}.PresentList([]api.Space{{ID: "100", Key: "DEV", Type: "global", Name: "Development"}}, false, "", true)
+	spaceMsg := requireMessageSection(t, spaceModel, 1)
+	testutil.Equal(t, "(showing first 1 results, use --limit to see more)", spaceMsg.Message)
+
+	historyModel := PageHistoryPresenter{}.PresentList([]api.Version{{Number: 3}}, "", "12345", true)
+	historyMsg := requireMessageSection(t, historyModel, 1)
+	testutil.Equal(t, "(showing first 1 results, use --limit to see more)", historyMsg.Message)
+
+	idModel := PageHistoryPresenter{}.PresentIDs([]api.Version{{Number: 3}}, "", "12345", true)
+	idMsg := requireMessageSection(t, idModel, 1)
+	testutil.Equal(t, "(showing first 1 results, use --limit to see more)", idMsg.Message)
+}
+
 func TestListPresenterHelpers(t *testing.T) {
 	t.Parallel()
 
@@ -133,8 +149,8 @@ func TestListPresenterHelpers(t *testing.T) {
 	testutil.Equal(t, "-", pageVersionCell(nil))
 	testutil.Equal(t, "v2", pageVersionCell(&api.Version{Number: 2}))
 	testutil.Equal(t, "-", formatHistoryTime(nil))
-	testutil.Equal(t, "0 B", formatAttachmentFileSize(0))
-	testutil.Equal(t, "1.0 KB", formatAttachmentFileSize(1024))
+	testutil.Equal(t, "0 B", FormatAttachmentFileSize(0))
+	testutil.Equal(t, "1.0 KB", FormatAttachmentFileSize(1024))
 }
 
 func requireTableSection(t *testing.T, model *sharedpresent.OutputModel, idx int) *sharedpresent.TableSection {

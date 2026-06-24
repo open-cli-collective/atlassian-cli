@@ -204,6 +204,29 @@ func TestRunHistoryList_CursorAndNextHint(t *testing.T) {
 	testutil.Contains(t, stderr, "Next page: cfl page history list 12345 --cursor \"cursor-out\"")
 }
 
+func TestRunHistoryList_HasMoreWithoutCursorFallback(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{
+			"results": [{"number": 4}],
+			"_links": {"next": "/api/v2/pages/12345/versions?limit=25"}
+		}`))
+	}))
+	defer server.Close()
+
+	rootOpts := newHistoryTestRootOptions()
+	rootOpts.SetAPIClient(api.NewClient(server.URL, "test@example.com", "token"))
+	opts := &historyListOptions{
+		Options: rootOpts,
+		limit:   25,
+	}
+
+	err := runHistoryList(context.Background(), "12345", opts)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "(showing first 1 results, use --limit to see more)\n", rootOpts.Stderr.(*bytes.Buffer).String())
+}
+
 func TestRunHistoryList_NegativeLimit(t *testing.T) {
 	t.Parallel()
 	rootOpts := newHistoryTestRootOptions()

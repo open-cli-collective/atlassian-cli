@@ -20,7 +20,7 @@ type AttachmentPresenter struct{}
 
 var spaceKeyRegex = regexp.MustCompile(`/spaces/([^/]+)`)
 
-func (SpacePresenter) PresentList(spaces []api.Space, full bool, nextCursor string) *sharedpresent.OutputModel {
+func (SpacePresenter) PresentList(spaces []api.Space, full bool, nextCursor string, hasMore bool) *sharedpresent.OutputModel {
 	headers := []string{"ID", "KEY", "TYPE", "NAME"}
 	if full {
 		headers = []string{"ID", "KEY", "TYPE", "STATUS", "NAME"}
@@ -38,6 +38,8 @@ func (SpacePresenter) PresentList(spaces []api.Space, full bool, nextCursor stri
 	sections := []sharedpresent.Section{&sharedpresent.TableSection{Headers: headers, Rows: rows}}
 	if nextCursor != "" {
 		sections = append(sections, stderrInfo(fmt.Sprintf(`Next page: cfl space list --cursor %q`, nextCursor)))
+	} else if hasMore {
+		sections = append(sections, stderrInfo(fmt.Sprintf("(showing first %d results, use --limit to see more)", len(spaces))))
 	}
 
 	return &sharedpresent.OutputModel{Sections: sections}
@@ -77,7 +79,7 @@ func (PagePresenter) PresentEmpty(spaceKey string) *sharedpresent.OutputModel {
 	return stderrOnly(fmt.Sprintf("No pages found in space %s.", spaceKey))
 }
 
-func (PageHistoryPresenter) PresentList(versions []api.Version, nextCursor, pageID string) *sharedpresent.OutputModel {
+func (PageHistoryPresenter) PresentList(versions []api.Version, nextCursor, pageID string, hasMore bool) *sharedpresent.OutputModel {
 	rows := make([]sharedpresent.Row, 0, len(versions))
 	for _, version := range versions {
 		rows = append(rows, sharedpresent.Row{Cells: []string{
@@ -95,18 +97,22 @@ func (PageHistoryPresenter) PresentList(versions []api.Version, nextCursor, page
 	}
 	if nextCursor != "" {
 		sections = append(sections, stderrInfo(fmt.Sprintf(`Next page: cfl page history list %s --cursor %q`, pageID, nextCursor)))
+	} else if hasMore {
+		sections = append(sections, stderrInfo(fmt.Sprintf("(showing first %d results, use --limit to see more)", len(versions))))
 	}
 
 	return &sharedpresent.OutputModel{Sections: sections}
 }
 
-func (PageHistoryPresenter) PresentIDs(versions []api.Version, nextCursor, pageID string) *sharedpresent.OutputModel {
+func (PageHistoryPresenter) PresentIDs(versions []api.Version, nextCursor, pageID string, hasMore bool) *sharedpresent.OutputModel {
 	sections := make([]sharedpresent.Section, 0, len(versions)+1)
 	for _, version := range versions {
 		sections = append(sections, stdoutInfo(strconv.Itoa(version.Number)))
 	}
 	if nextCursor != "" {
 		sections = append(sections, stderrInfo(fmt.Sprintf(`Next page: cfl page history list %s --cursor %q`, pageID, nextCursor)))
+	} else if hasMore {
+		sections = append(sections, stderrInfo(fmt.Sprintf("(showing first %d results, use --limit to see more)", len(versions))))
 	}
 
 	return &sharedpresent.OutputModel{Sections: sections}
@@ -160,7 +166,7 @@ func (AttachmentPresenter) PresentList(attachments []api.Attachment, full, hasMo
 			orDash(attachment.ID),
 			orDash(attachment.Title),
 			orDash(attachment.MediaType),
-			formatAttachmentFileSize(attachment.FileSize),
+			FormatAttachmentFileSize(attachment.FileSize),
 		}
 		if full {
 			cells = append(cells, orDash(attachment.Status), orDash(attachment.Comment))
@@ -256,7 +262,7 @@ func ExtractCursor(nextLink string) string {
 	return parsed.Query().Get("cursor")
 }
 
-func formatAttachmentFileSize(bytes int64) string {
+func FormatAttachmentFileSize(bytes int64) string {
 	const (
 		kb = 1024
 		mb = kb * 1024

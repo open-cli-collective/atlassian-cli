@@ -135,6 +135,8 @@ func TestRunList_EmptyResults(t *testing.T) {
 
 	err := runList(context.Background(), opts)
 	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "", rootOpts.Stdout.(*bytes.Buffer).String())
+	testutil.Equal(t, "No spaces found.\n", rootOpts.Stderr.(*bytes.Buffer).String())
 }
 
 func TestRunList_NegativeLimit(t *testing.T) {
@@ -340,6 +342,33 @@ func TestRunList_HasMore(t *testing.T) {
 
 	err := runList(context.Background(), opts)
 	testutil.RequireNoError(t, err)
+}
+
+func TestRunList_HasMoreWithoutCursorFallback(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{
+			"results": [
+				{"id": "123456", "key": "DEV", "name": "Development", "type": "global"}
+			],
+			"_links": {"next": "/wiki/api/v2/spaces?limit=25"}
+		}`))
+	}))
+	defer server.Close()
+
+	rootOpts := newTestRootOptions()
+	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
+	opts := &listOptions{
+		Options: rootOpts,
+		limit:   25,
+	}
+
+	err := runList(context.Background(), opts)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "(showing first 1 results, use --limit to see more)\n", rootOpts.Stderr.(*bytes.Buffer).String())
 }
 
 func TestRunList_NullDescription(t *testing.T) {

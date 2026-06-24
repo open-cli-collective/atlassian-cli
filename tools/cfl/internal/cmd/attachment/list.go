@@ -120,22 +120,3 @@ func isAttachmentReferenced(filename, content string) bool {
 
 	return false
 }
-
-func formatFileSize(bytes int64) string {
-	const (
-		KB = 1024
-		MB = KB * 1024
-		GB = MB * 1024
-	)
-
-	switch {
-	case bytes >= GB:
-		return fmt.Sprintf("%.1f GB", float64(bytes)/GB)
-	case bytes >= MB:
-		return fmt.Sprintf("%.1f MB", float64(bytes)/MB)
-	case bytes >= KB:
-		return fmt.Sprintf("%.1f KB", float64(bytes)/KB)
-	default:
-		return fmt.Sprintf("%d B", bytes)
-	}
-}

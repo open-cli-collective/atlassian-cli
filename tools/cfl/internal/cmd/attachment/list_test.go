@@ -156,31 +156,6 @@ func TestRunList_APIError(t *testing.T) {
 	testutil.Contains(t, err.Error(), "listing attachments")
 }
 
-func TestFormatFileSize(t *testing.T) {
-	t.Parallel()
-	tests := []struct {
-		bytes    int64
-		expected string
-	}{
-		{0, "0 B"},
-		{500, "500 B"},
-		{1024, "1.0 KB"},
-		{1536, "1.5 KB"},
-		{1048576, "1.0 MB"},
-		{1572864, "1.5 MB"},
-		{1073741824, "1.0 GB"},
-		{1610612736, "1.5 GB"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.expected, func(t *testing.T) {
-			t.Parallel()
-			result := formatFileSize(tt.bytes)
-			testutil.Equal(t, tt.expected, result)
-		})
-	}
-}
-
 func TestIsAttachmentReferenced(t *testing.T) {
 	t.Parallel()
 	tests := []struct {

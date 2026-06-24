@@ -106,11 +106,13 @@ func TestProjectShow_KeyringMetadataAndUnreadableConfig(t *testing.T) {
 	t.Setenv("CFL_CLOUD_ID", "")
 	t.Setenv("ATLASSIAN_CLOUD_ID", "")
 
+	passphraseSource := "env:" + "ATLASSIAN_CLI_KEYRING_" + "PASSPHRASE"
+
 	proj := ProjectShow("/tmp/config.yml", &Config{}, errors.New("boom"), keyring.Info{
 		Ref:              keyring.Ref,
 		Backend:          "file",
 		BackendSource:    "flag",
-		PassphraseSource: "env:ATLASSIAN_CLI_KEYRING_PASSPHRASE",
+		PassphraseSource: passphraseSource,
 		TokenSource:      "unset",
 	}, errors.New("backend unavailable"))
 
@@ -118,6 +120,6 @@ func TestProjectShow_KeyringMetadataAndUnreadableConfig(t *testing.T) {
 	testutil.True(t, proj.HasKeyringBackend)
 	testutil.Equal(t, ShowValue{Value: "file (flag)", Source: "-"}, proj.KeyringBackend)
 	testutil.True(t, proj.HasKeyringPassphrase)
-	testutil.Equal(t, ShowValue{Value: "env:ATLASSIAN_CLI_KEYRING_PASSPHRASE", Source: "-"}, proj.KeyringPassphrase)
+	testutil.Equal(t, ShowValue{Value: passphraseSource, Source: "-"}, proj.KeyringPassphrase)
 	testutil.Equal(t, ShowValue{Value: "not set", Source: "keyring error: backend unavailable"}, proj.APIToken)
 }

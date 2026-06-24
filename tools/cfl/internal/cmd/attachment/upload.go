@@ -56,6 +56,10 @@ func runUpload(ctx context.Context, opts *uploadOptions) error {
 		return fmt.Errorf("opening file: %w", err)
 	}
 	defer func() { _ = file.Close() }()
+	localSize := int64(-1)
+	if info, err := file.Stat(); err == nil {
+		localSize = info.Size()
+	}
 
 	filename := filepath.Base(opts.file)
 
@@ -65,11 +69,15 @@ func runUpload(ctx context.Context, opts *uploadOptions) error {
 	}
 
 	v := opts.View()
+	reportedSize := attachment.FileSize
+	if localSize >= 0 {
+		reportedSize = localSize
+	}
 
 	v.Success("Uploaded: %s", filename)
 	v.RenderKeyValue("ID", attachment.ID)
 	v.RenderKeyValue("Title", attachment.Title)
-	v.RenderKeyValue("Size", formatFileSize(attachment.FileSize))
+	v.RenderKeyValue("Size", formatFileSize(reportedSize))
 
 	return nil
 }

@@ -1361,6 +1361,8 @@ Verify each alias produces the same output as the full command:
 
 ## Test Execution Checklist
 
+jtk supports three auth methods. Run the full checklist with separate Basic Auth and Proxy Auth passes, and run the bearer-compatible subset plus bearer guard checks during the Bearer Auth pass.
+
 ### Pass 1: Basic Auth
 
 #### Setup (Basic Auth)
@@ -1532,6 +1534,33 @@ Verify each alias produces the same output as the full command:
 
 ---
 
+### Pass 3: Proxy Auth
+
+#### Setup (Proxy Auth)
+- [ ] Configure a trusted proxy that authenticates upstream and exposes a loopback `http://` URL or an `https://` URL
+- [ ] `jtk init --auth-method proxy --url http://127.0.0.1:8080/atlassian --no-verify` (adjust URL for your proxy)
+- [ ] `jtk config show` — auth_method = proxy; email, api_token, and cloud_id are empty
+- [ ] `jtk config test` — Authentication successful through the proxy
+- [ ] `jtk me` works
+- [ ] Discover: `$PROJECT`, `$BOARD_ID`, `$SPRINT_ID`, `$ACCOUNT_ID`, `$AUTO_UUID`, `$DASHBOARD_ID`, `$EXISTING_ISSUE`, `$LINK_TYPE`, `$CUSTOM_FIELD`, `$SELECT_FIELD`
+- [ ] `jtk issues types -p $PROJECT` to learn `$ISSUE_TYPE`
+
+#### Full Checklist (Proxy Auth)
+- [ ] Run Sections 1-18 using the same steps as Pass 1
+- [ ] Include Agile, Dashboard, Automation, and Sprint sections
+- [ ] Skip Section 19; bearer guard checks are bearer-auth specific
+
+#### Cleanup (Proxy Auth)
+- [ ] Delete test projects: `jtk projects delete ZTEST --force` (etc.)
+- [ ] Delete test issues: search for `[Test]` prefix, delete with `--force`
+- [ ] Delete test dashboards: `jtk dashboards delete $TEST_DASH_ID`
+- [ ] Trash test fields: `jtk fields delete $TEST_FIELD --force`
+- [ ] Delete automation test rules: `jtk auto list | grep '\[Test\]' | awk '{print $1}' | xargs -I{} jtk auto delete {}`
+- [ ] Verify: `jtk auto list | grep -E '\[Test\]|\[DELETEME\]'` — should be empty
+- [ ] **Accepted residuals:** `$ARCHIVE_ISSUE_1` and `$ARCHIVE_ISSUE_2` remain archived (no CLI restore); `$TEST_FIELD` remains trashed (no purge API)
+
+---
+
 ## Adding New Tests
 
 When adding new features or fixing bugs:
@@ -1539,6 +1568,6 @@ When adding new features or fixing bugs:
 1. Add test steps to the appropriate numbered section above
 2. Include both happy path and error cases with exact expected output
 3. Document gotchas inline, immediately before the step where they matter
-4. Update both Pass 1 and Pass 2 in the Test Execution Checklist
+4. Update Pass 1, Pass 2, and Pass 3 in the Test Execution Checklist
 5. If the feature is scope-restricted, add guard tests to Section 19
 6. Record bugs discovered during testing and continue — don't stop to fix

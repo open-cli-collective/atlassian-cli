@@ -31,7 +31,7 @@ func defaultClientBuilder(cfg *config.Config) (*api.Client, error) {
 		return api.NewBearerClient(cfg.APIToken, cfg.CloudID)
 	}
 	if cfg.AuthMethod == auth.AuthMethodProxy {
-		return api.NewProxyClient(cfg.URL), nil
+		return api.NewProxyClient(cfg.URL)
 	}
 	return api.NewClient(cfg.URL, cfg.Email, cfg.APIToken), nil
 }
@@ -333,7 +333,9 @@ func runInit(ctx context.Context, opts *root.Options, prefillURL, prefillEmail s
 	}
 
 	cfg.NormalizeURL()
-	normalizeAuthConfig(cfg)
+	cfg.AuthMethod, cfg.Email, cfg.APIToken, cfg.CloudID = auth.NormalizeConfig(
+		cfg.AuthMethod, cfg.Email, cfg.APIToken, cfg.CloudID,
+	)
 
 	if err := cfg.Validate(); err != nil {
 		return fmt.Errorf("invalid configuration: %w", err)
@@ -472,17 +474,6 @@ func finalizeInit(
 	}
 
 	return nil
-}
-
-func normalizeAuthConfig(cfg *config.Config) {
-	if cfg.AuthMethod == "" {
-		cfg.AuthMethod = auth.AuthMethodBasic
-	}
-	if cfg.AuthMethod == auth.AuthMethodProxy {
-		cfg.Email = ""
-		cfg.APIToken = ""
-		cfg.CloudID = ""
-	}
 }
 
 // requireNonInteractiveFields enforces the §3.4 fail-loud contract for

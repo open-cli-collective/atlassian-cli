@@ -27,6 +27,12 @@ import (
 	"github.com/open-cli-collective/jira-ticket-cli/internal/config"
 )
 
+type clientBuilder func(api.ClientConfig) (*api.Client, error)
+
+func defaultClientBuilder(cfg api.ClientConfig) (*api.Client, error) {
+	return api.New(cfg)
+}
+
 // Register registers the init command
 func Register(parent *cobra.Command, opts *root.Options) {
 	var url, email, token, tokenFromEnv, authMethod, cloudID string
@@ -232,7 +238,7 @@ func runInit(ctx context.Context, opts *root.Options, prefillURL, prefillEmail, 
 				EchoMode(huh.EchoModePassword).
 				Value(&cfg.APIToken).
 				Validate(func(s string) error {
-					if s == "" {
+					if s == "" && !noVerify {
 						return fmt.Errorf("API token is required")
 					}
 					return nil
@@ -288,7 +294,7 @@ func runInit(ctx context.Context, opts *root.Options, prefillURL, prefillEmail, 
 				EchoMode(huh.EchoModePassword).
 				Value(&cfg.APIToken).
 				Validate(func(s string) error {
-					if s == "" {
+					if s == "" && !noVerify {
 						return fmt.Errorf("API token is required")
 					}
 					return nil
@@ -318,22 +324,37 @@ func runInit(ctx context.Context, opts *root.Options, prefillURL, prefillEmail, 
 
 	// Normalize URL
 	cfg.URL = sharedurl.NormalizeURL(cfg.URL)
-	normalizeAuthConfig(cfg)
+	cfg.AuthMethod, cfg.Email, cfg.APIToken, cfg.CloudID = auth.NormalizeConfig(
+		cfg.AuthMethod, cfg.Email, cfg.APIToken, cfg.CloudID,
+	)
 
-	client, err := api.New(api.ClientConfig{
-		URL:        cfg.URL,
-		Email:      cfg.Email,
-		APIToken:   cfg.APIToken,
-		AuthMethod: cfg.AuthMethod,
-		CloudID:    cfg.CloudID,
-	})
-	if err != nil {
-		return fmt.Errorf("creating client: %w", err)
-	}
+	return finalizeInit(ctx, opts, cfg, result, sharedPath, noVerify, defaultClientBuilder)
+}
 
-	// Verify connection unless --no-verify
+func finalizeInit(
+	ctx context.Context,
+	opts *root.Options,
+	cfg *config.Config,
+	result *reconcileResult,
+	sharedPath string,
+	noVerify bool,
+	build clientBuilder,
+) error {
+	v := opts.View()
+
 	if !noVerify {
 		v.Println("Testing connection...")
+
+		client, err := build(api.ClientConfig{
+			URL:        cfg.URL,
+			Email:      cfg.Email,
+			APIToken:   cfg.APIToken,
+			AuthMethod: cfg.AuthMethod,
+			CloudID:    cfg.CloudID,
+		})
+		if err != nil {
+			return fmt.Errorf("creating client: %w", err)
+		}
 
 		user, err := client.GetCurrentUser(ctx, "")
 		if err != nil {
@@ -385,6 +406,8 @@ func runInit(ctx context.Context, opts *root.Options, prefillURL, prefillEmail, 
 	// keyring under the single shared api_token (§1.11.10).
 	if cfg.AuthMethod == auth.AuthMethodProxy {
 		v.Success("Configuration saved to %s (proxy auth; no token stored)", sharedPath)
+	} else if cfg.APIToken == "" {
+		v.Success("Configuration saved to %s (token not stored; run `jtk set-credential --ref atlassian-cli/default --key api_token --stdin --overwrite` before authenticated commands)", sharedPath)
 	} else {
 		if err := keyring.PersistToken(cfg.APIToken); err != nil {
 			v.Error("Saved the non-secret config to %s, but could not store the API token in the keyring: %v", sharedPath, err)
@@ -426,26 +449,15 @@ func runInit(ctx context.Context, opts *root.Options, prefillURL, prefillEmail, 
 	v.Println("  jtk me")
 	v.Println("  jtk issues list --project <PROJECT>")
 
-	if isBearer {
+	if cfg.AuthMethod == auth.AuthMethodBearer {
 		v.Println("")
 		v.Info("To switch back to basic auth later, run: jtk init --auth-method basic")
-	} else if isProxy {
+	} else if cfg.AuthMethod == auth.AuthMethodProxy {
 		v.Println("")
 		v.Info("To switch to direct authentication later, run: jtk init --auth-method basic")
 	}
 
 	return nil
-}
-
-func normalizeAuthConfig(cfg *config.Config) {
-	if cfg.AuthMethod == "" {
-		cfg.AuthMethod = auth.AuthMethodBasic
-	}
-	if cfg.AuthMethod == auth.AuthMethodProxy {
-		cfg.Email = ""
-		cfg.APIToken = ""
-		cfg.CloudID = ""
-	}
 }
 
 // requireNonInteractiveFields enforces the §3.4 fail-loud contract for

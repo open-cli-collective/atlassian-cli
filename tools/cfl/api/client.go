@@ -14,10 +14,11 @@ import (
 	sharedurl "github.com/open-cli-collective/atlassian-go/url"
 )
 
-// Validation errors for bearer auth.
+// Validation errors for auth configuration.
 var (
-	ErrAPITokenRequired = errors.New("API token is required")
-	ErrCloudIDRequired  = errors.New("cloud ID is required for bearer auth")
+	ErrAPITokenRequired      = errors.New("API token is required")
+	ErrCloudIDRequired       = errors.New("cloud ID is required for bearer auth")
+	ErrProxyURLRequiresHTTPS = errors.New("proxy auth URL must use https unless it is loopback http")
 )
 
 // Client is the Confluence Cloud API client.
@@ -35,10 +36,14 @@ func NewClient(baseURL, email, apiToken string) *Client {
 
 // NewProxyClient creates a Confluence client for a trusted proxy that injects
 // authentication upstream. No Authorization header is sent by the CLI.
-func NewProxyClient(baseURL string) *Client {
-	return &Client{
-		Client: client.New(normalizeWikiBaseURL(baseURL), "", "", &client.Options{SkipAuthHeader: true}),
+func NewProxyClient(baseURL string) (*Client, error) {
+	normalized := normalizeWikiBaseURL(baseURL)
+	if strings.HasPrefix(normalized, "http://") && !sharedurl.IsLoopbackHTTP(normalized) {
+		return nil, ErrProxyURLRequiresHTTPS
 	}
+	return &Client{
+		Client: client.New(normalized, "", "", &client.Options{SkipAuthHeader: true}),
+	}, nil
 }
 
 // NewBearerClient creates a new Confluence API client using bearer auth via the API gateway.

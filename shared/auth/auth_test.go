@@ -140,6 +140,89 @@ func TestValidateAuthMethod(t *testing.T) {
 	}
 }
 
+func TestNormalizeConfig(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name           string
+		authMethod     string
+		email          string
+		apiToken       string
+		cloudID        string
+		wantAuthMethod string
+		wantEmail      string
+		wantAPIToken   string
+		wantCloudID    string
+	}{
+		{
+			name:           "empty auth method defaults to basic",
+			email:          "user@example.com",
+			apiToken:       "token",
+			cloudID:        "cloud-id",
+			wantAuthMethod: AuthMethodBasic,
+			wantEmail:      "user@example.com",
+			wantAPIToken:   "token",
+			wantCloudID:    "cloud-id",
+		},
+		{
+			name:           "basic auth keeps direct credentials",
+			authMethod:     AuthMethodBasic,
+			email:          "user@example.com",
+			apiToken:       "token",
+			cloudID:        "cloud-id",
+			wantAuthMethod: AuthMethodBasic,
+			wantEmail:      "user@example.com",
+			wantAPIToken:   "token",
+			wantCloudID:    "cloud-id",
+		},
+		{
+			name:           "bearer auth keeps token and cloud ID",
+			authMethod:     AuthMethodBearer,
+			email:          "user@example.com",
+			apiToken:       "token",
+			cloudID:        "cloud-id",
+			wantAuthMethod: AuthMethodBearer,
+			wantEmail:      "user@example.com",
+			wantAPIToken:   "token",
+			wantCloudID:    "cloud-id",
+		},
+		{
+			name:           "proxy auth strips direct credentials",
+			authMethod:     AuthMethodProxy,
+			email:          "user@example.com",
+			apiToken:       "token",
+			cloudID:        "cloud-id",
+			wantAuthMethod: AuthMethodProxy,
+			wantEmail:      "",
+			wantAPIToken:   "",
+			wantCloudID:    "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			gotAuthMethod, gotEmail, gotAPIToken, gotCloudID := NormalizeConfig(
+				tt.authMethod, tt.email, tt.apiToken, tt.cloudID,
+			)
+
+			if gotAuthMethod != tt.wantAuthMethod {
+				t.Errorf("auth method = %q, want %q", gotAuthMethod, tt.wantAuthMethod)
+			}
+			if gotEmail != tt.wantEmail {
+				t.Errorf("email = %q, want %q", gotEmail, tt.wantEmail)
+			}
+			if gotAPIToken != tt.wantAPIToken {
+				t.Errorf("api token = %q, want %q", gotAPIToken, tt.wantAPIToken)
+			}
+			if gotCloudID != tt.wantCloudID {
+				t.Errorf("cloud ID = %q, want %q", gotCloudID, tt.wantCloudID)
+			}
+		})
+	}
+}
+
 func TestAuthMethodConstants(t *testing.T) {
 	t.Parallel()
 	if AuthMethodBasic != "basic" {

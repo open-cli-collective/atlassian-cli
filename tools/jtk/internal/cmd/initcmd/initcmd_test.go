@@ -3,6 +3,8 @@ package initcmd
 import (
 	"bytes"
 	"context"
+	"errors"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -13,6 +15,7 @@ import (
 	"github.com/open-cli-collective/atlassian-go/testutil"
 	"github.com/spf13/cobra"
 
+	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/config"
 )
@@ -216,6 +219,48 @@ func TestRunInit_Proxy_NoTokenRequiredOrPersisted(t *testing.T) {
 	ok, err := s.HasToken(keyring.KeyAPIToken)
 	testutil.RequireNoError(t, err)
 	testutil.False(t, ok)
+}
+
+func TestFinalizeInit_NoVerify_BasicAuthWithoutTokenSavesConfig(t *testing.T) {
+	credtest.Hermetic(t)
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yml")
+	opts := &root.Options{
+		NoColor: true,
+		Stdout:  &bytes.Buffer{},
+		Stderr:  &bytes.Buffer{},
+	}
+	cfg := &config.Config{
+		URL:        "https://acme.atlassian.net",
+		Email:      "user@example.com",
+		AuthMethod: auth.AuthMethodBasic,
+	}
+	builderCalled := false
+	build := func(api.ClientConfig) (*api.Client, error) {
+		builderCalled = true
+		return nil, errors.New("client builder should not run with --no-verify")
+	}
+
+	err := finalizeInit(context.Background(), opts, cfg, &reconcileResult{store: &credstore.Store{}}, configPath, true, build)
+	testutil.RequireNoError(t, err)
+	testutil.False(t, builderCalled, "client builder should not be invoked when --no-verify is set")
+
+	store, err := credstore.Load(configPath)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "https://acme.atlassian.net", store.Default.URL)
+	testutil.Equal(t, "user@example.com", store.Default.Email)
+	testutil.Equal(t, auth.AuthMethodBasic, store.Default.AuthMethod)
+
+	s, err := keyring.OpenNoMigrate()
+	testutil.RequireNoError(t, err)
+	defer func() { _ = s.Close() }()
+	ok, err := s.HasToken(keyring.KeyAPIToken)
+	testutil.RequireNoError(t, err)
+	testutil.False(t, ok)
+
+	stdout := opts.Stdout.(*bytes.Buffer).String()
+	testutil.Contains(t, stdout, "Configuration saved")
+	testutil.Contains(t, stdout, "token not stored")
 }
 
 func TestInitCommand_Flags(t *testing.T) {

@@ -34,14 +34,26 @@ func TestNewProxyClient(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewProxyClient(server.URL)
+	client, err := NewProxyClient(server.URL)
+	testutil.RequireNoError(t, err)
 	testutil.NotNil(t, client)
 	testutil.Equal(t, server.URL+"/wiki", client.GetBaseURL())
 	testutil.Equal(t, "", client.GetAuthHeader())
 
-	_, err := client.Get(context.Background(), "/api/v2/spaces")
+	_, err = client.Get(context.Background(), "/api/v2/spaces")
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, "", capturedAuth)
+}
+
+func TestNewProxyClient_RejectsArbitraryHTTP(t *testing.T) {
+	t.Parallel()
+
+	client, err := NewProxyClient("http://example.com/atlassian")
+	testutil.RequireError(t, err)
+	testutil.Nil(t, client)
+	if !errors.Is(err, ErrProxyURLRequiresHTTPS) {
+		t.Errorf("got error %v, want %v", err, ErrProxyURLRequiresHTTPS)
+	}
 }
 
 func TestClient_AuthHeader(t *testing.T) {

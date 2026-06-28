@@ -31,6 +31,22 @@ func ValidateAuthMethod(method string) error {
 	}
 }
 
+// NormalizeConfig applies auth-method policy to config credential fields.
+//
+// Empty auth method defaults to basic. Proxy auth sends no CLI-side
+// credentials, so direct credential fields are cleared.
+func NormalizeConfig(authMethod, email, apiToken, cloudID string) (string, string, string, string) {
+	if authMethod == "" {
+		authMethod = AuthMethodBasic
+	}
+	if authMethod == AuthMethodProxy {
+		email = ""
+		apiToken = ""
+		cloudID = ""
+	}
+	return authMethod, email, apiToken, cloudID
+}
+
 // BasicAuthHeader returns the HTTP Basic Authentication header value
 // for use with Atlassian Cloud APIs.
 //

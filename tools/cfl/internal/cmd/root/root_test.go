@@ -2,6 +2,7 @@ package root
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -163,6 +164,23 @@ func TestOptions_APIClient_ProxySkipsAuthHeader(t *testing.T) {
 	_, err = c.Get(t.Context(), "/api/v2/spaces")
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, "", capturedAuth)
+}
+
+func TestOptions_APIClient_ProxyRejectsArbitraryHTTP(t *testing.T) {
+	t.Parallel()
+
+	_, opts := NewCmd()
+	opts.SetConfig(&config.Config{
+		URL:        "http://example.com/atlassian",
+		AuthMethod: auth.AuthMethodProxy,
+	})
+
+	c, err := opts.APIClient()
+	testutil.RequireError(t, err)
+	testutil.Nil(t, c)
+	if !errors.Is(err, api.ErrProxyURLRequiresHTTPS) {
+		t.Errorf("got error %v, want %v", err, api.ErrProxyURLRequiresHTTPS)
+	}
 }
 
 func TestValidateOutputFormat(t *testing.T) {

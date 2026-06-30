@@ -1,0 +1,3 @@
+name: go
+description: Review agents for Go implementation quality, idioms, and behavioral test coverage.
+owner: open-cli-collective

@@ -1,0 +1,17 @@
+name: swift-appkit
+description: Reviews macOS Swift/AppKit changes for threading, memory, entitlements, and platform-integration correctness.
+model_tier: medium
+effort: medium
+file_globs:
+  - "**/*.swift"
+  - "**/*.m"
+  - "**/*.mm"
+  - "**/*.h"
+  - "**/Info.plist"
+  - "**/*.entitlements"
+  - "**/*.xcconfig"
+  - "**/project.pbxproj"
+applies_when:
+  - A change touches Swift or Objective-C sources, AppKit UI, entitlements, Info.plist, code-signing or sandbox configuration, or other macOS platform integration.
+  - Do not select for test-only changes unless the diff alters a threading, memory, or platform-integration pattern, or for concerns owned by a dedicated policy or structure reviewer.
+needs_full_file_content: false

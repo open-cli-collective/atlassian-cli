@@ -1,0 +1,15 @@
+name: implementation-tests
+description: Reviews Rust changes for idiomatic implementation choices and tests that prove the changed behavior.
+model_tier: medium
+effort: medium
+file_globs:
+  - "**/*.rs"
+  - "Cargo.toml"
+  - "Cargo.lock"
+  - "**/build.rs"
+  - "rust-toolchain"
+  - "rust-toolchain.toml"
+applies_when:
+  - A change touches Rust source, crate or workspace dependencies, build scripts, or behavior that should be proven by Rust tests.
+  - Do not select for changes a dedicated style, security, or architecture reviewer already covers, or for non-Rust changes.
+needs_full_file_content: false

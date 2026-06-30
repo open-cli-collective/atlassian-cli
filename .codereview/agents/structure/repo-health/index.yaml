@@ -1,0 +1,29 @@
+name: repo-health
+description: Reviews diffs for structural risks that can compound across future agent and human work.
+model_tier: medium
+effort: medium
+file_globs:
+  - "AGENTS.md"
+  - "CLAUDE.md"
+  - "docs/development.md"
+  - ".github/**"
+  - ".codereview/**"
+  - "Makefile"
+  - "go.mod"
+  - "go.sum"
+  - "cmd/**"
+  - "internal/agents/**"
+  - "internal/config/**"
+  - "internal/gate/**"
+  - "internal/gateio/**"
+  - "internal/ledger/**"
+  - "internal/llm/**"
+  - "internal/outbox/**"
+  - "internal/pipeline/**"
+  - "internal/reviewplan/**"
+  - "internal/reviewrun/**"
+  - "internal/statepaths/**"
+applies_when:
+  - A change crosses package boundaries, adds or removes durable concepts, changes review orchestration, alters repository guidance/automation, or creates a pattern likely to compound across future work.
+  - Do not select for narrow docs-only, prompt-only, test-only, or localized implementation changes when a specialized reviewer can cover the risk.
+needs_full_file_content: false

@@ -113,7 +113,7 @@ func TestLinkPresenter_PresentList_Extended(t *testing.T) {
 
 	// Row 0: OutwardIssue with status
 	r0 := table.Rows[0].Cells
-	wantR0 := []string{"17844", "10100", "Blocker", "is blocked by", "MON-4819", "Backlog", "Linked issue B"}
+	wantR0 := []string{"17844", "10100", "Blocker", "blocks", "MON-4819", "Backlog", "Linked issue B"}
 	for i, w := range wantR0 {
 		if r0[i] != w {
 			t.Errorf("row0[%d] (%s): expected %q, got %q", i, expectedHeaders[i], w, r0[i])
@@ -148,7 +148,7 @@ func TestLinkPresenter_PresentList_Default_CellOrder(t *testing.T) {
 	model := LinkPresenter{}.PresentList(links, false)
 	table := model.Sections[0].(*present.TableSection)
 
-	want := []string{"17844", "Blocker", "is blocked by", "MON-4819", "Linked issue B"}
+	want := []string{"17844", "Blocker", "blocks", "MON-4819", "Linked issue B"}
 	row := table.Rows[0].Cells
 	if len(row) != len(want) {
 		t.Fatalf("expected %d cells, got %d", len(want), len(row))

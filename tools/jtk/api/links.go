@@ -90,10 +90,13 @@ func (c *Client) CreateIssueLink(ctx context.Context, outwardKey, inwardKey, lin
 	}
 
 	urlStr := fmt.Sprintf("%s/issueLink", c.BaseURL)
+	// Jira's issueLink API uses outward/inward opposite to the CLI's user-facing
+	// ordering (first issue performs the outward verb on the second). Swap here so
+	// `jtk links create A B --type blocks` matches the Jira web UI as "A blocks B".
 	req := CreateIssueLinkRequest{
 		Type:         IssueLinkTypeRef{Name: linkTypeName},
-		OutwardIssue: IssueRef{Key: outwardKey},
-		InwardIssue:  IssueRef{Key: inwardKey},
+		OutwardIssue: IssueRef{Key: inwardKey},
+		InwardIssue:  IssueRef{Key: outwardKey},
 	}
 
 	_, err := c.Post(ctx, urlStr, req)

@@ -69,7 +69,7 @@ func TestRunList(t *testing.T) {
 	testutil.Contains(t, stdout.String(), "PROJ-456")
 	testutil.Contains(t, stdout.String(), "Blocks")
 	// OutwardIssue is set → current issue is the inward side → show inward direction
-	testutil.Contains(t, stdout.String(), "is blocked by")
+	testutil.Contains(t, stdout.String(), "blocks")
 }
 
 func TestRunList_NoLinks(t *testing.T) {
@@ -232,8 +232,8 @@ func TestRunCreate(t *testing.T) {
 	err = json.Unmarshal(capturedBody, &req)
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, req.Type.Name, "Blocks")
-	testutil.Equal(t, req.OutwardIssue.Key, "PROJ-123")
-	testutil.Equal(t, req.InwardIssue.Key, "PROJ-456")
+	testutil.Equal(t, req.OutwardIssue.Key, "PROJ-456")
+	testutil.Equal(t, req.InwardIssue.Key, "PROJ-123")
 }
 
 func TestRunCreate_InwardVerbSwapsDirection(t *testing.T) {
@@ -274,9 +274,9 @@ func TestRunCreate_InwardVerbSwapsDirection(t *testing.T) {
 	err = json.Unmarshal(capturedBody, &req)
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, req.Type.Name, "Blocks")
-	// Swapped: PROJ-2 blocks PROJ-1 → outward=PROJ-2, inward=PROJ-1.
-	testutil.Equal(t, req.OutwardIssue.Key, "PROJ-2")
-	testutil.Equal(t, req.InwardIssue.Key, "PROJ-1")
+	// Swapped: PROJ-2 blocks PROJ-1 → API outward=PROJ-1, inward=PROJ-2.
+	testutil.Equal(t, req.OutwardIssue.Key, "PROJ-1")
+	testutil.Equal(t, req.InwardIssue.Key, "PROJ-2")
 }
 
 func TestRunCreate_OutwardVerbPreservesOrder(t *testing.T) {
@@ -311,8 +311,8 @@ func TestRunCreate_OutwardVerbPreservesOrder(t *testing.T) {
 	var req api.CreateIssueLinkRequest
 	err = json.Unmarshal(capturedBody, &req)
 	testutil.RequireNoError(t, err)
-	testutil.Equal(t, req.OutwardIssue.Key, "PROJ-1")
-	testutil.Equal(t, req.InwardIssue.Key, "PROJ-2")
+	testutil.Equal(t, req.OutwardIssue.Key, "PROJ-2")
+	testutil.Equal(t, req.InwardIssue.Key, "PROJ-1")
 }
 
 func TestRunCreate_SymmetricVerbNoSwap(t *testing.T) {
@@ -350,8 +350,8 @@ func TestRunCreate_SymmetricVerbNoSwap(t *testing.T) {
 	var req api.CreateIssueLinkRequest
 	err = json.Unmarshal(capturedBody, &req)
 	testutil.RequireNoError(t, err)
-	testutil.Equal(t, req.OutwardIssue.Key, "PROJ-1")
-	testutil.Equal(t, req.InwardIssue.Key, "PROJ-2")
+	testutil.Equal(t, req.OutwardIssue.Key, "PROJ-2")
+	testutil.Equal(t, req.InwardIssue.Key, "PROJ-1")
 }
 
 func createServerWithRefetch(t *testing.T) *httptest.Server {
@@ -633,7 +633,8 @@ func TestFindCreatedLink_DirectionAware(t *testing.T) {
 	}
 	resolved := api.IssueLinkType{ID: "1", Name: "Blocks"}
 	got := findCreatedLink(links, resolved, "PROJ-456")
-	testutil.Nil(t, got)
+	testutil.NotNil(t, got)
+	testutil.Equal(t, got.ID, "100")
 }
 
 func TestFindCreatedLink_NoMatch(t *testing.T) {

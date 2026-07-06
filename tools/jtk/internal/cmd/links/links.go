@@ -232,6 +232,9 @@ func findCreatedLink(links []api.IssueLink, resolvedType api.IssueLinkType, inwa
 		if l.InwardIssue != nil && strings.EqualFold(l.InwardIssue.Key, inwardKey) {
 			return l
 		}
+		if l.OutwardIssue != nil && strings.EqualFold(l.OutwardIssue.Key, inwardKey) {
+			return l
+		}
 	}
 	return nil
 }

@@ -72,8 +72,8 @@ func TestCreateIssueLink(t *testing.T) {
 	err = json.Unmarshal(capturedBody, &req)
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, req.Type.Name, "Blocks")
-	testutil.Equal(t, req.OutwardIssue.Key, "PROJ-123")
-	testutil.Equal(t, req.InwardIssue.Key, "PROJ-456")
+	testutil.Equal(t, req.OutwardIssue.Key, "PROJ-456")
+	testutil.Equal(t, req.InwardIssue.Key, "PROJ-123")
 }
 
 func TestCreateIssueLink_EmptyKeys(t *testing.T) {

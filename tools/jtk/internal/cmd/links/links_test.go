@@ -639,6 +639,18 @@ func TestFindCreatedLink_DirectionAware(t *testing.T) {
 	testutil.Equal(t, got.ID, "100")
 }
 
+func TestFindCreatedLink_PrefersOutwardPeer(t *testing.T) {
+	t.Parallel()
+	links := []api.IssueLink{
+		{ID: "old", Type: api.IssueLinkType{ID: "1", Name: "Blocks"}, InwardIssue: &api.LinkedIssue{Key: "PROJ-456"}},
+		{ID: "new", Type: api.IssueLinkType{ID: "1", Name: "Blocks"}, OutwardIssue: &api.LinkedIssue{Key: "PROJ-456"}},
+	}
+	resolved := api.IssueLinkType{ID: "1", Name: "Blocks"}
+	got := findCreatedLink(links, resolved, "PROJ-456")
+	testutil.NotNil(t, got)
+	testutil.Equal(t, got.ID, "new")
+}
+
 func TestFindCreatedLink_NoMatch(t *testing.T) {
 	t.Parallel()
 	links := []api.IssueLink{

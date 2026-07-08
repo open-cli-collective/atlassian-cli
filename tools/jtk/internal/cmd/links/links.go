@@ -219,17 +219,23 @@ fallback:
 
 // findCreatedLink searches the subject issue's link list for the newly created
 // link. Jira can return the peer issue on either side of the issue-link payload,
-// so match by type and peer key.
+// so prefer the expected outward peer and keep inward as a fallback.
 func findCreatedLink(links []api.IssueLink, resolvedType api.IssueLinkType, peerKey string) *api.IssueLink {
 	for i := range links {
 		l := &links[i]
 		if !linkTypeMatches(l.Type, resolvedType) {
 			continue
 		}
-		if l.InwardIssue != nil && strings.EqualFold(l.InwardIssue.Key, peerKey) {
+		if l.OutwardIssue != nil && strings.EqualFold(l.OutwardIssue.Key, peerKey) {
 			return l
 		}
-		if l.OutwardIssue != nil && strings.EqualFold(l.OutwardIssue.Key, peerKey) {
+	}
+	for i := range links {
+		l := &links[i]
+		if !linkTypeMatches(l.Type, resolvedType) {
+			continue
+		}
+		if l.InwardIssue != nil && strings.EqualFold(l.InwardIssue.Key, peerKey) {
 			return l
 		}
 	}

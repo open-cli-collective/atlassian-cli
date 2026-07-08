@@ -748,11 +748,12 @@ Deleted comment 21276 from MON-4810
 ### `links create / delete`
 
 ```
-$ jtk links create MON-4819 Blocker MON-4818
-17844 | Blocker | blocks | MON-4818
+$ jtk links create MON-4819 MON-4818 --type Blocker
+LINK_ID | TYPE | DIRECTION | ISSUE | SUMMARY
+17844 | Blocker | blocks | MON-4818 | Linked issue B
 ```
 
-Accepts link type by name ("Blocker"), outward verb ("blocks"), or inward verb ("is blocked by"). After create, jtk re-queries to recover the link ID (the Jira API does not return it from the create call).
+The first issue is the user-facing subject and the second is the target. `--type` accepts the link type name ("Blocker"), outward verb ("blocks"), or inward verb ("is blocked by"). After create, jtk re-queries to recover the link ID (the Jira API does not return it from the create call).
 
 ```
 $ jtk links delete 17844

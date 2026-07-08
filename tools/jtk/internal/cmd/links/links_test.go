@@ -72,6 +72,39 @@ func TestRunList(t *testing.T) {
 	testutil.Contains(t, stdout.String(), "blocks")
 }
 
+func TestRunList_InwardIssue(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"fields": map[string]any{
+				"issuelinks": []map[string]any{
+					{
+						"id":   "10001",
+						"type": map[string]string{"id": "1", "name": "Blocks", "inward": "is blocked by", "outward": "blocks"},
+						"inwardIssue": map[string]any{
+							"key":    "PROJ-456",
+							"fields": map[string]string{"summary": "Blocking issue"},
+						},
+					},
+				},
+			},
+		})
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runList(context.Background(), opts, "PROJ-123", "")
+	testutil.RequireNoError(t, err)
+	testutil.Contains(t, stdout.String(), "PROJ-456")
+	testutil.Contains(t, stdout.String(), "Blocks")
+	testutil.Contains(t, stdout.String(), "is blocked by")
+}
+
 func TestRunList_NoLinks(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{
@@ -354,7 +387,7 @@ func TestRunCreate_SymmetricVerbNoSwap(t *testing.T) {
 	testutil.Equal(t, req.InwardIssue.Key, "PROJ-1")
 }
 
-func createServerWithRefetch(t *testing.T) *httptest.Server {
+func createServerWithRefetch(t *testing.T, peerField string) *httptest.Server {
 	t.Helper()
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
@@ -373,7 +406,7 @@ func createServerWithRefetch(t *testing.T) *httptest.Server {
 						{
 							"id":   "17844",
 							"type": map[string]any{"id": "10100", "name": "Blocker", "inward": "is blocked by", "outward": "blocks"},
-							"outwardIssue": map[string]any{
+							peerField: map[string]any{
 								"key":    "PROJ-456",
 								"fields": map[string]any{"summary": "Blocked issue", "status": map[string]any{"name": "Open"}},
 							},
@@ -397,7 +430,7 @@ func seedLinkTypesForTest(t *testing.T) {
 
 func TestRunCreate_CanonicalRow(t *testing.T) {
 	// no t.Parallel(): seeds the process-global cache override (see isolateCache).
-	server := createServerWithRefetch(t)
+	server := createServerWithRefetch(t, "outwardIssue")
 	defer server.Close()
 
 	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
@@ -428,7 +461,25 @@ func TestRunCreate_CanonicalRow(t *testing.T) {
 
 func TestRunCreate_IDOnly(t *testing.T) {
 	// no t.Parallel(): seeds the process-global cache override (see isolateCache).
-	server := createServerWithRefetch(t)
+	server := createServerWithRefetch(t, "outwardIssue")
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	seedLinkTypesForTest(t)
+	var stdout bytes.Buffer
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}, IDOnly: true}
+	opts.SetAPIClient(client)
+
+	err = runCreate(context.Background(), opts, "PROJ-123", "PROJ-456", "Blocker")
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, stdout.String(), "17844\n")
+}
+
+func TestRunCreate_IDOnly_InwardPeerFallback(t *testing.T) {
+	// no t.Parallel(): seeds the process-global cache override (see isolateCache).
+	server := createServerWithRefetch(t, "inwardIssue")
 	defer server.Close()
 
 	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})

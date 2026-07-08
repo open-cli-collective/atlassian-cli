@@ -68,7 +68,7 @@ func TestRunList(t *testing.T) {
 	testutil.RequireNoError(t, err)
 	testutil.Contains(t, stdout.String(), "PROJ-456")
 	testutil.Contains(t, stdout.String(), "Blocks")
-	// OutwardIssue is set → current issue is the inward side → show inward direction
+	// OutwardIssue is set, but list output follows Jira UI's direction label.
 	testutil.Contains(t, stdout.String(), "blocks")
 }
 
@@ -239,8 +239,8 @@ func TestRunCreate(t *testing.T) {
 func TestRunCreate_InwardVerbSwapsDirection(t *testing.T) {
 	// A `jtk links create A B --type "is blocked by"` call must create a link
 	// where B blocks A — i.e., A is blocked by B. Since the Jira API always
-	// sees the link type by canonical name, correctness comes from the
-	// outward/inward issue ordering we post.
+	// sees the link type by canonical name, correctness comes from the REST issue
+	// ordering we post.
 	var capturedBody []byte
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
@@ -274,7 +274,7 @@ func TestRunCreate_InwardVerbSwapsDirection(t *testing.T) {
 	err = json.Unmarshal(capturedBody, &req)
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, req.Type.Name, "Blocks")
-	// Swapped: PROJ-2 blocks PROJ-1 → API outward=PROJ-1, inward=PROJ-2.
+	// User-facing PROJ-2 blocks PROJ-1 → REST outward=PROJ-1, inward=PROJ-2.
 	testutil.Equal(t, req.OutwardIssue.Key, "PROJ-1")
 	testutil.Equal(t, req.InwardIssue.Key, "PROJ-2")
 }
@@ -373,7 +373,7 @@ func createServerWithRefetch(t *testing.T) *httptest.Server {
 						{
 							"id":   "17844",
 							"type": map[string]any{"id": "10100", "name": "Blocker", "inward": "is blocked by", "outward": "blocks"},
-							"inwardIssue": map[string]any{
+							"outwardIssue": map[string]any{
 								"key":    "PROJ-456",
 								"fields": map[string]any{"summary": "Blocked issue", "status": map[string]any{"name": "Open"}},
 							},
@@ -420,7 +420,9 @@ func TestRunCreate_CanonicalRow(t *testing.T) {
 	testutil.Contains(t, lines[0], "ISSUE")
 	testutil.Contains(t, out, "17844")
 	testutil.Contains(t, out, "Blocker")
+	testutil.Contains(t, out, "blocks")
 	testutil.Contains(t, out, "PROJ-456")
+	testutil.NotContains(t, out, "is blocked by")
 	testutil.NotContains(t, out, "Created")
 }
 

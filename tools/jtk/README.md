@@ -644,7 +644,7 @@ jtk links list PROJ-123 --fields TYPE,ISSUE
 
 ### `jtk links create <issue-key> <target-issue-key>`
 
-Create a link between two issues. The first issue is the outward issue and the second is the inward issue. `--type` accepts the canonical name, the outward verb, or the inward verb.
+Create a link between two issues. The first issue is the user-facing subject and the second is the target. `--type` accepts the canonical name, the outward verb, or the inward verb.
 
 ```bash
 # A blocks B
@@ -662,8 +662,8 @@ jtk links create PROJ-123 PROJ-456 --type Relates
 | `--type` | `-t` | | Link type: canonical name, outward verb, or inward verb (**required**) |
 
 **Arguments:**
-- `<issue-key>` - The outward issue key (**required**)
-- `<target-issue-key>` - The inward issue key (**required**)
+- `<issue-key>` - The subject issue key (**required**)
+- `<target-issue-key>` - The target issue key (**required**)
 
 > Tip: Use `jtk links types` to see available link types.
 

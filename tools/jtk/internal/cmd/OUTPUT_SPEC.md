@@ -838,6 +838,15 @@ Components: 5 total — 1 condition, 4 actions
 ```
 
 ```
+$ jtk automation update 019e1234-abcd-7000-8888-112233445566 --file rule.json
+019e1234-abcd-7000-8888-112233445566  [Test] My Rule
+State: ENABLED
+Components: 5 total — 1 condition, 4 actions
+```
+
+Post-state mirrors `automation get`. On success `update` also writes an advisory to **stderr** — automation reads are eventually consistent, so a re-export/get run immediately afterward may show the prior definition even though the update applied. The advisory is suppressed under `--id`, which emits only the rule UUID.
+
+```
 $ jtk automation delete 019e1234-abcd-7000-8888-112233445566
 Deleted automation 019e1234-abcd-7000-8888-112233445566
 ```

@@ -36,7 +36,13 @@ does, do not change it.
 The safest edits are to rule metadata: name, description, labels, and
 enabled/disabled state (prefer 'jtk auto enable/disable' for state changes).
 Component-level edits require understanding of the specific Jira instance's
-field mappings and workflow configuration.`,
+field mappings and workflow configuration.
+
+Automation reads are eventually consistent. The write is applied on success,
+but an 'export'/'get' issued immediately afterward may briefly return the
+prior definition — so a re-export run right away (e.g. to refresh a backup)
+can look like the update was dropped when it was not. Re-read after a moment
+to confirm.`,
 		Example: `  jtk automation update 12345 --file rule.json
   jtk auto update 12345 --file updated-rule.json`,
 		Args: cobra.ExactArgs(1),
@@ -72,6 +78,17 @@ func runUpdate(ctx context.Context, opts *root.Options, ruleID, filePath string)
 
 	if opts.EmitIDOnly() {
 		return jtkpresent.EmitIDs(opts, []string{ruleID})
+	}
+
+	// Automation reads are eventually consistent: a re-export/get issued right
+	// after this write can briefly return the prior definition even though the
+	// update was applied. Surface that so callers (and scripts that re-export
+	// to a backup) don't mistake replication lag for a dropped update. The
+	// post-state shown below is fetched with bounded retries but can itself
+	// land on a lagging replica.
+	if opts.Stderr != nil {
+		fmt.Fprintln(opts.Stderr,
+			"Note: automation reads are eventually consistent — an immediate re-export/get may briefly show the prior rule definition even though this update was applied. Re-read after a moment to confirm.")
 	}
 
 	return mutation.WriteAndPresent(ctx, opts, mutation.Config{

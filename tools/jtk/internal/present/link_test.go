@@ -80,7 +80,7 @@ func TestLinkPresenter_PresentList_Extended(t *testing.T) {
 		},
 		{
 			ID:   "17845",
-			Type: api.IssueLinkType{ID: "10200", Name: "Relates", Inward: "relates to", Outward: "relates to"},
+			Type: api.IssueLinkType{ID: "10100", Name: "Blocker", Inward: "is blocked by", Outward: "blocks"},
 			InwardIssue: &api.LinkedIssue{
 				Key: "MON-4700",
 				Fields: struct {
@@ -113,7 +113,7 @@ func TestLinkPresenter_PresentList_Extended(t *testing.T) {
 
 	// Row 0: OutwardIssue with status
 	r0 := table.Rows[0].Cells
-	wantR0 := []string{"17844", "10100", "Blocker", "is blocked by", "MON-4819", "Backlog", "Linked issue B"}
+	wantR0 := []string{"17844", "10100", "Blocker", "blocks", "MON-4819", "Backlog", "Linked issue B"}
 	for i, w := range wantR0 {
 		if r0[i] != w {
 			t.Errorf("row0[%d] (%s): expected %q, got %q", i, expectedHeaders[i], w, r0[i])
@@ -122,7 +122,7 @@ func TestLinkPresenter_PresentList_Extended(t *testing.T) {
 
 	// Row 1: InwardIssue with nil status
 	r1 := table.Rows[1].Cells
-	wantR1 := []string{"17845", "10200", "Relates", "relates to", "MON-4700", "-", "Fix ghost row"}
+	wantR1 := []string{"17845", "10100", "Blocker", "is blocked by", "MON-4700", "-", "Fix ghost row"}
 	for i, w := range wantR1 {
 		if r1[i] != w {
 			t.Errorf("row1[%d] (%s): expected %q, got %q", i, expectedHeaders[i], w, r1[i])
@@ -148,7 +148,7 @@ func TestLinkPresenter_PresentList_Default_CellOrder(t *testing.T) {
 	model := LinkPresenter{}.PresentList(links, false)
 	table := model.Sections[0].(*present.TableSection)
 
-	want := []string{"17844", "Blocker", "is blocked by", "MON-4819", "Linked issue B"}
+	want := []string{"17844", "Blocker", "blocks", "MON-4819", "Linked issue B"}
 	row := table.Rows[0].Cells
 	if len(row) != len(want) {
 		t.Fatalf("expected %d cells, got %d", len(want), len(row))

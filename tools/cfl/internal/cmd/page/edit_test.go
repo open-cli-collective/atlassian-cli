@@ -71,6 +71,8 @@ func TestRunEdit_Success(t *testing.T) {
 
 	err = runEdit(context.Background(), opts)
 	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "Updated page: Test Page\nID: 12345\nVersion: 6\nURL: /pages/12345\n", rootOpts.Stdout.(*bytes.Buffer).String())
+	testutil.Equal(t, "", rootOpts.Stderr.(*bytes.Buffer).String())
 }
 
 func TestRunEdit_TitleOnly(t *testing.T) {
@@ -153,6 +155,7 @@ func TestRunEdit_PageNotFound(t *testing.T) {
 	err := runEdit(context.Background(), opts)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "getting page")
+	testutil.NotContains(t, err.Error(), "getting page: getting page:")
 }
 
 func TestRunEdit_UpdateFailed(t *testing.T) {
@@ -195,6 +198,36 @@ func TestRunEdit_UpdateFailed(t *testing.T) {
 	err = runEdit(context.Background(), opts)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "updating page")
+	testutil.NotContains(t, err.Error(), "updating page: updating page:")
+}
+
+func TestRunEdit_NoContentSource_NoTTY_FailsBeforeAPICall(t *testing.T) {
+	t.Parallel()
+	oldStdinIsTTY := stdinIsTTY
+	stdinIsTTY = func() bool { return false }
+	t.Cleanup(func() { stdinIsTTY = oldStdinIsTTY })
+
+	hits := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		hits++
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	rootOpts := newEditTestRootOptions()
+	rootOpts.Stdin = nil
+	rootOpts.SetAPIClient(api.NewClient(server.URL, "test@example.com", "token"))
+
+	opts := &editOptions{
+		Options: rootOpts,
+		pageID:  "12345",
+	}
+
+	err := runEdit(context.Background(), opts)
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "page content source is required")
+	testutil.NotContains(t, err.Error(), "editor failed")
+	testutil.Equal(t, 0, hits)
 }
 
 func TestRunEdit_VersionIncrement(t *testing.T) {
@@ -598,6 +631,8 @@ func TestRunEdit_Stdin_Legacy(t *testing.T) {
 
 	err := runEdit(context.Background(), opts)
 	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "Updated page: Test\nID: 12345\nVersion: 2\nURL: /pages/12345\n", rootOpts.Stdout.(*bytes.Buffer).String())
+	testutil.Equal(t, "⚠ Using --legacy flag. If this page uses the cloud editor, it may switch to the legacy editor.\n", rootOpts.Stderr.(*bytes.Buffer).String())
 
 	// Verify storage format was used
 	bodyMap := receivedBody["body"].(map[string]any)
@@ -1700,6 +1735,8 @@ func TestRunEdit_FileDash_Stdin_Legacy(t *testing.T) {
 
 	err := runEdit(context.Background(), opts)
 	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "Updated page: Test\nID: 12345\nVersion: 2\nURL: /pages/12345\n", rootOpts.Stdout.(*bytes.Buffer).String())
+	testutil.Equal(t, "⚠ Using --legacy flag. If this page uses the cloud editor, it may switch to the legacy editor.\n", rootOpts.Stderr.(*bytes.Buffer).String())
 
 	bodyMap := receivedBody["body"].(map[string]any)
 	storageMap := bodyMap["storage"].(map[string]any)

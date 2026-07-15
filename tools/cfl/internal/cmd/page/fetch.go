@@ -33,6 +33,31 @@ func getPageWithBodyFallback(ctx context.Context, client *api.Client, pageID str
 	return page, nil
 }
 
+// getPageVersionWithBodyFallback fetches a specific page version with body
+// content, falling back to atlas_doc_format when storage is empty.
+func getPageVersionWithBodyFallback(ctx context.Context, client *api.Client, pageID string, version int) (*api.Page, error) {
+	location, err := client.LocatePageVersion(ctx, pageID, version)
+	if err != nil {
+		return nil, err
+	}
+
+	page, err := client.GetLocatedPageVersion(ctx, pageID, location, "storage")
+	if err != nil {
+		return nil, err
+	}
+
+	if hasStorageContent(page) {
+		return page, nil
+	}
+
+	adfPage, err := client.GetLocatedPageVersion(ctx, pageID, location, "atlas_doc_format")
+	if err == nil && adfPage.Body != nil && adfPage.Body.AtlasDocFormat != nil {
+		page.Body = adfPage.Body
+	}
+
+	return page, nil
+}
+
 // hasStorageContent returns true if the page has non-empty storage format content.
 func hasStorageContent(page *api.Page) bool {
 	return page.Body != nil &&

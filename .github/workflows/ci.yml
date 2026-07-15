@@ -5,6 +5,10 @@ on:
     branches: [main]
   pull_request:
 
+# Standard keyring opt-out tags (cli-common working-with-secrets.md §1.10).
+env:
+  GOFLAGS: -tags=keyring_no1password,keyring_nopassage
+
 jobs:
   detect-changes:
     runs-on: ubuntu-latest

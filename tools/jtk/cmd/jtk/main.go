@@ -30,6 +30,7 @@ import (
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/me"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/projects"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/refresh"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/remotelinks"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/setcredential"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/sprints"
@@ -67,6 +68,7 @@ func run(ctx context.Context) error {
 	transitions.Register(rootCmd, opts)
 	comments.Register(rootCmd, opts)
 	links.Register(rootCmd, opts)
+	remotelinks.Register(rootCmd, opts)
 	attachments.Register(rootCmd, opts)
 	automation.Register(rootCmd, opts)
 	boards.Register(rootCmd, opts)

@@ -17,6 +17,11 @@ Local convenience copy, if present: `../../docs/development.md`
 Source of truth: https://github.com/open-cli-collective/atlassian-cli/blob/main/docs/ARTIFACT_CONTRACT.md
 Local convenience copy, if present: `../../docs/ARTIFACT_CONTRACT.md`
 
+## Output Contract
+
+Source of truth: https://github.com/open-cli-collective/atlassian-cli/blob/main/tools/cfl/internal/cmd/OUTPUT_SPEC.md
+Local convenience copy, if present: `internal/cmd/OUTPUT_SPEC.md`
+
 ## Shared Standards
 
 Source of truth: https://github.com/open-cli-collective/cli-common/tree/main/docs

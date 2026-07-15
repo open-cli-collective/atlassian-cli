@@ -6,12 +6,19 @@ import (
 	"fmt"
 )
 
-// CreateSpaceRequest is the request body for creating a space (v2 API).
+// CreateSpaceRequest is the command-facing request body for creating a space.
 type CreateSpaceRequest struct {
 	Key         string            `json:"key"`
 	Name        string            `json:"name"`
 	Description *SpaceDescription `json:"description,omitempty"`
 	Type        string            `json:"type,omitempty"`
+}
+
+type createSpaceV1Request struct {
+	Key         string              `json:"key"`
+	Name        string              `json:"name"`
+	Description *V1SpaceDescription `json:"description,omitempty"`
+	Type        string              `json:"type,omitempty"`
 }
 
 // UpdateSpaceRequest is the request body for updating a space (v1 API).
@@ -72,18 +79,33 @@ func (r *v1SpaceResponse) toSpace() *Space {
 }
 
 // CreateSpace creates a new Confluence space.
+// Confluence Cloud uses the v1 REST endpoint for space creation.
 func (c *Client) CreateSpace(ctx context.Context, req *CreateSpaceRequest) (*Space, error) {
-	body, err := c.Post(ctx, "/api/v2/spaces", req)
+	v1req := &createSpaceV1Request{
+		Key:  req.Key,
+		Name: req.Name,
+		Type: req.Type,
+	}
+	if req.Description != nil && req.Description.Plain != nil {
+		v1req.Description = &V1SpaceDescription{
+			Plain: &V1DescriptionValue{
+				Value:          req.Description.Plain.Value,
+				Representation: "plain",
+			},
+		}
+	}
+
+	body, err := c.Post(ctx, "/rest/api/space", v1req)
 	if err != nil {
 		return nil, fmt.Errorf("creating space: %w", err)
 	}
 
-	var space Space
-	if err := json.Unmarshal(body, &space); err != nil {
+	var response v1SpaceResponse
+	if err := json.Unmarshal(body, &response); err != nil {
 		return nil, fmt.Errorf("parsing create space response: %w", err)
 	}
 
-	return &space, nil
+	return response.toSpace(), nil
 }
 
 // UpdateSpace updates an existing Confluence space.

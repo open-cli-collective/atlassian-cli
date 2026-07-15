@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
+	cflpresent "github.com/open-cli-collective/confluence-cli/internal/present"
 )
 
 type downloadOptions struct {
@@ -84,10 +85,5 @@ func runDownload(ctx context.Context, attachmentID string, opts *downloadOptions
 		return fmt.Errorf("writing file: %w", err)
 	}
 
-	v := opts.View()
-
-	v.Success("Downloaded: %s", outputPath)
-	v.RenderKeyValue("Size", formatFileSize(bytesWritten))
-
-	return nil
+	return cflpresent.Emit(opts.Options, cflpresent.AttachmentPresenter{}.PresentDownload(outputPath, bytesWritten))
 }

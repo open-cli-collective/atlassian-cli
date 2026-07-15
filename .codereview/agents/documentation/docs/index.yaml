@@ -1,0 +1,15 @@
+name: docs
+description: Reviews documentation-only changes for accuracy, useful examples, and durable repo knowledge.
+model_tier: medium
+effort: medium
+file_globs:
+  - "*.md"
+  - "*.mdx"
+  - "README*"
+  - "docs/**/*.md"
+  - "docs/**/*.mdx"
+  - ".github/**/*.md"
+  - "packaging/**/*.md"
+applies_when:
+  - A change primarily edits README files, docs, agent entrypoints such as AGENTS.md or CLAUDE.md, or other prose documentation without changing program behavior.
+needs_full_file_content: false

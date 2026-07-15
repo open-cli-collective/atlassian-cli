@@ -5,7 +5,7 @@ A command-line interface for managing Jira Cloud tickets.
 ## Features
 
 - Manage Jira issues from the command line
-- List, create, update, search, and delete issues
+- List, create, update, search, delete, and inspect history for issues
 - Manage projects (create, update, delete, restore)
 - Manage sprints and boards
 - Add comments and perform transitions
@@ -153,7 +153,7 @@ These flags are available on all commands:
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
 | `--extended` | | `false` | Include admin/schema/audit fields in output |
-| `--fulltext` | | `false` | Disable truncation of descriptions and comments |
+| `--fulltext` | | `false` | Disable truncation of descriptions, comments, and history values |
 | `--id` | | `false` | Emit only the primary identifier (takes precedence over `--extended` and `--fulltext`) |
 | `--no-color` | | `false` | Disable colored output |
 | `--verbose` | `-v` | `false` | Log each request's method/URL, JSON body, status, and any 4xx/5xx response body (each capped at 4 KB). Useful for diagnosing opaque Jira errors like `INVALID_INPUT`. |
@@ -319,6 +319,33 @@ jtk issues get PROJ-123 --custom-fields
 
 **Arguments:**
 - `<issue-key> [issue-key...]` - One or more issue keys (**required**)
+
+---
+
+### `jtk issues history <issue-key>`
+
+List Jira changelog history for an issue as compact changed-field rows. Rows are chronological in Jira's changelog order.
+
+```bash
+jtk issues history PROJ-123
+jtk issues history PROJ-123 --id
+jtk issues history PROJ-123 --extended
+jtk issues history PROJ-123 --fields CREATED,FIELD,TO
+jtk issues history PROJ-123 --max 1
+jtk issues history PROJ-123 --next-page-token 50
+```
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--max` | `-m` | `50` | Maximum number of changelog groups to return |
+| `--next-page-token` | | | Token for next page of results |
+| `--fields` | | | Comma-separated display columns |
+| `--extended` | | `false` | Include raw/audit history fields (global) |
+| `--fulltext` | | `false` | Show full history values without truncation (global) |
+| `--id` | | `false` | Emit changelog group IDs only (global) |
+
+**Arguments:**
+- `<issue-key>` - The issue key (**required**)
 
 ---
 
@@ -617,7 +644,7 @@ jtk links list PROJ-123 --fields TYPE,ISSUE
 
 ### `jtk links create <issue-key> <target-issue-key>`
 
-Create a link between two issues. The first issue is the outward issue and the second is the inward issue. `--type` accepts the canonical name, the outward verb, or the inward verb.
+Create a link between two issues. The first issue is the user-facing subject and the second is the target. `--type` accepts the canonical name, the outward verb, or the inward verb.
 
 ```bash
 # A blocks B
@@ -635,8 +662,8 @@ jtk links create PROJ-123 PROJ-456 --type Relates
 | `--type` | `-t` | | Link type: canonical name, outward verb, or inward verb (**required**) |
 
 **Arguments:**
-- `<issue-key>` - The outward issue key (**required**)
-- `<target-issue-key>` - The inward issue key (**required**)
+- `<issue-key>` - The subject issue key (**required**)
+- `<target-issue-key>` - The target issue key (**required**)
 
 > Tip: Use `jtk links types` to see available link types.
 

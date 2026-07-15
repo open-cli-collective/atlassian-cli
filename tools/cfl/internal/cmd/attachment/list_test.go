@@ -49,6 +49,65 @@ func TestRunList_Success(t *testing.T) {
 	testutil.RequireNoError(t, err)
 }
 
+func TestRunList_PlainFullExact(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{
+			"results": [
+				{"id": "att1", "title": "doc.pdf", "mediaType": "application/pdf", "fileSize": 1024, "status": "current", "comment": "latest"}
+			],
+			"_links": {"next": "/api/v2/pages/12345/attachments?cursor=abc"}
+		}`))
+	}))
+	defer server.Close()
+
+	rootOpts := newListTestRootOptions()
+	rootOpts.Output = "plain"
+	rootOpts.Full = true
+	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
+	opts := &listOptions{
+		Options: rootOpts,
+		pageID:  "12345",
+		limit:   25,
+	}
+
+	err := runList(context.Background(), opts)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "ID\tTITLE\tMEDIA TYPE\tFILE SIZE\tSTATUS\tCOMMENT\natt1\tdoc.pdf\tapplication/pdf\t1.0 KB\tcurrent\tlatest\n", rootOpts.Stdout.(*bytes.Buffer).String())
+	testutil.Equal(t, "(showing first 1 results, use --limit to see more)\n", rootOpts.Stderr.(*bytes.Buffer).String())
+}
+
+func TestRunList_TableOutputExact(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{
+			"results": [
+				{"id": "att1", "title": "doc.pdf", "mediaType": "application/pdf", "fileSize": 1024}
+			]
+		}`))
+	}))
+	defer server.Close()
+
+	rootOpts := newListTestRootOptions()
+	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
+	opts := &listOptions{
+		Options: rootOpts,
+		pageID:  "12345",
+		limit:   25,
+	}
+
+	err := runList(context.Background(), opts)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "ID    TITLE    MEDIA TYPE       FILE SIZE\natt1  doc.pdf  application/pdf  1.0 KB\n", rootOpts.Stdout.(*bytes.Buffer).String())
+	testutil.Equal(t, "", rootOpts.Stderr.(*bytes.Buffer).String())
+}
+
 func TestRunList_Empty(t *testing.T) {
 	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -95,47 +154,6 @@ func TestRunList_APIError(t *testing.T) {
 	err := runList(context.Background(), opts)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "listing attachments")
-}
-
-func TestRunList_InvalidOutputFormat(t *testing.T) {
-	t.Parallel()
-	// Don't need a server - should fail before API call
-	rootOpts := newListTestRootOptions()
-	rootOpts.Output = "invalid"
-
-	opts := &listOptions{
-		Options: rootOpts,
-		pageID:  "12345",
-	}
-
-	err := runList(context.Background(), opts)
-	testutil.RequireError(t, err)
-	testutil.Contains(t, err.Error(), "invalid output format")
-}
-
-func TestFormatFileSize(t *testing.T) {
-	t.Parallel()
-	tests := []struct {
-		bytes    int64
-		expected string
-	}{
-		{0, "0 B"},
-		{500, "500 B"},
-		{1024, "1.0 KB"},
-		{1536, "1.5 KB"},
-		{1048576, "1.0 MB"},
-		{1572864, "1.5 MB"},
-		{1073741824, "1.0 GB"},
-		{1610612736, "1.5 GB"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.expected, func(t *testing.T) {
-			t.Parallel()
-			result := formatFileSize(tt.bytes)
-			testutil.Equal(t, tt.expected, result)
-		})
-	}
 }
 
 func TestIsAttachmentReferenced(t *testing.T) {

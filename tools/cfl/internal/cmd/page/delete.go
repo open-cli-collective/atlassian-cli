@@ -9,6 +9,7 @@ import (
 	"github.com/open-cli-collective/atlassian-go/prompt"
 
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
+	cflpresent "github.com/open-cli-collective/confluence-cli/internal/present"
 )
 
 type deleteOptions struct {
@@ -55,10 +56,8 @@ func runDelete(ctx context.Context, pageID string, opts *deleteOptions) error {
 	// nil opts: body content is not needed, only title for the confirmation prompt
 	page, err := client.GetPage(ctx, pageID, nil)
 	if err != nil {
-		return fmt.Errorf("getting page: %w", err)
+		return err
 	}
-
-	v := opts.View()
 
 	if !opts.force && !opts.NonInteractive {
 		_, _ = fmt.Fprintf(opts.Stderr, "About to delete page: %s (ID: %s)\n", page.Title, page.ID)
@@ -69,15 +68,12 @@ func runDelete(ctx context.Context, pageID string, opts *deleteOptions) error {
 		return err
 	}
 	if !confirmed {
-		_, _ = fmt.Fprintln(opts.Stderr, "Deletion cancelled.")
-		return nil
+		return cflpresent.Emit(opts.Options, cflpresent.PresentDeletionCancelled())
 	}
 
 	if err := client.DeletePage(ctx, pageID); err != nil {
-		return fmt.Errorf("deleting page: %w", err)
+		return err
 	}
 
-	v.Success("Deleted page: %s (ID: %s)", page.Title, pageID)
-
-	return nil
+	return cflpresent.Emit(opts.Options, cflpresent.PagePresenter{}.PresentDelete(page))
 }

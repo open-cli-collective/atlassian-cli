@@ -13,6 +13,7 @@ import (
 
 	"github.com/open-cli-collective/confluence-cli/api"
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
+	cflpresent "github.com/open-cli-collective/confluence-cli/internal/present"
 )
 
 func newTestRootOptions() *root.Options {
@@ -65,6 +66,82 @@ func TestRunList_Success(t *testing.T) {
 	testutil.RequireNoError(t, err)
 }
 
+func TestRunList_PlainOutputExact(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{
+			"results": [
+				{"id": "123456", "key": "DEV", "name": "Development", "type": "global", "status": "current"}
+			],
+			"_links": {"next": "/wiki/api/v2/spaces?cursor=cursor-123"}
+		}`))
+	}))
+	defer server.Close()
+
+	rootOpts := newTestRootOptions()
+	rootOpts.Output = "plain"
+	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
+	opts := &listOptions{Options: rootOpts, limit: 25}
+
+	err := runList(context.Background(), opts)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "ID\tKEY\tTYPE\tNAME\n123456\tDEV\tglobal\tDevelopment\n", rootOpts.Stdout.(*bytes.Buffer).String())
+	testutil.Equal(t, "Next page: cfl space list --cursor \"cursor-123\"\n", rootOpts.Stderr.(*bytes.Buffer).String())
+}
+
+func TestRunList_FullPlainOutputExact(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{
+			"results": [
+				{"id": "123456", "key": "DEV", "name": "Development", "type": "global", "status": "current"}
+			]
+		}`))
+	}))
+	defer server.Close()
+
+	rootOpts := newTestRootOptions()
+	rootOpts.Output = "plain"
+	rootOpts.Full = true
+	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
+	opts := &listOptions{Options: rootOpts, limit: 25}
+
+	err := runList(context.Background(), opts)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "ID\tKEY\tTYPE\tSTATUS\tNAME\n123456\tDEV\tglobal\tcurrent\tDevelopment\n", rootOpts.Stdout.(*bytes.Buffer).String())
+	testutil.Equal(t, "", rootOpts.Stderr.(*bytes.Buffer).String())
+}
+
+func TestRunList_TableOutputExact(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{
+			"results": [
+				{"id": "123456", "key": "DEV", "name": "Development", "type": "global", "status": "current"}
+			]
+		}`))
+	}))
+	defer server.Close()
+
+	rootOpts := newTestRootOptions()
+	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
+	opts := &listOptions{Options: rootOpts, limit: 25}
+
+	err := runList(context.Background(), opts)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "ID      KEY  TYPE    NAME\n123456  DEV  global  Development\n", rootOpts.Stdout.(*bytes.Buffer).String())
+	testutil.Equal(t, "", rootOpts.Stderr.(*bytes.Buffer).String())
+}
+
 func TestRunList_EmptyResults(t *testing.T) {
 	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -84,21 +161,8 @@ func TestRunList_EmptyResults(t *testing.T) {
 
 	err := runList(context.Background(), opts)
 	testutil.RequireNoError(t, err)
-}
-
-func TestRunList_InvalidOutputFormat(t *testing.T) {
-	t.Parallel()
-	rootOpts := newTestRootOptions()
-	rootOpts.Output = "invalid"
-
-	opts := &listOptions{
-		Options: rootOpts,
-		limit:   25,
-	}
-
-	err := runList(context.Background(), opts)
-	testutil.RequireError(t, err)
-	testutil.Contains(t, err.Error(), "invalid output format")
+	testutil.Equal(t, "", rootOpts.Stdout.(*bytes.Buffer).String())
+	testutil.Equal(t, "No spaces found.\n", rootOpts.Stderr.(*bytes.Buffer).String())
 }
 
 func TestRunList_NegativeLimit(t *testing.T) {
@@ -219,28 +283,18 @@ func TestRunList_PreservesRawSpaceTypes(t *testing.T) {
 func spaceTypesByKey(output string) map[string]string {
 	types := make(map[string]string)
 	lines := strings.Split(output, "\n")
-	if len(lines) == 0 {
-		return types
-	}
-	header := lines[0]
-	typeStart := strings.Index(header, "TYPE")
-	descStart := strings.Index(header, "DESCRIPTION")
-	if typeStart < 0 || descStart < 0 || descStart <= typeStart {
+	if len(lines) <= 1 {
 		return types
 	}
 	for _, line := range lines[1:] {
-		if strings.TrimSpace(line) == "" || len(line) <= typeStart {
+		if strings.TrimSpace(line) == "" {
 			continue
 		}
 		fields := strings.Fields(line)
-		if len(fields) == 0 {
+		if len(fields) < 3 {
 			continue
 		}
-		end := descStart
-		if len(line) < end {
-			end = len(line)
-		}
-		types[fields[0]] = strings.TrimSpace(line[typeStart:end])
+		types[fields[1]] = fields[2]
 	}
 	return types
 }
@@ -314,6 +368,33 @@ func TestRunList_HasMore(t *testing.T) {
 
 	err := runList(context.Background(), opts)
 	testutil.RequireNoError(t, err)
+}
+
+func TestRunList_HasMoreWithoutCursorFallback(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{
+			"results": [
+				{"id": "123456", "key": "DEV", "name": "Development", "type": "global"}
+			],
+			"_links": {"next": "/wiki/api/v2/spaces?limit=25"}
+		}`))
+	}))
+	defer server.Close()
+
+	rootOpts := newTestRootOptions()
+	client := api.NewClient(server.URL, "test@example.com", "token")
+	rootOpts.SetAPIClient(client)
+
+	opts := &listOptions{
+		Options: rootOpts,
+		limit:   25,
+	}
+
+	err := runList(context.Background(), opts)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "(showing first 1 results, use --limit to see more)\n", rootOpts.Stderr.(*bytes.Buffer).String())
 }
 
 func TestRunList_NullDescription(t *testing.T) {
@@ -431,7 +512,7 @@ func TestExtractCursor(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got := extractCursor(tt.nextLink)
+			got := cflpresent.ExtractCursor(tt.nextLink)
 			testutil.Equal(t, tt.want, got)
 		})
 	}

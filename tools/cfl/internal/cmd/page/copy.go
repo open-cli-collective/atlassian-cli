@@ -2,14 +2,12 @@ package page
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/spf13/cobra"
 
-	"github.com/open-cli-collective/atlassian-go/view"
-
 	"github.com/open-cli-collective/confluence-cli/api"
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
+	cflpresent "github.com/open-cli-collective/confluence-cli/internal/present"
 )
 
 type copyOptions struct {
@@ -55,10 +53,6 @@ func newCopyCmd(rootOpts *root.Options) *cobra.Command {
 }
 
 func runCopy(ctx context.Context, pageID string, opts *copyOptions) error {
-	if err := view.ValidateFormat(opts.Output); err != nil {
-		return err
-	}
-
 	client, err := opts.APIClient()
 	if err != nil {
 		return err
@@ -69,11 +63,11 @@ func runCopy(ctx context.Context, pageID string, opts *copyOptions) error {
 		// nil opts: body content is not needed, only SpaceID for determining destination
 		sourcePage, err := client.GetPage(ctx, pageID, nil)
 		if err != nil {
-			return fmt.Errorf("getting source page: %w", err)
+			return err
 		}
 		space, err := client.GetSpace(ctx, sourcePage.SpaceID)
 		if err != nil {
-			return fmt.Errorf("getting space: %w", err)
+			return err
 		}
 		destSpace = space.Key
 	}
@@ -90,18 +84,8 @@ func runCopy(ctx context.Context, pageID string, opts *copyOptions) error {
 
 	newPage, err := client.CopyPage(ctx, pageID, copyOpts)
 	if err != nil {
-		return fmt.Errorf("copying page: %w", err)
+		return err
 	}
 
-	v := opts.View()
-
-	v.Success("Copied page to: %s", newPage.Title)
-	v.RenderKeyValue("ID", newPage.ID)
-	v.RenderKeyValue("Title", newPage.Title)
-	v.RenderKeyValue("Space", newPage.SpaceID)
-	if newPage.Version != nil {
-		v.RenderKeyValue("Version", fmt.Sprintf("%d", newPage.Version.Number))
-	}
-
-	return nil
+	return cflpresent.Emit(opts.Options, cflpresent.PagePresenter{}.PresentCopy(newPage))
 }

@@ -1,0 +1,3 @@
+name: macos
+description: Review agents for macOS-native Swift, AppKit, and platform-integration changes.
+owner: open-cli-collective

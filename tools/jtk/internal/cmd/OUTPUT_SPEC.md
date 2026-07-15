@@ -295,6 +295,34 @@ Primary audit artifact:
 
 Extended always implies `--fulltext`. Adds: reporter with ID, raw timestamps with timezone, status category, sprint dates and ID, component IDs, watchers, resolution, fix versions (even when empty), all non-null custom fields (by name and ID), and available transitions.
 
+**`issues history MON-4810`** — default:
+```
+ID | CREATED | AUTHOR | FIELD | FROM | TO
+113344 | 2026-04-16 | Aaron Wong | status | Backlog | Ready for Development
+113345 | 2026-04-16 | Aaron Wong | assignee | - | Rian Stockbower
+113346 | 2026-04-17 | Rian Stockbower | summary | Initial placeholder | Audit and remediate accessibility issues on CapOne-specific surfaces
+More results available (next: 50)
+```
+
+Rows are chronological in Jira's changelog order. Each row is one changed field item. The `ID` is the changelog group ID and may repeat when Jira groups multiple field changes in one history entry.
+
+**`issues history MON-4810 --id`:**
+```
+113344
+113345
+113346
+More results available (next: 50)
+```
+
+**`issues history MON-4810 --extended`:**
+```
+ID | CREATED | AUTHOR | ACCOUNT_ID | FIELD | FIELD_ID | TYPE | FROM_ID | FROM | TO_ID | TO
+113344 | 2026-04-16T07:05:10.000+0000 | Aaron Wong | 5f3a21... | status | status | jira | 10000 | Backlog | 10001 | Ready for Development
+113345 | 2026-04-16T07:06:42.000+0000 | Aaron Wong | 5f3a21... | assignee | assignee | jira | - | - | 60e09bae7fcd820073089249 | Rian Stockbower
+```
+
+`--id` emits one changelog group ID per history group, not one ID per flattened item row. `--fields` projects fixed history columns and prepends `ID` when omitted. Extended-only columns such as `ACCOUNT_ID`, `FIELD_ID`, `TYPE`, `FROM_ID`, and `TO_ID` require `--extended`.
+
 **`issues fields MON-4810`** — default:
 ```
 FIELD_ID | NAME | TYPE | VALUE
@@ -459,6 +487,42 @@ ID | NAME | INWARD | OUTWARD
 ```
 
 Cached during init/refresh. `links create` accepts the type name ("Blocker"), the outward verb ("blocks"), or the inward verb ("is blocked by").
+
+### `remotelinks`
+
+Remote (web) links are external URLs attached to an issue and shown in the Jira links sidebar — distinct from `links`, which connect two Jira issues.
+
+**`remotelinks list MON-4818`** — default:
+```
+ID | TITLE | URL
+10001 | GitHub #456: Some issue | https://github.com/owner/repo/issues/456
+10002 | Design doc | https://example.com/design
+```
+
+**`remotelinks list MON-4818 --extended`:**
+```
+ID | RELATIONSHIP | TITLE | URL | SUMMARY
+10001 | mentioned in | GitHub #456: Some issue | https://github.com/owner/repo/issues/456 | Tracks the upstream fix
+10002 | - | Design doc | https://example.com/design | -
+```
+
+Extended adds the relationship label and the link summary.
+
+**`remotelinks add MON-4818 --url ... --title ...`** — post-state detail:
+```
+Added remote link 10001 to MON-4818
+ID: 10001
+Issue: MON-4818
+Title: GitHub #456: Some issue
+URL: https://github.com/owner/repo/issues/456
+```
+
+`--title` defaults to the URL when omitted. `--id` emits only the new link ID.
+
+**`remotelinks delete MON-4818 10001`** — confirmation line only:
+```
+Deleted remote link 10001 from MON-4818
+```
 
 ### `transitions`
 
@@ -684,11 +748,12 @@ Deleted comment 21276 from MON-4810
 ### `links create / delete`
 
 ```
-$ jtk links create MON-4819 Blocker MON-4818
-17844 | Blocker | blocks | MON-4818
+$ jtk links create MON-4819 MON-4818 --type Blocker
+LINK_ID | TYPE | DIRECTION | ISSUE | SUMMARY
+17844 | Blocker | blocks | MON-4818 | Linked issue B
 ```
 
-Accepts link type by name ("Blocker"), outward verb ("blocks"), or inward verb ("is blocked by"). After create, jtk re-queries to recover the link ID (the Jira API does not return it from the create call).
+The first issue is the user-facing subject and the second is the target. `--type` accepts the link type name ("Blocker"), outward verb ("blocks"), or inward verb ("is blocked by"). After create, jtk re-queries to recover the link ID (the Jira API does not return it from the create call).
 
 ```
 $ jtk links delete 17844
@@ -771,6 +836,15 @@ $ jtk automation disable 019e1234-abcd-7000-8888-112233445566
 State: DISABLED
 Components: 5 total — 1 condition, 4 actions
 ```
+
+```
+$ jtk automation update 019e1234-abcd-7000-8888-112233445566 --file rule.json
+019e1234-abcd-7000-8888-112233445566  [Test] My Rule
+State: ENABLED
+Components: 5 total — 1 condition, 4 actions
+```
+
+Post-state mirrors `automation get`. On success `update` also writes an advisory to **stderr** — automation reads are eventually consistent, so a re-export/get run immediately afterward may show the prior definition even though the update applied. The advisory is suppressed under `--id`, which emits only the rule UUID.
 
 ```
 $ jtk automation delete 019e1234-abcd-7000-8888-112233445566

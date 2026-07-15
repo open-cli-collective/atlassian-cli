@@ -17,10 +17,13 @@ import (
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 )
 
-// isolateCache points cache I/O at a temp directory and overrides the
-// derived instance key directly (bypassing env-var parsing) so tests can
-// run under t.Parallel() without the t.Setenv race. Matches the pattern
-// used by the rest of the package.
+// isolateCache points cache I/O at a temp directory and overrides the derived
+// instance key directly (bypassing env-var parsing), avoiding the t.Setenv
+// panic. The overrides are process-global (cache.rootOverride/instanceOverride),
+// so a test that seeds or reads the cache MUST NOT call t.Parallel(): concurrent
+// tests would clobber the shared root and one could read another's (or an empty)
+// cache dir. Tests in this package that don't touch the cache may still run in
+// parallel.
 func isolateCache(t *testing.T) {
 	t.Helper()
 	t.Cleanup(cache.SetRootForTest(t.TempDir()))
@@ -65,7 +68,40 @@ func TestRunList(t *testing.T) {
 	testutil.RequireNoError(t, err)
 	testutil.Contains(t, stdout.String(), "PROJ-456")
 	testutil.Contains(t, stdout.String(), "Blocks")
-	// OutwardIssue is set → current issue is the inward side → show inward direction
+	// OutwardIssue is set, but list output follows Jira UI's direction label.
+	testutil.Contains(t, stdout.String(), "blocks")
+}
+
+func TestRunList_InwardIssue(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"fields": map[string]any{
+				"issuelinks": []map[string]any{
+					{
+						"id":   "10001",
+						"type": map[string]string{"id": "1", "name": "Blocks", "inward": "is blocked by", "outward": "blocks"},
+						"inwardIssue": map[string]any{
+							"key":    "PROJ-456",
+							"fields": map[string]string{"summary": "Blocking issue"},
+						},
+					},
+				},
+			},
+		})
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runList(context.Background(), opts, "PROJ-123", "")
+	testutil.RequireNoError(t, err)
+	testutil.Contains(t, stdout.String(), "PROJ-456")
+	testutil.Contains(t, stdout.String(), "Blocks")
 	testutil.Contains(t, stdout.String(), "is blocked by")
 }
 
@@ -229,15 +265,15 @@ func TestRunCreate(t *testing.T) {
 	err = json.Unmarshal(capturedBody, &req)
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, req.Type.Name, "Blocks")
-	testutil.Equal(t, req.OutwardIssue.Key, "PROJ-123")
-	testutil.Equal(t, req.InwardIssue.Key, "PROJ-456")
+	testutil.Equal(t, req.OutwardIssue.Key, "PROJ-456")
+	testutil.Equal(t, req.InwardIssue.Key, "PROJ-123")
 }
 
 func TestRunCreate_InwardVerbSwapsDirection(t *testing.T) {
 	// A `jtk links create A B --type "is blocked by"` call must create a link
 	// where B blocks A — i.e., A is blocked by B. Since the Jira API always
-	// sees the link type by canonical name, correctness comes from the
-	// outward/inward issue ordering we post.
+	// sees the link type by canonical name, correctness comes from the REST issue
+	// ordering we post.
 	var capturedBody []byte
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
@@ -271,9 +307,9 @@ func TestRunCreate_InwardVerbSwapsDirection(t *testing.T) {
 	err = json.Unmarshal(capturedBody, &req)
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, req.Type.Name, "Blocks")
-	// Swapped: PROJ-2 blocks PROJ-1 → outward=PROJ-2, inward=PROJ-1.
-	testutil.Equal(t, req.OutwardIssue.Key, "PROJ-2")
-	testutil.Equal(t, req.InwardIssue.Key, "PROJ-1")
+	// User-facing PROJ-2 blocks PROJ-1 → REST outward=PROJ-1, inward=PROJ-2.
+	testutil.Equal(t, req.OutwardIssue.Key, "PROJ-1")
+	testutil.Equal(t, req.InwardIssue.Key, "PROJ-2")
 }
 
 func TestRunCreate_OutwardVerbPreservesOrder(t *testing.T) {
@@ -308,8 +344,8 @@ func TestRunCreate_OutwardVerbPreservesOrder(t *testing.T) {
 	var req api.CreateIssueLinkRequest
 	err = json.Unmarshal(capturedBody, &req)
 	testutil.RequireNoError(t, err)
-	testutil.Equal(t, req.OutwardIssue.Key, "PROJ-1")
-	testutil.Equal(t, req.InwardIssue.Key, "PROJ-2")
+	testutil.Equal(t, req.OutwardIssue.Key, "PROJ-2")
+	testutil.Equal(t, req.InwardIssue.Key, "PROJ-1")
 }
 
 func TestRunCreate_SymmetricVerbNoSwap(t *testing.T) {
@@ -347,11 +383,11 @@ func TestRunCreate_SymmetricVerbNoSwap(t *testing.T) {
 	var req api.CreateIssueLinkRequest
 	err = json.Unmarshal(capturedBody, &req)
 	testutil.RequireNoError(t, err)
-	testutil.Equal(t, req.OutwardIssue.Key, "PROJ-1")
-	testutil.Equal(t, req.InwardIssue.Key, "PROJ-2")
+	testutil.Equal(t, req.OutwardIssue.Key, "PROJ-2")
+	testutil.Equal(t, req.InwardIssue.Key, "PROJ-1")
 }
 
-func createServerWithRefetch(t *testing.T) *httptest.Server {
+func createServerWithRefetch(t *testing.T, peerField string) *httptest.Server {
 	t.Helper()
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
@@ -370,7 +406,7 @@ func createServerWithRefetch(t *testing.T) *httptest.Server {
 						{
 							"id":   "17844",
 							"type": map[string]any{"id": "10100", "name": "Blocker", "inward": "is blocked by", "outward": "blocks"},
-							"inwardIssue": map[string]any{
+							peerField: map[string]any{
 								"key":    "PROJ-456",
 								"fields": map[string]any{"summary": "Blocked issue", "status": map[string]any{"name": "Open"}},
 							},
@@ -393,8 +429,8 @@ func seedLinkTypesForTest(t *testing.T) {
 }
 
 func TestRunCreate_CanonicalRow(t *testing.T) {
-	t.Parallel()
-	server := createServerWithRefetch(t)
+	// no t.Parallel(): seeds the process-global cache override (see isolateCache).
+	server := createServerWithRefetch(t, "outwardIssue")
 	defer server.Close()
 
 	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
@@ -417,13 +453,33 @@ func TestRunCreate_CanonicalRow(t *testing.T) {
 	testutil.Contains(t, lines[0], "ISSUE")
 	testutil.Contains(t, out, "17844")
 	testutil.Contains(t, out, "Blocker")
+	testutil.Contains(t, out, "blocks")
 	testutil.Contains(t, out, "PROJ-456")
+	testutil.NotContains(t, out, "is blocked by")
 	testutil.NotContains(t, out, "Created")
 }
 
 func TestRunCreate_IDOnly(t *testing.T) {
-	t.Parallel()
-	server := createServerWithRefetch(t)
+	// no t.Parallel(): seeds the process-global cache override (see isolateCache).
+	server := createServerWithRefetch(t, "outwardIssue")
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	seedLinkTypesForTest(t)
+	var stdout bytes.Buffer
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}, IDOnly: true}
+	opts.SetAPIClient(client)
+
+	err = runCreate(context.Background(), opts, "PROJ-123", "PROJ-456", "Blocker")
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, stdout.String(), "17844\n")
+}
+
+func TestRunCreate_IDOnly_InwardPeerFallback(t *testing.T) {
+	// no t.Parallel(): seeds the process-global cache override (see isolateCache).
+	server := createServerWithRefetch(t, "inwardIssue")
 	defer server.Close()
 
 	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
@@ -630,7 +686,20 @@ func TestFindCreatedLink_DirectionAware(t *testing.T) {
 	}
 	resolved := api.IssueLinkType{ID: "1", Name: "Blocks"}
 	got := findCreatedLink(links, resolved, "PROJ-456")
-	testutil.Nil(t, got)
+	testutil.NotNil(t, got)
+	testutil.Equal(t, got.ID, "100")
+}
+
+func TestFindCreatedLink_PrefersOutwardPeer(t *testing.T) {
+	t.Parallel()
+	links := []api.IssueLink{
+		{ID: "old", Type: api.IssueLinkType{ID: "1", Name: "Blocks"}, InwardIssue: &api.LinkedIssue{Key: "PROJ-456"}},
+		{ID: "new", Type: api.IssueLinkType{ID: "1", Name: "Blocks"}, OutwardIssue: &api.LinkedIssue{Key: "PROJ-456"}},
+	}
+	resolved := api.IssueLinkType{ID: "1", Name: "Blocks"}
+	got := findCreatedLink(links, resolved, "PROJ-456")
+	testutil.NotNil(t, got)
+	testutil.Equal(t, got.ID, "new")
 }
 
 func TestFindCreatedLink_NoMatch(t *testing.T) {

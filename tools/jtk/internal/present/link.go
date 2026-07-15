@@ -49,14 +49,14 @@ func (LinkPresenter) PresentList(links []api.IssueLink, extended bool) *present.
 		var direction, key, summary, status string
 
 		if l.OutwardIssue != nil {
-			direction = l.Type.Inward
+			direction = l.Type.Outward
 			key = l.OutwardIssue.Key
 			summary = l.OutwardIssue.Fields.Summary
 			if l.OutwardIssue.Fields.Status != nil {
 				status = l.OutwardIssue.Fields.Status.Name
 			}
 		} else if l.InwardIssue != nil {
-			direction = l.Type.Outward
+			direction = l.Type.Inward
 			key = l.InwardIssue.Key
 			summary = l.InwardIssue.Fields.Summary
 			if l.InwardIssue.Fields.Status != nil {

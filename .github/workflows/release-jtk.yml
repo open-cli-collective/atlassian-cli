@@ -39,3 +39,7 @@ jobs:
       chocolatey-api-key: ${{ secrets.CHOCOLATEY_API_KEY }}
       winget-token: ${{ secrets.WINGET_GITHUB_TOKEN }}
       linux-dispatch-token: ${{ secrets.LINUX_PACKAGES_DISPATCH_TOKEN }}
+      macos-cert-p12: ${{ secrets.MACOS_CERT_P12 }}
+      macos-cert-password: ${{ secrets.MACOS_CERT_PASSWORD }}
+      macos-cert-cn: ${{ secrets.MACOS_CERT_CN }}
+      macos-cert-leaf-sha: ${{ secrets.MACOS_CERT_LEAF_SHA }}

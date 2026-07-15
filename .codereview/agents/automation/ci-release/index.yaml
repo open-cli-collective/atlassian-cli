@@ -1,0 +1,18 @@
+name: ci-release
+description: Reviews CI, release, packaging, and build-support changes against shared automation contracts.
+model_tier: medium
+effort: medium
+file_globs:
+  - ".github/workflows/**"
+  - ".github/actions/**"
+  - "Makefile"
+  - ".golangci.yml"
+  - ".goreleaser*"
+  - "packaging/**"
+  - "scripts/**"
+  - "version.txt"
+  - "go.mod"
+  - "go.sum"
+applies_when:
+  - A change primarily edits CI, lint, build, release, distribution, packaging, versioning, or automation scripts.
+needs_full_file_content: false

@@ -116,7 +116,7 @@ func newCreateCmd(opts *root.Options) *cobra.Command {
 		Short: "Create a link between two issues",
 		Long: `Create a link between two issues.
 
-The first issue is the outward issue and the second is the inward issue.
+The first issue is the user-facing subject and the second is the target.
 For example, "jtk links create A B --type Blocks" means "A blocks B".`,
 		Example: `  # --type accepts the canonical name, the outward verb, or the inward verb.
   # With an inward verb the issue-key ordering is interpreted from the user's
@@ -142,7 +142,7 @@ For example, "jtk links create A B --type Blocks" means "A blocks B".`,
 	return cmd
 }
 
-func runCreate(ctx context.Context, opts *root.Options, outwardKey, inwardKey, linkType string) error {
+func runCreate(ctx context.Context, opts *root.Options, subjectKey, targetKey, linkType string) error {
 	client, err := opts.APIClient()
 	if err != nil {
 		return err
@@ -173,11 +173,11 @@ func runCreate(ctx context.Context, opts *root.Options, outwardKey, inwardKey, l
 	if strings.EqualFold(linkType, resolvedLinkType.Inward) &&
 		!strings.EqualFold(linkType, resolvedLinkType.Outward) &&
 		!strings.EqualFold(linkType, resolvedLinkType.Name) {
-		outwardKey, inwardKey = inwardKey, outwardKey
+		subjectKey, targetKey = targetKey, subjectKey
 	}
 	linkType = resolvedLinkType.Name
 
-	if err := client.CreateIssueLink(ctx, outwardKey, inwardKey, linkType); err != nil {
+	if err := client.CreateIssueLink(ctx, targetKey, subjectKey, linkType); err != nil {
 		return err
 	}
 
@@ -191,11 +191,11 @@ func runCreate(ctx context.Context, opts *root.Options, outwardKey, inwardKey, l
 			case <-time.After(delay):
 			}
 		}
-		links, err := client.GetIssueLinks(ctx, outwardKey)
+		links, err := client.GetIssueLinks(ctx, subjectKey)
 		if err != nil {
 			continue
 		}
-		matched = findCreatedLink(links, resolvedLinkType, inwardKey)
+		matched = findCreatedLink(links, resolvedLinkType, targetKey)
 		if matched != nil {
 			break
 		}
@@ -214,22 +214,28 @@ fallback:
 		return nil
 	}
 	_ = jtkpresent.Emit(opts, jtkpresent.LinkPresenter{}.PresentPostStateUnavailable())
-	return jtkpresent.Emit(opts, jtkpresent.LinkPresenter{}.PresentCreated(linkType, outwardKey, inwardKey))
+	return jtkpresent.Emit(opts, jtkpresent.LinkPresenter{}.PresentCreated(linkType, subjectKey, targetKey))
 }
 
-// findCreatedLink searches the outward issue's link list for the newly
-// created link. After the inward-verb swap in runCreate, outwardKey is
-// always the outward issue and inwardKey is always the inward issue.
-// When querying the outward issue's links, the created link appears with
-// InwardIssue set (the other side). We match on type (ID when available,
-// name as fallback) and the inward issue key.
-func findCreatedLink(links []api.IssueLink, resolvedType api.IssueLinkType, inwardKey string) *api.IssueLink {
+// findCreatedLink searches the subject issue's link list for the newly created
+// link. Jira can return the peer issue on either side of the issue-link payload,
+// so prefer the expected outward peer and keep inward as a fallback.
+func findCreatedLink(links []api.IssueLink, resolvedType api.IssueLinkType, peerKey string) *api.IssueLink {
 	for i := range links {
 		l := &links[i]
 		if !linkTypeMatches(l.Type, resolvedType) {
 			continue
 		}
-		if l.InwardIssue != nil && strings.EqualFold(l.InwardIssue.Key, inwardKey) {
+		if l.OutwardIssue != nil && strings.EqualFold(l.OutwardIssue.Key, peerKey) {
+			return l
+		}
+	}
+	for i := range links {
+		l := &links[i]
+		if !linkTypeMatches(l.Type, resolvedType) {
+			continue
+		}
+		if l.InwardIssue != nil && strings.EqualFold(l.InwardIssue.Key, peerKey) {
 			return l
 		}
 	}

@@ -1,0 +1,28 @@
+name: conventions
+description: Reviews CLI and repository changes against Open CLI Collective shared standards and repo-local conventions.
+model_tier: medium
+effort: medium
+file_globs:
+  - "AGENTS.md"
+  - "CLAUDE.md"
+  - "README*"
+  - "Makefile"
+  - "go.mod"
+  - "go.sum"
+  - "version.txt"
+  - ".golangci.yml"
+  - ".github/**"
+  - ".codereview/**"
+  - "docs/**"
+  - "cmd/**"
+  - "internal/cmd/**"
+  - "internal/view/**"
+  - "internal/config/**"
+  - "internal/statepaths/**"
+  - "internal/credentials/**"
+  - "packaging/**"
+  - "scripts/**"
+applies_when:
+  - A change introduces or changes CLI surface, flags, output contracts, config/state/credential behavior, release automation, packaging, shared-convention docs, or agent guidance where Open CLI Collective conventions materially apply.
+  - Do not select for localized implementation or test-only changes unless the diff changes a visible convention or repeats a convention-sensitive pattern.
+needs_full_file_content: false

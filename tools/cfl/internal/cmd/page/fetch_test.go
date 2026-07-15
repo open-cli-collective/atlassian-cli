@@ -170,6 +170,55 @@ func TestGetPageWithBodyFallback_ADFFallbackFails_GracefulDegradation(t *testing
 	testutil.False(t, hasADFContent(page))
 }
 
+func TestGetPageVersionWithBodyFallback_StorageEmpty_FallsBackToADF(t *testing.T) {
+	t.Parallel()
+	callCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		callCount++
+		switch {
+		case r.URL.Path == "/api/v2/pages/12345":
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"id": "12345", "title": "ADF Page", "version": {"number": 2}}`))
+		case strings.Contains(r.URL.Path, "/versions") && r.URL.Query().Get("body-format") == "":
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"results": [{"number": 2}]}`))
+		case strings.Contains(r.URL.Path, "/versions") && r.URL.Query().Get("body-format") == "storage":
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{
+				"results": [{
+					"number": 2,
+					"page": {
+						"id": "12345",
+						"title": "ADF Page",
+						"body": {"storage": {"representation": "storage", "value": ""}}
+					}
+				}]
+			}`))
+		case strings.Contains(r.URL.Path, "/versions") && r.URL.Query().Get("body-format") == "atlas_doc_format":
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{
+				"results": [{
+					"number": 2,
+					"page": {
+						"id": "12345",
+						"title": "ADF Page",
+						"body": {"atlas_doc_format": {"representation": "atlas_doc_format", "value": "{\"type\":\"doc\"}"}}
+					}
+				}]
+			}`))
+		default:
+			t.Fatalf("unexpected request: %s?%s", r.URL.Path, r.URL.RawQuery)
+		}
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "test@example.com", "token")
+	page, err := getPageVersionWithBodyFallback(context.Background(), client, "12345", 2)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, 4, callCount)
+	testutil.True(t, hasADFContent(page))
+}
+
 func TestHasStorageContent(t *testing.T) {
 	t.Parallel()
 	tests := []struct {

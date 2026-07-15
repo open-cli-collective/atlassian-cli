@@ -2,14 +2,12 @@ package space
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/spf13/cobra"
 
-	"github.com/open-cli-collective/atlassian-go/view"
-
 	"github.com/open-cli-collective/confluence-cli/api"
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
+	cflpresent "github.com/open-cli-collective/confluence-cli/internal/present"
 )
 
 type createOptions struct {
@@ -49,10 +47,6 @@ func newCreateCmd(rootOpts *root.Options) *cobra.Command {
 }
 
 func runCreate(ctx context.Context, opts *createOptions) error {
-	if err := view.ValidateFormat(opts.Output); err != nil {
-		return err
-	}
-
 	cfg, err := opts.Config()
 	if err != nil {
 		return err
@@ -77,16 +71,8 @@ func runCreate(ctx context.Context, opts *createOptions) error {
 
 	space, err := client.CreateSpace(ctx, req)
 	if err != nil {
-		return fmt.Errorf("creating space: %w", err)
+		return err
 	}
 
-	v := opts.View()
-
-	v.Success("Created space: %s", space.Name)
-	v.RenderKeyValue("Key", space.Key)
-	if space.Links.WebUI != "" {
-		v.RenderKeyValue("URL", cfg.URL+space.Links.WebUI)
-	}
-
-	return nil
+	return cflpresent.Emit(opts.Options, cflpresent.SpacePresenter{}.PresentCreate(space, cfg.URL))
 }

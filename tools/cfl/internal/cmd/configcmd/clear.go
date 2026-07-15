@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -13,6 +12,7 @@ import (
 	promptpkg "github.com/open-cli-collective/atlassian-go/prompt"
 
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
+	cflpresent "github.com/open-cli-collective/confluence-cli/internal/present"
 )
 
 type clearOptions struct {
@@ -21,6 +21,11 @@ type clearOptions struct {
 	all   bool
 	stdin io.Reader // For testing
 }
+
+var (
+	planClear = keyring.PlanClear
+	clearAll  = keyring.ClearAll
+)
 
 func newClearCmd(opts *root.Options) *cobra.Command {
 	clearOpts := &clearOptions{
@@ -74,7 +79,7 @@ func runClear(opts *clearOptions) error {
 	// store the delete/clear step reuses (no second passphrase prompt).
 	// The env + plaintext-file fields are populated even when the keyring
 	// cannot be opened, so `--all` can still clean plaintext artifacts.
-	plan, store, err := keyring.PlanClear(credstore.ToolCFL, opts.all)
+	plan, store, err := planClear(credstore.ToolCFL, opts.all)
 	if store != nil {
 		defer func() { _ = store.Close() }()
 	}
@@ -89,42 +94,16 @@ func runClear(opts *clearOptions) error {
 		return promptpkg.ConfirmOrFail(opts.force, opts.NonInteractive, opts.stdin)
 	}
 
-	envNote := func() {
-		if len(plan.EnvActive) > 0 {
-			_, _ = fmt.Fprintf(opts.Stderr,
-				"Note: %s still set in the environment and will continue to override at runtime (not cleared).\n",
-				strings.Join(plan.EnvActive, ", "))
-		}
-	}
-
 	if opts.all {
-		_, _ = fmt.Fprintf(opts.Stderr, "This will remove the ENTIRE shared keyring bundle %s", plan.Ref)
-		if len(plan.ExistingKeys) > 0 {
-			_, _ = fmt.Fprintf(opts.Stderr, " (keys: %s)", strings.Join(plan.ExistingKeys, ", "))
-		}
-		_, _ = fmt.Fprintln(opts.Stderr, ".")
-		if plan.SharedConfigPath != "" {
-			_, _ = fmt.Fprintf(opts.Stderr, "It will also delete the shared config file: %s\n", plan.SharedConfigPath)
-		}
-		if plan.OldSharedConfigPath != "" {
-			_, _ = fmt.Fprintf(opts.Stderr, "It will also delete the prior shared config file: %s\n", plan.OldSharedConfigPath)
-		}
-		for _, lp := range plan.LegacyPaths {
-			_, _ = fmt.Fprintf(opts.Stderr, "It will scrub the legacy plaintext file: %s\n", lp)
-		}
-		if err != nil {
-			_, _ = fmt.Fprintf(opts.Stderr,
-				"Note: the keyring could not be opened (%v); plaintext artifacts will still be cleaned, but the keyring bundle will be left intact.\n", err)
-		}
+		_ = cflpresent.Emit(opts.Options, cflpresent.ConfigPresenter{}.PresentClearAllPlan(plan, err))
 		ok, cerr := confirm("Proceed?")
 		if cerr != nil {
 			return cerr
 		}
 		if !ok {
-			_, _ = fmt.Fprintln(opts.Stderr, "Cancelled. Nothing was cleared.")
-			return nil
+			return cflpresent.Emit(opts.Options, cflpresent.ConfigPresenter{}.PresentClearCancelled())
 		}
-		cleared, aerr := keyring.ClearAll(store)
+		cleared, aerr := clearAll(store)
 		if aerr != nil {
 			return aerr
 		}
@@ -133,34 +112,23 @@ func runClear(opts *clearOptions) error {
 				"plaintext artifacts were cleaned, but the keyring bundle %s was NOT cleared because the keyring is unavailable (%w); fix the keyring and re-run `cfl config clear --all`",
 				plan.Ref, err)
 		}
-		_, _ = fmt.Fprintln(opts.Stderr, "Removed the shared keyring bundle and config file.")
-		envNote()
-		return nil
+		return cflpresent.Emit(opts.Options, cflpresent.ConfigPresenter{}.PresentClearAllSuccess(plan))
 	}
 
 	if plan.ToolKey == "" {
-		_, _ = fmt.Fprintf(opts.Stderr, "No stored API token in keyring %s for cfl; nothing to clear.\n", plan.Ref)
-		envNote()
-		return nil
+		return cflpresent.Emit(opts.Options, cflpresent.ConfigPresenter{}.PresentClearNoStoredToken(plan))
 	}
 
-	_, _ = fmt.Fprintf(opts.Stderr, "This will delete key %q from keyring %s.\n", plan.ToolKey, plan.Ref)
-	// One key per logical credential (§1.11.10): the only deletable key
-	// is the shared api_token, so clearing it always deauths the sibling.
-	_, _ = fmt.Fprintln(opts.Stderr,
-		"Warning: this is the SHARED token (api_token). jtk will also lose access (cfl and jtk resolve the same key).")
+	_ = cflpresent.Emit(opts.Options, cflpresent.ConfigPresenter{}.PresentClearDefaultPlan(plan))
 	ok, cerr := confirm("Proceed?")
 	if cerr != nil {
 		return cerr
 	}
 	if !ok {
-		_, _ = fmt.Fprintln(opts.Stderr, "Cancelled. Nothing was cleared.")
-		return nil
+		return cflpresent.Emit(opts.Options, cflpresent.ConfigPresenter{}.PresentClearCancelled())
 	}
 	if err := store.DeleteToken(plan.ToolKey); err != nil {
 		return err
 	}
-	_, _ = fmt.Fprintf(opts.Stderr, "Removed key %q from keyring %s.\n", plan.ToolKey, plan.Ref)
-	envNote()
-	return nil
+	return cflpresent.Emit(opts.Options, cflpresent.ConfigPresenter{}.PresentClearDefaultSuccess(plan))
 }

@@ -17,6 +17,9 @@ var (
 	ErrAttachmentContentMissing = errors.New("attachment has no content URL")
 	ErrCommentIDRequired        = errors.New("comment ID is required")
 	ErrTaskIDRequired           = errors.New("task ID is required")
+	ErrRemoteLinkIDRequired     = errors.New("remote link ID is required")
+	ErrRemoteLinkURLRequired    = errors.New("remote link URL is required")
+	ErrRemoteLinkTitleRequired  = errors.New("remote link title is required")
 )
 
 // APIError is an alias for the shared APIError type

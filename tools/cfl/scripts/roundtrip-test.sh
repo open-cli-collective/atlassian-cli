@@ -138,21 +138,33 @@ process_page() {
 
     # Step 1: Fetch page and check format
     # Capture raw content first to distinguish fetch failures from ADF pages
-    local raw_content
-    if ! raw_content=$(cfl page view "$id" --raw --content-only 2>&1); then
-        echo "[$id] FAIL: Could not fetch page: $raw_content"
-        FAIL=$((FAIL + 1))
-        return 1
+    local raw_content xhtml_error=""
+    if ! raw_content=$(cfl page view "$id" --body-format xhtml --content-only 2>&1); then
+        xhtml_error="$raw_content"
+        raw_content=""
     fi
 
-    # Check for empty content
+    # Explicit XHTML does not fall back to ADF, so probe ADF before failing.
     if [[ -z "$raw_content" ]]; then
+        # Only a NON-empty ADF body proves the page is ADF-backed; a present-but-
+        # empty ADF body means the page itself is empty, which is a failure below.
+        local adf_probe
+        if adf_probe=$(cfl page view "$id" --body-format adf --content-only 2>/dev/null) && [[ -n "$adf_probe" ]]; then
+            echo "[$id] SKIP: ADF-backed (not storage format)"
+            SKIP=$((SKIP + 1))
+            return 0
+        fi
+        if [[ -n "$xhtml_error" ]]; then
+            echo "[$id] FAIL: Could not fetch page: $xhtml_error"
+            FAIL=$((FAIL + 1))
+            return 1
+        fi
         echo "[$id] FAIL: Empty page content"
         FAIL=$((FAIL + 1))
         return 1
     fi
 
-    # Check if storage format (XHTML starts with <) vs ADF (JSON starts with {)
+    # Storage XHTML starts with markup; skip pages for which storage is unavailable.
     local first_char="${raw_content:0:1}"
     if [[ "$first_char" != "<" ]]; then
         echo "[$id] SKIP: ADF-backed (not storage format)"
@@ -194,7 +206,7 @@ process_page() {
     CLEANUP_IDS+=("$new_id")
 
     # Step 5: Capture roundtripped XHTML
-    if ! cfl page view "$new_id" --raw --content-only > "$after_file" 2>/dev/null; then
+    if ! cfl page view "$new_id" --body-format xhtml --content-only > "$after_file" 2>/dev/null; then
         echo "[$id] FAIL: Could not fetch roundtripped page"
         FAIL=$((FAIL + 1))
         return 1

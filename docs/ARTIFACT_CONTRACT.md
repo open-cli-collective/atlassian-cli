@@ -36,27 +36,26 @@ The full artifact provides richer inspection-oriented output for debugging and d
 - `jtk issues get --full` → agent fields + created, updated, reporter, components, labels
 - `cfl page view --full` → agent fields + version, created, modified, author
 
-## Raw Mode (Command-Specific)
+## Page Body Format (cfl)
 
-Some commands expose a `--raw` mode for source-faithful content where transformation would lose fidelity. This is **not** a general artifact type—it applies only to commands that transform content.
+`cfl page view`, `page create`, and `page edit` select body representation independently from artifact breadth with `--body-format markdown|adf|xhtml`.
 
-- Shows original storage format (XHTML, ADF JSON) instead of transformed content
-- Errors on commands where raw has no meaning (e.g., list commands)
-- Mutually exclusive with `--full`
+- Omission means Markdown.
+- `adf` is exact Atlassian Document Format JSON.
+- `xhtml` is exact Confluence storage XHTML.
+- Markdown conversion fails closed; it never emits raw ADF or XHTML as Markdown.
 
 **Example:**
-- `cfl page view --raw` → XHTML storage format instead of markdown
+- `cfl page view PAGE_ID --body-format xhtml` → exact storage XHTML
 
 ## Flag Behavior
 
 ```
-(none)       → agent artifact (curated, transformed content)
---full       → full artifact (richer curation, transformed content)
---raw        → raw mode (source-faithful content, command-specific)
---full --raw → error: mutually exclusive
+(none)                  → agent artifact with Markdown page bodies
+--full                  → full artifact with Markdown page bodies
+--body-format adf       → selected artifact with exact ADF body
+--body-format xhtml     → selected artifact with exact storage XHTML body
 ```
-
-> **Implementation note:** The mutual exclusivity constraint (`--full --raw → error`) and command-specific `--raw` validation are forward-looking requirements. They will be enforced as commands are migrated in #199 and #200.
 
 ## Output Format
 
@@ -76,7 +75,7 @@ JTK and CFL both use text-first output. The `-o json` resource surface has been 
 
 2. **Agent is the default.** LLM/agent consumption is the primary use case. Human inspection is opt-in via each tool's additive inspection flag set.
 
-3. **Raw is command-specific.** Not every command needs `--raw`. It's only for commands where content transformation occurs.
+3. **Body representation is independent.** CFL page commands use `--body-format`; artifact breadth remains controlled separately.
 
 4. **Curated, not pass-through.** Even `--full` is curated by the CLI. Raw API payloads are not exposed directly.
 

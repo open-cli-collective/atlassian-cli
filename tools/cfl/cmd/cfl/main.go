@@ -26,6 +26,7 @@ import (
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/search"
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/setcredential"
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/space"
+	cflpresent "github.com/open-cli-collective/confluence-cli/internal/present"
 )
 
 func main() {
@@ -54,7 +55,7 @@ func main() {
 	if err != nil {
 		// set-credential --json may have already emitted its envelope on
 		// stdout; in that case stderr stays empty per §1.5.2.
-		if !errors.Is(err, keyring.ErrSetCredentialEnvelopeEmitted) {
+		if !errors.Is(err, keyring.ErrSetCredentialEnvelopeEmitted) && !errors.Is(err, cflpresent.ErrEmitted) {
 			fmt.Fprintf(os.Stderr, "Error: %s\n", err)
 		}
 		os.Exit(exitcode.GeneralError)

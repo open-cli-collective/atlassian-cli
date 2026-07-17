@@ -42,15 +42,15 @@ No defaults exist. Ask the user. Do not guess. If the user provides a Confluence
 
 ### Output Representation and Format
 
-`cfl` distinguishes two independent output concerns (per the repo's [Artifact Contract](../../docs/ARTIFACT_CONTRACT.md)):
+`cfl` distinguishes output artifact breadth from page-body representation (per the repo's [Artifact Contract](../../docs/ARTIFACT_CONTRACT.md)):
 
 - **Representation** — what content is shown:
   - `agent` (default) — curated, action-oriented, LLM-optimized
   - `full` (`--full`) — inspection-oriented, additional fields (dates, authors, versions)
-  - `raw` (`--raw`) — source-faithful content (e.g., XHTML instead of markdown). Command-specific; only supported where source transformation occurs (currently `page view`).
-- **Output format** — how it's rendered: `table` (default), `json` (`-o json`), `plain` (`-o plain`)
+- **Page body format** — `--body-format markdown|adf|xhtml` on page view/create/edit. Omission means Markdown; ADF and XHTML are exact.
+- **Output format** — how it's rendered: `table` (default), `plain` (`-o plain`). For scripted extraction, parse `ID: <id>` lines from command output.
 
-They combine freely — e.g., `--full -o json` returns the inspection representation as JSON.
+They combine freely — e.g., `cfl page list --full -o plain` returns TSV; detail output in plain mode remains semantically equivalent text.
 
 ### Extracting Page IDs from URLs
 
@@ -71,8 +71,8 @@ Use that numeric segment as the `PAGE_ID` in any command that takes one.
 | `cfl config test` fails after `cfl init` | URL typo, wrong instance, or token scoped to a different product | Re-run `cfl init` and double-check the URL and token |
 | `permission denied` on a specific page/space | Account lacks permission on that space | Verify space membership; ask a space admin to grant access |
 | `not found` on a valid-looking page ID | Wrong ID, page deleted/archived, or insufficient permission (Confluence may return 404 for unauthorized reads) | Try `cfl search --title "..." --space KEY` to re-locate |
-| Page body looks empty or missing structure | Macros stripped by default markdown rendering | Use `cfl page view ID --show-macros` to preserve macro placeholders, or `--raw` for full storage format |
-| Edit via markdown loses formatting | Markdown round-trip is lossy for macro-rich pages | Use the storage-format round-trip (fetch via `-o json`, modify the `content` field, send back with `--storage`) — see ManagePage.md |
+| Page body looks empty or missing structure | Macros stripped by default markdown rendering | Use `cfl page view ID --show-macros` to preserve placeholders, or `--body-format xhtml` for exact storage XHTML |
+| Edit via markdown loses formatting | Markdown round-trip is lossy for macro-rich pages | Round-trip `--body-format xhtml` on both view and edit — see ManagePage.md |
 
 ## Workflow Routing
 

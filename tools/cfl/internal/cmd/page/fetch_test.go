@@ -10,6 +10,7 @@ import (
 	"github.com/open-cli-collective/atlassian-go/testutil"
 
 	"github.com/open-cli-collective/confluence-cli/api"
+	"github.com/open-cli-collective/confluence-cli/internal/pageview"
 )
 
 func TestGetPageWithBodyFallback_StorageHasContent(t *testing.T) {
@@ -33,7 +34,7 @@ func TestGetPageWithBodyFallback_StorageHasContent(t *testing.T) {
 	page, err := getPageWithBodyFallback(context.Background(), client, "12345")
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, 1, callCount)
-	testutil.True(t, hasStorageContent(page))
+	testutil.True(t, pageview.HasStorageContent(page))
 }
 
 func TestGetPageWithBodyFallback_StorageEmpty_FallsBackToADF(t *testing.T) {
@@ -68,7 +69,7 @@ func TestGetPageWithBodyFallback_StorageEmpty_FallsBackToADF(t *testing.T) {
 	page, err := getPageWithBodyFallback(context.Background(), client, "12345")
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, 2, callCount)
-	testutil.True(t, hasADFContent(page))
+	testutil.True(t, pageview.HasADFContent(page))
 }
 
 func TestGetPageWithBodyFallback_NullBody_FallsBackToADF(t *testing.T) {
@@ -103,7 +104,7 @@ func TestGetPageWithBodyFallback_NullBody_FallsBackToADF(t *testing.T) {
 	page, err := getPageWithBodyFallback(context.Background(), client, "12345")
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, 2, callCount)
-	testutil.True(t, hasADFContent(page))
+	testutil.True(t, pageview.HasADFContent(page))
 }
 
 func TestGetPageWithBodyFallback_BothEmpty(t *testing.T) {
@@ -123,8 +124,8 @@ func TestGetPageWithBodyFallback_BothEmpty(t *testing.T) {
 	client := api.NewClient(server.URL, "test@example.com", "token")
 	page, err := getPageWithBodyFallback(context.Background(), client, "12345")
 	testutil.RequireNoError(t, err)
-	testutil.False(t, hasStorageContent(page))
-	testutil.False(t, hasADFContent(page))
+	testutil.False(t, pageview.HasStorageContent(page))
+	testutil.False(t, pageview.HasADFContent(page))
 }
 
 func TestGetPageWithBodyFallback_GetPageError(t *testing.T) {
@@ -138,6 +139,19 @@ func TestGetPageWithBodyFallback_GetPageError(t *testing.T) {
 	client := api.NewClient(server.URL, "test@example.com", "token")
 	_, err := getPageWithBodyFallback(context.Background(), client, "99999")
 	testutil.RequireError(t, err)
+}
+
+func TestGetPageWithBodyFormat_UnavailableRepresentation(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		testutil.Equal(t, "atlas_doc_format", r.URL.Query().Get("body-format"))
+		_, _ = w.Write([]byte(`{"id":"12345","body":{}}`))
+	}))
+	defer server.Close()
+
+	_, err := getPageWithBodyFormat(context.Background(), api.NewClient(server.URL, "test@example.com", "token"), "12345", bodyFormatADF)
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "does not provide the requested adf")
 }
 
 func TestGetPageWithBodyFallback_ADFFallbackFails_GracefulDegradation(t *testing.T) {
@@ -166,8 +180,8 @@ func TestGetPageWithBodyFallback_ADFFallbackFails_GracefulDegradation(t *testing
 	client := api.NewClient(server.URL, "test@example.com", "token")
 	page, err := getPageWithBodyFallback(context.Background(), client, "12345")
 	testutil.RequireNoError(t, err)
-	testutil.False(t, hasStorageContent(page))
-	testutil.False(t, hasADFContent(page))
+	testutil.False(t, pageview.HasStorageContent(page))
+	testutil.False(t, pageview.HasADFContent(page))
 }
 
 func TestGetPageVersionWithBodyFallback_StorageEmpty_FallsBackToADF(t *testing.T) {
@@ -216,7 +230,29 @@ func TestGetPageVersionWithBodyFallback_StorageEmpty_FallsBackToADF(t *testing.T
 	page, err := getPageVersionWithBodyFallback(context.Background(), client, "12345", 2)
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, 4, callCount)
-	testutil.True(t, hasADFContent(page))
+	testutil.True(t, pageview.HasADFContent(page))
+}
+
+func TestGetPageVersionWithBodyFormat_ADF(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/api/v2/pages/12345":
+			_, _ = w.Write([]byte(`{"id":"12345","title":"Page","version":{"number":2}}`))
+		case strings.Contains(r.URL.Path, "/versions") && r.URL.Query().Get("body-format") == "":
+			_, _ = w.Write([]byte(`{"results":[{"number":2}]}`))
+		case strings.Contains(r.URL.Path, "/versions"):
+			testutil.Equal(t, "atlas_doc_format", r.URL.Query().Get("body-format"))
+			_, _ = w.Write([]byte(`{"results":[{"number":2,"page":{"id":"12345","body":{"atlas_doc_format":{"representation":"atlas_doc_format","value":"{\"type\":\"doc\",\"version\":1,\"content\":[]}"}}}}]}`))
+		default:
+			t.Fatalf("unexpected request: %s?%s", r.URL.Path, r.URL.RawQuery)
+		}
+	}))
+	defer server.Close()
+
+	page, err := getPageVersionWithBodyFormat(context.Background(), api.NewClient(server.URL, "test@example.com", "token"), "12345", 2, bodyFormatADF)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, `{"type":"doc","version":1,"content":[]}`, page.Body.AtlasDocFormat.Value)
 }
 
 func TestHasStorageContent(t *testing.T) {
@@ -235,7 +271,7 @@ func TestHasStorageContent(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			testutil.Equal(t, tt.expected, hasStorageContent(tt.page))
+			testutil.Equal(t, tt.expected, pageview.HasStorageContent(tt.page))
 		})
 	}
 }
@@ -256,7 +292,7 @@ func TestHasADFContent(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			testutil.Equal(t, tt.expected, hasADFContent(tt.page))
+			testutil.Equal(t, tt.expected, pageview.HasADFContent(tt.page))
 		})
 	}
 }

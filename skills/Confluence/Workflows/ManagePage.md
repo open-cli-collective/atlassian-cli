@@ -22,8 +22,9 @@ Create, edit, copy, move, and delete Confluence pages.
 | "from file", "use this file" | `--file PATH` | Reads content from file |
 | provides content inline | Pipe via stdin | `echo "content" \| cfl page create ...` |
 | "open editor" | `--editor` | Opens interactive editor |
-| "legacy format" | `--legacy` | Uses legacy editor format |
-| "raw XHTML", "storage format" | `--storage` | Sends raw Confluence XHTML |
+| "legacy format" | `--legacy` | Converts Markdown to storage XHTML |
+| "raw XHTML", "storage format" | `--body-format xhtml` | Sends exact Confluence XHTML |
+| "ADF" | `--body-format adf` | Validates and sends exact ADF JSON |
 
 ## Execute
 
@@ -40,10 +41,10 @@ cfl page create --space KEY --title "Child Page" --parent PARENT_ID --file conte
 echo "# Page Content" | cfl page create --space KEY --title "Page Title"
 
 # From raw Confluence storage format (XHTML) — preserves macros exactly
-cfl page create --space KEY --title "Page Title" --storage --file content.xhtml
+cfl page create --space KEY --title "Page Title" --body-format xhtml --file content.xhtml
 ```
 
-The `--storage` flag works on `page create` as well as `page edit`. Use it when the source content is already raw Confluence XHTML (e.g. copied from another page's storage format).
+`--body-format xhtml` works on both create and edit. Use it when the source is already exact Confluence storage XHTML.
 
 If the user provides content as part of the request, write it to a temp file and use `--file`. Use `mktemp` to avoid collisions:
 ```bash
@@ -91,11 +92,11 @@ rm -f "$TMPFILE"
 
 The markdown round-trip above is convenient but **lossy** — macros (TOC, include, status, etc.) and some formatting are stripped. For edits that must preserve everything:
 
-- Fetch the page with `-o json` (see ViewPage.md for the JSON structure) — the `content` field holds the raw storage XHTML
+- Fetch with `cfl page view PAGE_ID --body-format xhtml --content-only`
 - Modify the XHTML as needed
-- Send the modified XHTML back via `cfl page edit PAGE_ID --storage` — reads from stdin, or pass via `--file`
+- Send it back via `cfl page edit PAGE_ID --body-format xhtml` — stdin or `--file`
 
-The `--storage` flag sends the input directly via the storage representation API, preserving all macros and formatting exactly. Use this whenever:
+The XHTML body format sends input directly via the storage representation API, preserving all macros and formatting exactly. Use this whenever:
 - The page contains macros you need to keep (TOC, include, excerpt, status, etc.)
 - You're doing a find/replace that must not touch surrounding markup
 - You're scripting against pages with complex structure
@@ -116,7 +117,7 @@ cfl page copy PAGE_ID --title "Light Copy" --no-attachments --no-labels
 **Placement:** `cfl page copy` always places the new page at the root of the destination space — it does not inherit the source page's parent, and it does not accept `--parent`. To place the copy under a specific page, follow the copy with a reparent edit:
 
 ```bash
-NEW_ID=$(cfl page copy SOURCE_ID --title "Copy of Page" -o json | ...)   # capture the new page ID from JSON
+NEW_ID=$(cfl page copy SOURCE_ID --title "Copy of Page" | awk '/^ID:/ {print $2}')
 cfl page edit $NEW_ID --parent DESIRED_PARENT_ID
 ```
 

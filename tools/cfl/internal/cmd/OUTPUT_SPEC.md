@@ -17,8 +17,8 @@ does not yet match this document exactly, this spec is the contract to implement
    needed to decide the next action without extra flags.
 3. **`--full` is additive, not alternate.** It reveals richer inspection detail
    on the same text surface instead of switching to a different representation.
-4. **Page content defaults to readable markdown.** `page view` should expose
-   transformed markdown by default and reserve `--raw` for source-faithful storage.
+4. **Page content defaults to readable markdown.** `page view` exposes Markdown
+   by default and exact ADF or storage XHTML through `--body-format`.
 5. **Padding is not semantics.** Delimiters and labels are stable; visual padding,
    ASCII-boxing, and JSON wrappers are not part of the contract.
 6. **Control-plane JSON is separate.** Local boolean `--json` flags such as
@@ -32,7 +32,7 @@ does not yet match this document exactly, this spec is the contract to implement
 | Default | `-o table` | Canonical human + agent text. Detail commands use stable key-value blocks; list commands use stable delimited rows with headers. |
 | Plain | `-o plain` | Script-oriented dense text. For list commands this is TSV. For detail/mutation commands it must remain semantically identical to default text, differing only in presentation details such as color. |
 | Full | `--full` | Inspection-oriented additive fields on top of the default/plain contract. |
-| Raw | command-specific `--raw` | Source-faithful content for commands that transform body content, primarily `page view`. |
+| Body format | `--body-format markdown\|adf\|xhtml` | Page-body representation, independent of output artifact breadth. |
 
 ## Global flag semantics
 
@@ -204,9 +204,10 @@ Author ID: <account-id>
 
 Flag-specific behavior:
 - `--content-only` emits only the body and implies untruncated output.
-- `--raw` emits the source body instead of transformed markdown.
+- `--body-format` selects Markdown (default), exact ADF JSON, or exact storage XHTML; exact ADF and XHTML are never truncated.
+- Markdown conversion errors fail with no body on stdout and suggest an exact format.
 - `--show-macros` affects body conversion only.
-- `--no-truncate` disables the default body truncation guard.
+- `--no-truncate` disables the default Markdown body truncation guard.
 - `--version N` selects a historical version and preserves the same output shape.
 - `--web` opens the browser and emits no CLI body text.
 

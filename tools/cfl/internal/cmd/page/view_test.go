@@ -155,8 +155,8 @@ func TestRunView_ExactOutput_Raw(t *testing.T) {
 	rootOpts.SetAPIClient(api.NewClient(server.URL, "test@example.com", "token"))
 
 	err := runView(context.Background(), "12345", &viewOptions{
-		Options: rootOpts,
-		raw:     true,
+		Options:    rootOpts,
+		bodyFormat: bodyFormatXHTML,
 	})
 	testutil.RequireNoError(t, err)
 
@@ -164,7 +164,7 @@ func TestRunView_ExactOutput_Raw(t *testing.T) {
 	testutil.Equal(t, "", rootOpts.Stderr.(*bytes.Buffer).String())
 }
 
-func TestRunView_ExactOutput_RawContentOnly_NoTruncate(t *testing.T) {
+func TestRunView_ExactXHTMLBypassesTruncation(t *testing.T) {
 	t.Parallel()
 
 	content := "<p>" + strings.Repeat("a", maxViewChars+10) + "</p>"
@@ -184,15 +184,67 @@ func TestRunView_ExactOutput_RawContentOnly_NoTruncate(t *testing.T) {
 	rootOpts.SetAPIClient(api.NewClient(server.URL, "test@example.com", "token"))
 
 	err := runView(context.Background(), "12345", &viewOptions{
-		Options:     rootOpts,
-		raw:         true,
-		contentOnly: true,
-		noTruncate:  true,
+		Options:    rootOpts,
+		bodyFormat: bodyFormatXHTML,
 	})
 	testutil.RequireNoError(t, err)
 
-	testutil.Equal(t, content+"\n", rootOpts.Stdout.(*bytes.Buffer).String())
+	testutil.Equal(t, "Title: Long Page\nID: 12345\nVersion: 1\n\n"+content+"\n", rootOpts.Stdout.(*bytes.Buffer).String())
 	testutil.Equal(t, "", rootOpts.Stderr.(*bytes.Buffer).String())
+}
+
+func TestRunView_ExactADFBypassesTruncation(t *testing.T) {
+	t.Parallel()
+
+	content := `{"type":"doc","version":1,"content":[{"type":"paragraph","content":[{"type":"text","text":"` + strings.Repeat("a", maxViewChars) + `"}]}]}`
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(api.Page{
+			ID: "12345", Title: "Long ADF Page", Version: &api.Version{Number: 1},
+			Body: &api.Body{AtlasDocFormat: &api.BodyRepresentation{Representation: "atlas_doc_format", Value: content}},
+		})
+	}))
+	defer server.Close()
+
+	rootOpts := newViewTestRootOptions()
+	rootOpts.SetAPIClient(api.NewClient(server.URL, "test@example.com", "token"))
+	testutil.RequireNoError(t, runView(context.Background(), "12345", &viewOptions{Options: rootOpts, bodyFormat: bodyFormatADF}))
+
+	_, body, found := strings.Cut(rootOpts.Stdout.(*bytes.Buffer).String(), "\n\n")
+	testutil.True(t, found)
+	testutil.Equal(t, content+"\n", body)
+	testutil.True(t, json.Valid([]byte(body)))
+}
+
+func TestRunView_ExactContentOnlyIsByteExact(t *testing.T) {
+	t.Parallel()
+
+	for _, tt := range []struct {
+		name       string
+		bodyFormat string
+		apiFormat  string
+		body       string
+		want       string
+	}{
+		{"empty ADF", bodyFormatADF, "atlas_doc_format", `"atlas_doc_format":{"value":""}`, ""},
+		{"empty XHTML", bodyFormatXHTML, "storage", `"storage":{"value":""}`, ""},
+		{"non-empty ADF", bodyFormatADF, "atlas_doc_format", `"atlas_doc_format":{"value":"{\"type\":\"doc\",\"version\":1,\"content\":[]}"}`, `{"type":"doc","version":1,"content":[]}`},
+		{"non-empty XHTML", bodyFormatXHTML, "storage", `"storage":{"value":"<p>Raw</p>"}`, "<p>Raw</p>"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				testutil.Equal(t, tt.apiFormat, r.URL.Query().Get("body-format"))
+				_, _ = w.Write([]byte(`{"id":"12345","body":{` + tt.body + `}}`))
+			}))
+			defer server.Close()
+
+			rootOpts := newViewTestRootOptions()
+			rootOpts.SetAPIClient(api.NewClient(server.URL, "test@example.com", "token"))
+			err := runView(context.Background(), "12345", &viewOptions{Options: rootOpts, bodyFormat: tt.bodyFormat, contentOnly: true})
+			testutil.RequireNoError(t, err)
+			testutil.Equal(t, tt.want, rootOpts.Stdout.(*bytes.Buffer).String())
+		})
+	}
 }
 
 func TestRunView_ExactOutput_DefaultMarkdown_NoTruncate(t *testing.T) {
@@ -267,10 +319,10 @@ func TestRunView_ExactOutput_ConversionFallback(t *testing.T) {
 		Options:     rootOpts,
 		contentOnly: true,
 	})
-	testutil.RequireNoError(t, err)
-
-	testutil.Equal(t, "{not-json\n", rootOpts.Stdout.(*bytes.Buffer).String())
-	testutil.Equal(t, "(Failed to convert ADF to markdown, showing raw ADF)\n", rootOpts.Stderr.(*bytes.Buffer).String())
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "--body-format adf")
+	testutil.Equal(t, "", rootOpts.Stdout.(*bytes.Buffer).String())
+	testutil.Contains(t, rootOpts.Stderr.(*bytes.Buffer).String(), "--body-format adf")
 }
 
 func TestRunView_ExactOutput_StorageConversionFallback_Default(t *testing.T) {
@@ -306,10 +358,10 @@ func TestRunView_ExactOutput_StorageConversionFallback_Default(t *testing.T) {
 	rootOpts.SetAPIClient(api.NewClient(server.URL, "test@example.com", "token"))
 
 	err := runView(context.Background(), "12345", &viewOptions{Options: rootOpts})
-	testutil.RequireNoError(t, err)
-
-	testutil.Equal(t, "Title: Broken Storage Page\nID: 12345\nSpace: TEST (ID: 98765)\nVersion: 7\n\n<p>Fallback HTML</p>\n", rootOpts.Stdout.(*bytes.Buffer).String())
-	testutil.Equal(t, "(Failed to convert to markdown, showing raw HTML)\n", rootOpts.Stderr.(*bytes.Buffer).String())
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "--body-format xhtml")
+	testutil.Equal(t, "", rootOpts.Stdout.(*bytes.Buffer).String())
+	testutil.Contains(t, rootOpts.Stderr.(*bytes.Buffer).String(), "--body-format xhtml")
 }
 
 func TestRunView_RawFormat(t *testing.T) {
@@ -331,8 +383,8 @@ func TestRunView_RawFormat(t *testing.T) {
 	rootOpts.SetAPIClient(client)
 
 	opts := &viewOptions{
-		Options: rootOpts,
-		raw:     true,
+		Options:    rootOpts,
+		bodyFormat: bodyFormatXHTML,
 	}
 
 	err := runView(context.Background(), "12345", opts)
@@ -492,7 +544,7 @@ func TestRunView_ContentOnly_Raw(t *testing.T) {
 	opts := &viewOptions{
 		Options:     rootOpts,
 		contentOnly: true,
-		raw:         true,
+		bodyFormat:  bodyFormatXHTML,
 	}
 
 	err := runView(context.Background(), "12345", opts)
@@ -590,9 +642,9 @@ func TestRunView_VersionRaw(t *testing.T) {
 	rootOpts.SetAPIClient(api.NewClient(server.URL, "test@example.com", "token"))
 
 	opts := &viewOptions{
-		Options: rootOpts,
-		version: 2,
-		raw:     true,
+		Options:    rootOpts,
+		version:    2,
+		bodyFormat: bodyFormatXHTML,
 	}
 
 	err := runView(context.Background(), "12345", opts)
@@ -633,7 +685,7 @@ func TestRunView_VersionNewerThanCurrent_PreservesVersionContext(t *testing.T) {
 	testutil.NotContains(t, err.Error(), "getting page: page version")
 }
 
-func TestRunView_VersionTruncatesByDefault(t *testing.T) {
+func TestRunView_VersionMarkdownTruncatesByDefault(t *testing.T) {
 	t.Parallel()
 	server := mockVersionedViewServer(t, "<p>"+strings.Repeat("a", maxViewChars+10)+"</p>")
 	defer server.Close()
@@ -644,12 +696,12 @@ func TestRunView_VersionTruncatesByDefault(t *testing.T) {
 	opts := &viewOptions{
 		Options: rootOpts,
 		version: 2,
-		raw:     true,
 	}
 
 	err := runView(context.Background(), "12345", opts)
 	testutil.RequireNoError(t, err)
-	testutil.Contains(t, rootOpts.Stdout.(*bytes.Buffer).String(), "truncated at")
+	stdout := rootOpts.Stdout.(*bytes.Buffer).String()
+	testutil.Contains(t, stdout, "truncated at")
 }
 
 func TestRunView_VersionNoTruncate(t *testing.T) {
@@ -663,7 +715,7 @@ func TestRunView_VersionNoTruncate(t *testing.T) {
 	opts := &viewOptions{
 		Options:    rootOpts,
 		version:    2,
-		raw:        true,
+		bodyFormat: bodyFormatXHTML,
 		noTruncate: true,
 	}
 
@@ -985,7 +1037,7 @@ func TestRunView_ADFPage_RawFormat(t *testing.T) {
 	rootOpts := newViewTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
 	rootOpts.SetAPIClient(client)
-	opts := &viewOptions{Options: rootOpts, raw: true}
+	opts := &viewOptions{Options: rootOpts, bodyFormat: bodyFormatADF}
 
 	err := runView(context.Background(), "12345", opts)
 	testutil.RequireNoError(t, err)

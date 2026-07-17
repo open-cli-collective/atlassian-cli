@@ -271,13 +271,12 @@ which backend is active on the current machine.
 
 ### Output Representations
 
-Both tools support three output representations:
+Both tools support two output artifact modes:
 
 | Flag | Representation | Description |
 |------|----------------|-------------|
 | (default) | `agent` | Action-oriented output with essential fields. Optimized for LLM/agent consumption. |
 | `--full` | `full` | Inspection-oriented output with additional fields (dates, authors, versions). |
-| `--raw` | `raw` | Source-faithful content (e.g., XHTML instead of markdown). Command-specific. |
 
 **Examples:**
 
@@ -290,8 +289,8 @@ cfl page view 123456
 jtk issues get PROJ-123 --full
 cfl page view 123456 --full
 
-# Raw content (cfl only, where content transformation occurs)
-cfl page view 123456 --raw
+# Exact Confluence body representation
+cfl page view 123456 --body-format xhtml
 ```
 
 See [docs/ARTIFACT_CONTRACT.md](docs/ARTIFACT_CONTRACT.md) for the full output contract specification.

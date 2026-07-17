@@ -1,16 +1,26 @@
 package pageview
 
 import (
+	"fmt"
+
 	"github.com/open-cli-collective/confluence-cli/api"
 	"github.com/open-cli-collective/confluence-cli/pkg/md"
 )
 
-// MaxChars is the default body truncation threshold for page view output.
-const MaxChars = 5000
+const (
+	// MaxChars is the default body truncation threshold for page view output.
+	MaxChars = 5000
+	// BodyFormatMarkdown is the default page body format.
+	BodyFormatMarkdown = "markdown"
+	// BodyFormatADF is the Atlassian Document Format page body format.
+	BodyFormatADF = "adf"
+	// BodyFormatXHTML is the Confluence storage XHTML page body format.
+	BodyFormatXHTML = "xhtml"
+)
 
 // Options controls page-view body projection.
 type Options struct {
-	Raw         bool
+	BodyFormat  string
 	NoTruncate  bool
 	ShowMacros  bool
 	ContentOnly bool
@@ -22,17 +32,8 @@ type BodyKind int
 const (
 	BodyKindNone BodyKind = iota
 	BodyKindMarkdown
-	BodyKindStorageRaw
-	BodyKindADFRaw
-)
-
-// FallbackKind identifies whether conversion fell back to a raw/source-faithful body.
-type FallbackKind int
-
-const (
-	FallbackNone FallbackKind = iota
-	FallbackStorageRaw
-	FallbackADFRaw
+	BodyKindXHTML
+	BodyKindADF
 )
 
 // Projection is the presenter-facing view model for page view output.
@@ -46,7 +47,6 @@ type Projection struct {
 	ContentOnly bool
 	Body        string
 	BodyKind    BodyKind
-	Fallback    FallbackKind
 	HasContent  bool
 	Truncated   bool
 }
@@ -57,8 +57,7 @@ var (
 )
 
 // OverrideConvertersForTest swaps the storage/ADF conversion hooks and returns
-// a restore function. It exists so higher-level command tests can force the
-// fallback branches without depending on fragile converter internals.
+// a restore function. It exists so command tests can force conversion errors.
 func OverrideConvertersForTest(
 	storage func(string, md.ConvertOptions) (string, error),
 	adf func(string) (string, error),
@@ -79,7 +78,7 @@ func OverrideConvertersForTest(
 
 // Project builds the presenter-facing page-view projection from API data and
 // command mode flags.
-func Project(page *api.Page, spaceKey string, opts Options) Projection {
+func Project(page *api.Page, spaceKey string, opts Options) (Projection, error) {
 	proj := Projection{
 		Title:       page.Title,
 		ID:          page.ID,
@@ -92,54 +91,67 @@ func Project(page *api.Page, spaceKey string, opts Options) Projection {
 		proj.HasVersion = true
 	}
 
-	switch {
-	case hasStorageContent(page):
-		proj.Body, proj.BodyKind, proj.Fallback, proj.Truncated = projectStorageBody(page.Body.Storage.Value, opts)
-		proj.HasContent = true
-	case hasADFContent(page):
-		proj.Body, proj.BodyKind, proj.Fallback, proj.Truncated = projectADFBody(page.Body.AtlasDocFormat.Value, opts)
-		proj.HasContent = true
+	switch opts.BodyFormat {
+	case BodyFormatADF:
+		if page.Body != nil && page.Body.AtlasDocFormat != nil {
+			proj.Body, proj.Truncated = TruncateContent(page.Body.AtlasDocFormat.Value, opts)
+			proj.BodyKind = BodyKindADF
+			proj.HasContent = true
+		}
+	case BodyFormatXHTML:
+		if page.Body != nil && page.Body.Storage != nil {
+			proj.Body, proj.Truncated = TruncateContent(page.Body.Storage.Value, opts)
+			proj.BodyKind = BodyKindXHTML
+			proj.HasContent = true
+		}
+	case "", BodyFormatMarkdown:
+		switch {
+		case HasStorageContent(page):
+			body, truncated, err := projectStorageBody(page.Body.Storage.Value, opts)
+			if err != nil {
+				return Projection{}, err
+			}
+			proj.Body, proj.Truncated = body, truncated
+			proj.BodyKind = BodyKindMarkdown
+			proj.HasContent = true
+		case HasADFContent(page):
+			body, truncated, err := projectADFBody(page.Body.AtlasDocFormat.Value, opts)
+			if err != nil {
+				return Projection{}, err
+			}
+			proj.Body, proj.Truncated = body, truncated
+			proj.BodyKind = BodyKindMarkdown
+			proj.HasContent = true
+		}
 	default:
-		proj.HasContent = false
+		return Projection{}, fmt.Errorf("unsupported body format %q", opts.BodyFormat)
 	}
 
-	return proj
+	return proj, nil
 }
 
-func projectStorageBody(content string, opts Options) (body string, kind BodyKind, fallback FallbackKind, truncated bool) {
-	if opts.Raw {
-		body, truncated = TruncateContent(content, opts)
-		return body, BodyKindStorageRaw, FallbackNone, truncated
-	}
-
+func projectStorageBody(content string, opts Options) (body string, truncated bool, err error) {
 	markdown, err := fromStorage(content, md.ConvertOptions{ShowMacros: opts.ShowMacros})
 	if err != nil {
-		body, truncated = TruncateContent(content, opts)
-		return body, BodyKindStorageRaw, FallbackStorageRaw, truncated
+		return "", false, fmt.Errorf("failed to convert XHTML to markdown; rerun with --body-format xhtml or --body-format adf: %w", err)
 	}
 	body, truncated = TruncateContent(markdown, opts)
-	return body, BodyKindMarkdown, FallbackNone, truncated
+	return body, truncated, nil
 }
 
-func projectADFBody(content string, opts Options) (body string, kind BodyKind, fallback FallbackKind, truncated bool) {
-	if opts.Raw {
-		body, truncated = TruncateContent(content, opts)
-		return body, BodyKindADFRaw, FallbackNone, truncated
-	}
-
+func projectADFBody(content string, opts Options) (body string, truncated bool, err error) {
 	markdown, err := fromADF(content)
 	if err != nil {
-		body, truncated = TruncateContent(content, opts)
-		return body, BodyKindADFRaw, FallbackADFRaw, truncated
+		return "", false, fmt.Errorf("failed to convert ADF to markdown; rerun with --body-format adf or --body-format xhtml: %w", err)
 	}
 	body, truncated = TruncateContent(markdown, opts)
-	return body, BodyKindMarkdown, FallbackNone, truncated
+	return body, truncated, nil
 }
 
 // TruncateContent truncates content if it exceeds the character limit and
 // reports whether truncation occurred.
 func TruncateContent(content string, opts Options) (string, bool) {
-	if opts.NoTruncate || opts.ContentOnly {
+	if opts.NoTruncate || opts.ContentOnly || opts.BodyFormat == BodyFormatADF || opts.BodyFormat == BodyFormatXHTML {
 		return content, false
 	}
 	runes := []rune(content)
@@ -149,13 +161,15 @@ func TruncateContent(content string, opts Options) (string, bool) {
 	return content, false
 }
 
-func hasStorageContent(page *api.Page) bool {
+// HasStorageContent reports whether page has non-empty storage content.
+func HasStorageContent(page *api.Page) bool {
 	return page.Body != nil &&
 		page.Body.Storage != nil &&
 		page.Body.Storage.Value != ""
 }
 
-func hasADFContent(page *api.Page) bool {
+// HasADFContent reports whether page has non-empty ADF content.
+func HasADFContent(page *api.Page) bool {
 	return page.Body != nil &&
 		page.Body.AtlasDocFormat != nil &&
 		page.Body.AtlasDocFormat.Value != ""

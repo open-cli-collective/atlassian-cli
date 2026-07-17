@@ -74,11 +74,12 @@ All cfl commands should work with both auth methods (no scope limitations for Co
 | Test Case | Command | Expected Result |
 |-----------|---------|-----------------|
 | View page content | `cfl page view <page-id>` | Shows title, ID, version, and markdown content |
-| View raw HTML | `cfl page view <page-id> --raw` | Shows Confluence storage format (XHTML) |
+| View exact XHTML | `cfl page view <page-id> --body-format xhtml` | Shows exact Confluence storage XHTML |
+| View exact ADF | `cfl page view <page-id> --body-format adf` | Shows exact ADF JSON |
 | ~~JSON output~~ (#392 removed) | `cfl page view <page-id> --output json` | Errors: invalid output format |
 | Non-existent page | `cfl page view 99999999999` | Error: 404 not found |
 | View content only | `cfl page view <id> --content-only` | Markdown only, no Title/ID/Version headers |
-| Content only with raw | `cfl page view <id> --content-only --raw` | XHTML only, no headers |
+| Content only with XHTML | `cfl page view <id> --content-only --body-format xhtml` | XHTML only, no headers |
 | Content only with macros | `cfl page view <id> --content-only --show-macros` | Markdown with [TOC] etc., no headers |
 | Roundtrip macros (content-only) | `cfl page view <id> --show-macros --content-only \| cfl page edit <id> --legacy` | Macros preserved |
 | ~~Content only JSON error~~ (#392 removed; -o json itself errors before --content-only checks) | `cfl page view <id> --content-only -o json` | Errors: invalid output format |
@@ -91,7 +92,7 @@ All cfl commands should work with both auth methods (no scope limitations for Co
 | Create from stdin | `echo "# Test" \| cfl page create -s confluence -t "Test Page"` | Page created, shows ID and URL |
 | Create from file | `cfl page create -s confluence -t "Test" --file content.md` | Page created from file content |
 | Create child page | `cfl page create -s confluence -t "Child" --parent <id>` | Page created with parentId set |
-| Create with XHTML (legacy) | `echo "<p>Test</p>" \| cfl page create -s confluence -t "Test" --no-markdown --legacy` | Page created without markdown conversion |
+| Create with XHTML | `echo "<p>Test</p>" \| cfl page create -s confluence -t "Test" --body-format xhtml` | Exact storage XHTML sent |
 | Missing title | `cfl page create -s confluence` | Error: title required |
 | Missing space | `cfl page create -t "Test"` | Error: space required |
 | Duplicate title | Create same title twice | Error: "page already exists with same TITLE" |
@@ -107,9 +108,9 @@ All cfl commands should work with both auth methods (no scope limitations for Co
 | Test Case | Command | Expected Result |
 |-----------|---------|-----------------|
 | Edit from file | `cfl page edit <id> --file updated.md` | Page updated, version incremented |
-| Edit with --no-markdown (legacy) | `cfl page edit <id> --file content.html --no-markdown --legacy` | Raw XHTML preserved |
-| Edit page with tables (markdown mode) | Edit without --no-markdown | See "Confluence UI-Created Content" section |
-| Edit page with code blocks (UI-created) | Edit without --no-markdown | See "Confluence UI-Created Content" section |
+| Edit with XHTML | `cfl page edit <id> --file content.xhtml --body-format xhtml` | Exact XHTML preserved |
+| Edit page with tables (markdown mode) | Edit with omitted/default body format | See "Confluence UI-Created Content" section |
+| Edit page with code blocks (UI-created) | Edit with omitted/default body format | See "Confluence UI-Created Content" section |
 | Non-existent page | `cfl page edit 99999999999` | Error: 404 not found |
 | Edit (cloud editor) | `cfl page edit <id> --file updated.md` | Page stays in cloud editor format |
 | Edit (legacy editor) | `cfl page edit <id> --file updated.md --legacy` | Page uses legacy storage format |
@@ -466,9 +467,9 @@ curl -s -u "$EMAIL:$TOKEN" "$URL/api/v2/pages/<page-id>?body-format=atlas_doc_fo
 | CE-02 | stdin | --legacy | storage | `body.storage` present |
 | CE-03 | file.md | (none) | ADF | No "Legacy editor" badge |
 | CE-04 | file.md | --legacy | storage | Shows "Legacy editor" badge |
-| CE-05 | file.html | --legacy | storage | Raw HTML passed through |
-| CE-06 | stdin | --no-markdown | ADF | Raw content passed through |
-| CE-07 | stdin | --no-markdown --legacy | storage | Raw XHTML passed through |
+| CE-05 | file.xhtml | --body-format xhtml | storage | Exact XHTML passed through |
+| CE-06 | stdin | --body-format adf | ADF | Valid JSON passed through exactly |
+| CE-07 | stdin | --body-format xhtml | storage | Exact XHTML passed through |
 
 ### Round-Trip Tests
 
@@ -532,7 +533,7 @@ Copies in the TEST space (originals from INT, CUS, PROD, PLAYBOOK):
 | Test Case | Command | Expected Result |
 |-----------|---------|-----------------|
 | View ADF page (default) | `cfl page view <adf-id>` | Shows markdown content (not "(No content)") |
-| View ADF page (raw) | `cfl page view <adf-id> --raw` | Shows raw XHTML (or ADF JSON if storage was empty) |
+| View ADF page (ADF) | `cfl page view <adf-id> --body-format adf` | Shows exact ADF JSON |
 | ~~View ADF page (JSON)~~ (#392 removed) | `cfl page view <adf-id> -o json` | Errors: invalid output format |
 | View ADF page (content-only) | `cfl page view <adf-id> --content-only` | Shows content without headers |
 | View legacy page (no regression) | `cfl page view <legacy-id>` | Shows markdown content via storage path |
@@ -603,7 +604,7 @@ All cfl commands work with both auth methods (no scope restrictions for Confluen
 - [ ] Create page with --legacy flag
 - [ ] Create child page
 - [ ] View page (markdown)
-- [ ] View page (raw)
+- [ ] View page (XHTML with `--body-format xhtml`)
 - [ ] View page (content-only)
 - [ ] View page (content-only with --show-macros for roundtrip)
 - [ ] Roundtrip macro page via pipe (`view --show-macros --content-only | edit --legacy`)
@@ -621,7 +622,7 @@ All cfl commands work with both auth methods (no scope restrictions for Confluen
 
 #### ADF Body Fallback (#150)
 - [ ] View ADF page with empty storage → content displayed via ADF fallback
-- [ ] View ADF page (raw) → shows ADF JSON
+- [ ] View ADF page with `--body-format adf` → shows exact ADF JSON
 - [ ] ~~View ADF page (JSON output)~~ (#392 removed)
 - [ ] Edit ADF page (title only) → ADF body preserved
 - [ ] Edit ADF page (new content) → submitted as ADF
@@ -696,7 +697,7 @@ All cfl commands work with both auth methods (no scope restrictions for Confluen
 - [ ] Create page with --legacy flag
 - [ ] Create child page
 - [ ] View page (markdown)
-- [ ] View page (raw)
+- [ ] View page (XHTML with `--body-format xhtml`)
 - [ ] View page (content-only)
 - [ ] View page (content-only with --show-macros for roundtrip)
 - [ ] Roundtrip macro page via pipe (`view --show-macros --content-only | edit --legacy`)
@@ -714,7 +715,7 @@ All cfl commands work with both auth methods (no scope restrictions for Confluen
 
 #### ADF Body Fallback (#150)
 - [ ] View ADF page with empty storage → content displayed via ADF fallback
-- [ ] View ADF page (raw) → shows ADF JSON
+- [ ] View ADF page with `--body-format adf` → shows exact ADF JSON
 - [ ] ~~View ADF page (JSON output)~~ (#392 removed)
 - [ ] Edit ADF page (title only) → ADF body preserved
 - [ ] Edit ADF page (new content) → submitted as ADF

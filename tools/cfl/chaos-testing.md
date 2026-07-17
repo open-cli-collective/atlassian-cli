@@ -83,7 +83,7 @@ Things where the current behavior might be correct, but we should confirm:
 | Invalid page ID (999999999) | PASS | Good 404 error |
 | Non-numeric ID (abc) | PASS | Good 400 error |
 | Missing page ID | PASS | "accepts 1 arg(s)" error |
-| `--raw` mode | PASS | Shows Confluence storage format |
+| `--body-format xhtml` mode | PASS | Shows exact Confluence storage XHTML |
 | `-o json` | PASS | Valid JSON (no trailing message!) |
 | Confluence macros | BUG-005 | TOC macro params leak through |
 
@@ -123,4 +123,3 @@ Things where the current behavior might be correct, but we should confirm:
 - [ ] Test `--web` flag
 - [ ] Find page with code blocks to test syntax highlighting conversion
 - [x] Test aliases (ls vs list) - DONE (works)
-

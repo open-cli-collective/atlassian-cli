@@ -6,7 +6,6 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -19,14 +18,14 @@ import (
 
 type editOptions struct {
 	*root.Options
-	pageID   string
-	title    string
-	file     string
-	editor   bool
-	markdown *bool // nil = auto-detect, true = force markdown, false = force storage format
-	legacy   bool  // Use legacy editor (storage format) instead of cloud editor (ADF)
-	storage  bool  // Use storage representation directly (implies --no-markdown)
-	parent   string
+	pageID             string
+	title              string
+	file               string
+	editor             bool
+	bodyFormat         string
+	bodyFormatExplicit bool
+	legacy             bool
+	parent             string
 }
 
 func newEditCmd(rootOpts *root.Options) *cobra.Command {
@@ -37,20 +36,17 @@ func newEditCmd(rootOpts *root.Options) *cobra.Command {
 		Short: "Edit an existing page",
 		Long: `Edit an existing Confluence page.
 
-By default, pages are updated using the cloud editor format (ADF).
-Use --legacy to update pages in the legacy editor format.
+Markdown input is converted to cloud editor format (ADF) by default.
+Use --legacy with Markdown to update pages in storage XHTML instead.
 
 Content can be provided via:
 - --file flag to read from a file (use --file - to read from stdin)
 - Standard input (pipe content)
 - Interactive editor with --editor
 
-Content format:
-- Markdown is the default for stdin, editor, and .md files
-- Use --no-markdown to provide raw Confluence format (XHTML for legacy, ADF JSON for cloud)
-- Use --storage to provide raw Confluence storage format (XHTML) and send it directly
-  via the storage representation API, regardless of the page's editor type
-- Files with .html/.xhtml extensions are treated as storage format`,
+Content format is selected with --body-format markdown|adf|xhtml.
+Omitting --body-format means Markdown. ADF and XHTML are validated or sent
+without conversion.`,
 		Example: `  # Edit a page in the editor with current content
   cfl page edit 12345 --editor
 
@@ -63,8 +59,11 @@ Content format:
   # Update page content from stdin
   echo "# Updated Content" | cfl page edit 12345
 
-  # Update from stdin via explicit --file - (e.g. piping HTML as storage)
-  echo "<p>Updated</p>" | cfl page edit 12345 --file - --storage
+  # Update from exact ADF JSON
+  cfl page edit 12345 --file content.json --body-format adf
+
+  # Update from exact storage XHTML
+  echo "<p>Updated</p>" | cfl page edit 12345 --body-format xhtml
 
   # Update page title only
   cfl page edit 12345 --title "New Title"
@@ -75,27 +74,25 @@ Content format:
   # Move page and update title
   cfl page edit 12345 --parent 67890 --title "New Title"
 
-  # Pipe raw Confluence storage format (XHTML) directly
-  echo "<p>Updated</p>" | cfl page edit 12345 --storage
-
   # Extract, transform, and re-upload storage-format content
-  cfl page view 12345 --raw --content-only | \
-    sed 's/old/new/g' | cfl page edit 12345 --storage`,
-		Args: cobra.ExactArgs(1),
+  cfl page view 12345 --body-format xhtml --content-only | \
+    sed 's/old/new/g' | cfl page edit 12345 --body-format xhtml`,
+		Args: func(cmd *cobra.Command, args []string) error {
+			if err := cobra.ExactArgs(1)(cmd, args); err != nil {
+				return err
+			}
+			format, err := resolveBodyFormat(opts.bodyFormat, cmd.Flags().Changed("body-format"))
+			if err != nil {
+				return err
+			}
+			if opts.legacy && format != bodyFormatMarkdown {
+				return fmt.Errorf("--legacy is only supported with --body-format markdown")
+			}
+			return nil
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			opts.pageID = args[0]
-			opts.storage, _ = cmd.Flags().GetBool("storage")
-			if opts.storage {
-				// --storage implies --no-markdown (input is raw XHTML)
-				useMd := false
-				opts.markdown = &useMd
-			}
-			if cmd.Flags().Changed("no-markdown") {
-				noMd, _ := cmd.Flags().GetBool("no-markdown")
-				useMd := !noMd
-				opts.markdown = &useMd
-			}
-			opts.legacy, _ = cmd.Flags().GetBool("legacy")
+			opts.bodyFormatExplicit = cmd.Flags().Changed("body-format")
 			return runEdit(cmd.Context(), opts)
 		},
 	}
@@ -104,14 +101,21 @@ Content format:
 	cmd.Flags().StringVarP(&opts.file, "file", "f", "", "Read content from file")
 	cmd.Flags().StringVarP(&opts.parent, "parent", "p", "", "Move page to new parent page ID")
 	cmd.Flags().BoolVar(&opts.editor, "editor", false, "Open editor for content")
-	cmd.Flags().Bool("no-markdown", false, "Disable markdown conversion (use raw XHTML)")
-	cmd.Flags().Bool("storage", false, "Input is Confluence storage format (XHTML); sends via storage representation API")
-	cmd.Flags().Bool("legacy", false, "Edit page in legacy editor format (default: cloud editor)")
+	cmd.Flags().StringVar(&opts.bodyFormat, "body-format", bodyFormatMarkdown, "Input format: markdown, adf, or xhtml")
+	cmd.Flags().BoolVar(&opts.legacy, "legacy", false, "Edit page in legacy editor format (Markdown input only)")
 
 	return cmd
 }
 
 func runEdit(ctx context.Context, opts *editOptions) error {
+	bodyFormat, err := resolveBodyFormat(opts.bodyFormat, opts.bodyFormatExplicit)
+	if err != nil {
+		return err
+	}
+	if opts.legacy && bodyFormat != bodyFormatMarkdown {
+		return fmt.Errorf("--legacy is only supported with --body-format markdown")
+	}
+
 	// Validate file exists before making any network calls so we fail
 	// fast on bad input without needing config or API access. "-" means
 	// stdin, which has no path to stat.
@@ -121,14 +125,30 @@ func runEdit(ctx context.Context, opts *editOptions) error {
 		}
 	}
 
-	cfg, err := opts.Config()
-	if err != nil {
-		return err
-	}
-
 	if opts.title == "" && opts.parent == "" &&
 		!hasContentSource(opts.Options, opts.file, opts.editor) {
 		return errMissingContentSource()
+	}
+	hasStdinData := (opts.Stdin != nil && opts.Stdin != os.Stdin) || hasPipedOSStdin(opts.Options)
+	hasNewContent := opts.file != "" || opts.editor || hasStdinData
+	var newBody *api.Body
+	if hasNewContent && !opts.editor {
+		content, err := getEditContent(opts, nil, bodyFormat)
+		if err != nil {
+			return err
+		}
+		if strings.TrimSpace(content) == "" {
+			return fmt.Errorf("page content cannot be empty")
+		}
+		newBody, err = bodyForInput(content, bodyFormat, opts.legacy)
+		if err != nil {
+			return err
+		}
+	}
+
+	cfg, err := opts.Config()
+	if err != nil {
+		return err
 	}
 
 	client, err := opts.APIClient()
@@ -136,7 +156,12 @@ func runEdit(ctx context.Context, opts *editOptions) error {
 		return err
 	}
 
-	existingPage, err := getPageWithBodyFallback(ctx, client, opts.pageID)
+	var existingPage *api.Page
+	if opts.editor {
+		existingPage, err = getPageWithBodyFormat(ctx, client, opts.pageID, bodyFormat)
+	} else {
+		existingPage, err = getPageWithBodyFallback(ctx, client, opts.pageID)
+	}
 	if err != nil {
 		return err
 	}
@@ -146,17 +171,8 @@ func runEdit(ctx context.Context, opts *editOptions) error {
 		newTitle = existingPage.Title
 	}
 
-	var newContent string
-	hasNewContent := false
-
-	hasStdinData := opts.Stdin != nil && opts.Stdin != os.Stdin
-	if !hasStdinData {
-		stat, _ := os.Stdin.Stat()
-		hasStdinData = (stat.Mode() & os.ModeCharDevice) == 0
-	}
-
-	if opts.file != "" || opts.editor || hasStdinData {
-		content, isMarkdown, err := getEditContent(opts, existingPage)
+	if opts.editor {
+		content, err := getEditContent(opts, existingPage, bodyFormat)
 		if err != nil {
 			return err
 		}
@@ -165,11 +181,10 @@ func runEdit(ctx context.Context, opts *editOptions) error {
 			return fmt.Errorf("page content cannot be empty")
 		}
 
-		newContent, err = convertEditContent(content, isMarkdown, opts.storage || opts.legacy)
+		newBody, err = bodyForInput(content, bodyFormat, opts.legacy)
 		if err != nil {
 			return err
 		}
-		hasNewContent = true
 	}
 
 	req := &api.UpdatePageRequest{
@@ -183,21 +198,7 @@ func runEdit(ctx context.Context, opts *editOptions) error {
 	}
 
 	if hasNewContent {
-		if opts.storage || opts.legacy {
-			req.Body = &api.Body{
-				Storage: &api.BodyRepresentation{
-					Representation: "storage",
-					Value:          newContent,
-				},
-			}
-		} else {
-			req.Body = &api.Body{
-				AtlasDocFormat: &api.BodyRepresentation{
-					Representation: "atlas_doc_format",
-					Value:          newContent,
-				},
-			}
-		}
+		req.Body = newBody
 	} else {
 		req.Body = existingPage.Body
 	}
@@ -216,108 +217,50 @@ func runEdit(ctx context.Context, opts *editOptions) error {
 	return cflpresent.Emit(opts.Options, cflpresent.PagePresenter{}.PresentEdit(page, cfg.URL, opts.legacy && hasNewContent))
 }
 
-// convertEditContent converts content based on markdown flag and legacy mode.
-func convertEditContent(content string, isMarkdown, legacy bool) (string, error) {
-	if legacy {
-		if isMarkdown {
-			converted, err := md.ToConfluenceStorage([]byte(content))
-			if err != nil {
-				return "", fmt.Errorf("converting markdown: %w", err)
-			}
-			return converted, nil
-		}
-		return content, nil
-	}
-
-	if isMarkdown {
-		adfContent, err := md.ToADF([]byte(content))
-		if err != nil {
-			return "", fmt.Errorf("converting markdown to ADF: %w", err)
-		}
-		return adfContent, nil
-	}
-	return content, nil
-}
-
-// getEditContent reads content for editing and returns (content, isMarkdown, error).
-func getEditContent(opts *editOptions, existingPage *api.Page) (string, bool, error) {
-	useMarkdown := func(filename string) bool {
-		if opts.markdown != nil {
-			return *opts.markdown
-		}
-		if filename != "" {
-			ext := strings.ToLower(filepath.Ext(filename))
-			switch ext {
-			case ".html", ".xhtml", ".htm":
-				return false
-			case ".md", ".markdown":
-				return true
-			}
-		}
-		return true
-	}
-
+func getEditContent(opts *editOptions, existingPage *api.Page, bodyFormat string) (string, error) {
 	if opts.file == "-" {
 		data, err := io.ReadAll(stdinReader(opts.Options))
 		if err != nil {
-			return "", false, fmt.Errorf("reading stdin: %w", err)
+			return "", fmt.Errorf("reading stdin: %w", err)
 		}
-		return string(data), useMarkdown(""), nil
+		return string(data), nil
 	}
 
 	if opts.file != "" {
 		data, err := os.ReadFile(opts.file)
 		if err != nil {
-			return "", false, fmt.Errorf("reading file: %w", err)
+			return "", fmt.Errorf("reading file: %w", err)
 		}
-		return string(data), useMarkdown(opts.file), nil
+		return string(data), nil
 	}
 
 	if opts.Stdin != nil && opts.Stdin != os.Stdin {
 		data, err := io.ReadAll(opts.Stdin)
 		if err != nil {
-			return "", false, fmt.Errorf("reading stdin: %w", err)
+			return "", fmt.Errorf("reading stdin: %w", err)
 		}
-		return string(data), useMarkdown(""), nil
+		return string(data), nil
 	}
 
 	if hasPipedOSStdin(opts.Options) {
 		data, err := io.ReadAll(os.Stdin)
 		if err != nil {
-			return "", false, fmt.Errorf("reading stdin: %w", err)
+			return "", fmt.Errorf("reading stdin: %w", err)
 		}
-		return string(data), useMarkdown(""), nil
+		return string(data), nil
 	}
 
 	if !opts.editor {
-		return "", false, errMissingContentSource()
+		return "", errMissingContentSource()
 	}
 
-	isMarkdown := useMarkdown("")
-	content, err := openEditorForEdit(existingPage, isMarkdown)
-	return content, isMarkdown, err
+	return openEditorForEdit(existingPage, bodyFormat)
 }
 
-func openEditorForEdit(existingPage *api.Page, isMarkdown bool) (string, error) {
-	ext := ".html"
-	if isMarkdown {
-		ext = ".md"
-	}
-
-	existingContent := ""
-	if existingPage.Body != nil && existingPage.Body.Storage != nil {
-		existingContent = existingPage.Body.Storage.Value
-	} else if existingPage.Body != nil && existingPage.Body.AtlasDocFormat != nil {
-		// ADF-native page: convert to markdown for the editor.
-		markdown, err := md.FromADF(existingPage.Body.AtlasDocFormat.Value)
-		if err == nil {
-			existingContent = markdown
-		}
-	}
-
-	editContent := existingContent
-	if isMarkdown && existingContent != "" {
-		editContent = "<!-- Edit your content below. This is Confluence storage format. -->\n<!-- Use --no-markdown flag to edit raw storage format -->\n\n" + existingContent
+func openEditorForEdit(existingPage *api.Page, bodyFormat string) (string, error) {
+	ext, editContent, err := editorContent(existingPage, bodyFormat)
+	if err != nil {
+		return "", err
 	}
 
 	tmpfile, err := os.CreateTemp("", "cfl-edit-*"+ext)
@@ -353,10 +296,41 @@ func openEditorForEdit(existingPage *api.Page, isMarkdown bool) (string, error) 
 		return "", fmt.Errorf("reading edited content: %w", err)
 	}
 
-	content := strings.TrimSpace(string(data))
-	if content == "" {
+	content := string(data)
+	if strings.TrimSpace(content) == "" {
 		return "", fmt.Errorf("no content provided")
 	}
-
+	if bodyFormat == bodyFormatMarkdown {
+		return strings.TrimSpace(content), nil
+	}
 	return content, nil
+}
+
+func editorContent(page *api.Page, bodyFormat string) (string, string, error) {
+	switch bodyFormat {
+	case bodyFormatMarkdown:
+		if page.Body != nil && page.Body.Storage != nil {
+			content, err := md.FromConfluenceStorage(page.Body.Storage.Value)
+			if err != nil {
+				return "", "", fmt.Errorf("cannot produce markdown editor content: %w", err)
+			}
+			return ".md", content, nil
+		}
+		if page.Body != nil && page.Body.AtlasDocFormat != nil {
+			content, err := md.FromADF(page.Body.AtlasDocFormat.Value)
+			if err != nil {
+				return "", "", fmt.Errorf("cannot produce markdown editor content: %w", err)
+			}
+			return ".md", content, nil
+		}
+	case bodyFormatADF:
+		if page.Body != nil && page.Body.AtlasDocFormat != nil {
+			return ".json", page.Body.AtlasDocFormat.Value, nil
+		}
+	case bodyFormatXHTML:
+		if page.Body != nil && page.Body.Storage != nil {
+			return ".xhtml", page.Body.Storage.Value, nil
+		}
+	}
+	return "", "", fmt.Errorf("cannot produce %s editor content for this page", bodyFormat)
 }

@@ -136,24 +136,20 @@ func TestPagePresenter_PresentView_Default(t *testing.T) {
 	testutil.Equal(t, "Hello world", body.Message)
 }
 
-func TestPagePresenter_PresentView_ContentOnlyWithAdvisory(t *testing.T) {
+func TestPagePresenter_PresentView_ContentOnlyXHTML(t *testing.T) {
 	t.Parallel()
 
 	model := PagePresenter{}.PresentView(pageview.Projection{
 		ContentOnly: true,
 		Body:        "<p>Raw</p>",
-		BodyKind:    pageview.BodyKindStorageRaw,
-		Fallback:    pageview.FallbackStorageRaw,
+		BodyKind:    pageview.BodyKindXHTML,
 		HasContent:  true,
 	})
 
-	msg := requireMessageSection(t, model, 0)
-	testutil.Equal(t, sharedpresent.StreamStderr, msg.Stream)
-	testutil.Equal(t, "(Failed to convert to markdown, showing raw HTML)", msg.Message)
-
-	body := requireMessageSection(t, model, 1)
+	body := requireMessageSection(t, model, 0)
 	testutil.Equal(t, sharedpresent.StreamStdout, body.Stream)
 	testutil.Equal(t, "<p>Raw</p>", body.Message)
+	testutil.Equal(t, true, body.NoNewline)
 }
 
 func TestPagePresenter_PresentView_EmptyAndTruncated(t *testing.T) {

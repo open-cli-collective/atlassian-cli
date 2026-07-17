@@ -61,8 +61,8 @@ func TestRunGet_DefaultOutputMatchesSpecOneLiner(t *testing.T) {
 	server := newTestUserServer(t, api.User{AccountID: "abc123", DisplayName: "John Doe", EmailAddress: "john@example.com", Active: true})
 	defer server.Close()
 
-	var stdout bytes.Buffer
-	opts := &root.Options{NoColor: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	var stdout, stderr bytes.Buffer
+	opts := &root.Options{NoColor: true, Stdout: &stdout, Stderr: &stderr}
 	opts.SetAPIClient(newClient(t, server.URL))
 
 	testutil.RequireNoError(t, runGet(context.Background(), opts, "abc123", ""))
@@ -185,6 +185,16 @@ func TestNewSearchCmd(t *testing.T) {
 	testutil.Equal(t, maxFlag.Shorthand, "m")
 }
 
+func TestSearchRejectsNonPositiveMax(t *testing.T) {
+	for _, maxResults := range []string{"0", "-1"} {
+		cmd := newSearchCmd(&root.Options{})
+		cmd.SetArgs([]string{"alice", "--max", maxResults})
+		err := cmd.Execute()
+		testutil.Error(t, err)
+		testutil.Contains(t, err.Error(), "--max must be greater than zero")
+	}
+}
+
 func TestRunSearch_DefaultTableMatchesSpecColumnOrder(t *testing.T) {
 	t.Parallel()
 	users := []api.User{
@@ -281,19 +291,19 @@ func TestRunSearch_HasMore_AppendsTokenizedContinuation(t *testing.T) {
 	server := newTestUsersServer(t, users)
 	defer server.Close()
 
-	var stdout bytes.Buffer
-	opts := &root.Options{NoColor: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	var stdout, stderr bytes.Buffer
+	opts := &root.Options{NoColor: true, Stdout: &stdout, Stderr: &stderr}
 	opts.SetAPIClient(newClient(t, server.URL))
 
 	testutil.RequireNoError(t, runSearch(context.Background(), opts, "al", 2, "", ""))
 
 	want := "ACCOUNT_ID | NAME | EMAIL | ACTIVE\n" +
 		"a1 | Alice | - | yes\n" +
-		"b2 | Bob | - | yes\n" +
-		"More results available (next: 2)\n"
+		"b2 | Bob | - | yes\n"
 	if stdout.String() != want {
 		t.Errorf("users search with pagination:\ngot:  %q\nwant: %q", stdout.String(), want)
 	}
+	testutil.Equal(t, "More results available (next: 2)\n", stderr.String())
 }
 
 func TestRunSearch_PaginationUsesRawUpstreamResultCount(t *testing.T) {
@@ -305,18 +315,18 @@ func TestRunSearch_PaginationUsesRawUpstreamResultCount(t *testing.T) {
 	server := newTestUsersServer(t, users)
 	defer server.Close()
 
-	var stdout bytes.Buffer
-	opts := &root.Options{NoColor: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	var stdout, stderr bytes.Buffer
+	opts := &root.Options{NoColor: true, Stdout: &stdout, Stderr: &stderr}
 	opts.SetAPIClient(newClient(t, server.URL))
 
 	testutil.RequireNoError(t, runSearch(context.Background(), opts, "a", 2, "20", ""))
 
 	want := "ACCOUNT_ID | NAME | EMAIL | ACTIVE\n" +
-		"a1 | Alice | - | yes\n" +
-		"More results available (next: 22)\n"
+		"a1 | Alice | - | yes\n"
 	if stdout.String() != want {
 		t.Errorf("users search filtered pagination:\ngot:  %q\nwant: %q", stdout.String(), want)
 	}
+	testutil.Equal(t, "More results available (next: 22)\n", stderr.String())
 }
 
 func TestRunSearch_EmptyFilteredPageKeepsContinuation(t *testing.T) {
@@ -328,17 +338,17 @@ func TestRunSearch_EmptyFilteredPageKeepsContinuation(t *testing.T) {
 	server := newTestUsersServer(t, users)
 	defer server.Close()
 
-	var stdout bytes.Buffer
-	opts := &root.Options{NoColor: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	var stdout, stderr bytes.Buffer
+	opts := &root.Options{NoColor: true, Stdout: &stdout, Stderr: &stderr}
 	opts.SetAPIClient(newClient(t, server.URL))
 
 	testutil.RequireNoError(t, runSearch(context.Background(), opts, "a", 2, "", ""))
 
-	want := "No users found matching 'a'\n" +
-		"More results available (next: 2)\n"
+	want := "No users found matching 'a'\n"
 	if stdout.String() != want {
 		t.Errorf("users search empty filtered pagination:\ngot:  %q\nwant: %q", stdout.String(), want)
 	}
+	testutil.Equal(t, "More results available (next: 2)\n", stderr.String())
 }
 
 func TestRunSearch_IDOnlyEmptyFilteredPageKeepsContinuation(t *testing.T) {
@@ -350,12 +360,13 @@ func TestRunSearch_IDOnlyEmptyFilteredPageKeepsContinuation(t *testing.T) {
 	server := newTestUsersServer(t, users)
 	defer server.Close()
 
-	var stdout bytes.Buffer
-	opts := &root.Options{IDOnly: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	var stdout, stderr bytes.Buffer
+	opts := &root.Options{IDOnly: true, Stdout: &stdout, Stderr: &stderr}
 	opts.SetAPIClient(newClient(t, server.URL))
 
 	testutil.RequireNoError(t, runSearch(context.Background(), opts, "a", 2, "", ""))
-	testutil.Equal(t, stdout.String(), "More results available (next: 2)\n")
+	testutil.Equal(t, "", stdout.String())
+	testutil.Equal(t, "More results available (next: 2)\n", stderr.String())
 }
 
 func TestRunSearch_IDOnly_EmitsTokenizedContinuation(t *testing.T) {
@@ -367,12 +378,13 @@ func TestRunSearch_IDOnly_EmitsTokenizedContinuation(t *testing.T) {
 	server := newTestUsersServer(t, users)
 	defer server.Close()
 
-	var stdout bytes.Buffer
-	opts := &root.Options{IDOnly: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	var stdout, stderr bytes.Buffer
+	opts := &root.Options{IDOnly: true, Stdout: &stdout, Stderr: &stderr}
 	opts.SetAPIClient(newClient(t, server.URL))
 
 	testutil.RequireNoError(t, runSearch(context.Background(), opts, "al", 2, "", ""))
-	testutil.Equal(t, stdout.String(), "a1\nb2\nMore results available (next: 2)\n")
+	testutil.Equal(t, "a1\nb2\n", stdout.String())
+	testutil.Equal(t, "More results available (next: 2)\n", stderr.String())
 }
 
 func TestRunSearch_NextPageToken_AdvancesStartAt(t *testing.T) {

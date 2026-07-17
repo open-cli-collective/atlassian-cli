@@ -20,7 +20,7 @@ View and add comments on Jira issues.
 jtk comments list PROJ-123
 ```
 
-Optional: `--max N` to control result count (default 50). Use `--fulltext` global flag to disable truncation of long comment bodies.
+Optional: `--max N` to control page size (default 50). Use `--fulltext` global flag to disable truncation of long comment bodies.
 
 ### Add Comment
 

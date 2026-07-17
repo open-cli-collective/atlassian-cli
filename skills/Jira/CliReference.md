@@ -116,7 +116,7 @@ Positional: one or more `<issue-key>` (up to 1000 per request). Jira Cloud only 
 | `--jql "QUERY"` | JQL query string (required for `search`) |
 | `--project KEY` / `-p` | Filter by project key (for `list`) |
 | `--sprint current` / `-s current` | Filter by current sprint (for `list`) |
-| `--max N` / `-m N` | Maximum results (default 25; auto-paginates) |
+| `--max N` / `-m N` | Size of one page (default 50; must be 1-100 inclusive for issues list/search) |
 | `--next-page-token TOKEN` | Resume from previous page token |
 | `--fields description` | Select the description field (with the issue key) instead of the default columns |
 | `--fields summary,status,customfield_10005` | Comma-separated list of specific fields |
@@ -222,8 +222,8 @@ Common transition names: "To Do", "In Progress", "In Review", "Done" (instance-d
 
 - Data goes to stdout (pipeable)
 - Diagnostics/logs go to stderr
-- **Pagination continuation notices (`More results available ...`) go to STDOUT, not stderr** — this is intentional per `jtk`'s output contract, and applies even with `--id`. When using `--id` in command substitution or piping to a tool that reads line-by-line, size `--max` to match your expectation, or post-filter with `grep -oE '[A-Z]+-[0-9]+' | head -1` (or equivalent) to isolate just the identifier from any trailing notice.
-- Use `--id` global flag for just the primary identifier — works on both reads and mutations (useful when piping to another command; note the pagination caveat above)
+- Pagination continuation notices (`More results available ...`) go to stderr. Each invocation emits one page; pass the token back with `--next-page-token`.
+- Use `--id` global flag for just the primary identifier — works on both reads and mutations, with exactly one identifier per stdout line.
 - **Mutation output:** non-destructive mutations (create, update, assign, transition, add) re-fetch the entity after writing and show the same detail block as the corresponding `get` command. Destructive mutations (delete, remove) emit a confirmation line only. `--id` on any mutation emits just the primary identifier (issue key, comment ID, etc.)
 - Use `--fulltext` global flag to disable truncation of descriptions/comments. `--fulltext` is a no-op when the body field is not selected via `--fields`
 - Use `--fields` (per-command) to select specific columns in table/block output. Invalid field names error before making API calls

@@ -72,13 +72,16 @@ func newListCmd(opts *root.Options) *cobra.Command {
 
   # Emit only board IDs
   jtk boards list --id`,
+		Args: func(_ *cobra.Command, _ []string) error {
+			return jtkpresent.ValidateMax(maxResults)
+		},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runList(cmd.Context(), opts, project, maxResults, nextPageToken, fieldsFlag)
 		},
 	}
 
 	cmd.Flags().StringVarP(&project, "project", "p", "", "Filter by project key or name")
-	cmd.Flags().IntVarP(&maxResults, "max", "m", 50, "Maximum number of results")
+	cmd.Flags().IntVarP(&maxResults, "max", "m", 50, "Page size")
 	cmd.Flags().StringVar(&nextPageToken, "next-page-token", "", "Decimal startAt for the next page")
 	cmd.Flags().StringVar(&fieldsFlag, "fields", "", "Comma-separated display columns")
 

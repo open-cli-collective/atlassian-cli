@@ -114,8 +114,8 @@ func TestRunHistory_DefaultOutputAndPagination(t *testing.T) {
 	testutil.Contains(t, out, "ID | CREATED | AUTHOR | FIELD | FROM | TO")
 	testutil.Contains(t, out, "10001 | 2026-06-20 | Alice | status | Open | Done")
 	testutil.Contains(t, out, "10001 | 2026-06-20 | Alice | summary | Old | New")
-	testutil.Contains(t, out, "More results available (next: 1)")
-	testutil.Equal(t, "", stderr.String())
+	testutil.NotContains(t, out, "More results available")
+	testutil.Equal(t, "More results available (next: 1)\n", stderr.String())
 }
 
 func TestRunHistory_PreservesMultipleGroupOrderAndIDs(t *testing.T) {
@@ -149,8 +149,8 @@ func TestRunHistory_IDOnlyEmitsGroupIDs(t *testing.T) {
 	err := runHistory(context.Background(), opts, "TEST-1", 1, "", "bogus")
 	testutil.RequireNoError(t, err)
 
-	testutil.Equal(t, "10001\nMore results available (next: 1)\n", stdout.String())
-	testutil.Equal(t, "", stderr.String())
+	testutil.Equal(t, "10001\n", stdout.String())
+	testutil.Equal(t, "More results available (next: 1)\n", stderr.String())
 }
 
 func TestNewHistoryCmd_FieldsProjectionViaCobra(t *testing.T) {
@@ -159,7 +159,7 @@ func TestNewHistoryCmd_FieldsProjectionViaCobra(t *testing.T) {
 	server := issueHistoryServer(t, historyPageJSON(0, 1, 2), nil)
 	defer server.Close()
 
-	opts, stdout, _ := historyOpts(t, server)
+	opts, stdout, stderr := historyOpts(t, server)
 	cmd := newHistoryCmd(opts)
 	cmd.SetArgs([]string{"TEST-1", "--fields", "CREATED,FIELD,TO", "--max", "1"})
 	testutil.RequireNoError(t, cmd.Execute())
@@ -169,7 +169,8 @@ func TestNewHistoryCmd_FieldsProjectionViaCobra(t *testing.T) {
 		t.Fatalf("empty output")
 	}
 	testutil.Equal(t, "ID | CREATED | FIELD | TO", lines[0])
-	testutil.Contains(t, stdout.String(), "More results available (next: 1)")
+	testutil.NotContains(t, stdout.String(), "More results available")
+	testutil.Contains(t, stderr.String(), "More results available (next: 1)")
 }
 
 func TestRunHistory_BadNextPageToken(t *testing.T) {
@@ -194,9 +195,9 @@ func TestRunHistory_EmptyWithMoreResultsEmitsOnlyPagination(t *testing.T) {
 	err := runHistory(context.Background(), opts, "TEST-1", 1, "", "")
 	testutil.RequireNoError(t, err)
 
-	testutil.Contains(t, stdout.String(), "More results available (next: 1)")
+	testutil.NotContains(t, stdout.String(), "More results available")
 	testutil.NotContains(t, stdout.String(), "No history found")
-	testutil.Equal(t, "", stderr.String())
+	testutil.Contains(t, stderr.String(), "More results available (next: 1)")
 }
 
 func TestRunHistory_EmptyWithoutMoreResults(t *testing.T) {

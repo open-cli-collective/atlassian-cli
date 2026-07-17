@@ -34,14 +34,17 @@ func newListCmd(opts *root.Options) *cobra.Command {
   jtk issues list --project "Platform Development" --sprint "MON Sprint 70"
   jtk issues list --project MYPROJECT --sprint current
 
-  # Get up to 200 results (auto-paginates)
-  jtk issues list --project MYPROJECT --max 200
+  # Request one page of up to 100 results
+  jtk issues list --project MYPROJECT --max 100
 
   # Resume from a previous page token
   jtk issues list --project MYPROJECT --next-page-token <token>
   # Project display columns — headers, Jira field IDs, or human names
   jtk issues list --project MYPROJECT --fields SUMMARY,STATUS
   jtk issues list --project MYPROJECT --fields "Issue Type"`,
+		Args: func(_ *cobra.Command, _ []string) error {
+			return jtkpresent.ValidateMaxAtMost(maxResults, 100)
+		},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runList(cmd.Context(), opts, project, sprint, maxResults, nextPageToken, fieldsFlag)
 		},
@@ -49,7 +52,7 @@ func newListCmd(opts *root.Options) *cobra.Command {
 
 	cmd.Flags().StringVarP(&project, "project", "p", "", "Filter by project key or name")
 	cmd.Flags().StringVarP(&sprint, "sprint", "s", "", "Filter by sprint name, numeric ID, or 'current'")
-	cmd.Flags().IntVarP(&maxResults, "max", "m", 50, "Maximum number of results to return")
+	cmd.Flags().IntVarP(&maxResults, "max", "m", 50, "Page size (maximum 100)")
 	cmd.Flags().StringVar(&nextPageToken, "next-page-token", "", "Token for next page of results")
 	cmd.Flags().StringVar(&fieldsFlag, "fields", "", "Comma-separated display columns (headers, Jira field IDs, or human names)")
 

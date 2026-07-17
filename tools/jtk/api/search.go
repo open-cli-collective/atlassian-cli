@@ -73,107 +73,32 @@ func (c *Client) Search(ctx context.Context, opts SearchOptions) (*JQLSearchResu
 	return &result, nil
 }
 
-// SearchPage searches for issues and returns results with pagination metadata.
-// When MaxResults > 0 and exceeds the per-request page size, it automatically
-// paginates through multiple API calls to collect up to MaxResults issues.
+// SearchPage searches for one page of issues and returns pagination metadata.
 func (c *Client) SearchPage(ctx context.Context, opts SearchPageOptions) (*PaginatedIssues, error) {
-	maxResults := opts.MaxResults
-	pageSize := opts.PageSize
-
-	// Determine effective page size
+	pageSize := opts.MaxResults
 	if pageSize <= 0 {
-		if maxResults > 0 {
-			pageSize = maxResults
-		} else {
-			pageSize = 25
-		}
-	}
-	if pageSize > 100 {
-		pageSize = 100 // Jira API cap
+		pageSize = 50
+	} else if pageSize > 100 {
+		pageSize = 100
 	}
 
-	// Single-page mode: no MaxResults or fits in one page
-	if maxResults <= 0 || maxResults <= pageSize {
-		effectiveSize := pageSize
-		if maxResults > 0 && maxResults < effectiveSize {
-			effectiveSize = maxResults
-		}
-
-		result, err := c.Search(ctx, SearchOptions{
-			JQL:           opts.JQL,
-			MaxResults:    effectiveSize,
-			Fields:        opts.Fields,
-			NextPageToken: opts.NextPageToken,
-		})
-		if err != nil {
-			return nil, err
-		}
-
-		return &PaginatedIssues{
-			Issues: result.Issues,
-			Pagination: PaginationInfo{
-				Total:         len(result.Issues),
-				PageSize:      effectiveSize,
-				IsLast:        result.IsLast,
-				NextPageToken: result.NextPageToken,
-			},
-		}, nil
-	}
-
-	// Multi-page mode: loop until we have maxResults or hit the last page
-	var allIssues []Issue
-	nextToken := opts.NextPageToken
-	isLast := false
-
-	for len(allIssues) < maxResults {
-		if err := ctx.Err(); err != nil {
-			return nil, fmt.Errorf("searching issues: %w", err)
-		}
-
-		remaining := maxResults - len(allIssues)
-		fetchSize := pageSize
-		if remaining < fetchSize {
-			fetchSize = remaining
-		}
-
-		result, err := c.Search(ctx, SearchOptions{
-			JQL:           opts.JQL,
-			MaxResults:    fetchSize,
-			Fields:        opts.Fields,
-			NextPageToken: nextToken,
-		})
-		if err != nil {
-			return nil, err
-		}
-
-		allIssues = append(allIssues, result.Issues...)
-
-		if result.IsLast || len(result.Issues) == 0 {
-			isLast = true
-			nextToken = ""
-			break
-		}
-
-		nextToken = result.NextPageToken
-		if nextToken == "" {
-			isLast = true
-			break
-		}
-	}
-
-	// Trim to maxResults if the last page overshot
-	if len(allIssues) > maxResults {
-		allIssues = allIssues[:maxResults]
-		isLast = false // truncated, so more results exist
+	result, err := c.Search(ctx, SearchOptions{
+		JQL:           opts.JQL,
+		MaxResults:    pageSize,
+		Fields:        opts.Fields,
+		NextPageToken: opts.NextPageToken,
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	return &PaginatedIssues{
-		Issues: allIssues,
+		Issues: result.Issues,
 		Pagination: PaginationInfo{
-			Total:         len(allIssues),
+			Total:         len(result.Issues),
 			PageSize:      pageSize,
-			IsLast:        isLast,
-			NextPageToken: nextToken,
+			IsLast:        result.IsLast,
+			NextPageToken: result.NextPageToken,
 		},
 	}, nil
 }

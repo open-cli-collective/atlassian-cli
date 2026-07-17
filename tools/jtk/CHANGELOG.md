@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Breaking:** Removed global `--extended` and deprecated `issues list/search --all-fields`. Use explicit `--fields`; `--fulltext` controls truncation only. ([#455](https://github.com/open-cli-collective/atlassian-cli/issues/455))
+- **Breaking:** Removed global `--extended` and `issues list/search --all-fields`. Use explicit `--fields`; `--fulltext` controls truncation only. ([#455](https://github.com/open-cli-collective/atlassian-cli/issues/455))
 - **Breaking:** Pagination and continuation prose now goes to stderr, keeping `--id` stdout identifier-only. `--max` is a positive single-page size; issue list/search no longer auto-exhaust pages. ([#455](https://github.com/open-cli-collective/atlassian-cli/issues/455))
 - **Breaking:** Short alias for `--file` renamed from `-f` to `-F` on `attachments add`, `automation create`, and `automation update`. `-f` continues to mean `--field` on field-setting commands (`issues create`/`update`, `transitions do`). No back-compat alias. ([#339](https://github.com/open-cli-collective/atlassian-cli/issues/339))
 - Default page size for paginated commands converged to 50: `issues list` and `issues search` were 25, `users search` was 10. `users search` and `dashboards list` also gain the `-m` short alias for `--max`. ([#340](https://github.com/open-cli-collective/atlassian-cli/issues/340))

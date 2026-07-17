@@ -139,7 +139,7 @@ FIELD_ID | NAME | TYPE | VALUE
 summary | Summary | string | Fix ghost row
 status | Status | status | In Code Review
 
-$ jtk issues types MON
+$ jtk issues types --project MON
 ID | NAME | SUBTASK | DESCRIPTION
 10025 | SDLC | no | Task requiring Software Development Life Cycle
 ```
@@ -211,14 +211,14 @@ Sprint: -
 $ jtk issues delete MON-4820
 Deleted MON-4820
 
-$ jtk comments add MON-4810 "Needs QA"
+$ jtk comments add MON-4810 --body "Needs QA"
 MON-4810 #21276 — Rian Stockbower, 2026-04-16
 Needs QA
 
 $ jtk links delete 17844
 Deleted link 17844
 
-$ jtk attachments add MON-4810 ./audit-notes.md
+$ jtk attachments add MON-4810 --file ./audit-notes.md
 10236 | audit-notes.md | 4.2 KB | Rian Stockbower | 2026-04-16
 
 $ jtk projects delete MON

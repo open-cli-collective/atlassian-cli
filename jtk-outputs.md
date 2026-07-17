@@ -172,7 +172,7 @@ ID | FILENAME | SIZE | AUTHOR | CREATED
 
 ```
 $ jtk transitions list MON-4810
-ID | NAME | TO STATUS
+ID | NAME | TO_STATUS
 31 | In Development | In Development
 
 $ jtk transitions list MON-4810 --fields

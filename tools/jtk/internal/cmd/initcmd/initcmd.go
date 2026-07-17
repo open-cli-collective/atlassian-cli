@@ -312,7 +312,10 @@ func runInit(ctx context.Context, opts *root.Options, prefillURL, prefillEmail, 
 	// can't run — every required value must already be in cfg from the
 	// flag prefills. Fail loud naming the first missing field.
 	if !prompt.WantPrompt(opts.NonInteractive, opts.Stdin) {
-		if err := requireNonInteractiveFields(cfg); err != nil {
+		if err := auth.RequireNonInteractiveFields(
+			cfg.URL, cfg.AuthMethod, cfg.Email, cfg.APIToken, cfg.CloudID,
+			"jtk set-credential --ref atlassian-cli/default --key api_token --stdin",
+		); err != nil {
 			return err
 		}
 	} else {
@@ -449,40 +452,14 @@ func finalizeInit(
 	v.Println("  jtk me")
 	v.Println("  jtk issues list --project <PROJECT>")
 
-	if cfg.AuthMethod == auth.AuthMethodBearer {
+	switch cfg.AuthMethod {
+	case auth.AuthMethodBearer:
 		v.Println("")
 		v.Info("To switch back to basic auth later, run: jtk init --auth-method basic")
-	} else if cfg.AuthMethod == auth.AuthMethodProxy {
+	case auth.AuthMethodProxy:
 		v.Println("")
 		v.Info("To switch to direct authentication later, run: jtk init --auth-method basic")
 	}
 
-	return nil
-}
-
-// requireNonInteractiveFields enforces the §3.4 fail-loud contract for
-// scripted/CI runs of `jtk init`: any required value missing from the
-// flag prefills (which already populated cfg) produces an error naming
-// the first missing field, with the auth-mode shape baked into the
-// message so the operator knows which flag set is required.
-func requireNonInteractiveFields(cfg *config.Config) error {
-	if cfg.URL == "" {
-		return fmt.Errorf("--non-interactive: missing required value for --url")
-	}
-	switch cfg.AuthMethod {
-	case auth.AuthMethodProxy:
-		return nil
-	case auth.AuthMethodBearer:
-		if cfg.CloudID == "" {
-			return fmt.Errorf("--non-interactive: missing required value for --cloud-id (bearer auth)")
-		}
-	default:
-		if cfg.Email == "" {
-			return fmt.Errorf("--non-interactive: missing required value for --email (basic auth)")
-		}
-	}
-	if cfg.APIToken == "" {
-		return fmt.Errorf("--non-interactive: missing required value for --token-stdin or --token-from-env VAR (or pre-stage with `jtk set-credential --ref atlassian-cli/default --key api_token --stdin`)")
-	}
 	return nil
 }

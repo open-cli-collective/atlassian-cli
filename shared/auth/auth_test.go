@@ -223,6 +223,82 @@ func TestNormalizeConfig(t *testing.T) {
 	}
 }
 
+func TestRequireNonInteractiveFields(t *testing.T) {
+	t.Parallel()
+
+	const toolHint = "cfl set-credential --ref atlassian-cli/default --key api_token --stdin"
+	tests := []struct {
+		name       string
+		url        string
+		authMethod string
+		email      string
+		apiToken   string
+		cloudID    string
+		wantError  string
+	}{
+		{name: "missing URL", wantError: "--url"},
+		{
+			name:      "basic auth missing email",
+			url:       "https://example.atlassian.net",
+			apiToken:  "token",
+			wantError: "--email (basic auth)",
+		},
+		{
+			name:       "bearer auth missing cloud ID",
+			url:        "https://example.atlassian.net",
+			authMethod: AuthMethodBearer,
+			apiToken:   "token",
+			wantError:  "--cloud-id (bearer auth)",
+		},
+		{
+			name:      "basic auth missing token includes tool hint",
+			url:       "https://example.atlassian.net",
+			email:     "user@example.com",
+			wantError: toolHint,
+		},
+		{
+			name:       "bearer auth missing token includes tool hint",
+			url:        "https://example.atlassian.net",
+			authMethod: AuthMethodBearer,
+			cloudID:    "cloud-id",
+			wantError:  toolHint,
+		},
+		{
+			name:       "proxy auth needs only URL",
+			url:        "http://127.0.0.1:8080/atlassian",
+			authMethod: AuthMethodProxy,
+		},
+		{
+			name:     "complete basic auth",
+			url:      "https://example.atlassian.net",
+			email:    "user@example.com",
+			apiToken: "token",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := RequireNonInteractiveFields(
+				tt.url, tt.authMethod, tt.email, tt.apiToken, tt.cloudID, toolHint,
+			)
+			if tt.wantError == "" {
+				if err != nil {
+					t.Fatalf("RequireNonInteractiveFields() error = %v, want nil", err)
+				}
+				return
+			}
+			if err == nil {
+				t.Fatalf("RequireNonInteractiveFields() error = nil, want containing %q", tt.wantError)
+			}
+			if !strings.Contains(err.Error(), tt.wantError) {
+				t.Fatalf("RequireNonInteractiveFields() error = %q, want containing %q", err, tt.wantError)
+			}
+		})
+	}
+}
+
 func TestAuthMethodConstants(t *testing.T) {
 	t.Parallel()
 	if AuthMethodBasic != "basic" {

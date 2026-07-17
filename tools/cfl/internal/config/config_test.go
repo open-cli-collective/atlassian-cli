@@ -148,6 +148,75 @@ func TestConfig_Validate(t *testing.T) {
 	}
 }
 
+func TestConfig_ValidateForInit(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		config   Config
+		noVerify bool
+		wantErr  string
+	}{
+		{
+			name: "basic auth without token allowed when verification skipped",
+			config: Config{
+				URL:   "https://example.atlassian.net/wiki",
+				Email: "user@example.com",
+			},
+			noVerify: true,
+		},
+		{
+			name: "bearer auth without token allowed when verification skipped",
+			config: Config{
+				URL:        "https://example.atlassian.net/wiki",
+				AuthMethod: "bearer",
+				CloudID:    "cloud-id",
+			},
+			noVerify: true,
+		},
+		{
+			name: "token remains required when verification runs",
+			config: Config{
+				URL:   "https://example.atlassian.net/wiki",
+				Email: "user@example.com",
+			},
+			wantErr: "api_token is required",
+		},
+		{
+			name: "bearer cloud ID remains required when verification skipped",
+			config: Config{
+				URL:        "https://example.atlassian.net/wiki",
+				AuthMethod: "bearer",
+			},
+			noVerify: true,
+			wantErr:  "cloud_id is required",
+		},
+		{
+			name: "URL scheme remains validated when verification skipped",
+			config: Config{
+				URL:   "http://example.atlassian.net/wiki",
+				Email: "user@example.com",
+			},
+			noVerify: true,
+			wantErr:  "url must use https",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := tt.config.ValidateForInit(tt.noVerify)
+			if tt.wantErr == "" {
+				testutil.NoError(t, err)
+				return
+			}
+			testutil.RequireError(t, err)
+			testutil.Contains(t, err.Error(), tt.wantErr)
+		})
+	}
+}
+
 func TestConfig_NormalizeURL(t *testing.T) {
 	t.Parallel()
 	tests := []struct {

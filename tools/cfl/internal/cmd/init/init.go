@@ -245,7 +245,7 @@ func runInit(ctx context.Context, opts *root.Options, prefillURL, prefillEmail s
 				EchoMode(huh.EchoModePassword).
 				Value(&cfg.APIToken).
 				Validate(func(s string) error {
-					if s == "" {
+					if s == "" && !noVerify {
 						return fmt.Errorf("API token is required")
 					}
 					return nil
@@ -301,7 +301,7 @@ func runInit(ctx context.Context, opts *root.Options, prefillURL, prefillEmail s
 				EchoMode(huh.EchoModePassword).
 				Value(&cfg.APIToken).
 				Validate(func(s string) error {
-					if s == "" {
+					if s == "" && !noVerify {
 						return fmt.Errorf("API token is required")
 					}
 					return nil
@@ -322,7 +322,10 @@ func runInit(ctx context.Context, opts *root.Options, prefillURL, prefillEmail s
 	// (via `cfl set-credential`). Fail loud naming the first missing
 	// field.
 	if !prompt.WantPrompt(opts.NonInteractive, opts.Stdin) {
-		if err := requireNonInteractiveFields(cfg); err != nil {
+		if err := auth.RequireNonInteractiveFields(
+			cfg.URL, cfg.AuthMethod, cfg.Email, cfg.APIToken, cfg.CloudID,
+			"cfl set-credential --ref atlassian-cli/default --key api_token --stdin",
+		); err != nil {
 			return err
 		}
 	} else {
@@ -337,7 +340,7 @@ func runInit(ctx context.Context, opts *root.Options, prefillURL, prefillEmail s
 		cfg.AuthMethod, cfg.Email, cfg.APIToken, cfg.CloudID,
 	)
 
-	if err := cfg.Validate(); err != nil {
+	if err := cfg.ValidateForInit(noVerify); err != nil {
 		return fmt.Errorf("invalid configuration: %w", err)
 	}
 
@@ -414,6 +417,8 @@ func finalizeInit(
 	// keyring under the single shared api_token (§1.11.10).
 	if cfg.AuthMethod == auth.AuthMethodProxy {
 		v.Success("Configuration saved to %s (proxy auth; no token stored)", sharedPath)
+	} else if cfg.APIToken == "" {
+		v.Success("Configuration saved to %s (token not stored; run `cfl set-credential --ref atlassian-cli/default --key api_token --stdin` before authenticated commands)", sharedPath)
 	} else {
 		if err := keyring.PersistToken(cfg.APIToken); err != nil {
 			v.Error("Saved the non-secret config to %s, but could not store the API token in the keyring: %v", sharedPath, err)
@@ -465,39 +470,14 @@ func finalizeInit(
 	v.Println("  cfl space list")
 	v.Println("  cfl page list --space <SPACE_KEY>")
 
-	if cfg.AuthMethod == auth.AuthMethodBearer {
+	switch cfg.AuthMethod {
+	case auth.AuthMethodBearer:
 		v.Println("")
 		v.Info("To switch back to basic auth later, run: cfl init --auth-method basic")
-	} else if cfg.AuthMethod == auth.AuthMethodProxy {
+	case auth.AuthMethodProxy:
 		v.Println("")
 		v.Info("To switch to direct authentication later, run: cfl init --auth-method basic")
 	}
 
-	return nil
-}
-
-// requireNonInteractiveFields enforces the §3.4 fail-loud contract for
-// scripted/CI runs of `cfl init`. cfl init has no --token flag, so the
-// token MUST come from a pre-staged keyring entry via cfl set-credential;
-// the error names that path explicitly.
-func requireNonInteractiveFields(cfg *config.Config) error {
-	if cfg.URL == "" {
-		return fmt.Errorf("--non-interactive: missing required value for --url")
-	}
-	switch cfg.AuthMethod {
-	case auth.AuthMethodProxy:
-		return nil
-	case auth.AuthMethodBearer:
-		if cfg.CloudID == "" {
-			return fmt.Errorf("--non-interactive: missing required value for --cloud-id (bearer auth)")
-		}
-	default:
-		if cfg.Email == "" {
-			return fmt.Errorf("--non-interactive: missing required value for --email (basic auth)")
-		}
-	}
-	if cfg.APIToken == "" {
-		return fmt.Errorf("--non-interactive: missing required value for --token-stdin or --token-from-env VAR (or pre-stage with `cfl set-credential --ref atlassian-cli/default --key api_token --stdin`)")
-	}
 	return nil
 }

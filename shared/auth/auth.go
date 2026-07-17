@@ -47,6 +47,33 @@ func NormalizeConfig(authMethod, email, apiToken, cloudID string) (string, strin
 	return authMethod, email, apiToken, cloudID
 }
 
+// RequireNonInteractiveFields validates the auth fields needed by scripted
+// init flows and names the first missing CLI value. toolHint is the
+// tool-specific set-credential command shown when the API token is absent.
+func RequireNonInteractiveFields(url, authMethod, email, apiToken, cloudID, toolHint string) error {
+	if url == "" {
+		return errors.New("--non-interactive: missing required value for --url")
+	}
+
+	switch authMethod {
+	case AuthMethodProxy:
+		return nil
+	case AuthMethodBearer:
+		if cloudID == "" {
+			return errors.New("--non-interactive: missing required value for --cloud-id (bearer auth)")
+		}
+	default:
+		if email == "" {
+			return errors.New("--non-interactive: missing required value for --email (basic auth)")
+		}
+	}
+
+	if apiToken == "" {
+		return fmt.Errorf("--non-interactive: missing required value for --token-stdin or --token-from-env VAR (or pre-stage with `%s`)", toolHint)
+	}
+	return nil
+}
+
 // BasicAuthHeader returns the HTTP Basic Authentication header value
 // for use with Atlassian Cloud APIs.
 //

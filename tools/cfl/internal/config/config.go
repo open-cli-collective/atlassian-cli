@@ -44,6 +44,17 @@ type KeyringConfig struct {
 // For basic auth: URL + email + API token are required.
 // For proxy auth: only URL is required; no Authorization header is sent.
 func (c *Config) Validate() error {
+	return c.validate(true)
+}
+
+// ValidateForInit validates config produced by init. A skipped connection
+// verification permits deferring the API token to set-credential while all
+// non-secret connection fields remain required and validated.
+func (c *Config) ValidateForInit(noVerify bool) error {
+	return c.validate(!noVerify)
+}
+
+func (c *Config) validate(requireToken bool) error {
 	if c.URL == "" {
 		return errors.New("url is required")
 	}
@@ -67,14 +78,14 @@ func (c *Config) Validate() error {
 	case auth.AuthMethodProxy:
 		return nil
 	case auth.AuthMethodBearer:
-		if c.APIToken == "" {
+		if requireToken && c.APIToken == "" {
 			return errors.New("api_token is required")
 		}
 		if c.CloudID == "" {
 			return errors.New("cloud_id is required for bearer auth")
 		}
 	default:
-		if c.APIToken == "" {
+		if requireToken && c.APIToken == "" {
 			return errors.New("api_token is required")
 		}
 		if c.Email == "" {

@@ -129,9 +129,12 @@ sudo rpm -i cfl-VERSION.x86_64.rpm
 git clone https://github.com/open-cli-collective/atlassian-cli.git
 cd atlassian-cli
 make build-cfl
+./bin/cfl --version
 ```
 
-Requires Go 1.24 or later. (`go install` of the old `confluence-cli` module path installs a stale pre-monorepo binary; use Homebrew or a clone instead.)
+The binary is written to `bin/cfl`; invoke it as `./bin/cfl` or copy it somewhere on your `PATH` (e.g. `install bin/cfl /usr/local/bin/`).
+
+Requires Go 1.26 or later. (`go install` of the old `confluence-cli` module path installs a stale pre-monorepo binary; use Homebrew or a clone instead.)
 
 ## Quick Start
 

@@ -51,13 +51,18 @@ func newListCmd(opts *root.Options) *cobra.Command {
   jtk comments list PROJ-123 --fulltext
   jtk comments list PROJ-123 --fields ID,AUTHOR
   jtk comments list PROJ-123 --fulltext --fields Body`,
-		Args: cobra.ExactArgs(1),
+		Args: func(cmd *cobra.Command, args []string) error {
+			if err := cobra.ExactArgs(1)(cmd, args); err != nil {
+				return err
+			}
+			return jtkpresent.ValidateMax(maxResults)
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runList(cmd.Context(), opts, args[0], maxResults, noTruncate || opts.IsFullText(), fieldsFlag)
 		},
 	}
 
-	cmd.Flags().IntVarP(&maxResults, "max", "m", 50, "Maximum number of comments")
+	cmd.Flags().IntVarP(&maxResults, "max", "m", 50, "Page size")
 	cmd.Flags().BoolVar(&noTruncate, "no-truncate", false, "Show full comment bodies without truncation")
 	_ = cmd.Flags().MarkDeprecated("no-truncate", "use --fulltext instead")
 	cmd.Flags().StringVar(&fieldsFlag, "fields", "", "Comma-separated display fields (labels)")

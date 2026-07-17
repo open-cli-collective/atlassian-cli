@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **Breaking:** Removed global `--extended` and deprecated `issues list/search --all-fields`. Use explicit `--fields`; `--fulltext` controls truncation only. ([#455](https://github.com/open-cli-collective/atlassian-cli/issues/455))
+- **Breaking:** Pagination and continuation prose now goes to stderr, keeping `--id` stdout identifier-only. `--max` is a positive single-page size; issue list/search no longer auto-exhaust pages. ([#455](https://github.com/open-cli-collective/atlassian-cli/issues/455))
 - **Breaking:** Short alias for `--file` renamed from `-f` to `-F` on `attachments add`, `automation create`, and `automation update`. `-f` continues to mean `--field` on field-setting commands (`issues create`/`update`, `transitions do`). No back-compat alias. ([#339](https://github.com/open-cli-collective/atlassian-cli/issues/339))
 - Default page size for paginated commands converged to 50: `issues list` and `issues search` were 25, `users search` was 10. `users search` and `dashboards list` also gain the `-m` short alias for `--max`. ([#340](https://github.com/open-cli-collective/atlassian-cli/issues/340))
 - `links types`, `issues types`, `boards list`, `sprints list`, and `users get` now serve from the local instance cache by default — removes per-command API calls in the most common paths. Run `jtk refresh` to update. ([#328](https://github.com/open-cli-collective/atlassian-cli/pull/328), [#329](https://github.com/open-cli-collective/atlassian-cli/pull/329), [#330](https://github.com/open-cli-collective/atlassian-cli/pull/330))
@@ -22,7 +23,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `--assignee none` on `issues update` and `--field assignee=null` to unassign issues ([#187](https://github.com/open-cli-collective/atlassian-cli/pull/187))
 - `--field` flag accumulates repeated values for the same key, enabling multi-checkbox and multi-select custom fields ([#186](https://github.com/open-cli-collective/atlassian-cli/pull/186))
 - `--fields` flag on `issues list` and `issues search` for explicit field selection ([#180](https://github.com/open-cli-collective/atlassian-cli/pull/180))
-- Auto-pagination for `issues list` and `issues search` — `--max` returns up to N results across pages ([#182](https://github.com/open-cli-collective/atlassian-cli/pull/182))
 - Automation rule builder module for constructing rule JSON programmatically with a fluent Go API ([#174](https://github.com/open-cli-collective/atlassian-cli/pull/174))
 - Service account support with bearer auth (`--auth-method bearer`) for scoped API tokens ([#171](https://github.com/open-cli-collective/atlassian-cli/pull/171))
 - Cursor-based pagination with `--next-page-token` and lightweight fields (`--full`) for `issues list` and `issues search` ([#168](https://github.com/open-cli-collective/atlassian-cli/pull/168))

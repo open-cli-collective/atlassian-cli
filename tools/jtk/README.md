@@ -278,8 +278,8 @@ jtk issues list --project MYPROJECT
 jtk issues list --project MYPROJECT --sprint current
 jtk issues list --project MYPROJECT --id
 
-# Auto-pagination: fetch up to 200 results across multiple pages
-jtk issues list --project MYPROJECT --max 200
+# Request one page of up to 100 results
+jtk issues list --project MYPROJECT --max 100
 
 # Explicit column projection
 jtk issues list --project MYPROJECT --fields summary,status,customfield_10005
@@ -289,7 +289,7 @@ jtk issues list --project MYPROJECT --fields summary,status,customfield_10005
 |------|-------|---------|-------------|
 | `--project` | `-p` | | Project key or name |
 | `--sprint` | `-s` | | Filter by sprint: sprint name, numeric ID, or `current` |
-| `--max` | `-m` | `50` | Maximum number of results to return |
+| `--max` | `-m` | `50` | Page size (must be positive) |
 | `--fields` | | | Comma-separated display columns (headers, Jira field IDs, or human names) |
 | `--next-page-token` | | | Token for next page of results |
 
@@ -335,7 +335,7 @@ jtk issues history PROJ-123 --next-page-token 50
 
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
-| `--max` | `-m` | `50` | Maximum number of changelog groups to return |
+| `--max` | `-m` | `50` | Page size (must be positive) |
 | `--next-page-token` | | | Token for next page of results |
 | `--fields` | | | Comma-separated display columns |
 | `--fulltext` | | `false` | Show full history values without truncation (global) |
@@ -416,8 +416,8 @@ Search issues using JQL.
 jtk issues search --jql "project = MYPROJECT AND status = 'In Progress'"
 jtk issues search --jql "assignee = currentUser()" --id
 
-# Auto-pagination: fetch up to 200 results across multiple pages
-jtk issues search --jql "project = MYPROJECT" --max 200
+# Request one page of up to 100 results
+jtk issues search --jql "project = MYPROJECT" --max 100
 
 # Explicit column projection
 jtk issues search --jql "project = MYPROJECT" --fields summary,status
@@ -426,7 +426,7 @@ jtk issues search --jql "project = MYPROJECT" --fields summary,status
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
 | `--jql` | | | JQL query string (**required**) |
-| `--max` | `-m` | `50` | Maximum number of results to return |
+| `--max` | `-m` | `50` | Page size (must be positive) |
 | `--fields` | | | Comma-separated display columns (headers, Jira field IDs, or human names) |
 | `--next-page-token` | | | Token for next page of results |
 
@@ -753,7 +753,7 @@ jtk comments list PROJ-123 --fields ID,AUTHOR
 
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
-| `--max` | `-m` | `50` | Maximum number of comments |
+| `--max` | `-m` | `50` | Page size (must be positive) |
 | `--fulltext` | | `false` | Show full comment bodies without truncation (global) |
 | `--fields` | | | Comma-separated display fields |
 
@@ -887,7 +887,7 @@ jtk sprints list --board 123 --id
 |------|-------|---------|-------------|
 | `--board` | `-b` | | Board ID or name (**required**) |
 | `--state` | `-s` | | Filter by state: `active`, `closed`, `future` |
-| `--max` | `-m` | `50` | Maximum number of results |
+| `--max` | `-m` | `50` | Page size (must be positive) |
 | `--fields` | | | Comma-separated display columns |
 | `--next-page-token` | | | Token for next page of results |
 
@@ -922,7 +922,7 @@ jtk sprints issues 456 --fields KEY,STATUS,customfield_10005
 
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
-| `--max` | `-m` | `50` | Maximum number of results |
+| `--max` | `-m` | `50` | Page size (must be positive) |
 | `--fields` | | | Comma-separated display columns |
 | `--next-page-token` | | | Token for next page of results |
 
@@ -973,7 +973,7 @@ jtk boards list --project MYPROJECT
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
 | `--project` | `-p` | | Filter by project key or name |
-| `--max` | `-m` | `50` | Maximum number of results |
+| `--max` | `-m` | `50` | Page size (must be positive) |
 | `--fields` | | | Comma-separated display columns |
 | `--next-page-token` | | | Token for next page of results |
 
@@ -1012,7 +1012,7 @@ jtk projects list --max 10
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
 | `--query` | `-q` | | Filter projects by name |
-| `--max` | `-m` | `50` | Maximum number of results |
+| `--max` | `-m` | `50` | Page size (must be positive) |
 | `--fields` | | | Comma-separated display columns |
 | `--next-page-token` | | | Token for next page of results |
 
@@ -1133,7 +1133,7 @@ jtk users search "john" --max 20
 
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
-| `--max` | `-m` | `50` | Maximum number of results |
+| `--max` | `-m` | `50` | Page size (must be positive) |
 | `--fields` | | | Comma-separated display columns |
 | `--next-page-token` | | | Token for next page of results |
 
@@ -1328,7 +1328,7 @@ jtk dashboards list --max 10
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
 | `--search` | | | Search dashboards by name |
-| `--max` | `-m` | `50` | Maximum number of results |
+| `--max` | `-m` | `50` | Page size (must be positive) |
 
 > Note: Dashboard commands are not available with bearer auth (scoped tokens lack the Dashboard scope).
 

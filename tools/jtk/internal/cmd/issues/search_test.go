@@ -102,15 +102,13 @@ func TestRunSearch_FieldsWithIDOnly_Pagination(t *testing.T) {
 	cs := newCapturingServer(t, []string{"TEST-1", "TEST-2"}, false, nil) // isLast=false → hasMore=true
 	defer cs.server.Close()
 
-	opts, stdout, _ := newOptsFor(t, cs)
+	opts, stdout, stderr := newOptsFor(t, cs)
 	opts.IDOnly = true
 	err := runSearch(context.Background(), opts, "project = TEST", 25, "", "SUMMARY")
 	testutil.RequireNoError(t, err)
 
-	// Bare keys plus a pagination hint on stderr; stdout stays parse-friendly.
-	got := stdout.String()
-	testutil.Contains(t, got, "TEST-1\n")
-	testutil.Contains(t, got, "TEST-2\n")
+	testutil.Equal(t, "TEST-1\nTEST-2\n", stdout.String())
+	testutil.Equal(t, "More results available (next: next-token)\n", stderr.String())
 }
 
 // Empty result set under --id must not emit anything on stdout (no header,

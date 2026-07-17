@@ -139,7 +139,7 @@ func newListOpts(t *testing.T, server *httptest.Server) (*root.Options, *bytes.B
 	return opts, &stdout, &stderr
 }
 
-func TestRunList_DefaultPaginationOnStdout(t *testing.T) {
+func TestRunList_DefaultPaginationOnStderr(t *testing.T) {
 	t.Parallel()
 	server := listResultServer(t, []string{"TEST-1", "TEST-2"}, false)
 	defer server.Close()
@@ -151,11 +151,11 @@ func TestRunList_DefaultPaginationOnStdout(t *testing.T) {
 	if !strings.Contains(stdout.String(), "TEST-1") {
 		t.Errorf("stdout missing issue key: %q", stdout.String())
 	}
-	if !strings.Contains(stdout.String(), "More results available") {
-		t.Errorf("pagination hint should be on stdout, got stdout=%q stderr=%q", stdout.String(), stderr.String())
+	if strings.Contains(stdout.String(), "More results available") {
+		t.Errorf("pagination hint should not be on stdout: %q", stdout.String())
 	}
-	if strings.Contains(stderr.String(), "More results available") {
-		t.Errorf("pagination hint should NOT be on stderr: %q", stderr.String())
+	if !strings.Contains(stderr.String(), "More results available") {
+		t.Errorf("pagination hint should be on stderr: %q", stderr.String())
 	}
 }
 
@@ -183,15 +183,16 @@ func TestRunList_IDOnlyWithMoreResultsAppendsContinuation(t *testing.T) {
 	server := listResultServer(t, []string{"TEST-1", "TEST-2"}, false)
 	defer server.Close()
 
-	opts, stdout, _ := newListOpts(t, server)
+	opts, stdout, stderr := newListOpts(t, server)
 	opts.IDOnly = true
 	err := runList(context.Background(), opts, "TEST", "", 25, "", "")
 	testutil.RequireNoError(t, err)
 
-	want := "TEST-1\nTEST-2\nMore results available (next: next-token)\n"
+	want := "TEST-1\nTEST-2\n"
 	if stdout.String() != want {
 		t.Errorf("stdout:\ngot:  %q\nwant: %q", stdout.String(), want)
 	}
+	testutil.Equal(t, "More results available (next: next-token)\n", stderr.String())
 }
 
 func TestRunList_EmptyDefault_NoIssuesFoundOnStdout(t *testing.T) {
@@ -214,7 +215,7 @@ func TestRunList_EmptyDefault_NoIssuesFoundOnStdout(t *testing.T) {
 func TestRunList_EmptyWithMoreResults_EmitsOnlyPaginationHint(t *testing.T) {
 	t.Parallel()
 	// Empty page with IsLast=false (more pages exist). The continuation hint
-	// alone reaches stdout so agents keep paging; the "No issues found"
+	// alone reaches stderr so agents keep paging; the "No issues found"
 	// message is suppressed because the result set is not actually empty —
 	// only this page is. Emitting both would self-contradict.
 	server := listResultServer(t, nil, false)
@@ -224,14 +225,14 @@ func TestRunList_EmptyWithMoreResults_EmitsOnlyPaginationHint(t *testing.T) {
 	err := runList(context.Background(), opts, "TEST", "", 25, "", "")
 	testutil.RequireNoError(t, err)
 
-	if !strings.Contains(stdout.String(), "More results available") {
-		t.Errorf("pagination hint should appear on stdout; got %q", stdout.String())
+	if strings.Contains(stdout.String(), "More results available") {
+		t.Errorf("pagination hint should not appear on stdout; got %q", stdout.String())
 	}
 	if strings.Contains(stdout.String(), "No issues found") {
 		t.Errorf("'No issues found' must not co-occur with pagination hint; got %q", stdout.String())
 	}
-	if stderr.String() != "" {
-		t.Errorf("stderr should be empty, got: %q", stderr.String())
+	if !strings.Contains(stderr.String(), "More results available") {
+		t.Errorf("pagination hint should appear on stderr: %q", stderr.String())
 	}
 }
 
@@ -387,13 +388,14 @@ func TestRunList_Fields_Projection_PreservesPaginationHint(t *testing.T) {
 	cs := newCapturingServer(t, []string{"TEST-1"}, false, nil) // isLast=false → hasMore=true
 	defer cs.server.Close()
 
-	opts, stdout, _ := newOptsFor(t, cs)
+	opts, stdout, stderr := newOptsFor(t, cs)
 	err := runList(context.Background(), opts, "TEST", "", 25, "", "SUMMARY,STATUS")
 	testutil.RequireNoError(t, err)
 
 	out := stdout.String()
 	testutil.Contains(t, out, "KEY | SUMMARY | STATUS")
-	testutil.Contains(t, out, "next: next-token")
+	testutil.NotContains(t, out, "next: next-token")
+	testutil.Contains(t, stderr.String(), "next: next-token")
 }
 
 func TestRunList_Fields_JiraFieldIDs_ProjectsTable(t *testing.T) {
@@ -645,4 +647,26 @@ func TestNewListCmd_MaxFlagShape(t *testing.T) {
 	testutil.NotNil(t, maxFlag)
 	testutil.Equal(t, maxFlag.Shorthand, "m")
 	testutil.Equal(t, maxFlag.DefValue, "50")
+}
+
+func TestPaginatedCommandsRejectNonPositiveMax(t *testing.T) {
+	for _, maxResults := range []string{"0", "-1"} {
+		list := newListCmd(&root.Options{})
+		list.SetArgs([]string{"--max", maxResults})
+		err := list.Execute()
+		testutil.Error(t, err)
+		testutil.Contains(t, err.Error(), "--max must be greater than zero")
+
+		search := newSearchCmd(&root.Options{})
+		search.SetArgs([]string{"--jql", "project = TEST", "--max", maxResults})
+		err = search.Execute()
+		testutil.Error(t, err)
+		testutil.Contains(t, err.Error(), "--max must be greater than zero")
+
+		history := newHistoryCmd(&root.Options{})
+		history.SetArgs([]string{"TEST-1", "--max", maxResults})
+		err = history.Execute()
+		testutil.Error(t, err)
+		testutil.Contains(t, err.Error(), "--max must be greater than zero")
+	}
 }

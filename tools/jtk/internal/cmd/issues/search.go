@@ -27,21 +27,24 @@ func newSearchCmd(opts *root.Options) *cobra.Command {
   # Search for recent issues
   jtk issues search --jql "project = MYPROJECT AND updated >= -7d"
 
-  # Get up to 200 results (auto-paginates)
-  jtk issues search --jql "project = MYPROJECT" --max 200
+  # Request one page of up to 100 results
+  jtk issues search --jql "project = MYPROJECT" --max 100
 
   # Resume from a previous page token
   jtk issues search --jql "project = MYPROJECT" --next-page-token <token>
   # Project display columns — headers, Jira field IDs, or human names
   jtk issues search --jql "project = MYPROJECT" --fields SUMMARY,STATUS
   jtk issues search --jql "project = MYPROJECT" --fields "Issue Type"`,
+		Args: func(_ *cobra.Command, _ []string) error {
+			return jtkpresent.ValidateMax(maxResults)
+		},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runSearch(cmd.Context(), opts, jql, maxResults, nextPageToken, fieldsFlag)
 		},
 	}
 
 	cmd.Flags().StringVar(&jql, "jql", "", "JQL query string (required)")
-	cmd.Flags().IntVarP(&maxResults, "max", "m", 50, "Maximum number of results to return")
+	cmd.Flags().IntVarP(&maxResults, "max", "m", 50, "Page size")
 	cmd.Flags().StringVar(&nextPageToken, "next-page-token", "", "Token for next page of results")
 	cmd.Flags().StringVar(&fieldsFlag, "fields", "", "Comma-separated display columns (headers, Jira field IDs, or human names)")
 	_ = cmd.MarkFlagRequired("jql")

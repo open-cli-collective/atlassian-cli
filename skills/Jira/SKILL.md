@@ -94,7 +94,7 @@ Use `jtk refresh --status` to inspect cache freshness without fetching anything.
 
 ### Pagination & Result Sizing
 
-Most list-type commands (`jtk issues list`, `jtk issues search`, `jtk projects list`, `jtk comments list`, `jtk attachments list`, `jtk sprints list`, `jtk boards list`, `jtk users search`, `jtk dashboards list`, etc.) accept `--max N` to cap results. Defaults vary by command (typically 25–50). Commands that paginate also accept `--next-page-token TOKEN` to resume. When a listing is truncated, `jtk` prints a "More results available" notice **on stdout** (not stderr — and this holds even with `--id`; see the `--id` bullet above for the scripting caveat) — honor it or raise `--max` if the user expects more.
+Most list-type commands (`jtk issues list`, `jtk issues search`, `jtk projects list`, `jtk comments list`, `jtk sprints list`, `jtk boards list`, `jtk users search`, `jtk dashboards list`, etc.) accept `--max N` as the size of one page (default 50). Commands that paginate also accept `--next-page-token TOKEN` to resume. Each invocation emits one page. A "More results available" notice and its token go to stderr; stdout stays data-only, including under `--id`.
 
 ### Extracting Issue Keys from URLs
 

@@ -24,7 +24,7 @@ If customization provides a default project, scope the query:
 jtk issues search --jql "assignee = currentUser() AND project = KEY AND status != Done ORDER BY updated DESC"
 ```
 
-Add `--max N` if the user has many issues and wants a larger result set (default is 25):
+Add `--max N` to request a larger single page (default is 50):
 ```bash
 jtk issues search --jql "assignee = currentUser() AND status != Done" --max 100
 ```

@@ -45,6 +45,16 @@ func TestNewListCmd(t *testing.T) {
 	testutil.Equal(t, maxFlag.DefValue, "50")
 }
 
+func TestListRejectsNonPositiveMax(t *testing.T) {
+	for _, maxResults := range []string{"0", "-1"} {
+		cmd := newListCmd(&root.Options{})
+		cmd.SetArgs([]string{"--max", maxResults})
+		err := cmd.Execute()
+		testutil.Error(t, err)
+		testutil.Contains(t, err.Error(), "--max must be greater than zero")
+	}
+}
+
 func TestRunList_DefaultColumnOrderMatchesSpec(t *testing.T) {
 	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -90,12 +100,13 @@ func TestRunList_HasMore_EmbedsTokenInContinuationLine(t *testing.T) {
 	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
 	testutil.RequireNoError(t, err)
 
-	var stdout bytes.Buffer
-	opts := &root.Options{NoColor: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	var stdout, stderr bytes.Buffer
+	opts := &root.Options{NoColor: true, IDOnly: true, Stdout: &stdout, Stderr: &stderr}
 	opts.SetAPIClient(client)
 
 	testutil.RequireNoError(t, runList(context.Background(), opts, "", 2, "", ""))
-	testutil.Contains(t, stdout.String(), "More results available (next: 2)")
+	testutil.Equal(t, "A\nB\n", stdout.String())
+	testutil.Equal(t, "More results available (next: 2)\n", stderr.String())
 }
 
 func TestRunList_NextPageToken_AdvancesStartAt(t *testing.T) {

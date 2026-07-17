@@ -26,13 +26,18 @@ func newHistoryCmd(opts *root.Options) *cobra.Command {
   jtk issues history PROJ-123 --fields CREATED,FIELD,TO
   jtk issues history PROJ-123 --max 1
   jtk issues history PROJ-123 --next-page-token 50`,
-		Args: cobra.ExactArgs(1),
+		Args: func(cmd *cobra.Command, args []string) error {
+			if err := cobra.ExactArgs(1)(cmd, args); err != nil {
+				return err
+			}
+			return jtkpresent.ValidateMax(maxResults)
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runHistory(cmd.Context(), opts, args[0], maxResults, nextPageToken, fieldsFlag)
 		},
 	}
 
-	cmd.Flags().IntVarP(&maxResults, "max", "m", 50, "Maximum number of history groups to return")
+	cmd.Flags().IntVarP(&maxResults, "max", "m", 50, "Page size")
 	cmd.Flags().StringVar(&nextPageToken, "next-page-token", "", "Token for next page of results")
 	cmd.Flags().StringVar(&fieldsFlag, "fields", "", "Comma-separated display columns")
 

@@ -38,6 +38,16 @@ func TestNewListCmd(t *testing.T) {
 	testutil.Equal(t, fieldsFlag.DefValue, "")
 }
 
+func TestListRejectsNonPositiveMax(t *testing.T) {
+	for _, maxResults := range []string{"0", "-1"} {
+		cmd := newListCmd(&root.Options{})
+		cmd.SetArgs([]string{"TEST-1", "--max", maxResults})
+		err := cmd.Execute()
+		testutil.Error(t, err)
+		testutil.Contains(t, err.Error(), "--max must be greater than zero")
+	}
+}
+
 func newTestCommentsServer(_ *testing.T, comments []api.Comment) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		response := api.CommentsResponse{
@@ -389,7 +399,7 @@ func TestRunList_FullTextBlockSpacing(t *testing.T) {
 	}
 }
 
-func TestRunList_FullTextPaginationOnStdout(t *testing.T) {
+func TestRunList_FullTextPaginationOnStderr(t *testing.T) {
 	t.Parallel()
 	comments := []api.Comment{plainComment("1", "Alice", "hello")}
 	// Total=5 means there are more pages after this one.
@@ -400,11 +410,11 @@ func TestRunList_FullTextPaginationOnStdout(t *testing.T) {
 	err := runList(context.Background(), opts, "TEST-1", 1, true, "")
 	testutil.RequireNoError(t, err)
 
-	if !strings.Contains(stdout.String(), "More results available") {
-		t.Errorf("pagination hint should appear on stdout, got stdout=%q stderr=%q", stdout.String(), stderr.String())
+	if strings.Contains(stdout.String(), "More results available") {
+		t.Errorf("pagination hint should not appear on stdout: %q", stdout.String())
 	}
-	if strings.Contains(stderr.String(), "More results available") {
-		t.Errorf("pagination hint should NOT appear on stderr: %q", stderr.String())
+	if !strings.Contains(stderr.String(), "More results available") {
+		t.Errorf("pagination hint should appear on stderr: %q", stderr.String())
 	}
 }
 
@@ -437,15 +447,16 @@ func TestRunList_IDOnlyWithMoreResultsAppendsContinuation(t *testing.T) {
 	server := commentsServerWithTotal(comments, 5)
 	defer server.Close()
 
-	opts, stdout, _ := newCommentsOpts(t, server)
+	opts, stdout, stderr := newCommentsOpts(t, server)
 	opts.IDOnly = true
 	err := runList(context.Background(), opts, "TEST-1", 1, false, "")
 	testutil.RequireNoError(t, err)
 
-	want := "1\nMore results available (use --next-page-token to fetch next page)\n"
+	want := "1\n"
 	if stdout.String() != want {
 		t.Errorf("stdout:\ngot:  %q\nwant: %q", stdout.String(), want)
 	}
+	testutil.Equal(t, "More results available (use --next-page-token to fetch next page)\n", stderr.String())
 }
 
 func TestRunList_EmptyNeverEmitsSpuriousPaginationHint(t *testing.T) {

@@ -62,13 +62,16 @@ func newListCmd(opts *root.Options) *cobra.Command {
 		Example: `  jtk dashboards list
   jtk dashboards list --search "Sprint"
   jtk dashboards list --max 10`,
+		Args: func(_ *cobra.Command, _ []string) error {
+			return jtkpresent.ValidateMax(maxResults)
+		},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runList(cmd.Context(), opts, search, maxResults)
 		},
 	}
 
 	cmd.Flags().StringVar(&search, "search", "", "Search dashboards by name")
-	cmd.Flags().IntVarP(&maxResults, "max", "m", 50, "Maximum number of results")
+	cmd.Flags().IntVarP(&maxResults, "max", "m", 50, "Page size")
 
 	return cmd
 }

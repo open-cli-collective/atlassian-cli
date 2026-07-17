@@ -85,8 +85,10 @@ New list/get commands support the flags that fit their output. Output-shape flag
 
 Every paginated command takes:
 
-- `-m, --max int` — page size, default **50** unless documented otherwise.
+- `-m, --max int` — size of one logical page, default **50** unless documented otherwise; zero and negative values are rejected.
 - `--next-page-token string` — cursor (long-only; rarely typed by hand).
+
+Each invocation fetches and emits one page. Continuation tokens and guidance go to stderr; `--id` stdout is identifiers only.
 
 A non-50 default requires a justification in the command's help text.
 

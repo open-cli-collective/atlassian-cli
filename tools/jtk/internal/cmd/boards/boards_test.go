@@ -38,6 +38,16 @@ func TestNewListCmd(t *testing.T) {
 	testutil.NotNil(t, fieldsFlag)
 }
 
+func TestListRejectsNonPositiveMax(t *testing.T) {
+	for _, maxResults := range []string{"0", "-1"} {
+		cmd := newListCmd(&root.Options{})
+		cmd.SetArgs([]string{"--max", maxResults})
+		err := cmd.Execute()
+		testutil.Error(t, err)
+		testutil.Contains(t, err.Error(), "--max must be greater than zero")
+	}
+}
+
 func TestRunList_Table(t *testing.T) {
 	// NOT t.Parallel(): isolates the package-global cache so the boards
 	// lookup is a guaranteed miss and the mock server is exercised (was
@@ -169,8 +179,8 @@ func TestRunList_ResolvesProjectByName(t *testing.T) {
 	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
 	testutil.RequireNoError(t, err)
 
-	var stdout bytes.Buffer
-	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	var stdout, stderr bytes.Buffer
+	opts := &root.Options{IDOnly: true, Stdout: &stdout, Stderr: &stderr}
 	opts.SetAPIClient(client)
 
 	err = runList(context.Background(), opts, "Platform", 50, "", "")
@@ -277,13 +287,14 @@ func TestRunList_Pagination(t *testing.T) {
 	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
 	testutil.RequireNoError(t, err)
 
-	var stdout bytes.Buffer
-	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	var stdout, stderr bytes.Buffer
+	opts := &root.Options{IDOnly: true, Stdout: &stdout, Stderr: &stderr}
 	opts.SetAPIClient(client)
 
 	err = runList(context.Background(), opts, "", 1, "", "")
 	testutil.RequireNoError(t, err)
-	testutil.Contains(t, stdout.String(), "More results available (next: 1)")
+	testutil.Equal(t, "1\n", stdout.String())
+	testutil.Equal(t, "More results available (next: 1)\n", stderr.String())
 }
 
 func TestRunGet_NameFallback(t *testing.T) {

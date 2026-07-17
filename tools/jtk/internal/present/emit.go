@@ -24,18 +24,26 @@ func ParseStartAtToken(token string) (int, error) {
 	return n, nil
 }
 
+// ValidateMax enforces the shared page-size contract for --max.
+func ValidateMax(maxResults int) error {
+	if maxResults <= 0 {
+		return fmt.Errorf("--max must be greater than zero")
+	}
+	return nil
+}
+
 // paginationHint is the legacy continuation-line wording retained for
 // commands that have not yet migrated to the token-embedding variant.
 // New (#237+) call sites use the *WithToken helpers below.
 const paginationHint = "More results available (use --next-page-token to fetch next page)"
 
-// paginationMessageSection builds the legacy stdout-routed continuation line.
+// paginationMessageSection builds the legacy continuation line.
 // Migrated callers use paginationMessageSectionWithToken instead.
 func paginationMessageSection() *present.MessageSection {
 	return &present.MessageSection{
 		Kind:    present.MessageInfo,
 		Message: paginationHint,
-		Stream:  present.StreamStdout,
+		Stream:  present.StreamStderr,
 	}
 }
 
@@ -50,7 +58,7 @@ func paginationMessageSectionWithToken(token string) *present.MessageSection {
 	return &present.MessageSection{
 		Kind:    present.MessageInfo,
 		Message: fmt.Sprintf("More results available (next: %s)", token),
-		Stream:  present.StreamStdout,
+		Stream:  present.StreamStderr,
 	}
 }
 
@@ -98,7 +106,7 @@ func EmitIDs(opts *root.Options, ids []string) error {
 	return nil
 }
 
-// EmitIDsWithPagination is EmitIDs plus a continuation line on stdout when
+// EmitIDsWithPagination is EmitIDs plus a continuation line on stderr when
 // hasMore is true. The continuation line shares construction with the
 // model-building presenters via paginationMessageSection() so `--id` and
 // default mode can never drift on wording or stream.
@@ -126,7 +134,7 @@ func AppendPaginationHintWithToken(sections []present.Section, hasMore bool, tok
 }
 
 // EmitIDsWithPaginationToken is EmitIDs plus a token-embedded continuation
-// line on stdout when hasMore is true. Shares paginationMessageSectionWithToken
+// line on stderr when hasMore is true. Shares paginationMessageSectionWithToken
 // with AppendPaginationHintWithToken so `--id` and default mode stay aligned.
 func EmitIDsWithPaginationToken(opts *root.Options, ids []string, hasMore bool, token string) error {
 	if err := EmitIDs(opts, ids); err != nil {

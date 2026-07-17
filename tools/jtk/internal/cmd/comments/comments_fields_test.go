@@ -131,7 +131,7 @@ func TestRunList_Fields_BlockMode_PreservesPaginationHint(t *testing.T) {
 	server := commentsServerWithTotal([]api.Comment{longBodyComment("1", "Alice")}, 2)
 	defer server.Close()
 
-	opts, stdout, _ := newCommentsOpts(t, server)
+	opts, stdout, stderr := newCommentsOpts(t, server)
 	err := runList(context.Background(), opts, "TEST-1", 50, true, "ID,Author")
 	testutil.RequireNoError(t, err)
 
@@ -139,7 +139,8 @@ func TestRunList_Fields_BlockMode_PreservesPaginationHint(t *testing.T) {
 	if strings.Contains(output, "Body:") {
 		t.Errorf("Body label should be projected away: %q", output)
 	}
-	testutil.Contains(t, output, "More results available")
+	testutil.NotContains(t, output, "More results available")
+	testutil.Contains(t, stderr.String(), "More results available")
 }
 
 // --fields VISIBILITY selects the optional visibility column and drops

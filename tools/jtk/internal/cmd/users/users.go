@@ -139,13 +139,18 @@ from the page being full (len(results) == --max).`,
 
   # Fetch the second page
   jtk users search john --max 10 --next-page-token 10`,
-		Args: cobra.ExactArgs(1),
+		Args: func(cmd *cobra.Command, args []string) error {
+			if err := cobra.ExactArgs(1)(cmd, args); err != nil {
+				return err
+			}
+			return jtkpresent.ValidateMax(maxResults)
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runSearch(cmd.Context(), opts, args[0], maxResults, nextPageToken, fieldsFlag)
 		},
 	}
 
-	cmd.Flags().IntVarP(&maxResults, "max", "m", 50, "Maximum number of results")
+	cmd.Flags().IntVarP(&maxResults, "max", "m", 50, "Page size")
 	cmd.Flags().StringVar(&nextPageToken, "next-page-token", "", "Decimal startAt for the next page")
 	cmd.Flags().StringVar(&fieldsFlag, "fields", "", "Comma-separated display columns (UserListSpec headers)")
 
@@ -189,8 +194,8 @@ func runSearch(ctx context.Context, opts *root.Options, query string, maxResults
 	// /user/search has no native isLast; the heuristic is that a full page
 	// implies more pages may exist. Over-reporting in the last window is the
 	// documented tradeoff for a command whose endpoint lacks an authoritative
-	// terminator. When maxResults <= 0 (no cap), hasMore stays false.
-	hasMore := maxResults > 0 && len(rawUsers) == maxResults
+	// terminator.
+	hasMore := len(rawUsers) == maxResults
 	nextToken := ""
 	if hasMore {
 		nextToken = strconv.Itoa(startAt + len(rawUsers))

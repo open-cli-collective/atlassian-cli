@@ -158,16 +158,16 @@ jtk fields list --custom-fields --id
 | 4 | `jtk issues search --jql "project = $PROJECT AND summary ~ 'xyznonexistent999'"` | `No issues found` |
 | 5 | `jtk issues search --jql "invalid jql ((("` | `bad request: Error in the JQL Query: ...` |
 
-### Auto-pagination (issues search / issues list)
+### Single-page pagination (issues search / issues list)
 
-> These tests require a project with more than 100 issues. If your project has fewer, lower the `--max` value and adjust expected counts accordingly.
+> These tests require a project with at least two issues.
 
 | # | Command | Expected Output |
 |---|---------|-----------------|
-| 1 | `jtk issues search --jql "project = $PROJECT" --max 200` | Table with > 100 rows (proves multi-page fetch) |
-| 1b | `jtk issues search --jql "project = $PROJECT" --max 200 --id \| wc -l` | Number >= 101 (machine-verifiable row count) |
-| 2 | `jtk issues list -p $PROJECT --max 200` | Same multi-page behavior for list |
-| 2b | `jtk issues list -p $PROJECT --max 200 --id \| wc -l` | Number >= 101 (machine-verifiable row count) |
+| 1 | `jtk issues search --jql "project = $PROJECT" --max 1 --id 2> /tmp/jtk-page.err` | Stdout is exactly one issue key; stderr contains `More results available (next: TOKEN)` |
+| 1b | `jtk issues search --jql "project = $PROJECT" --max 1 --id --next-page-token TOKEN` | The next page emits a different issue key and a stable continuation token when more remain |
+| 2 | `jtk issues list -p $PROJECT --max 1 --id 2> /tmp/jtk-page.err` | Same one-page behavior for list; stdout remains identifier-only |
+| 2b | `jtk issues list -p $PROJECT --max 0` | Error: `--max must be greater than zero`; no request is made |
 
 ### `--fields` flag (issues search / issues list)
 

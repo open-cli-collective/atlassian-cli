@@ -97,6 +97,9 @@ func newListCmd(opts *root.Options) *cobra.Command {
 
   # Emit only sprint IDs
   jtk sprints list --board 123 --id`,
+		Args: func(_ *cobra.Command, _ []string) error {
+			return jtkpresent.ValidateMax(maxResults)
+		},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if err := validateBoardRef(board); err != nil {
 				return err
@@ -115,7 +118,7 @@ func newListCmd(opts *root.Options) *cobra.Command {
 
 	cmd.Flags().StringVarP(&board, "board", "b", "", "Board ID or name (required)")
 	cmd.Flags().StringVarP(&state, "state", "s", "", "Filter by state (active, closed, future)")
-	cmd.Flags().IntVarP(&maxResults, "max", "m", 50, "Maximum number of results")
+	cmd.Flags().IntVarP(&maxResults, "max", "m", 50, "Page size")
 	cmd.Flags().StringVar(&nextPageToken, "next-page-token", "", "Decimal startAt for the next page")
 	cmd.Flags().StringVar(&fieldsFlag, "fields", "", "Comma-separated display columns")
 
@@ -153,9 +156,6 @@ func runList(ctx context.Context, opts *root.Options, client *api.Client, boardI
 	jtkpresent.SortSprintsForDisplay(allSprints)
 
 	// Client-side pagination window over the sorted slice.
-	if maxResults <= 0 {
-		maxResults = 50
-	}
 	total := len(allSprints)
 	if startAt > total {
 		startAt = total
@@ -300,7 +300,12 @@ func newIssuesCmd(opts *root.Options) *cobra.Command {
 		Example: `  jtk sprints issues 456
   jtk sprints issues "MON Sprint 70"
   jtk sprints issues 456 --fields KEY,STATUS,customfield_10005`,
-		Args: cobra.ExactArgs(1),
+		Args: func(cmd *cobra.Command, args []string) error {
+			if err := cobra.ExactArgs(1)(cmd, args); err != nil {
+				return err
+			}
+			return jtkpresent.ValidateMax(maxResults)
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := opts.APIClient()
 			if err != nil {
@@ -314,7 +319,7 @@ func newIssuesCmd(opts *root.Options) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().IntVarP(&maxResults, "max", "m", 50, "Maximum number of results")
+	cmd.Flags().IntVarP(&maxResults, "max", "m", 50, "Page size")
 	cmd.Flags().StringVar(&nextPageToken, "next-page-token", "", "Decimal startAt for the next page")
 	cmd.Flags().StringVar(&fieldsFlag, "fields", "", "Comma-separated display columns (headers, Jira field IDs, or human names)")
 

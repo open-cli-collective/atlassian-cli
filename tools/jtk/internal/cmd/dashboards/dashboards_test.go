@@ -666,3 +666,13 @@ func TestNewListCmd_MaxFlagShape(t *testing.T) {
 	testutil.Equal(t, maxFlag.Shorthand, "m")
 	testutil.Equal(t, maxFlag.DefValue, "50")
 }
+
+func TestListRejectsNonPositiveMax(t *testing.T) {
+	for _, maxResults := range []string{"0", "-1"} {
+		cmd := newListCmd(&root.Options{})
+		cmd.SetArgs([]string{"--max", maxResults})
+		err := cmd.Execute()
+		testutil.Error(t, err)
+		testutil.Contains(t, err.Error(), "--max must be greater than zero")
+	}
+}

@@ -66,7 +66,7 @@ Plain prose to stderr. No structured format. Ambiguity errors list all matches. 
 
 ### Pagination
 
-Paginated list commands append a continuation line when more results exist:
+Paginated list commands write a continuation line to stderr when more results exist:
 
 ```
 More results available (next: eyJzdGFydEF0IjoxMH0)
@@ -78,7 +78,9 @@ The token is passed back to fetch the next page:
 $ jtk issues list -p MON --next-page-token eyJzdGFydEF0IjoxMH0
 ```
 
-Absence of the continuation line signals a complete result set.
+Absence of the continuation line signals a complete result set. Stdout remains data-only in every output mode; under `--id`, it contains exactly one identifier per line.
+
+`--max` is the size of one logical page (default 50) and must be greater than zero. Each invocation fetches and emits one page; use `--next-page-token` to continue.
 
 ### Name/ID resolution
 
@@ -167,7 +169,6 @@ KEY | STATUS | TYPE | PTS | ASSIGNEE | SUMMARY
 MON-4810 | In Code Review | SDLC | 5 | Aaron Wong | Audit and remediate accessibility issues on CapOne-specific surfaces
 MON-4807 | In Code Review | SDLC | 3 | Aaron Wong | Make CapOne key-stack authoritative for zero-state back behavior
 MON-4809 | Backlog | SDLC | - | - | Bump PostHog sampling to 100% for CapOne sessions
-More results available (next: eyJzdGFydEF0IjoxMH0)
 ```
 
 **`issues search <jql>`** — same output shape as `issues list`.
@@ -197,7 +198,6 @@ ID | CREATED | AUTHOR | FIELD | FROM | TO
 113344 | 2026-04-16 | Aaron Wong | status | Backlog | Ready for Development
 113345 | 2026-04-16 | Aaron Wong | assignee | - | Rian Stockbower
 113346 | 2026-04-17 | Rian Stockbower | summary | Initial placeholder | Audit and remediate accessibility issues on CapOne-specific surfaces
-More results available (next: 50)
 ```
 
 Rows are chronological in Jira's changelog order. Each row is one changed field item. The `ID` is the changelog group ID and may repeat when Jira groups multiple field changes in one history entry.
@@ -207,7 +207,6 @@ Rows are chronological in Jira's changelog order. Each row is one changed field 
 113344
 113345
 113346
-More results available (next: 50)
 ```
 
 

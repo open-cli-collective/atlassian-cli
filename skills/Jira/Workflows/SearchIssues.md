@@ -65,15 +65,15 @@ Both `search` and `list` support the same paging/field flags:
 
 | Flag | Description |
 |------|-------------|
-| `--max N` / `-m N` | Maximum results (default 25; auto-paginates) |
+| `--max N` / `-m N` | Size of one page (default 50; must be positive) |
 | `--next-page-token TOKEN` | Resume from previous page token |
 | `--fields description` | Include all fields (descriptions, etc.) |
 | `--fields summary,status,customfield_10005` | Comma-separated list of specific fields |
 
 Examples:
 ```bash
-# Get up to 200 results
-jtk issues search --jql "project = PROJ" --max 200
+# Request a page of up to 100 results
+jtk issues search --jql "project = PROJ" --max 100
 
 # Get specific custom fields (e.g. Story Points)
 jtk issues search --jql "project = PROJ" --fields summary,status,customfield_10005

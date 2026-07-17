@@ -175,6 +175,28 @@ func TestRunList_FieldsProjection(t *testing.T) {
 	testutil.NotContains(t, out, "AUTHOR")
 }
 
+func TestRunList_Fields_OptionalColumnsRender(t *testing.T) {
+	t.Parallel()
+	server := attachmentServer(t)
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runList(context.Background(), opts, "TEST-1", "BYTES,MIME_TYPE")
+	testutil.RequireNoError(t, err)
+
+	out := stdout.String()
+	testutil.Contains(t, out, "BYTES")
+	testutil.Contains(t, out, "MIME_TYPE")
+	testutil.NotContains(t, out, "AUTHOR")
+	testutil.NotContains(t, out, "FILENAME")
+}
+
 // --- add tests ---
 
 func TestNewAddCmd(t *testing.T) {

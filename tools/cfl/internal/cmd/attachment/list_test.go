@@ -3,8 +3,10 @@ package attachment
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"testing"
 
 	"github.com/open-cli-collective/atlassian-go/testutil"
@@ -154,6 +156,53 @@ func TestRunList_APIError(t *testing.T) {
 	err := runList(context.Background(), opts)
 	testutil.RequireError(t, err)
 	testutil.Contains(t, err.Error(), "listing attachments")
+}
+
+func TestRunList_Limits(t *testing.T) {
+	for _, tt := range []struct {
+		name        string
+		limit       int
+		wantRequest bool
+	}{
+		{name: "zero", limit: 0},
+		{name: "negative", limit: -1},
+		{name: "default", limit: 25, wantRequest: true},
+		{name: "positive", limit: 50, wantRequest: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			requests := 0
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				requests++
+				testutil.Equal(t, fmt.Sprint(tt.limit), r.URL.Query().Get("limit"))
+				_, _ = w.Write([]byte(`{"results":[]}`))
+			}))
+			defer server.Close()
+			rootOpts := newListTestRootOptions()
+			rootOpts.SetAPIClient(api.NewClient(server.URL, "test@example.com", "token"))
+
+			err := runList(context.Background(), &listOptions{Options: rootOpts, pageID: "12345", limit: tt.limit})
+			if tt.wantRequest {
+				testutil.RequireNoError(t, err)
+				testutil.Equal(t, 1, requests)
+				return
+			}
+			testutil.RequireError(t, err)
+			testutil.Contains(t, err.Error(), "must be greater than 0")
+			testutil.Equal(t, 0, requests)
+		})
+	}
+}
+
+func TestList_InvalidLimitFailsBeforeConfig(t *testing.T) {
+	rootCmd, rootOpts := root.NewCmd()
+	rootOpts.ConfigPath = filepath.Join(t.TempDir(), "missing.yml")
+	Register(rootCmd, rootOpts)
+	rootCmd.SetArgs([]string{"attachment", "list", "--page", "12345", "--limit", "0"})
+
+	err := rootCmd.Execute()
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "must be greater than 0")
+	testutil.NotContains(t, err.Error(), "config")
 }
 
 func TestIsAttachmentReferenced(t *testing.T) {

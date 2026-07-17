@@ -182,6 +182,9 @@ Get started by running: cfl init`,
 			if err := validateOutputFormat(opts.Output); err != nil {
 				return err
 			}
+			if opts.Full && !supportsFull(cmd) {
+				return fmt.Errorf("--full is not supported for %s", cmd.CommandPath())
+			}
 			opts.configExplicit = cmd.Flags().Changed("config")
 			cfg, err := opts.loadConfig()
 			if err != nil {
@@ -195,7 +198,7 @@ Get started by running: cfl init`,
 	cmd.PersistentFlags().StringVarP(&opts.ConfigPath, "config", "c", config.DefaultConfigPath(), "config file")
 	cmd.PersistentFlags().StringVarP(&opts.Output, "output", "o", "table", "output format: table, plain")
 	cmd.PersistentFlags().BoolVar(&opts.NoColor, "no-color", false, "disable colored output")
-	cmd.PersistentFlags().BoolVar(&opts.Full, "full", false, "show full inspection-oriented output (default: agent)")
+	cmd.PersistentFlags().BoolVar(&opts.Full, "full", false, "show full inspection-oriented output on supported view/list/search commands")
 	cmd.PersistentFlags().BoolVar(&opts.NonInteractive, "non-interactive", false, "Never prompt; fail loud naming any required value missing from flags/env/stdin (§3.4)")
 	cmd.PersistentFlags().String(cccredstore.BackendFlagName, "", cccredstore.BackendFlagUsage())
 
@@ -203,6 +206,15 @@ Get started by running: cfl init`,
 	cmd.SetVersionTemplate("cfl version {{.Version}} (commit: " + version.Commit + ", built: " + version.BuildDate + ")\n")
 
 	return cmd, opts
+}
+
+func supportsFull(cmd *cobra.Command) bool {
+	switch cmd.CommandPath() {
+	case "cfl page list", "cfl page view", "cfl space list", "cfl space view", "cfl attachment list", "cfl search":
+		return true
+	default:
+		return false
+	}
 }
 
 // validateOutputFormat enforces the §2 closed set for cfl's resource

@@ -272,6 +272,15 @@ func normalizeVersionedPage(page *Page, pageID string, version Version, currentP
 		if page.Links.WebUI == "" {
 			page.Links.WebUI = currentPage.Links.WebUI
 		}
+		if page.ParentID == "" {
+			page.ParentID = currentPage.ParentID
+		}
+		if page.AuthorID == "" {
+			page.AuthorID = currentPage.AuthorID
+		}
+		if page.CreatedAt == nil {
+			page.CreatedAt = currentPage.CreatedAt
+		}
 	}
 	version.Page = nil
 	page.Version = &version

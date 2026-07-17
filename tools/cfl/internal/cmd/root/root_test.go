@@ -42,6 +42,19 @@ func TestNewCmd(t *testing.T) {
 	testutil.NotNil(t, fullFlag)
 }
 
+func TestFullRejectedForUnsupportedCommandBeforeConfig(t *testing.T) {
+	cmd, opts := NewCmd()
+	pageCmd := &cobra.Command{Use: "page"}
+	pageCmd.AddCommand(&cobra.Command{Use: "create", RunE: func(*cobra.Command, []string) error { return nil }})
+	cmd.AddCommand(pageCmd)
+	opts.ConfigPath = filepath.Join(t.TempDir(), "missing.yml")
+	cmd.SetArgs([]string{"page", "create", "--full"})
+
+	err := cmd.Execute()
+	testutil.RequireError(t, err)
+	testutil.Equal(t, "--full is not supported for cfl page create", err.Error())
+}
+
 func TestNewCmd_Flags(t *testing.T) {
 	t.Parallel()
 	cmd, _ := NewCmd()

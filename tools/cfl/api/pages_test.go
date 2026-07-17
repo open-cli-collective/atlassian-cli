@@ -163,6 +163,9 @@ func TestClient_GetPageVersion_LocatesAndFetchesSingleBody(t *testing.T) {
 				"id": "12345",
 				"title": "History Page",
 				"spaceId": "987",
+				"parentId": "456",
+				"authorId": "author-1",
+				"createdAt": "2024-02-03T04:05:06Z",
 				"version": {"number": 3},
 				"_links": {"webui": "/spaces/DEV/pages/12345"}
 			}`))
@@ -212,6 +215,9 @@ func TestClient_GetPageVersion_LocatesAndFetchesSingleBody(t *testing.T) {
 	testutil.Equal(t, "12345", page.ID)
 	testutil.Equal(t, "History Page", page.Title)
 	testutil.Equal(t, "987", page.SpaceID)
+	testutil.Equal(t, "456", page.ParentID)
+	testutil.Equal(t, "author-1", page.AuthorID)
+	testutil.NotNil(t, page.CreatedAt)
 	testutil.Equal(t, 2, page.Version.Number)
 	testutil.Equal(t, "author-2", page.Version.AuthorID)
 	testutil.Equal(t, "<p>Version 2</p>", page.Body.Storage.Value)

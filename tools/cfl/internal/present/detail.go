@@ -96,6 +96,17 @@ func (PagePresenter) PresentView(proj pageview.Projection) *sharedpresent.Output
 				Value: fmt.Sprintf("%d", proj.Version),
 			})
 		}
+		if proj.Full {
+			if proj.ParentID != "" {
+				fields = append(fields, sharedpresent.Field{Label: "Parent ID", Value: proj.ParentID})
+			}
+			if proj.CreatedAt != nil && !proj.CreatedAt.IsZero() {
+				fields = append(fields, sharedpresent.Field{Label: "Created At", Value: formatHistoryTime(proj.CreatedAt)})
+			}
+			if proj.AuthorID != "" {
+				fields = append(fields, sharedpresent.Field{Label: "Author ID", Value: proj.AuthorID})
+			}
+		}
 		sections = append(sections, &sharedpresent.DetailSection{Fields: fields})
 	}
 

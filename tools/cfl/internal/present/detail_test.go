@@ -136,6 +136,21 @@ func TestPagePresenter_PresentView_Default(t *testing.T) {
 	testutil.Equal(t, "Hello world", body.Message)
 }
 
+func TestPagePresenter_PresentView_FullOmitsAbsentMetadata(t *testing.T) {
+	t.Parallel()
+
+	model := PagePresenter{}.PresentView(pageview.Projection{
+		Title: "Root Page", ID: "12345", Full: true,
+		Body: "Hello world", BodyKind: pageview.BodyKindMarkdown, HasContent: true,
+	})
+
+	detail := requireDetailSection(t, model, 0)
+	testutil.Equal(t, []sharedpresent.Field{
+		{Label: "Title", Value: "Root Page"},
+		{Label: "ID", Value: "12345"},
+	}, detail.Fields)
+}
+
 func TestPagePresenter_PresentView_ContentOnlyXHTML(t *testing.T) {
 	t.Parallel()
 

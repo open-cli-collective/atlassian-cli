@@ -12,10 +12,11 @@ Search, find, and filter Confluence pages using full-text search, CQL, or space-
 | "search in SPACE" | `cfl search "query" --space KEY` | Space-scoped search |
 | "find pages with label" | `cfl search --label TAG` | Label-based search |
 | "search by title" | `cfl search --title "text"` | Title-based search |
-| "CQL", advanced query | `cfl search --cql "CQL"` | Raw CQL query (takes precedence over positional query) |
+| "CQL", advanced query | `cfl search --cql "CQL"` | Raw CQL query |
 | "list pages in SPACE" | `cfl page list --space KEY` | Simple space listing |
 
-**Note:** `--cql` takes precedence over the positional `[query]` argument. Don't combine them — use one or the other.
+**Scope:** Searches are global unless `--space` is provided explicitly. `default_space` is not applied.
+Raw `--cql` cannot be combined with a positional query or `--space`, `--type`, `--title`, or `--label`.
 
 ### Common Filters (CQL Building Blocks)
 
@@ -58,24 +59,19 @@ cfl search --cql "type=page AND space=KEY AND lastModified > now('-7d')"
 cfl page list --space KEY
 ```
 
-Use `--limit N` to control result count (default 25).
+Use a positive `--limit N` to control result count (default 25).
 
 ### Scripting / Parsing Output
 
-When the next step depends on extracting a page ID from the results, request JSON output. With `-o json`, the output has this structure:
+When the next step depends on extracting a page ID from the results, use `-o plain`. List and search output is TSV with a header row; the first column is `ID`.
 
-```json
-{
-  "results": [
-    { "id": "...", "title": "...", "type": "page", "spaceName": "...", "excerpt": "..." }
-  ],
-  "_meta": { "count": 0, "hasMore": false }
-}
+```bash
+cfl search --title "Release plan" --space DEV -o plain | awk -F '\t' 'NR > 1 { print $1 }'
 ```
 
 The `--title` filter does substring matching, so multiple pages may be returned — narrow with `--space` when you need a single result.
 
-Avoid pattern-matching against default `table` output — it's human-oriented and layout may change. Always use `-o json` when a downstream step parses the response.
+Avoid pattern-matching against default `table` output — it's human-oriented and layout may change. Use `-o plain` TSV when a downstream step parses the response.
 
 ## Output Format
 
@@ -92,11 +88,8 @@ After returning results:
 3. If no results, suggest broadening or adjusting filters
 4. Offer to view any specific page from the results
 
-## Missing Space Key
+## Search Scope
 
-If a space key is needed but not specified in the request, consult `cfl`'s defaulting order (`--space` flag → `CFL_DEFAULT_SPACE` env var → `default_space` in config file). If still missing, ask the user and suggest persisting it:
-
-- **Env var (per-shell):** `export CFL_DEFAULT_SPACE=KEY` — add to `.bashrc` / `.zshrc` / equivalent to persist
-- **Config file:** edit the `default_space` field in the file shown by `cfl config show`
-
-Env var wins over config. See the **Defaults & Missing Inputs** section in `SKILL.md` for the full rationale.
+Omit `--space` only when global search is intended. If the user asks for a
+space-scoped search without naming the space, ask for the key; do not substitute
+the configured default.

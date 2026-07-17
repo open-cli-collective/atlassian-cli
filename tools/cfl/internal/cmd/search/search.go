@@ -51,7 +51,10 @@ func newSearchCmd(rootOpts *root.Options) *cobra.Command {
 		Long: `Search for pages, blog posts, attachments, and comments in Confluence.
 
 Uses Confluence Query Language (CQL) under the hood. You can use the
-convenient flags for common filters, or provide raw CQL for advanced queries.`,
+convenient flags for common filters, or provide raw CQL for advanced queries.
+
+Positional and builder-flag searches are global unless --space is provided.
+Raw --cql cannot be combined with the positional query or builder flags.`,
 		Example: `  # Full-text search across all content
   cfl search "deployment guide"
 
@@ -72,67 +75,44 @@ convenient flags for common filters, or provide raw CQL for advanced queries.`,
 
   # Power user: raw CQL query
   cfl search --cql "type=page AND space=DEV AND lastModified > now('-7d')"`,
-		Args: cobra.MaximumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		Args: func(cmd *cobra.Command, args []string) error {
+			if err := cobra.MaximumNArgs(1)(cmd, args); err != nil {
+				return err
+			}
+			opts.query = ""
 			if len(args) > 0 {
 				opts.query = args[0]
 			}
+			return validateSearchOptions(opts)
+		},
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runSearch(cmd.Context(), opts)
 		},
 	}
 
 	// Query building flags
-	cmd.Flags().StringVar(&opts.cql, "cql", "", "Raw CQL query (advanced)")
+	cmd.Flags().StringVar(&opts.cql, "cql", "", "Raw CQL query; cannot be combined with query-builder inputs")
 	cmd.Flags().StringVarP(&opts.space, "space", "s", "", "Filter by space key")
 	cmd.Flags().StringVarP(&opts.contentType, "type", "t", "", "Content type: page, blogpost, attachment, comment")
 	cmd.Flags().StringVar(&opts.title, "title", "", "Filter by title (contains)")
 	cmd.Flags().StringVar(&opts.label, "label", "", "Filter by label")
 
 	// Pagination
-	cmd.Flags().IntVarP(&opts.limit, "limit", "l", 25, "Maximum number of results")
+	cmd.Flags().IntVarP(&opts.limit, "limit", "l", 25, "Maximum number of results (must be greater than 0)")
 
 	return cmd
 }
 
 func runSearch(ctx context.Context, opts *searchOptions) error {
-	// Validate type if provided
-	if opts.contentType != "" && !validTypes[opts.contentType] {
-		validList := []string{"page", "blogpost", "attachment", "comment"}
-		return fmt.Errorf("invalid type %q: must be one of %s", opts.contentType, strings.Join(validList, ", "))
-	}
-
-	// Validate that we have something to search for
-	if opts.cql == "" && opts.query == "" && opts.space == "" && opts.contentType == "" && opts.title == "" && opts.label == "" {
-		return fmt.Errorf("search requires a query, --cql, or at least one filter (--space, --type, --title, --label)")
-	}
-
-	// Validate limit
-	if opts.limit < 0 {
-		return fmt.Errorf("invalid limit: %d (must be >= 0)", opts.limit)
-	}
-
-	if opts.limit == 0 {
-		return cflpresent.Emit(opts.Options, cflpresent.SearchPresenter{}.PresentEmpty())
-	}
-
-	// Get config for default space
-	cfg, err := opts.Config()
-	if err != nil {
+	if err := validateSearchOptions(opts); err != nil {
 		return err
 	}
 
-	// Use default space from config if not specified and no cql override
-	if opts.space == "" && opts.cql == "" {
-		opts.space = cfg.DefaultSpace
-	}
-
-	// Get API client
 	client, err := opts.APIClient()
 	if err != nil {
 		return err
 	}
 
-	// Build API options
 	apiOpts := &api.SearchOptions{
 		CQL:   opts.cql,
 		Text:  opts.query,
@@ -152,4 +132,27 @@ func runSearch(ctx context.Context, opts *searchOptions) error {
 		return cflpresent.Emit(opts.Options, cflpresent.SearchPresenter{}.PresentEmpty())
 	}
 	return cflpresent.Emit(opts.Options, cflpresent.SearchPresenter{}.PresentList(result.Results, opts.Full, result.TotalSize, result.HasMore()))
+}
+
+func validateSearchOptions(opts *searchOptions) error {
+	// Validate type if provided
+	if opts.contentType != "" && !validTypes[opts.contentType] {
+		validList := []string{"page", "blogpost", "attachment", "comment"}
+		return fmt.Errorf("invalid type %q: must be one of %s", opts.contentType, strings.Join(validList, ", "))
+	}
+
+	// Validate that we have something to search for
+	if opts.cql == "" && opts.query == "" && opts.space == "" && opts.contentType == "" && opts.title == "" && opts.label == "" {
+		return fmt.Errorf("search requires a query, --cql, or at least one filter (--space, --type, --title, --label)")
+	}
+
+	if opts.cql != "" && (opts.query != "" || opts.space != "" || opts.contentType != "" || opts.title != "" || opts.label != "") {
+		return fmt.Errorf("--cql cannot be combined with a positional query or --space, --type, --title, or --label")
+	}
+
+	if opts.limit <= 0 {
+		return fmt.Errorf("invalid limit: %d (must be greater than 0)", opts.limit)
+	}
+
+	return nil
 }

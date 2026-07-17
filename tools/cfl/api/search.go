@@ -69,6 +69,9 @@ func (c *Client) Search(ctx context.Context, opts *SearchOptions) (*SearchRespon
 	// Build CQL query
 	cql := ""
 	if opts != nil {
+		if opts.CQL != "" && (opts.Text != "" || opts.Space != "" || opts.Type != "" || opts.Title != "" || opts.Label != "") {
+			return nil, fmt.Errorf("raw CQL cannot be combined with query-builder fields")
+		}
 		cql = opts.CQL
 		if cql == "" {
 			cql = buildCQL(opts)

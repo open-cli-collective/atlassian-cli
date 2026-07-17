@@ -33,6 +33,7 @@ If still missing: ask the user. Then suggest they persist it:
 - **Config file:** edit the `default_space` field in the file shown by `cfl config show`
 
 Env var wins over config. Once set, space-scoped commands work without `--space`.
+Search is the exception: `cfl search` is global unless `--space` is provided explicitly.
 
 ### Page ID, attachment ID, etc.
 
@@ -46,11 +47,13 @@ No defaults exist. Ask the user. Do not guess. If the user provides a Confluence
 
 - **Representation** — what content is shown:
   - `agent` (default) — curated, action-oriented, LLM-optimized
-  - `full` (`--full`) — inspection-oriented, additional fields (dates, authors, versions)
+  - `full` (`--full`) — inspection-oriented additions on page/space views and supported list/search commands
 - **Page body format** — `--body-format markdown|adf|xhtml` on page view/create/edit. Omission means Markdown; ADF and XHTML are exact.
-- **Output format** — how it's rendered: `table` (default), `plain` (`-o plain`). For scripted extraction, parse `ID: <id>` lines from command output.
+- **Output format** — how it's rendered: `table` (default) or `plain` (`-o plain`). Detail and mutation commands expose IDs as `ID: <id>` lines; for list/search commands, use `-o plain` TSV and read the first (`ID`) column.
 
 They combine freely — e.g., `cfl page list --full -o plain` returns TSV; detail output in plain mode remains semantically equivalent text.
+`page view --full` composes with every body format, but not with `--content-only` or `--web`.
+Commands without a defined full artifact reject `--full`.
 
 ### Extracting Page IDs from URLs
 

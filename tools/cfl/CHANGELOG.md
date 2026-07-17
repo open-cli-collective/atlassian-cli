@@ -19,6 +19,7 @@
 
 ### Changed
 
+- Search is global unless `--space` is explicit, raw CQL conflicts are rejected, attachment/search limits must be positive, and `page view --full` now emits its documented metadata ([#455](https://github.com/open-cli-collective/atlassian-cli/issues/455))
 - `page view`, `page create`, and `page edit` now use `--body-format markdown|adf|xhtml`; removed `--raw`, `--storage`, and `--no-markdown`, made editor buffers representation-safe, and made Markdown conversion fail closed ([#455](https://github.com/open-cli-collective/atlassian-cli/issues/455))
 - Improved init and config test UX with user details display ([#56](https://github.com/open-cli-collective/atlassian-cli/pull/56))
 

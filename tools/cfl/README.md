@@ -123,13 +123,18 @@ sudo rpm -i cfl-VERSION.x86_64.rpm
 
 ### From Source
 
-**Go install**
+**Build from a clone**
 
 ```bash
-go install github.com/open-cli-collective/confluence-cli/cmd/cfl@latest
+git clone https://github.com/open-cli-collective/atlassian-cli.git
+cd atlassian-cli
+make build-cfl
+./bin/cfl --version
 ```
 
-Requires Go 1.24 or later.
+The binary is written to `bin/cfl`; invoke it as `./bin/cfl` or copy it somewhere on your `PATH` (e.g. `install bin/cfl /usr/local/bin/`).
+
+Requires Go 1.26 or later. (`go install` of the old `confluence-cli` module path installs a stale pre-monorepo binary; use Homebrew or a clone instead.)
 
 ## Quick Start
 
@@ -186,6 +191,7 @@ These flags are available on all commands:
 | `--config` | `-c` | `~/.config/cfl/config.yml` | Path to config file |
 | `--output` | `-o` | `table` | Output format: `table`, `plain` |
 | `--no-color` | | `false` | Disable colored output |
+| `--full` | | `false` | Inspection-oriented output; supported only by `page list`, `page view`, `space list`, `space view`, `attachment list`, and `search` (rejected elsewhere) |
 | `--help` | `-h` | | Show help for command |
 | `--version` | `-v` | | Show version (root command only) |
 
@@ -286,6 +292,7 @@ View a Confluence page. **Content is displayed as markdown by default.**
 
 ```bash
 cfl page view 12345
+cfl page view 12345 --full                    # Add parent/creation/author metadata
 cfl page view 12345 --body-format xhtml
 cfl page view 12345 --body-format adf
 cfl page view 12345 --version 7
@@ -302,6 +309,8 @@ cfl page view 12345 --show-macros --content-only | cfl page edit 12345 --legacy 
 | `--no-truncate` | | `false` | Show full Markdown content without truncation |
 | `--show-macros` | | `false` | Show Confluence macro placeholders (e.g., `[TOC]`) instead of stripping them |
 | `--content-only` | | `false` | Output only page content (no Title/ID/Version headers); implies `--no-truncate` |
+
+`--full` composes with every body format and is incompatible with `--content-only` and `--web`.
 
 **Arguments:**
 - `<page-id>` - The page ID (**required**)
@@ -486,6 +495,7 @@ cfl page delete 12345 --force
 ### `cfl search [query]`
 
 Search for pages, blog posts, attachments, and comments across Confluence.
+Searches are global unless `--space` is provided explicitly; `default_space` is not used.
 
 Uses Confluence Query Language (CQL) under the hood. Convenient flags handle common
 filters, or use `--cql` for advanced queries.
@@ -515,15 +525,17 @@ cfl search --cql "type=page AND space=DEV AND lastModified > now('-7d')"
 
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
-| `--cql` | | | Raw CQL query (advanced) |
-| `--space` | `-s` | (from config) | Filter by space key |
+| `--cql` | | | Raw CQL query (cannot be combined with query or builder flags) |
+| `--space` | `-s` | | Filter by space key |
 | `--type` | `-t` | | Content type: `page`, `blogpost`, `attachment`, `comment` |
 | `--title` | | | Filter by title (contains) |
 | `--label` | | | Filter by label |
-| `--limit` | `-l` | `25` | Maximum number of results |
+| `--limit` | `-l` | `25` | Maximum number of results (must be greater than zero) |
 
 **Arguments:**
 - `[query]` - Full-text search terms (optional if using filters)
+
+Raw `--cql` is mutually exclusive with `[query]`, `--space`, `--type`, `--title`, and `--label`.
 
 **CQL Reference:**
 Common CQL operators for `--cql`:
@@ -600,7 +612,7 @@ cfl attachment list --page 12345 --unused
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
 | `--page` | `-p` | | Page ID (**required**) |
-| `--limit` | `-l` | `25` | Maximum number of attachments to return |
+| `--limit` | `-l` | `25` | Maximum number of attachments to return (must be greater than zero) |
 | `--unused` | | `false` | Show only attachments not referenced in page content |
 
 ---

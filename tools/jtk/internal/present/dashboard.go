@@ -69,37 +69,7 @@ func (DashboardPresenter) PresentList(dashboards []api.Dashboard, gadgetCounts m
 	}
 }
 
-// PresentListExtended creates an extended table: ID | GADGETS | OWNER | FAVOURITE | RANK | PERMISSIONS | NAME.
-func (DashboardPresenter) PresentListExtended(dashboards []api.Dashboard, gadgetCounts map[string]int) *present.OutputModel {
-	rows := make([]present.Row, len(dashboards))
-	for i, d := range dashboards {
-		owner := ""
-		if d.Owner != nil {
-			owner = d.Owner.DisplayName
-		}
-		rows[i] = present.Row{
-			Cells: []string{
-				d.ID,
-				formatGadgetCount(d.ID, gadgetCounts),
-				owner,
-				BoolString(d.IsFavourite),
-				FormatInt(d.Popularity),
-				formatPermissions(d.SharePerm),
-				d.Name,
-			},
-		}
-	}
-	return &present.OutputModel{
-		Sections: []present.Section{
-			&present.TableSection{
-				Headers: []string{"ID", "GADGETS", "OWNER", "FAVOURITE", "RANK", "PERMISSIONS", "NAME"},
-				Rows:    rows,
-			},
-		},
-	}
-}
-
-// PresentGadgets creates a table view: ID | POSITION | TITLE | TYPE.
+// PresentListExtended creates an includeOptional table: ID | GADGETS | OWNER | FAVOURITE | RANK | PERMISSIONS | NAME.
 func (DashboardPresenter) PresentGadgets(gadgets []api.DashboardGadget) *present.OutputModel {
 	rows := make([]present.Row, len(gadgets))
 	for i, g := range gadgets {

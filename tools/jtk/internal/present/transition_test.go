@@ -124,19 +124,19 @@ func TestTransitionPresenter_PresentList_Extended(t *testing.T) {
 }
 
 // TestTransitionListSpec_MatchesPresentListHeaders locks the spec against
-// PresentList headers for both default and extended modes.
+// PresentList headers for both default and includeOptional modes.
 func TestTransitionListSpec_MatchesPresentListHeaders(t *testing.T) {
 	t.Parallel()
 	transitions := []api.Transition{{ID: "1", Name: "x", To: api.Status{Name: "y"}}}
 
-	for _, extended := range []bool{false, true} {
+	for _, includeOptional := range []bool{false, true} {
 		name := "default"
-		if extended {
-			name = "extended"
+		if includeOptional {
+			name = "includeOptional"
 		}
 		t.Run(name, func(t *testing.T) {
-			specs := TransitionListSpec.ForMode(extended)
-			model := TransitionPresenter{}.PresentList(transitions, extended)
+			specs := TransitionListSpec.ForMode(includeOptional)
+			model := TransitionPresenter{}.PresentList(transitions, includeOptional)
 			table := model.Sections[0].(*present.TableSection)
 
 			if len(table.Headers) != len(specs) {

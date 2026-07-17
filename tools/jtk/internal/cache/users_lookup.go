@@ -11,7 +11,7 @@ import (
 // expand is empty (default mode), falling back to a live GetUser call
 // otherwise.
 //
-// Non-empty expand (e.g., "groups,applicationRoles" for --extended) always
+// Non-empty expand (e.g., "groups,applicationRoles" for explicit --fields) always
 // goes live because the cache stores bulk-enumerated users without expanded
 // fields like group/applicationRole counts.
 //

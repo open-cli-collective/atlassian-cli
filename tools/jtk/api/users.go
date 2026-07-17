@@ -6,15 +6,15 @@ import (
 	"fmt"
 )
 
-// UserExtendedExpand is the canonical expand string that populates
-// `--extended` user output (Groups / Application Roles size blocks).
+// UserDetailExpand is the canonical expand string that populates
+// `explicit --fields` user output (Groups / Application Roles size blocks).
 // Callers pass this to GetCurrentUser / GetUser when they intend to render
-// extended fields; pass "" otherwise to avoid the wasted payload.
-const UserExtendedExpand = "groups,applicationRoles"
+// includeOptional fields; pass "" otherwise to avoid the wasted payload.
+const UserDetailExpand = "groups,applicationRoles"
 
 // GetCurrentUser returns the currently authenticated user. expand is passed
 // verbatim to ?expand= — callers decide which expansions they need. Use
-// UserExtendedExpand for --extended; "" for default / --id callers.
+// UserDetailExpand for explicit --fields; "" for default / --id callers.
 func (c *Client) GetCurrentUser(ctx context.Context, expand string) (*User, error) {
 	params := map[string]string{}
 	if expand != "" {
@@ -35,8 +35,8 @@ func (c *Client) GetCurrentUser(ctx context.Context, expand string) (*User, erro
 }
 
 // GetUser returns a user by their account ID. expand is passed verbatim to
-// ?expand= — callers supply their intent. Use UserExtendedExpand for
-// --extended output; "" for default/--id where the Size blocks would be
+// ?expand= — callers supply their intent. Use UserDetailExpand for
+// explicit --fields output; "" for default/--id where the Size blocks would be
 // discarded. timeZone / locale on the returned user may be empty on
 // instances that redact other-user personal information — presenters render
 // them as `-` in that case.

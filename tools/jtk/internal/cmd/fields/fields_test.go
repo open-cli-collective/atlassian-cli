@@ -174,45 +174,6 @@ func TestRunList_IDOnly_Empty(t *testing.T) {
 	testutil.Equal(t, stdout.String(), "")
 }
 
-func TestRunList_Extended_ColumnOrder(t *testing.T) {
-	t.Cleanup(cache.SetRootForTest(t.TempDir()))
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_ = json.NewEncoder(w).Encode([]api.Field{
-			{
-				ID:          "summary",
-				Name:        "Summary",
-				Schema:      api.FieldSchema{Type: "string"},
-				Searchable:  true,
-				Navigable:   true,
-				Orderable:   true,
-				ClauseNames: []string{"summary"},
-			},
-		})
-	}))
-	defer server.Close()
-
-	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
-	testutil.RequireNoError(t, err)
-
-	var stdout bytes.Buffer
-	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}, Extended: true}
-	opts.SetAPIClient(client)
-
-	err = runList(context.Background(), opts, false, "")
-	testutil.RequireNoError(t, err)
-
-	lines := strings.Split(strings.TrimSpace(stdout.String()), "\n")
-	testutil.True(t, len(lines) >= 2, "expected header + data row")
-	cols := strings.Split(lines[1], " | ")
-	testutil.Equal(t, cols[0], "summary")
-	testutil.Equal(t, cols[1], "string")
-	testutil.Equal(t, cols[2], "yes")
-	testutil.Equal(t, cols[3], "yes")
-	testutil.Equal(t, cols[4], "yes")
-	testutil.Equal(t, cols[5], "summary")
-	testutil.Equal(t, cols[6], "Summary")
-}
-
 func TestRunList_Empty(t *testing.T) {
 	t.Cleanup(cache.SetRootForTest(t.TempDir()))
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -299,29 +260,6 @@ func TestRunList_NameFilter_NoMatch(t *testing.T) {
 	err = runList(context.Background(), opts, false, "nonexistent")
 	testutil.RequireNoError(t, err)
 	testutil.Contains(t, stdout.String(), "No fields found")
-}
-
-func TestRunList_NameFilter_Extended(t *testing.T) {
-	t.Cleanup(cache.SetRootForTest(t.TempDir()))
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_ = json.NewEncoder(w).Encode([]api.Field{
-			{ID: "summary", Name: "Summary", Schema: api.FieldSchema{Type: "string"}},
-			{ID: "customfield_10016", Name: "Story Points", Custom: true, Schema: api.FieldSchema{Type: "number"}},
-		})
-	}))
-	defer server.Close()
-
-	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
-	testutil.RequireNoError(t, err)
-
-	var stdout bytes.Buffer
-	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
-	opts.SetAPIClient(client)
-
-	err = runList(context.Background(), opts, false, "story")
-	testutil.RequireNoError(t, err)
-	testutil.Contains(t, stdout.String(), "Story Points")
-	testutil.NotContains(t, stdout.String(), "Summary")
 }
 
 func TestRunList_NameFilter_WithCustom(t *testing.T) {

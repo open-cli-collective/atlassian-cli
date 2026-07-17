@@ -161,40 +161,6 @@ func TestRunList_Empty(t *testing.T) {
 	testutil.Contains(t, stdout.String(), "No dashboards found")
 }
 
-func TestRunList_Extended(t *testing.T) {
-	dashboards := []api.Dashboard{
-		{
-			ID:          "10001",
-			Name:        "Sprint Board",
-			Owner:       &api.User{DisplayName: "Alice"},
-			IsFavourite: true,
-			Popularity:  7,
-			SharePerm:   []api.SharePerm{{Type: "group", Group: &api.SharePermGroup{Name: "developers"}}},
-		},
-	}
-	gadgets := map[string][]api.DashboardGadget{
-		"10001": {{ID: 1}, {ID: 2}, {ID: 3}},
-	}
-	server := newListTestServer(t, dashboards, gadgets)
-	defer server.Close()
-
-	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
-	testutil.RequireNoError(t, err)
-
-	var stdout bytes.Buffer
-	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}, Extended: true}
-	opts.SetAPIClient(client)
-
-	err = runList(context.Background(), opts, "", 50)
-	testutil.RequireNoError(t, err)
-
-	out := stdout.String()
-	testutil.Contains(t, out, "RANK")
-	testutil.Contains(t, out, "PERMISSIONS")
-	testutil.Contains(t, out, "group:developers")
-	testutil.Contains(t, out, "7")
-}
-
 func TestRunList_GadgetFetchFails(t *testing.T) {
 	dashboards := []api.Dashboard{
 		{ID: "10001", Name: "Board"},
@@ -233,25 +199,6 @@ func TestRunList_GadgetFetchFails(t *testing.T) {
 	cols := strings.Split(lines[1], " | ")
 	testutil.True(t, len(cols) >= 2, "expected at least 2 columns in data row")
 	testutil.Equal(t, cols[1], "-")
-}
-
-func TestRunList_IDTakesPrecedenceOverExtended(t *testing.T) {
-	dashboards := []api.Dashboard{
-		{ID: "10001", Name: "Board", Popularity: 5},
-	}
-	server := newListTestServer(t, dashboards, nil)
-	defer server.Close()
-
-	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
-	testutil.RequireNoError(t, err)
-
-	var stdout bytes.Buffer
-	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}, IDOnly: true, Extended: true}
-	opts.SetAPIClient(client)
-
-	err = runList(context.Background(), opts, "", 50)
-	testutil.RequireNoError(t, err)
-	testutil.Equal(t, stdout.String(), "10001\n")
 }
 
 func TestRunList_Search(t *testing.T) {
@@ -718,4 +665,14 @@ func TestNewListCmd_MaxFlagShape(t *testing.T) {
 	testutil.NotNil(t, maxFlag)
 	testutil.Equal(t, maxFlag.Shorthand, "m")
 	testutil.Equal(t, maxFlag.DefValue, "50")
+}
+
+func TestListRejectsNonPositiveMax(t *testing.T) {
+	for _, maxResults := range []string{"0", "-1"} {
+		cmd := newListCmd(&root.Options{})
+		cmd.SetArgs([]string{"--max", maxResults})
+		err := cmd.Execute()
+		testutil.Error(t, err)
+		testutil.Contains(t, err.Error(), "--max must be greater than zero")
+	}
 }

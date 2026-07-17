@@ -73,7 +73,7 @@ func TestSprintPresenter_PresentDetail_Extended(t *testing.T) {
 	p := SprintPresenter{}
 	model := p.PresentDetail(sprint, board, true)
 
-	// Extended: title + state/timestamps + board + goal + origin board = 5 sections
+	// Optional: title + state/timestamps + board + goal + origin board = 5 sections
 	if len(model.Sections) != 5 {
 		t.Fatalf("expected 5 sections, got %d", len(model.Sections))
 	}
@@ -128,7 +128,7 @@ func TestSprintPresenter_PresentDetail_MinimalFields(t *testing.T) {
 
 func TestSprintPresenter_PresentDetail_ExtendedStableRows(t *testing.T) {
 	t.Parallel()
-	// Extended output must always have the same row count regardless of data
+	// Optional output must always have the same row count regardless of data
 	sprint := &api.Sprint{
 		ID:    1,
 		Name:  "Backlog",
@@ -139,7 +139,7 @@ func TestSprintPresenter_PresentDetail_ExtendedStableRows(t *testing.T) {
 	p := SprintPresenter{}
 	model := p.PresentDetail(sprint, board, true)
 
-	// Extended: title + state/timestamps + board + goal + origin board = 5 sections
+	// Optional: title + state/timestamps + board + goal + origin board = 5 sections
 	if len(model.Sections) != 5 {
 		t.Fatalf("expected 5 sections even with empty goal/origin, got %d", len(model.Sections))
 	}

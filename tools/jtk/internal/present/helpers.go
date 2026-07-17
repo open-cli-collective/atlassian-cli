@@ -122,7 +122,7 @@ func PresentOptionalBool(b *bool) string {
 }
 
 // PresentOptionalCount renders a *api.UserCountBlock's Size as a decimal, or
-// "-" when the block is nil. Used for `--extended` user output rows where
+// "-" when the block is nil. Used for `explicit --fields` user output rows where
 // Groups and ApplicationRoles come back expanded or not at all.
 func PresentOptionalCount(b *api.UserCountBlock) string {
 	if b == nil {

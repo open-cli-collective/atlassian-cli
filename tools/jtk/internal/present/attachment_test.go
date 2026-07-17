@@ -19,14 +19,14 @@ func TestAttachmentListSpec_MatchesPresentListHeaders(t *testing.T) {
 		Author:   api.User{DisplayName: "Alice"},
 	}}
 
-	for _, extended := range []bool{false, true} {
+	for _, includeOptional := range []bool{false, true} {
 		name := "default"
-		if extended {
-			name = "extended"
+		if includeOptional {
+			name = "includeOptional"
 		}
 		t.Run(name, func(t *testing.T) {
-			specs := AttachmentListSpec.ForMode(extended)
-			model := AttachmentPresenter{}.PresentList(attachments, extended)
+			specs := AttachmentListSpec.ForMode(includeOptional)
+			model := AttachmentPresenter{}.PresentList(attachments, includeOptional)
 			table := model.Sections[0].(*present.TableSection)
 
 			if len(table.Headers) != len(specs) {

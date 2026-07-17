@@ -54,7 +54,7 @@ func runRestore(ctx context.Context, opts *root.Options, keyOrID string) error {
 			if err != nil {
 				return nil, err
 			}
-			return jtkpresent.ProjectPresenter{}.PresentProjectDetail(fetched, opts.IsExtended()), nil
+			return jtkpresent.ProjectPresenter{}.PresentProjectDetail(fetched, false), nil
 		},
 		Fallback: func(id string) *present.OutputModel {
 			return jtkpresent.ProjectPresenter{}.PresentRestored(id, restoredName)

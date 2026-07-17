@@ -2,14 +2,11 @@ package issues
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
-
-	"github.com/open-cli-collective/atlassian-go/present"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
@@ -23,7 +20,6 @@ func newListCmd(opts *root.Options) *cobra.Command {
 	var sprint string
 	var maxResults int
 	var nextPageToken string
-	var allFields bool
 	var fieldsFlag string
 
 	cmd := &cobra.Command{
@@ -35,35 +31,32 @@ func newListCmd(opts *root.Options) *cobra.Command {
   jtk issues list --project "Platform Development" --sprint "MON Sprint 70"
   jtk issues list --project MYPROJECT --sprint current
 
-  # Get up to 200 results (auto-paginates)
-  jtk issues list --project MYPROJECT --max 200
+  # Request one page of up to 100 results
+  jtk issues list --project MYPROJECT --max 100
 
   # Resume from a previous page token
   jtk issues list --project MYPROJECT --next-page-token <token>
-
-  # List with all fields (includes description)
-  jtk issues list --project MYPROJECT --all-fields
-
   # Project display columns — headers, Jira field IDs, or human names
   jtk issues list --project MYPROJECT --fields SUMMARY,STATUS
   jtk issues list --project MYPROJECT --fields "Issue Type"`,
+		Args: func(_ *cobra.Command, _ []string) error {
+			return jtkpresent.ValidateMaxAtMost(maxResults, 100)
+		},
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runList(cmd.Context(), opts, project, sprint, maxResults, nextPageToken, allFields, fieldsFlag)
+			return runList(cmd.Context(), opts, project, sprint, maxResults, nextPageToken, fieldsFlag)
 		},
 	}
 
 	cmd.Flags().StringVarP(&project, "project", "p", "", "Filter by project key or name")
-	cmd.Flags().StringVarP(&sprint, "sprint", "s", "", "Filter by sprint name, numeric ID, or 'current'")
-	cmd.Flags().IntVarP(&maxResults, "max", "m", 50, "Maximum number of results to return")
+	cmd.Flags().StringVarP(&sprint, "sprint", "s", "", "Filter by unique sprint name, numeric ID, or 'current'")
+	cmd.Flags().IntVarP(&maxResults, "max", "m", 50, "Page size (maximum 100)")
 	cmd.Flags().StringVar(&nextPageToken, "next-page-token", "", "Token for next page of results")
-	cmd.Flags().BoolVar(&allFields, "all-fields", false, "Include all fields (e.g. description)")
-	_ = cmd.Flags().MarkDeprecated("all-fields", "use --fields description instead")
 	cmd.Flags().StringVar(&fieldsFlag, "fields", "", "Comma-separated display columns (headers, Jira field IDs, or human names)")
 
 	return cmd
 }
 
-func runList(ctx context.Context, opts *root.Options, project, sprint string, maxResults int, nextPageToken string, allFields bool, fieldsFlag string) error {
+func runList(ctx context.Context, opts *root.Options, project, sprint string, maxResults int, nextPageToken, fieldsFlag string) error {
 	client, err := opts.APIClient()
 	if err != nil {
 		return err
@@ -82,7 +75,6 @@ func runList(ctx context.Context, opts *root.Options, project, sprint string, ma
 		selected, projected, err = projection.Resolve(
 			ctx,
 			jtkpresent.IssueListSpec,
-			opts.IsExtended(),
 			fieldsFlag,
 			fieldsFetcher(client),
 			"issues list",
@@ -107,12 +99,9 @@ func runList(ctx context.Context, opts *root.Options, project, sprint string, ma
 	}
 
 	if sprint != "" {
-		sprintClause, warning, err := buildSprintClause(ctx, resolver, sprint)
+		sprintClause, err := buildSprintClause(ctx, resolver, sprint)
 		if err != nil {
 			return err
-		}
-		if warning != nil {
-			_ = jtkpresent.Emit(opts, emitSprintWarning(warning))
 		}
 		if jql != "" {
 			jql += " AND " + sprintClause
@@ -127,7 +116,7 @@ func runList(ctx context.Context, opts *root.Options, project, sprint string, ma
 		jql += " ORDER BY updated DESC"
 	}
 
-	fields := deriveFetchFields(selected, projected, opts.IsExtended(), allFields)
+	fields := deriveFetchFields(selected, projected)
 
 	result, err := client.SearchPage(ctx, api.SearchPageOptions{
 		JQL:           jql,
@@ -157,7 +146,7 @@ func runList(ctx context.Context, opts *root.Options, project, sprint string, ma
 		return jtkpresent.Emit(opts, jtkpresent.IssuePresenter{}.PresentEmpty())
 	}
 
-	model := jtkpresent.IssuePresenter{}.PresentListWithPagination(result.Issues, opts.IsExtended(), hasMore, nextToken)
+	model := jtkpresent.IssuePresenter{}.PresentListWithPagination(result.Issues, projection.HasOptionalFields(selected, jtkpresent.IssueListSpec), hasMore, nextToken)
 	if projected {
 		jtkpresent.AppendDynamicTableColumns(model, result.Issues, projection.DynamicSpecs(selected))
 		projection.ApplyToTableInModel(model, selected)
@@ -165,80 +154,30 @@ func runList(ctx context.Context, opts *root.Options, project, sprint string, ma
 	return jtkpresent.Emit(opts, model)
 }
 
-type sprintWarningKind int
-
-const (
-	sprintWarningAmbiguity sprintWarningKind = iota
-	sprintWarningCacheMiss
-	sprintWarningResolverError
-	sprintWarningSynthetic
-)
-
-type sprintWarning struct {
-	Kind       sprintWarningKind
-	SprintName string
-	Err        error
-}
-
-// emitSprintWarning maps a sprintWarning to the appropriate presenter method.
-func emitSprintWarning(w *sprintWarning) *present.OutputModel {
-	p := jtkpresent.SprintPresenter{}
-	switch w.Kind {
-	case sprintWarningAmbiguity:
-		return p.PresentResolutionAmbiguity(w.SprintName)
-	case sprintWarningCacheMiss:
-		return p.PresentResolutionCacheMiss(w.SprintName)
-	case sprintWarningResolverError:
-		return p.PresentResolutionError(w.SprintName, w.Err)
-	case sprintWarningSynthetic:
-		return p.PresentResolutionSynthetic(w.SprintName)
-	default:
-		panic(fmt.Sprintf("unhandled sprintWarningKind %d", w.Kind))
-	}
-}
-
 // buildSprintClause builds the JQL `sprint` clause. Rules:
 //
 //   - "current" → sprint in openSprints()
 //   - numeric input → sprint = <N> (passed straight through, no cache hit
 //     needed to validate; Jira rejects bad IDs)
-//   - name input → try the resolver for a canonical ID; on ambiguity or
-//     not-found, fall through to a quoted name clause so Jira's own JQL
-//     engine can resolve it (the pre-resolver behavior). The resolver's
-//     global unique-match requirement is too strict for JQL — names that
-//     repeat across boards are legal JQL targets and Jira handles them
-//     natively in the project/board context.
-//
-// Returns structured warning metadata when a fallback fires; the caller
-// maps it to the appropriate presenter method.
-func buildSprintClause(ctx context.Context, resolver *resolve.Resolver, sprint string) (string, *sprintWarning, error) {
+//   - name input → resolve one canonical ID or fail closed.
+func buildSprintClause(ctx context.Context, resolver *resolve.Resolver, sprint string) (string, error) {
 	if sprint == "current" {
-		return "sprint in openSprints()", nil, nil
+		return "sprint in openSprints()", nil
 	}
 	if n, err := strconv.Atoi(sprint); err == nil {
 		if n <= 0 {
-			return "", nil, fmt.Errorf("--sprint numeric ID must be positive (got %s)", sprint)
+			return "", fmt.Errorf("--sprint numeric ID must be positive (got %s)", sprint)
 		}
-		return fmt.Sprintf("sprint = %d", n), nil, nil
+		return fmt.Sprintf("sprint = %d", n), nil
 	}
 	resolved, err := resolver.Sprint(ctx, sprint, 0)
-	if err == nil && resolved.ID != 0 {
-		return fmt.Sprintf("sprint = %d", resolved.ID), nil, nil
+	if err != nil {
+		return "", fmt.Errorf("resolve sprint %q: %w; refresh the sprint cache or pass a numeric sprint ID", sprint, err)
 	}
-	var w *sprintWarning
-	var amb *resolve.AmbiguousMatchError
-	var nf *resolve.NotFoundError
-	switch {
-	case errors.As(err, &amb):
-		w = &sprintWarning{Kind: sprintWarningAmbiguity, SprintName: sprint}
-	case errors.As(err, &nf):
-		w = &sprintWarning{Kind: sprintWarningCacheMiss, SprintName: sprint}
-	case err != nil:
-		w = &sprintWarning{Kind: sprintWarningResolverError, SprintName: sprint, Err: err}
-	case resolved.ID == 0:
-		w = &sprintWarning{Kind: sprintWarningSynthetic, SprintName: sprint}
+	if resolved.ID == 0 {
+		return "", fmt.Errorf("resolve sprint %q: resolver returned no ID; refresh the sprint cache or pass a numeric sprint ID", sprint)
 	}
-	return fmt.Sprintf(`sprint = "%s"`, jqlEscape(sprint)), w, nil
+	return fmt.Sprintf("sprint = %d", resolved.ID), nil
 }
 
 // jqlEscape makes a string safe to embed between JQL double quotes. JQL

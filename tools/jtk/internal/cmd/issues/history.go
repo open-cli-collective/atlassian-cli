@@ -23,17 +23,21 @@ func newHistoryCmd(opts *root.Options) *cobra.Command {
 		Long:  "List Jira changelog history for an issue as compact changed-field rows.",
 		Example: `  jtk issues history PROJ-123
   jtk issues history PROJ-123 --id
-  jtk issues history PROJ-123 --extended
   jtk issues history PROJ-123 --fields CREATED,FIELD,TO
   jtk issues history PROJ-123 --max 1
   jtk issues history PROJ-123 --next-page-token 50`,
-		Args: cobra.ExactArgs(1),
+		Args: func(cmd *cobra.Command, args []string) error {
+			if err := cobra.ExactArgs(1)(cmd, args); err != nil {
+				return err
+			}
+			return jtkpresent.ValidateMax(maxResults)
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runHistory(cmd.Context(), opts, args[0], maxResults, nextPageToken, fieldsFlag)
 		},
 	}
 
-	cmd.Flags().IntVarP(&maxResults, "max", "m", 50, "Maximum number of history groups to return")
+	cmd.Flags().IntVarP(&maxResults, "max", "m", 50, "Page size")
 	cmd.Flags().StringVar(&nextPageToken, "next-page-token", "", "Token for next page of results")
 	cmd.Flags().StringVar(&fieldsFlag, "fields", "", "Comma-separated display columns")
 
@@ -53,7 +57,6 @@ func runHistory(ctx context.Context, opts *root.Options, issueKey string, maxRes
 		selected, projected, err = projection.Resolve(
 			ctx,
 			jtkpresent.IssueHistorySpec,
-			opts.IsExtended(),
 			fieldsFlag,
 			noIssueFieldsFetcher,
 			"issues history",
@@ -94,8 +97,7 @@ func runHistory(ctx context.Context, opts *root.Options, issueKey string, maxRes
 		return jtkpresent.Emit(opts, jtkpresent.IssueHistoryPresenter{}.PresentNoIssueHistory(issueKey))
 	}
 
-	fulltext := opts.IsFullText() || opts.IsExtended()
-	model := jtkpresent.IssueHistoryPresenter{}.PresentIssueHistoryWithPagination(rows, opts.IsExtended(), fulltext, hasMore, nextToken)
+	model := jtkpresent.IssueHistoryPresenter{}.PresentIssueHistoryWithPagination(rows, projection.HasOptionalFields(selected, jtkpresent.IssueHistorySpec), opts.IsFullText(), hasMore, nextToken)
 	if projected {
 		projection.ApplyToTableInModel(model, selected)
 	}

@@ -24,14 +24,14 @@ import (
 // ColumnSpec describes one display column (table) or field (detail) for
 // projection. Each registered spec knows its presentation header, any
 // user-facing aliases, the Jira field ID (if any) that drives it, and
-// whether it is the identity column (always retained) or an extended-only
-// column (only available when --extended is active).
+// whether it is the identity column (always retained) or an optional column
+// (available only when selected explicitly with --fields).
 type ColumnSpec struct {
 	Header   string
 	Aliases  []string
 	FieldID  string
 	Identity bool
-	Extended bool
+	Optional bool
 	// Fetch lists Jira field IDs required to render this column.
 	// When empty and FieldID is non-empty, [FieldID] is assumed.
 	// When empty and FieldID is empty, the column contributes nothing
@@ -59,22 +59,24 @@ func (c ColumnSpec) fetchFields() []string {
 // set for one entity/output shape. The order is the default display order.
 type Registry []ColumnSpec
 
-// ForMode returns the registry filtered to the active mode. When extended
-// is false, Extended specs are dropped.
-func (r Registry) ForMode(extended bool) Registry {
-	if extended {
-		out := make(Registry, len(r))
-		copy(out, r)
-		return out
-	}
+// Default returns the compact registry used when --fields is omitted.
+func (r Registry) Default() Registry {
 	out := make(Registry, 0, len(r))
 	for _, c := range r {
-		if c.Extended {
+		if c.Optional {
 			continue
 		}
 		out = append(out, c)
 	}
 	return out
+}
+
+// ForMode returns either the compact or complete registry.
+func (r Registry) ForMode(includeOptional bool) Registry {
+	if includeOptional {
+		return append(Registry(nil), r...)
+	}
+	return r.Default()
 }
 
 // Match looks up a ColumnSpec by token. Resolution order:

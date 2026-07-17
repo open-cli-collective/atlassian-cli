@@ -81,13 +81,13 @@ func TestIssuePresenter_PresentDetail_Extended(t *testing.T) {
 
 	rendered := renderMsgSections(model)
 	if !strings.Contains(rendered, "Status: In Progress") {
-		t.Errorf("expected status in extended output:\n%s", rendered)
+		t.Errorf("expected status in includeOptional output:\n%s", rendered)
 	}
 	if !strings.Contains(rendered, "Reporter: Bob") {
-		t.Errorf("expected reporter in extended output:\n%s", rendered)
+		t.Errorf("expected reporter in includeOptional output:\n%s", rendered)
 	}
 	if !strings.Contains(rendered, "Created:") {
-		t.Errorf("expected Created in extended output:\n%s", rendered)
+		t.Errorf("expected Created in includeOptional output:\n%s", rendered)
 	}
 }
 
@@ -227,7 +227,7 @@ func TestIssuePresenter_PresentTypes(t *testing.T) {
 }
 
 // TestIssueListSpec_MatchesPresentListHeaders locks the IssueListSpec default
-// headers against the hardcoded headers in PresentList(extended=false).
+// headers against the hardcoded headers in PresentList(includeOptional=false).
 func TestIssueListSpec_MatchesPresentListHeaders(t *testing.T) {
 	t.Parallel()
 	issues := []api.Issue{{Key: "PROJ-1", Fields: api.IssueFields{Summary: "x"}}}
@@ -247,8 +247,8 @@ func TestIssueListSpec_MatchesPresentListHeaders(t *testing.T) {
 	}
 }
 
-// TestIssueListSpec_ExtendedMatchesPresentListHeaders locks the extended spec
-// headers against PresentList(extended=true).
+// TestIssueListSpec_ExtendedMatchesPresentListHeaders locks the includeOptional spec
+// headers against PresentList(includeOptional=true).
 func TestIssueListSpec_ExtendedMatchesPresentListHeaders(t *testing.T) {
 	t.Parallel()
 	issues := []api.Issue{{Key: "PROJ-1", Fields: api.IssueFields{Summary: "x"}}}

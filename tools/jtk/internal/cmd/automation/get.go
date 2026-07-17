@@ -19,12 +19,10 @@ func newGetCmd(opts *root.Options) *cobra.Command {
 
 Shows rule identifier, name, state, components summary, and description.
 Use --show-components to see component type details.
-Use --extended for additional fields (labels, tags, author, scope, timestamps).
 
 For the exact JSON needed for editing, use 'jtk auto export' instead.`,
 		Example: `  jtk automation get 12345
-  jtk auto get 12345 --show-components
-  jtk auto get 12345 --extended`,
+  jtk auto get 12345 --show-components`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runGet(cmd.Context(), opts, args[0], showComponents)
@@ -52,19 +50,6 @@ func runGet(ctx context.Context, opts *root.Options, ruleID string, showComponen
 	}
 
 	presenter := jtkpresent.AutomationPresenter{}
-
-	if opts.IsExtended() {
-		authorName := ""
-		if rule.AuthorAccountID != "" {
-			user, err := client.GetUser(ctx, rule.AuthorAccountID, "")
-			if err == nil && user.DisplayName != "" {
-				authorName = user.DisplayName
-			} else {
-				authorName = rule.AuthorAccountID
-			}
-		}
-		return jtkpresent.Emit(opts, presenter.PresentGetDetailExtended(rule, showComponents, authorName))
-	}
 
 	return jtkpresent.Emit(opts, presenter.PresentGetDetail(rule, showComponents))
 }

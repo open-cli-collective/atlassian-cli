@@ -14,15 +14,15 @@ import (
 type LinkPresenter struct{}
 
 // LinkListSpec declares the columns emitted by PresentList. Default:
-// LINK_ID|TYPE|DIRECTION|ISSUE|SUMMARY. Extended:
+// LINK_ID|TYPE|DIRECTION|ISSUE|SUMMARY. Optional:
 // LINK_ID|TYPE_ID|TYPE|DIRECTION|ISSUE|STATUS|SUMMARY.
 var LinkListSpec = projection.Registry{
 	{Header: "LINK_ID", Identity: true},
-	{Header: "TYPE_ID", Extended: true},
+	{Header: "TYPE_ID", Optional: true},
 	{Header: "TYPE"},
 	{Header: "DIRECTION"},
 	{Header: "ISSUE"},
-	{Header: "STATUS", Extended: true},
+	{Header: "STATUS", Optional: true},
 	{Header: "SUMMARY"},
 }
 
@@ -34,11 +34,11 @@ var LinkTypesSpec = projection.Registry{
 	{Header: "OUTWARD"},
 }
 
-// PresentList creates a table presentation of issue links. Extended:
+// PresentList creates a table presentation of issue links. Optional:
 // LINK_ID|TYPE_ID|TYPE|DIRECTION|ISSUE|STATUS|SUMMARY.
-func (LinkPresenter) PresentList(links []api.IssueLink, extended bool) *present.OutputModel {
+func (LinkPresenter) PresentList(links []api.IssueLink, includeOptional bool) *present.OutputModel {
 	var headers []string
-	if extended {
+	if includeOptional {
 		headers = []string{"LINK_ID", "TYPE_ID", "TYPE", "DIRECTION", "ISSUE", "STATUS", "SUMMARY"}
 	} else {
 		headers = []string{"LINK_ID", "TYPE", "DIRECTION", "ISSUE", "SUMMARY"}
@@ -64,7 +64,7 @@ func (LinkPresenter) PresentList(links []api.IssueLink, extended bool) *present.
 			}
 		}
 
-		if extended {
+		if includeOptional {
 			rows[i] = present.Row{
 				Cells: []string{l.ID, OrDash(l.Type.ID), l.Type.Name, direction, key, OrDash(status), summary},
 			}

@@ -65,8 +65,8 @@ JTK and CFL both use text-first output. The `-o json` resource surface has been 
 
 **Text output modes:**
 - Default = focused output for human and agent consumption (defined per-command)
-- Tool-specific detail/inspection flags stay tool-local: `jtk` uses flags such as
-  `--extended`, `--id`, and `--fulltext`; `cfl` uses `--full` plus command-specific
+- Tool-specific detail/inspection flags stay tool-local: `jtk` uses `--fields`,
+  `--id`, and `--fulltext`; `cfl` uses `--full` plus command-specific
   flags documented in `tools/cfl/internal/cmd/OUTPUT_SPEC.md`
 
 ## Design Principles

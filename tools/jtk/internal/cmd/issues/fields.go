@@ -31,8 +31,6 @@ func newFieldsCmd(opts *root.Options) *cobra.Command {
   # Show only custom field values for an issue
   jtk issues fields PROJ-123 --custom-fields
 
-  # Extended output with searchable/navigable/orderable/clause names
-  jtk issues fields --extended
 
   # Emit only field IDs
   jtk issues fields --id`,
@@ -92,7 +90,7 @@ func runGlobalFields(ctx context.Context, opts *root.Options, client *api.Client
 		return jtkpresent.Emit(opts, jtkpresent.FieldPresenter{}.PresentEmpty())
 	}
 
-	model := jtkpresent.FieldPresenter{}.PresentList(fields, opts.IsExtended())
+	model := jtkpresent.FieldPresenter{}.PresentList(fields, false)
 	return jtkpresent.Emit(opts, model)
 }
 

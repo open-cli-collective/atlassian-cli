@@ -45,6 +45,16 @@ func TestNewListCmd(t *testing.T) {
 	testutil.Equal(t, maxFlag.DefValue, "50")
 }
 
+func TestListRejectsNonPositiveMax(t *testing.T) {
+	for _, maxResults := range []string{"0", "-1"} {
+		cmd := newListCmd(&root.Options{})
+		cmd.SetArgs([]string{"--max", maxResults})
+		err := cmd.Execute()
+		testutil.Error(t, err)
+		testutil.Contains(t, err.Error(), "--max must be greater than zero")
+	}
+}
+
 func TestRunList_DefaultColumnOrderMatchesSpec(t *testing.T) {
 	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -73,43 +83,6 @@ func TestRunList_DefaultColumnOrderMatchesSpec(t *testing.T) {
 	}
 }
 
-func TestRunList_Extended_MatchesSpecShape(t *testing.T) {
-	t.Parallel()
-	// Per #230: extended headers are KEY|TYPE|STYLE|LEAD|ISSUE_TYPES|
-	// COMPONENTS|NAME with ISSUE_TYPES rendered as comma-joined names and
-	// COMPONENTS as a count.
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_ = json.NewEncoder(w).Encode(api.ProjectSearchResponse{
-			Values: []api.ProjectDetail{
-				{
-					Key: "TST", Name: "Test", ProjectTypeKey: "software",
-					Lead:       &api.User{DisplayName: "Lead"},
-					Style:      "classic",
-					IssueTypes: []api.IssueType{{ID: "1", Name: "Epic"}, {ID: "2", Name: "SDLC"}},
-					Components: []api.Component{{ID: "c1", Name: "A"}, {ID: "c2", Name: "B"}},
-				},
-			},
-			Total: 1, IsLast: true,
-		})
-	}))
-	defer server.Close()
-
-	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
-	testutil.RequireNoError(t, err)
-
-	var stdout bytes.Buffer
-	opts := &root.Options{NoColor: true, Extended: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
-	opts.SetAPIClient(client)
-
-	testutil.RequireNoError(t, runList(context.Background(), opts, "", 50, "", ""))
-
-	want := "KEY | TYPE | STYLE | LEAD | ISSUE_TYPES | COMPONENTS | NAME\n" +
-		"TST | software | classic | Lead | Epic, SDLC | 2 | Test\n"
-	if stdout.String() != want {
-		t.Errorf("projects list --extended:\ngot:  %q\nwant: %q", stdout.String(), want)
-	}
-}
-
 func TestRunList_HasMore_EmbedsTokenInContinuationLine(t *testing.T) {
 	t.Parallel()
 	// Two projects, IsLast=false → token should advance to startAt=2.
@@ -127,12 +100,13 @@ func TestRunList_HasMore_EmbedsTokenInContinuationLine(t *testing.T) {
 	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
 	testutil.RequireNoError(t, err)
 
-	var stdout bytes.Buffer
-	opts := &root.Options{NoColor: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	var stdout, stderr bytes.Buffer
+	opts := &root.Options{NoColor: true, IDOnly: true, Stdout: &stdout, Stderr: &stderr}
 	opts.SetAPIClient(client)
 
 	testutil.RequireNoError(t, runList(context.Background(), opts, "", 2, "", ""))
-	testutil.Contains(t, stdout.String(), "More results available (next: 2)")
+	testutil.Equal(t, "A\nB\n", stdout.String())
+	testutil.Equal(t, "More results available (next: 2)\n", stderr.String())
 }
 
 func TestRunList_NextPageToken_AdvancesStartAt(t *testing.T) {
@@ -285,97 +259,6 @@ func TestRunGet_DefaultSpecShape(t *testing.T) {
 	}
 }
 
-func TestRunGet_Extended_EnumeratesComponentsAndFlags(t *testing.T) {
-	t.Parallel()
-	simplified := false
-	private := false
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_ = json.NewEncoder(w).Encode(api.ProjectDetail{
-			ID: json.Number("10001"), Key: "TST", Name: "Test",
-			ProjectTypeKey: "software", Style: "classic",
-			Lead:       &api.User{AccountID: "u1", DisplayName: "Lead"},
-			IssueTypes: []api.IssueType{{ID: "1", Name: "Epic"}},
-			Components: []api.Component{{ID: "c1", Name: "A"}, {ID: "c2", Name: "B"}},
-			Simplified: &simplified,
-			IsPrivate:  &private,
-		})
-	}))
-	defer server.Close()
-
-	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
-	testutil.RequireNoError(t, err)
-
-	var stdout bytes.Buffer
-	opts := &root.Options{NoColor: true, Extended: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
-	opts.SetAPIClient(client)
-
-	testutil.RequireNoError(t, runGet(context.Background(), opts, "TST", ""))
-
-	want := "TST  Test\n" +
-		"Type: software   Lead: Lead (u1)   Style: classic\n" +
-		"Issue Types: Epic (1)\n" +
-		"Components: 2\n" +
-		"  c1 | A\n" +
-		"  c2 | B\n" +
-		"Versions: 0\n" +
-		"Simplified: no   Private: no\n"
-	if stdout.String() != want {
-		t.Errorf("projects get --extended:\ngot:  %q\nwant: %q", stdout.String(), want)
-	}
-}
-
-func TestRunGet_Extended_ComponentListTruncatesAtLimit(t *testing.T) {
-	t.Parallel()
-	// The presenter has a unit test for the `... [N more]` truncation;
-	// this locks the same shape at the command layer so rendered output is
-	// covered end-to-end.
-	simplified := false
-	private := false
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_ = json.NewEncoder(w).Encode(api.ProjectDetail{
-			ID: json.Number("10001"), Key: "TST", Name: "Test",
-			ProjectTypeKey: "software", Style: "classic",
-			Lead:       &api.User{AccountID: "u1", DisplayName: "Lead"},
-			IssueTypes: []api.IssueType{{ID: "1", Name: "Epic"}},
-			Components: []api.Component{
-				{ID: "c1", Name: "A"},
-				{ID: "c2", Name: "B"},
-				{ID: "c3", Name: "C"},
-				{ID: "c4", Name: "D"},
-				{ID: "c5", Name: "E"},
-				{ID: "c6", Name: "F"},
-			},
-			Simplified: &simplified,
-			IsPrivate:  &private,
-		})
-	}))
-	defer server.Close()
-
-	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
-	testutil.RequireNoError(t, err)
-
-	var stdout bytes.Buffer
-	opts := &root.Options{NoColor: true, Extended: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
-	opts.SetAPIClient(client)
-
-	testutil.RequireNoError(t, runGet(context.Background(), opts, "TST", ""))
-
-	want := "TST  Test\n" +
-		"Type: software   Lead: Lead (u1)   Style: classic\n" +
-		"Issue Types: Epic (1)\n" +
-		"Components: 6\n" +
-		"  c1 | A\n" +
-		"  c2 | B\n" +
-		"  c3 | C\n" +
-		"  c4 | D\n" +
-		"  ... [2 more]\n" +
-		"Versions: 0\n" +
-		"Simplified: no   Private: no\n"
-	if stdout.String() != want {
-		t.Errorf("projects get --extended (>limit components):\ngot:  %q\nwant: %q", stdout.String(), want)
-	}
-}
-
 func TestRunGet_Default_IssueTypesRowPresentEvenWhenEmpty(t *testing.T) {
 	t.Parallel()
 	// Command-level Fix 2 regression. The reviewer's original finding was a
@@ -409,26 +292,6 @@ func TestRunGet_Default_IssueTypesRowPresentEvenWhenEmpty(t *testing.T) {
 	}
 }
 
-func TestRunGet_Extended_MissingFlagsRenderDashes(t *testing.T) {
-	t.Parallel()
-	// API response lacks simplified / isPrivate — presenters must not render
-	// literal "no" in either position.
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte(`{"id":"10001","key":"TST","name":"Test","projectTypeKey":"software","style":"classic","lead":{"displayName":"Lead"},"issueTypes":[],"components":[]}`))
-	}))
-	defer server.Close()
-
-	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
-	testutil.RequireNoError(t, err)
-
-	var stdout bytes.Buffer
-	opts := &root.Options{NoColor: true, Extended: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
-	opts.SetAPIClient(client)
-
-	testutil.RequireNoError(t, runGet(context.Background(), opts, "TST", ""))
-	testutil.Contains(t, stdout.String(), "Simplified: -   Private: -")
-}
-
 func TestRunGet_IDOnly(t *testing.T) {
 	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -442,7 +305,7 @@ func TestRunGet_IDOnly(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{IDOnly: true, Extended: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{IDOnly: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	testutil.RequireNoError(t, runGet(context.Background(), opts, "TST", "NAME"))
@@ -672,30 +535,6 @@ func TestRunTypes(t *testing.T) {
 	want := "KEY | NAME\nsoftware | Software\nbusiness | Business\n"
 	if stdout.String() != want {
 		t.Errorf("projects types default:\ngot:  %q\nwant: %q", stdout.String(), want)
-	}
-}
-
-func TestRunTypes_Extended_AddsDescriptionKey(t *testing.T) {
-	t.Parallel()
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_ = json.NewEncoder(w).Encode([]api.ProjectType{
-			{Key: "software", FormattedKey: "Software", DescriptionI18nKey: "jira.project.type.software.description"},
-		})
-	}))
-	defer server.Close()
-
-	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
-	testutil.RequireNoError(t, err)
-
-	var stdout bytes.Buffer
-	opts := &root.Options{NoColor: true, Extended: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
-	opts.SetAPIClient(client)
-
-	testutil.RequireNoError(t, runTypes(context.Background(), opts, ""))
-
-	want := "KEY | NAME | DESCRIPTION_KEY\nsoftware | Software | jira.project.type.software.description\n"
-	if stdout.String() != want {
-		t.Errorf("projects types --extended:\ngot:  %q\nwant: %q", stdout.String(), want)
 	}
 }
 

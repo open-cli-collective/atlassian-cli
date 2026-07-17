@@ -226,7 +226,7 @@ jtk fields list --custom-fields --id
 | 7 | `jtk projects get NONEXISTENT` | `resource not found: No project could be found with key 'NONEXISTENT'.` |
 | 8 | `jtk projects types` | Table: KEY, FORMATTED (e.g., software/Software) |
 | 9 | `jtk projects types --id` | Type keys only |
-| 10 | `jtk projects types --fields DESCRIPTION_KEY` | Projected columns: ID, DESCRIPTION_KEY |
+| 10 | `jtk projects types --fields DESCRIPTION_KEY` | Projected columns: KEY, DESCRIPTION_KEY |
 
 ---
 
@@ -287,7 +287,7 @@ jtk fields list --custom-fields --id
 |---|---------|-----------------|
 | 1 | `jtk links list $EXISTING_ISSUE` | Table: ID, TYPE, DIRECTION, ISSUE, SUMMARY (or `No links on $EXISTING_ISSUE`) |
 | 2 | `jtk links list $EXISTING_ISSUE --id` | Link IDs only |
-| 3 | `jtk links list $EXISTING_ISSUE --fields TYPE_ID,STATUS` | Projected columns: ID, TYPE_ID, STATUS |
+| 3 | `jtk links list $EXISTING_ISSUE --fields TYPE_ID,STATUS` | Projected columns: LINK_ID, TYPE_ID, STATUS |
 | 4 | `jtk links list ${PROJECT}-99999` | `resource not found: ...` |
 
 ---

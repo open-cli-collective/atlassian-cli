@@ -75,7 +75,7 @@ The output flags `--id`, `--fulltext`, and command-local `--fields` control how 
 
 - **`--id`** — emit only primary identifiers. Overrides `--fulltext`. The contract: machine-friendly output, one identifier per line, suitable for piping into `xargs`.
 - **`--fulltext`** — disable truncation of prose cells.
-- **`--fields <csv>`** — explicit column selection. Replaces the default set entirely. Accepts header labels, Jira field IDs, or human names; the flag handles input normalization.
+- **`--fields <csv>`** — explicit column selection. Replaces the default fields while retaining the primary identifier column. Accepts header labels, Jira field IDs, or human names; the flag handles input normalization.
 
 **Mental model:** there is a compact default set → `--fields` explicitly selects supported fields → `--id` short-circuits to identifiers only. `--fulltext` changes truncation only.
 

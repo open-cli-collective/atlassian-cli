@@ -176,8 +176,8 @@ ID | NAME | TO STATUS
 31 | In Development | In Development
 
 $ jtk transitions list MON-4810 --fields
-ID | NAME | TO STATUS | REQUIRED FIELDS
-21 | Done | Done | resolution
+ID | NAME | TO_STATUS | STATUS_CATEGORY | HAS_SCREEN | CONDITIONAL | REQUIRED_FIELDS
+21 | Done | Done | Done | no | no | resolution
 
 $ jtk automation list
 ID | STATE | NAME

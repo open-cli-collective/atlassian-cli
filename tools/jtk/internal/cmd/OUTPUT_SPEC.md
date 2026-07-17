@@ -25,11 +25,11 @@ This document declares `jtk` output shapes, flag semantics, and formatting conve
 | Identifier | `--id` | Emits only the primary identifier and takes precedence over `--fulltext`. |
 | Export | implicit on `automation export` | Round-trip JSON for business-rule import/export. |
 
-`transitions list --fields` is the exception: it is a Boolean flag, not a CSV projection. It fetches required transition fields and adds a `REQUIRED FIELDS` column:
+`transitions list --fields` is the exception: it is a Boolean flag, not a CSV projection. It fetches required transition fields and adds the optional columns:
 
 ```
-ID | NAME | TO STATUS | REQUIRED FIELDS
-21 | Done | Done | resolution
+ID | NAME | TO_STATUS | STATUS_CATEGORY | HAS_SCREEN | CONDITIONAL | REQUIRED_FIELDS
+21 | Done | Done | Done | no | no | resolution
 ```
 
 ## Formatting conventions

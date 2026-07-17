@@ -219,14 +219,14 @@ jtk fields list --custom-fields --id
 |---|---------|-----------------|
 | 1 | `jtk projects list --max 5` | Table: KEY, NAME, TYPE, LEAD |
 | 2 | `jtk projects list --max 5 --id` | Project keys only |
-| 3 | `jtk projects list --max 5 --fields STYLE,ISSUE_TYPES,COMPONENTS` | Extended table |
+| 3 | `jtk projects list --max 5 --fields STYLE,ISSUE_TYPES,COMPONENTS` | Projected columns: KEY, STYLE, ISSUE_TYPES, COMPONENTS |
 | 4 | `jtk projects get $PROJECT` | Detail: Key, Name, ID, Type, Lead, Issue Types |
 | 5 | `jtk projects get $PROJECT --id` | Project key only |
 | 6 | `jtk projects get $PROJECT --fields DESCRIPTION,LEAD_ID,ISSUE_TYPE_IDS,COMPONENT_IDS,SIMPLIFIED,PRIVATE` | Extended detail |
 | 7 | `jtk projects get NONEXISTENT` | `resource not found: No project could be found with key 'NONEXISTENT'.` |
 | 8 | `jtk projects types` | Table: KEY, FORMATTED (e.g., software/Software) |
 | 9 | `jtk projects types --id` | Type keys only |
-| 10 | `jtk projects types --fields DESCRIPTION_KEY` | Extended table |
+| 10 | `jtk projects types --fields DESCRIPTION_KEY` | Projected columns: ID, DESCRIPTION_KEY |
 
 ---
 
@@ -241,7 +241,7 @@ jtk fields list --custom-fields --id
 | 1 | `jtk boards list --max 5` | Table: ID, NAME, TYPE, PROJECT |
 | 2 | `jtk boards list -p $PROJECT` | Only boards for that project |
 | 3 | `jtk boards list --id` | Board IDs only |
-| 4 | `jtk boards list --fields PROJECT_NAME` | Extended table |
+| 4 | `jtk boards list --fields PROJECT_NAME` | Projected columns: ID, PROJECT_NAME |
 | 5 | `jtk boards get $BOARD_ID` | Detail: ID, Name, Type, Project |
 | 6 | `jtk boards get $BOARD_ID --fields FILTER,COLUMN_CONFIG` | Extended detail including `Filter: <name> (id: <id>)` |
 | 7 | `jtk boards get $BOARD_ID --id` | Board ID only |
@@ -253,7 +253,7 @@ jtk fields list --custom-fields --id
 |---|---------|-----------------|
 | 1 | `jtk sprints list -b $BOARD_ID -s active` | Table: ID, NAME, STATE, START, END. State = `active` |
 | 2 | `jtk sprints list -b $BOARD_ID -s active --id` | Sprint IDs only |
-| 3 | `jtk sprints list -b $BOARD_ID --fields COMPLETED,BOARD,GOAL` | Extended table with additional sprint details |
+| 3 | `jtk sprints list -b $BOARD_ID --fields COMPLETED,BOARD,GOAL` | Projected columns: ID, COMPLETED, BOARD, GOAL |
 | 4 | `jtk sprints current -b $BOARD_ID` | Current sprint detail: ID, Name, State, Start, End |
 | 5 | `jtk sprints current -b $BOARD_ID --id` | Current sprint ID only |
 | 6 | `jtk sprints current -b $BOARD_ID --fields GOAL` | Extended detail |
@@ -267,7 +267,7 @@ jtk fields list --custom-fields --id
 |---|---------|-----------------|
 | 1 | `jtk sprints issues $SPRINT_ID --max 3` | Table: KEY, SUMMARY, STATUS, ASSIGNEE, TYPE |
 | 2 | `jtk sprints issues $SPRINT_ID --max 3 --id` | Issue keys only |
-| 3 | `jtk sprints issues $SPRINT_ID --max 3 --fields REPORTER,SPRINT,PARENT,UPDATED,LABELS,COMPONENTS` | Extended table |
+| 3 | `jtk sprints issues $SPRINT_ID --max 3 --fields REPORTER,SPRINT,PARENT,UPDATED,LABELS,COMPONENTS` | Projected columns: KEY, REPORTER, SPRINT, PARENT, UPDATED, LABELS, COMPONENTS |
 | 4 | `jtk sprints issues 99999` | Error |
 
 ---
@@ -287,7 +287,7 @@ jtk fields list --custom-fields --id
 |---|---------|-----------------|
 | 1 | `jtk links list $EXISTING_ISSUE` | Table: ID, TYPE, DIRECTION, ISSUE, SUMMARY (or `No links on $EXISTING_ISSUE`) |
 | 2 | `jtk links list $EXISTING_ISSUE --id` | Link IDs only |
-| 3 | `jtk links list $EXISTING_ISSUE --fields TYPE_ID,STATUS` | Extended table |
+| 3 | `jtk links list $EXISTING_ISSUE --fields TYPE_ID,STATUS` | Projected columns: ID, TYPE_ID, STATUS |
 | 4 | `jtk links list ${PROJECT}-99999` | `resource not found: ...` |
 
 ---

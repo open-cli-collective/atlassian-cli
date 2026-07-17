@@ -289,7 +289,7 @@ jtk issues list --project MYPROJECT --fields summary,status,customfield_10005
 |------|-------|---------|-------------|
 | `--project` | `-p` | | Project key or name |
 | `--sprint` | `-s` | | Filter by sprint: sprint name, numeric ID, or `current` |
-| `--max` | `-m` | `50` | Page size (must be positive) |
+| `--max` | `-m` | `50` | Page size (must be 1-100 inclusive) |
 | `--fields` | | | Comma-separated display columns (headers, Jira field IDs, or human names) |
 | `--next-page-token` | | | Token for next page of results |
 
@@ -426,7 +426,7 @@ jtk issues search --jql "project = MYPROJECT" --fields summary,status
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
 | `--jql` | | | JQL query string (**required**) |
-| `--max` | `-m` | `50` | Page size (must be positive) |
+| `--max` | `-m` | `50` | Page size (must be 1-100 inclusive) |
 | `--fields` | | | Comma-separated display columns (headers, Jira field IDs, or human names) |
 | `--next-page-token` | | | Token for next page of results |
 

@@ -1224,7 +1224,7 @@ jtk automation export 123 > rule-backup.json
 **Arguments:**
 - `<rule-id>` - The rule ID (**required**)
 
-> Note: Output is always JSON — this is the only jtk command that emits JSON directly.
+> Note: Output is always JSON — this is the only resource command that emits JSON directly (the control-plane `set-credential --json` envelope is the other exception).
 > Invalid JSON returned by the API fails with empty stdout.
 
 ---

@@ -35,7 +35,7 @@ command to confirm effective configuration.`,
 }
 
 func runShow(opts *root.Options) error {
-	configPath := config.DefaultConfigPath()
+	configPath := opts.ResolvedConfigPath()
 
 	// Load config file (if exists)
 	fileCfg, fileErr := config.Load(configPath)

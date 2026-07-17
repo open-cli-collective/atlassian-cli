@@ -1,6 +1,6 @@
 # jtk output shapes
 
-`jtk` is text-first. It has no general output-format flag. Use `--id` for an identifier only, `--fields` to project supported fields while retaining the identifier, and `--fulltext` to disable text truncation. `automation export` is the only JSON-producing command; it is a round-trip payload, not an output mode.
+`jtk` is text-first. It has no general output-format flag. Use `--id` for an identifier only, `--fields` to project supported fields while retaining the identifier, and `--fulltext` to disable text truncation. `automation export` is the only resource command that emits JSON (a round-trip payload, not an output mode); the control-plane `set-credential --json` envelope is the sole other exception.
 
 The maintained command contract is [tools/jtk/internal/cmd/OUTPUT_SPEC.md](tools/jtk/internal/cmd/OUTPUT_SPEC.md). This reference shows the real shapes callers can expect.
 

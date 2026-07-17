@@ -23,7 +23,6 @@ The default Markdown body is truncated at 5000 chars. This also applies to ADF, 
 | "ADF", "Atlassian document format" | `cfl page view PAGE_ID --body-format adf` | Exact ADF JSON (subject to truncation) |
 | "show macros" | `cfl page view PAGE_ID --show-macros` | Preserve macro placeholders like `[TOC]` (subject to truncation) |
 | "open in browser", "open page" | `cfl page view PAGE_ID --web` | Opens in default browser |
-| "page as JSON" | `cfl page view PAGE_ID -o json` | Full JSON output (body always included in full — no truncation) |
 
 ### Finding Page IDs
 
@@ -32,7 +31,7 @@ If the user provides a page title instead of ID, search first:
 cfl search --title "Page Title" --type page --space KEY
 ```
 
-Then use the page ID from the results. For scripted extraction, add `-o json` — see SearchPages.md for the output structure.
+Then use the page ID from the results.
 
 If the user provides a Confluence URL instead of a page ID, see "Extracting Page IDs from URLs" in SKILL.md.
 
@@ -64,23 +63,6 @@ cfl page view PAGE_ID --web
 ### Macro Handling
 
 By default, Confluence macros (TOC, include, status, etc.) are stripped from the markdown output. If the page structure depends on macros, use `--show-macros` to preserve their placeholders (e.g. `[TOC]`) so the structure remains visible.
-
-## JSON Output Structure
-
-With `-o json`, the output has this structure:
-
-```json
-{
-  "id": "...",
-  "title": "...",
-  "spaceId": "...",
-  "spaceKey": "...",
-  "parentId": "...",
-  "content": "..."
-}
-```
-
-The `content` field holds the full storage-format XHTML with no truncation, regardless of `--no-truncate`. Version and timestamp fields are not included in this output — use the default table view if you need those.
 
 ## Output Format
 

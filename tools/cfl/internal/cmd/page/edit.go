@@ -129,11 +129,7 @@ func runEdit(ctx context.Context, opts *editOptions) error {
 		!hasContentSource(opts.Options, opts.file, opts.editor) {
 		return errMissingContentSource()
 	}
-	hasStdinData := opts.Stdin != nil && opts.Stdin != os.Stdin
-	if !hasStdinData {
-		stat, _ := os.Stdin.Stat()
-		hasStdinData = (stat.Mode() & os.ModeCharDevice) == 0
-	}
+	hasStdinData := (opts.Stdin != nil && opts.Stdin != os.Stdin) || hasPipedOSStdin(opts.Options)
 	hasNewContent := opts.file != "" || opts.editor || hasStdinData
 	var newBody *api.Body
 	if hasNewContent && !opts.editor {

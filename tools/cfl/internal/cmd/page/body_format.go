@@ -5,13 +5,14 @@ import (
 	"fmt"
 
 	"github.com/open-cli-collective/confluence-cli/api"
+	"github.com/open-cli-collective/confluence-cli/internal/pageview"
 	"github.com/open-cli-collective/confluence-cli/pkg/md"
 )
 
 const (
-	bodyFormatMarkdown = "markdown"
-	bodyFormatADF      = "adf"
-	bodyFormatXHTML    = "xhtml"
+	bodyFormatMarkdown = pageview.BodyFormatMarkdown
+	bodyFormatADF      = pageview.BodyFormatADF
+	bodyFormatXHTML    = pageview.BodyFormatXHTML
 )
 
 func resolveBodyFormat(value string, explicit bool) (string, error) {

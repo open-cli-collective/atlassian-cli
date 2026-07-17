@@ -24,7 +24,7 @@ cfl config test
 
 | Flag | Description |
 |------|-------------|
-| `-o, --output FORMAT` | Output format (see SKILL.md "Output Representation and Format"): `table` (default), `json`, `plain` |
+| `-o, --output FORMAT` | Output format (see SKILL.md "Output Representation and Format"): `table` (default), `plain` |
 | `--full` | Inspection-oriented representation (see SKILL.md). Not a content-truncation flag — for `page view` content truncation, use `--no-truncate`. |
 | `--no-color` | Disable colored output |
 | `-c, --config PATH` | Override config file location (default: `~/.config/cfl/config.yml`) |
@@ -47,7 +47,6 @@ cfl [resource] [action] [ID] [flags]
 | `cfl page view PAGE_ID --body-format adf` | View exact ADF JSON |
 | `cfl page view PAGE_ID --show-macros` | Show macro placeholders (e.g. `[TOC]`) instead of stripping them |
 | `cfl page view PAGE_ID --web` | Open page in browser |
-| `cfl page view PAGE_ID -o json` | Full JSON output (body always included in full) |
 | `cfl page create --space KEY --title "TEXT"` | Create page (opens editor) |
 | `cfl page create --space KEY --title "TEXT" --file content.md` | Create from file |
 | `cfl page create --space KEY --title "TEXT" --parent PAGE_ID` | Create as child page |
@@ -105,7 +104,7 @@ Storage-format round-trip (lossless — preserves macros and all formatting):
 - Modify the XHTML
 - Send it back with `cfl page edit PAGE_ID --body-format xhtml` (stdin or `--file`)
 
-See ViewPage.md for the JSON output structure and ManagePage.md for a full walkthrough.
+See ManagePage.md for a full walkthrough.
 
 Create from stdin:
 ```bash
@@ -200,7 +199,6 @@ echo "# Hello World" | cfl page create -s DEV -t "My Page"
 ## Output
 
 - Default representation: `agent`; default format: `table`. See SKILL.md "Output Representation and Format" for the full model.
-- Use `-o json` for machine-readable output (useful for scripting — e.g. extracting IDs from search results or storage-format body from a page)
-- Use `-o plain` for plain text
+- Use `-o plain` (TSV) for machine-readable output; JSON output was removed — parse the stable plain/table columns, or use `--body-format adf|xhtml` for exact page body representations
 - Use `--no-color` to disable colored output
 - Data goes to stdout (pipeable)

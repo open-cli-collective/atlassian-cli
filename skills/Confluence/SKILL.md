@@ -48,9 +48,9 @@ No defaults exist. Ask the user. Do not guess. If the user provides a Confluence
   - `agent` (default) — curated, action-oriented, LLM-optimized
   - `full` (`--full`) — inspection-oriented, additional fields (dates, authors, versions)
 - **Page body format** — `--body-format markdown|adf|xhtml` on page view/create/edit. Omission means Markdown; ADF and XHTML are exact.
-- **Output format** — how it's rendered: `table` (default), `json` (`-o json`), `plain` (`-o plain`)
+- **Output format** — how it's rendered: `table` (default), `plain` (`-o plain`). For scripted extraction, parse `ID: <id>` lines from command output.
 
-They combine freely — e.g., `--full -o json` returns the inspection representation as JSON.
+They combine freely — e.g., `--full -o plain` returns the inspection representation as TSV.
 
 ### Extracting Page IDs from URLs
 

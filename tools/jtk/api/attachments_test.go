@@ -3,6 +3,7 @@ package api //nolint:revive // package name is intentional
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -116,6 +117,91 @@ func TestGetIssueAttachments_EmptyIssueKey(t *testing.T) {
 	_, err := client.GetIssueAttachments(context.Background(), "")
 	testutil.Error(t, err)
 	testutil.Contains(t, err.Error(), "issue key is required")
+}
+
+func TestAddAttachment(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name            string
+		srcName         string // name of the temp file on disk
+		override        string // value passed as the filename argument
+		wantFilename    string // filename Jira should receive
+		wantContentType string // Content-Type of the multipart part
+	}{
+		{
+			name:            "derives name and detects image mime",
+			srcName:         "screenshot.png",
+			wantFilename:    "screenshot.png",
+			wantContentType: "image/png",
+		},
+		{
+			name:            "override renames and detects mime from override",
+			srcName:         "tmp-9f8a7b.png",
+			override:        "before.png",
+			wantFilename:    "before.png",
+			wantContentType: "image/png",
+		},
+		{
+			name:            "unknown extension falls back to octet-stream",
+			srcName:         "payload.bespoke",
+			wantFilename:    "payload.bespoke",
+			wantContentType: "application/octet-stream",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			content := []byte("attachment bytes")
+			var gotFilename, gotContentType string
+			var gotBody []byte
+
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				testutil.Equal(t, r.Method, http.MethodPost)
+				testutil.Equal(t, r.URL.Path, "/rest/api/3/issue/PROJ-1/attachments")
+				testutil.Equal(t, r.Header.Get("X-Atlassian-Token"), "no-check")
+
+				reader, err := r.MultipartReader()
+				testutil.RequireNoError(t, err)
+				part, err := reader.NextPart()
+				testutil.RequireNoError(t, err)
+				gotFilename = part.FileName()
+				gotContentType = part.Header.Get("Content-Type")
+				gotBody, _ = io.ReadAll(part)
+
+				w.WriteHeader(http.StatusOK)
+				_ = json.NewEncoder(w).Encode([]Attachment{{ID: "10001", Filename: gotFilename}})
+			}))
+			defer server.Close()
+
+			tmpDir := t.TempDir()
+			path := filepath.Join(tmpDir, tt.srcName)
+			testutil.RequireNoError(t, os.WriteFile(path, content, 0600))
+
+			client, err := New(ClientConfig{URL: server.URL, Email: "test@example.com", APIToken: "token"})
+			testutil.RequireNoError(t, err)
+
+			attachments, err := client.AddAttachment(context.Background(), "PROJ-1", path, tt.override)
+			testutil.RequireNoError(t, err)
+			testutil.Len(t, attachments, 1)
+			testutil.Equal(t, gotFilename, tt.wantFilename)
+			testutil.Equal(t, gotContentType, tt.wantContentType)
+			testutil.Equal(t, gotBody, content)
+		})
+	}
+}
+
+func TestAddAttachment_Validation(t *testing.T) {
+	t.Parallel()
+	client, _ := New(ClientConfig{URL: "http://unused", Email: "test@example.com", APIToken: "token"})
+
+	_, err := client.AddAttachment(context.Background(), "", "/tmp/file.png", "")
+	testutil.Error(t, err)
+	testutil.Contains(t, err.Error(), "issue key is required")
+
+	_, err = client.AddAttachment(context.Background(), "PROJ-1", "", "")
+	testutil.Error(t, err)
+	testutil.Contains(t, err.Error(), "file path is required")
 }
 
 func TestGetAttachment(t *testing.T) {

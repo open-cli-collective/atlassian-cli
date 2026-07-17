@@ -210,6 +210,11 @@ func TestNewAddCmd(t *testing.T) {
 	testutil.NotNil(t, fileFlag)
 	testutil.Equal(t, fileFlag.Shorthand, "F")
 
+	// --filename is an optional override and stays long-only.
+	filenameFlag := cmd.Flags().Lookup("filename")
+	testutil.NotNil(t, filenameFlag)
+	testutil.Equal(t, filenameFlag.Shorthand, "")
+
 	// -f must not resolve to a registered shorthand on this command.
 	testutil.Nil(t, cmd.Flags().ShorthandLookup("f"))
 	if err := cmd.ParseFlags([]string{"-f", "x.txt"}); err == nil {
@@ -250,7 +255,7 @@ func TestRunAdd_Success(t *testing.T) {
 	opts := &root.Options{NoColor: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runAdd(context.Background(), opts, "TEST-1", []string{tmpFile})
+	err = runAdd(context.Background(), opts, "TEST-1", []string{tmpFile}, "")
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()
@@ -293,10 +298,19 @@ func TestRunAdd_PartialFailure(t *testing.T) {
 	opts := &root.Options{NoColor: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runAdd(context.Background(), opts, "TEST-1", []string{good, bad})
+	err = runAdd(context.Background(), opts, "TEST-1", []string{good, bad}, "")
 	testutil.RequireError(t, err)
 	testutil.Contains(t, stdout.String(), "good.txt")
 	testutil.Contains(t, stdout.String(), "10001")
+}
+
+func TestRunAdd_FilenameRequiresSingleFile(t *testing.T) {
+	t.Parallel()
+	opts := &root.Options{Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
+
+	err := runAdd(context.Background(), opts, "TEST-1", []string{"a.txt", "b.txt"}, "renamed.txt")
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "single --file")
 }
 
 func TestRunAdd_IDOnly(t *testing.T) {
@@ -320,7 +334,7 @@ func TestRunAdd_IDOnly(t *testing.T) {
 	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}, IDOnly: true}
 	opts.SetAPIClient(client)
 
-	err = runAdd(context.Background(), opts, "TEST-1", []string{f})
+	err = runAdd(context.Background(), opts, "TEST-1", []string{f}, "")
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, stdout.String(), "10001\n")
 }

@@ -36,8 +36,9 @@ type Options struct {
 	testClient *api.Client
 
 	// cachedConfig stores loaded config for reuse
-	cachedConfig  *config.Config
-	tokenResolved bool
+	cachedConfig   *config.Config
+	tokenResolved  bool
+	configExplicit bool
 }
 
 // View returns a configured View instance.
@@ -117,7 +118,7 @@ func (o *Options) loadConfig() (*config.Config, error) {
 	}
 	// Defer token resolution until after PersistentPreRunE wires the
 	// backend selected by this same config.
-	cfg, err := config.LoadWithEnv(o.ResolvedConfigPath(), false)
+	cfg, err := config.LoadWithEnv(o.ResolvedConfigPath(), false, !o.configExplicit)
 	if err != nil {
 		return nil, err
 	}
@@ -184,6 +185,7 @@ Get started by running: cfl init`,
 			if opts.Full && !supportsFull(cmd) {
 				return fmt.Errorf("--full is not supported for %s", cmd.CommandPath())
 			}
+			opts.configExplicit = cmd.Flags().Changed("config")
 			cfg, err := opts.loadConfig()
 			if err != nil {
 				return err

@@ -247,7 +247,7 @@ func TestRunView_ExactOutput_Raw(t *testing.T) {
 	testutil.Equal(t, "", rootOpts.Stderr.(*bytes.Buffer).String())
 }
 
-func TestRunView_ExactOutput_RawContentOnly_NoTruncate(t *testing.T) {
+func TestRunView_ExactXHTMLBypassesTruncation(t *testing.T) {
 	t.Parallel()
 
 	content := "<p>" + strings.Repeat("a", maxViewChars+10) + "</p>"
@@ -267,15 +267,35 @@ func TestRunView_ExactOutput_RawContentOnly_NoTruncate(t *testing.T) {
 	rootOpts.SetAPIClient(api.NewClient(server.URL, "test@example.com", "token"))
 
 	err := runView(context.Background(), "12345", &viewOptions{
-		Options:     rootOpts,
-		bodyFormat:  bodyFormatXHTML,
-		contentOnly: true,
-		noTruncate:  true,
+		Options:    rootOpts,
+		bodyFormat: bodyFormatXHTML,
 	})
 	testutil.RequireNoError(t, err)
 
-	testutil.Equal(t, content+"\n", rootOpts.Stdout.(*bytes.Buffer).String())
+	testutil.Equal(t, "Title: Long Page\nID: 12345\nVersion: 1\n\n"+content+"\n", rootOpts.Stdout.(*bytes.Buffer).String())
 	testutil.Equal(t, "", rootOpts.Stderr.(*bytes.Buffer).String())
+}
+
+func TestRunView_ExactADFBypassesTruncation(t *testing.T) {
+	t.Parallel()
+
+	content := `{"type":"doc","version":1,"content":[{"type":"paragraph","content":[{"type":"text","text":"` + strings.Repeat("a", maxViewChars) + `"}]}]}`
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(api.Page{
+			ID: "12345", Title: "Long ADF Page", Version: &api.Version{Number: 1},
+			Body: &api.Body{AtlasDocFormat: &api.BodyRepresentation{Representation: "atlas_doc_format", Value: content}},
+		})
+	}))
+	defer server.Close()
+
+	rootOpts := newViewTestRootOptions()
+	rootOpts.SetAPIClient(api.NewClient(server.URL, "test@example.com", "token"))
+	testutil.RequireNoError(t, runView(context.Background(), "12345", &viewOptions{Options: rootOpts, bodyFormat: bodyFormatADF}))
+
+	_, body, found := strings.Cut(rootOpts.Stdout.(*bytes.Buffer).String(), "\n\n")
+	testutil.True(t, found)
+	testutil.Equal(t, content+"\n", body)
+	testutil.True(t, json.Valid([]byte(body)))
 }
 
 func TestRunView_ExactEmptyContentOnly(t *testing.T) {
@@ -758,7 +778,7 @@ func TestRunView_VersionNewerThanCurrent_PreservesVersionContext(t *testing.T) {
 	testutil.NotContains(t, err.Error(), "getting page: page version")
 }
 
-func TestRunView_VersionTruncatesByDefault(t *testing.T) {
+func TestRunView_VersionMarkdownTruncatesByDefault(t *testing.T) {
 	t.Parallel()
 	server := mockVersionedViewServer(t, "<p>"+strings.Repeat("a", maxViewChars+10)+"</p>")
 	defer server.Close()
@@ -767,14 +787,14 @@ func TestRunView_VersionTruncatesByDefault(t *testing.T) {
 	rootOpts.SetAPIClient(api.NewClient(server.URL, "test@example.com", "token"))
 
 	opts := &viewOptions{
-		Options:    rootOpts,
-		version:    2,
-		bodyFormat: bodyFormatXHTML,
+		Options: rootOpts,
+		version: 2,
 	}
 
 	err := runView(context.Background(), "12345", opts)
 	testutil.RequireNoError(t, err)
-	testutil.Contains(t, rootOpts.Stdout.(*bytes.Buffer).String(), "truncated at")
+	stdout := rootOpts.Stdout.(*bytes.Buffer).String()
+	testutil.Contains(t, stdout, "truncated at")
 }
 
 func TestRunView_VersionNoTruncate(t *testing.T) {

@@ -1,6 +1,7 @@
 package pageview
 
 import (
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -96,4 +97,35 @@ func TestTruncateContent(t *testing.T) {
 	full, fullTruncated := TruncateContent(long, Options{ContentOnly: true})
 	testutil.Equal(t, long, full)
 	testutil.False(t, fullTruncated)
+
+	for _, format := range []string{BodyFormatADF, BodyFormatXHTML} {
+		full, fullTruncated = TruncateContent(long, Options{BodyFormat: format})
+		testutil.Equal(t, long, full)
+		testutil.False(t, fullTruncated)
+	}
+}
+
+func TestProject_ExactLargeBodiesBypassTruncation(t *testing.T) {
+	t.Parallel()
+
+	adf := `{"type":"doc","version":1,"content":[{"type":"paragraph","content":[{"type":"text","text":"` + strings.Repeat("a", MaxChars) + `"}]}]}`
+	xhtml := "<p>" + strings.Repeat("a", MaxChars+10) + "</p>"
+	for _, tt := range []struct {
+		name   string
+		format string
+		body   *api.Body
+	}{
+		{"ADF", BodyFormatADF, &api.Body{AtlasDocFormat: &api.BodyRepresentation{Value: adf}}},
+		{"XHTML", BodyFormatXHTML, &api.Body{Storage: &api.BodyRepresentation{Value: xhtml}}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			proj, err := Project(&api.Page{Body: tt.body}, "", Options{BodyFormat: tt.format})
+			testutil.RequireNoError(t, err)
+			testutil.False(t, proj.Truncated)
+			if tt.format == BodyFormatADF {
+				testutil.True(t, json.Valid([]byte(proj.Body)))
+			}
+		})
+	}
 }

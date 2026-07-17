@@ -78,9 +78,9 @@ cfl [resource] [action] [ID] [flags]
 
 | Flag | Description |
 |------|-------------|
-| `--no-truncate` | Show full content without truncation |
+| `--no-truncate` | Show full Markdown content without truncation; exact ADF/XHTML are always complete |
 | `--content-only` | Output only page content (no metadata headers); implies `--no-truncate` |
-| `--body-format markdown\|adf\|xhtml` | Body representation; ADF and XHTML are emitted exactly |
+| `--body-format markdown\|adf\|xhtml` | Body representation; ADF and XHTML are emitted exactly and never truncated |
 | `--show-macros` | Show macro placeholders (e.g. `[TOC]`) instead of stripping them |
 | `-w, --web` | Open in browser |
 

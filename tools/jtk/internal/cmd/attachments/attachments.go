@@ -44,7 +44,6 @@ func newListCmd(opts *root.Options) *cobra.Command {
 		Long:    "List all attachments on a Jira issue.",
 		Example: `  # List attachments
   jtk attachments list PROJ-123
-  jtk attachments list PROJ-123 --extended
   jtk attachments list PROJ-123 --id`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -67,7 +66,6 @@ func runList(ctx context.Context, opts *root.Options, issueKey, fieldsFlag strin
 		selected, projected, err = projection.Resolve(
 			ctx,
 			jtkpresent.AttachmentListSpec,
-			opts.IsExtended(),
 			fieldsFlag,
 			noFieldFetch,
 			"attachments list",
@@ -99,7 +97,7 @@ func runList(ctx context.Context, opts *root.Options, issueKey, fieldsFlag strin
 		return jtkpresent.Emit(opts, jtkpresent.AttachmentPresenter{}.PresentEmpty(issueKey))
 	}
 
-	model := jtkpresent.AttachmentPresenter{}.PresentList(attachments, opts.IsExtended())
+	model := jtkpresent.AttachmentPresenter{}.PresentList(attachments, projection.HasOptionalFields(selected, jtkpresent.AttachmentListSpec))
 	if projected {
 		projection.ApplyToTableInModel(model, selected)
 	}
@@ -158,7 +156,7 @@ func runAdd(ctx context.Context, opts *root.Options, issueKey string, files []st
 					}
 					_ = jtkpresent.EmitIDs(opts, ids)
 				} else {
-					_ = jtkpresent.Emit(opts, jtkpresent.AttachmentPresenter{}.PresentList(allAttachments, opts.IsExtended()))
+					_ = jtkpresent.Emit(opts, jtkpresent.AttachmentPresenter{}.PresentList(allAttachments, false))
 				}
 			}
 			return fmt.Errorf("uploading %s: %w", filepath.Base(filePath), err)
@@ -175,7 +173,7 @@ func runAdd(ctx context.Context, opts *root.Options, issueKey string, files []st
 		return jtkpresent.EmitIDs(opts, ids)
 	}
 
-	return jtkpresent.Emit(opts, jtkpresent.AttachmentPresenter{}.PresentList(allAttachments, opts.IsExtended()))
+	return jtkpresent.Emit(opts, jtkpresent.AttachmentPresenter{}.PresentList(allAttachments, false))
 }
 
 func newGetCmd(opts *root.Options) *cobra.Command {

@@ -23,7 +23,6 @@ func newListCmd(opts *root.Options) *cobra.Command {
 	var sprint string
 	var maxResults int
 	var nextPageToken string
-	var allFields bool
 	var fieldsFlag string
 
 	cmd := &cobra.Command{
@@ -40,15 +39,11 @@ func newListCmd(opts *root.Options) *cobra.Command {
 
   # Resume from a previous page token
   jtk issues list --project MYPROJECT --next-page-token <token>
-
-  # List with all fields (includes description)
-  jtk issues list --project MYPROJECT --all-fields
-
   # Project display columns — headers, Jira field IDs, or human names
   jtk issues list --project MYPROJECT --fields SUMMARY,STATUS
   jtk issues list --project MYPROJECT --fields "Issue Type"`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runList(cmd.Context(), opts, project, sprint, maxResults, nextPageToken, allFields, fieldsFlag)
+			return runList(cmd.Context(), opts, project, sprint, maxResults, nextPageToken, fieldsFlag)
 		},
 	}
 
@@ -56,14 +51,12 @@ func newListCmd(opts *root.Options) *cobra.Command {
 	cmd.Flags().StringVarP(&sprint, "sprint", "s", "", "Filter by sprint name, numeric ID, or 'current'")
 	cmd.Flags().IntVarP(&maxResults, "max", "m", 50, "Maximum number of results to return")
 	cmd.Flags().StringVar(&nextPageToken, "next-page-token", "", "Token for next page of results")
-	cmd.Flags().BoolVar(&allFields, "all-fields", false, "Include all fields (e.g. description)")
-	_ = cmd.Flags().MarkDeprecated("all-fields", "use --fields description instead")
 	cmd.Flags().StringVar(&fieldsFlag, "fields", "", "Comma-separated display columns (headers, Jira field IDs, or human names)")
 
 	return cmd
 }
 
-func runList(ctx context.Context, opts *root.Options, project, sprint string, maxResults int, nextPageToken string, allFields bool, fieldsFlag string) error {
+func runList(ctx context.Context, opts *root.Options, project, sprint string, maxResults int, nextPageToken, fieldsFlag string) error {
 	client, err := opts.APIClient()
 	if err != nil {
 		return err
@@ -82,7 +75,6 @@ func runList(ctx context.Context, opts *root.Options, project, sprint string, ma
 		selected, projected, err = projection.Resolve(
 			ctx,
 			jtkpresent.IssueListSpec,
-			opts.IsExtended(),
 			fieldsFlag,
 			fieldsFetcher(client),
 			"issues list",
@@ -127,7 +119,7 @@ func runList(ctx context.Context, opts *root.Options, project, sprint string, ma
 		jql += " ORDER BY updated DESC"
 	}
 
-	fields := deriveFetchFields(selected, projected, opts.IsExtended(), allFields)
+	fields := deriveFetchFields(selected, projected)
 
 	result, err := client.SearchPage(ctx, api.SearchPageOptions{
 		JQL:           jql,
@@ -157,7 +149,7 @@ func runList(ctx context.Context, opts *root.Options, project, sprint string, ma
 		return jtkpresent.Emit(opts, jtkpresent.IssuePresenter{}.PresentEmpty())
 	}
 
-	model := jtkpresent.IssuePresenter{}.PresentListWithPagination(result.Issues, opts.IsExtended(), hasMore, nextToken)
+	model := jtkpresent.IssuePresenter{}.PresentListWithPagination(result.Issues, projection.HasOptionalFields(selected, jtkpresent.IssueListSpec), hasMore, nextToken)
 	if projected {
 		jtkpresent.AppendDynamicTableColumns(model, result.Issues, projection.DynamicSpecs(selected))
 		projection.ApplyToTableInModel(model, selected)

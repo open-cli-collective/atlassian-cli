@@ -50,7 +50,7 @@ func TestRunList_SprintNameResolvesToID(t *testing.T) {
 	defer server.Close()
 
 	opts, _, _ := newListOpts(t, server)
-	err := runList(context.Background(), opts, "PROJ", "MON Sprint 70", 25, "", false, "")
+	err := runList(context.Background(), opts, "PROJ", "MON Sprint 70", 25, "", "")
 	testutil.RequireNoError(t, err)
 	if !strings.Contains(jql, "sprint = 125") {
 		t.Fatalf("expected JQL to contain 'sprint = 125', got: %q", jql)
@@ -68,7 +68,7 @@ func TestRunList_SprintNumericPassThrough(t *testing.T) {
 	defer server.Close()
 
 	opts, _, _ := newListOpts(t, server)
-	err := runList(context.Background(), opts, "PROJ", "999", 25, "", false, "")
+	err := runList(context.Background(), opts, "PROJ", "999", 25, "", "")
 	testutil.RequireNoError(t, err)
 	if !strings.Contains(jql, "sprint = 999") {
 		t.Fatalf("expected JQL to contain 'sprint = 999', got: %q", jql)
@@ -83,7 +83,7 @@ func TestRunList_SprintCurrentUsesOpenSprints(t *testing.T) {
 	defer server.Close()
 
 	opts, _, _ := newListOpts(t, server)
-	err := runList(context.Background(), opts, "PROJ", "current", 25, "", false, "")
+	err := runList(context.Background(), opts, "PROJ", "current", 25, "", "")
 	testutil.RequireNoError(t, err)
 	if !strings.Contains(jql, "openSprints()") {
 		t.Fatalf("expected JQL to contain 'openSprints()', got: %q", jql)
@@ -145,7 +145,7 @@ func TestRunList_DefaultPaginationOnStdout(t *testing.T) {
 	defer server.Close()
 
 	opts, stdout, stderr := newListOpts(t, server)
-	err := runList(context.Background(), opts, "TEST", "", 25, "", false, "")
+	err := runList(context.Background(), opts, "TEST", "", 25, "", "")
 	testutil.RequireNoError(t, err)
 
 	if !strings.Contains(stdout.String(), "TEST-1") {
@@ -166,7 +166,7 @@ func TestRunList_IDOnlyEmitsKeysOnePerLine(t *testing.T) {
 
 	opts, stdout, stderr := newListOpts(t, server)
 	opts.IDOnly = true
-	err := runList(context.Background(), opts, "TEST", "", 25, "", false, "")
+	err := runList(context.Background(), opts, "TEST", "", 25, "", "")
 	testutil.RequireNoError(t, err)
 
 	want := "TEST-1\nTEST-2\nTEST-3\n"
@@ -185,7 +185,7 @@ func TestRunList_IDOnlyWithMoreResultsAppendsContinuation(t *testing.T) {
 
 	opts, stdout, _ := newListOpts(t, server)
 	opts.IDOnly = true
-	err := runList(context.Background(), opts, "TEST", "", 25, "", false, "")
+	err := runList(context.Background(), opts, "TEST", "", 25, "", "")
 	testutil.RequireNoError(t, err)
 
 	want := "TEST-1\nTEST-2\nMore results available (next: next-token)\n"
@@ -200,7 +200,7 @@ func TestRunList_EmptyDefault_NoIssuesFoundOnStdout(t *testing.T) {
 	defer server.Close()
 
 	opts, stdout, stderr := newListOpts(t, server)
-	err := runList(context.Background(), opts, "TEST", "", 25, "", false, "")
+	err := runList(context.Background(), opts, "TEST", "", 25, "", "")
 	testutil.RequireNoError(t, err)
 
 	if !strings.Contains(stdout.String(), "No issues found") {
@@ -221,7 +221,7 @@ func TestRunList_EmptyWithMoreResults_EmitsOnlyPaginationHint(t *testing.T) {
 	defer server.Close()
 
 	opts, stdout, stderr := newListOpts(t, server)
-	err := runList(context.Background(), opts, "TEST", "", 25, "", false, "")
+	err := runList(context.Background(), opts, "TEST", "", 25, "", "")
 	testutil.RequireNoError(t, err)
 
 	if !strings.Contains(stdout.String(), "More results available") {
@@ -242,7 +242,7 @@ func TestRunList_EmptyWithIDOnly_EmitsNothing(t *testing.T) {
 
 	opts, stdout, stderr := newListOpts(t, server)
 	opts.IDOnly = true
-	err := runList(context.Background(), opts, "TEST", "", 25, "", false, "")
+	err := runList(context.Background(), opts, "TEST", "", 25, "", "")
 	testutil.RequireNoError(t, err)
 
 	if stdout.String() != "" {
@@ -356,7 +356,7 @@ func TestRunList_Fields_HeaderAliases_ProjectsTable(t *testing.T) {
 	defer cs.server.Close()
 
 	opts, stdout, _ := newOptsFor(t, cs)
-	err := runList(context.Background(), opts, "TEST", "", 25, "", false, "SUMMARY,STATUS")
+	err := runList(context.Background(), opts, "TEST", "", 25, "", "SUMMARY,STATUS")
 	testutil.RequireNoError(t, err)
 
 	// Header row in the pipe-delimited agent output should be KEY | SUMMARY | STATUS.
@@ -388,7 +388,7 @@ func TestRunList_Fields_Projection_PreservesPaginationHint(t *testing.T) {
 	defer cs.server.Close()
 
 	opts, stdout, _ := newOptsFor(t, cs)
-	err := runList(context.Background(), opts, "TEST", "", 25, "", false, "SUMMARY,STATUS")
+	err := runList(context.Background(), opts, "TEST", "", 25, "", "SUMMARY,STATUS")
 	testutil.RequireNoError(t, err)
 
 	out := stdout.String()
@@ -402,7 +402,7 @@ func TestRunList_Fields_JiraFieldIDs_ProjectsTable(t *testing.T) {
 	defer cs.server.Close()
 
 	opts, stdout, _ := newOptsFor(t, cs)
-	err := runList(context.Background(), opts, "TEST", "", 25, "", false, "summary,assignee")
+	err := runList(context.Background(), opts, "TEST", "", 25, "", "summary,assignee")
 	testutil.RequireNoError(t, err)
 
 	lines := strings.Split(strings.TrimRight(stdout.String(), "\n"), "\n")
@@ -420,7 +420,7 @@ func TestRunList_Fields_HumanName_TriggersFieldsFetch(t *testing.T) {
 	defer cs.server.Close()
 
 	opts, stdout, _ := newOptsFor(t, cs)
-	err := runList(context.Background(), opts, "TEST", "", 25, "", false, "Issue Type")
+	err := runList(context.Background(), opts, "TEST", "", 25, "", "Issue Type")
 	testutil.RequireNoError(t, err)
 
 	lines := strings.Split(strings.TrimRight(stdout.String(), "\n"), "\n")
@@ -438,7 +438,7 @@ func TestRunList_Fields_UnknownToken_Errors(t *testing.T) {
 	defer cs.server.Close()
 
 	opts, _, _ := newOptsFor(t, cs)
-	err := runList(context.Background(), opts, "TEST", "", 25, "", false, "bogus")
+	err := runList(context.Background(), opts, "TEST", "", 25, "", "bogus")
 	var ufe *projection.UnknownFieldError
 	if !errors.As(err, &ufe) {
 		t.Fatalf("expected UnknownFieldError, got %v", err)
@@ -455,7 +455,7 @@ func TestRunList_Fields_DynamicField_ByHumanName_Succeeds(t *testing.T) {
 	defer cs.server.Close()
 
 	opts, stdout, _ := newOptsFor(t, cs)
-	err := runList(context.Background(), opts, "TEST", "", 25, "", false, "Phantom")
+	err := runList(context.Background(), opts, "TEST", "", 25, "", "Phantom")
 	testutil.RequireNoError(t, err)
 	testutil.Contains(t, stdout.String(), "Phantom")
 	testutil.Contains(t, stdout.String(), "phantom-val")
@@ -472,7 +472,7 @@ func TestRunList_Fields_DynamicField_ByFieldID_Succeeds(t *testing.T) {
 	defer cs.server.Close()
 
 	opts, stdout, _ := newOptsFor(t, cs)
-	err := runList(context.Background(), opts, "TEST", "", 25, "", false, "customfield_99999")
+	err := runList(context.Background(), opts, "TEST", "", 25, "", "customfield_99999")
 	testutil.RequireNoError(t, err)
 	testutil.Contains(t, stdout.String(), "Phantom")
 	testutil.Contains(t, stdout.String(), "phantom-val")
@@ -486,7 +486,7 @@ func TestRunList_FieldsWithIDOnly_IDWins(t *testing.T) {
 
 	opts, stdout, _ := newOptsFor(t, cs)
 	opts.IDOnly = true
-	err := runList(context.Background(), opts, "TEST", "", 25, "", false, "SUMMARY")
+	err := runList(context.Background(), opts, "TEST", "", 25, "", "SUMMARY")
 	testutil.RequireNoError(t, err)
 
 	want := "TEST-1\nTEST-2\n"
@@ -506,7 +506,7 @@ func TestRunList_IDOnly_SkipsFieldsResolution(t *testing.T) {
 
 	opts, _, _ := newOptsFor(t, cs)
 	opts.IDOnly = true
-	err := runList(context.Background(), opts, "TEST", "", 25, "", false, "Issue Type")
+	err := runList(context.Background(), opts, "TEST", "", 25, "", "Issue Type")
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, 0, cs.fieldsCalls)
 }
@@ -521,7 +521,7 @@ func TestRunList_IDOnly_BypassesFieldsValidation(t *testing.T) {
 
 	opts, stdout, _ := newOptsFor(t, cs)
 	opts.IDOnly = true
-	err := runList(context.Background(), opts, "TEST", "", 25, "", false, "bogus")
+	err := runList(context.Background(), opts, "TEST", "", 25, "", "bogus")
 	testutil.RequireNoError(t, err)
 	if stdout.String() != "TEST-1\n" {
 		t.Errorf("expected bare key, got %q", stdout.String())
@@ -530,35 +530,6 @@ func TestRunList_IDOnly_BypassesFieldsValidation(t *testing.T) {
 
 // Under --id, the JSON + --fields rejection also must not fire. --id produces
 // plain identifiers, not JSON, so the conflict is moot.
-func TestRunList_Fields_TrumpsAllFieldsForFetch(t *testing.T) {
-	t.Parallel()
-	cs := newCapturingServer(t, []string{"TEST-1"}, true, nil)
-	defer cs.server.Close()
-
-	opts, _, _ := newOptsFor(t, cs)
-	// Both --fields and --all-fields set; --fields must win for fetch.
-	err := runList(context.Background(), opts, "TEST", "", 25, "", true, "SUMMARY")
-	testutil.RequireNoError(t, err)
-	got := cs.searchCaptured.Fields
-	if len(got) != 1 || got[0] != "summary" {
-		t.Errorf("--fields must drive fetch even when --all-fields is set; got %v", got)
-	}
-}
-
-func TestRunList_AllFieldsWithoutFields_UsesDefaultSearchFields(t *testing.T) {
-	t.Parallel()
-	cs := newCapturingServer(t, []string{"TEST-1"}, true, nil)
-	defer cs.server.Close()
-
-	opts, _, _ := newOptsFor(t, cs)
-	err := runList(context.Background(), opts, "TEST", "", 25, "", true, "")
-	testutil.RequireNoError(t, err)
-	got := cs.searchCaptured.Fields
-	if len(got) != len(api.DefaultSearchFields) {
-		t.Errorf("--all-fields should request DefaultSearchFields; got %d fields, want %d", len(got), len(api.DefaultSearchFields))
-	}
-}
-
 func TestJqlEscape(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
@@ -655,7 +626,7 @@ func TestRunList_Fields_HumanName_CacheHit_SkipsFieldsFetch(t *testing.T) {
 	defer cs.server.Close()
 
 	opts, stdout, _ := newOptsFor(t, cs)
-	err := runList(context.Background(), opts, "TEST", "", 25, "", false, "Issue Type")
+	err := runList(context.Background(), opts, "TEST", "", 25, "", "Issue Type")
 	testutil.RequireNoError(t, err)
 
 	lines := strings.Split(strings.TrimRight(stdout.String(), "\n"), "\n")

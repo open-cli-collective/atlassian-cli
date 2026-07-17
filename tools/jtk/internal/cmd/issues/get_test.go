@@ -225,34 +225,6 @@ func TestRunGet_IDOnly(t *testing.T) {
 	testutil.Equal(t, stdout.String(), "TEST-1\n")
 }
 
-func TestRunGet_IDOnlyPrecedenceOverExtendedFullText(t *testing.T) {
-	t.Parallel()
-	issue := api.Issue{
-		Key: "TEST-1",
-		Fields: api.IssueFields{
-			Summary:     "Test issue",
-			Description: &api.Description{Text: strings.Repeat("A", 300)},
-			Status:      &api.Status{Name: "Open"},
-			IssueType:   &api.IssueType{Name: "Task"},
-		},
-	}
-
-	server := newTestIssueServer(t, issue)
-	defer server.Close()
-
-	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
-	testutil.RequireNoError(t, err)
-
-	var stdout bytes.Buffer
-	opts := &root.Options{IDOnly: true, Extended: true, FullText: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
-	opts.SetAPIClient(client)
-
-	// runGet receives noTruncate derived from RunE; when --id is set, the truncation
-	// value doesn't matter because EmitIDOnly collapses output before presenter runs.
-	testutil.RequireNoError(t, runGet(context.Background(), opts, "TEST-1", true, "", false))
-	testutil.Equal(t, stdout.String(), "TEST-1\n")
-}
-
 func TestRunGet_ShortDescriptionNotTruncated(t *testing.T) {
 	t.Parallel()
 	issue := api.Issue{
@@ -288,83 +260,6 @@ func TestRunGet_ShortDescriptionNotTruncated(t *testing.T) {
 	output := stdout.String()
 	testutil.Contains(t, output, "Short description")
 	testutil.NotContains(t, output, "[truncated")
-}
-
-func TestRunGet_Extended_ShowsNormalizedSections(t *testing.T) {
-	t.Parallel()
-	issue := api.Issue{
-		Key: "TEST-1",
-		Fields: api.IssueFields{
-			Summary:     "Test issue",
-			Status:      &api.Status{Name: "Open", StatusCategory: api.StatusCategory{Name: "To Do"}},
-			IssueType:   &api.IssueType{Name: "Task"},
-			Reporter:    &api.User{DisplayName: "Bob"},
-			Resolution:  &api.Resolution{Name: "Done"},
-			FixVersions: []api.Version{{ID: "1", Name: "v1.0"}},
-			Created:     "2026-04-01T12:00:00.000+0000",
-			Description: &api.Description{Text: strings.Repeat("A", 300)},
-		},
-	}
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_ = json.NewEncoder(w).Encode(issue)
-	}))
-	defer server.Close()
-
-	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
-	testutil.RequireNoError(t, err)
-
-	var stdout bytes.Buffer
-	opts := &root.Options{Extended: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
-	opts.SetAPIClient(client)
-
-	err = runGet(context.Background(), opts, "TEST-1", false, "", false)
-	testutil.RequireNoError(t, err)
-
-	output := stdout.String()
-	testutil.Contains(t, output, "Reporter: Bob")
-	testutil.Contains(t, output, "Fix Versions: v1.0")
-	testutil.Contains(t, output, "Resolution: Done")
-	// Extended implies fulltext — full description present
-	testutil.NotContains(t, output, "[truncated")
-	// Kitchen-sink items no longer present
-	testutil.NotContains(t, output, "Transitions:")
-	testutil.NotContains(t, output, "Watchers:")
-	testutil.NotContains(t, output, "category:")
-}
-
-func TestRunGet_Extended_SprintFromCustomField(t *testing.T) {
-	t.Parallel()
-	issueJSON := `{
-		"key": "MON-4970",
-		"fields": {
-			"summary": "Sprint test issue",
-			"status": {"name": "In Development"},
-			"issuetype": {"name": "Task"},
-			"customfield_10020": [
-				{"id": 100, "name": "Sprint 69", "state": "closed"},
-				{"id": 125, "name": "MON Sprint 70", "state": "active", "startDate": "2026-04-10T00:00:00.000Z", "endDate": "2026-04-24T00:00:00.000Z"}
-			]
-		}
-	}`
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte(issueJSON))
-	}))
-	defer server.Close()
-
-	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
-	testutil.RequireNoError(t, err)
-
-	var stdout bytes.Buffer
-	opts := &root.Options{Extended: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
-	opts.SetAPIClient(client)
-
-	err = runGet(context.Background(), opts, "MON-4970", false, "", false)
-	testutil.RequireNoError(t, err)
-
-	output := stdout.String()
-	testutil.Contains(t, output, "Sprint: MON Sprint 70 (active)")
 }
 
 func TestRunGet_CustomFields_AppendsSection(t *testing.T) {

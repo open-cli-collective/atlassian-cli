@@ -13,10 +13,10 @@ import (
 type FieldPresenter struct{}
 
 // PresentList creates a table view for a list of fields. Default: ID|TYPE|NAME.
-// Extended: ID|TYPE|SEARCHABLE|NAVIGABLE|ORDERABLE|CLAUSE_NAMES|NAME per #230.
-func (FieldPresenter) PresentList(fields []api.Field, extended bool) *present.OutputModel {
+// Optional: ID|TYPE|SEARCHABLE|NAVIGABLE|ORDERABLE|CLAUSE_NAMES|NAME per #230.
+func (FieldPresenter) PresentList(fields []api.Field, includeOptional bool) *present.OutputModel {
 	var headers []string
-	if extended {
+	if includeOptional {
 		headers = []string{"ID", "TYPE", "SEARCHABLE", "NAVIGABLE", "ORDERABLE", "CLAUSE_NAMES", "NAME"}
 	} else {
 		headers = []string{"ID", "TYPE", "NAME"}
@@ -24,7 +24,7 @@ func (FieldPresenter) PresentList(fields []api.Field, extended bool) *present.Ou
 
 	rows := make([]present.Row, len(fields))
 	for i, f := range fields {
-		if extended {
+		if includeOptional {
 			clauseNames := "-"
 			if len(f.ClauseNames) > 0 {
 				clauseNames = strings.Join(f.ClauseNames, ", ")

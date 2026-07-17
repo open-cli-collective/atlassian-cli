@@ -18,27 +18,27 @@ type IssuePresenter struct{}
 // metadata needed for --fields projection and minimum-fetch derivation.
 // Order MUST match the hardcoded Headers in PresentList (locked by a
 // parity test). Default: KEY|STATUS|TYPE|PTS|ASSIGNEE|SUMMARY.
-// Extended adds REPORTER, SPRINT, PARENT, UPDATED, LABELS, COMPONENTS.
+// Optional adds REPORTER, SPRINT, PARENT, UPDATED, LABELS, COMPONENTS.
 var IssueListSpec = projection.Registry{
 	{Header: "KEY", Identity: true},
 	{Header: "STATUS", FieldID: "status"},
 	{Header: "TYPE", FieldID: "issuetype"},
 	{Header: "PTS", FieldID: "customfield_10035", Fetch: []string{"customfield_10035"}},
 	{Header: "ASSIGNEE", FieldID: "assignee"},
-	{Header: "REPORTER", FieldID: "reporter", Extended: true},
-	{Header: "SPRINT", FieldID: "sprint", Aliases: []string{"customfield_10020"}, Fetch: []string{"customfield_10020"}, Extended: true},
-	{Header: "PARENT", FieldID: "parent", Extended: true},
-	{Header: "UPDATED", FieldID: "updated", Extended: true},
-	{Header: "LABELS", FieldID: "labels", Extended: true},
-	{Header: "COMPONENTS", FieldID: "components", Extended: true},
+	{Header: "REPORTER", FieldID: "reporter", Optional: true},
+	{Header: "SPRINT", FieldID: "sprint", Aliases: []string{"customfield_10020"}, Fetch: []string{"customfield_10020"}, Optional: true},
+	{Header: "PARENT", FieldID: "parent", Optional: true},
+	{Header: "UPDATED", FieldID: "updated", Optional: true},
+	{Header: "LABELS", FieldID: "labels", Optional: true},
+	{Header: "COMPONENTS", FieldID: "components", Optional: true},
 	{Header: "SUMMARY", FieldID: "summary"},
 }
 
 // IssueDetailSpec declares the fields emitted by PresentDetail /
 // PresentDetailProjection and the metadata for --fields projection.
-// Default fields are those an agent needs daily; extended adds
+// Default fields are those an agent needs daily; includeOptional adds
 // Reporter, Created, Fix Versions, Resolution — matching the
-// "add more built-in context" semantics of --extended on list/search.
+// "add more built-in context" semantics of explicit --fields on list/search.
 var IssueDetailSpec = projection.Registry{
 	{Header: "Key", Identity: true},
 	{Header: "Summary", FieldID: "summary"},
@@ -53,22 +53,22 @@ var IssueDetailSpec = projection.Registry{
 	{Header: "Labels", FieldID: "labels"},
 	{Header: "Components", FieldID: "components"},
 	{Header: "Description", FieldID: "description"},
-	{Header: "Reporter", FieldID: "reporter", Extended: true},
-	{Header: "Created", FieldID: "created", Extended: true},
-	{Header: "Fix_Versions", FieldID: "fixVersions", Extended: true},
-	{Header: "Resolution", FieldID: "resolution", Extended: true},
+	{Header: "Reporter", FieldID: "reporter", Optional: true},
+	{Header: "Created", FieldID: "created", Optional: true},
+	{Header: "Fix_Versions", FieldID: "fixVersions", Optional: true},
+	{Header: "Resolution", FieldID: "resolution", Optional: true},
 }
 
 // PresentDetail creates a spec-shaped detail view for a single issue.
 // Output uses msg() sections (title line + compound KV rows) matching
 // the boards/sprints/projects pattern. Labels and Components rows
-// appear only when non-empty in default mode; always in extended.
-func (IssuePresenter) PresentDetail(issue *api.Issue, _ string, extended bool, fulltext bool) *present.OutputModel {
+// appear only when non-empty in default mode; always in includeOptional.
+func (IssuePresenter) PresentDetail(issue *api.Issue, _ string, includeOptional bool, fulltext bool) *present.OutputModel {
 	sections := []present.Section{
 		msg(fmt.Sprintf("%s  %s", issue.Key, issue.Fields.Summary)),
 	}
 
-	if extended {
+	if includeOptional {
 		sections = append(sections, issueDetailExtendedSections(issue, fulltext)...)
 	} else {
 		sections = append(sections, issueDetailDefaultSections(issue, fulltext)...)
@@ -369,18 +369,18 @@ func issueDescriptionText(issue *api.Issue, fulltext bool) string {
 
 // PresentListWithPagination wraps PresentList and appends a pagination
 // hint when hasMore is true.
-func (p IssuePresenter) PresentListWithPagination(issues []api.Issue, extended, hasMore bool, nextToken string) *present.OutputModel {
-	model := p.PresentList(issues, extended)
+func (p IssuePresenter) PresentListWithPagination(issues []api.Issue, includeOptional, hasMore bool, nextToken string) *present.OutputModel {
+	model := p.PresentList(issues, includeOptional)
 	model.Sections = AppendPaginationHintWithToken(model.Sections, hasMore, nextToken)
 	return model
 }
 
 // PresentList creates a table view for a list of issues. Default order
-// is KEY|STATUS|TYPE|PTS|ASSIGNEE|SUMMARY; --extended adds REPORTER,
+// is KEY|STATUS|TYPE|PTS|ASSIGNEE|SUMMARY; explicit --fields adds REPORTER,
 // SPRINT, PARENT, UPDATED, LABELS, COMPONENTS.
-func (IssuePresenter) PresentList(issues []api.Issue, extended bool) *present.OutputModel {
+func (IssuePresenter) PresentList(issues []api.Issue, includeOptional bool) *present.OutputModel {
 	var headers []string
-	if extended {
+	if includeOptional {
 		headers = []string{"KEY", "STATUS", "TYPE", "PTS", "ASSIGNEE", "REPORTER", "SPRINT", "PARENT", "UPDATED", "LABELS", "COMPONENTS", "SUMMARY"}
 	} else {
 		headers = []string{"KEY", "STATUS", "TYPE", "PTS", "ASSIGNEE", "SUMMARY"}
@@ -394,7 +394,7 @@ func (IssuePresenter) PresentList(issues []api.Issue, extended bool) *present.Ou
 		assignee := FormatAssignee(issueAssigneeNameRaw(&issue))
 
 		var cells []string
-		if extended {
+		if includeOptional {
 			cells = []string{
 				issue.Key,
 				OrDash(status),

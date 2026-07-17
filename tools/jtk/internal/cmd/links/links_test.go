@@ -184,28 +184,6 @@ func linkServer(t *testing.T) *httptest.Server {
 	}))
 }
 
-func TestRunList_Extended(t *testing.T) {
-	t.Parallel()
-	server := linkServer(t)
-	defer server.Close()
-
-	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
-	testutil.RequireNoError(t, err)
-
-	var stdout bytes.Buffer
-	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}, Extended: true}
-	opts.SetAPIClient(client)
-
-	err = runList(context.Background(), opts, "PROJ-123", "")
-	testutil.RequireNoError(t, err)
-
-	out := stdout.String()
-	testutil.Contains(t, out, "TYPE_ID")
-	testutil.Contains(t, out, "STATUS")
-	testutil.Contains(t, out, "10100")
-	testutil.Contains(t, out, "Open")
-}
-
 func TestRunList_FieldsProjection(t *testing.T) {
 	t.Parallel()
 	server := linkServer(t)

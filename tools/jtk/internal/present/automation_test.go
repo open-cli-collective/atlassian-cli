@@ -4,9 +4,7 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
-	"time"
 
-	"github.com/open-cli-collective/atlassian-go/atime"
 	"github.com/open-cli-collective/atlassian-go/present"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
@@ -202,43 +200,6 @@ func TestAutomationPresenter_PresentList_ColumnOrder(t *testing.T) {
 	}
 }
 
-func TestAutomationPresenter_PresentListExtended(t *testing.T) {
-	t.Parallel()
-	rules := []api.AutomationRuleSummary{
-		{
-			UUID:            "uuid-1",
-			Name:            "Rule A",
-			State:           "ENABLED",
-			Labels:          []string{"onboarding"},
-			Tags:            []string{"auto-create"},
-			AuthorAccountID: "acct-1",
-		},
-		{
-			UUID:  "uuid-2",
-			Name:  "Rule B",
-			State: "DISABLED",
-		},
-	}
-
-	authorNames := map[string]string{"acct-1": "Rian Stockbower"}
-	model := AutomationPresenter{}.PresentListExtended(rules, authorNames)
-	table := model.Sections[0].(*present.TableSection)
-
-	wantHeaders := []string{"ID", "STATE", "LABELS", "TAGS", "AUTHOR", "NAME"}
-	for i, h := range wantHeaders {
-		if table.Headers[i] != h {
-			t.Errorf("header[%d] = %q, want %q", i, table.Headers[i], h)
-		}
-	}
-
-	if table.Rows[0].Cells[4] != "Rian Stockbower" {
-		t.Errorf("author should be resolved, got %q", table.Rows[0].Cells[4])
-	}
-	if table.Rows[1].Cells[2] != "-" {
-		t.Errorf("empty labels should be dash, got %q", table.Rows[1].Cells[2])
-	}
-}
-
 func TestAutomationPresenter_PresentGetDetail(t *testing.T) {
 	t.Parallel()
 	rule := &api.AutomationRule{
@@ -363,46 +324,6 @@ func TestComponentTree_TriggerDeduplication(t *testing.T) {
 	count := strings.Count(tree.Message, "TRIGGER  issue.created")
 	if count != 1 {
 		t.Errorf("expected 1 TRIGGER line (deduplication), got %d in %q", count, tree.Message)
-	}
-}
-
-func TestAutomationPresenter_PresentGetDetailExtended(t *testing.T) {
-	t.Parallel()
-	rule := &api.AutomationRule{
-		UUID:        "uuid-123",
-		Name:        "My Rule",
-		State:       "ENABLED",
-		Description: "Does stuff",
-		Labels:      []string{"onboarding"},
-		Tags:        []string{"auto-create"},
-		Created:     &atime.AtlassianTime{Time: time.Date(2023, 12, 4, 10, 0, 0, 0, time.UTC)},
-		Updated:     &atime.AtlassianTime{Time: time.Date(2026, 3, 15, 14, 30, 0, 0, time.UTC)},
-		Projects: []api.RuleProject{
-			{ProjectKey: "MON"},
-			{ProjectKey: "ON"},
-		},
-		Components: []api.RuleComponent{
-			{Component: "TRIGGER", Type: "issue.created"},
-		},
-	}
-
-	model := AutomationPresenter{}.PresentGetDetailExtended(rule, false, "Rian Stockbower")
-
-	// Header + State + Components + Description + Labels + Tags + Author + Scope + Created/Updated = 9
-	if len(model.Sections) != 9 {
-		t.Fatalf("expected 9 sections, got %d", len(model.Sections))
-	}
-
-	// Check scope
-	scope := model.Sections[7].(*present.MessageSection)
-	if scope.Message != "Scope: project (MON, ON)" {
-		t.Errorf("scope = %q", scope.Message)
-	}
-
-	// Check timestamps
-	timestamps := model.Sections[8].(*present.MessageSection)
-	if timestamps.Message != "Created: 2023-12-04   Updated: 2026-03-15" {
-		t.Errorf("timestamps = %q", timestamps.Message)
 	}
 }
 

@@ -68,80 +68,6 @@ func TestCommentListSpec_MatchesPresentListHeaders(t *testing.T) {
 	}
 }
 
-// TestCommentDetailSpec_MatchesPresentDetailLabels locks CommentDetailSpec
-// against the Field labels emitted by PresentListFull, both directions:
-//   - Every spec entry must appear as a rendered Field label.
-//   - Every rendered Field label must have a matching spec entry — otherwise
-//     --fields projection would silently drop that field.
-//
-// Order is checked too: ProjectDetail relies on the spec order being the same
-// as the presenter's Field order for deterministic projection output.
-func TestCommentDetailSpec_MatchesPresentDetailLabels(t *testing.T) {
-	t.Parallel()
-	comments := singleComment()
-
-	cases := []struct {
-		name  string
-		model *present.OutputModel
-	}{
-		{"PresentListFull", CommentPresenter{}.PresentListFull(comments, false)},
-		{"PresentListFullWithPagination_NoMore", CommentPresenter{}.PresentListFullWithPagination(comments, false, false)},
-		{"PresentListFullWithPagination_HasMore", CommentPresenter{}.PresentListFullWithPagination(comments, false, true)},
-	}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			var detail *present.DetailSection
-			for _, s := range tc.model.Sections {
-				if ds, ok := s.(*present.DetailSection); ok {
-					detail = ds
-					break
-				}
-			}
-			if detail == nil {
-				t.Fatalf("no DetailSection in %s output", tc.name)
-			}
-
-			activeSpec := CommentDetailSpec.ForMode(false)
-
-			renderedLabels := make(map[string]bool, len(detail.Fields))
-			for _, f := range detail.Fields {
-				renderedLabels[f.Label] = true
-			}
-			for _, spec := range activeSpec {
-				if !renderedLabels[spec.Header] {
-					t.Errorf("spec Header %q not emitted by %s", spec.Header, tc.name)
-				}
-			}
-
-			specLabels := make(map[string]bool, len(activeSpec))
-			for _, spec := range activeSpec {
-				specLabels[spec.Header] = true
-			}
-			for _, f := range detail.Fields {
-				if !specLabels[f.Label] {
-					t.Errorf("rendered field %q has no matching CommentDetailSpec entry", f.Label)
-				}
-			}
-
-			specOrder := make([]string, 0, len(activeSpec))
-			for _, spec := range activeSpec {
-				specOrder = append(specOrder, spec.Header)
-			}
-			renderedOrder := make([]string, 0, len(detail.Fields))
-			for _, f := range detail.Fields {
-				renderedOrder = append(renderedOrder, f.Label)
-			}
-			testutil.Equal(t, len(specOrder), len(renderedOrder))
-			for i := range specOrder {
-				if specOrder[i] != renderedOrder[i] {
-					t.Errorf("order mismatch at index %d: spec=%q rendered=%q", i, specOrder[i], renderedOrder[i])
-				}
-			}
-		})
-	}
-}
-
 func TestCommentPresenter_PresentList_ExtendedVisibility(t *testing.T) {
 	t.Parallel()
 	comments := []api.Comment{
@@ -269,7 +195,7 @@ func TestCommentListSpec_ExtendedMatchesPresentListHeaders(t *testing.T) {
 		}
 	}
 	if table == nil {
-		t.Fatal("no TableSection in extended PresentList output")
+		t.Fatal("no TableSection in includeOptional PresentList output")
 	}
 	if len(table.Headers) != len(extendedSpec) {
 		t.Fatalf("header count mismatch: spec has %d, table has %d", len(extendedSpec), len(table.Headers))
@@ -296,7 +222,7 @@ func TestCommentDetailSpec_ExtendedMatchesPresentDetailLabels(t *testing.T) {
 		}
 	}
 	if detail == nil {
-		t.Fatal("no DetailSection in extended PresentListFull output")
+		t.Fatal("no DetailSection in includeOptional PresentListFull output")
 	}
 
 	renderedLabels := make(map[string]bool, len(detail.Fields))
@@ -305,7 +231,7 @@ func TestCommentDetailSpec_ExtendedMatchesPresentDetailLabels(t *testing.T) {
 	}
 	for _, spec := range extendedSpec {
 		if !renderedLabels[spec.Header] {
-			t.Errorf("spec Header %q not emitted in extended mode", spec.Header)
+			t.Errorf("spec Header %q not emitted in includeOptional mode", spec.Header)
 		}
 	}
 
@@ -316,7 +242,7 @@ func TestCommentDetailSpec_ExtendedMatchesPresentDetailLabels(t *testing.T) {
 	mismatch := false
 	for _, f := range detail.Fields {
 		if !specLabels[f.Label] {
-			t.Errorf("rendered field %q has no matching CommentDetailSpec entry in extended mode", f.Label)
+			t.Errorf("rendered field %q has no matching CommentDetailSpec entry in includeOptional mode", f.Label)
 			mismatch = true
 		}
 	}
@@ -333,11 +259,85 @@ func TestCommentDetailSpec_ExtendedMatchesPresentDetailLabels(t *testing.T) {
 		renderedOrder = append(renderedOrder, f.Label)
 	}
 	if len(specOrder) != len(renderedOrder) {
-		t.Fatalf("extended spec has %d entries, rendered has %d", len(specOrder), len(renderedOrder))
+		t.Fatalf("includeOptional spec has %d entries, rendered has %d", len(specOrder), len(renderedOrder))
 	}
 	for i := range specOrder {
 		if specOrder[i] != renderedOrder[i] {
-			t.Errorf("extended order mismatch at index %d: spec=%q rendered=%q", i, specOrder[i], renderedOrder[i])
+			t.Errorf("includeOptional order mismatch at index %d: spec=%q rendered=%q", i, specOrder[i], renderedOrder[i])
 		}
+	}
+}
+
+// TestCommentDetailSpec_MatchesPresentDetailLabels locks CommentDetailSpec
+// against the Field labels emitted by PresentListFull, both directions:
+//   - Every spec entry must appear as a rendered Field label.
+//   - Every rendered Field label must have a matching spec entry — otherwise
+//     --fields projection would silently drop that field.
+//
+// Order is checked too: ProjectDetail relies on the spec order being the same
+// as the presenter's Field order for deterministic projection output.
+func TestCommentDetailSpec_MatchesPresentDetailLabels(t *testing.T) {
+	t.Parallel()
+	comments := singleComment()
+
+	cases := []struct {
+		name  string
+		model *present.OutputModel
+	}{
+		{"PresentListFull", CommentPresenter{}.PresentListFull(comments, false)},
+		{"PresentListFullWithPagination_NoMore", CommentPresenter{}.PresentListFullWithPagination(comments, false, false)},
+		{"PresentListFullWithPagination_HasMore", CommentPresenter{}.PresentListFullWithPagination(comments, false, true)},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var detail *present.DetailSection
+			for _, s := range tc.model.Sections {
+				if ds, ok := s.(*present.DetailSection); ok {
+					detail = ds
+					break
+				}
+			}
+			if detail == nil {
+				t.Fatalf("no DetailSection in %s output", tc.name)
+			}
+
+			activeSpec := CommentDetailSpec.ForMode(false)
+
+			renderedLabels := make(map[string]bool, len(detail.Fields))
+			for _, f := range detail.Fields {
+				renderedLabels[f.Label] = true
+			}
+			for _, spec := range activeSpec {
+				if !renderedLabels[spec.Header] {
+					t.Errorf("spec Header %q not emitted by %s", spec.Header, tc.name)
+				}
+			}
+
+			specLabels := make(map[string]bool, len(activeSpec))
+			for _, spec := range activeSpec {
+				specLabels[spec.Header] = true
+			}
+			for _, f := range detail.Fields {
+				if !specLabels[f.Label] {
+					t.Errorf("rendered field %q has no matching CommentDetailSpec entry", f.Label)
+				}
+			}
+
+			specOrder := make([]string, 0, len(activeSpec))
+			for _, spec := range activeSpec {
+				specOrder = append(specOrder, spec.Header)
+			}
+			renderedOrder := make([]string, 0, len(detail.Fields))
+			for _, f := range detail.Fields {
+				renderedOrder = append(renderedOrder, f.Label)
+			}
+			testutil.Equal(t, len(specOrder), len(renderedOrder))
+			for i := range specOrder {
+				if specOrder[i] != renderedOrder[i] {
+					t.Errorf("order mismatch at index %d: spec=%q rendered=%q", i, specOrder[i], renderedOrder[i])
+				}
+			}
+		})
 	}
 }

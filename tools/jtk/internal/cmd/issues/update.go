@@ -235,7 +235,7 @@ func runUpdate(ctx context.Context, opts *root.Options, issueKey, summary, descr
 				return nil, err
 			}
 			return jtkpresent.IssuePresenter{}.PresentDetail(
-				issue, client.IssueURL(id), opts.IsExtended(), opts.IsFullText(),
+				issue, client.IssueURL(id), false, opts.IsFullText(),
 			), nil
 		},
 		IsFresh: isFresh,

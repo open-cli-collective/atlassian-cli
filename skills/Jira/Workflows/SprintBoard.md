@@ -37,7 +37,7 @@ jtk boards list --project KEY
 jtk sprints current --board BOARD_ID_OR_NAME
 ```
 
-To include the sprint goal in the output, add `--extended`.
+To include the sprint goal, add `--fields GOAL`.
 
 ### List Sprint Issues
 
@@ -74,8 +74,8 @@ jtk sprints add SPRINT_ID_OR_NAME PROJ-123 PROJ-456 PROJ-789
 ## Output Format
 
 - **Boards:** table with ID, Type, Project, Name (column order: `ID | TYPE | PROJECT | NAME`)
-- **Sprint list:** table with ID, State, Start, End, Name (column order: `ID | STATE | START | END | NAME`). Sprint goals require `--extended`
-- **Sprint current:** sprint metadata with board reference. Sprint Goal requires `--extended`
+- **Sprint list:** table with ID, State, Start, End, Name. Use `--fields GOAL` for goals.
+- **Sprint current:** sprint metadata with board reference. Use `--fields GOAL` for the goal.
 - **Sprint issues:** table with Key, Summary, Status, Assignee — grouped by status if possible
 
 ## Post-Action

@@ -77,15 +77,14 @@ func runList(ctx context.Context, opts *root.Options, issueKey string, maxResult
 	idOnly := opts.EmitIDOnly()
 	var selected []projection.ColumnSpec
 	var projected bool
+	spec := jtkpresent.CommentListSpec
+	if noTruncate {
+		spec = jtkpresent.CommentDetailSpec
+	}
 	if !idOnly {
-		spec := jtkpresent.CommentListSpec
-		if noTruncate {
-			spec = jtkpresent.CommentDetailSpec
-		}
 		selected, projected, err = projection.Resolve(
 			ctx,
 			spec,
-			opts.IsExtended(),
 			fieldsFlag,
 			noFieldFetch,
 			"comments list",
@@ -116,15 +115,15 @@ func runList(ctx context.Context, opts *root.Options, issueKey string, maxResult
 		return jtkpresent.Emit(opts, model)
 	}
 
-	extended := opts.IsExtended()
+	optional := projection.HasOptionalFields(selected, spec)
 	var model *present.OutputModel
 	if noTruncate {
-		model = jtkpresent.CommentPresenter{}.PresentListFullWithPagination(result.Comments, extended, hasMore)
+		model = jtkpresent.CommentPresenter{}.PresentListFullWithPagination(result.Comments, optional, hasMore)
 		if projected {
 			projectAllDetailSectionsInModel(model, selected)
 		}
 	} else {
-		model = jtkpresent.CommentPresenter{}.PresentListWithPagination(result.Comments, extended, hasMore)
+		model = jtkpresent.CommentPresenter{}.PresentListWithPagination(result.Comments, optional, hasMore)
 		if projected {
 			projection.ApplyToTableInModel(model, selected)
 		}

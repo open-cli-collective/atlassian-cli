@@ -165,7 +165,7 @@ func TestGetProject(t *testing.T) {
 
 func TestSearchProjects_PassesExpandThroughUnmodified(t *testing.T) {
 	t.Parallel()
-	// The API layer does not know about `--extended`; it takes an expand
+	// The API layer takes an explicit expand value
 	// string verbatim. Two branches: empty means no expand param on the
 	// URL; non-empty shows up exactly as passed. Callers map their
 	// rendering intent to a concrete expand.

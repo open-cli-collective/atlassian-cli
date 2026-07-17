@@ -73,37 +73,13 @@ func TestRunGet_DefaultOutputMatchesSpecOneLiner(t *testing.T) {
 	}
 }
 
-func TestRunGet_Extended_EmitsThreeSpecRows(t *testing.T) {
-	t.Parallel()
-	user := api.User{
-		AccountID: "abc", DisplayName: "Rian", EmailAddress: "r@x.io", Active: true,
-		TimeZone: "Etc/GMT", Locale: "en_US",
-		Groups: &api.UserCountBlock{Size: 9}, ApplicationRoles: &api.UserCountBlock{Size: 1},
-	}
-	server := newTestUserServer(t, user)
-	defer server.Close()
-
-	var stdout bytes.Buffer
-	opts := &root.Options{NoColor: true, Extended: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
-	opts.SetAPIClient(newClient(t, server.URL))
-
-	testutil.RequireNoError(t, runGet(context.Background(), opts, "abc", ""))
-
-	want := "abc | Rian | r@x.io\n" +
-		"Timezone: Etc/GMT   Locale: en_US   Active: yes\n" +
-		"Groups: 9   Application Roles: 1\n"
-	if stdout.String() != want {
-		t.Errorf("get --extended:\ngot:  %q\nwant: %q", stdout.String(), want)
-	}
-}
-
 func TestRunGet_IDOnly_ShortCircuitsEverythingElse(t *testing.T) {
 	t.Parallel()
 	server := newTestUserServer(t, api.User{AccountID: "abc123", DisplayName: "X", Active: true})
 	defer server.Close()
 
 	var stdout bytes.Buffer
-	opts := &root.Options{IDOnly: true, Extended: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts := &root.Options{IDOnly: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(newClient(t, server.URL))
 
 	testutil.RequireNoError(t, runGet(context.Background(), opts, "abc123", "NAME,EMAIL"))
@@ -202,48 +178,6 @@ func TestRunSearch_DefaultTableMatchesSpecColumnOrder(t *testing.T) {
 		"b2 | Bob | - | yes\n"
 	if stdout.String() != want {
 		t.Errorf("users search default:\ngot:  %q\nwant: %q", stdout.String(), want)
-	}
-}
-
-func TestRunSearch_Extended_AppendsTimezoneLocale(t *testing.T) {
-	t.Parallel()
-	users := []api.User{
-		{AccountID: "a1", AccountType: "atlassian", DisplayName: "Alice", EmailAddress: "a@x.io", Active: true, TimeZone: "Etc/GMT", Locale: "en_US"},
-	}
-	server := newTestUsersServer(t, users)
-	defer server.Close()
-
-	var stdout bytes.Buffer
-	opts := &root.Options{NoColor: true, Extended: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
-	opts.SetAPIClient(newClient(t, server.URL))
-
-	testutil.RequireNoError(t, runSearch(context.Background(), opts, "al", 10, "", ""))
-
-	want := "ACCOUNT_ID | NAME | EMAIL | ACTIVE | TIMEZONE | LOCALE\n" +
-		"a1 | Alice | a@x.io | yes | Etc/GMT | en_US\n"
-	if stdout.String() != want {
-		t.Errorf("users search --extended:\ngot:  %q\nwant: %q", stdout.String(), want)
-	}
-}
-
-func TestRunSearch_Extended_DashesForRedactedFields(t *testing.T) {
-	t.Parallel()
-	// Instances that omit timeZone/locale from /user/search must not render
-	// literal "false"/empty strings in the table cells.
-	users := []api.User{{AccountID: "a1", AccountType: "atlassian", DisplayName: "Alice", Active: true}}
-	server := newTestUsersServer(t, users)
-	defer server.Close()
-
-	var stdout bytes.Buffer
-	opts := &root.Options{NoColor: true, Extended: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
-	opts.SetAPIClient(newClient(t, server.URL))
-
-	testutil.RequireNoError(t, runSearch(context.Background(), opts, "al", 10, "", ""))
-
-	want := "ACCOUNT_ID | NAME | EMAIL | ACTIVE | TIMEZONE | LOCALE\n" +
-		"a1 | Alice | - | yes | - | -\n"
-	if stdout.String() != want {
-		t.Errorf("users search --extended (redacted):\ngot:  %q\nwant: %q", stdout.String(), want)
 	}
 }
 
@@ -536,38 +470,4 @@ func TestRunGet_FreshCacheSkipsLive(t *testing.T) {
 	err := runGet(context.Background(), opts, "abc123", "")
 	testutil.RequireNoError(t, err)
 	testutil.Contains(t, stdout.String(), "Alice")
-}
-
-func TestRunGet_ExtendedAlwaysCallsLive(t *testing.T) {
-	t.Cleanup(cache.SetRootForTest(t.TempDir()))
-	t.Cleanup(cache.SetInstanceKeyForTest("test.atlassian.net"))
-
-	testutil.RequireNoError(t, cache.WriteResource("users", "24h", []api.User{
-		{AccountID: "abc123", DisplayName: "Cached Alice"},
-	}))
-
-	liveCalled := false
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/rest/api/3/user" {
-			liveCalled = true
-			w.Header().Set("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode(api.User{
-				AccountID:   "abc123",
-				DisplayName: "Live Alice",
-				Groups:      &api.UserCountBlock{Size: 2},
-			})
-		}
-	}))
-	defer server.Close()
-
-	var stdout bytes.Buffer
-	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}, Extended: true}
-	opts.SetAPIClient(newClient(t, server.URL))
-
-	err := runGet(context.Background(), opts, "abc123", "")
-	testutil.RequireNoError(t, err)
-	if !liveCalled {
-		t.Fatal("users get --extended must always call live API, not use cache")
-	}
-	testutil.Contains(t, stdout.String(), "Live Alice")
 }

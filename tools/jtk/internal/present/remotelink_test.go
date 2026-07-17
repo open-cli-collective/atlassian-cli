@@ -20,14 +20,14 @@ func TestRemoteLinkListSpec_MatchesPresentListHeaders(t *testing.T) {
 		},
 	}}
 
-	for _, extended := range []bool{false, true} {
+	for _, includeOptional := range []bool{false, true} {
 		name := "default"
-		if extended {
-			name = "extended"
+		if includeOptional {
+			name = "includeOptional"
 		}
 		t.Run(name, func(t *testing.T) {
-			specs := RemoteLinkListSpec.ForMode(extended)
-			model := RemoteLinkPresenter{}.PresentList(links, extended)
+			specs := RemoteLinkListSpec.ForMode(includeOptional)
+			model := RemoteLinkPresenter{}.PresentList(links, includeOptional)
 			table := model.Sections[0].(*present.TableSection)
 
 			if len(table.Headers) != len(specs) {

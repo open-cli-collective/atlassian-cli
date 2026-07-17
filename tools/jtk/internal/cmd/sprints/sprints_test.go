@@ -318,11 +318,11 @@ func TestRunCurrent_WithGoal(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}, Extended: true}
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	board := &api.Board{ID: 123, Name: "Test Board"}
-	err = runCurrent(context.Background(), opts, client, board, "")
+	err = runCurrent(context.Background(), opts, client, board, "GOAL")
 	testutil.RequireNoError(t, err)
 
 	testutil.Contains(t, stdout.String(), "Ship feature X")
@@ -928,42 +928,6 @@ func TestRunList_SortOrder_JSON(t *testing.T) {
 	if posActive >= posFuture || posFuture >= posClosed {
 		t.Errorf("expected Active before Future before Closed in JSON, got positions %d, %d, %d", posActive, posFuture, posClosed)
 	}
-}
-
-func TestRunList_Extended_GoalColumn(t *testing.T) {
-	t.Parallel()
-
-	d := func(year, month, day int) *time.Time {
-		tt := time.Date(year, time.Month(month), day, 0, 0, 0, 0, time.UTC)
-		return &tt
-	}
-
-	sprints := []api.Sprint{
-		{ID: 1, Name: "Closed Sprint", State: "closed", StartDate: d(2025, 1, 1), EndDate: d(2025, 1, 14), CompleteDate: d(2025, 1, 14), Goal: "Complete Q1 milestone"},
-		{ID: 2, Name: "Active Sprint", State: "active", StartDate: d(2025, 4, 1), EndDate: d(2025, 4, 14), Goal: "Ship CapOne a11y fixes", OriginBoardID: 23},
-	}
-
-	server := newTestSprintsServer(t, sprints)
-	defer server.Close()
-
-	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
-	testutil.RequireNoError(t, err)
-
-	var stdout bytes.Buffer
-	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}, Extended: true}
-	opts.SetAPIClient(client)
-
-	err = runList(context.Background(), opts, client, 123, "", 50, "", "")
-	testutil.RequireNoError(t, err)
-
-	output := stdout.String()
-	lines := strings.Split(strings.TrimSpace(output), "\n")
-	// lines[0] is the header; data rows start at lines[1]
-	if len(lines) < 3 {
-		t.Fatalf("expected header + 2 data rows, got %d lines:\n%s", len(lines), output)
-	}
-	testutil.True(t, strings.Contains(lines[1], "Ship CapOne a11y fixes"))
-	testutil.True(t, strings.Contains(lines[2], "Complete Q1 milestone"))
 }
 
 func TestRunList_ClientSidePagination(t *testing.T) {

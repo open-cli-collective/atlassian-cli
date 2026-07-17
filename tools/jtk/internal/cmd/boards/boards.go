@@ -69,8 +69,6 @@ func newListCmd(opts *root.Options) *cobra.Command {
   jtk boards list --project MYPROJECT
   jtk boards list --project "Platform Development"
 
-  # Extended output with project names
-  jtk boards list --extended
 
   # Emit only board IDs
   jtk boards list --id`,
@@ -106,7 +104,6 @@ func runList(ctx context.Context, opts *root.Options, project string, maxResults
 		selected, projected, err = projection.Resolve(
 			ctx,
 			jtkpresent.BoardListSpec,
-			opts.IsExtended(),
 			fieldsFlag,
 			noFieldFetch,
 			"boards list",
@@ -151,7 +148,7 @@ func runList(ctx context.Context, opts *root.Options, project string, maxResults
 		return jtkpresent.Emit(opts, jtkpresent.BoardPresenter{}.PresentEmpty())
 	}
 
-	model := jtkpresent.BoardPresenter{}.PresentListWithPagination(result.Values, opts.IsExtended(), hasMore, nextToken)
+	model := jtkpresent.BoardPresenter{}.PresentListWithPagination(result.Values, projection.HasOptionalFields(selected, jtkpresent.BoardListSpec), hasMore, nextToken)
 	if projected {
 		projection.ApplyToTableInModel(model, selected)
 	}
@@ -194,7 +191,6 @@ func runGet(ctx context.Context, opts *root.Options, client *api.Client, resolve
 	selected, projected, err := projection.Resolve(
 		ctx,
 		jtkpresent.BoardDetailSpec,
-		opts.IsExtended(),
 		fieldsFlag,
 		noFieldFetch,
 		"boards get",
@@ -214,7 +210,7 @@ func runGet(ctx context.Context, opts *root.Options, client *api.Client, resolve
 	}
 
 	var config *api.BoardConfiguration
-	needsConfig := opts.IsExtended() || projection.HasExtendedFields(selected, jtkpresent.BoardDetailSpec)
+	needsConfig := projection.HasOptionalFields(selected, jtkpresent.BoardDetailSpec)
 	if needsConfig {
 		var configErr error
 		config, configErr = client.GetBoardConfiguration(ctx, board.ID)
@@ -235,6 +231,6 @@ func runGet(ctx context.Context, opts *root.Options, client *api.Client, resolve
 		return jtkpresent.Emit(opts, model)
 	}
 
-	model := presenter.PresentDetail(board, config, opts.IsExtended())
+	model := presenter.PresentDetail(board, config, false)
 	return jtkpresent.Emit(opts, model)
 }

@@ -460,7 +460,7 @@ MON-4757 | Prototype html-in-canvas chart engine to replac... | In Code Review |
 More results available (use --next-page-token to fetch next page)
 ```
 
-#### `--all-fields -o json`
+#### `--fields description -o json`
 
 ```json
 {

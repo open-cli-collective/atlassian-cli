@@ -87,7 +87,7 @@ func runUpdate(ctx context.Context, opts *root.Options, keyOrID, name, descripti
 				return nil, err
 			}
 			lastFetched = fetched
-			return jtkpresent.ProjectPresenter{}.PresentProjectDetail(fetched, opts.IsExtended()), nil
+			return jtkpresent.ProjectPresenter{}.PresentProjectDetail(fetched, false), nil
 		},
 		IsFresh: func(_ *present.OutputModel) bool {
 			if lastFetched == nil {

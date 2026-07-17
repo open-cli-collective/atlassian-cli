@@ -124,7 +124,6 @@ jtk fields list --custom-fields --id
 |---|---------|-----------------|
 | 1 | `jtk me` | Detail block: Account ID, Display Name, Email, Active |
 | 2 | `jtk me --id` | Account ID only |
-| 3 | `jtk me --extended` | Extended user detail with additional fields |
 
 ---
 
@@ -136,7 +135,7 @@ jtk fields list --custom-fields --id
 |---|---------|-----------------|
 | 1 | `jtk issues list -p $PROJECT --max 3` | Table: KEY, SUMMARY, STATUS, ASSIGNEE, TYPE. At most 3 rows. |
 | 2 | `jtk issues list -p $PROJECT --max 3 --id` | Issue keys only, one per line |
-| 3 | `jtk issues list -p $PROJECT --max 3 --extended` | Extended table with additional columns |
+| 3 | `jtk issues list -p $PROJECT --max 3 --fields REPORTER,SPRINT,PARENT,UPDATED,LABELS,COMPONENTS` | Extended table with additional columns |
 | 4 | `jtk issues list -p $PROJECT --max 2 --id` | Issue keys only, 2 per line |
 | 5 | `jtk issues list -p NONEXISTENT` | Error message containing "not found" or empty results |
 
@@ -146,7 +145,6 @@ jtk fields list --custom-fields --id
 |---|---------|-----------------|
 | 1 | `jtk issues get $EXISTING_ISSUE` | Detail block: Key, Summary, Status, Type, Priority, Assignee, Description (truncated), URL |
 | 2 | `jtk issues get $EXISTING_ISSUE --id` | Issue key only |
-| 3 | `jtk issues get $EXISTING_ISSUE --extended` | Full detail block plus Sprint, Transitions list, raw custom fields block |
 | 4 | `jtk issues get $EXISTING_ISSUE --fulltext` | Full description and long text fields without truncation |
 | 5 | `jtk issues get ${PROJECT}-99999` | `resource not found: Issue does not exist or you do not have permission to see it.` |
 
@@ -156,7 +154,7 @@ jtk fields list --custom-fields --id
 |---|---------|-----------------|
 | 1 | `jtk issues search --jql "project = $PROJECT" --max 3` | Table of matching issues, at most 3 rows |
 | 2 | `jtk issues search --jql "project = $PROJECT" --max 3 --id` | Issue keys only |
-| 3 | `jtk issues search --jql "project = $PROJECT" --max 3 --extended` | Extended table |
+| 3 | `jtk issues search --jql "project = $PROJECT" --max 3 --fields REPORTER,SPRINT,PARENT,UPDATED,LABELS,COMPONENTS` | Extended table |
 | 4 | `jtk issues search --jql "project = $PROJECT AND summary ~ 'xyznonexistent999'"` | `No issues found` |
 | 5 | `jtk issues search --jql "invalid jql ((("` | `bad request: Error in the JQL Query: ...` |
 
@@ -196,7 +194,6 @@ jtk fields list --custom-fields --id
 | 1 | `jtk issues fields` | Table: ID, NAME, TYPE, CUSTOM |
 | 2 | `jtk issues fields --custom-fields` | Only rows where CUSTOM = yes |
 | 3 | `jtk issues fields --id` | Field IDs only |
-| 4 | `jtk issues fields --extended` | Extended table with schema info |
 
 ### issues field-options
 
@@ -222,14 +219,14 @@ jtk fields list --custom-fields --id
 |---|---------|-----------------|
 | 1 | `jtk projects list --max 5` | Table: KEY, NAME, TYPE, LEAD |
 | 2 | `jtk projects list --max 5 --id` | Project keys only |
-| 3 | `jtk projects list --max 5 --extended` | Extended table |
+| 3 | `jtk projects list --max 5 --fields STYLE,ISSUE_TYPES,COMPONENTS` | Extended table |
 | 4 | `jtk projects get $PROJECT` | Detail: Key, Name, ID, Type, Lead, Issue Types |
 | 5 | `jtk projects get $PROJECT --id` | Project key only |
-| 6 | `jtk projects get $PROJECT --extended` | Extended detail |
+| 6 | `jtk projects get $PROJECT --fields DESCRIPTION,LEAD_ID,ISSUE_TYPE_IDS,COMPONENT_IDS,SIMPLIFIED,PRIVATE` | Extended detail |
 | 7 | `jtk projects get NONEXISTENT` | `resource not found: No project could be found with key 'NONEXISTENT'.` |
 | 8 | `jtk projects types` | Table: KEY, FORMATTED (e.g., software/Software) |
 | 9 | `jtk projects types --id` | Type keys only |
-| 10 | `jtk projects types --extended` | Extended table |
+| 10 | `jtk projects types --fields DESCRIPTION_KEY` | Extended table |
 
 ---
 
@@ -244,9 +241,9 @@ jtk fields list --custom-fields --id
 | 1 | `jtk boards list --max 5` | Table: ID, NAME, TYPE, PROJECT |
 | 2 | `jtk boards list -p $PROJECT` | Only boards for that project |
 | 3 | `jtk boards list --id` | Board IDs only |
-| 4 | `jtk boards list --extended` | Extended table |
+| 4 | `jtk boards list --fields PROJECT_NAME` | Extended table |
 | 5 | `jtk boards get $BOARD_ID` | Detail: ID, Name, Type, Project |
-| 6 | `jtk boards get $BOARD_ID --extended` | Extended detail including `Filter: <name> (id: <id>)` |
+| 6 | `jtk boards get $BOARD_ID --fields FILTER,COLUMN_CONFIG` | Extended detail including `Filter: <name> (id: <id>)` |
 | 7 | `jtk boards get $BOARD_ID --id` | Board ID only |
 | 8 | `jtk boards get 99999` | Error: 404 (board not found) |
 
@@ -256,10 +253,10 @@ jtk fields list --custom-fields --id
 |---|---------|-----------------|
 | 1 | `jtk sprints list -b $BOARD_ID -s active` | Table: ID, NAME, STATE, START, END. State = `active` |
 | 2 | `jtk sprints list -b $BOARD_ID -s active --id` | Sprint IDs only |
-| 3 | `jtk sprints list -b $BOARD_ID --extended` | Extended table with additional sprint details |
+| 3 | `jtk sprints list -b $BOARD_ID --fields COMPLETED,BOARD,GOAL` | Extended table with additional sprint details |
 | 4 | `jtk sprints current -b $BOARD_ID` | Current sprint detail: ID, Name, State, Start, End |
 | 5 | `jtk sprints current -b $BOARD_ID --id` | Current sprint ID only |
-| 6 | `jtk sprints current -b $BOARD_ID --extended` | Extended detail |
+| 6 | `jtk sprints current -b $BOARD_ID --fields GOAL` | Extended detail |
 | 7 | `jtk sprints list` | `Error: required flag(s) "board" not set` |
 
 ### sprints issues
@@ -270,7 +267,7 @@ jtk fields list --custom-fields --id
 |---|---------|-----------------|
 | 1 | `jtk sprints issues $SPRINT_ID --max 3` | Table: KEY, SUMMARY, STATUS, ASSIGNEE, TYPE |
 | 2 | `jtk sprints issues $SPRINT_ID --max 3 --id` | Issue keys only |
-| 3 | `jtk sprints issues $SPRINT_ID --max 3 --extended` | Extended table |
+| 3 | `jtk sprints issues $SPRINT_ID --max 3 --fields REPORTER,SPRINT,PARENT,UPDATED,LABELS,COMPONENTS` | Extended table |
 | 4 | `jtk sprints issues 99999` | Error |
 
 ---
@@ -283,7 +280,6 @@ jtk fields list --custom-fields --id
 |---|---------|-----------------|
 | 1 | `jtk links types` | Table: ID, NAME, OUTWARD, INWARD |
 | 2 | `jtk links types --id` | Link type IDs only |
-| 3 | `jtk links types --extended` | Extended table |
 
 ### links list
 
@@ -291,7 +287,7 @@ jtk fields list --custom-fields --id
 |---|---------|-----------------|
 | 1 | `jtk links list $EXISTING_ISSUE` | Table: ID, TYPE, DIRECTION, ISSUE, SUMMARY (or `No links on $EXISTING_ISSUE`) |
 | 2 | `jtk links list $EXISTING_ISSUE --id` | Link IDs only |
-| 3 | `jtk links list $EXISTING_ISSUE --extended` | Extended table |
+| 3 | `jtk links list $EXISTING_ISSUE --fields TYPE_ID,STATUS` | Extended table |
 | 4 | `jtk links list ${PROJECT}-99999` | `resource not found: ...` |
 
 ---
@@ -307,12 +303,10 @@ jtk fields list --custom-fields --id
 | 1 | `jtk dashboards list --max 5` | Table: ID, NAME, OWNER, FAVOURITE |
 | 2 | `jtk dashboards list --search "SEARCH_TERM"` | Filtered results matching search term |
 | 3 | `jtk dashboards list --id` | Dashboard IDs only |
-| 4 | `jtk dashboards list --extended` | Extended table |
 | 5 | `jtk dashboards list --search "xyznonexistent999"` | `No dashboards found matching "xyznonexistent999"` |
 
 ### dashboards get
 
-> `dashboards get` does not support `--id` or `--extended`. Gadgets are rendered inline in the detail view.
 
 | # | Command | Expected Output |
 |---|---------|-----------------|
@@ -336,7 +330,7 @@ jtk fields list --custom-fields --id
 |---|---------|-----------------|
 | 1 | `jtk users search "YOUR_NAME"` | Table: ACCOUNT_ID, NAME, EMAIL, ACTIVE |
 | 2 | `jtk users search "YOUR_NAME" --id` | Account IDs only |
-| 3 | `jtk users search "YOUR_NAME" --extended` | Extended user table |
+| 3 | `jtk users search "YOUR_NAME" --fields TIMEZONE,LOCALE` | Extended user table |
 | 4 | `jtk users search "xyznonexistent999"` | `No users found matching 'xyznonexistent999'` |
 
 ### users get
@@ -345,7 +339,7 @@ jtk fields list --custom-fields --id
 |---|---------|-----------------|
 | 1 | `jtk users get $ACCOUNT_ID` | Detail: Account ID, Display Name, Email, Active |
 | 2 | `jtk users get $ACCOUNT_ID --id` | Account ID only |
-| 3 | `jtk users get $ACCOUNT_ID --extended` | Extended user detail |
+| 3 | `jtk users get $ACCOUNT_ID --fields TIMEZONE,LOCALE,GROUPS,APPLICATION_ROLES` | Extended user detail |
 | 4 | `jtk users get 000000000000000000000000` | Error: 404 (user not found) |
 
 ---
@@ -360,9 +354,7 @@ jtk fields list --custom-fields --id
 | 2 | `jtk auto list --state ENABLED` | Only ENABLED rules |
 | 3 | `jtk auto list --state DISABLED` | Only DISABLED rules |
 | 4 | `jtk auto list --id` | Rule UUIDs only |
-| 5 | `jtk auto list --extended` | Extended table with additional columns |
 | 6 | `jtk auto get $AUTO_UUID` | Detail: Name, UUID, State, Description, Components summary |
-| 7 | `jtk auto get $AUTO_UUID --extended` | Extended detail |
 | 8 | `jtk auto get $AUTO_UUID --id` | Rule UUID only |
 | 9 | `jtk auto get $AUTO_UUID --show-components` | Flat table: # \| COMPONENT \| TYPE |
 | 10 | `jtk auto export $AUTO_UUID \| jq .` | Pretty-printed valid JSON (top-level keys: `rule`, `connections`) |
@@ -379,7 +371,6 @@ jtk fields list --custom-fields --id
 | 1 | `jtk fields list` | Table: ID, NAME, TYPE, CUSTOM |
 | 2 | `jtk fields list --custom-fields` | Only rows where CUSTOM = yes |
 | 3 | `jtk fields list --id` | Field IDs only |
-| 4 | `jtk fields list --extended` | Extended table |
 | 5 | `jtk fields list --name "story"` | Table showing only fields with "story" in the name |
 | 6 | `jtk fields list --name "nonexistent"` | `No fields found` |
 | 7 | `jtk fields list --name "story" --custom-fields` | Only custom fields matching "story" |
@@ -548,9 +539,8 @@ Run these steps in order. Each step depends on the previous.
    Expected: Table: ID, NAME, TO_STATUS
    Note a valid transition name → `$TRANSITION_NAME`
 
-   Also verify `--extended` and `--id` variants:
    ```bash
-   jtk transitions list $TEST_ISSUE --extended
+   jtk transitions list $TEST_ISSUE --fields
    ```
    Expected: Table adds STATUS_CATEGORY, HAS_SCREEN, CONDITIONAL, REQUIRED_FIELDS columns
    ```bash
@@ -654,7 +644,6 @@ Run these steps in order. Each step depends on the previous.
 
 2. **Verify both values set:**
    ```bash
-   jtk issues get $MV_ISSUE --extended
    ```
    Expected: Custom fields block shows both Option1 and Option2 for `$MULTI_FIELD`
 
@@ -1379,50 +1368,29 @@ Verify each alias produces the same output as the full command:
 #### Config & Init (Section 1)
 - [ ] `config show` (table)
 - [ ] `config test`
-- [ ] `me` (table, `--id`, `--extended`)
 
 #### Issues Read-Only (Section 2)
-- [ ] `issues list` (table, `--id`, `--extended`, plain, error)
-- [ ] `issues get` (table, `--id`, `--extended`, `--fulltext`, 404)
-- [ ] `issues search` (results, `--id`, `--extended`, no results, bad JQL)
 - [ ] Auto-pagination (search multi-page, list multi-page)
 - [ ] `--fields` flag (field pass-through for search and list)
 - [ ] `issues types` (table, `--id`, 404)
-- [ ] `issues fields` (all, `--custom-fields`, `--id`, `--extended`)
 - [ ] `issues field-options` (positional syntax: `jtk issues field-options $EXISTING_ISSUE priority`, `--id`)
 - [ ] `issues check` (table, `--id`)
 
 #### Projects Read-Only (Section 3)
-- [ ] `projects list` (table, `--id`, `--extended`)
-- [ ] `projects get` (table, `--id`, `--extended`, 404)
-- [ ] `projects types` (table, `--id`, `--extended`)
 
 #### Boards & Sprints Read-Only (Section 4)
-- [ ] `boards list`, `boards get` (table, `--id`, `--extended`, 404)
-- [ ] `boards get --extended` shows `Filter: <name> (id: <id>)`
-- [ ] `sprints list`, `sprints current` (`--id`, `--extended`)
-- [ ] `sprints issues` (table, `--id`, `--extended`)
 
 #### Links Read-Only (Section 5)
-- [ ] `links types` (table, `--id`, `--extended`)
-- [ ] `links list` (table, `--id`, `--extended`, 404)
 
 #### Dashboards Read-Only (Section 6)
-- [ ] `dashboards list` (table, search, `--id`, `--extended`, no results)
-- [ ] `dashboards get` (detail with inline gadgets, 404) — no `--id`/`--extended`
 - [ ] `dashboards gadgets list` (table, `--id`)
 
 #### Users Read-Only (Section 7)
-- [ ] `users search` (results, `--id`, `--extended`, no results)
-- [ ] `users get` (table, `--id`, `--extended`, 404)
 
 #### Automation Read-Only (Section 8)
-- [ ] `auto list` (all, `--state ENABLED`, `--state DISABLED`, `--id`, `--extended`)
-- [ ] `auto get` (detail, `--extended`, `--id`, `--show-components` flat table)
 - [ ] `auto export` (pretty JSON, compact JSON)
 
 #### Fields Read-Only (Section 9)
-- [ ] `fields list` (all, `--custom-fields`, `--id`, `--extended`)
 - [ ] `fields show` (detail, `--id`, 404)
 - [ ] `fields contexts list` (table, `--id`, 404)
 - [ ] `fields options list` (table)
@@ -1496,34 +1464,21 @@ Verify each alias produces the same output as the full command:
 - [ ] Bearer auth init (non-interactive)
 - [ ] Bearer auth `config show` (auth_method = bearer, cloud_id displayed)
 - [ ] Bearer auth `config test`
-- [ ] `me` (table, `--id`, `--extended`)
 
 #### Issues Read-Only (Section 2)
-- [ ] `issues list` (table, `--id`, `--extended`, plain, error)
-- [ ] `issues get` (table, `--id`, `--extended`, `--fulltext`, 404)
-- [ ] `issues search` (results, `--id`, `--extended`, no results, bad JQL)
 - [ ] Auto-pagination (search multi-page, list multi-page)
 - [ ] `--fields` flag (field pass-through for search and list)
 - [ ] `issues types` (table, `--id`, 404)
-- [ ] `issues fields` (all, `--custom-fields`, `--id`, `--extended`)
 - [ ] `issues field-options` (positional syntax: `jtk issues field-options $EXISTING_ISSUE priority`, `--id`)
 - [ ] `issues check` (table, `--id`)
 
 #### Projects Read-Only (Section 3)
-- [ ] `projects list` (table, `--id`, `--extended`)
-- [ ] `projects get` (table, `--id`, `--extended`, 404)
-- [ ] `projects types` (table, `--id`, `--extended`)
 
 #### Links Read-Only (Section 5)
-- [ ] `links types` (table, `--id`, `--extended`)
-- [ ] `links list` (table, `--id`, `--extended`, 404)
 
 #### Users Read-Only (Section 7)
-- [ ] `users search` (results, `--id`, `--extended`, no results)
-- [ ] `users get` (table, `--id`, `--extended`, 404)
 
 #### Fields Read-Only (Section 9)
-- [ ] `fields list` (all, `--custom-fields`, `--id`, `--extended`)
 - [ ] `fields show` (detail, `--id`, 404)
 - [ ] `fields contexts list` (table, `--id`, 404)
 - [ ] `fields options list` (table)

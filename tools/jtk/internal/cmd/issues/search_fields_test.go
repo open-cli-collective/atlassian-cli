@@ -9,12 +9,26 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/spf13/cobra"
+
 	"github.com/open-cli-collective/atlassian-go/testutil"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/present/projection"
 )
+
+func TestAllFieldsFlagRemoved(t *testing.T) {
+	t.Parallel()
+	for _, newCmd := range []func(*root.Options) *cobra.Command{newListCmd, newSearchCmd} {
+		cmd := newCmd(&root.Options{})
+		testutil.Nil(t, cmd.Flags().Lookup("all-fields"))
+		testutil.NotContains(t, cmd.Flags().FlagUsages(), "--all-fields")
+		cmd.SetArgs([]string{"--all-fields"})
+		err := cmd.Execute()
+		testutil.Contains(t, err.Error(), "unknown flag: --all-fields")
+	}
+}
 
 func TestDeriveFetchFields(t *testing.T) {
 	t.Parallel()
@@ -26,39 +40,12 @@ func TestDeriveFetchFields(t *testing.T) {
 	tests := []struct {
 		name      string
 		projected bool
-		extended  bool
-		allFields bool
 		want      []string
 	}{
 		{
 			name:      "projected → union of selected specs",
 			projected: true,
 			want:      []string{"summary"},
-		},
-		{
-			name:      "projected wins over extended",
-			projected: true, extended: true,
-			want: []string{"summary"},
-		},
-		{
-			name:      "projected wins over allFields",
-			projected: true, allFields: true,
-			want: []string{"summary"},
-		},
-		{
-			name:     "extended without projection → DefaultSearchFields",
-			extended: true,
-			want:     api.DefaultSearchFields,
-		},
-		{
-			name:      "allFields without projection → DefaultSearchFields",
-			allFields: true,
-			want:      api.DefaultSearchFields,
-		},
-		{
-			name:     "extended and allFields are idempotent",
-			extended: true, allFields: true,
-			want: api.DefaultSearchFields,
 		},
 		{
 			name: "default → ListSearchFields",
@@ -68,12 +55,29 @@ func TestDeriveFetchFields(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := deriveFetchFields(selected, tt.projected, tt.extended, tt.allFields)
+			got := deriveFetchFields(selected, tt.projected)
 			testutil.Equal(t, len(tt.want), len(got))
 			for i := range tt.want {
 				testutil.Equal(t, tt.want[i], got[i])
 			}
 		})
+	}
+}
+
+func TestRunSearch_FullTextUsesCompactFetchFields(t *testing.T) {
+	t.Parallel()
+	var captured api.SearchRequest
+	server := newSearchServer(t, &captured)
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@example.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+	opts := &root.Options{FullText: true, Stdout: io.Discard, Stderr: io.Discard}
+	opts.SetAPIClient(client)
+	testutil.RequireNoError(t, runSearch(context.Background(), opts, "project = TEST", 25, "", ""))
+	testutil.Equal(t, len(api.ListSearchFields), len(captured.Fields))
+	for i := range api.ListSearchFields {
+		testutil.Equal(t, api.ListSearchFields[i], captured.Fields[i])
 	}
 }
 
@@ -130,7 +134,7 @@ func TestRunSearch_TableOutputUsesListFields(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runSearch(context.Background(), opts, "project = TEST", 25, "", false, "")
+	err = runSearch(context.Background(), opts, "project = TEST", 25, "", "")
 	testutil.RequireNoError(t, err)
 
 	testutil.Equal(t, len(api.ListSearchFields), len(captured.Fields))

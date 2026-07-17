@@ -45,7 +45,6 @@ func newListCmd(opts *root.Options) *cobra.Command {
 		Short: "List links on an issue",
 		Long:  "List all links on a specific issue.",
 		Example: `  jtk links list PROJ-123
-  jtk links list PROJ-123 --extended
   jtk links list PROJ-123 --id
   jtk links list PROJ-123 --fields TYPE,ISSUE`,
 		Args: cobra.ExactArgs(1),
@@ -69,7 +68,6 @@ func runList(ctx context.Context, opts *root.Options, issueKey, fieldsFlag strin
 		selected, projected, err = projection.Resolve(
 			ctx,
 			jtkpresent.LinkListSpec,
-			opts.IsExtended(),
 			fieldsFlag,
 			noFieldFetch,
 			"links list",
@@ -101,7 +99,7 @@ func runList(ctx context.Context, opts *root.Options, issueKey, fieldsFlag strin
 		return jtkpresent.Emit(opts, jtkpresent.LinkPresenter{}.PresentEmpty(issueKey))
 	}
 
-	model := jtkpresent.LinkPresenter{}.PresentList(links, opts.IsExtended())
+	model := jtkpresent.LinkPresenter{}.PresentList(links, projection.HasOptionalFields(selected, jtkpresent.LinkListSpec))
 	if projected {
 		projection.ApplyToTableInModel(model, selected)
 	}
@@ -205,7 +203,7 @@ func runCreate(ctx context.Context, opts *root.Options, subjectKey, targetKey, l
 		if opts.EmitIDOnly() {
 			return jtkpresent.EmitIDs(opts, []string{matched.ID})
 		}
-		return jtkpresent.Emit(opts, jtkpresent.LinkPresenter{}.PresentList([]api.IssueLink{*matched}, opts.IsExtended()))
+		return jtkpresent.Emit(opts, jtkpresent.LinkPresenter{}.PresentList([]api.IssueLink{*matched}, false))
 	}
 
 fallback:
@@ -307,7 +305,6 @@ func runTypes(ctx context.Context, opts *root.Options, fieldsFlag string) error 
 		selected, projected, err = projection.Resolve(
 			ctx,
 			jtkpresent.LinkTypesSpec,
-			opts.IsExtended(),
 			fieldsFlag,
 			noFieldFetch,
 			"links types",

@@ -22,25 +22,6 @@ type SearchRequest struct {
 	NextPageToken string   `json:"nextPageToken,omitempty"`
 }
 
-// DefaultSearchFields are the fields returned by default in search results.
-var DefaultSearchFields = []string{
-	"summary",
-	"status",
-	"assignee",
-	"issuetype",
-	"priority",
-	"project",
-	"created",
-	"updated",
-	"description",
-	"labels",
-	"components",
-	"reporter",
-	"parent",
-	"customfield_10020",
-	"customfield_10035",
-}
-
 // ListSearchFields are lightweight fields for list/search commands (no description).
 var ListSearchFields = []string{
 	"summary",
@@ -75,7 +56,7 @@ func (c *Client) Search(ctx context.Context, opts SearchOptions) (*JQLSearchResu
 	if len(opts.Fields) > 0 {
 		req.Fields = opts.Fields
 	} else {
-		req.Fields = DefaultSearchFields
+		req.Fields = ListSearchFields
 	}
 
 	urlStr := fmt.Sprintf("%s/search/jql", c.BaseURL)

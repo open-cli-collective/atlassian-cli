@@ -14,18 +14,18 @@ import (
 type IssueHistoryPresenter struct{}
 
 // IssueHistorySpec declares the columns emitted by PresentIssueHistory.
-// Default: ID|CREATED|AUTHOR|FIELD|FROM|TO. Extended adds raw audit fields.
+// Default: ID|CREATED|AUTHOR|FIELD|FROM|TO. Optional adds raw audit fields.
 var IssueHistorySpec = projection.Registry{
 	{Header: "ID", Aliases: []string{"id"}, Identity: true},
 	{Header: "CREATED", Aliases: []string{"created"}},
 	{Header: "AUTHOR", Aliases: []string{"author"}},
-	{Header: "ACCOUNT_ID", Aliases: []string{"accountId", "account_id"}, Extended: true},
+	{Header: "ACCOUNT_ID", Aliases: []string{"accountId", "account_id"}, Optional: true},
 	{Header: "FIELD", Aliases: []string{"field"}},
-	{Header: "FIELD_ID", Aliases: []string{"fieldId", "field_id"}, Extended: true},
-	{Header: "TYPE", Aliases: []string{"fieldtype", "fieldType", "type"}, Extended: true},
-	{Header: "FROM_ID", Aliases: []string{"fromId", "from_id"}, Extended: true},
+	{Header: "FIELD_ID", Aliases: []string{"fieldId", "field_id"}, Optional: true},
+	{Header: "TYPE", Aliases: []string{"fieldtype", "fieldType", "type"}, Optional: true},
+	{Header: "FROM_ID", Aliases: []string{"fromId", "from_id"}, Optional: true},
 	{Header: "FROM", Aliases: []string{"from"}},
-	{Header: "TO_ID", Aliases: []string{"toId", "to_id"}, Extended: true},
+	{Header: "TO_ID", Aliases: []string{"toId", "to_id"}, Optional: true},
 	{Header: "TO", Aliases: []string{"to"}},
 }
 
@@ -76,9 +76,9 @@ func FlattenIssueHistory(histories []api.IssueChangelogHistory) []IssueHistoryRo
 }
 
 // PresentIssueHistory creates a table view for issue changelog rows.
-func (IssueHistoryPresenter) PresentIssueHistory(rows []IssueHistoryRow, extended bool, fulltext bool) *present.OutputModel {
+func (IssueHistoryPresenter) PresentIssueHistory(rows []IssueHistoryRow, includeOptional bool, fulltext bool) *present.OutputModel {
 	var headers []string
-	if extended {
+	if includeOptional {
 		headers = []string{"ID", "CREATED", "AUTHOR", "ACCOUNT_ID", "FIELD", "FIELD_ID", "TYPE", "FROM_ID", "FROM", "TO_ID", "TO"}
 	} else {
 		headers = []string{"ID", "CREATED", "AUTHOR", "FIELD", "FROM", "TO"}
@@ -87,10 +87,10 @@ func (IssueHistoryPresenter) PresentIssueHistory(rows []IssueHistoryRow, extende
 	outRows := make([]present.Row, len(rows))
 	for i, row := range rows {
 		created := FormatTime(row.Created)
-		if extended {
+		if includeOptional {
 			created = row.Created
 		}
-		if extended {
+		if includeOptional {
 			outRows[i] = present.Row{Cells: []string{
 				OrDash(row.ID),
 				OrDash(created),
@@ -124,8 +124,8 @@ func (IssueHistoryPresenter) PresentIssueHistory(rows []IssueHistoryRow, extende
 }
 
 // PresentIssueHistoryWithPagination wraps PresentIssueHistory and appends a continuation token when needed.
-func (p IssueHistoryPresenter) PresentIssueHistoryWithPagination(rows []IssueHistoryRow, extended bool, fulltext bool, hasMore bool, nextToken string) *present.OutputModel {
-	model := p.PresentIssueHistory(rows, extended, fulltext)
+func (p IssueHistoryPresenter) PresentIssueHistoryWithPagination(rows []IssueHistoryRow, includeOptional bool, fulltext bool, hasMore bool, nextToken string) *present.OutputModel {
+	model := p.PresentIssueHistory(rows, includeOptional, fulltext)
 	model.Sections = AppendPaginationHintWithToken(model.Sections, hasMore, nextToken)
 	return model
 }

@@ -71,16 +71,15 @@ The rule is role-based, not type-based. The same entity type appears positionall
 
 ### 3.1 Output-shape flags
 
-The global flags `--id`, `--extended`, `--fulltext`, and `--fields` form a coordinate system for "how should the result render?" — orthogonal to *what* is fetched.
+The output flags `--id`, `--fulltext`, and command-local `--fields` control how results render.
 
-- **`--id`** — emit only primary identifiers. Overrides `--extended` and `--fulltext`. The contract: machine-friendly output, one identifier per line, suitable for piping into `xargs`.
-- **`--extended`** — widen the default column set with admin/schema/audit fields.
+- **`--id`** — emit only primary identifiers. Overrides `--fulltext`. The contract: machine-friendly output, one identifier per line, suitable for piping into `xargs`.
 - **`--fulltext`** — disable truncation of prose cells.
 - **`--fields <csv>`** — explicit column selection. Replaces the default set entirely. Accepts header labels, Jira field IDs, or human names; the flag handles input normalization.
 
-**Mental model:** there's a default column set → `--extended` widens it → `--fields` overrides the whole selection → `--id` short-circuits to identifiers only.
+**Mental model:** there is a compact default set → `--fields` explicitly selects supported fields → `--id` short-circuits to identifiers only. `--fulltext` changes truncation only.
 
-New list/get commands must support all four. Output-shape flags are always long-only.
+New list/get commands support the flags that fit their output. Output-shape flags are always long-only.
 
 ### 3.2 Pagination (see issue #06)
 
@@ -146,7 +145,7 @@ These bind to specific scopes. Don't reuse them for unrelated purposes.
 
 ### 4.4 No shorts for these
 
-- Output-shape flags (`--fields`, `--extended`, `--fulltext`, `--id`)
+- Output-shape flags (`--fields`, `--fulltext`, `--id`)
 - Pagination cursors (`--next-page-token`)
 - Safety flags (`--force`)
 - Boolean toggles (`--unassign`, `--notify`, `--wait`, `--compact`, `--show-components`, `--custom-fields`, etc.)

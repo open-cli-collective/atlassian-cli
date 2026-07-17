@@ -142,8 +142,8 @@ func TestRunList_Fields_BlockMode_PreservesPaginationHint(t *testing.T) {
 	testutil.Contains(t, output, "More results available")
 }
 
-// --fields VISIBILITY with --extended selects the visibility column and
-// drops unselected columns. Guards that projection handles extended columns.
+// --fields VISIBILITY selects the optional visibility column and drops
+// unselected columns.
 func TestRunList_Fields_TableMode_VisibilityColumn(t *testing.T) {
 	t.Parallel()
 	comments := []api.Comment{
@@ -163,7 +163,6 @@ func TestRunList_Fields_TableMode_VisibilityColumn(t *testing.T) {
 	defer server.Close()
 
 	opts, stdout, _ := newCommentsOpts(t, server)
-	opts.Extended = true
 	err := runList(context.Background(), opts, "TEST-1", 50, false, "ID,VISIBILITY")
 	testutil.RequireNoError(t, err)
 

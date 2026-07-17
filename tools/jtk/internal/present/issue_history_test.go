@@ -111,5 +111,6 @@ func TestIssueHistoryPresenter_Pagination(t *testing.T) {
 	rows := FlattenIssueHistory(historyFixture())
 	model := IssueHistoryPresenter{}.PresentIssueHistoryWithPagination(rows, false, false, true, "2")
 	out := sharedpresent.Render(model, sharedpresent.StyleAgent)
-	testutil.Contains(t, out.Stdout, "More results available (next: 2)")
+	testutil.NotContains(t, out.Stdout, "More results available")
+	testutil.Contains(t, out.Stderr, "More results available (next: 2)")
 }

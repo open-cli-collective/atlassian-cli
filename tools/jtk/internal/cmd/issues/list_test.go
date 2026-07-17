@@ -9,7 +9,10 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
+
+	"github.com/spf13/cobra"
 
 	"github.com/open-cli-collective/atlassian-go/testutil"
 
@@ -50,7 +53,7 @@ func TestRunList_SprintNameResolvesToID(t *testing.T) {
 	defer server.Close()
 
 	opts, _, _ := newListOpts(t, server)
-	err := runList(context.Background(), opts, "PROJ", "MON Sprint 70", 25, "", false, "")
+	err := runList(context.Background(), opts, "PROJ", "MON Sprint 70", 25, "", "")
 	testutil.RequireNoError(t, err)
 	if !strings.Contains(jql, "sprint = 125") {
 		t.Fatalf("expected JQL to contain 'sprint = 125', got: %q", jql)
@@ -68,10 +71,36 @@ func TestRunList_SprintNumericPassThrough(t *testing.T) {
 	defer server.Close()
 
 	opts, _, _ := newListOpts(t, server)
-	err := runList(context.Background(), opts, "PROJ", "999", 25, "", false, "")
+	err := runList(context.Background(), opts, "PROJ", "999", 25, "", "")
 	testutil.RequireNoError(t, err)
 	if !strings.Contains(jql, "sprint = 999") {
 		t.Fatalf("expected JQL to contain 'sprint = 999', got: %q", jql)
+	}
+}
+
+func TestRunList_AmbiguousSprintDoesNotSearch(t *testing.T) {
+	seedCacheForIssues(t)
+	testutil.RequireNoError(t, seedSprints(map[int][]api.Sprint{
+		11: {{ID: 100, Name: "Duplicated Sprint"}},
+		22: {{ID: 200, Name: "Duplicated Sprint"}},
+	}))
+
+	searchCalls := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/search/jql") {
+			searchCalls++
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	opts, stdout, _ := newListOpts(t, server)
+	err := runList(context.Background(), opts, "PROJ", "Duplicated Sprint", 25, "", "")
+	if err == nil || !strings.Contains(err.Error(), "100") || !strings.Contains(err.Error(), "200") {
+		t.Fatalf("expected candidate IDs, got %v", err)
+	}
+	if searchCalls != 0 || stdout.Len() != 0 {
+		t.Fatalf("ambiguous sprint must fail before search/output: calls=%d stdout=%q", searchCalls, stdout.String())
 	}
 }
 
@@ -83,7 +112,7 @@ func TestRunList_SprintCurrentUsesOpenSprints(t *testing.T) {
 	defer server.Close()
 
 	opts, _, _ := newListOpts(t, server)
-	err := runList(context.Background(), opts, "PROJ", "current", 25, "", false, "")
+	err := runList(context.Background(), opts, "PROJ", "current", 25, "", "")
 	testutil.RequireNoError(t, err)
 	if !strings.Contains(jql, "openSprints()") {
 		t.Fatalf("expected JQL to contain 'openSprints()', got: %q", jql)
@@ -139,23 +168,23 @@ func newListOpts(t *testing.T, server *httptest.Server) (*root.Options, *bytes.B
 	return opts, &stdout, &stderr
 }
 
-func TestRunList_DefaultPaginationOnStdout(t *testing.T) {
+func TestRunList_DefaultPaginationOnStderr(t *testing.T) {
 	t.Parallel()
 	server := listResultServer(t, []string{"TEST-1", "TEST-2"}, false)
 	defer server.Close()
 
 	opts, stdout, stderr := newListOpts(t, server)
-	err := runList(context.Background(), opts, "TEST", "", 25, "", false, "")
+	err := runList(context.Background(), opts, "TEST", "", 25, "", "")
 	testutil.RequireNoError(t, err)
 
 	if !strings.Contains(stdout.String(), "TEST-1") {
 		t.Errorf("stdout missing issue key: %q", stdout.String())
 	}
-	if !strings.Contains(stdout.String(), "More results available") {
-		t.Errorf("pagination hint should be on stdout, got stdout=%q stderr=%q", stdout.String(), stderr.String())
+	if strings.Contains(stdout.String(), "More results available") {
+		t.Errorf("pagination hint should not be on stdout: %q", stdout.String())
 	}
-	if strings.Contains(stderr.String(), "More results available") {
-		t.Errorf("pagination hint should NOT be on stderr: %q", stderr.String())
+	if !strings.Contains(stderr.String(), "More results available") {
+		t.Errorf("pagination hint should be on stderr: %q", stderr.String())
 	}
 }
 
@@ -166,7 +195,7 @@ func TestRunList_IDOnlyEmitsKeysOnePerLine(t *testing.T) {
 
 	opts, stdout, stderr := newListOpts(t, server)
 	opts.IDOnly = true
-	err := runList(context.Background(), opts, "TEST", "", 25, "", false, "")
+	err := runList(context.Background(), opts, "TEST", "", 25, "", "")
 	testutil.RequireNoError(t, err)
 
 	want := "TEST-1\nTEST-2\nTEST-3\n"
@@ -183,15 +212,16 @@ func TestRunList_IDOnlyWithMoreResultsAppendsContinuation(t *testing.T) {
 	server := listResultServer(t, []string{"TEST-1", "TEST-2"}, false)
 	defer server.Close()
 
-	opts, stdout, _ := newListOpts(t, server)
+	opts, stdout, stderr := newListOpts(t, server)
 	opts.IDOnly = true
-	err := runList(context.Background(), opts, "TEST", "", 25, "", false, "")
+	err := runList(context.Background(), opts, "TEST", "", 25, "", "")
 	testutil.RequireNoError(t, err)
 
-	want := "TEST-1\nTEST-2\nMore results available (next: next-token)\n"
+	want := "TEST-1\nTEST-2\n"
 	if stdout.String() != want {
 		t.Errorf("stdout:\ngot:  %q\nwant: %q", stdout.String(), want)
 	}
+	testutil.Equal(t, "More results available (next: next-token)\n", stderr.String())
 }
 
 func TestRunList_EmptyDefault_NoIssuesFoundOnStdout(t *testing.T) {
@@ -200,7 +230,7 @@ func TestRunList_EmptyDefault_NoIssuesFoundOnStdout(t *testing.T) {
 	defer server.Close()
 
 	opts, stdout, stderr := newListOpts(t, server)
-	err := runList(context.Background(), opts, "TEST", "", 25, "", false, "")
+	err := runList(context.Background(), opts, "TEST", "", 25, "", "")
 	testutil.RequireNoError(t, err)
 
 	if !strings.Contains(stdout.String(), "No issues found") {
@@ -214,24 +244,24 @@ func TestRunList_EmptyDefault_NoIssuesFoundOnStdout(t *testing.T) {
 func TestRunList_EmptyWithMoreResults_EmitsOnlyPaginationHint(t *testing.T) {
 	t.Parallel()
 	// Empty page with IsLast=false (more pages exist). The continuation hint
-	// alone reaches stdout so agents keep paging; the "No issues found"
+	// alone reaches stderr so agents keep paging; the "No issues found"
 	// message is suppressed because the result set is not actually empty —
 	// only this page is. Emitting both would self-contradict.
 	server := listResultServer(t, nil, false)
 	defer server.Close()
 
 	opts, stdout, stderr := newListOpts(t, server)
-	err := runList(context.Background(), opts, "TEST", "", 25, "", false, "")
+	err := runList(context.Background(), opts, "TEST", "", 25, "", "")
 	testutil.RequireNoError(t, err)
 
-	if !strings.Contains(stdout.String(), "More results available") {
-		t.Errorf("pagination hint should appear on stdout; got %q", stdout.String())
+	if strings.Contains(stdout.String(), "More results available") {
+		t.Errorf("pagination hint should not appear on stdout; got %q", stdout.String())
 	}
 	if strings.Contains(stdout.String(), "No issues found") {
 		t.Errorf("'No issues found' must not co-occur with pagination hint; got %q", stdout.String())
 	}
-	if stderr.String() != "" {
-		t.Errorf("stderr should be empty, got: %q", stderr.String())
+	if !strings.Contains(stderr.String(), "More results available") {
+		t.Errorf("pagination hint should appear on stderr: %q", stderr.String())
 	}
 }
 
@@ -242,7 +272,7 @@ func TestRunList_EmptyWithIDOnly_EmitsNothing(t *testing.T) {
 
 	opts, stdout, stderr := newListOpts(t, server)
 	opts.IDOnly = true
-	err := runList(context.Background(), opts, "TEST", "", 25, "", false, "")
+	err := runList(context.Background(), opts, "TEST", "", 25, "", "")
 	testutil.RequireNoError(t, err)
 
 	if stdout.String() != "" {
@@ -356,7 +386,7 @@ func TestRunList_Fields_HeaderAliases_ProjectsTable(t *testing.T) {
 	defer cs.server.Close()
 
 	opts, stdout, _ := newOptsFor(t, cs)
-	err := runList(context.Background(), opts, "TEST", "", 25, "", false, "SUMMARY,STATUS")
+	err := runList(context.Background(), opts, "TEST", "", 25, "", "SUMMARY,STATUS")
 	testutil.RequireNoError(t, err)
 
 	// Header row in the pipe-delimited agent output should be KEY | SUMMARY | STATUS.
@@ -387,13 +417,14 @@ func TestRunList_Fields_Projection_PreservesPaginationHint(t *testing.T) {
 	cs := newCapturingServer(t, []string{"TEST-1"}, false, nil) // isLast=false → hasMore=true
 	defer cs.server.Close()
 
-	opts, stdout, _ := newOptsFor(t, cs)
-	err := runList(context.Background(), opts, "TEST", "", 25, "", false, "SUMMARY,STATUS")
+	opts, stdout, stderr := newOptsFor(t, cs)
+	err := runList(context.Background(), opts, "TEST", "", 25, "", "SUMMARY,STATUS")
 	testutil.RequireNoError(t, err)
 
 	out := stdout.String()
 	testutil.Contains(t, out, "KEY | SUMMARY | STATUS")
-	testutil.Contains(t, out, "next: next-token")
+	testutil.NotContains(t, out, "next: next-token")
+	testutil.Contains(t, stderr.String(), "next: next-token")
 }
 
 func TestRunList_Fields_JiraFieldIDs_ProjectsTable(t *testing.T) {
@@ -402,7 +433,7 @@ func TestRunList_Fields_JiraFieldIDs_ProjectsTable(t *testing.T) {
 	defer cs.server.Close()
 
 	opts, stdout, _ := newOptsFor(t, cs)
-	err := runList(context.Background(), opts, "TEST", "", 25, "", false, "summary,assignee")
+	err := runList(context.Background(), opts, "TEST", "", 25, "", "summary,assignee")
 	testutil.RequireNoError(t, err)
 
 	lines := strings.Split(strings.TrimRight(stdout.String(), "\n"), "\n")
@@ -420,7 +451,7 @@ func TestRunList_Fields_HumanName_TriggersFieldsFetch(t *testing.T) {
 	defer cs.server.Close()
 
 	opts, stdout, _ := newOptsFor(t, cs)
-	err := runList(context.Background(), opts, "TEST", "", 25, "", false, "Issue Type")
+	err := runList(context.Background(), opts, "TEST", "", 25, "", "Issue Type")
 	testutil.RequireNoError(t, err)
 
 	lines := strings.Split(strings.TrimRight(stdout.String(), "\n"), "\n")
@@ -438,7 +469,7 @@ func TestRunList_Fields_UnknownToken_Errors(t *testing.T) {
 	defer cs.server.Close()
 
 	opts, _, _ := newOptsFor(t, cs)
-	err := runList(context.Background(), opts, "TEST", "", 25, "", false, "bogus")
+	err := runList(context.Background(), opts, "TEST", "", 25, "", "bogus")
 	var ufe *projection.UnknownFieldError
 	if !errors.As(err, &ufe) {
 		t.Fatalf("expected UnknownFieldError, got %v", err)
@@ -455,7 +486,7 @@ func TestRunList_Fields_DynamicField_ByHumanName_Succeeds(t *testing.T) {
 	defer cs.server.Close()
 
 	opts, stdout, _ := newOptsFor(t, cs)
-	err := runList(context.Background(), opts, "TEST", "", 25, "", false, "Phantom")
+	err := runList(context.Background(), opts, "TEST", "", 25, "", "Phantom")
 	testutil.RequireNoError(t, err)
 	testutil.Contains(t, stdout.String(), "Phantom")
 	testutil.Contains(t, stdout.String(), "phantom-val")
@@ -472,7 +503,7 @@ func TestRunList_Fields_DynamicField_ByFieldID_Succeeds(t *testing.T) {
 	defer cs.server.Close()
 
 	opts, stdout, _ := newOptsFor(t, cs)
-	err := runList(context.Background(), opts, "TEST", "", 25, "", false, "customfield_99999")
+	err := runList(context.Background(), opts, "TEST", "", 25, "", "customfield_99999")
 	testutil.RequireNoError(t, err)
 	testutil.Contains(t, stdout.String(), "Phantom")
 	testutil.Contains(t, stdout.String(), "phantom-val")
@@ -486,7 +517,7 @@ func TestRunList_FieldsWithIDOnly_IDWins(t *testing.T) {
 
 	opts, stdout, _ := newOptsFor(t, cs)
 	opts.IDOnly = true
-	err := runList(context.Background(), opts, "TEST", "", 25, "", false, "SUMMARY")
+	err := runList(context.Background(), opts, "TEST", "", 25, "", "SUMMARY")
 	testutil.RequireNoError(t, err)
 
 	want := "TEST-1\nTEST-2\n"
@@ -506,7 +537,7 @@ func TestRunList_IDOnly_SkipsFieldsResolution(t *testing.T) {
 
 	opts, _, _ := newOptsFor(t, cs)
 	opts.IDOnly = true
-	err := runList(context.Background(), opts, "TEST", "", 25, "", false, "Issue Type")
+	err := runList(context.Background(), opts, "TEST", "", 25, "", "Issue Type")
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, 0, cs.fieldsCalls)
 }
@@ -521,7 +552,7 @@ func TestRunList_IDOnly_BypassesFieldsValidation(t *testing.T) {
 
 	opts, stdout, _ := newOptsFor(t, cs)
 	opts.IDOnly = true
-	err := runList(context.Background(), opts, "TEST", "", 25, "", false, "bogus")
+	err := runList(context.Background(), opts, "TEST", "", 25, "", "bogus")
 	testutil.RequireNoError(t, err)
 	if stdout.String() != "TEST-1\n" {
 		t.Errorf("expected bare key, got %q", stdout.String())
@@ -530,35 +561,6 @@ func TestRunList_IDOnly_BypassesFieldsValidation(t *testing.T) {
 
 // Under --id, the JSON + --fields rejection also must not fire. --id produces
 // plain identifiers, not JSON, so the conflict is moot.
-func TestRunList_Fields_TrumpsAllFieldsForFetch(t *testing.T) {
-	t.Parallel()
-	cs := newCapturingServer(t, []string{"TEST-1"}, true, nil)
-	defer cs.server.Close()
-
-	opts, _, _ := newOptsFor(t, cs)
-	// Both --fields and --all-fields set; --fields must win for fetch.
-	err := runList(context.Background(), opts, "TEST", "", 25, "", true, "SUMMARY")
-	testutil.RequireNoError(t, err)
-	got := cs.searchCaptured.Fields
-	if len(got) != 1 || got[0] != "summary" {
-		t.Errorf("--fields must drive fetch even when --all-fields is set; got %v", got)
-	}
-}
-
-func TestRunList_AllFieldsWithoutFields_UsesDefaultSearchFields(t *testing.T) {
-	t.Parallel()
-	cs := newCapturingServer(t, []string{"TEST-1"}, true, nil)
-	defer cs.server.Close()
-
-	opts, _, _ := newOptsFor(t, cs)
-	err := runList(context.Background(), opts, "TEST", "", 25, "", true, "")
-	testutil.RequireNoError(t, err)
-	got := cs.searchCaptured.Fields
-	if len(got) != len(api.DefaultSearchFields) {
-		t.Errorf("--all-fields should request DefaultSearchFields; got %d fields, want %d", len(got), len(api.DefaultSearchFields))
-	}
-}
-
 func TestJqlEscape(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
@@ -585,57 +587,44 @@ func TestJqlEscape(t *testing.T) {
 	}
 }
 
-func TestBuildSprintClause_WarnBranches(t *testing.T) {
+func TestBuildSprintClause_FailsClosed(t *testing.T) {
 	seedCacheForIssues(t)
-	// Seed two boards with a sprint of the same name on both, so name resolution
-	// is ambiguous.
 	testutil.RequireNoError(t, seedSprints(map[int][]api.Sprint{
 		11: {{ID: 100, Name: "Duplicated Sprint", State: "active"}},
 		22: {{ID: 200, Name: "Duplicated Sprint", State: "closed"}},
 	}))
 
-	// Hermetic httptest server — prevents any accidental resolver refresh from
-	// reaching a real host (CI outbound-blocked envs would otherwise time out).
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("{}"))
+		w.WriteHeader(http.StatusInternalServerError)
 	}))
 	defer server.Close()
 
 	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "e", APIToken: "t"})
 	testutil.RequireNoError(t, err)
 
-	t.Run("ambiguous_returns_warning", func(t *testing.T) {
-		clause, warning, err := buildSprintClause(context.Background(), resolve.New(client), "Duplicated Sprint")
-		testutil.RequireNoError(t, err)
-		if !strings.Contains(clause, `sprint = "Duplicated Sprint"`) {
-			t.Fatalf("want quoted JQL fallback, got %q", clause)
-		}
-		if warning == nil || warning.Kind != sprintWarningAmbiguity {
-			t.Errorf("want ambiguity warning, got: %v", warning)
+	t.Run("same name on multiple boards lists candidate IDs", func(t *testing.T) {
+		clause, err := buildSprintClause(context.Background(), resolve.New(client), "Duplicated Sprint")
+		if err == nil || !strings.Contains(err.Error(), "100") || !strings.Contains(err.Error(), "200") {
+			t.Fatalf("want ambiguity with candidate IDs, got clause=%q err=%v", clause, err)
 		}
 	})
 
-	t.Run("unresolvable_name_always_returns_some_warning", func(t *testing.T) {
-		clause, warning, err := buildSprintClause(context.Background(), resolve.New(client), "Nonexistent Sprint Name")
-		testutil.RequireNoError(t, err)
-		if !strings.Contains(clause, `sprint = "Nonexistent Sprint Name"`) {
-			t.Fatalf("want quoted JQL fallback, got %q", clause)
-		}
-		if warning == nil {
-			t.Error("want some warning, got nil")
+	t.Run("resolver failure gives refresh and ID guidance", func(t *testing.T) {
+		clause, err := buildSprintClause(context.Background(), resolve.New(client), "Nonexistent Sprint Name")
+		if err == nil || !strings.Contains(err.Error(), "refresh") || !strings.Contains(err.Error(), "numeric sprint ID") {
+			t.Fatalf("want fail-closed guidance, got clause=%q err=%v", clause, err)
 		}
 	})
 
 	t.Run("negative_numeric_rejected", func(t *testing.T) {
-		_, _, err := buildSprintClause(context.Background(), resolve.New(client), "-5")
+		_, err := buildSprintClause(context.Background(), resolve.New(client), "-5")
 		if err == nil || !strings.Contains(err.Error(), "must be positive") {
 			t.Errorf("want positive-only error, got %v", err)
 		}
 	})
 
 	t.Run("zero_numeric_rejected", func(t *testing.T) {
-		_, _, err := buildSprintClause(context.Background(), resolve.New(client), "0")
+		_, err := buildSprintClause(context.Background(), resolve.New(client), "0")
 		if err == nil || !strings.Contains(err.Error(), "must be positive") {
 			t.Errorf("want positive-only error, got %v", err)
 		}
@@ -655,7 +644,7 @@ func TestRunList_Fields_HumanName_CacheHit_SkipsFieldsFetch(t *testing.T) {
 	defer cs.server.Close()
 
 	opts, stdout, _ := newOptsFor(t, cs)
-	err := runList(context.Background(), opts, "TEST", "", 25, "", false, "Issue Type")
+	err := runList(context.Background(), opts, "TEST", "", 25, "", "Issue Type")
 	testutil.RequireNoError(t, err)
 
 	lines := strings.Split(strings.TrimRight(stdout.String(), "\n"), "\n")
@@ -674,4 +663,51 @@ func TestNewListCmd_MaxFlagShape(t *testing.T) {
 	testutil.NotNil(t, maxFlag)
 	testutil.Equal(t, maxFlag.Shorthand, "m")
 	testutil.Equal(t, maxFlag.DefValue, "50")
+}
+
+func TestPaginatedCommandsRejectNonPositiveMax(t *testing.T) {
+	for _, maxResults := range []string{"0", "-1"} {
+		list := newListCmd(&root.Options{})
+		list.SetArgs([]string{"--max", maxResults})
+		err := list.Execute()
+		testutil.Error(t, err)
+		testutil.Contains(t, err.Error(), "--max must be greater than zero")
+
+		search := newSearchCmd(&root.Options{})
+		search.SetArgs([]string{"--jql", "project = TEST", "--max", maxResults})
+		err = search.Execute()
+		testutil.Error(t, err)
+		testutil.Contains(t, err.Error(), "--max must be greater than zero")
+
+		history := newHistoryCmd(&root.Options{})
+		history.SetArgs([]string{"TEST-1", "--max", maxResults})
+		err = history.Execute()
+		testutil.Error(t, err)
+		testutil.Contains(t, err.Error(), "--max must be greater than zero")
+	}
+}
+
+func TestIssueCommandsRejectMaxOver100BeforeRequest(t *testing.T) {
+	t.Parallel()
+	var requests atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		requests.Add(1)
+	}))
+	defer server.Close()
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "e@x", APIToken: "t"})
+	testutil.RequireNoError(t, err)
+
+	for _, newCmd := range []func(*root.Options) *cobra.Command{newListCmd, newSearchCmd} {
+		opts := &root.Options{Stdout: io.Discard, Stderr: io.Discard}
+		opts.SetAPIClient(client)
+		cmd := newCmd(opts)
+		cmd.SetArgs([]string{"--jql", "project = TEST", "--max", "101"})
+		if cmd.Name() == "list" {
+			cmd.SetArgs([]string{"--max", "101"})
+		}
+		err := cmd.Execute()
+		testutil.Error(t, err)
+		testutil.Contains(t, err.Error(), "--max must be 100 or less")
+	}
+	testutil.Equal(t, int32(0), requests.Load())
 }

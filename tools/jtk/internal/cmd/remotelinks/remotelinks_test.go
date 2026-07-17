@@ -134,26 +134,6 @@ func TestRunList(t *testing.T) {
 	testutil.Contains(t, out, "https://github.com/owner/repo/issues/456")
 }
 
-func TestRunList_Extended(t *testing.T) {
-	t.Parallel()
-	server := remoteLinkListServer(t)
-	defer server.Close()
-
-	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
-	testutil.RequireNoError(t, err)
-
-	var stdout bytes.Buffer
-	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}, Extended: true}
-	opts.SetAPIClient(client)
-
-	err = runList(context.Background(), opts, "PROJ-123", "")
-	testutil.RequireNoError(t, err)
-	out := stdout.String()
-	testutil.Contains(t, out, "RELATIONSHIP")
-	testutil.Contains(t, out, "SUMMARY")
-	testutil.Contains(t, out, "mentioned in")
-}
-
 func TestRunList_IDOnly(t *testing.T) {
 	t.Parallel()
 	server := remoteLinkListServer(t)

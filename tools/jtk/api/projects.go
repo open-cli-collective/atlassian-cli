@@ -84,8 +84,8 @@ func (c *Client) ListProjects(ctx context.Context) ([]Project, error) {
 	return projects, nil
 }
 
-// ProjectListExpand is the expand string that populates the extended-mode
-// `jtk projects list --extended` columns (STYLE / ISSUE_TYPES / COMPONENTS).
+// ProjectListExpand is the expand string that populates the includeOptional-mode
+// `jtk projects list explicit --fields` columns (STYLE / ISSUE_TYPES / COMPONENTS).
 // Style/simplified/isPrivate are top-level on /project/search and don't need
 // expand. Kept as a package constant so commands can reuse it without
 // hardcoding the wire format.
@@ -94,7 +94,7 @@ const ProjectListExpand = "description,lead,issueTypes,url,projectKeys"
 // SearchProjects searches for projects with pagination. expand is passed
 // through to the ?expand= query param untouched; callers decide what
 // expansion they need based on the columns they render (API layer stays
-// ignorant of presentation mode). Use ProjectListExpand for extended-mode
+// ignorant of presentation mode). Use ProjectListExpand for includeOptional-mode
 // list, or a narrower string like "lead" for default-mode. Empty expand
 // sends no expand param.
 func (c *Client) SearchProjects(ctx context.Context, query string, startAt, maxResults int, expand string) (*ProjectSearchResponse, error) {
@@ -128,7 +128,7 @@ func (c *Client) SearchProjects(ctx context.Context, query string, startAt, maxR
 }
 
 // ProjectGetExpand is the expand string that populates `jtk projects get`
-// default + extended output (component list, version count, style /
+// default + includeOptional output (component list, version count, style /
 // simplified / isPrivate flags, description, lead, URL). Callers that only
 // need a subset (e.g. `--id` wants nothing at all) should pass their own
 // narrower string instead of this default.

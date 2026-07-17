@@ -146,7 +146,7 @@ func runCreate(ctx context.Context, opts *root.Options, project, issueType, summ
 				return nil, err
 			}
 			return jtkpresent.IssuePresenter{}.PresentDetail(
-				fetched, client.IssueURL(id), opts.IsExtended(), opts.IsFullText(),
+				fetched, client.IssueURL(id), false, opts.IsFullText(),
 			), nil
 		},
 		Fallback: func(id string) *present.OutputModel {

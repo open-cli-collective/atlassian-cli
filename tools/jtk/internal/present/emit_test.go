@@ -67,17 +67,8 @@ func TestAppendPaginationHintWithToken_EmbedsToken(t *testing.T) {
 	if msg.Message != want {
 		t.Errorf("Message = %q, want %q", msg.Message, want)
 	}
-	if msg.Stream != present.StreamStdout {
-		t.Errorf("Stream = %v, want Stdout", msg.Stream)
-	}
-}
-
-func TestAppendPaginationHintWithToken_EmptyTokenFallsBackToLegacyWording(t *testing.T) {
-	t.Parallel()
-	sections := AppendPaginationHintWithToken(nil, true, "")
-	msg := sections[0].(*present.MessageSection)
-	if msg.Message != paginationHint {
-		t.Errorf("empty-token fallback = %q, want legacy wording %q", msg.Message, paginationHint)
+	if msg.Stream != present.StreamStderr {
+		t.Errorf("Stream = %v, want Stderr", msg.Stream)
 	}
 }
 
@@ -92,14 +83,16 @@ func TestAppendPaginationHintWithToken_NoMoreReturnsUnchanged(t *testing.T) {
 
 func TestEmitIDsWithPaginationToken_EmitsTokenInContinuationLine(t *testing.T) {
 	t.Parallel()
-	opts, stdout, _ := newTestOpts()
+	opts, stdout, stderr := newTestOpts()
 	err := EmitIDsWithPaginationToken(opts, []string{"MON-1", "MON-2"}, true, "25")
 	if err != nil {
 		t.Fatalf("EmitIDsWithPaginationToken: %v", err)
 	}
-	want := "MON-1\nMON-2\nMore results available (next: 25)\n"
-	if stdout.String() != want {
-		t.Errorf("stdout = %q, want %q", stdout.String(), want)
+	if stdout.String() != "MON-1\nMON-2\n" {
+		t.Errorf("stdout = %q", stdout.String())
+	}
+	if stderr.String() != "More results available (next: 25)\n" {
+		t.Errorf("stderr = %q", stderr.String())
 	}
 }
 
@@ -173,90 +166,17 @@ func TestEmitIDs_EmptyEmitsNothing(t *testing.T) {
 	}
 }
 
-func TestEmitIDsWithPagination_HasMoreAppendsContinuation(t *testing.T) {
+func TestPaginationMessageSectionWithToken_Canonical(t *testing.T) {
 	t.Parallel()
-	opts, stdout, stderr := newTestOpts()
-
-	if err := EmitIDsWithPagination(opts, []string{"MON-1", "MON-2"}, true); err != nil {
-		t.Fatalf("EmitIDsWithPagination returned error: %v", err)
-	}
-
-	want := "MON-1\nMON-2\nMore results available (use --next-page-token to fetch next page)\n"
-	if stdout.String() != want {
-		t.Errorf("stdout:\ngot:  %q\nwant: %q", stdout.String(), want)
-	}
-	if stderr.String() != "" {
-		t.Errorf("stderr should be empty, got: %q", stderr.String())
-	}
-}
-
-func TestEmitIDsWithPagination_NoMoreOmitsContinuation(t *testing.T) {
-	t.Parallel()
-	opts, stdout, _ := newTestOpts()
-
-	if err := EmitIDsWithPagination(opts, []string{"MON-1"}, false); err != nil {
-		t.Fatalf("EmitIDsWithPagination returned error: %v", err)
-	}
-
-	want := "MON-1\n"
-	if stdout.String() != want {
-		t.Errorf("stdout:\ngot:  %q\nwant: %q", stdout.String(), want)
-	}
-}
-
-func TestEmitIDsWithPagination_EmptyAndNoMore(t *testing.T) {
-	t.Parallel()
-	opts, stdout, stderr := newTestOpts()
-
-	if err := EmitIDsWithPagination(opts, nil, false); err != nil {
-		t.Fatalf("EmitIDsWithPagination returned error: %v", err)
-	}
-
-	if stdout.String() != "" {
-		t.Errorf("stdout should be empty, got: %q", stdout.String())
-	}
-	if stderr.String() != "" {
-		t.Errorf("stderr should be empty, got: %q", stderr.String())
-	}
-}
-
-func TestPaginationMessageSection_Canonical(t *testing.T) {
-	t.Parallel()
-	// Every pagination call site funnels through this helper; drift would
-	// de-sync wording, kind, or stream across the three migrated commands.
-	msg := paginationMessageSection()
+	msg := paginationMessageSectionWithToken("token")
 	if msg.Kind != present.MessageInfo {
 		t.Errorf("kind: got %v, want MessageInfo", msg.Kind)
 	}
-	if msg.Stream != present.StreamStdout {
-		t.Errorf("stream: got %v, want StreamStdout", msg.Stream)
+	if msg.Stream != present.StreamStderr {
+		t.Errorf("stream: got %v, want StreamStderr", msg.Stream)
 	}
-	if msg.Message != paginationHint {
-		t.Errorf("message: got %q, want %q", msg.Message, paginationHint)
-	}
-}
-
-func TestAppendPaginationHint(t *testing.T) {
-	t.Parallel()
-	base := []present.Section{
-		&present.TableSection{Headers: []string{"K"}, Rows: []present.Row{{Cells: []string{"v"}}}},
-	}
-
-	same := AppendPaginationHint(base, false)
-	if len(same) != 1 {
-		t.Errorf("no-op when hasMore=false: got %d sections, want 1", len(same))
-	}
-
-	withHint := AppendPaginationHint(base, true)
-	if len(withHint) != 2 {
-		t.Fatalf("hasMore=true: got %d sections, want 2", len(withHint))
-	}
-	msg, ok := withHint[1].(*present.MessageSection)
-	if !ok {
-		t.Fatalf("second section should be *MessageSection, got %T", withHint[1])
-	}
-	if msg.Stream != present.StreamStdout || msg.Message != paginationHint {
-		t.Errorf("appended section mismatch: stream=%v msg=%q", msg.Stream, msg.Message)
+	if msg.Message != "More results available (next: token)" {
+		t.Errorf("message: got %q", msg.Message)
 	}
 }
 
@@ -270,26 +190,34 @@ func TestPaginationOnlyModel(t *testing.T) {
 	if !ok {
 		t.Fatalf("want *MessageSection, got %T", model.Sections[0])
 	}
-	if msg.Stream != present.StreamStdout {
-		t.Errorf("want StreamStdout, got %v", msg.Stream)
+	if msg.Stream != present.StreamStderr {
+		t.Errorf("want StreamStderr, got %v", msg.Stream)
 	}
 	if !strings.Contains(msg.Message, "tok123") {
 		t.Errorf("want token in message, got %q", msg.Message)
 	}
 }
 
-func TestEmitIDsWithPagination_EmptyButHasMore(t *testing.T) {
+func TestValidateMax(t *testing.T) {
 	t.Parallel()
-	// Edge case: zero results on this page but more pages exist. Emit only
-	// the continuation line so the caller can keep paging.
-	opts, stdout, _ := newTestOpts()
-
-	if err := EmitIDsWithPagination(opts, nil, true); err != nil {
-		t.Fatalf("EmitIDsWithPagination returned error: %v", err)
+	for _, maxResults := range []int{0, -1} {
+		if err := ValidateMax(maxResults); err == nil {
+			t.Errorf("ValidateMax(%d) = nil", maxResults)
+		}
 	}
+	if err := ValidateMax(1); err != nil {
+		t.Errorf("ValidateMax(1) = %v", err)
+	}
+}
 
-	want := "More results available (use --next-page-token to fetch next page)\n"
-	if stdout.String() != want {
-		t.Errorf("stdout:\ngot:  %q\nwant: %q", stdout.String(), want)
+func TestValidateMaxAtMost(t *testing.T) {
+	t.Parallel()
+	for _, maxResults := range []int{0, 101} {
+		if err := ValidateMaxAtMost(maxResults, 100); err == nil {
+			t.Errorf("ValidateMaxAtMost(%d, 100) = nil", maxResults)
+		}
+	}
+	if err := ValidateMaxAtMost(100, 100); err != nil {
+		t.Errorf("ValidateMaxAtMost(100, 100) = %v", err)
 	}
 }

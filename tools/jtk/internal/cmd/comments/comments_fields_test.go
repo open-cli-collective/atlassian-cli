@@ -33,7 +33,7 @@ func TestRunList_Fields_TableMode_DropsBodyColumn(t *testing.T) {
 	defer server.Close()
 
 	opts, stdout, _ := newCommentsOpts(t, server)
-	err := runList(context.Background(), opts, "TEST-1", 50, false, "ID,AUTHOR")
+	err := runList(context.Background(), opts, "TEST-1", 50, "", false, "ID,AUTHOR")
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()
@@ -56,7 +56,7 @@ func TestRunList_Fields_TableMode_BodyTruncatedWithoutFullText(t *testing.T) {
 	defer server.Close()
 
 	opts, stdout, _ := newCommentsOpts(t, server)
-	err := runList(context.Background(), opts, "TEST-1", 50, false, "ID,AUTHOR,BODY")
+	err := runList(context.Background(), opts, "TEST-1", 50, "", false, "ID,AUTHOR,BODY")
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()
@@ -65,54 +65,50 @@ func TestRunList_Fields_TableMode_BodyTruncatedWithoutFullText(t *testing.T) {
 	testutil.NotContains(t, output, longBodyText)
 }
 
-// AC2 (block mode): --fields ID,Author with --fulltext drops Body from each
-// per-comment DetailSection.
-func TestRunList_Fields_BlockMode_DropsBodyField(t *testing.T) {
+// --fields remains a table projection under --fulltext.
+func TestRunList_Fields_FullTextDropsBodyColumn(t *testing.T) {
 	t.Parallel()
 	server := newTestCommentsServer(t, []api.Comment{longBodyComment("1", "Alice")})
 	defer server.Close()
 
 	opts, stdout, _ := newCommentsOpts(t, server)
-	err := runList(context.Background(), opts, "TEST-1", 50, true, "ID,Author")
+	err := runList(context.Background(), opts, "TEST-1", 50, "", true, "ID,AUTHOR")
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()
-	testutil.Contains(t, output, "ID:")
-	testutil.Contains(t, output, "Author:")
-	if strings.Contains(output, "Body:") {
-		t.Errorf("Body label should be absent: %q", output)
+	testutil.Contains(t, output, "ID | AUTHOR")
+	if strings.Contains(output, "BODY") {
+		t.Errorf("BODY column should be absent: %q", output)
 	}
 	if strings.Contains(output, "BBB") {
 		t.Errorf("body text leaked into projected block output: %q", output)
 	}
 }
 
-// AC1+AC3 (block mode): --fields Body with --fulltext renders the full body
-// without the truncation marker.
-func TestRunList_Fields_BlockMode_BodySelectedWithFullText(t *testing.T) {
+func TestRunList_Fields_BodySelectedWithFullText(t *testing.T) {
 	t.Parallel()
 	server := newTestCommentsServer(t, []api.Comment{longBodyComment("1", "Alice")})
 	defer server.Close()
 
 	opts, stdout, _ := newCommentsOpts(t, server)
-	err := runList(context.Background(), opts, "TEST-1", 50, true, "Body")
+	err := runList(context.Background(), opts, "TEST-1", 50, "", true, "BODY")
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()
-	testutil.Contains(t, output, "Body:")
+	testutil.Contains(t, output, "BODY")
 	testutil.Contains(t, output, longBodyText)
 	testutil.NotContains(t, output, "[truncated")
 }
 
 // AC3 (block mode): --fulltext is a no-op for unselected fields. Even with
 // fulltext on, body text MUST NOT appear when Body is not in --fields.
-func TestRunList_Fields_BlockMode_FullTextNoOp_WhenBodyNotSelected(t *testing.T) {
+func TestRunList_Fields_FullTextNoOp_WhenBodyNotSelected(t *testing.T) {
 	t.Parallel()
 	server := newTestCommentsServer(t, []api.Comment{longBodyComment("1", "Alice")})
 	defer server.Close()
 
 	opts, stdout, _ := newCommentsOpts(t, server)
-	err := runList(context.Background(), opts, "TEST-1", 50, true, "ID,Author")
+	err := runList(context.Background(), opts, "TEST-1", 50, "", true, "ID,AUTHOR")
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()
@@ -121,29 +117,26 @@ func TestRunList_Fields_BlockMode_FullTextNoOp_WhenBodyNotSelected(t *testing.T)
 	}
 }
 
-// AC2 + helper coverage: in block mode with hasMore=true, projecting Body
-// out of every comment must not strip the trailing pagination MessageSection.
-// Guards against projectAllDetailSectionsInModel accidentally rewriting
-// non-Detail sections.
-func TestRunList_Fields_BlockMode_PreservesPaginationHint(t *testing.T) {
+func TestRunList_Fields_FullTextPreservesPaginationHint(t *testing.T) {
 	t.Parallel()
 	// Total=2 with one comment returned forces commentsHasMore to true.
 	server := commentsServerWithTotal([]api.Comment{longBodyComment("1", "Alice")}, 2)
 	defer server.Close()
 
-	opts, stdout, _ := newCommentsOpts(t, server)
-	err := runList(context.Background(), opts, "TEST-1", 50, true, "ID,Author")
+	opts, stdout, stderr := newCommentsOpts(t, server)
+	err := runList(context.Background(), opts, "TEST-1", 50, "", true, "ID,AUTHOR")
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()
-	if strings.Contains(output, "Body:") {
-		t.Errorf("Body label should be projected away: %q", output)
+	if strings.Contains(output, "BODY") {
+		t.Errorf("BODY column should be projected away: %q", output)
 	}
-	testutil.Contains(t, output, "More results available")
+	testutil.NotContains(t, output, "More results available")
+	testutil.Contains(t, stderr.String(), "More results available")
 }
 
-// --fields VISIBILITY with --extended selects the visibility column and
-// drops unselected columns. Guards that projection handles extended columns.
+// --fields VISIBILITY selects the optional visibility column and drops
+// unselected columns.
 func TestRunList_Fields_TableMode_VisibilityColumn(t *testing.T) {
 	t.Parallel()
 	comments := []api.Comment{
@@ -163,8 +156,7 @@ func TestRunList_Fields_TableMode_VisibilityColumn(t *testing.T) {
 	defer server.Close()
 
 	opts, stdout, _ := newCommentsOpts(t, server)
-	opts.Extended = true
-	err := runList(context.Background(), opts, "TEST-1", 50, false, "ID,VISIBILITY")
+	err := runList(context.Background(), opts, "TEST-1", 50, "", false, "ID,VISIBILITY")
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()
@@ -183,7 +175,7 @@ func TestRunList_Fields_UnknownToken_Errors(t *testing.T) {
 	defer server.Close()
 
 	opts, _, _ := newCommentsOpts(t, server)
-	err := runList(context.Background(), opts, "TEST-1", 50, false, "bogus")
+	err := runList(context.Background(), opts, "TEST-1", 50, "", false, "bogus")
 	var ufe *projection.UnknownFieldError
 	if !errors.As(err, &ufe) {
 		t.Fatalf("expected UnknownFieldError, got %v", err)
@@ -211,7 +203,7 @@ func TestRunList_Fields_InvalidToken_ErrorsBeforeFetch(t *testing.T) {
 	opts := &root.Options{Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	runErr := runList(context.Background(), opts, "TEST-1", 50, false, "bogus")
+	runErr := runList(context.Background(), opts, "TEST-1", 50, "", false, "bogus")
 	var ufe *projection.UnknownFieldError
 	if !errors.As(runErr, &ufe) {
 		t.Fatalf("expected UnknownFieldError, got %v", runErr)
@@ -229,7 +221,8 @@ func TestRunList_IDOnly_OverridesFields(t *testing.T) {
 
 	opts, stdout, _ := newCommentsOpts(t, server)
 	opts.IDOnly = true
-	err := runList(context.Background(), opts, "TEST-1", 50, false, "Body")
+	opts.FullText = true
+	err := runList(context.Background(), opts, "TEST-1", 50, "", true, "BODY")
 	testutil.RequireNoError(t, err)
 
 	if stdout.String() != "1\n" {

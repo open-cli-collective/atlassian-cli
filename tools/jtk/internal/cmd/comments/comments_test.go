@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/open-cli-collective/atlassian-go/testutil"
@@ -22,10 +23,9 @@ func TestNewListCmd(t *testing.T) {
 
 	testutil.Equal(t, cmd.Use, "list <issue-key>")
 
-	// Check that no-truncate flag exists
-	noTruncateFlag := cmd.Flags().Lookup("no-truncate")
-	testutil.NotNil(t, noTruncateFlag)
-	testutil.Equal(t, noTruncateFlag.DefValue, "false")
+	if cmd.Flags().Lookup("no-truncate") != nil {
+		t.Fatal("deprecated --no-truncate flag must be removed")
+	}
 
 	// Check that max flag exists
 	maxFlag := cmd.Flags().Lookup("max")
@@ -36,6 +36,20 @@ func TestNewListCmd(t *testing.T) {
 	fieldsFlag := cmd.Flags().Lookup("fields")
 	testutil.NotNil(t, fieldsFlag)
 	testutil.Equal(t, fieldsFlag.DefValue, "")
+
+	nextPageTokenFlag := cmd.Flags().Lookup("next-page-token")
+	testutil.NotNil(t, nextPageTokenFlag)
+	testutil.Equal(t, nextPageTokenFlag.DefValue, "")
+}
+
+func TestListRejectsNonPositiveMax(t *testing.T) {
+	for _, maxResults := range []string{"0", "-1"} {
+		cmd := newListCmd(&root.Options{})
+		cmd.SetArgs([]string{"TEST-1", "--max", maxResults})
+		err := cmd.Execute()
+		testutil.Error(t, err)
+		testutil.Contains(t, err.Error(), "--max must be greater than zero")
+	}
 }
 
 func newTestCommentsServer(_ *testing.T, comments []api.Comment) *httptest.Server {
@@ -91,7 +105,7 @@ func TestRunList_TruncatesCommentBody(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runList(context.Background(), opts, "TEST-1", 50, false, "")
+	err = runList(context.Background(), opts, "TEST-1", 50, "", false, "")
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()
@@ -140,21 +154,17 @@ func TestRunList_FullCommentBody(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runList(context.Background(), opts, "TEST-1", 50, true, "")
+	err = runList(context.Background(), opts, "TEST-1", 50, "", true, "")
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()
 	testutil.Contains(t, output, longText)
 	testutil.NotContains(t, output, "[truncated")
-	// Full mode uses key-value layout
-	testutil.Contains(t, output, "ID:")
-	testutil.Contains(t, output, "Author:")
-	testutil.Contains(t, output, "Body:")
+	testutil.Contains(t, output, "ID | AUTHOR | CREATED | BODY")
 }
 
 // TestNewListCmd_FullTextRoutesFromRoot verifies that --fulltext on the root
-// Options flows through the RunE wrapper to disable truncation, even when the
-// local --no-truncate flag is not set.
+// Options flows through the RunE wrapper to disable truncation.
 func TestNewListCmd_FullTextRoutesFromRoot(t *testing.T) {
 	t.Parallel()
 	longText := strings.Repeat("B", 200)
@@ -197,60 +207,7 @@ func TestNewListCmd_FullTextRoutesFromRoot(t *testing.T) {
 	opts.SetAPIClient(client)
 
 	cmd := newListCmd(opts)
-	cmd.SetArgs([]string{"TEST-1"}) // no --no-truncate locally
-	testutil.RequireNoError(t, cmd.Execute())
-
-	output := stdout.String()
-	testutil.Contains(t, output, longText)
-	testutil.NotContains(t, output, "[truncated")
-}
-
-// TestNewListCmd_NoTruncateAndFullTextBothSet guards the OR-combined path:
-// both the local --no-truncate flag and the global --fulltext must produce
-// the same result when set together (prevents accidental && regression).
-func TestNewListCmd_NoTruncateAndFullTextBothSet(t *testing.T) {
-	t.Parallel()
-	longText := strings.Repeat("B", 200)
-	comments := []api.Comment{
-		{
-			ID:     "1",
-			Author: api.User{DisplayName: "Alice"},
-			Body: &api.ADFDocument{
-				Type:    "doc",
-				Version: 1,
-				Content: []*api.ADFNode{
-					{
-						Type: "paragraph",
-						Content: []*api.ADFNode{
-							{Type: "text", Text: longText},
-						},
-					},
-				},
-			},
-			Created: "2024-01-15T10:00:00.000Z",
-		},
-	}
-
-	server := newTestCommentsServer(t, comments)
-	defer server.Close()
-
-	client, err := api.New(api.ClientConfig{
-		URL:      server.URL,
-		Email:    "test@example.com",
-		APIToken: "token",
-	})
-	testutil.RequireNoError(t, err)
-
-	var stdout bytes.Buffer
-	opts := &root.Options{
-		FullText: true,
-		Stdout:   &stdout,
-		Stderr:   &bytes.Buffer{},
-	}
-	opts.SetAPIClient(client)
-
-	cmd := newListCmd(opts)
-	cmd.SetArgs([]string{"TEST-1", "--no-truncate"})
+	cmd.SetArgs([]string{"TEST-1"})
 	testutil.RequireNoError(t, cmd.Execute())
 
 	output := stdout.String()
@@ -297,7 +254,7 @@ func TestRunList_ShortCommentNotTruncated(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runList(context.Background(), opts, "TEST-1", 50, false, "")
+	err = runList(context.Background(), opts, "TEST-1", 50, "", false, "")
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()
@@ -324,79 +281,13 @@ func TestRunList_NoComments(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runList(context.Background(), opts, "TEST-1", 50, false, "")
+	err = runList(context.Background(), opts, "TEST-1", 50, "", false, "")
 	testutil.RequireNoError(t, err)
 
 	combined := stdout.String() + stderr.String()
 	testutil.Contains(t, combined, "No comments")
 }
 
-func TestRunList_Extended_VisibilityColumn(t *testing.T) {
-	t.Parallel()
-	comments := []api.Comment{
-		plainComment("1", "Alice", "public comment"),
-		{
-			ID:     "2",
-			Author: api.User{DisplayName: "Bob"},
-			Body: &api.ADFDocument{
-				Type: "doc", Version: 1,
-				Content: []*api.ADFNode{{Type: "paragraph", Content: []*api.ADFNode{{Type: "text", Text: "restricted"}}}},
-			},
-			Created:    "2024-01-15T11:00:00.000Z",
-			Visibility: &api.CommentVisibility{Type: "role", Value: "Administrators"},
-		},
-	}
-	server := newTestCommentsServer(t, comments)
-	defer server.Close()
-
-	opts, stdout, _ := newCommentsOpts(t, server)
-	opts.Extended = true
-	err := runList(context.Background(), opts, "TEST-1", 50, false, "")
-	testutil.RequireNoError(t, err)
-
-	output := stdout.String()
-	testutil.Contains(t, output, "VISIBILITY")
-	testutil.Contains(t, output, "Administrators")
-	// Table mode: verify the VISIBILITY column contains "-" for the nil-visibility row.
-	// We check for "| - |" which only matches a dash cell, not date hyphens.
-	lines := strings.Split(strings.TrimSpace(output), "\n")
-	if len(lines) >= 2 && !strings.Contains(lines[1], "| - |") {
-		t.Errorf("expected nil visibility to render as '- ' cell in first data row, got %q", lines[1])
-	}
-}
-
-func TestRunList_FullTextExtended_VisibilityField(t *testing.T) {
-	t.Parallel()
-	comments := []api.Comment{
-		plainComment("1", "Alice", "public comment"),
-		{
-			ID:     "2",
-			Author: api.User{DisplayName: "Bob"},
-			Body: &api.ADFDocument{
-				Type: "doc", Version: 1,
-				Content: []*api.ADFNode{{Type: "paragraph", Content: []*api.ADFNode{{Type: "text", Text: "restricted"}}}},
-			},
-			Created:    "2024-01-15T11:00:00.000Z",
-			Visibility: &api.CommentVisibility{Type: "role", Value: "Administrators"},
-		},
-	}
-	server := newTestCommentsServer(t, comments)
-	defer server.Close()
-
-	opts, stdout, _ := newCommentsOpts(t, server)
-	opts.Extended = true
-	err := runList(context.Background(), opts, "TEST-1", 50, true, "")
-	testutil.RequireNoError(t, err)
-
-	output := stdout.String()
-	testutil.Contains(t, output, "Visibility:")
-	testutil.Contains(t, output, "Administrators")
-	testutil.Contains(t, output, "Visibility: -")
-}
-
-// commentsServerWithTotal is like newTestCommentsServer but lets the caller
-// set Total independently from len(comments), so pagination hasMore can be
-// exercised explicitly.
 func commentsServerWithTotal(comments []api.Comment, total int) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		response := api.CommentsResponse{
@@ -434,7 +325,7 @@ func newCommentsOpts(t *testing.T, server *httptest.Server) (*root.Options, *byt
 	return opts, &stdout, &stderr
 }
 
-func TestRunList_FullTextBlockSpacing(t *testing.T) {
+func TestRunList_FullTextRemainsTable(t *testing.T) {
 	t.Parallel()
 	comments := []api.Comment{
 		plainComment("11", "Alice", "First comment body"),
@@ -444,18 +335,17 @@ func TestRunList_FullTextBlockSpacing(t *testing.T) {
 	defer server.Close()
 
 	opts, stdout, _ := newCommentsOpts(t, server)
-	err := runList(context.Background(), opts, "TEST-1", 50, true, "")
+	err := runList(context.Background(), opts, "TEST-1", 50, "", true, "")
 	testutil.RequireNoError(t, err)
 
 	out := stdout.String()
-	// Each comment block ends with "Body: <text>\n" and the second block starts with "ID: 22".
-	// A blank line between blocks means "Body: First comment body\n\nID: 22" appears.
-	if !strings.Contains(out, "First comment body\n\nID: 22") {
-		t.Errorf("expected blank line between comment blocks; got:\n%s", out)
-	}
+	testutil.Contains(t, out, "ID | AUTHOR | CREATED | BODY")
+	testutil.NotContains(t, out, "ID:")
+	testutil.Contains(t, out, "First comment body")
+	testutil.Contains(t, out, "Second comment body")
 }
 
-func TestRunList_FullTextPaginationOnStdout(t *testing.T) {
+func TestRunList_FullTextPaginationOnStderr(t *testing.T) {
 	t.Parallel()
 	comments := []api.Comment{plainComment("1", "Alice", "hello")}
 	// Total=5 means there are more pages after this one.
@@ -463,14 +353,14 @@ func TestRunList_FullTextPaginationOnStdout(t *testing.T) {
 	defer server.Close()
 
 	opts, stdout, stderr := newCommentsOpts(t, server)
-	err := runList(context.Background(), opts, "TEST-1", 1, true, "")
+	err := runList(context.Background(), opts, "TEST-1", 1, "", true, "")
 	testutil.RequireNoError(t, err)
 
-	if !strings.Contains(stdout.String(), "More results available") {
-		t.Errorf("pagination hint should appear on stdout, got stdout=%q stderr=%q", stdout.String(), stderr.String())
+	if strings.Contains(stdout.String(), "More results available") {
+		t.Errorf("pagination hint should not appear on stdout: %q", stdout.String())
 	}
-	if strings.Contains(stderr.String(), "More results available") {
-		t.Errorf("pagination hint should NOT appear on stderr: %q", stderr.String())
+	if !strings.Contains(stderr.String(), "More results available") {
+		t.Errorf("pagination hint should appear on stderr: %q", stderr.String())
 	}
 }
 
@@ -485,7 +375,7 @@ func TestRunList_IDOnlyEmitsIDsOnePerLine(t *testing.T) {
 
 	opts, stdout, stderr := newCommentsOpts(t, server)
 	opts.IDOnly = true
-	err := runList(context.Background(), opts, "TEST-1", 50, false, "")
+	err := runList(context.Background(), opts, "TEST-1", 50, "", false, "")
 	testutil.RequireNoError(t, err)
 
 	want := "11\n22\n"
@@ -503,15 +393,50 @@ func TestRunList_IDOnlyWithMoreResultsAppendsContinuation(t *testing.T) {
 	server := commentsServerWithTotal(comments, 5)
 	defer server.Close()
 
-	opts, stdout, _ := newCommentsOpts(t, server)
+	opts, stdout, stderr := newCommentsOpts(t, server)
 	opts.IDOnly = true
-	err := runList(context.Background(), opts, "TEST-1", 1, false, "")
+	err := runList(context.Background(), opts, "TEST-1", 1, "", false, "")
 	testutil.RequireNoError(t, err)
 
-	want := "1\nMore results available (use --next-page-token to fetch next page)\n"
+	want := "1\n"
 	if stdout.String() != want {
 		t.Errorf("stdout:\ngot:  %q\nwant: %q", stdout.String(), want)
 	}
+	testutil.Equal(t, "More results available (next: 1)\n", stderr.String())
+}
+
+func TestRunList_ContinuationFetchesFollowUpPage(t *testing.T) {
+	t.Parallel()
+	var calls atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := r.URL.Query().Get("startAt")
+		call := calls.Add(1)
+		if (call == 1 && start != "") || (call == 2 && start != "1") {
+			t.Errorf("request %d startAt = %q", call, start)
+		}
+		comment := plainComment("1", "Alice", "first")
+		startAt := 0
+		if start == "1" {
+			comment = plainComment("2", "Bob", "second")
+			startAt = 1
+		}
+		_ = json.NewEncoder(w).Encode(api.CommentsResponse{
+			StartAt: startAt, MaxResults: 1, Total: 2, Comments: []api.Comment{comment},
+		})
+	}))
+	defer server.Close()
+
+	opts, stdout, stderr := newCommentsOpts(t, server)
+	testutil.RequireNoError(t, runList(context.Background(), opts, "TEST-1", 1, "", false, ""))
+	testutil.Contains(t, stdout.String(), "1 | Alice")
+	testutil.Equal(t, "More results available (next: 1)\n", stderr.String())
+
+	stdout.Reset()
+	stderr.Reset()
+	testutil.RequireNoError(t, runList(context.Background(), opts, "TEST-1", 1, "1", false, ""))
+	testutil.Contains(t, stdout.String(), "2 | Bob")
+	testutil.Equal(t, "", stderr.String())
+	testutil.Equal(t, int32(2), calls.Load())
 }
 
 func TestRunList_EmptyNeverEmitsSpuriousPaginationHint(t *testing.T) {
@@ -524,7 +449,7 @@ func TestRunList_EmptyNeverEmitsSpuriousPaginationHint(t *testing.T) {
 	defer server.Close()
 
 	opts, stdout, stderr := newCommentsOpts(t, server)
-	err := runList(context.Background(), opts, "TEST-1", 50, false, "")
+	err := runList(context.Background(), opts, "TEST-1", 50, "", false, "")
 	testutil.RequireNoError(t, err)
 
 	if strings.Contains(stdout.String(), "More results available") {
@@ -542,7 +467,7 @@ func TestRunList_EmptyWithIDOnly_EmitsNothing(t *testing.T) {
 
 	opts, stdout, stderr := newCommentsOpts(t, server)
 	opts.IDOnly = true
-	err := runList(context.Background(), opts, "TEST-1", 50, false, "")
+	err := runList(context.Background(), opts, "TEST-1", 50, "", false, "")
 	testutil.RequireNoError(t, err)
 
 	if stdout.String() != "" {
@@ -559,7 +484,7 @@ func TestRunList_EmptyDefaultGoesToStdout(t *testing.T) {
 	defer server.Close()
 
 	opts, stdout, stderr := newCommentsOpts(t, server)
-	err := runList(context.Background(), opts, "TEST-1", 50, false, "")
+	err := runList(context.Background(), opts, "TEST-1", 50, "", false, "")
 	testutil.RequireNoError(t, err)
 
 	if !strings.Contains(stdout.String(), "No comments on TEST-1") {
@@ -643,13 +568,13 @@ func TestRunList_MultipleCommentsFullMode(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runList(context.Background(), opts, "TEST-1", 50, true, "")
+	err = runList(context.Background(), opts, "TEST-1", 50, "", true, "")
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()
 	testutil.Contains(t, output, "First comment")
 	testutil.Contains(t, output, "Second comment")
-	// Comments are now rendered as DetailSections with blank line separators (renderer-owned)
+	testutil.Contains(t, output, "ID | AUTHOR | CREATED | BODY")
 }
 
 func TestRunAdd_IDOnly(t *testing.T) {

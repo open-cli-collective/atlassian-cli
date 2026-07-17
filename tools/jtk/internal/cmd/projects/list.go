@@ -35,7 +35,6 @@ func newListCmd(opts *root.Options) *cobra.Command {
   jtk projects list
 
   # Include STYLE / ISSUE_TYPES / COMPONENTS columns
-  jtk projects list --extended
 
   # Emit just the project keys
   jtk projects list --id
@@ -45,13 +44,16 @@ func newListCmd(opts *root.Options) *cobra.Command {
 
   # Fetch the next page
   jtk projects list --max 5 --next-page-token 5`,
+		Args: func(_ *cobra.Command, _ []string) error {
+			return jtkpresent.ValidateMax(maxResults)
+		},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runList(cmd.Context(), opts, query, maxResults, nextPageToken, fieldsFlag)
 		},
 	}
 
 	cmd.Flags().StringVarP(&query, "query", "q", "", "Filter projects by name")
-	cmd.Flags().IntVarP(&maxResults, "max", "m", 50, "Maximum number of results")
+	cmd.Flags().IntVarP(&maxResults, "max", "m", 50, "Page size")
 	cmd.Flags().StringVar(&nextPageToken, "next-page-token", "", "Decimal startAt for the next page")
 	cmd.Flags().StringVar(&fieldsFlag, "fields", "", "Comma-separated display columns (ProjectListSpec headers)")
 
@@ -77,7 +79,6 @@ func runList(ctx context.Context, opts *root.Options, query string, maxResults i
 		selected, projected, err = projection.Resolve(
 			ctx,
 			jtkpresent.ProjectListSpec,
-			opts.IsExtended(),
 			fieldsFlag,
 			noFieldFetch,
 			"projects list",
@@ -89,12 +90,11 @@ func runList(ctx context.Context, opts *root.Options, query string, maxResults i
 
 	// --id mode emits just keys, which are on every /project/search response
 	// by default; skip expansion entirely. Default-mode list also only needs
-	// LEAD. Extended adds STYLE|ISSUE_TYPES|COMPONENTS and requires the full
-	// set.
+	// LEAD. Optional projected fields require the full expansion set.
 	expand := ""
 	if !idOnly {
 		expand = "lead"
-		if opts.IsExtended() {
+		if projection.HasOptionalFields(selected, jtkpresent.ProjectListSpec) {
 			expand = api.ProjectListExpand
 		}
 	}
@@ -129,7 +129,7 @@ func runList(ctx context.Context, opts *root.Options, query string, maxResults i
 		return jtkpresent.Emit(opts, jtkpresent.ProjectPresenter{}.PresentEmpty())
 	}
 
-	model := jtkpresent.ProjectPresenter{}.PresentProjectListWithPagination(result.Values, opts.IsExtended(), hasMore, nextToken)
+	model := jtkpresent.ProjectPresenter{}.PresentProjectListWithPagination(result.Values, projection.HasOptionalFields(selected, jtkpresent.ProjectListSpec), hasMore, nextToken)
 	if projected {
 		projection.ApplyToTableInModel(model, selected)
 	}

@@ -23,14 +23,14 @@ func TestLinkListSpec_MatchesPresentListHeaders(t *testing.T) {
 		},
 	}}
 
-	for _, extended := range []bool{false, true} {
+	for _, includeOptional := range []bool{false, true} {
 		name := "default"
-		if extended {
-			name = "extended"
+		if includeOptional {
+			name = "includeOptional"
 		}
 		t.Run(name, func(t *testing.T) {
-			specs := LinkListSpec.ForMode(extended)
-			model := LinkPresenter{}.PresentList(links, extended)
+			specs := LinkListSpec.ForMode(includeOptional)
+			model := LinkPresenter{}.PresentList(links, includeOptional)
 			table := model.Sections[0].(*present.TableSection)
 
 			if len(table.Headers) != len(specs) {

@@ -88,52 +88,6 @@ func TestDashboardPresenter_PresentList_ZeroGadgets(t *testing.T) {
 	}
 }
 
-func TestDashboardPresenter_PresentListExtended_ColumnOrder(t *testing.T) {
-	t.Parallel()
-	dashboards := []api.Dashboard{
-		{
-			ID:          "10001",
-			Name:        "Sprint Board",
-			Owner:       &api.User{DisplayName: "Alice"},
-			IsFavourite: true,
-			Popularity:  5,
-			SharePerm:   []api.SharePerm{{Type: "group", Group: &api.SharePermGroup{Name: "developers"}}},
-		},
-	}
-	counts := map[string]int{"10001": 3}
-
-	model := DashboardPresenter{}.PresentListExtended(dashboards, counts)
-	table := model.Sections[0].(*present.TableSection)
-
-	wantHeaders := []string{"ID", "GADGETS", "OWNER", "FAVOURITE", "RANK", "PERMISSIONS", "NAME"}
-	for i, h := range wantHeaders {
-		if table.Headers[i] != h {
-			t.Errorf("header[%d] = %q, want %q", i, table.Headers[i], h)
-		}
-	}
-
-	if table.Rows[0].Cells[4] != "5" {
-		t.Errorf("rank cell should be '5', got %q", table.Rows[0].Cells[4])
-	}
-	if table.Rows[0].Cells[5] != "group:developers" {
-		t.Errorf("permissions cell should be 'group:developers', got %q", table.Rows[0].Cells[5])
-	}
-}
-
-func TestDashboardPresenter_PresentListExtended_NilCounts(t *testing.T) {
-	t.Parallel()
-	dashboards := []api.Dashboard{
-		{ID: "10001", Name: "Board", Popularity: 3},
-	}
-
-	model := DashboardPresenter{}.PresentListExtended(dashboards, nil)
-	table := model.Sections[0].(*present.TableSection)
-
-	if table.Rows[0].Cells[1] != "-" {
-		t.Errorf("nil counts should render '-', got %q", table.Rows[0].Cells[1])
-	}
-}
-
 func TestDashboardPresenter_PresentGadgets_ColumnOrder(t *testing.T) {
 	t.Parallel()
 	gadgets := []api.DashboardGadget{

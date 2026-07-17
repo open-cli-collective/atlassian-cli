@@ -12,13 +12,13 @@ import (
 
 func TestBoardListSpec_HeaderParityWithPresenter(t *testing.T) {
 	t.Parallel()
-	for _, extended := range []bool{false, true} {
-		model := BoardPresenter{}.PresentList(nil, extended)
+	for _, includeOptional := range []bool{false, true} {
+		model := BoardPresenter{}.PresentList(nil, includeOptional)
 		table := sectionTable(t, model, 0)
-		want := registryHeadersFor(BoardListSpec, extended)
+		want := registryHeadersFor(BoardListSpec, includeOptional)
 		if !equalStringSlices(table.Headers, want) {
-			t.Errorf("extended=%v headers mismatch: presenter %v vs registry %v",
-				extended, table.Headers, want)
+			t.Errorf("includeOptional=%v headers mismatch: presenter %v vs registry %v",
+				includeOptional, table.Headers, want)
 		}
 	}
 }
@@ -56,7 +56,7 @@ func TestPresentBoardList_ExtendedShape(t *testing.T) {
 
 	wantHeaders := []string{"ID", "TYPE", "PROJECT", "PROJECT_NAME", "NAME"}
 	if !equalStringSlices(table.Headers, wantHeaders) {
-		t.Errorf("extended headers = %v, want %v", table.Headers, wantHeaders)
+		t.Errorf("includeOptional headers = %v, want %v", table.Headers, wantHeaders)
 	}
 	if table.Rows[0].Cells[3] != "Platform Development" {
 		t.Errorf("PROJECT_NAME: got %q", table.Rows[0].Cells[3])
@@ -172,7 +172,7 @@ func TestPresentBoardDetail_ExtendedStableRows_NilConfig(t *testing.T) {
 		ID: 23, Name: "MON board", Type: "scrum",
 		Location: api.BoardLocation{ProjectKey: "MON", ProjectName: "Platform Development"},
 	}
-	// Extended with nil config should still show Filter and Column config rows with "-"
+	// Optional with nil config should still show Filter and Column config rows with "-"
 	model := BoardPresenter{}.PresentDetail(board, nil, true)
 
 	// title + type + filter + column config = 4 sections
@@ -248,13 +248,13 @@ func TestPresentBoardDetailProjection_EmptyFilterName(t *testing.T) {
 
 func TestSprintListSpec_HeaderParityWithPresenter(t *testing.T) {
 	t.Parallel()
-	for _, extended := range []bool{false, true} {
-		model := SprintPresenter{}.PresentList(nil, extended)
+	for _, includeOptional := range []bool{false, true} {
+		model := SprintPresenter{}.PresentList(nil, includeOptional)
 		table := sectionTable(t, model, 0)
-		want := registryHeadersFor(SprintListSpec, extended)
+		want := registryHeadersFor(SprintListSpec, includeOptional)
 		if !equalStringSlices(table.Headers, want) {
-			t.Errorf("extended=%v headers mismatch: presenter %v vs registry %v",
-				extended, table.Headers, want)
+			t.Errorf("includeOptional=%v headers mismatch: presenter %v vs registry %v",
+				includeOptional, table.Headers, want)
 		}
 	}
 }

@@ -127,7 +127,7 @@ Status changes happen through `jtk transitions do`, **not** through `jtk issues 
 jtk transitions list PROJ-123
 
 # Step 1b (optional but useful): show which transitions require fields
-jtk transitions list PROJ-123 --extended
+jtk transitions list PROJ-123 --fields
 
 # Step 2: Apply the transition by name
 jtk transitions do PROJ-123 "In Progress"
@@ -135,8 +135,8 @@ jtk transitions do PROJ-123 "In Progress"
 # Or by numeric ID (stable even if names change)
 jtk transitions do PROJ-123 21
 
-# If `transitions list --extended` showed a required field, pass it. Only
-# pass --field values that `transitions list --extended` explicitly flagged as
+# If `transitions list --fields` showed a required field, pass it. Only
+# pass --field values that command explicitly flagged as
 # required — many workflows set resolution via post-function or hide it
 # from the transition screen, and a speculative --field resolution=Done
 # will fail with "Field 'resolution' cannot be set. It is not on the

@@ -6,7 +6,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
 )
@@ -21,7 +20,6 @@ func Register(parent *cobra.Command, opts *root.Options) {
   jtk me
 
   # Include timezone, locale, and group/application-role counts
-  jtk me --extended
 
   # Show just the account ID (for scripting)
   jtk me --id`,
@@ -39,11 +37,7 @@ func run(ctx context.Context, opts *root.Options) error {
 		return err
 	}
 
-	expand := ""
-	if opts.IsExtended() {
-		expand = api.UserExtendedExpand
-	}
-	user, err := client.GetCurrentUser(ctx, expand)
+	user, err := client.GetCurrentUser(ctx, "")
 	if err != nil {
 		return err
 	}
@@ -52,10 +46,5 @@ func run(ctx context.Context, opts *root.Options) error {
 		return jtkpresent.EmitIDs(opts, []string{user.AccountID})
 	}
 
-	presenter := jtkpresent.UserPresenter{}
-	var model = presenter.PresentUserOneLiner(user)
-	if opts.IsExtended() {
-		model = presenter.PresentUserExtended(user)
-	}
-	return jtkpresent.Emit(opts, model)
+	return jtkpresent.Emit(opts, jtkpresent.UserPresenter{}.PresentUserOneLiner(user))
 }

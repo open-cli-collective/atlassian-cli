@@ -112,7 +112,7 @@ func runList(ctx context.Context, opts *root.Options, customOnly bool, nameFilte
 		return jtkpresent.Emit(opts, jtkpresent.FieldPresenter{}.PresentEmpty())
 	}
 
-	return jtkpresent.Emit(opts, jtkpresent.FieldPresenter{}.PresentList(fields, opts.IsExtended()))
+	return jtkpresent.Emit(opts, jtkpresent.FieldPresenter{}.PresentList(fields, false))
 }
 
 func newCreateCmd(opts *root.Options) *cobra.Command {
@@ -170,7 +170,7 @@ func runCreate(ctx context.Context, opts *root.Options, name, fieldType, descrip
 		return jtkpresent.EmitIDs(opts, []string{field.ID})
 	}
 
-	return jtkpresent.Emit(opts, jtkpresent.FieldPresenter{}.PresentList([]api.Field{*field}, opts.IsExtended()))
+	return jtkpresent.Emit(opts, jtkpresent.FieldPresenter{}.PresentList([]api.Field{*field}, false))
 }
 
 func newDeleteCmd(opts *root.Options) *cobra.Command {
@@ -274,7 +274,7 @@ func runRestore(ctx context.Context, opts *root.Options, fieldID string) error {
 			}
 			for _, f := range fields {
 				if f.ID == id {
-					return jtkpresent.FieldPresenter{}.PresentList([]api.Field{f}, opts.IsExtended()), nil
+					return jtkpresent.FieldPresenter{}.PresentList([]api.Field{f}, false), nil
 				}
 			}
 			return nil, fmt.Errorf("field %s not found after restore", id)

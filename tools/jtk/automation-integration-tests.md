@@ -30,7 +30,7 @@ curl -s https://YOUR-SITE.atlassian.net/_edge/tenant_info | jq -r .cloudId
 
 # $PROJECT_ARI — construct from cloud ID and project ID
 # Format: ari:cloud:jira:$CLOUD_ID:project/$PROJECT_ID
-jtk projects get $PROJECT --extended
+jtk projects get $PROJECT --fields DESCRIPTION,LEAD_ID,ISSUE_TYPE_IDS,COMPONENT_IDS,SIMPLIFIED,PRIVATE
 # Find the numeric project ID in the extended output, then construct:
 # ari:cloud:jira:$CLOUD_ID:project/$PROJECT_ID
 

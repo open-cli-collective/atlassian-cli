@@ -58,19 +58,20 @@ func newListCmd(opts *root.Options) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List dashboards",
-		Long: `List accessible dashboards. Use --search to filter by name.
-Use --extended for additional fields (rank, permissions).`,
+		Long:  "List accessible dashboards. Use --search to filter by name.",
 		Example: `  jtk dashboards list
   jtk dashboards list --search "Sprint"
-  jtk dashboards list --max 10
-  jtk dashboards list --extended`,
+  jtk dashboards list --max 10`,
+		Args: func(_ *cobra.Command, _ []string) error {
+			return jtkpresent.ValidateMax(maxResults)
+		},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runList(cmd.Context(), opts, search, maxResults)
 		},
 	}
 
 	cmd.Flags().StringVar(&search, "search", "", "Search dashboards by name")
-	cmd.Flags().IntVarP(&maxResults, "max", "m", 50, "Maximum number of results")
+	cmd.Flags().IntVarP(&maxResults, "max", "m", 50, "Page size")
 
 	return cmd
 }
@@ -112,10 +113,6 @@ func runList(_ context.Context, opts *root.Options, search string, maxResults in
 	gadgetCounts := fetchGadgetCounts(client, dashboards)
 
 	presenter := jtkpresent.DashboardPresenter{}
-	if opts.IsExtended() {
-		return jtkpresent.Emit(opts, presenter.PresentListExtended(dashboards, gadgetCounts))
-	}
-
 	return jtkpresent.Emit(opts, presenter.PresentList(dashboards, gadgetCounts))
 }
 

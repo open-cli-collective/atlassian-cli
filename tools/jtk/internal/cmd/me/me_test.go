@@ -77,55 +77,6 @@ func TestRun_EmptyEmailRendersDash(t *testing.T) {
 	}
 }
 
-func TestRun_Extended_EmitsThreeSpecRows(t *testing.T) {
-	t.Parallel()
-	user := &api.User{
-		AccountID:        "abc123",
-		DisplayName:      "Rian Stockbower",
-		EmailAddress:     "rian@monitapp.io",
-		Active:           true,
-		TimeZone:         "Etc/GMT",
-		Locale:           "en_US",
-		Groups:           &api.UserCountBlock{Size: 9},
-		ApplicationRoles: &api.UserCountBlock{Size: 1},
-	}
-	server := newTestUserServer(t, http.StatusOK, user)
-	defer server.Close()
-
-	var stdout bytes.Buffer
-	opts := &root.Options{NoColor: true, Extended: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
-	opts.SetAPIClient(newClient(t, server.URL))
-
-	testutil.RequireNoError(t, run(context.Background(), opts))
-
-	want := "abc123 | Rian Stockbower | rian@monitapp.io\n" +
-		"Timezone: Etc/GMT   Locale: en_US   Active: yes\n" +
-		"Groups: 9   Application Roles: 1\n"
-	if stdout.String() != want {
-		t.Errorf("me --extended output:\ngot:  %q\nwant: %q", stdout.String(), want)
-	}
-}
-
-func TestRun_Extended_DashesWhenOptionalFieldsMissing(t *testing.T) {
-	t.Parallel()
-	user := &api.User{AccountID: "abc", DisplayName: "Bob", Active: false}
-	server := newTestUserServer(t, http.StatusOK, user)
-	defer server.Close()
-
-	var stdout bytes.Buffer
-	opts := &root.Options{NoColor: true, Extended: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
-	opts.SetAPIClient(newClient(t, server.URL))
-
-	testutil.RequireNoError(t, run(context.Background(), opts))
-
-	want := "abc | Bob | -\n" +
-		"Timezone: -   Locale: -   Active: no\n" +
-		"Groups: -   Application Roles: -\n"
-	if stdout.String() != want {
-		t.Errorf("me --extended output with missing fields:\ngot:  %q\nwant: %q", stdout.String(), want)
-	}
-}
-
 func TestRun_IDOnly(t *testing.T) {
 	t.Parallel()
 	user := &api.User{AccountID: "abc123", DisplayName: "John Doe", Active: true}
@@ -134,21 +85,6 @@ func TestRun_IDOnly(t *testing.T) {
 
 	var stdout bytes.Buffer
 	opts := &root.Options{IDOnly: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
-	opts.SetAPIClient(newClient(t, server.URL))
-
-	testutil.RequireNoError(t, run(context.Background(), opts))
-	testutil.Equal(t, stdout.String(), "abc123\n")
-}
-
-func TestRun_IDOnlyPrecedenceOverExtended(t *testing.T) {
-	t.Parallel()
-	user := &api.User{AccountID: "abc123", DisplayName: "John Doe", Active: true}
-	server := newTestUserServer(t, http.StatusOK, user)
-	defer server.Close()
-
-	var stdout bytes.Buffer
-	// Even with --extended and --fulltext set, --id wins: only the accountID.
-	opts := &root.Options{IDOnly: true, Extended: true, FullText: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(newClient(t, server.URL))
 
 	testutil.RequireNoError(t, run(context.Background(), opts))
@@ -169,39 +105,4 @@ func TestRun_AuthFailure(t *testing.T) {
 
 	err := run(context.Background(), opts)
 	testutil.NotNil(t, err)
-}
-
-func TestRun_ExpandParamGatedOnExtended(t *testing.T) {
-	t.Parallel()
-	// Verifies the /myself request carries expand=groups,applicationRoles
-	// ONLY when --extended is set. Default-mode callers don't render those
-	// counts, so the wasted payload is skipped.
-	cases := []struct {
-		name     string
-		extended bool
-		wantExp  string
-	}{
-		{"default omits expand", false, ""},
-		{"extended requests groups+roles", true, "groups,applicationRoles"},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-			var captured string
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				captured = r.URL.Query().Get("expand")
-				_ = json.NewEncoder(w).Encode(&api.User{AccountID: "a", DisplayName: "x", Active: true})
-			}))
-			defer server.Close()
-
-			var stdout bytes.Buffer
-			opts := &root.Options{Extended: tc.extended, Stdout: &stdout, Stderr: &bytes.Buffer{}}
-			opts.SetAPIClient(newClient(t, server.URL))
-
-			testutil.RequireNoError(t, run(context.Background(), opts))
-			if captured != tc.wantExp {
-				t.Errorf("expand = %q, want %q", captured, tc.wantExp)
-			}
-		})
-	}
 }

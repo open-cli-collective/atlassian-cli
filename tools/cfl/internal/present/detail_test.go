@@ -164,6 +164,7 @@ func TestPagePresenter_PresentView_ContentOnlyXHTML(t *testing.T) {
 	body := requireMessageSection(t, model, 0)
 	testutil.Equal(t, sharedpresent.StreamStdout, body.Stream)
 	testutil.Equal(t, "<p>Raw</p>", body.Message)
+	testutil.Equal(t, true, body.NoNewline)
 }
 
 func TestPagePresenter_PresentView_EmptyAndTruncated(t *testing.T) {

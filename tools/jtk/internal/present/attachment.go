@@ -14,23 +14,23 @@ import (
 type AttachmentPresenter struct{}
 
 // AttachmentListSpec declares the columns emitted by PresentList. Default:
-// ID|FILENAME|SIZE|AUTHOR|CREATED. Extended:
+// ID|FILENAME|SIZE|AUTHOR|CREATED. Optional:
 // ID|FILENAME|SIZE|BYTES|MIME_TYPE|AUTHOR|CREATED.
 var AttachmentListSpec = projection.Registry{
 	{Header: "ID", Identity: true},
 	{Header: "FILENAME"},
 	{Header: "SIZE"},
-	{Header: "BYTES", Extended: true},
-	{Header: "MIME_TYPE", Extended: true},
+	{Header: "BYTES", Optional: true},
+	{Header: "MIME_TYPE", Optional: true},
 	{Header: "AUTHOR"},
 	{Header: "CREATED"},
 }
 
-// PresentList creates a table presentation of attachments. Extended:
+// PresentList creates a table presentation of attachments. Optional:
 // ID|FILENAME|SIZE|BYTES|MIME_TYPE|AUTHOR|CREATED.
-func (AttachmentPresenter) PresentList(attachments []api.Attachment, extended bool) *present.OutputModel {
+func (AttachmentPresenter) PresentList(attachments []api.Attachment, includeOptional bool) *present.OutputModel {
 	var headers []string
-	if extended {
+	if includeOptional {
 		headers = []string{"ID", "FILENAME", "SIZE", "BYTES", "MIME_TYPE", "AUTHOR", "CREATED"}
 	} else {
 		headers = []string{"ID", "FILENAME", "SIZE", "AUTHOR", "CREATED"}
@@ -38,7 +38,7 @@ func (AttachmentPresenter) PresentList(attachments []api.Attachment, extended bo
 
 	rows := make([]present.Row, len(attachments))
 	for i, a := range attachments {
-		if extended {
+		if includeOptional {
 			rows[i] = present.Row{
 				Cells: []string{
 					a.ID.String(),

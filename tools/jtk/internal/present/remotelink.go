@@ -15,24 +15,24 @@ import (
 type RemoteLinkPresenter struct{}
 
 // RemoteLinkListSpec declares the columns emitted by PresentList. Default:
-// ID|TITLE|URL. Extended: ID|RELATIONSHIP|TITLE|URL|SUMMARY. None of these
+// ID|TITLE|URL. Optional: ID|RELATIONSHIP|TITLE|URL|SUMMARY. None of these
 // map to Jira issue fields, so unknown --fields tokens correctly resolve to
 // UnknownFieldError rather than a real /rest/api/3/field lookup.
 var RemoteLinkListSpec = projection.Registry{
 	{Header: "ID", Identity: true},
-	{Header: "RELATIONSHIP", Extended: true},
+	{Header: "RELATIONSHIP", Optional: true},
 	{Header: "TITLE"},
 	{Header: "URL"},
-	{Header: "SUMMARY", Extended: true},
+	{Header: "SUMMARY", Optional: true},
 }
 
 // PresentList creates a table presentation of remote links. Both headers and
 // column selection are driven from RemoteLinkListSpec: a single row carrying
 // every column is built, then projected down to the active mode's columns via
-// the registry's Extended flags. Extended adds the RELATIONSHIP and SUMMARY
+// the registry's Optional flags. Optional adds the RELATIONSHIP and SUMMARY
 // columns. This keeps the presenter from re-enumerating columns that the spec
 // already declares.
-func (RemoteLinkPresenter) PresentList(links []api.RemoteLink, extended bool) *present.OutputModel {
+func (RemoteLinkPresenter) PresentList(links []api.RemoteLink, includeOptional bool) *present.OutputModel {
 	rows := make([]present.Row, len(links))
 	for i, l := range links {
 		rows[i] = present.Row{
@@ -52,11 +52,13 @@ func (RemoteLinkPresenter) PresentList(links []api.RemoteLink, extended bool) *p
 		headers[i] = spec.Header
 	}
 
-	// Strip non-extended columns using the registry's Extended flags, the same
-	// path commands take via projection.ApplyToTableInModel for --fields.
+	specs := RemoteLinkListSpec.Default()
+	if includeOptional {
+		specs = RemoteLinkListSpec
+	}
 	section := projection.ProjectTable(
 		&present.TableSection{Headers: headers, Rows: rows},
-		RemoteLinkListSpec.ForMode(extended),
+		specs,
 	)
 	return &present.OutputModel{
 		Sections: []present.Section{section},

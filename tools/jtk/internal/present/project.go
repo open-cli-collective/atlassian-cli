@@ -12,7 +12,7 @@ import (
 )
 
 // componentPreviewLimit caps the enumerated component list in `projects get
-// --extended` before a "... [N more]" truncation line. 4 mirrors the example
+// explicit --fields` before a "... [N more]" truncation line. 4 mirrors the example
 // in the #230 specification.
 const componentPreviewLimit = 4
 
@@ -21,8 +21,8 @@ type ProjectPresenter struct{}
 
 // ProjectDetailSpec declares the logical fields rendered by
 // PresentProjectDetailProjection. Identity is KEY (projection always retains
-// it on the first line). Extended fields correspond to the admin/schema rows
-// the spec puts behind `--extended`.
+// it on the first line). Optional fields correspond to the admin/schema rows
+// the spec puts behind `explicit --fields`.
 var ProjectDetailSpec = projection.Registry{
 	{Header: "KEY", Identity: true},
 	{Header: "NAME"},
@@ -32,50 +32,50 @@ var ProjectDetailSpec = projection.Registry{
 	{Header: "ISSUE_TYPES"},
 	{Header: "COMPONENTS"},
 	{Header: "VERSIONS"},
-	{Header: "DESCRIPTION", Extended: true},
-	{Header: "LEAD_ID", Extended: true},
-	{Header: "ISSUE_TYPE_IDS", Extended: true},
-	{Header: "COMPONENT_IDS", Extended: true},
-	{Header: "SIMPLIFIED", Extended: true},
-	{Header: "PRIVATE", Extended: true},
+	{Header: "DESCRIPTION", Optional: true},
+	{Header: "LEAD_ID", Optional: true},
+	{Header: "ISSUE_TYPE_IDS", Optional: true},
+	{Header: "COMPONENT_IDS", Optional: true},
+	{Header: "SIMPLIFIED", Optional: true},
+	{Header: "PRIVATE", Optional: true},
 }
 
 // ProjectListSpec declares the columns emitted by PresentProjectList. Order
 // matches the Headers slice inside the presenter; a parity test locks the two.
-// Default order per #230 is KEY|TYPE|LEAD|NAME; extended order interleaves
+// Default order per #230 is KEY|TYPE|LEAD|NAME; includeOptional order interleaves
 // STYLE between TYPE and LEAD and ISSUE_TYPES/COMPONENTS before NAME:
 // KEY|TYPE|STYLE|LEAD|ISSUE_TYPES|COMPONENTS|NAME. Registry.ForMode preserves
 // declaration order when expanding, so this file declares the interleaved
-// extended order and marks the three non-default entries Extended:true.
+// includeOptional order and marks the three non-default entries Optional:true.
 var ProjectListSpec = projection.Registry{
 	{Header: "KEY", Identity: true},
 	{Header: "TYPE"},
-	{Header: "STYLE", Extended: true},
+	{Header: "STYLE", Optional: true},
 	{Header: "LEAD"},
-	{Header: "ISSUE_TYPES", Extended: true},
-	{Header: "COMPONENTS", Extended: true},
+	{Header: "ISSUE_TYPES", Optional: true},
+	{Header: "COMPONENTS", Optional: true},
 	{Header: "NAME"},
 }
 
 // ProjectTypeSpec declares the columns for `projects types`. The default NAME
 // column sources from ProjectType.FormattedKey (matches the spec's user-facing
-// wording); extended adds the raw i18n description key.
+// wording); includeOptional adds the raw i18n description key.
 var ProjectTypeSpec = projection.Registry{
 	{Header: "KEY", Identity: true},
 	{Header: "NAME"},
-	{Header: "DESCRIPTION_KEY", Extended: true},
+	{Header: "DESCRIPTION_KEY", Optional: true},
 }
 
-// PresentProjectDetail builds the spec-shaped default or extended output for
-// `projects get`. Default output: title line + three compound rows. Extended
-// output: title line + extended compound rows with lead/issue-type IDs, an
+// PresentProjectDetail builds the spec-shaped default or includeOptional output for
+// `projects get`. Default output: title line + three compound rows. Optional
+// output: title line + includeOptional compound rows with lead/issue-type IDs, an
 // enumerated component preview with truncation, a Versions line, Simplified
 // / Private flags, and an optional Description block.
-func (ProjectPresenter) PresentProjectDetail(p *api.ProjectDetail, extended bool) *present.OutputModel {
+func (ProjectPresenter) PresentProjectDetail(p *api.ProjectDetail, includeOptional bool) *present.OutputModel {
 	sections := []present.Section{
 		msg(fmt.Sprintf("%s  %s", p.Key, p.Name)),
 	}
-	if extended {
+	if includeOptional {
 		sections = append(sections, extendedProjectDetailSections(p)...)
 	} else {
 		sections = append(sections, defaultProjectDetailSections(p)...)
@@ -98,7 +98,7 @@ func defaultProjectDetailSections(p *api.ProjectDetail) []present.Section {
 }
 
 // extendedProjectDetailSections returns the expanded post-title sections for
-// --extended mode. Components are enumerated with IDs, truncated after
+// explicit --fields mode. Components are enumerated with IDs, truncated after
 // componentPreviewLimit entries. Issue Types is always emitted (empty →
 // "Issue Types: -") to keep the rendered row count independent of data.
 func extendedProjectDetailSections(p *api.ProjectDetail) []present.Section {
@@ -156,21 +156,21 @@ func (ProjectPresenter) PresentProjectDetailProjection(p *api.ProjectDetail) *pr
 
 // PresentProjectListWithPagination wraps PresentProjectList and appends a
 // pagination hint when hasMore is true.
-func (p ProjectPresenter) PresentProjectListWithPagination(projects []api.ProjectDetail, extended, hasMore bool, nextToken string) *present.OutputModel {
-	model := p.PresentProjectList(projects, extended)
+func (p ProjectPresenter) PresentProjectListWithPagination(projects []api.ProjectDetail, includeOptional, hasMore bool, nextToken string) *present.OutputModel {
+	model := p.PresentProjectList(projects, includeOptional)
 	model.Sections = AppendPaginationHintWithToken(model.Sections, hasMore, nextToken)
 	return model
 }
 
 // PresentProjectList renders `projects list` output as a table. Default order
-// is KEY | TYPE | LEAD | NAME; --extended interleaves STYLE between TYPE and
+// is KEY | TYPE | LEAD | NAME; explicit --fields interleaves STYLE between TYPE and
 // LEAD and ISSUE_TYPES/COMPONENTS before NAME, producing
 // KEY | TYPE | STYLE | LEAD | ISSUE_TYPES | COMPONENTS | NAME per #230.
 // ISSUE_TYPES renders as the comma-joined issue-type names (not a count);
 // COMPONENTS renders as the count.
-func (ProjectPresenter) PresentProjectList(projects []api.ProjectDetail, extended bool) *present.OutputModel {
+func (ProjectPresenter) PresentProjectList(projects []api.ProjectDetail, includeOptional bool) *present.OutputModel {
 	var headers []string
-	if extended {
+	if includeOptional {
 		headers = []string{"KEY", "TYPE", "STYLE", "LEAD", "ISSUE_TYPES", "COMPONENTS", "NAME"}
 	} else {
 		headers = []string{"KEY", "TYPE", "LEAD", "NAME"}
@@ -179,7 +179,7 @@ func (ProjectPresenter) PresentProjectList(projects []api.ProjectDetail, extende
 	rows := make([]present.Row, len(projects))
 	for i, p := range projects {
 		var cells []string
-		if extended {
+		if includeOptional {
 			cells = []string{
 				p.Key,
 				OrDash(p.ProjectTypeKey),
@@ -208,16 +208,16 @@ func (ProjectPresenter) PresentProjectList(projects []api.ProjectDetail, extende
 
 // PresentProjectTypes renders `projects types` output. Header is KEY | NAME
 // (spec #230 names the column NAME even though the API field is FormattedKey);
-// --extended adds DESCRIPTION_KEY from DescriptionI18nKey.
-func (ProjectPresenter) PresentProjectTypes(types []api.ProjectType, extended bool) *present.OutputModel {
+// explicit --fields adds DESCRIPTION_KEY from DescriptionI18nKey.
+func (ProjectPresenter) PresentProjectTypes(types []api.ProjectType, includeOptional bool) *present.OutputModel {
 	headers := []string{"KEY", "NAME"}
-	if extended {
+	if includeOptional {
 		headers = append(headers, "DESCRIPTION_KEY")
 	}
 	rows := make([]present.Row, len(types))
 	for i, t := range types {
 		cells := []string{t.Key, t.FormattedKey}
-		if extended {
+		if includeOptional {
 			cells = append(cells, OrDash(t.DescriptionI18nKey))
 		}
 		rows[i] = present.Row{Cells: cells}

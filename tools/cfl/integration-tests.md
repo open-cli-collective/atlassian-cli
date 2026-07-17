@@ -604,7 +604,7 @@ All cfl commands work with both auth methods (no scope restrictions for Confluen
 - [ ] Create page with --legacy flag
 - [ ] Create child page
 - [ ] View page (markdown)
-- [ ] View page (raw)
+- [ ] View page (XHTML with `--body-format xhtml`)
 - [ ] View page (content-only)
 - [ ] View page (content-only with --show-macros for roundtrip)
 - [ ] Roundtrip macro page via pipe (`view --show-macros --content-only | edit --legacy`)
@@ -622,7 +622,7 @@ All cfl commands work with both auth methods (no scope restrictions for Confluen
 
 #### ADF Body Fallback (#150)
 - [ ] View ADF page with empty storage → content displayed via ADF fallback
-- [ ] View ADF page (raw) → shows ADF JSON
+- [ ] View ADF page with `--body-format adf` → shows exact ADF JSON
 - [ ] ~~View ADF page (JSON output)~~ (#392 removed)
 - [ ] Edit ADF page (title only) → ADF body preserved
 - [ ] Edit ADF page (new content) → submitted as ADF
@@ -697,7 +697,7 @@ All cfl commands work with both auth methods (no scope restrictions for Confluen
 - [ ] Create page with --legacy flag
 - [ ] Create child page
 - [ ] View page (markdown)
-- [ ] View page (raw)
+- [ ] View page (XHTML with `--body-format xhtml`)
 - [ ] View page (content-only)
 - [ ] View page (content-only with --show-macros for roundtrip)
 - [ ] Roundtrip macro page via pipe (`view --show-macros --content-only | edit --legacy`)
@@ -715,7 +715,7 @@ All cfl commands work with both auth methods (no scope restrictions for Confluen
 
 #### ADF Body Fallback (#150)
 - [ ] View ADF page with empty storage → content displayed via ADF fallback
-- [ ] View ADF page (raw) → shows ADF JSON
+- [ ] View ADF page with `--body-format adf` → shows exact ADF JSON
 - [ ] ~~View ADF page (JSON output)~~ (#392 removed)
 - [ ] Edit ADF page (title only) → ADF body preserved
 - [ ] Edit ADF page (new content) → submitted as ADF

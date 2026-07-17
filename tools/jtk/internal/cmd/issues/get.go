@@ -16,7 +16,6 @@ import (
 )
 
 func newGetCmd(opts *root.Options) *cobra.Command {
-	var noTruncate bool
 	var fieldsFlag string
 	var customFields bool
 
@@ -42,12 +41,10 @@ func newGetCmd(opts *root.Options) *cobra.Command {
 				}
 				return runGetMulti(cmd.Context(), opts, args)
 			}
-			return runGet(cmd.Context(), opts, args[0], noTruncate || opts.IsFullText(), fieldsFlag, customFields)
+			return runGet(cmd.Context(), opts, args[0], opts.IsFullText(), fieldsFlag, customFields)
 		},
 	}
 
-	cmd.Flags().BoolVar(&noTruncate, "no-truncate", false, "Show full description without truncation")
-	_ = cmd.Flags().MarkDeprecated("no-truncate", "use --fulltext instead")
 	cmd.Flags().StringVar(&fieldsFlag, "fields", "", "Comma-separated display fields (labels, Jira field IDs, or human names)")
 	cmd.Flags().BoolVar(&customFields, "custom-fields", false, "Append custom fields section to output")
 
@@ -71,7 +68,6 @@ func runGet(ctx context.Context, opts *root.Options, issueKey string, noTruncate
 	selected, projected, err := projection.Resolve(
 		ctx,
 		jtkpresent.IssueDetailSpec,
-		opts.IsExtended(),
 		fieldsFlag,
 		fieldsFetcher(client),
 		"issues get",
@@ -87,10 +83,6 @@ func runGet(ctx context.Context, opts *root.Options, issueKey string, noTruncate
 
 	presenter := jtkpresent.IssuePresenter{}
 
-	if opts.IsExtended() {
-		noTruncate = true
-	}
-
 	if projected {
 		model := presenter.PresentDetailProjection(issue, client.IssueURL(issue.Key), noTruncate)
 		jtkpresent.AppendDynamicDetailFields(model, issue, projection.DynamicSpecs(selected))
@@ -100,7 +92,7 @@ func runGet(ctx context.Context, opts *root.Options, issueKey string, noTruncate
 		}
 		return jtkpresent.Emit(opts, model)
 	}
-	model := presenter.PresentDetail(issue, client.IssueURL(issue.Key), opts.IsExtended(), noTruncate)
+	model := presenter.PresentDetail(issue, client.IssueURL(issue.Key), false, noTruncate)
 	if customFields {
 		appendCustomFields(ctx, client, issue, model)
 	}
@@ -134,7 +126,7 @@ func runGetMulti(ctx context.Context, opts *root.Options, issueKeys []string) er
 		issues = append(issues, *issue)
 	}
 
-	model := jtkpresent.IssuePresenter{}.PresentList(issues, opts.IsExtended())
+	model := jtkpresent.IssuePresenter{}.PresentList(issues, false)
 	return jtkpresent.Emit(opts, model)
 }
 

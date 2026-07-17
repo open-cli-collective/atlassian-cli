@@ -116,15 +116,15 @@ func compareDatesDesc(a, b *time.Time) int {
 type SprintPresenter struct{}
 
 // SprintListSpec declares the columns emitted by PresentList. Default order
-// per #230 is ID|STATE|START|END|NAME; extended adds COMPLETED, BOARD, GOAL.
+// per #230 is ID|STATE|START|END|NAME; includeOptional adds COMPLETED, BOARD, GOAL.
 var SprintListSpec = projection.Registry{
 	{Header: "ID", Identity: true},
 	{Header: "STATE"},
 	{Header: "START"},
 	{Header: "END"},
-	{Header: "COMPLETED", Extended: true},
-	{Header: "BOARD", Extended: true},
-	{Header: "GOAL", Extended: true},
+	{Header: "COMPLETED", Optional: true},
+	{Header: "BOARD", Optional: true},
+	{Header: "GOAL", Optional: true},
 	{Header: "NAME"},
 }
 
@@ -136,23 +136,23 @@ var SprintDetailSpec = projection.Registry{
 	{Header: "START"},
 	{Header: "END"},
 	{Header: "BOARD"},
-	{Header: "GOAL", Extended: true},
-	{Header: "ORIGIN_BOARD", Extended: true},
+	{Header: "GOAL", Optional: true},
+	{Header: "ORIGIN_BOARD", Optional: true},
 }
 
 // PresentListWithPagination wraps PresentList and appends a pagination
 // hint when hasMore is true.
-func (p SprintPresenter) PresentListWithPagination(sprints []api.Sprint, extended, hasMore bool, nextToken string) *present.OutputModel {
-	model := p.PresentList(sprints, extended)
+func (p SprintPresenter) PresentListWithPagination(sprints []api.Sprint, includeOptional, hasMore bool, nextToken string) *present.OutputModel {
+	model := p.PresentList(sprints, includeOptional)
 	model.Sections = AppendPaginationHintWithToken(model.Sections, hasMore, nextToken)
 	return model
 }
 
 // PresentList renders `sprints list` output as a table. BOARD column uses
 // each sprint's OriginBoardID (per-row), not the request boardID.
-func (SprintPresenter) PresentList(sprints []api.Sprint, extended bool) *present.OutputModel {
+func (SprintPresenter) PresentList(sprints []api.Sprint, includeOptional bool) *present.OutputModel {
 	var headers []string
-	if extended {
+	if includeOptional {
 		headers = []string{"ID", "STATE", "START", "END", "COMPLETED", "BOARD", "GOAL", "NAME"}
 	} else {
 		headers = []string{"ID", "STATE", "START", "END", "NAME"}
@@ -161,7 +161,7 @@ func (SprintPresenter) PresentList(sprints []api.Sprint, extended bool) *present
 	rows := make([]present.Row, len(sprints))
 	for i, s := range sprints {
 		var cells []string
-		if extended {
+		if includeOptional {
 			boardVal := "-"
 			if s.OriginBoardID != 0 {
 				boardVal = FormatInt(s.OriginBoardID)
@@ -198,12 +198,12 @@ func (SprintPresenter) PresentList(sprints []api.Sprint, extended bool) *present
 // PresentDetail builds the spec-shaped output for `sprints current`.
 // Board name degrades gracefully: "Board: 23 (MON board)" when known,
 // "Board: 23" when synthetic pass-through.
-func (SprintPresenter) PresentDetail(sprint *api.Sprint, board *api.Board, extended bool) *present.OutputModel {
+func (SprintPresenter) PresentDetail(sprint *api.Sprint, board *api.Board, includeOptional bool) *present.OutputModel {
 	sections := []present.Section{
 		msg(fmt.Sprintf("%d  %s", sprint.ID, sprint.Name)),
 	}
 
-	if extended {
+	if includeOptional {
 		sections = append(sections,
 			msg(fmt.Sprintf("State: %s   Start: %s   End: %s",
 				OrDash(sprint.State),
@@ -221,7 +221,7 @@ func (SprintPresenter) PresentDetail(sprint *api.Sprint, board *api.Board, exten
 
 	sections = append(sections, msg("Board: "+formatBoardRef(board)))
 
-	if extended {
+	if includeOptional {
 		sections = append(sections, msg("Goal: "+OrDash(sprint.Goal)))
 		originBoard := "-"
 		if sprint.OriginBoardID != 0 {

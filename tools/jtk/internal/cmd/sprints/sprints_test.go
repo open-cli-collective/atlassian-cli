@@ -74,6 +74,22 @@ func TestNewListCmd(t *testing.T) {
 	testutil.NotNil(t, fieldsFlag)
 }
 
+func TestPaginatedCommandsRejectNonPositiveMax(t *testing.T) {
+	for _, maxResults := range []string{"0", "-1"} {
+		list := newListCmd(&root.Options{})
+		list.SetArgs([]string{"--board", "1", "--max", maxResults})
+		err := list.Execute()
+		testutil.Error(t, err)
+		testutil.Contains(t, err.Error(), "--max must be greater than zero")
+
+		issues := newIssuesCmd(&root.Options{})
+		issues.SetArgs([]string{"1", "--max", maxResults})
+		err = issues.Execute()
+		testutil.Error(t, err)
+		testutil.Contains(t, err.Error(), "--max must be greater than zero")
+	}
+}
+
 func newTestSprintsServer(_ *testing.T, sprints []api.Sprint) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		response := api.SprintsResponse{
@@ -133,8 +149,8 @@ func TestRunList_IDOnly(t *testing.T) {
 	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
 	testutil.RequireNoError(t, err)
 
-	var stdout bytes.Buffer
-	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}, IDOnly: true}
+	var stdout, stderr bytes.Buffer
+	opts := &root.Options{Stdout: &stdout, Stderr: &stderr, IDOnly: true}
 	opts.SetAPIClient(client)
 
 	err = runList(context.Background(), opts, client, 123, "", 50, "", "")
@@ -226,13 +242,14 @@ func TestRunList_Pagination(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	// Request max=2: client-side pagination over 3 sorted sprints.
-	var stdout bytes.Buffer
-	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}, IDOnly: true}
+	var stdout, stderr bytes.Buffer
+	opts := &root.Options{Stdout: &stdout, Stderr: &stderr, IDOnly: true}
 	opts.SetAPIClient(client)
 
 	err = runList(context.Background(), opts, client, 123, "", 2, "", "")
 	testutil.RequireNoError(t, err)
-	testutil.Contains(t, stdout.String(), "More results available (next: 2)")
+	testutil.Equal(t, "10\n11\n", stdout.String())
+	testutil.Equal(t, "More results available (next: 2)\n", stderr.String())
 }
 
 // --- current subcommand ---
@@ -294,8 +311,8 @@ func TestRunCurrent_IDOnly(t *testing.T) {
 	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
 	testutil.RequireNoError(t, err)
 
-	var stdout bytes.Buffer
-	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}, IDOnly: true}
+	var stdout, stderr bytes.Buffer
+	opts := &root.Options{Stdout: &stdout, Stderr: &stderr, IDOnly: true}
 	opts.SetAPIClient(client)
 
 	board := &api.Board{ID: 123}
@@ -318,11 +335,11 @@ func TestRunCurrent_WithGoal(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	var stdout bytes.Buffer
-	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}, Extended: true}
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
 	board := &api.Board{ID: 123, Name: "Test Board"}
-	err = runCurrent(context.Background(), opts, client, board, "")
+	err = runCurrent(context.Background(), opts, client, board, "GOAL")
 	testutil.RequireNoError(t, err)
 
 	testutil.Contains(t, stdout.String(), "Ship feature X")
@@ -458,14 +475,34 @@ func TestRunIssues_IDOnly(t *testing.T) {
 	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
 	testutil.RequireNoError(t, err)
 
-	var stdout bytes.Buffer
-	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}, IDOnly: true}
+	var stdout, stderr bytes.Buffer
+	opts := &root.Options{Stdout: &stdout, Stderr: &stderr, IDOnly: true}
 	opts.SetAPIClient(client)
 
 	err = runIssues(context.Background(), opts, 456, 50, "", "")
 	testutil.RequireNoError(t, err)
 
 	testutil.Equal(t, stdout.String(), "PROJ-101\nPROJ-102\n")
+}
+
+func TestRunIssues_IDOnlyWithMoreResults(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(api.SearchResult{
+			StartAt: 0, MaxResults: 1, Total: 2, Issues: []api.Issue{{Key: "PROJ-101"}},
+		})
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+	var stdout, stderr bytes.Buffer
+	opts := &root.Options{Stdout: &stdout, Stderr: &stderr, IDOnly: true}
+	opts.SetAPIClient(client)
+
+	testutil.RequireNoError(t, runIssues(context.Background(), opts, 456, 1, "", ""))
+	testutil.Equal(t, "PROJ-101\n", stdout.String())
+	testutil.Equal(t, "More results available (next: 1)\n", stderr.String())
 }
 
 func TestRunIssues_Empty(t *testing.T) {
@@ -930,42 +967,6 @@ func TestRunList_SortOrder_JSON(t *testing.T) {
 	}
 }
 
-func TestRunList_Extended_GoalColumn(t *testing.T) {
-	t.Parallel()
-
-	d := func(year, month, day int) *time.Time {
-		tt := time.Date(year, time.Month(month), day, 0, 0, 0, 0, time.UTC)
-		return &tt
-	}
-
-	sprints := []api.Sprint{
-		{ID: 1, Name: "Closed Sprint", State: "closed", StartDate: d(2025, 1, 1), EndDate: d(2025, 1, 14), CompleteDate: d(2025, 1, 14), Goal: "Complete Q1 milestone"},
-		{ID: 2, Name: "Active Sprint", State: "active", StartDate: d(2025, 4, 1), EndDate: d(2025, 4, 14), Goal: "Ship CapOne a11y fixes", OriginBoardID: 23},
-	}
-
-	server := newTestSprintsServer(t, sprints)
-	defer server.Close()
-
-	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
-	testutil.RequireNoError(t, err)
-
-	var stdout bytes.Buffer
-	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}, Extended: true}
-	opts.SetAPIClient(client)
-
-	err = runList(context.Background(), opts, client, 123, "", 50, "", "")
-	testutil.RequireNoError(t, err)
-
-	output := stdout.String()
-	lines := strings.Split(strings.TrimSpace(output), "\n")
-	// lines[0] is the header; data rows start at lines[1]
-	if len(lines) < 3 {
-		t.Fatalf("expected header + 2 data rows, got %d lines:\n%s", len(lines), output)
-	}
-	testutil.True(t, strings.Contains(lines[1], "Ship CapOne a11y fixes"))
-	testutil.True(t, strings.Contains(lines[2], "Complete Q1 milestone"))
-}
-
 func TestRunList_ClientSidePagination(t *testing.T) {
 	t.Parallel()
 
@@ -987,19 +988,20 @@ func TestRunList_ClientSidePagination(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	// Page 1: max=2, sorted order is Active(3), Closed B(2), Closed A(1)
-	var stdout bytes.Buffer
-	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}, IDOnly: true}
+	var stdout, stderr bytes.Buffer
+	opts := &root.Options{Stdout: &stdout, Stderr: &stderr, IDOnly: true}
 	opts.SetAPIClient(client)
 
 	err = runList(context.Background(), opts, client, 123, "", 2, "", "")
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()
-	testutil.Contains(t, output, "3\n2\n")
-	testutil.Contains(t, output, "More results available (next: 2)")
+	testutil.Equal(t, "3\n2\n", output)
+	testutil.Equal(t, "More results available (next: 2)\n", stderr.String())
 
 	// Page 2: startAt=2, max=2
 	stdout.Reset()
+	stderr.Reset()
 	err = runList(context.Background(), opts, client, 123, "", 2, "2", "")
 	testutil.RequireNoError(t, err)
 
@@ -1027,14 +1029,15 @@ func TestRunList_ClientSidePagination_Table(t *testing.T) {
 	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
 	testutil.RequireNoError(t, err)
 
-	var stdout bytes.Buffer
-	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	var stdout, stderr bytes.Buffer
+	opts := &root.Options{Stdout: &stdout, Stderr: &stderr}
 	opts.SetAPIClient(client)
 
 	err = runList(context.Background(), opts, client, 123, "", 2, "", "")
 	testutil.RequireNoError(t, err)
 
-	testutil.Contains(t, stdout.String(), "More results available (next: 2)")
+	testutil.NotContains(t, stdout.String(), "More results available")
+	testutil.Contains(t, stderr.String(), "More results available (next: 2)")
 }
 
 func TestRunCurrent_BoardEnrichment(t *testing.T) {

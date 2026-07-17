@@ -40,19 +40,15 @@ func newListCmd(opts *root.Options) *cobra.Command {
 		Example: `  # List transitions
   jtk transitions list PROJ-123
 
-  # Extended output with status category, screen/conditional info, and required fields
-  jtk transitions list PROJ-123 --extended
-
   # Emit only transition IDs
   jtk transitions list PROJ-123 --id`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runList(cmd.Context(), opts, args[0], showFields || opts.IsExtended())
+			return runList(cmd.Context(), opts, args[0], showFields)
 		},
 	}
 
 	cmd.Flags().BoolVar(&showFields, "fields", false, "Show required fields for each transition")
-	_ = cmd.Flags().MarkDeprecated("fields", "use --extended instead")
 
 	return cmd
 }
@@ -197,7 +193,7 @@ func runDo(ctx context.Context, opts *root.Options, issueKey, transitionNameOrID
 				return nil, err
 			}
 			return jtkpresent.IssuePresenter{}.PresentDetail(
-				issue, client.IssueURL(id), opts.IsExtended(), opts.IsFullText(),
+				issue, client.IssueURL(id), false, opts.IsFullText(),
 			), nil
 		},
 		IsFresh: func(m *present.OutputModel) bool {

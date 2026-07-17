@@ -15,7 +15,7 @@ A command-line interface for managing Jira Cloud tickets.
 - Manage dashboards and gadgets
 - Create and manage issue links
 - Search and look up users
-- Text-first output with `--id`, `--extended`, and `--fulltext` modifiers
+- Text-first output with `--id`, `--fulltext`, and explicit `--fields` projections
 - Shell completion for bash, zsh, fish, and PowerShell
 
 ## Installation
@@ -152,15 +152,14 @@ These flags are available on all commands:
 
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
-| `--extended` | | `false` | Include admin/schema/audit fields in output |
 | `--fulltext` | | `false` | Disable truncation of descriptions, comments, and history values |
-| `--id` | | `false` | Emit only the primary identifier (takes precedence over `--extended` and `--fulltext`) |
+| `--id` | | `false` | Emit only the primary identifier (takes precedence over `--fulltext`) |
 | `--no-color` | | `false` | Disable colored output |
 | `--verbose` | `-v` | `false` | Log each request's method/URL, JSON body, status, and any 4xx/5xx response body (each capped at 4 KB). Useful for diagnosing opaque Jira errors like `INVALID_INPUT`. |
 | `--help` | `-h` | | Show help for command |
 | `--version` | | | Show version (root command only) |
 
-> `automation export` is the only command that emits JSON — it writes directly to stdout.
+> `automation export` is the only resource command that emits JSON — it writes directly to stdout. The control-plane `set-credential --json` envelope is the sole other exception.
 
 ---
 
@@ -200,11 +199,10 @@ Show information about the currently authenticated user.
 
 ```bash
 jtk me
-jtk me --id        # print just the account ID (for scripting)
-jtk me --extended  # include timezone, locale, and group/application-role counts
+jtk me --id  # print just the account ID (for scripting)
 ```
 
-Uses global flags `--id` and `--extended` — no command-specific flags.
+Uses the global `--id` flag and has no command-specific flags.
 
 ---
 
@@ -280,8 +278,8 @@ jtk issues list --project MYPROJECT
 jtk issues list --project MYPROJECT --sprint current
 jtk issues list --project MYPROJECT --id
 
-# Auto-pagination: fetch up to 200 results across multiple pages
-jtk issues list --project MYPROJECT --max 200
+# Request one page of up to 100 results
+jtk issues list --project MYPROJECT --max 100
 
 # Explicit column projection
 jtk issues list --project MYPROJECT --fields summary,status,customfield_10005
@@ -291,9 +289,11 @@ jtk issues list --project MYPROJECT --fields summary,status,customfield_10005
 |------|-------|---------|-------------|
 | `--project` | `-p` | | Project key or name |
 | `--sprint` | `-s` | | Filter by sprint: sprint name, numeric ID, or `current` |
-| `--max` | `-m` | `50` | Maximum number of results to return |
+| `--max` | `-m` | `50` | Page size (must be 1-100 inclusive) |
 | `--fields` | | | Comma-separated display columns (headers, Jira field IDs, or human names) |
 | `--next-page-token` | | | Token for next page of results |
+
+Sprint names must resolve uniquely from the cache; ambiguous names report candidate IDs, and unresolved names require a cache refresh or numeric sprint ID.
 
 ---
 
@@ -329,7 +329,7 @@ List Jira changelog history for an issue as compact changed-field rows. Rows are
 ```bash
 jtk issues history PROJ-123
 jtk issues history PROJ-123 --id
-jtk issues history PROJ-123 --extended
+jtk issues history PROJ-123 --fields ACCOUNT_ID,FIELD_ID,TYPE,FROM_ID,TO_ID
 jtk issues history PROJ-123 --fields CREATED,FIELD,TO
 jtk issues history PROJ-123 --max 1
 jtk issues history PROJ-123 --next-page-token 50
@@ -337,10 +337,9 @@ jtk issues history PROJ-123 --next-page-token 50
 
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
-| `--max` | `-m` | `50` | Maximum number of changelog groups to return |
+| `--max` | `-m` | `50` | Page size (must be positive) |
 | `--next-page-token` | | | Token for next page of results |
 | `--fields` | | | Comma-separated display columns |
-| `--extended` | | `false` | Include raw/audit history fields (global) |
 | `--fulltext` | | `false` | Show full history values without truncation (global) |
 | `--id` | | `false` | Emit changelog group IDs only (global) |
 
@@ -419,8 +418,8 @@ Search issues using JQL.
 jtk issues search --jql "project = MYPROJECT AND status = 'In Progress'"
 jtk issues search --jql "assignee = currentUser()" --id
 
-# Auto-pagination: fetch up to 200 results across multiple pages
-jtk issues search --jql "project = MYPROJECT" --max 200
+# Request one page of up to 100 results
+jtk issues search --jql "project = MYPROJECT" --max 100
 
 # Explicit column projection
 jtk issues search --jql "project = MYPROJECT" --fields summary,status
@@ -429,7 +428,7 @@ jtk issues search --jql "project = MYPROJECT" --fields summary,status
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
 | `--jql` | | | JQL query string (**required**) |
-| `--max` | `-m` | `50` | Maximum number of results to return |
+| `--max` | `-m` | `50` | Page size (must be 1-100 inclusive) |
 | `--fields` | | | Comma-separated display columns (headers, Jira field IDs, or human names) |
 | `--next-page-token` | | | Token for next page of results |
 
@@ -707,7 +706,7 @@ List available transitions for an issue.
 
 ```bash
 jtk transitions list PROJ-123
-jtk transitions list PROJ-123 --extended
+jtk transitions list PROJ-123 --fields
 jtk transitions list PROJ-123 --id
 ```
 
@@ -756,9 +755,11 @@ jtk comments list PROJ-123 --fields ID,AUTHOR
 
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
-| `--max` | `-m` | `50` | Maximum number of comments |
+| `--max` | `-m` | `50` | Page size (must be positive) |
 | `--fulltext` | | `false` | Show full comment bodies without truncation (global) |
 | `--fields` | | | Comma-separated display fields |
+
+`--fulltext` preserves the table columns and row shape; it only disables body truncation.
 
 **Arguments:**
 - `<issue-key>` - The issue key (**required**)
@@ -890,7 +891,7 @@ jtk sprints list --board 123 --id
 |------|-------|---------|-------------|
 | `--board` | `-b` | | Board ID or name (**required**) |
 | `--state` | `-s` | | Filter by state: `active`, `closed`, `future` |
-| `--max` | `-m` | `50` | Maximum number of results |
+| `--max` | `-m` | `50` | Page size (must be positive) |
 | `--fields` | | | Comma-separated display columns |
 | `--next-page-token` | | | Token for next page of results |
 
@@ -925,7 +926,7 @@ jtk sprints issues 456 --fields KEY,STATUS,customfield_10005
 
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
-| `--max` | `-m` | `50` | Maximum number of results |
+| `--max` | `-m` | `50` | Page size (must be positive) |
 | `--fields` | | | Comma-separated display columns |
 | `--next-page-token` | | | Token for next page of results |
 
@@ -976,7 +977,7 @@ jtk boards list --project MYPROJECT
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
 | `--project` | `-p` | | Filter by project key or name |
-| `--max` | `-m` | `50` | Maximum number of results |
+| `--max` | `-m` | `50` | Page size (must be positive) |
 | `--fields` | | | Comma-separated display columns |
 | `--next-page-token` | | | Token for next page of results |
 
@@ -1015,7 +1016,7 @@ jtk projects list --max 10
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
 | `--query` | `-q` | | Filter projects by name |
-| `--max` | `-m` | `50` | Maximum number of results |
+| `--max` | `-m` | `50` | Page size (must be positive) |
 | `--fields` | | | Comma-separated display columns |
 | `--next-page-token` | | | Token for next page of results |
 
@@ -1136,7 +1137,7 @@ jtk users search "john" --max 20
 
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
-| `--max` | `-m` | `50` | Maximum number of results |
+| `--max` | `-m` | `50` | Page size (must be positive) |
 | `--fields` | | | Comma-separated display columns |
 | `--next-page-token` | | | Token for next page of results |
 
@@ -1154,7 +1155,7 @@ Get details for a specific user by account ID.
 ```bash
 jtk users get 5b10ac8d82e05b22cc7d4ef5
 jtk users get 5b10ac8d82e05b22cc7d4ef5 --id     # global flag: emit only account ID
-jtk users get 5b10ac8d82e05b22cc7d4ef5 --extended
+jtk users get 5b10ac8d82e05b22cc7d4ef5 --fields TIMEZONE,LOCALE,GROUPS,APPLICATION_ROLES
 ```
 
 | Flag | Default | Description |
@@ -1218,12 +1219,13 @@ jtk automation export 123 > rule-backup.json
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--compact` | `false` | Output minified JSON |
+| `--compact` | `false` | Output whitespace-normalized minified JSON |
 
 **Arguments:**
 - `<rule-id>` - The rule ID (**required**)
 
-> Note: Output is always JSON — this is the only jtk command that emits JSON directly.
+> Note: Output is always JSON — this is the only resource command that emits JSON directly (the control-plane `set-credential --json` envelope is the other exception).
+> Invalid JSON returned by the API fails with empty stdout.
 
 ---
 
@@ -1331,7 +1333,7 @@ jtk dashboards list --max 10
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
 | `--search` | | | Search dashboards by name |
-| `--max` | `-m` | `50` | Maximum number of results |
+| `--max` | `-m` | `50` | Page size (must be positive) |
 
 > Note: Dashboard commands are not available with bearer auth (scoped tokens lack the Dashboard scope).
 
@@ -1811,7 +1813,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 Adding a new command or flag? Read these specs first — they're the contract every command in this CLI is held to:
 
 - [internal/cmd/GUARDRAILS.md](internal/cmd/GUARDRAILS.md) — verb language, flag aliases, pagination, mutation safety, boolean conventions, positional-vs-flag rule
-- [internal/cmd/OUTPUT_SPEC.md](internal/cmd/OUTPUT_SPEC.md) — list/get/mutation output shapes, `--id` / `--extended` / `--fulltext` semantics, error conventions
+- [internal/cmd/OUTPUT_SPEC.md](internal/cmd/OUTPUT_SPEC.md) — list/get/mutation output shapes, `--id` / `--fields` / `--fulltext` semantics, error conventions
 
 ## License
 

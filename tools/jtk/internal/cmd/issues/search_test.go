@@ -24,7 +24,7 @@ func TestRunSearch_Fields_HeaderAliases_ProjectsTable(t *testing.T) {
 	defer cs.server.Close()
 
 	opts, stdout, _ := newOptsFor(t, cs)
-	err := runSearch(context.Background(), opts, "project = TEST", 25, "", false, "SUMMARY,STATUS")
+	err := runSearch(context.Background(), opts, "project = TEST", 25, "", "SUMMARY,STATUS")
 	testutil.RequireNoError(t, err)
 
 	lines := strings.Split(strings.TrimRight(stdout.String(), "\n"), "\n")
@@ -45,7 +45,7 @@ func TestRunSearch_Fields_HumanName_TriggersFieldsFetch(t *testing.T) {
 	defer cs.server.Close()
 
 	opts, stdout, _ := newOptsFor(t, cs)
-	err := runSearch(context.Background(), opts, "project = TEST", 25, "", false, "Issue Type")
+	err := runSearch(context.Background(), opts, "project = TEST", 25, "", "Issue Type")
 	testutil.RequireNoError(t, err)
 
 	lines := strings.Split(strings.TrimRight(stdout.String(), "\n"), "\n")
@@ -63,7 +63,7 @@ func TestRunSearch_Fields_UnknownToken_Errors(t *testing.T) {
 	defer cs.server.Close()
 
 	opts, _, _ := newOptsFor(t, cs)
-	err := runSearch(context.Background(), opts, "project = TEST", 25, "", false, "bogus")
+	err := runSearch(context.Background(), opts, "project = TEST", 25, "", "bogus")
 	var ufe *projection.UnknownFieldError
 	if !errors.As(err, &ufe) {
 		t.Fatalf("expected UnknownFieldError, got %v", err)
@@ -79,7 +79,7 @@ func TestRunSearch_Fields_DerivesFetchSet(t *testing.T) {
 	defer cs.server.Close()
 
 	opts, _, _ := newOptsFor(t, cs)
-	err := runSearch(context.Background(), opts, "project = TEST", 25, "", false, "SUMMARY,STATUS")
+	err := runSearch(context.Background(), opts, "project = TEST", 25, "", "SUMMARY,STATUS")
 	testutil.RequireNoError(t, err)
 
 	got := cs.searchCaptured.Fields
@@ -102,15 +102,13 @@ func TestRunSearch_FieldsWithIDOnly_Pagination(t *testing.T) {
 	cs := newCapturingServer(t, []string{"TEST-1", "TEST-2"}, false, nil) // isLast=false → hasMore=true
 	defer cs.server.Close()
 
-	opts, stdout, _ := newOptsFor(t, cs)
+	opts, stdout, stderr := newOptsFor(t, cs)
 	opts.IDOnly = true
-	err := runSearch(context.Background(), opts, "project = TEST", 25, "", false, "SUMMARY")
+	err := runSearch(context.Background(), opts, "project = TEST", 25, "", "SUMMARY")
 	testutil.RequireNoError(t, err)
 
-	// Bare keys plus a pagination hint on stderr; stdout stays parse-friendly.
-	got := stdout.String()
-	testutil.Contains(t, got, "TEST-1\n")
-	testutil.Contains(t, got, "TEST-2\n")
+	testutil.Equal(t, "TEST-1\nTEST-2\n", stdout.String())
+	testutil.Equal(t, "More results available (next: next-token)\n", stderr.String())
 }
 
 // Empty result set under --id must not emit anything on stdout (no header,
@@ -122,7 +120,7 @@ func TestRunSearch_FieldsWithIDOnly_EmptyResults(t *testing.T) {
 
 	opts, stdout, _ := newOptsFor(t, cs)
 	opts.IDOnly = true
-	err := runSearch(context.Background(), opts, "project = TEST", 25, "", false, "SUMMARY")
+	err := runSearch(context.Background(), opts, "project = TEST", 25, "", "SUMMARY")
 	testutil.RequireNoError(t, err)
 	if stdout.String() != "" {
 		t.Errorf("expected empty stdout for --id with no results, got %q", stdout.String())
@@ -136,7 +134,7 @@ func TestRunSearch_FieldsWithIDOnly_IDWins(t *testing.T) {
 
 	opts, stdout, _ := newOptsFor(t, cs)
 	opts.IDOnly = true
-	err := runSearch(context.Background(), opts, "project = TEST", 25, "", false, "SUMMARY")
+	err := runSearch(context.Background(), opts, "project = TEST", 25, "", "SUMMARY")
 	testutil.RequireNoError(t, err)
 
 	want := "TEST-1\nTEST-2\n"
@@ -154,7 +152,7 @@ func TestRunSearch_IDOnly_SkipsFieldsResolution(t *testing.T) {
 
 	opts, _, _ := newOptsFor(t, cs)
 	opts.IDOnly = true
-	err := runSearch(context.Background(), opts, "project = TEST", 25, "", false, "Issue Type")
+	err := runSearch(context.Background(), opts, "project = TEST", 25, "", "Issue Type")
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, 0, cs.fieldsCalls)
 }
@@ -166,7 +164,7 @@ func TestRunSearch_IDOnly_BypassesFieldsValidation(t *testing.T) {
 
 	opts, stdout, _ := newOptsFor(t, cs)
 	opts.IDOnly = true
-	err := runSearch(context.Background(), opts, "project = TEST", 25, "", false, "bogus")
+	err := runSearch(context.Background(), opts, "project = TEST", 25, "", "bogus")
 	testutil.RequireNoError(t, err)
 	if stdout.String() != "TEST-1\n" {
 		t.Errorf("expected bare key, got %q", stdout.String())
@@ -187,7 +185,7 @@ func TestRunSearch_Fields_HumanName_CacheHit_SkipsFieldsFetch(t *testing.T) {
 	defer cs.server.Close()
 
 	opts, stdout, _ := newOptsFor(t, cs)
-	err := runSearch(context.Background(), opts, "project = TEST", 25, "", false, "Issue Type")
+	err := runSearch(context.Background(), opts, "project = TEST", 25, "", "Issue Type")
 	testutil.RequireNoError(t, err)
 
 	lines := strings.Split(strings.TrimRight(stdout.String(), "\n"), "\n")

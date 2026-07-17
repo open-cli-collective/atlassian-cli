@@ -145,8 +145,21 @@ process_page() {
         return 1
     fi
 
-    # Check for empty content
+    # Explicit XHTML does not fall back to ADF, so probe ADF before failing.
     if [[ -z "$raw_content" ]]; then
+        # Only a NON-empty ADF body proves the page is ADF-backed; a present-but-
+        # empty ADF body means the page itself is empty, which is a failure below.
+        local adf_probe
+        if adf_probe=$(cfl page view "$id" --body-format adf --content-only 2>/dev/null) && [[ -n "$adf_probe" ]]; then
+            echo "[$id] SKIP: ADF-backed (not storage format)"
+            SKIP=$((SKIP + 1))
+            return 0
+        fi
+        if [[ -n "$xhtml_error" ]]; then
+            echo "[$id] FAIL: Could not fetch page: $xhtml_error"
+            FAIL=$((FAIL + 1))
+            return 1
+        fi
         echo "[$id] FAIL: Empty page content"
         FAIL=$((FAIL + 1))
         return 1

@@ -28,9 +28,8 @@ var ErrAlreadyReported = errors.New("already reported")
 // Options contains global options for commands
 type Options struct {
 	NoColor        bool
-	Extended       bool // --extended: include admin/schema/audit fields.
 	FullText       bool // --fulltext: disable truncation of descriptions/comments/history values.
-	IDOnly         bool // --id: emit only the primary identifier; takes precedence over Extended/FullText.
+	IDOnly         bool // --id: emit only the primary identifier; takes precedence over FullText.
 	Verbose        bool
 	NonInteractive bool // --non-interactive (§3.4): never prompt; fail loud on missing required values.
 	Stdin          io.Reader
@@ -47,9 +46,6 @@ type Options struct {
 // EmitIDOnly reports whether output should collapse to the primary identifier.
 func (o *Options) EmitIDOnly() bool { return o.IDOnly }
 
-// IsExtended reports whether extended output is requested, honoring --id precedence (--id wins).
-func (o *Options) IsExtended() bool { return !o.IDOnly && o.Extended }
-
 // IsFullText reports whether body truncation is disabled, honoring --id precedence (--id wins).
 func (o *Options) IsFullText() bool { return !o.IDOnly && o.FullText }
 
@@ -65,10 +61,9 @@ func (o *Options) View() *view.View {
 	return v
 }
 
-// ArtifactMode returns the artifact type based on the --extended flag,
-// honoring --id precedence (--id collapses output, so Extended is ignored).
+// ArtifactMode returns the compact artifact type.
 func (o *Options) ArtifactMode() artifact.Type {
-	return artifact.Mode(o.IsExtended())
+	return artifact.Agent
 }
 
 // RenderMode returns the authoritative rendering mode.
@@ -146,9 +141,8 @@ func NewCmd() (*cobra.Command, *Options) {
 
 	// Global flags - bound to opts struct
 	cmd.PersistentFlags().BoolVar(&opts.NoColor, "no-color", false, "Disable colored output")
-	cmd.PersistentFlags().BoolVar(&opts.Extended, "extended", false, "Include admin/schema/audit fields in output")
 	cmd.PersistentFlags().BoolVar(&opts.FullText, "fulltext", false, "Disable truncation of descriptions, comments, and history values")
-	cmd.PersistentFlags().BoolVar(&opts.IDOnly, "id", false, "Emit only the primary identifier (takes precedence over --extended and --fulltext)")
+	cmd.PersistentFlags().BoolVar(&opts.IDOnly, "id", false, "Emit only the primary identifier (takes precedence over --fulltext)")
 	cmd.PersistentFlags().BoolVarP(&opts.Verbose, "verbose", "v", false, "Log each request's method/URL, JSON body, and any 4xx/5xx response body (each capped at 4 KB)")
 	cmd.PersistentFlags().BoolVar(&opts.NonInteractive, "non-interactive", false, "Never prompt; fail loud naming any required value missing from flags/env/stdin (§3.4)")
 	cmd.PersistentFlags().String(cccredstore.BackendFlagName, "", cccredstore.BackendFlagUsage())
@@ -228,14 +222,12 @@ func RegisterCommands(root *cobra.Command, opts *Options, registrars ...func(*co
 // GetOptions extracts Options from a root command
 func GetOptions(cmd *cobra.Command) *Options {
 	noColor, _ := cmd.Root().PersistentFlags().GetBool("no-color")
-	extended, _ := cmd.Root().PersistentFlags().GetBool("extended")
 	fullText, _ := cmd.Root().PersistentFlags().GetBool("fulltext")
 	idOnly, _ := cmd.Root().PersistentFlags().GetBool("id")
 	verbose, _ := cmd.Root().PersistentFlags().GetBool("verbose")
 
 	return &Options{
 		NoColor:  noColor,
-		Extended: extended,
 		FullText: fullText,
 		IDOnly:   idOnly,
 		Verbose:  verbose,

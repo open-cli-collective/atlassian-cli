@@ -48,7 +48,6 @@ func newGetCmd(opts *root.Options) *cobra.Command {
   jtk users get 61292e4c4f29230069621c5f
 
   # Include timezone, locale, and group/application-role counts
-  jtk users get 61292e4c4f29230069621c5f --extended
 
   # Just the account ID
   jtk users get 61292e4c4f29230069621c5f --id
@@ -84,7 +83,6 @@ func runGet(ctx context.Context, opts *root.Options, accountID, fieldsFlag strin
 	selected, projected, err := projection.Resolve(
 		ctx,
 		jtkpresent.UserDetailSpec,
-		opts.IsExtended(),
 		fieldsFlag,
 		noFieldFetch,
 		"users get",
@@ -94,8 +92,8 @@ func runGet(ctx context.Context, opts *root.Options, accountID, fieldsFlag strin
 	}
 
 	expand := ""
-	if opts.IsExtended() {
-		expand = api.UserExtendedExpand
+	if projection.HasOptionalFields(selected, jtkpresent.UserDetailSpec) {
+		expand = api.UserDetailExpand
 	}
 	user, err := cache.GetUserCacheFirst(ctx, client, accountID, expand)
 	if err != nil {
@@ -110,9 +108,6 @@ func runGet(ctx context.Context, opts *root.Options, accountID, fieldsFlag strin
 	}
 
 	var model = presenter.PresentUserOneLiner(user)
-	if opts.IsExtended() {
-		model = presenter.PresentUserExtended(user)
-	}
 	return jtkpresent.Emit(opts, model)
 }
 
@@ -135,7 +130,6 @@ from the page being full (len(results) == --max).`,
   jtk users search john
 
   # Include timezone and locale columns
-  jtk users search john --extended
 
   # Emit just account IDs, one per line
   jtk users search john --id
@@ -145,13 +139,18 @@ from the page being full (len(results) == --max).`,
 
   # Fetch the second page
   jtk users search john --max 10 --next-page-token 10`,
-		Args: cobra.ExactArgs(1),
+		Args: func(cmd *cobra.Command, args []string) error {
+			if err := cobra.ExactArgs(1)(cmd, args); err != nil {
+				return err
+			}
+			return jtkpresent.ValidateMax(maxResults)
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runSearch(cmd.Context(), opts, args[0], maxResults, nextPageToken, fieldsFlag)
 		},
 	}
 
-	cmd.Flags().IntVarP(&maxResults, "max", "m", 50, "Maximum number of results")
+	cmd.Flags().IntVarP(&maxResults, "max", "m", 50, "Page size")
 	cmd.Flags().StringVar(&nextPageToken, "next-page-token", "", "Decimal startAt for the next page")
 	cmd.Flags().StringVar(&fieldsFlag, "fields", "", "Comma-separated display columns (UserListSpec headers)")
 
@@ -177,7 +176,6 @@ func runSearch(ctx context.Context, opts *root.Options, query string, maxResults
 		selected, projected, err = projection.Resolve(
 			ctx,
 			jtkpresent.UserListSpec,
-			opts.IsExtended(),
 			fieldsFlag,
 			noFieldFetch,
 			"users search",
@@ -196,8 +194,8 @@ func runSearch(ctx context.Context, opts *root.Options, query string, maxResults
 	// /user/search has no native isLast; the heuristic is that a full page
 	// implies more pages may exist. Over-reporting in the last window is the
 	// documented tradeoff for a command whose endpoint lacks an authoritative
-	// terminator. When maxResults <= 0 (no cap), hasMore stays false.
-	hasMore := maxResults > 0 && len(rawUsers) == maxResults
+	// terminator.
+	hasMore := len(rawUsers) == maxResults
 	nextToken := ""
 	if hasMore {
 		nextToken = strconv.Itoa(startAt + len(rawUsers))
@@ -217,7 +215,7 @@ func runSearch(ctx context.Context, opts *root.Options, query string, maxResults
 		return jtkpresent.Emit(opts, model)
 	}
 
-	model := jtkpresent.UserPresenter{}.PresentUserListWithPagination(users, opts.IsExtended(), hasMore, nextToken)
+	model := jtkpresent.UserPresenter{}.PresentUserListWithPagination(users, projection.HasOptionalFields(selected, jtkpresent.UserListSpec), hasMore, nextToken)
 	if projected {
 		projection.ApplyToTableInModel(model, selected)
 	}

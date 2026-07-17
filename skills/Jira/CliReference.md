@@ -29,13 +29,12 @@ Prompts for: Atlassian instance URL, email, API token (from https://id.atlassian
 
 | Flag | Description |
 |------|-------------|
-| `--extended` | Include admin/schema/audit fields in output |
-| `--fulltext` | Disable truncation of descriptions and comments (`--no-truncate` is a deprecated alias kept during migration) |
-| `--id` | Emit only the primary identifier (useful for scripting). Takes precedence over `--extended` and `--fulltext` |
+| `--fulltext` | Disable truncation of descriptions and comments without changing list output shape |
+| `--id` | Emit only the primary identifier (useful for scripting). Takes precedence over `--fulltext` |
 | `--no-color` | Disable colored output |
 | `-v, --verbose` | Enable verbose output |
 
-> `automation export` is the only command that emits JSON. Use `--id` for scripting composition.
+> `automation export` is the only resource command that emits JSON; the control-plane `set-credential --json` envelope is the sole other exception. Use `--id` for scripting composition.
 
 ## Command Structure
 
@@ -49,7 +48,6 @@ jtk [resource] [action] [KEY/ID] [flags]
 |---------|-------------|
 | `jtk me` | Show current authenticated user (account ID, name, email) |
 | `jtk me --id` | Print just the account ID (script-friendly) |
-| `jtk me --extended` | Include timezone, locale, active status, group/role counts |
 
 ## Issues
 
@@ -68,7 +66,7 @@ jtk [resource] [action] [KEY/ID] [flags]
 | `jtk issues move PROJ-1 [PROJ-2 ...] --to-project NEWPROJ` | Move one or more issues to another project (Jira Cloud only). By default synchronous — waits for completion. Max 1000 issues per request. See move flags below |
 | `jtk issues move-status TASK_ID` | Check status of an async move operation (used with `--no-wait`) |
 | `jtk issues delete PROJ-123` | Permanently delete an issue. Interactive `y/N` prompt by default (prompt goes to stderr, reads from stdin); pass `--force` to skip. Destructive and irreversible |
-| `jtk issues types --project KEY` | List valid issue types for a project (columns: `ID`, `NAME`, `SUBTASK`; use values from `NAME` as `--type` on create). Supports `--id`, `--extended` (adds `DESCRIPTION_KEY`) |
+| `jtk issues types --project KEY` | List valid issue types for a project (columns: `ID`, `NAME`, `SUBTASK`, `DESCRIPTION`; use values from `NAME` as `--type` on create). Supports `--id` |
 | `jtk issues fields [PROJ-123]` | List available fields (all fields, or editable fields for a specific issue) |
 | `jtk issues field-options FIELD_NAME_OR_ID [--issue PROJ-123]` | List allowed values for a field (e.g. priority, custom selects) |
 
@@ -118,9 +116,9 @@ Positional: one or more `<issue-key>` (up to 1000 per request). Jira Cloud only 
 | `--jql "QUERY"` | JQL query string (required for `search`) |
 | `--project KEY` / `-p` | Filter by project key (for `list`) |
 | `--sprint current` / `-s current` | Filter by current sprint (for `list`) |
-| `--max N` / `-m N` | Maximum results (default 25; auto-paginates) |
+| `--max N` / `-m N` | Size of one page (default 50; must be 1-100 inclusive for issues list/search) |
 | `--next-page-token TOKEN` | Resume from previous page token |
-| `--all-fields` | Include all fields (e.g. description) |
+| `--fields description` | Select the description field (with the issue key) instead of the default columns |
 | `--fields summary,status,customfield_10005` | Comma-separated list of specific fields |
 
 ### Common Issue Types
@@ -134,45 +132,45 @@ Status changes happen via `jtk transitions do`, **not** `jtk issues update`.
 | Command | Description |
 |---------|-------------|
 | `jtk transitions list PROJ-123` | List available transitions for issue |
-| `jtk transitions list PROJ-123 --extended` | Show required fields for each transition (renamed from `--fields` in v1.0.84) |
+| `jtk transitions list PROJ-123 --fields` | Show required fields for each transition (command-specific boolean; the removed global `--extended` previously implied it) |
 | `jtk transitions do PROJ-123 "Transition Name"` | Apply transition by name |
 | `jtk transitions do PROJ-123 21` | Apply transition by numeric ID |
-| `jtk transitions do PROJ-123 "Done" --field NAME=VALUE` | Apply with required fields (only when `transitions list --extended` shows a required field) |
+| `jtk transitions do PROJ-123 "Done" --field NAME=VALUE` | Apply with required fields (only when `transitions list --fields` shows a required field) |
 
 Common transition names: "To Do", "In Progress", "In Review", "Done" (instance-dependent — always run `transitions list` first).
 
-> **Do not speculatively pass `--field resolution=Done` (or any other field) unless `jtk transitions list PROJ-123 --extended` explicitly shows it is required for the transition you're applying.** Many Jira workflows set resolution via post-function or hide it from the transition screen — speculatively providing `--field resolution=Done` will fail with "Field 'resolution' cannot be set. It is not on the appropriate screen, or unknown." In that case, re-run the transition without the `--field` flag.
+> **Do not speculatively pass `--field resolution=Done` (or any other field) unless `jtk transitions list PROJ-123 --fields` explicitly shows it is required for the transition you're applying.** Many Jira workflows set resolution via post-function or hide it from the transition screen — speculatively providing `--field resolution=Done` will fail with "Field 'resolution' cannot be set. It is not on the appropriate screen, or unknown." In that case, re-run the transition without the `--field` flag.
 
 ## Projects
 
 | Command | Description |
 |---------|-------------|
-| `jtk projects list` | List all projects (columns: `KEY`, `TYPE`, `LEAD`, `NAME`). Supports `--id`, `--fields`, `--extended` (adds `STYLE`, `ISSUE_TYPES`, `COMPONENTS` counts), `--next-page-token` |
-| `jtk projects get KEY` | Get project details. Supports `--id`, `--fields`, `--extended` (enumerates components) |
+| `jtk projects list` | List all projects. Supports `--id`, `--fields`, `--next-page-token` |
+| `jtk projects get KEY` | Get project details. Supports `--id`, `--fields` |
 
 ## Sprints
 
-`--board` and sprint positional arguments accept either a numeric ID or a name (resolved via cache — see SKILL.md Cache Warming).
+`--board` and sprint positional arguments accept either a numeric ID or a name (resolved via cache — see SKILL.md Cache Warming). Sprint names must resolve uniquely; ambiguity reports candidate IDs, while unresolved names require a cache refresh or numeric ID.
 
 | Command | Description |
 |---------|-------------|
-| `jtk sprints list --board ID_OR_NAME` | List sprints for board (columns: `ID`, `STATE`, `START`, `END`, `NAME`). Supports `--extended` (adds sprint goals, timestamps), `--id`, `--fields`, `--next-page-token` |
-| `jtk sprints current --board ID_OR_NAME` | Get active sprint. Sprint Goal requires `--extended` (not shown by default). Supports `--id`, `--fields` |
-| `jtk sprints issues SPRINT_ID_OR_NAME` | List issues in sprint. Supports `--extended`, `--id`, `--max`, `--next-page-token` |
+| `jtk sprints list --board ID_OR_NAME` | List sprints for board. Supports `--id`, `--fields`, `--next-page-token` |
+| `jtk sprints current --board ID_OR_NAME` | Get active sprint. Use `--fields GOAL` for the goal. |
+| `jtk sprints issues SPRINT_ID_OR_NAME` | List issues in sprint. Supports `--fields`, `--id`, `--max`, `--next-page-token` |
 | `jtk sprints add SPRINT_ID_OR_NAME PROJ-1 PROJ-2 ...` | Add issues to sprint (issues are positional) |
 
 ## Boards
 
 | Command | Description |
 |---------|-------------|
-| `jtk boards list` | List all boards (columns: `ID`, `TYPE`, `PROJECT`, `NAME`). Supports `--extended`, `--id`, `--fields`, `--next-page-token` |
-| `jtk boards get ID_OR_NAME` | Get board details. Supports `--extended` (shows board configuration: filter, columns), `--id`, `--fields` |
+| `jtk boards list` | List all boards. Supports `--id`, `--fields`, `--next-page-token` |
+| `jtk boards get ID_OR_NAME` | Get board details. Use `--fields FILTER,COLUMN_CONFIG` for configuration. |
 
 ## Links
 
 | Command | Description |
 |---------|-------------|
-| `jtk links list PROJ-123` | List links on an issue. Supports `--fields`, `--extended`, `--id` |
+| `jtk links list PROJ-123` | List links on an issue. Supports `--fields`, `--id` |
 | `jtk links create PROJ-123 PROJ-456 --type NAME` | Create a link between two issues. First issue is outward, second is inward (e.g., "A blocks B"). `--type` accepts canonical name (`Blocks`), outward verb (`blocks`), or inward verb (`is blocked by`) — inward verbs auto-swap the key ordering |
 | `jtk links delete LINK_ID` | Delete an issue link by numeric ID (use `jtk links list` to find IDs) |
 | `jtk links types` | List available link types for the instance (columns: `ID`, `NAME`, `OUTWARD`, `INWARD`). Supports `--fields`, `--id` |
@@ -200,7 +198,7 @@ Common transition names: "To Do", "In Progress", "In Review", "Done" (instance-d
 
 | Command | Description |
 |---------|-------------|
-| `jtk users search "QUERY"` | Search for users (columns: `ACCOUNT_ID`, `NAME`, `EMAIL`, `ACTIVE`). Supports `--extended` (adds `TIMEZONE`, `LOCALE`), `--id`, `--fields`, `--next-page-token` |
+| `jtk users search "QUERY"` | Search for users. Supports `--fields TIMEZONE,LOCALE`, `--id`, and `--next-page-token` |
 | `jtk users search "QUERY" --max 1 --id` | Resolve a query to a single account ID (script-friendly) |
 | `jtk users get ACCOUNT_ID` | Get user details by account ID. Supports `--id`, `--fields` |
 | `jtk users get ACCOUNT_ID --id` | Echo just the account ID (useful in pipelines) |
@@ -224,8 +222,8 @@ Common transition names: "To Do", "In Progress", "In Review", "Done" (instance-d
 
 - Data goes to stdout (pipeable)
 - Diagnostics/logs go to stderr
-- **Pagination continuation notices (`More results available ...`) go to STDOUT, not stderr** — this is intentional per `jtk`'s output contract, and applies even with `--id`. When using `--id` in command substitution or piping to a tool that reads line-by-line, size `--max` to match your expectation, or post-filter with `grep -oE '[A-Z]+-[0-9]+' | head -1` (or equivalent) to isolate just the identifier from any trailing notice.
-- Use `--id` global flag for just the primary identifier — works on both reads and mutations (useful when piping to another command; note the pagination caveat above)
+- Pagination continuation notices (`More results available ...`) go to stderr. Each invocation emits one page; pass the token back with `--next-page-token`.
+- Use `--id` global flag for just the primary identifier — works on both reads and mutations, with exactly one identifier per stdout line.
 - **Mutation output:** non-destructive mutations (create, update, assign, transition, add) re-fetch the entity after writing and show the same detail block as the corresponding `get` command. Destructive mutations (delete, remove) emit a confirmation line only. `--id` on any mutation emits just the primary identifier (issue key, comment ID, etc.)
 - Use `--fulltext` global flag to disable truncation of descriptions/comments. `--fulltext` is a no-op when the body field is not selected via `--fields`
 - Use `--fields` (per-command) to select specific columns in table/block output. Invalid field names error before making API calls

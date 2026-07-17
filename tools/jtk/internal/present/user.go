@@ -22,11 +22,11 @@ var UserDetailSpec = projection.Registry{
 	{Header: "ACCOUNT_ID", Identity: true},
 	{Header: "NAME"},
 	{Header: "EMAIL"},
-	{Header: "TIMEZONE", Extended: true},
-	{Header: "LOCALE", Extended: true},
-	{Header: "ACTIVE", Extended: true},
-	{Header: "GROUPS", Extended: true},
-	{Header: "APPLICATION_ROLES", Aliases: []string{"APP_ROLES"}, Extended: true},
+	{Header: "TIMEZONE", Optional: true},
+	{Header: "LOCALE", Optional: true},
+	{Header: "ACTIVE", Optional: true},
+	{Header: "GROUPS", Optional: true},
+	{Header: "APPLICATION_ROLES", Aliases: []string{"APP_ROLES"}, Optional: true},
 }
 
 // UserListSpec declares the columns emitted by PresentUserList and
@@ -37,8 +37,8 @@ var UserListSpec = projection.Registry{
 	{Header: "NAME"},
 	{Header: "EMAIL"},
 	{Header: "ACTIVE"},
-	{Header: "TIMEZONE", Extended: true},
-	{Header: "LOCALE", Extended: true},
+	{Header: "TIMEZONE", Optional: true},
+	{Header: "LOCALE", Optional: true},
 }
 
 // PresentUserOneLiner builds the spec-shaped default output for `me` and
@@ -57,39 +57,10 @@ func (UserPresenter) PresentUserOneLiner(u *api.User) *present.OutputModel {
 	}
 }
 
-// PresentUserExtended builds the spec-shaped `--extended` output: the pipe
+// PresentUserExtended builds the spec-shaped `explicit --fields` output: the pipe
 // one-liner followed by two compound "Key: X   Key2: Y" rows. Missing
 // timeZone/locale render as `-`; missing groups/applicationRoles (i.e., the
 // endpoint did not expand them) also render as `-`.
-func (UserPresenter) PresentUserExtended(u *api.User) *present.OutputModel {
-	return &present.OutputModel{
-		Sections: []present.Section{
-			&present.MessageSection{
-				Kind:    present.MessageInfo,
-				Message: userOneLiner(u),
-				Stream:  present.StreamStdout,
-			},
-			&present.MessageSection{
-				Kind: present.MessageInfo,
-				Message: fmt.Sprintf("Timezone: %s   Locale: %s   Active: %s",
-					OrDash(u.TimeZone), OrDash(u.Locale), BoolString(u.Active)),
-				Stream: present.StreamStdout,
-			},
-			&present.MessageSection{
-				Kind: present.MessageInfo,
-				Message: fmt.Sprintf("Groups: %s   Application Roles: %s",
-					PresentOptionalCount(u.Groups), PresentOptionalCount(u.ApplicationRoles)),
-				Stream: present.StreamStdout,
-			},
-		},
-	}
-}
-
-// PresentUserDetailProjection builds a DetailSection view for a single user,
-// keyed by the headers declared in UserDetailSpec. Commands use this only
-// when `--fields` is active; projection.ProjectDetail then slices the section
-// to the user-selected subset. Output flattens to "Label: Value" lines,
-// matching the issues get --fields precedent.
 func (UserPresenter) PresentUserDetailProjection(u *api.User) *present.OutputModel {
 	fields := []present.Field{
 		{Label: "ACCOUNT_ID", Value: u.AccountID},
@@ -108,18 +79,18 @@ func (UserPresenter) PresentUserDetailProjection(u *api.User) *present.OutputMod
 
 // PresentUserListWithPagination wraps PresentUserList and appends a
 // pagination hint when hasMore is true.
-func (p UserPresenter) PresentUserListWithPagination(users []api.User, extended, hasMore bool, nextToken string) *present.OutputModel {
-	model := p.PresentUserList(users, extended)
+func (p UserPresenter) PresentUserListWithPagination(users []api.User, includeOptional, hasMore bool, nextToken string) *present.OutputModel {
+	model := p.PresentUserList(users, includeOptional)
 	model.Sections = AppendPaginationHintWithToken(model.Sections, hasMore, nextToken)
 	return model
 }
 
-// PresentUserList builds a TableSection for `users search`. When extended is
+// PresentUserList builds a TableSection for `users search`. When includeOptional is
 // true, TIMEZONE/LOCALE columns are appended so the Registry and the rendered
 // headers stay aligned in both modes.
-func (UserPresenter) PresentUserList(users []api.User, extended bool) *present.OutputModel {
+func (UserPresenter) PresentUserList(users []api.User, includeOptional bool) *present.OutputModel {
 	headers := []string{"ACCOUNT_ID", "NAME", "EMAIL", "ACTIVE"}
-	if extended {
+	if includeOptional {
 		headers = append(headers, "TIMEZONE", "LOCALE")
 	}
 	rows := make([]present.Row, len(users))
@@ -130,7 +101,7 @@ func (UserPresenter) PresentUserList(users []api.User, extended bool) *present.O
 			OrDash(u.EmailAddress),
 			BoolString(u.Active),
 		}
-		if extended {
+		if includeOptional {
 			cells = append(cells, OrDash(u.TimeZone), OrDash(u.Locale))
 		}
 		rows[i] = present.Row{Cells: cells}

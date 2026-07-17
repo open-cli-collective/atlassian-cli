@@ -32,50 +32,25 @@ func ValidateMax(maxResults int) error {
 	return nil
 }
 
-// paginationHint is the legacy continuation-line wording retained for
-// commands that have not yet migrated to the token-embedding variant.
-// New (#237+) call sites use the *WithToken helpers below.
-const paginationHint = "More results available (use --next-page-token to fetch next page)"
-
-// paginationMessageSection builds the legacy continuation line.
-// Migrated callers use paginationMessageSectionWithToken instead.
-func paginationMessageSection() *present.MessageSection {
-	return &present.MessageSection{
-		Kind:    present.MessageInfo,
-		Message: paginationHint,
-		Stream:  present.StreamStderr,
+// ValidateMaxAtMost enforces the shared page-size contract and an endpoint ceiling.
+func ValidateMaxAtMost(maxResults, ceiling int) error {
+	if err := ValidateMax(maxResults); err != nil {
+		return err
 	}
+	if maxResults > ceiling {
+		return fmt.Errorf("--max must be %d or less", ceiling)
+	}
+	return nil
 }
 
 // paginationMessageSectionWithToken builds the spec-shaped continuation line
 // that embeds the next-page token, per the JTK Output Specification (#230).
-// When token is empty the helper falls back to the legacy wording so callers
-// don't accidentally surface an empty "next: " fragment.
 func paginationMessageSectionWithToken(token string) *present.MessageSection {
-	if token == "" {
-		return paginationMessageSection()
-	}
 	return &present.MessageSection{
 		Kind:    present.MessageInfo,
 		Message: fmt.Sprintf("More results available (next: %s)", token),
 		Stream:  present.StreamStderr,
 	}
-}
-
-// AppendPaginationHint returns sections with a pagination MessageSection
-// appended when hasMore is true, otherwise returns sections unchanged.
-// Every model-building pagination call site funnels through this so
-// wording, kind, and stream stay in sync across presenters and commands.
-//
-// Follows Go's standard append semantics: the returned slice may share
-// its backing array with the input. Callers that pass a slice with spare
-// capacity beyond its length should treat the input as consumed, or
-// allocate a fresh slice before calling.
-func AppendPaginationHint(sections []present.Section, hasMore bool) []present.Section {
-	if !hasMore {
-		return sections
-	}
-	return append(sections, paginationMessageSection())
 }
 
 // PaginationOnlyModel creates an OutputModel containing only a pagination
@@ -106,26 +81,9 @@ func EmitIDs(opts *root.Options, ids []string) error {
 	return nil
 }
 
-// EmitIDsWithPagination is EmitIDs plus a continuation line on stderr when
-// hasMore is true. The continuation line shares construction with the
-// model-building presenters via paginationMessageSection() so `--id` and
-// default mode can never drift on wording or stream.
-func EmitIDsWithPagination(opts *root.Options, ids []string, hasMore bool) error {
-	if err := EmitIDs(opts, ids); err != nil {
-		return err
-	}
-	if hasMore {
-		model := &present.OutputModel{Sections: []present.Section{paginationMessageSection()}}
-		return Emit(opts, model)
-	}
-	return nil
-}
-
 // AppendPaginationHintWithToken returns sections with a token-embedded
 // pagination MessageSection appended when hasMore is true, otherwise returns
-// sections unchanged. Follow-up to #230: new migrated list commands emit
-// "More results available (next: <token>)" instead of the legacy wording.
-// Empty token degrades to the legacy phrasing.
+// sections unchanged.
 func AppendPaginationHintWithToken(sections []present.Section, hasMore bool, token string) []present.Section {
 	if !hasMore {
 		return sections

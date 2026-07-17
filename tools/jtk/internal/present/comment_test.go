@@ -64,8 +64,8 @@ func TestCommentListSpec_MatchesPresentListHeaders(t *testing.T) {
 		model *present.OutputModel
 	}{
 		{"PresentList", CommentPresenter{}.PresentList(comments, false, false)},
-		{"PresentListWithPagination_NoMore", CommentPresenter{}.PresentListWithPagination(comments, false, false, false)},
-		{"PresentListWithPagination_HasMore", CommentPresenter{}.PresentListWithPagination(comments, false, false, true)},
+		{"PresentListWithPagination_NoMore", CommentPresenter{}.PresentListWithPagination(comments, false, false, false, "token")},
+		{"PresentListWithPagination_HasMore", CommentPresenter{}.PresentListWithPagination(comments, false, false, true, "token")},
 	}
 
 	for _, tc := range cases {

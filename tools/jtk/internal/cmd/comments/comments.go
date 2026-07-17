@@ -3,6 +3,7 @@ package comments
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/spf13/cobra"
 
@@ -38,16 +39,18 @@ func Register(parent *cobra.Command, opts *root.Options) {
 
 func newListCmd(opts *root.Options) *cobra.Command {
 	var maxResults int
+	var nextPageToken string
 	var fieldsFlag string
 
 	cmd := &cobra.Command{
 		Use:   "list <issue-key>",
 		Short: "List comments on an issue",
-		Long:  "List all comments on a specific issue.",
+		Long:  "List one page of comments on a specific issue.",
 		Example: `  jtk comments list PROJ-123
   jtk comments list PROJ-123 --fulltext
   jtk comments list PROJ-123 --fields ID,AUTHOR
-  jtk comments list PROJ-123 --fulltext --fields Body`,
+  jtk comments list PROJ-123 --fulltext --fields Body
+  jtk comments list PROJ-123 --next-page-token 50`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if err := cobra.ExactArgs(1)(cmd, args); err != nil {
 				return err
@@ -55,17 +58,23 @@ func newListCmd(opts *root.Options) *cobra.Command {
 			return jtkpresent.ValidateMax(maxResults)
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runList(cmd.Context(), opts, args[0], maxResults, opts.IsFullText(), fieldsFlag)
+			return runList(cmd.Context(), opts, args[0], maxResults, nextPageToken, opts.IsFullText(), fieldsFlag)
 		},
 	}
 
 	cmd.Flags().IntVarP(&maxResults, "max", "m", 50, "Page size")
+	cmd.Flags().StringVar(&nextPageToken, "next-page-token", "", "Decimal startAt for the next page")
 	cmd.Flags().StringVar(&fieldsFlag, "fields", "", "Comma-separated display fields (labels)")
 
 	return cmd
 }
 
-func runList(ctx context.Context, opts *root.Options, issueKey string, maxResults int, noTruncate bool, fieldsFlag string) error {
+func runList(ctx context.Context, opts *root.Options, issueKey string, maxResults int, nextPageToken string, noTruncate bool, fieldsFlag string) error {
+	startAt, err := jtkpresent.ParseStartAtToken(nextPageToken)
+	if err != nil {
+		return err
+	}
+
 	client, err := opts.APIClient()
 	if err != nil {
 		return err
@@ -91,24 +100,28 @@ func runList(ctx context.Context, opts *root.Options, issueKey string, maxResult
 		}
 	}
 
-	result, err := client.GetComments(ctx, issueKey, 0, maxResults)
+	result, err := client.GetComments(ctx, issueKey, startAt, maxResults)
 	if err != nil {
 		return err
 	}
 
 	hasMore := commentsHasMore(result.Total, result.StartAt, len(result.Comments), maxResults)
+	nextToken := ""
+	if hasMore {
+		nextToken = strconv.Itoa(result.StartAt + len(result.Comments))
+	}
 
 	if idOnly {
 		ids := make([]string, len(result.Comments))
 		for i, c := range result.Comments {
 			ids[i] = c.ID
 		}
-		return jtkpresent.EmitIDsWithPagination(opts, ids, hasMore)
+		return jtkpresent.EmitIDsWithPaginationToken(opts, ids, hasMore, nextToken)
 	}
 
 	if len(result.Comments) == 0 {
 		model := jtkpresent.CommentPresenter{}.PresentEmpty(issueKey)
-		model.Sections = jtkpresent.AppendPaginationHint(model.Sections, hasMore)
+		model.Sections = jtkpresent.AppendPaginationHintWithToken(model.Sections, hasMore, nextToken)
 		return jtkpresent.Emit(opts, model)
 	}
 
@@ -117,6 +130,7 @@ func runList(ctx context.Context, opts *root.Options, issueKey string, maxResult
 		projection.HasOptionalFields(selected, spec),
 		noTruncate,
 		hasMore,
+		nextToken,
 	)
 	if projected {
 		projection.ApplyToTableInModel(model, selected)

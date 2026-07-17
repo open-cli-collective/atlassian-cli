@@ -9,7 +9,10 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
+
+	"github.com/spf13/cobra"
 
 	"github.com/open-cli-collective/atlassian-go/testutil"
 
@@ -682,4 +685,29 @@ func TestPaginatedCommandsRejectNonPositiveMax(t *testing.T) {
 		testutil.Error(t, err)
 		testutil.Contains(t, err.Error(), "--max must be greater than zero")
 	}
+}
+
+func TestIssueCommandsRejectMaxOver100BeforeRequest(t *testing.T) {
+	t.Parallel()
+	var requests atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		requests.Add(1)
+	}))
+	defer server.Close()
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "e@x", APIToken: "t"})
+	testutil.RequireNoError(t, err)
+
+	for _, newCmd := range []func(*root.Options) *cobra.Command{newListCmd, newSearchCmd} {
+		opts := &root.Options{Stdout: io.Discard, Stderr: io.Discard}
+		opts.SetAPIClient(client)
+		cmd := newCmd(opts)
+		cmd.SetArgs([]string{"--jql", "project = TEST", "--max", "101"})
+		if cmd.Name() == "list" {
+			cmd.SetArgs([]string{"--max", "101"})
+		}
+		err := cmd.Execute()
+		testutil.Error(t, err)
+		testutil.Contains(t, err.Error(), "--max must be 100 or less")
+	}
+	testutil.Equal(t, int32(0), requests.Load())
 }

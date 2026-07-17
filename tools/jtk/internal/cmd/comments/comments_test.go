@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/open-cli-collective/atlassian-go/testutil"
@@ -35,6 +36,10 @@ func TestNewListCmd(t *testing.T) {
 	fieldsFlag := cmd.Flags().Lookup("fields")
 	testutil.NotNil(t, fieldsFlag)
 	testutil.Equal(t, fieldsFlag.DefValue, "")
+
+	nextPageTokenFlag := cmd.Flags().Lookup("next-page-token")
+	testutil.NotNil(t, nextPageTokenFlag)
+	testutil.Equal(t, nextPageTokenFlag.DefValue, "")
 }
 
 func TestListRejectsNonPositiveMax(t *testing.T) {
@@ -100,7 +105,7 @@ func TestRunList_TruncatesCommentBody(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runList(context.Background(), opts, "TEST-1", 50, false, "")
+	err = runList(context.Background(), opts, "TEST-1", 50, "", false, "")
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()
@@ -149,7 +154,7 @@ func TestRunList_FullCommentBody(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runList(context.Background(), opts, "TEST-1", 50, true, "")
+	err = runList(context.Background(), opts, "TEST-1", 50, "", true, "")
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()
@@ -249,7 +254,7 @@ func TestRunList_ShortCommentNotTruncated(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runList(context.Background(), opts, "TEST-1", 50, false, "")
+	err = runList(context.Background(), opts, "TEST-1", 50, "", false, "")
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()
@@ -276,7 +281,7 @@ func TestRunList_NoComments(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runList(context.Background(), opts, "TEST-1", 50, false, "")
+	err = runList(context.Background(), opts, "TEST-1", 50, "", false, "")
 	testutil.RequireNoError(t, err)
 
 	combined := stdout.String() + stderr.String()
@@ -330,7 +335,7 @@ func TestRunList_FullTextRemainsTable(t *testing.T) {
 	defer server.Close()
 
 	opts, stdout, _ := newCommentsOpts(t, server)
-	err := runList(context.Background(), opts, "TEST-1", 50, true, "")
+	err := runList(context.Background(), opts, "TEST-1", 50, "", true, "")
 	testutil.RequireNoError(t, err)
 
 	out := stdout.String()
@@ -348,7 +353,7 @@ func TestRunList_FullTextPaginationOnStderr(t *testing.T) {
 	defer server.Close()
 
 	opts, stdout, stderr := newCommentsOpts(t, server)
-	err := runList(context.Background(), opts, "TEST-1", 1, true, "")
+	err := runList(context.Background(), opts, "TEST-1", 1, "", true, "")
 	testutil.RequireNoError(t, err)
 
 	if strings.Contains(stdout.String(), "More results available") {
@@ -370,7 +375,7 @@ func TestRunList_IDOnlyEmitsIDsOnePerLine(t *testing.T) {
 
 	opts, stdout, stderr := newCommentsOpts(t, server)
 	opts.IDOnly = true
-	err := runList(context.Background(), opts, "TEST-1", 50, false, "")
+	err := runList(context.Background(), opts, "TEST-1", 50, "", false, "")
 	testutil.RequireNoError(t, err)
 
 	want := "11\n22\n"
@@ -390,14 +395,48 @@ func TestRunList_IDOnlyWithMoreResultsAppendsContinuation(t *testing.T) {
 
 	opts, stdout, stderr := newCommentsOpts(t, server)
 	opts.IDOnly = true
-	err := runList(context.Background(), opts, "TEST-1", 1, false, "")
+	err := runList(context.Background(), opts, "TEST-1", 1, "", false, "")
 	testutil.RequireNoError(t, err)
 
 	want := "1\n"
 	if stdout.String() != want {
 		t.Errorf("stdout:\ngot:  %q\nwant: %q", stdout.String(), want)
 	}
-	testutil.Equal(t, "More results available (use --next-page-token to fetch next page)\n", stderr.String())
+	testutil.Equal(t, "More results available (next: 1)\n", stderr.String())
+}
+
+func TestRunList_ContinuationFetchesFollowUpPage(t *testing.T) {
+	t.Parallel()
+	var calls atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := r.URL.Query().Get("startAt")
+		call := calls.Add(1)
+		if (call == 1 && start != "") || (call == 2 && start != "1") {
+			t.Errorf("request %d startAt = %q", call, start)
+		}
+		comment := plainComment("1", "Alice", "first")
+		startAt := 0
+		if start == "1" {
+			comment = plainComment("2", "Bob", "second")
+			startAt = 1
+		}
+		_ = json.NewEncoder(w).Encode(api.CommentsResponse{
+			StartAt: startAt, MaxResults: 1, Total: 2, Comments: []api.Comment{comment},
+		})
+	}))
+	defer server.Close()
+
+	opts, stdout, stderr := newCommentsOpts(t, server)
+	testutil.RequireNoError(t, runList(context.Background(), opts, "TEST-1", 1, "", false, ""))
+	testutil.Contains(t, stdout.String(), "1 | Alice")
+	testutil.Equal(t, "More results available (next: 1)\n", stderr.String())
+
+	stdout.Reset()
+	stderr.Reset()
+	testutil.RequireNoError(t, runList(context.Background(), opts, "TEST-1", 1, "1", false, ""))
+	testutil.Contains(t, stdout.String(), "2 | Bob")
+	testutil.Equal(t, "", stderr.String())
+	testutil.Equal(t, int32(2), calls.Load())
 }
 
 func TestRunList_EmptyNeverEmitsSpuriousPaginationHint(t *testing.T) {
@@ -410,7 +449,7 @@ func TestRunList_EmptyNeverEmitsSpuriousPaginationHint(t *testing.T) {
 	defer server.Close()
 
 	opts, stdout, stderr := newCommentsOpts(t, server)
-	err := runList(context.Background(), opts, "TEST-1", 50, false, "")
+	err := runList(context.Background(), opts, "TEST-1", 50, "", false, "")
 	testutil.RequireNoError(t, err)
 
 	if strings.Contains(stdout.String(), "More results available") {
@@ -428,7 +467,7 @@ func TestRunList_EmptyWithIDOnly_EmitsNothing(t *testing.T) {
 
 	opts, stdout, stderr := newCommentsOpts(t, server)
 	opts.IDOnly = true
-	err := runList(context.Background(), opts, "TEST-1", 50, false, "")
+	err := runList(context.Background(), opts, "TEST-1", 50, "", false, "")
 	testutil.RequireNoError(t, err)
 
 	if stdout.String() != "" {
@@ -445,7 +484,7 @@ func TestRunList_EmptyDefaultGoesToStdout(t *testing.T) {
 	defer server.Close()
 
 	opts, stdout, stderr := newCommentsOpts(t, server)
-	err := runList(context.Background(), opts, "TEST-1", 50, false, "")
+	err := runList(context.Background(), opts, "TEST-1", 50, "", false, "")
 	testutil.RequireNoError(t, err)
 
 	if !strings.Contains(stdout.String(), "No comments on TEST-1") {
@@ -529,7 +568,7 @@ func TestRunList_MultipleCommentsFullMode(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runList(context.Background(), opts, "TEST-1", 50, true, "")
+	err = runList(context.Background(), opts, "TEST-1", 50, "", true, "")
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()

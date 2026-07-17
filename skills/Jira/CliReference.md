@@ -116,7 +116,7 @@ Positional: one or more `<issue-key>` (up to 1000 per request). Jira Cloud only 
 | `--jql "QUERY"` | JQL query string (required for `search`) |
 | `--project KEY` / `-p` | Filter by project key (for `list`) |
 | `--sprint current` / `-s current` | Filter by current sprint (for `list`) |
-| `--max N` / `-m N` | Size of one page (default 50; must be positive) |
+| `--max N` / `-m N` | Size of one page (default 50; must be 1-100 inclusive for issues list/search) |
 | `--next-page-token TOKEN` | Resume from previous page token |
 | `--fields description` | Include all fields (e.g. description) |
 | `--fields summary,status,customfield_10005` | Comma-separated list of specific fields |

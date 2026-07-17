@@ -65,7 +65,7 @@ Both `search` and `list` support the same paging/field flags:
 
 | Flag | Description |
 |------|-------------|
-| `--max N` / `-m N` | Size of one page (default 50; must be positive) |
+| `--max N` / `-m N` | Size of one page (default 50; must be 1-100 inclusive) |
 | `--next-page-token TOKEN` | Resume from previous page token |
 | `--fields description` | Include all fields (descriptions, etc.) |
 | `--fields summary,status,customfield_10005` | Comma-separated list of specific fields |

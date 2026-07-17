@@ -231,7 +231,7 @@ customfield_10050 | Team | option | Platform
 
 **`issues fields MON-4810 --custom-fields`:** filters to `customfield_*` rows only.
 
-**`issues types MON`** — default:
+**`issues types --project MON`** — default:
 ```
 ID | NAME | SUBTASK | DESCRIPTION
 10000 | Epic | no | A big user story that needs to be broken down.
@@ -508,13 +508,13 @@ Multi-delete: one line per deleted issue.
 ### `comments add / delete`
 
 ```
-$ jtk comments add MON-4810 "Noting that this needs QA review on Safari 16."
+$ jtk comments add MON-4810 --body "Noting that this needs QA review on Safari 16."
 MON-4810 #21276 — Rian Stockbower, 2026-04-16
 Noting that this needs QA review on Safari 16.
 ```
 
 ```
-$ jtk comments add MON-4810 "..." --id
+$ jtk comments add MON-4810 --body "..." --id
 21276
 ```
 
@@ -575,7 +575,7 @@ Accepts sprint ID or name (resolved via cache).
 ### `attachments add / delete`
 
 ```
-$ jtk attachments add MON-4810 ./audit-notes.md
+$ jtk attachments add MON-4810 --file ./audit-notes.md
 10236 | audit-notes.md | 4.2 KB | Rian Stockbower | 2026-04-16
 ```
 

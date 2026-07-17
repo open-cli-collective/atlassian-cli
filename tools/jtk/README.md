@@ -159,7 +159,7 @@ These flags are available on all commands:
 | `--help` | `-h` | | Show help for command |
 | `--version` | | | Show version (root command only) |
 
-> `automation export` is the only command that emits JSON — it writes directly to stdout.
+> `automation export` is the only resource command that emits JSON — it writes directly to stdout. The control-plane `set-credential --json` envelope is the sole other exception.
 
 ---
 
@@ -1220,7 +1220,7 @@ jtk automation export 123 > rule-backup.json
 **Arguments:**
 - `<rule-id>` - The rule ID (**required**)
 
-> Note: Output is always JSON — this is the only jtk command that emits JSON directly.
+> Note: Output is always JSON — this is the only resource command that emits JSON directly (the control-plane `set-credential --json` envelope is the other exception).
 
 ---
 

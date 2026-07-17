@@ -107,7 +107,10 @@ jtk issues list --project KEY --sprint current --id | xargs -I{} jtk issues get 
 # Collect ALL keys across pages by iterating the stderr continuation token
 token=""
 while :; do
-  keys=$(jtk issues list --project KEY --id ${token:+--next-page-token "$token"} 2>/tmp/jtk-page-info)
+  if ! keys=$(jtk issues list --project KEY --id ${token:+--next-page-token "$token"} 2>/tmp/jtk-page-info); then
+    echo "jtk issues list failed; aborting to avoid a partial result set" >&2
+    exit 1
+  fi
   printf '%s\n' "$keys"
   token=$(grep -oE 'next: [^)]+' /tmp/jtk-page-info | cut -d' ' -f2) || break
   [ -z "$token" ] && break

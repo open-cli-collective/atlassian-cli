@@ -460,37 +460,14 @@ MON-4757 | Prototype html-in-canvas chart engine to replac... | In Code Review |
 More results available (use --next-page-token to fetch next page)
 ```
 
-#### `--fields description -o json`
+#### `--fields description`
 
-```json
-{
-  "results": [
-    {
-      "key": "MON-4810",
-      "summary": "Audit and remediate accessibility issues on CapOne-specific surfaces",
-      "status": "In Code Review",
-      "type": "SDLC",
-      "assignee": "Aaron Wong"
-    },
-    {
-      "key": "MON-4807",
-      "summary": "Make CapOne key-stack authoritative for zero-state back behavior",
-      "status": "In Code Review",
-      "type": "SDLC",
-      "assignee": "Aaron Wong"
-    },
-    {
-      "key": "MON-4809",
-      "summary": "Bump PostHog sampling to 100% for CapOne sessions",
-      "status": "Backlog",
-      "type": "SDLC"
-    }
-  ],
-  "_meta": {
-    "count": 3,
-    "hasMore": true
-  }
-}
+```
+KEY | DESCRIPTION
+MON-4810 | Audit and remediate accessibility issues on CapOne-specific surfaces
+MON-4807 | Make CapOne key-stack authoritative for zero-state back behavior
+MON-4809 | Bump PostHog sampling to 100% for CapOne sessions
+More results available (use --next-page-token to fetch next page)
 ```
 
 #### `--fields summary,status -o json`

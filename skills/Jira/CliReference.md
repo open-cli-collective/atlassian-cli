@@ -34,7 +34,7 @@ Prompts for: Atlassian instance URL, email, API token (from https://id.atlassian
 | `--no-color` | Disable colored output |
 | `-v, --verbose` | Enable verbose output |
 
-> `automation export` is the only command that emits JSON. Use `--id` for scripting composition.
+> `automation export` is the only resource command that emits JSON; the control-plane `set-credential --json` envelope is the sole other exception. Use `--id` for scripting composition.
 
 ## Command Structure
 

@@ -113,6 +113,44 @@ func TestRunGet_FullDescription(t *testing.T) {
 	testutil.NotContains(t, output, "[truncated")
 }
 
+func TestRunGet_FullText_KeepsCompactSections(t *testing.T) {
+	t.Parallel()
+	longText := strings.Repeat("A", 300)
+	issue := api.Issue{
+		Key: "TEST-1",
+		Fields: api.IssueFields{
+			Summary:     "Test issue",
+			Description: &api.Description{Text: longText},
+			Status:      &api.Status{Name: "Open"},
+			IssueType:   &api.IssueType{Name: "Task"},
+			Reporter:    &api.User{DisplayName: "Jane Reporter"},
+			Created:     "2026-01-02T03:04:05.000-0400",
+			Resolution:  &api.Resolution{Name: "Done"},
+			FixVersions: []api.Version{{Name: "v9.9"}},
+		},
+	}
+
+	server := newTestIssueServer(t, issue)
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@example.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runGet(context.Background(), opts, "TEST-1", true, "", false)
+	testutil.RequireNoError(t, err)
+
+	output := stdout.String()
+	testutil.Contains(t, output, longText)
+	testutil.NotContains(t, output, "Reporter:")
+	testutil.NotContains(t, output, "Created:")
+	testutil.NotContains(t, output, "Fix Versions:")
+	testutil.NotContains(t, output, "Resolution:")
+}
+
 // TestNewGetCmd_FullTextRoutesFromRoot verifies that when --fulltext is set on
 // the root Options (as the persistent --fulltext flag does), runGet is invoked
 // with truncation disabled.

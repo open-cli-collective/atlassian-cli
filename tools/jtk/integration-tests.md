@@ -135,7 +135,7 @@ jtk fields list --custom-fields --id
 |---|---------|-----------------|
 | 1 | `jtk issues list -p $PROJECT --max 3` | Table: KEY, SUMMARY, STATUS, ASSIGNEE, TYPE. At most 3 rows. |
 | 2 | `jtk issues list -p $PROJECT --max 3 --id` | Issue keys only, one per line |
-| 3 | `jtk issues list -p $PROJECT --max 3 --fields REPORTER,SPRINT,PARENT,UPDATED,LABELS,COMPONENTS` | Extended table with additional columns |
+| 3 | `jtk issues list -p $PROJECT --max 3 --fields REPORTER,SPRINT,PARENT,UPDATED,LABELS,COMPONENTS` | Projected table: KEY, REPORTER, SPRINT, PARENT, UPDATED, LABELS, COMPONENTS |
 | 4 | `jtk issues list -p $PROJECT --max 2 --id` | Issue keys only, 2 per line |
 | 5 | `jtk issues list -p NONEXISTENT` | Error message containing "not found" or empty results |
 
@@ -154,7 +154,7 @@ jtk fields list --custom-fields --id
 |---|---------|-----------------|
 | 1 | `jtk issues search --jql "project = $PROJECT" --max 3` | Table of matching issues, at most 3 rows |
 | 2 | `jtk issues search --jql "project = $PROJECT" --max 3 --id` | Issue keys only |
-| 3 | `jtk issues search --jql "project = $PROJECT" --max 3 --fields REPORTER,SPRINT,PARENT,UPDATED,LABELS,COMPONENTS` | Extended table |
+| 3 | `jtk issues search --jql "project = $PROJECT" --max 3 --fields REPORTER,SPRINT,PARENT,UPDATED,LABELS,COMPONENTS` | Projected table: KEY, REPORTER, SPRINT, PARENT, UPDATED, LABELS, COMPONENTS |
 | 4 | `jtk issues search --jql "project = $PROJECT AND summary ~ 'xyznonexistent999'"` | `No issues found` |
 | 5 | `jtk issues search --jql "invalid jql ((("` | `bad request: Error in the JQL Query: ...` |
 
@@ -176,8 +176,8 @@ jtk fields list --custom-fields --id
 | # | Command | Expected Output |
 |---|---------|-----------------|
 | 1 | `jtk issues search --jql "project = $PROJECT" --max 1` | Table with default columns: KEY, STATUS, TYPE, PTS, ASSIGNEE, SUMMARY |
-| 2 | `jtk issues search --jql "project = $PROJECT" --max 1 --fields summary,status` | Table shows only SUMMARY and STATUS columns (KEY and others absent) |
-| 3 | `jtk issues list -p $PROJECT --max 1 --fields summary,customfield_10005` | Table shows only SUMMARY and the custom field columns |
+| 2 | `jtk issues search --jql "project = $PROJECT" --max 1 --fields summary,status` | Projected table: KEY, SUMMARY, STATUS |
+| 3 | `jtk issues list -p $PROJECT --max 1 --fields summary,customfield_10005` | Projected table: KEY, SUMMARY, custom field |
 
 ### issues types
 

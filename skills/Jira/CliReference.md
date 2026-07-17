@@ -132,7 +132,7 @@ Status changes happen via `jtk transitions do`, **not** `jtk issues update`.
 | Command | Description |
 |---------|-------------|
 | `jtk transitions list PROJ-123` | List available transitions for issue |
-| `jtk transitions list PROJ-123 --fields` | Show required fields for each transition (renamed from `--extended` in v1.0.84) |
+| `jtk transitions list PROJ-123 --fields` | Show required fields for each transition (command-specific boolean; the removed global `--extended` previously implied it) |
 | `jtk transitions do PROJ-123 "Transition Name"` | Apply transition by name |
 | `jtk transitions do PROJ-123 21` | Apply transition by numeric ID |
 | `jtk transitions do PROJ-123 "Done" --field NAME=VALUE` | Apply with required fields (only when `transitions list --fields` shows a required field) |

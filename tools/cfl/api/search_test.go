@@ -115,6 +115,7 @@ func TestClient_Search_RawCQL(t *testing.T) {
 }
 
 func TestClient_Search_RawCQLConflicts(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name string
 		opts SearchOptions
@@ -128,6 +129,7 @@ func TestClient_Search_RawCQLConflicts(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			tt.opts.CQL = "type=page"
 			_, err := (&Client{}).Search(context.Background(), &tt.opts)
 			testutil.RequireError(t, err)

@@ -123,13 +123,15 @@ sudo rpm -i cfl-VERSION.x86_64.rpm
 
 ### From Source
 
-**Go install**
+**Build from a clone**
 
 ```bash
-go install github.com/open-cli-collective/confluence-cli/cmd/cfl@latest
+git clone https://github.com/open-cli-collective/atlassian-cli.git
+cd atlassian-cli
+make build-cfl
 ```
 
-Requires Go 1.24 or later.
+Requires Go 1.24 or later. (`go install` of the old `confluence-cli` module path installs a stale pre-monorepo binary; use Homebrew or a clone instead.)
 
 ## Quick Start
 
@@ -186,6 +188,7 @@ These flags are available on all commands:
 | `--config` | `-c` | `~/.config/cfl/config.yml` | Path to config file |
 | `--output` | `-o` | `table` | Output format: `table`, `plain` |
 | `--no-color` | | `false` | Disable colored output |
+| `--full` | | `false` | Inspection-oriented output; supported on view, list, and search commands (rejected elsewhere) |
 | `--help` | `-h` | | Show help for command |
 | `--version` | `-v` | | Show version (root command only) |
 

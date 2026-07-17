@@ -207,6 +207,7 @@ Author ID: <account-id>
 Flag-specific behavior:
 - `--content-only` emits only the body and implies untruncated output.
 - `--full` is incompatible with `--content-only` and `--web` because both discard metadata.
+- `--content-only` is incompatible with `--web` (web opens a browser and emits no body text).
 - `--body-format` selects Markdown (default), exact ADF JSON, or exact storage XHTML.
 - Markdown conversion errors fail with no body on stdout and suggest an exact format.
 - `--show-macros` affects body conversion only.

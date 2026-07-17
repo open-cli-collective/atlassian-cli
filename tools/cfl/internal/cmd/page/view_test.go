@@ -173,6 +173,18 @@ func TestView_FullContentOnlyFailsBeforeConfig(t *testing.T) {
 	testutil.NotContains(t, err.Error(), "config")
 }
 
+func TestView_FullWebFailsBeforeConfig(t *testing.T) {
+	rootCmd, rootOpts := root.NewCmd()
+	rootOpts.ConfigPath = filepath.Join(t.TempDir(), "missing.yml")
+	Register(rootCmd, rootOpts)
+	rootCmd.SetArgs([]string{"page", "view", "12345", "--full", "--web"})
+
+	err := rootCmd.Execute()
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "--full is incompatible with --web")
+	testutil.NotContains(t, err.Error(), "config")
+}
+
 func TestRunView_ExactOutput_ContentOnly(t *testing.T) {
 	t.Parallel()
 

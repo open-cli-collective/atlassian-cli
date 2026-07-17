@@ -50,7 +50,7 @@ No defaults exist. Ask the user. Do not guess. If the user provides a Confluence
 - **Page body format** — `--body-format markdown|adf|xhtml` on page view/create/edit. Omission means Markdown; ADF and XHTML are exact.
 - **Output format** — how it's rendered: `table` (default), `plain` (`-o plain`). For scripted extraction, parse `ID: <id>` lines from command output.
 
-They combine freely — e.g., `--full -o plain` returns the inspection representation as TSV.
+They combine freely — e.g., `cfl page list --full -o plain` returns TSV; detail output in plain mode remains semantically equivalent text.
 
 ### Extracting Page IDs from URLs
 

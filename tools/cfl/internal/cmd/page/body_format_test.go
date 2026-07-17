@@ -37,6 +37,11 @@ func TestBodyForInput(t *testing.T) {
 
 	_, err = bodyForInput("{broken", bodyFormatADF, false)
 	testutil.RequireError(t, err)
+	for _, input := range []string{"null", "[]", "{}", `{"type":"paragraph"}`} {
+		_, err = bodyForInput(input, bodyFormatADF, false)
+		testutil.RequireError(t, err)
+		testutil.Contains(t, err.Error(), "expected an object with type")
+	}
 	_, err = bodyForInput(adf, bodyFormatADF, true)
 	testutil.RequireError(t, err)
 }

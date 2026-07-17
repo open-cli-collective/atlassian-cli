@@ -50,6 +50,14 @@ func bodyForInput(content, format string, legacy bool) (*api.Body, error) {
 		if !json.Valid([]byte(content)) {
 			return nil, fmt.Errorf("invalid ADF JSON")
 		}
+		var doc struct {
+			Type    string            `json:"type"`
+			Version json.Number       `json:"version"`
+			Content []json.RawMessage `json:"content"`
+		}
+		if err := json.Unmarshal([]byte(content), &doc); err != nil || doc.Type != "doc" || doc.Version == "" || doc.Content == nil {
+			return nil, fmt.Errorf("invalid ADF document: expected an object with type \"doc\", numeric version, and array content")
+		}
 		return adfBody(content), nil
 	case bodyFormatXHTML:
 		return storageBody(content), nil

@@ -63,6 +63,29 @@ func TestProject_EmptyContent(t *testing.T) {
 	testutil.False(t, proj.HasContent)
 }
 
+func TestProject_ExactEmptyBodies(t *testing.T) {
+	t.Parallel()
+
+	for _, tt := range []struct {
+		name   string
+		format string
+		body   *api.Body
+		kind   BodyKind
+	}{
+		{"ADF", BodyFormatADF, &api.Body{AtlasDocFormat: &api.BodyRepresentation{}}, BodyKindADF},
+		{"XHTML", BodyFormatXHTML, &api.Body{Storage: &api.BodyRepresentation{}}, BodyKindXHTML},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			proj, err := Project(&api.Page{Body: tt.body}, "", Options{BodyFormat: tt.format, ContentOnly: true})
+			testutil.RequireNoError(t, err)
+			testutil.Equal(t, "", proj.Body)
+			testutil.Equal(t, tt.kind, proj.BodyKind)
+			testutil.True(t, proj.HasContent)
+		})
+	}
+}
+
 func TestTruncateContent(t *testing.T) {
 	t.Parallel()
 	long := strings.Repeat("x", MaxChars+10)

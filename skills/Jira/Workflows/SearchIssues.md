@@ -94,14 +94,24 @@ Present results clearly:
 When the next step depends on extracting an identifier from the result (e.g. feeding an issue key into another command), use the global `--id` flag so the CLI emits only the primary identifier — no decoration to strip:
 
 ```bash
-# Get all keys in a project as a flat list
+# Get one page of keys in a project as a flat list (stdout is IDs only;
+# the continuation token, if any, is printed to stderr)
 jtk issues list --project KEY --id
 
 # Get the single issue key this search would match
 jtk issues search --jql "summary ~ \"login bug\"" --max 1 --id
 
-# Feed keys into another command
+# Feed one page of keys into another command
 jtk issues list --project KEY --sprint current --id | xargs -I{} jtk issues get {}
+
+# Collect ALL keys across pages by iterating the stderr continuation token
+token=""
+while :; do
+  keys=$(jtk issues list --project KEY --id ${token:+--next-page-token "$token"} 2>/tmp/jtk-page-info)
+  printf '%s\n' "$keys"
+  token=$(grep -oE 'next: [^)]+' /tmp/jtk-page-info | cut -d' ' -f2) || break
+  [ -z "$token" ] && break
+done
 ```
 
 Use `--id` whenever a downstream step parses the output. Avoid trying to pattern-match against the default table/plain output — it's human-oriented and may change formatting.

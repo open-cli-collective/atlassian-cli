@@ -2,13 +2,23 @@ package root
 
 import (
 	"bytes"
+	"fmt"
+	"path/filepath"
 	"testing"
 
 	"github.com/open-cli-collective/atlassian-go/artifact"
+	"github.com/open-cli-collective/atlassian-go/auth"
+	sharedclient "github.com/open-cli-collective/atlassian-go/client"
+	"github.com/open-cli-collective/atlassian-go/credtest"
+	"github.com/open-cli-collective/atlassian-go/keyring"
 	"github.com/open-cli-collective/atlassian-go/present"
 	"github.com/open-cli-collective/atlassian-go/testutil"
 	"github.com/open-cli-collective/atlassian-go/view"
+	cccredstore "github.com/open-cli-collective/cli-common/credstore"
 	"github.com/spf13/cobra"
+
+	"github.com/open-cli-collective/confluence-cli/api"
+	"github.com/open-cli-collective/confluence-cli/internal/config"
 )
 
 func TestNewCmd(t *testing.T) {
@@ -246,5 +256,127 @@ func TestOptions_RenderStyle_PlainOutput(t *testing.T) {
 	opts := &Options{Output: "plain"}
 	if got := opts.RenderStyle(); got != present.StyleHumanPlain {
 		t.Errorf("RenderStyle() = %v, want StyleHumanPlain", got)
+	}
+}
+
+func TestConfigFlagIsAuthoritative(t *testing.T) {
+	tests := []struct {
+		name        string
+		authMethod  string
+		url         string
+		email       string
+		cloudID     string
+		checkClient func(*testing.T, *api.Client, string)
+	}{
+		{
+			name:       "basic",
+			authMethod: auth.AuthMethodBasic,
+			url:        "https://explicit-basic.atlassian.net/wiki",
+			email:      "explicit-basic@example.com",
+			cloudID:    "explicit-basic-cloud",
+			checkClient: func(t *testing.T, client *api.Client, token string) {
+				t.Helper()
+				if client.GetBaseURL() != "https://explicit-basic.atlassian.net/wiki" ||
+					client.GetAuthHeader() != auth.BasicAuthHeader("explicit-basic@example.com", token) {
+					t.Fatal("basic client did not use the explicit config and resolved token")
+				}
+			},
+		},
+		{
+			name:       "bearer",
+			authMethod: auth.AuthMethodBearer,
+			url:        "https://explicit-bearer.atlassian.net/wiki",
+			email:      "explicit-bearer@example.com",
+			cloudID:    "explicit-bearer-cloud",
+			checkClient: func(t *testing.T, client *api.Client, token string) {
+				t.Helper()
+				wantURL := fmt.Sprintf("%s/ex/confluence/explicit-bearer-cloud/wiki", sharedclient.GatewayBaseURL)
+				if client.GetBaseURL() != wantURL || client.GetAuthHeader() != auth.BearerAuthHeader(token) {
+					t.Fatal("bearer client did not use the explicit config and resolved token")
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			credtest.Hermetic(t)
+			keyring.SetBackendSelection("", "")
+			t.Cleanup(func() { keyring.SetBackendSelection("", "") })
+			for _, name := range []string{
+				"CFL_URL", "ATLASSIAN_URL", "CFL_EMAIL", "ATLASSIAN_EMAIL",
+				"CFL_AUTH_METHOD", "ATLASSIAN_AUTH_METHOD", "CFL_CLOUD_ID",
+				"ATLASSIAN_CLOUD_ID", "CFL_DEFAULT_SPACE",
+			} {
+				t.Setenv(name, "")
+			}
+
+			defaultCfg := &config.Config{
+				URL:          "https://default.atlassian.net/wiki",
+				Email:        "default@example.com",
+				AuthMethod:   auth.AuthMethodBasic,
+				CloudID:      "default-cloud",
+				DefaultSpace: "DEFAULT",
+				OutputFormat: "default-output",
+				Keyring:      config.KeyringConfig{Backend: "file"},
+			}
+			testutil.RequireNoError(t, defaultCfg.Save(config.DefaultConfigPath()))
+
+			explicitPath := filepath.Join(t.TempDir(), "explicit.yml")
+			explicitCfg := &config.Config{
+				URL:          tt.url,
+				Email:        tt.email,
+				AuthMethod:   tt.authMethod,
+				CloudID:      tt.cloudID,
+				DefaultSpace: "EXPLICIT",
+				OutputFormat: "explicit-output",
+				Keyring:      config.KeyringConfig{Backend: "memory"},
+			}
+			testutil.RequireNoError(t, explicitCfg.Save(explicitPath))
+
+			secret := "explicit-token-" + tt.name
+			t.Setenv("CFL_API_TOKEN", secret)
+			var stdout, stderr bytes.Buffer
+			rootCmd, opts := NewCmd()
+			rootCmd.SetOut(&stdout)
+			rootCmd.SetErr(&stderr)
+			rootCmd.AddCommand(&cobra.Command{
+				Use: "probe",
+				RunE: func(*cobra.Command, []string) error {
+					cfg, err := opts.Config()
+					if err != nil {
+						return err
+					}
+					if cfg.URL != explicitCfg.URL || cfg.Email != explicitCfg.Email ||
+						cfg.AuthMethod != explicitCfg.AuthMethod || cfg.CloudID != explicitCfg.CloudID ||
+						cfg.DefaultSpace != explicitCfg.DefaultSpace || cfg.OutputFormat != explicitCfg.OutputFormat ||
+						cfg.Keyring.Backend != explicitCfg.Keyring.Backend || cfg.APIToken != secret {
+						t.Fatal("resolved config did not use every explicit setting and the authoritative token resolver")
+					}
+					client, err := opts.APIClient()
+					if err != nil {
+						return err
+					}
+					tt.checkClient(t, client, secret)
+					return nil
+				},
+			})
+			rootCmd.SetArgs([]string{"--config", explicitPath, "probe"})
+
+			err := rootCmd.Execute()
+			if err != nil {
+				t.Fatalf("Execute failed without exposing credentials: %v", err)
+			}
+			if opts.ConfigPath != explicitPath {
+				t.Fatal("--config did not set the authoritative path")
+			}
+			_, configBackend := keyring.GetBackendSelection()
+			if configBackend != cccredstore.BackendMemory {
+				t.Fatal("keyring backend did not come from the explicit config")
+			}
+			if bytes.Contains(stdout.Bytes(), []byte(secret)) || bytes.Contains(stderr.Bytes(), []byte(secret)) {
+				t.Fatal("command output exposed the API token")
+			}
+		})
 	}
 }

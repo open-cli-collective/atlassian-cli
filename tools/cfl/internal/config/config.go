@@ -223,7 +223,8 @@ func warnCorruptSharedOnce(err error) {
 	})
 }
 
-// LoadWithEnv loads configuration with full precedence.
+// LoadWithEnv loads configuration with full precedence. Callers may defer
+// token resolution until after applying the loaded keyring backend.
 //
 // Non-secret fields (url, email, auth_method, cloud_id, default_space,
 // output_format):
@@ -242,7 +243,7 @@ func warnCorruptSharedOnce(err error) {
 // + env so a broken shared file doesn't crash every cfl command. Init
 // uses credstore.Load directly so it can surface the error and refuse
 // to overwrite.
-func LoadWithEnv(path string) (*Config, error) {
+func LoadWithEnv(path string, resolveToken bool) (*Config, error) {
 	cfg, err := Load(path)
 	if err != nil {
 		// Legacy file missing or corrupt: start empty. cfl init has a
@@ -267,13 +268,22 @@ func LoadWithEnv(path string) (*Config, error) {
 	}
 
 	cfg.LoadFromEnv()
+	if resolveToken {
+		if err := ResolveToken(cfg); err != nil {
+			return nil, err
+		}
+	}
+	return cfg, nil
+}
 
+// ResolveToken applies the authoritative token source to cfg.
+func ResolveToken(cfg *Config) error {
 	// Authoritative token resolution: overwrites any token a legacy-file
 	// parse may have populated, so plaintext can never reach the client.
 	tok, _, kErr := keyring.ResolveToken(credstore.ToolCFL)
 	if kErr != nil {
-		return nil, kErr
+		return kErr
 	}
 	cfg.APIToken = tok
-	return cfg, nil
+	return nil
 }

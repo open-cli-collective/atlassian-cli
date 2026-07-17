@@ -557,7 +557,7 @@ func TestLoadWithEnv_PrecedenceLegacyToSharedToEnv(t *testing.T) {
 	// Set CFL_API_TOKEN env (highest precedence).
 	t.Setenv("CFL_API_TOKEN", "env-tok")
 
-	cfg, err := LoadWithEnv(legacyPath)
+	cfg, err := LoadWithEnv(legacyPath, true)
 	testutil.RequireNoError(t, err)
 
 	// URL: shared wins over legacy (env not set for URL).
@@ -585,7 +585,7 @@ func TestLoadWithEnv_CorruptSharedFallsBackToLegacy(t *testing.T) {
 	legacy := &Config{URL: "https://x.atlassian.net/wiki", Email: "e@x", APIToken: "t"}
 	testutil.RequireNoError(t, legacy.Save(legacyPath))
 
-	cfg, err := LoadWithEnv(legacyPath)
+	cfg, err := LoadWithEnv(legacyPath, true)
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, "https://x.atlassian.net/wiki", cfg.URL)
 	// Corrupt shared store defers migration; keyring is empty → no token,

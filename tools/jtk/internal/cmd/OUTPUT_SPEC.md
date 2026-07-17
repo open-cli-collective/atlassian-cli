@@ -406,7 +406,7 @@ Description: Creates Tasks when a new Onboarding Epic is created
 
 **`automation get <id> --show-components`:** dumps the full component tree as indented text (trigger → conditions → actions).
 
-**`automation export <id>`:** emits the rule definition as pretty-printed JSON to stdout. This is the round-trip format consumed by `automation create --from-file`. `--compact` minifies. This command bypasses the global flag system.
+**`automation export <id>`:** emits the rule definition as pretty-printed JSON to stdout. This is the round-trip format consumed by `automation create --file`. `--compact` minifies. This command bypasses the global flag system.
 
 ### `dashboards`
 
@@ -601,7 +601,7 @@ Deleted dashboard 10073
 ### `automation create / enable / disable / update / delete`
 
 ```
-$ jtk automation create --from-file rule.json
+$ jtk automation create --file rule.json
 019e1234-abcd-7000-8888-112233445566  [Test] My Rule
 State: ENABLED
 Components: 5 total — 1 condition, 4 actions

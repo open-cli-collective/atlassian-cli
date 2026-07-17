@@ -9,8 +9,16 @@ import (
 	"github.com/open-cli-collective/confluence-cli/pkg/md"
 )
 
-// MaxChars is the default body truncation threshold for page view output.
-const MaxChars = 5000
+const (
+	// MaxChars is the default body truncation threshold for page view output.
+	MaxChars = 5000
+	// BodyFormatMarkdown is the default page body format.
+	BodyFormatMarkdown = "markdown"
+	// BodyFormatADF is the Atlassian Document Format page body format.
+	BodyFormatADF = "adf"
+	// BodyFormatXHTML is the Confluence storage XHTML page body format.
+	BodyFormatXHTML = "xhtml"
+)
 
 // Options controls page-view body projection.
 type Options struct {
@@ -95,21 +103,21 @@ func Project(page *api.Page, spaceKey string, opts Options) (Projection, error) 
 	}
 
 	switch opts.BodyFormat {
-	case "adf":
+	case BodyFormatADF:
 		if page.Body != nil && page.Body.AtlasDocFormat != nil {
 			proj.Body, proj.Truncated = TruncateContent(page.Body.AtlasDocFormat.Value, opts)
 			proj.BodyKind = BodyKindADF
 			proj.HasContent = page.Body.AtlasDocFormat.Value != ""
 		}
-	case "xhtml":
+	case BodyFormatXHTML:
 		if page.Body != nil && page.Body.Storage != nil {
 			proj.Body, proj.Truncated = TruncateContent(page.Body.Storage.Value, opts)
 			proj.BodyKind = BodyKindXHTML
 			proj.HasContent = page.Body.Storage.Value != ""
 		}
-	case "", "markdown":
+	case "", BodyFormatMarkdown:
 		switch {
-		case hasStorageContent(page):
+		case HasStorageContent(page):
 			body, truncated, err := projectStorageBody(page.Body.Storage.Value, opts)
 			if err != nil {
 				return Projection{}, err
@@ -117,7 +125,7 @@ func Project(page *api.Page, spaceKey string, opts Options) (Projection, error) 
 			proj.Body, proj.Truncated = body, truncated
 			proj.BodyKind = BodyKindMarkdown
 			proj.HasContent = true
-		case hasADFContent(page):
+		case HasADFContent(page):
 			body, truncated, err := projectADFBody(page.Body.AtlasDocFormat.Value, opts)
 			if err != nil {
 				return Projection{}, err
@@ -164,13 +172,15 @@ func TruncateContent(content string, opts Options) (string, bool) {
 	return content, false
 }
 
-func hasStorageContent(page *api.Page) bool {
+// HasStorageContent reports whether page has non-empty storage content.
+func HasStorageContent(page *api.Page) bool {
 	return page.Body != nil &&
 		page.Body.Storage != nil &&
 		page.Body.Storage.Value != ""
 }
 
-func hasADFContent(page *api.Page) bool {
+// HasADFContent reports whether page has non-empty ADF content.
+func HasADFContent(page *api.Page) bool {
 	return page.Body != nil &&
 		page.Body.AtlasDocFormat != nil &&
 		page.Body.AtlasDocFormat.Value != ""

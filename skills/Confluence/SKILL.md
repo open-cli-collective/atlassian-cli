@@ -49,7 +49,7 @@ No defaults exist. Ask the user. Do not guess. If the user provides a Confluence
   - `agent` (default) — curated, action-oriented, LLM-optimized
   - `full` (`--full`) — inspection-oriented additions on page/space views and supported list/search commands
 - **Page body format** — `--body-format markdown|adf|xhtml` on page view/create/edit. Omission means Markdown; ADF and XHTML are exact.
-- **Output format** — how it's rendered: `table` (default) or `plain` (`-o plain`)
+- **Output format** — how it's rendered: `table` (default) or `plain` (`-o plain`). For scripted extraction, parse `ID: <id>` lines from command output.
 
 `page view --full` composes with every body format, but not with `--content-only` or `--web`.
 Commands without a defined full artifact reject `--full`.

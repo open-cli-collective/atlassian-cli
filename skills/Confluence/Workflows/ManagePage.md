@@ -117,7 +117,7 @@ cfl page copy PAGE_ID --title "Light Copy" --no-attachments --no-labels
 **Placement:** `cfl page copy` always places the new page at the root of the destination space — it does not inherit the source page's parent, and it does not accept `--parent`. To place the copy under a specific page, follow the copy with a reparent edit:
 
 ```bash
-NEW_ID=$(cfl page copy SOURCE_ID --title "Copy of Page" -o json | ...)   # capture the new page ID from JSON
+NEW_ID=$(cfl page copy SOURCE_ID --title "Copy of Page" | awk '/^ID:/ {print $2}')
 cfl page edit $NEW_ID --parent DESIRED_PARENT_ID
 ```
 

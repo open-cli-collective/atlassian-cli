@@ -115,22 +115,13 @@ func TestRunEdit_TitleOnly(t *testing.T) {
 		title:   "New Title",
 	}
 
-	// Note: Without file input and with a title, the current implementation
-	// will still try to open an editor. For this test to work properly,
-	// we need to provide a file to avoid the editor path.
-	tmpDir := t.TempDir()
-	mdFile := filepath.Join(tmpDir, "content.md")
-	err := os.WriteFile(mdFile, []byte("<p>Keep this</p>"), 0600)
+	err := runEdit(context.Background(), opts)
 	testutil.RequireNoError(t, err)
 
-	opts.file = mdFile
-	opts.bodyFormat = bodyFormatXHTML
-
-	err = runEdit(context.Background(), opts)
-	testutil.RequireNoError(t, err)
-
-	// Verify title was changed
 	testutil.Equal(t, "New Title", receivedBody["title"])
+	body := receivedBody["body"].(map[string]any)
+	storage := body["storage"].(map[string]any)
+	testutil.Equal(t, "<p>Keep this</p>", storage["value"])
 }
 
 func TestRunEdit_PageNotFound(t *testing.T) {

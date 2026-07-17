@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/open-cli-collective/confluence-cli/api"
+	"github.com/open-cli-collective/confluence-cli/internal/pageview"
 )
 
 func getPageWithBodyFormat(ctx context.Context, client *api.Client, pageID, bodyFormat string) (*api.Page, error) {
@@ -68,7 +69,7 @@ func getPageWithBodyFallback(ctx context.Context, client *api.Client, pageID str
 		return nil, err
 	}
 
-	if hasStorageContent(page) {
+	if pageview.HasStorageContent(page) {
 		return page, nil
 	}
 
@@ -96,7 +97,7 @@ func getPageVersionWithBodyFallback(ctx context.Context, client *api.Client, pag
 		return nil, err
 	}
 
-	if hasStorageContent(page) {
+	if pageview.HasStorageContent(page) {
 		return page, nil
 	}
 
@@ -106,18 +107,4 @@ func getPageVersionWithBodyFallback(ctx context.Context, client *api.Client, pag
 	}
 
 	return page, nil
-}
-
-// hasStorageContent returns true if the page has non-empty storage format content.
-func hasStorageContent(page *api.Page) bool {
-	return page.Body != nil &&
-		page.Body.Storage != nil &&
-		page.Body.Storage.Value != ""
-}
-
-// hasADFContent returns true if the page has non-empty ADF content.
-func hasADFContent(page *api.Page) bool {
-	return page.Body != nil &&
-		page.Body.AtlasDocFormat != nil &&
-		page.Body.AtlasDocFormat.Value != ""
 }

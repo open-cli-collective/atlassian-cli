@@ -25,7 +25,7 @@ cfl config test
 | Flag | Description |
 |------|-------------|
 | `-o, --output FORMAT` | Output format (see SKILL.md "Output Representation and Format"): `table` (default), `plain` |
-| `--full` | Inspection additions on supported page/space views and list/search commands. Unsupported commands reject it. |
+| `--full` | Inspection additions on supported page/space views and list/search commands. Unsupported commands reject it. Not a content-truncation flag — use `--no-truncate` for that. |
 | `--no-color` | Disable colored output |
 | `-c, --config PATH` | Override config file location (default: `~/.config/cfl/config.yml`) |
 
@@ -107,7 +107,7 @@ Storage-format round-trip (lossless — preserves macros and all formatting):
 - Modify the XHTML
 - Send it back with `cfl page edit PAGE_ID --body-format xhtml` (stdin or `--file`)
 
-See ViewPage.md for the JSON output structure and ManagePage.md for a full walkthrough.
+See ManagePage.md for a full walkthrough.
 
 Create from stdin:
 ```bash

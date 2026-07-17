@@ -36,7 +36,7 @@ func newSearchCmd(opts *root.Options) *cobra.Command {
   jtk issues search --jql "project = MYPROJECT" --fields SUMMARY,STATUS
   jtk issues search --jql "project = MYPROJECT" --fields "Issue Type"`,
 		Args: func(_ *cobra.Command, _ []string) error {
-			return jtkpresent.ValidateMax(maxResults)
+			return jtkpresent.ValidateMaxAtMost(maxResults, 100)
 		},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runSearch(cmd.Context(), opts, jql, maxResults, nextPageToken, fieldsFlag)
@@ -44,7 +44,7 @@ func newSearchCmd(opts *root.Options) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&jql, "jql", "", "JQL query string (required)")
-	cmd.Flags().IntVarP(&maxResults, "max", "m", 50, "Page size")
+	cmd.Flags().IntVarP(&maxResults, "max", "m", 50, "Page size (maximum 100)")
 	cmd.Flags().StringVar(&nextPageToken, "next-page-token", "", "Token for next page of results")
 	cmd.Flags().StringVar(&fieldsFlag, "fields", "", "Comma-separated display columns (headers, Jira field IDs, or human names)")
 	_ = cmd.MarkFlagRequired("jql")

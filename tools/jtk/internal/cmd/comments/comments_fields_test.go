@@ -33,7 +33,7 @@ func TestRunList_Fields_TableMode_DropsBodyColumn(t *testing.T) {
 	defer server.Close()
 
 	opts, stdout, _ := newCommentsOpts(t, server)
-	err := runList(context.Background(), opts, "TEST-1", 50, false, "ID,AUTHOR")
+	err := runList(context.Background(), opts, "TEST-1", 50, "", false, "ID,AUTHOR")
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()
@@ -56,7 +56,7 @@ func TestRunList_Fields_TableMode_BodyTruncatedWithoutFullText(t *testing.T) {
 	defer server.Close()
 
 	opts, stdout, _ := newCommentsOpts(t, server)
-	err := runList(context.Background(), opts, "TEST-1", 50, false, "ID,AUTHOR,BODY")
+	err := runList(context.Background(), opts, "TEST-1", 50, "", false, "ID,AUTHOR,BODY")
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()
@@ -73,7 +73,7 @@ func TestRunList_Fields_BlockMode_DropsBodyField(t *testing.T) {
 	defer server.Close()
 
 	opts, stdout, _ := newCommentsOpts(t, server)
-	err := runList(context.Background(), opts, "TEST-1", 50, true, "ID,Author")
+	err := runList(context.Background(), opts, "TEST-1", 50, "", true, "ID,Author")
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()
@@ -95,7 +95,7 @@ func TestRunList_Fields_BlockMode_BodySelectedWithFullText(t *testing.T) {
 	defer server.Close()
 
 	opts, stdout, _ := newCommentsOpts(t, server)
-	err := runList(context.Background(), opts, "TEST-1", 50, true, "Body")
+	err := runList(context.Background(), opts, "TEST-1", 50, "", true, "Body")
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()
@@ -112,7 +112,7 @@ func TestRunList_Fields_BlockMode_FullTextNoOp_WhenBodyNotSelected(t *testing.T)
 	defer server.Close()
 
 	opts, stdout, _ := newCommentsOpts(t, server)
-	err := runList(context.Background(), opts, "TEST-1", 50, true, "ID,Author")
+	err := runList(context.Background(), opts, "TEST-1", 50, "", true, "ID,Author")
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()
@@ -132,7 +132,7 @@ func TestRunList_Fields_BlockMode_PreservesPaginationHint(t *testing.T) {
 	defer server.Close()
 
 	opts, stdout, stderr := newCommentsOpts(t, server)
-	err := runList(context.Background(), opts, "TEST-1", 50, true, "ID,Author")
+	err := runList(context.Background(), opts, "TEST-1", 50, "", true, "ID,Author")
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()
@@ -164,7 +164,7 @@ func TestRunList_Fields_TableMode_VisibilityColumn(t *testing.T) {
 	defer server.Close()
 
 	opts, stdout, _ := newCommentsOpts(t, server)
-	err := runList(context.Background(), opts, "TEST-1", 50, false, "ID,VISIBILITY")
+	err := runList(context.Background(), opts, "TEST-1", 50, "", false, "ID,VISIBILITY")
 	testutil.RequireNoError(t, err)
 
 	output := stdout.String()
@@ -183,7 +183,7 @@ func TestRunList_Fields_UnknownToken_Errors(t *testing.T) {
 	defer server.Close()
 
 	opts, _, _ := newCommentsOpts(t, server)
-	err := runList(context.Background(), opts, "TEST-1", 50, false, "bogus")
+	err := runList(context.Background(), opts, "TEST-1", 50, "", false, "bogus")
 	var ufe *projection.UnknownFieldError
 	if !errors.As(err, &ufe) {
 		t.Fatalf("expected UnknownFieldError, got %v", err)
@@ -211,7 +211,7 @@ func TestRunList_Fields_InvalidToken_ErrorsBeforeFetch(t *testing.T) {
 	opts := &root.Options{Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	runErr := runList(context.Background(), opts, "TEST-1", 50, false, "bogus")
+	runErr := runList(context.Background(), opts, "TEST-1", 50, "", false, "bogus")
 	var ufe *projection.UnknownFieldError
 	if !errors.As(runErr, &ufe) {
 		t.Fatalf("expected UnknownFieldError, got %v", runErr)
@@ -229,7 +229,7 @@ func TestRunList_IDOnly_OverridesFields(t *testing.T) {
 
 	opts, stdout, _ := newCommentsOpts(t, server)
 	opts.IDOnly = true
-	err := runList(context.Background(), opts, "TEST-1", 50, false, "Body")
+	err := runList(context.Background(), opts, "TEST-1", 50, "", false, "Body")
 	testutil.RequireNoError(t, err)
 
 	if stdout.String() != "1\n" {

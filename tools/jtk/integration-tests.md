@@ -1370,7 +1370,7 @@ Verify each alias produces the same output as the full command:
 - [ ] `config test`
 
 #### Issues Read-Only (Section 2)
-- [ ] Auto-pagination (search multi-page, list multi-page)
+- [ ] Single-page pagination (search: one page stdout + stderr token; list: same; `--max 0` rejected)
 - [ ] `--fields` flag (field pass-through for search and list)
 - [ ] `issues types` (table, `--id`, 404)
 - [ ] `issues field-options` (positional syntax: `jtk issues field-options $EXISTING_ISSUE priority`, `--id`)
@@ -1466,7 +1466,7 @@ Verify each alias produces the same output as the full command:
 - [ ] Bearer auth `config test`
 
 #### Issues Read-Only (Section 2)
-- [ ] Auto-pagination (search multi-page, list multi-page)
+- [ ] Single-page pagination (search: one page stdout + stderr token; list: same; `--max 0` rejected)
 - [ ] `--fields` flag (field pass-through for search and list)
 - [ ] `issues types` (table, `--id`, 404)
 - [ ] `issues field-options` (positional syntax: `jtk issues field-options $EXISTING_ISSUE priority`, `--id`)

@@ -110,19 +110,19 @@ func (CommentPresenter) PresentListFull(comments []api.Comment, includeOptional 
 	return &present.OutputModel{Sections: sections}
 }
 
-// PresentListWithPagination wraps PresentList and appends a stdout-bound
+// PresentListWithPagination wraps PresentList and appends a stderr-bound
 // pagination hint when hasMore is true.
-func (p CommentPresenter) PresentListWithPagination(comments []api.Comment, includeOptional bool, hasMore bool) *present.OutputModel {
+func (p CommentPresenter) PresentListWithPagination(comments []api.Comment, includeOptional bool, hasMore bool, nextToken string) *present.OutputModel {
 	model := p.PresentList(comments, includeOptional)
-	model.Sections = AppendPaginationHint(model.Sections, hasMore)
+	model.Sections = AppendPaginationHintWithToken(model.Sections, hasMore, nextToken)
 	return model
 }
 
 // PresentListFullWithPagination wraps PresentListFull and appends a
-// stdout-bound pagination hint when hasMore is true.
-func (p CommentPresenter) PresentListFullWithPagination(comments []api.Comment, includeOptional bool, hasMore bool) *present.OutputModel {
+// stderr-bound pagination hint when hasMore is true.
+func (p CommentPresenter) PresentListFullWithPagination(comments []api.Comment, includeOptional bool, hasMore bool, nextToken string) *present.OutputModel {
 	model := p.PresentListFull(comments, includeOptional)
-	model.Sections = AppendPaginationHint(model.Sections, hasMore)
+	model.Sections = AppendPaginationHintWithToken(model.Sections, hasMore, nextToken)
 	return model
 }
 

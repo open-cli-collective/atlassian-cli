@@ -43,7 +43,7 @@ func newListCmd(opts *root.Options) *cobra.Command {
   jtk issues list --project MYPROJECT --fields SUMMARY,STATUS
   jtk issues list --project MYPROJECT --fields "Issue Type"`,
 		Args: func(_ *cobra.Command, _ []string) error {
-			return jtkpresent.ValidateMax(maxResults)
+			return jtkpresent.ValidateMaxAtMost(maxResults, 100)
 		},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runList(cmd.Context(), opts, project, sprint, maxResults, nextPageToken, fieldsFlag)
@@ -52,7 +52,7 @@ func newListCmd(opts *root.Options) *cobra.Command {
 
 	cmd.Flags().StringVarP(&project, "project", "p", "", "Filter by project key or name")
 	cmd.Flags().StringVarP(&sprint, "sprint", "s", "", "Filter by sprint name, numeric ID, or 'current'")
-	cmd.Flags().IntVarP(&maxResults, "max", "m", 50, "Page size")
+	cmd.Flags().IntVarP(&maxResults, "max", "m", 50, "Page size (maximum 100)")
 	cmd.Flags().StringVar(&nextPageToken, "next-page-token", "", "Token for next page of results")
 	cmd.Flags().StringVar(&fieldsFlag, "fields", "", "Comma-separated display columns (headers, Jira field IDs, or human names)")
 

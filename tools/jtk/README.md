@@ -293,6 +293,8 @@ jtk issues list --project MYPROJECT --fields summary,status,customfield_10005
 | `--fields` | | | Comma-separated display columns (headers, Jira field IDs, or human names) |
 | `--next-page-token` | | | Token for next page of results |
 
+Sprint names must resolve uniquely from the cache; ambiguous names report candidate IDs, and unresolved names require a cache refresh or numeric sprint ID.
+
 ---
 
 ### `jtk issues get <issue-key> [issue-key...]`
@@ -757,6 +759,8 @@ jtk comments list PROJ-123 --fields ID,AUTHOR
 | `--fulltext` | | `false` | Show full comment bodies without truncation (global) |
 | `--fields` | | | Comma-separated display fields |
 
+`--fulltext` preserves the table columns and row shape; it only disables body truncation.
+
 **Arguments:**
 - `<issue-key>` - The issue key (**required**)
 
@@ -1215,12 +1219,13 @@ jtk automation export 123 > rule-backup.json
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--compact` | `false` | Output minified JSON |
+| `--compact` | `false` | Output whitespace-normalized minified JSON |
 
 **Arguments:**
 - `<rule-id>` - The rule ID (**required**)
 
 > Note: Output is always JSON — this is the only jtk command that emits JSON directly.
+> Invalid JSON returned by the API fails with empty stdout.
 
 ---
 

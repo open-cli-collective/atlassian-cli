@@ -29,7 +29,7 @@ Prompts for: Atlassian instance URL, email, API token (from https://id.atlassian
 
 | Flag | Description |
 |------|-------------|
-| `--fulltext` | Disable truncation of descriptions and comments (`--no-truncate` is a deprecated alias kept during migration) |
+| `--fulltext` | Disable truncation of descriptions and comments without changing list output shape |
 | `--id` | Emit only the primary identifier (useful for scripting). Takes precedence over `--fulltext` |
 | `--no-color` | Disable colored output |
 | `-v, --verbose` | Enable verbose output |
@@ -150,7 +150,7 @@ Common transition names: "To Do", "In Progress", "In Review", "Done" (instance-d
 
 ## Sprints
 
-`--board` and sprint positional arguments accept either a numeric ID or a name (resolved via cache — see SKILL.md Cache Warming).
+`--board` and sprint positional arguments accept either a numeric ID or a name (resolved via cache — see SKILL.md Cache Warming). Sprint names must resolve uniquely; ambiguity reports candidate IDs, while unresolved names require a cache refresh or numeric ID.
 
 | Command | Description |
 |---------|-------------|

@@ -91,6 +91,8 @@ All entity-reference flags (`--assignee`, `--project`, `--board`, `--sprint`, li
 - No match + looks like a raw ID → pass through unchanged
 - No match + looks like a name → fail with suggestion to `jtk refresh <resource>`
 
+Sprint names must resolve to exactly one cached sprint ID. Ambiguous names list candidate IDs; unresolved names fail with refresh and numeric-ID guidance. `issues list --sprint` never falls back to broader name-based JQL.
+
 ```
 $ jtk issues assign MON-4820 "John Smith"
 Ambiguous user "John Smith" — 3 matches:
@@ -288,18 +290,11 @@ ID | AUTHOR | CREATED | BODY
 21242 | Aaron Wong | 2026-04-16 | Short audit conclusion after the current code changes: The major source-level accessibility findings on CapOne-specific surfaces appear to be addressed or materially improv...
 ```
 
-**`comments list MON-4810 --fulltext`:** one block per comment:
+**`comments list MON-4810 --fulltext`:** the same table with body truncation disabled:
 ```
-ID: 21242
-Author: Aaron Wong
-Created: 2026-04-16
-Body:
-Short audit conclusion after the current code changes:
-The major source-level accessibility findings on CapOne-specific surfaces
-appear to be addressed or materially improved:
-- loading / redirect states now expose accessible status messaging
-- the unsupported-package modal now exposes both title and description correctly
-...
+ID | AUTHOR | CREATED | BODY
+21242 | Aaron Wong | 2026-04-16 | Short audit conclusion after the current code changes:
+The major source-level accessibility findings on CapOne-specific surfaces appear to be addressed or materially improved: ...
 ```
 
 ### `links`
@@ -399,7 +394,7 @@ Description: Creates Tasks when a new Onboarding Epic is created
 
 **`automation get <id> --show-components`:** dumps the full component tree as indented text (trigger → conditions → actions).
 
-**`automation export <id>`:** emits the rule definition as pretty-printed JSON to stdout. This is the round-trip format consumed by `automation create --from-file`. `--compact` minifies. This command bypasses the global flag system.
+**`automation export <id>`:** validates and emits the rule definition as pretty-printed JSON to stdout. This is the round-trip format consumed by `automation create --from-file`. `--compact` emits whitespace-normalized minified JSON. Invalid API JSON is an error and emits nothing. This command bypasses the global flag system.
 
 ### `dashboards`
 

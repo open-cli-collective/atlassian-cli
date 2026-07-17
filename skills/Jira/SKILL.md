@@ -87,7 +87,7 @@ Use `jtk refresh --status` to inspect cache freshness without fetching anything.
 `jtk` commands follow a text-first output model (per the repo's [Output Artifact Contract](https://github.com/open-cli-collective/atlassian-cli/blob/main/docs/ARTIFACT_CONTRACT.md)):
 
 - **`--fields <csv>`** — explicitly selects supported fields on commands that expose field projection.
-- **`--fulltext`** — disables truncation of descriptions and comments. Use when the user needs full body content (e.g., "show the full description"). `--no-truncate` is a deprecated alias kept during the migration; prefer `--fulltext`.
+- **`--fulltext`** — disables truncation of descriptions and comments without changing list output shape. Use when the user needs full body content (e.g., "show the full description").
 - **`--id`** — emits only the primary identifier (issue key, account ID, etc.) and takes precedence over `--fulltext`.
 
 `automation export` is the only command that emits JSON — use `--id` for scripting composition.

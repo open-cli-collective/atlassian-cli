@@ -20,7 +20,7 @@ View and add comments on Jira issues.
 jtk comments list PROJ-123
 ```
 
-Optional: `--max N` to control page size (default 50). Use `--fulltext` global flag to disable truncation of long comment bodies.
+Optional: `--max N` to control page size (default 50). Use `--fulltext` to disable truncation of long comment bodies without changing the table shape.
 
 ### Add Comment
 
@@ -55,7 +55,7 @@ The `COMMENT_ID` is a numeric ID (e.g., `12345`). If the user refers to the comm
 
 ## Output Format
 
-- **List comments:** Show each comment with author, timestamp, and body
+- **List comments:** A table with ID, author, timestamp, and body; `--fulltext` preserves these columns
 - **Add comment:** Confirm comment was added with issue key and a snippet of the comment text
 
 ## Post-Action

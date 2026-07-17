@@ -6,8 +6,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/open-cli-collective/atlassian-go/present"
-
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
@@ -40,7 +38,6 @@ func Register(parent *cobra.Command, opts *root.Options) {
 
 func newListCmd(opts *root.Options) *cobra.Command {
 	var maxResults int
-	var noTruncate bool
 	var fieldsFlag string
 
 	cmd := &cobra.Command{
@@ -58,13 +55,11 @@ func newListCmd(opts *root.Options) *cobra.Command {
 			return jtkpresent.ValidateMax(maxResults)
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runList(cmd.Context(), opts, args[0], maxResults, noTruncate || opts.IsFullText(), fieldsFlag)
+			return runList(cmd.Context(), opts, args[0], maxResults, opts.IsFullText(), fieldsFlag)
 		},
 	}
 
 	cmd.Flags().IntVarP(&maxResults, "max", "m", 50, "Page size")
-	cmd.Flags().BoolVar(&noTruncate, "no-truncate", false, "Show full comment bodies without truncation")
-	_ = cmd.Flags().MarkDeprecated("no-truncate", "use --fulltext instead")
 	cmd.Flags().StringVar(&fieldsFlag, "fields", "", "Comma-separated display fields (labels)")
 
 	return cmd
@@ -83,9 +78,6 @@ func runList(ctx context.Context, opts *root.Options, issueKey string, maxResult
 	var selected []projection.ColumnSpec
 	var projected bool
 	spec := jtkpresent.CommentListSpec
-	if noTruncate {
-		spec = jtkpresent.CommentDetailSpec
-	}
 	if !idOnly {
 		selected, projected, err = projection.Resolve(
 			ctx,
@@ -120,31 +112,16 @@ func runList(ctx context.Context, opts *root.Options, issueKey string, maxResult
 		return jtkpresent.Emit(opts, model)
 	}
 
-	optional := projection.HasOptionalFields(selected, spec)
-	var model *present.OutputModel
-	if noTruncate {
-		model = jtkpresent.CommentPresenter{}.PresentListFullWithPagination(result.Comments, optional, hasMore)
-		if projected {
-			projectAllDetailSectionsInModel(model, selected)
-		}
-	} else {
-		model = jtkpresent.CommentPresenter{}.PresentListWithPagination(result.Comments, optional, hasMore)
-		if projected {
-			projection.ApplyToTableInModel(model, selected)
-		}
+	model := jtkpresent.CommentPresenter{}.PresentListWithPagination(
+		result.Comments,
+		projection.HasOptionalFields(selected, spec),
+		noTruncate,
+		hasMore,
+	)
+	if projected {
+		projection.ApplyToTableInModel(model, selected)
 	}
 	return jtkpresent.Emit(opts, model)
-}
-
-// projectAllDetailSectionsInModel rewrites every DetailSection of model
-// to the selected fields, leaving non-Detail sections (e.g. the
-// pagination MessageSection) untouched.
-func projectAllDetailSectionsInModel(model *present.OutputModel, selected []projection.ColumnSpec) {
-	for i, s := range model.Sections {
-		if ds, ok := s.(*present.DetailSection); ok {
-			model.Sections[i] = projection.ProjectDetail(ds, selected)
-		}
-	}
 }
 
 // commentsHasMore computes pagination using the authoritative API metadata,

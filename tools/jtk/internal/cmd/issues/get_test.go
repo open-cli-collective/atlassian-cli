@@ -24,10 +24,9 @@ func TestNewGetCmd(t *testing.T) {
 	testutil.Equal(t, cmd.Use, "get <issue-key> [issue-key...]")
 	testutil.Equal(t, cmd.Short, "Get issue details")
 
-	// Check that no-truncate flag exists
-	noTruncateFlag := cmd.Flags().Lookup("no-truncate")
-	testutil.NotNil(t, noTruncateFlag)
-	testutil.Equal(t, noTruncateFlag.DefValue, "false")
+	if cmd.Flags().Lookup("no-truncate") != nil {
+		t.Fatal("deprecated --no-truncate flag must be removed")
+	}
 }
 
 func newTestIssueServer(_ *testing.T, issue api.Issue) *httptest.Server {
@@ -116,7 +115,7 @@ func TestRunGet_FullDescription(t *testing.T) {
 
 // TestNewGetCmd_FullTextRoutesFromRoot verifies that when --fulltext is set on
 // the root Options (as the persistent --fulltext flag does), runGet is invoked
-// with noTruncate=true even though the local --no-truncate flag is not set.
+// with truncation disabled.
 func TestNewGetCmd_FullTextRoutesFromRoot(t *testing.T) {
 	t.Parallel()
 	longText := strings.Repeat("A", 300)
@@ -149,50 +148,7 @@ func TestNewGetCmd_FullTextRoutesFromRoot(t *testing.T) {
 	opts.SetAPIClient(client)
 
 	cmd := newGetCmd(opts)
-	cmd.SetArgs([]string{"TEST-1"}) // no --no-truncate locally
-	testutil.RequireNoError(t, cmd.Execute())
-
-	output := stdout.String()
-	testutil.Contains(t, output, longText)
-	testutil.NotContains(t, output, "[truncated")
-}
-
-// TestNewGetCmd_NoTruncateAndFullTextBothSet guards the OR-combined path:
-// both the local --no-truncate flag and the global --fulltext must produce
-// the same result when set together (prevents accidental && regression).
-func TestNewGetCmd_NoTruncateAndFullTextBothSet(t *testing.T) {
-	t.Parallel()
-	longText := strings.Repeat("A", 300)
-	issue := api.Issue{
-		Key: "TEST-1",
-		Fields: api.IssueFields{
-			Summary:     "Test issue",
-			Description: &api.Description{Text: longText},
-			Status:      &api.Status{Name: "Open"},
-			IssueType:   &api.IssueType{Name: "Task"},
-		},
-	}
-
-	server := newTestIssueServer(t, issue)
-	defer server.Close()
-
-	client, err := api.New(api.ClientConfig{
-		URL:      server.URL,
-		Email:    "test@example.com",
-		APIToken: "token",
-	})
-	testutil.RequireNoError(t, err)
-
-	var stdout bytes.Buffer
-	opts := &root.Options{
-		FullText: true,
-		Stdout:   &stdout,
-		Stderr:   &bytes.Buffer{},
-	}
-	opts.SetAPIClient(client)
-
-	cmd := newGetCmd(opts)
-	cmd.SetArgs([]string{"TEST-1", "--no-truncate"})
+	cmd.SetArgs([]string{"TEST-1"})
 	testutil.RequireNoError(t, cmd.Execute())
 
 	output := stdout.String()

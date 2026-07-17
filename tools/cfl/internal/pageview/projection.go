@@ -151,7 +151,7 @@ func projectADFBody(content string, opts Options) (body string, truncated bool, 
 // TruncateContent truncates content if it exceeds the character limit and
 // reports whether truncation occurred.
 func TruncateContent(content string, opts Options) (string, bool) {
-	if opts.NoTruncate || opts.ContentOnly {
+	if opts.NoTruncate || opts.ContentOnly || opts.BodyFormat == BodyFormatADF || opts.BodyFormat == BodyFormatXHTML {
 		return content, false
 	}
 	runes := []rune(content)

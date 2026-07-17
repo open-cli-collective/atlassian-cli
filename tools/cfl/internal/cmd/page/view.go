@@ -42,8 +42,9 @@ The page body is displayed as Markdown by default. Use --body-format adf
 for exact Atlassian Document Format JSON or --body-format xhtml for exact
 Confluence storage XHTML.
 
-By default, output is truncated to 5000 characters for concise display.
-Use --no-truncate to show the complete page content without truncation.
+Markdown output is truncated to 5000 characters by default for concise display.
+Exact ADF and XHTML output is never truncated. Use --no-truncate to show the
+complete Markdown page content without truncation.
 The --content-only flag implies --no-truncate since it is intended for piping.`,
 		Example: `  # View a page (markdown, truncated if large)
   cfl page view 12345
@@ -89,7 +90,7 @@ The --content-only flag implies --no-truncate since it is intended for piping.`,
 
 	cmd.Flags().StringVar(&opts.bodyFormat, "body-format", bodyFormatMarkdown, "Body format: markdown, adf, or xhtml")
 	cmd.Flags().BoolVarP(&opts.web, "web", "w", false, "Open in browser instead of displaying")
-	cmd.Flags().BoolVar(&opts.noTruncate, "no-truncate", false, "Show full content without truncation")
+	cmd.Flags().BoolVar(&opts.noTruncate, "no-truncate", false, "Show full Markdown content without truncation")
 	cmd.Flags().BoolVar(&opts.showMacros, "show-macros", false, "Show Confluence macro placeholders (e.g., [TOC]) instead of stripping them")
 	cmd.Flags().BoolVar(&opts.contentOnly, "content-only", false, "Output only page content (no metadata headers); implies --no-truncate")
 	cmd.Flags().IntVar(&opts.version, "version", 0, "View a specific page version")

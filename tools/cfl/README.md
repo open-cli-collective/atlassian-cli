@@ -296,10 +296,10 @@ cfl page view 12345 --show-macros --content-only | cfl page edit 12345 --legacy 
 
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
-| `--body-format` | | `markdown` | Body representation: `markdown`, exact `adf` JSON, or exact storage `xhtml` |
+| `--body-format` | | `markdown` | Body representation: `markdown`, exact `adf` JSON, or exact storage `xhtml` (exact formats are never truncated) |
 | `--web` | `-w` | `false` | Open page in browser instead of displaying |
 | `--version` | | `0` | View a specific page version |
-| `--no-truncate` | | `false` | Show full content without truncation |
+| `--no-truncate` | | `false` | Show full Markdown content without truncation |
 | `--show-macros` | | `false` | Show Confluence macro placeholders (e.g., `[TOC]`) instead of stripping them |
 | `--content-only` | | `false` | Output only page content (no Title/ID/Version headers); implies `--no-truncate` |
 

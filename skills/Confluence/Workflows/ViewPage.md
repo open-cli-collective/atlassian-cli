@@ -8,7 +8,7 @@ View Confluence page content and metadata.
 
 See SKILL.md "Output Representation and Format" for artifact breadth and page-body representation.
 
-The default Markdown body is truncated at 5000 chars. This also applies to ADF, XHTML, and `--show-macros`. Use `--no-truncate`, or `--content-only` (which implies it), for the complete body.
+The default Markdown body is truncated at 5000 chars; `--show-macros` follows the same rule. Exact ADF and XHTML bodies are never truncated. Use `--no-truncate`, or `--content-only` (which implies it), for complete Markdown output.
 
 `--content-only` already implies `--no-truncate`; don't combine them.
 
@@ -19,8 +19,8 @@ The default Markdown body is truncated at 5000 chars. This also applies to ADF, 
 | "view page", "show page", "read page" | `cfl page view PAGE_ID` | Default markdown view (subject to truncation) |
 | "show full page", "all content", "no truncation" | `cfl page view PAGE_ID --no-truncate` | Full content without truncation |
 | "just the content", "content only" | `cfl page view PAGE_ID --content-only` | Content without metadata headers (implies `--no-truncate`) |
-| "XHTML", "storage format" | `cfl page view PAGE_ID --body-format xhtml` | Exact storage XHTML (subject to truncation) |
-| "ADF", "Atlassian document format" | `cfl page view PAGE_ID --body-format adf` | Exact ADF JSON (subject to truncation) |
+| "XHTML", "storage format" | `cfl page view PAGE_ID --body-format xhtml` | Complete exact storage XHTML |
+| "ADF", "Atlassian document format" | `cfl page view PAGE_ID --body-format adf` | Complete exact ADF JSON |
 | "show macros" | `cfl page view PAGE_ID --show-macros` | Preserve macro placeholders like `[TOC]` (subject to truncation) |
 | "open in browser", "open page" | `cfl page view PAGE_ID --web` | Opens in default browser |
 
@@ -50,11 +50,11 @@ cfl page view PAGE_ID --content-only
 # Preserve macros that would otherwise be stripped
 cfl page view PAGE_ID --show-macros
 
-# Exact storage XHTML — also subject to default truncation
+# Exact storage XHTML — never truncated
 cfl page view PAGE_ID --body-format xhtml
 
-# Full exact ADF JSON (no truncation)
-cfl page view PAGE_ID --body-format adf --no-truncate
+# Exact ADF JSON — never truncated
+cfl page view PAGE_ID --body-format adf
 
 # Open in browser
 cfl page view PAGE_ID --web

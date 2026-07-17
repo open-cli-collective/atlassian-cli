@@ -204,10 +204,10 @@ Author ID: <account-id>
 
 Flag-specific behavior:
 - `--content-only` emits only the body and implies untruncated output.
-- `--body-format` selects Markdown (default), exact ADF JSON, or exact storage XHTML.
+- `--body-format` selects Markdown (default), exact ADF JSON, or exact storage XHTML; exact ADF and XHTML are never truncated.
 - Markdown conversion errors fail with no body on stdout and suggest an exact format.
 - `--show-macros` affects body conversion only.
-- `--no-truncate` disables the default body truncation guard.
+- `--no-truncate` disables the default Markdown body truncation guard.
 - `--version N` selects a historical version and preserves the same output shape.
 - `--web` opens the browser and emits no CLI body text.
 

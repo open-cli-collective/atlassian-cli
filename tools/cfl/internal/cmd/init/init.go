@@ -111,7 +111,7 @@ func runInit(ctx context.Context, opts *root.Options, prefillURL, prefillEmail s
 		}
 	}
 
-	legacyPath := config.DefaultConfigPath()
+	legacyPath := opts.ResolvedConfigPath()
 	sharedPath, err := credstore.DefaultPath()
 	if err != nil {
 		v.Error("Cannot resolve the shared credential store path: %v", err)

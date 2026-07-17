@@ -84,7 +84,7 @@ Things where the current behavior might be correct, but we should confirm:
 | Non-numeric ID (abc) | PASS | Good 400 error |
 | Missing page ID | PASS | "accepts 1 arg(s)" error |
 | `--body-format xhtml` mode | PASS | Shows exact Confluence storage XHTML |
-| `-o json` | PASS | Valid JSON (no trailing message!) |
+| `-o json` | OBSOLETE | Historical PASS; resource JSON removed in #392, now errors at root ("invalid output format") |
 | Confluence macros | BUG-005 | TOC macro params leak through |
 
 ### Attachments

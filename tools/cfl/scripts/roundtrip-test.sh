@@ -138,15 +138,24 @@ process_page() {
 
     # Step 1: Fetch page and check format
     # Capture raw content first to distinguish fetch failures from ADF pages
-    local raw_content
+    local raw_content xhtml_error=""
     if ! raw_content=$(cfl page view "$id" --body-format xhtml --content-only 2>&1); then
-        echo "[$id] FAIL: Could not fetch page: $raw_content"
-        FAIL=$((FAIL + 1))
-        return 1
+        xhtml_error="$raw_content"
+        raw_content=""
     fi
 
-    # Check for empty content
+    # Explicit XHTML does not fall back to ADF, so probe ADF before failing.
     if [[ -z "$raw_content" ]]; then
+        if cfl page view "$id" --body-format adf --content-only >/dev/null 2>&1; then
+            echo "[$id] SKIP: ADF-backed (not storage format)"
+            SKIP=$((SKIP + 1))
+            return 0
+        fi
+        if [[ -n "$xhtml_error" ]]; then
+            echo "[$id] FAIL: Could not fetch page: $xhtml_error"
+            FAIL=$((FAIL + 1))
+            return 1
+        fi
         echo "[$id] FAIL: Empty page content"
         FAIL=$((FAIL + 1))
         return 1

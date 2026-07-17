@@ -215,7 +215,7 @@ func TestRunView_ExactADFBypassesTruncation(t *testing.T) {
 	testutil.True(t, json.Valid([]byte(body)))
 }
 
-func TestRunView_ExactEmptyContentOnly(t *testing.T) {
+func TestRunView_ExactContentOnlyIsByteExact(t *testing.T) {
 	t.Parallel()
 
 	for _, tt := range []struct {
@@ -223,9 +223,12 @@ func TestRunView_ExactEmptyContentOnly(t *testing.T) {
 		bodyFormat string
 		apiFormat  string
 		body       string
+		want       string
 	}{
-		{"ADF", bodyFormatADF, "atlas_doc_format", `"atlas_doc_format": {"value": ""}`},
-		{"XHTML", bodyFormatXHTML, "storage", `"storage": {"value": ""}`},
+		{"empty ADF", bodyFormatADF, "atlas_doc_format", `"atlas_doc_format":{"value":""}`, ""},
+		{"empty XHTML", bodyFormatXHTML, "storage", `"storage":{"value":""}`, ""},
+		{"non-empty ADF", bodyFormatADF, "atlas_doc_format", `"atlas_doc_format":{"value":"{\"type\":\"doc\",\"version\":1,\"content\":[]}"}`, `{"type":"doc","version":1,"content":[]}`},
+		{"non-empty XHTML", bodyFormatXHTML, "storage", `"storage":{"value":"<p>Raw</p>"}`, "<p>Raw</p>"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
@@ -239,7 +242,7 @@ func TestRunView_ExactEmptyContentOnly(t *testing.T) {
 			rootOpts.SetAPIClient(api.NewClient(server.URL, "test@example.com", "token"))
 			err := runView(context.Background(), "12345", &viewOptions{Options: rootOpts, bodyFormat: tt.bodyFormat, contentOnly: true})
 			testutil.RequireNoError(t, err)
-			testutil.Equal(t, "", rootOpts.Stdout.(*bytes.Buffer).String())
+			testutil.Equal(t, tt.want, rootOpts.Stdout.(*bytes.Buffer).String())
 		})
 	}
 }

@@ -52,7 +52,7 @@ MON-4810 | Fix ghost row | In Code Review
 
 ```
 $ jtk issues get MON-4810 --fields STATUS,ASSIGNEE
-MON-4810  Fix ghost row
+Key: MON-4810
 Status: In Code Review
 Assignee: Aaron Wong
 ```
@@ -75,8 +75,7 @@ ACCOUNT_ID | NAME | EMAIL | ACTIVE
 60e09bae7fcd820073089249 | Rian Stockbower | rian@monitapp.io | yes
 
 $ jtk users get 60e09bae7fcd820073089249
-60e09bae7fcd820073089249  Rian Stockbower
-Email: rian@monitapp.io   Active: yes
+60e09bae7fcd820073089249 | Rian Stockbower | rian@monitapp.io
 ```
 
 ## Projects, boards, and sprints
@@ -232,4 +231,4 @@ Removed gadget 10124 from dashboard 10072
 
 ## JSON round-trip payload
 
-Only `jtk automation export <id>` writes JSON. Its pretty-printed payload is intended for `jtk automation create --from-file`; `--compact` minifies that payload. All other commands use the text shapes above.
+`jtk automation export <id>` is the only resource command that writes JSON. Its pretty-printed payload is intended for `jtk automation create --from-file`; `--compact` minifies that payload. The control-plane `set-credential --json` envelope is the other exception; all other commands use the text shapes above.

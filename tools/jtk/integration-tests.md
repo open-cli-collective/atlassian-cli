@@ -646,7 +646,7 @@ Run these steps in order. Each step depends on the previous.
    ```bash
    jtk issues get $MV_ISSUE --fields $MULTI_FIELD
    ```
-   Expected: Custom fields block shows both Option1 and Option2 for `$MULTI_FIELD`
+   Expected: Projected detail lines — `Key:` plus the selected field showing both Option1 and Option2 for `$MULTI_FIELD`
 
 3. **Cleanup:**
    ```bash

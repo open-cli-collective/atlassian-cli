@@ -644,6 +644,7 @@ Run these steps in order. Each step depends on the previous.
 
 2. **Verify both values set:**
    ```bash
+   jtk issues get $MV_ISSUE --fields $MULTI_FIELD
    ```
    Expected: Custom fields block shows both Option1 and Option2 for `$MULTI_FIELD`
 

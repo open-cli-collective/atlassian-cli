@@ -11,7 +11,7 @@ This document declares `jtk` output shapes, flag semantics, and formatting conve
 
 3. **Additional fields are explicit.** Commands with CSV `--fields` support fetch and render only the requested supported fields while retaining the primary identifier.
 
-4. **JSON is reserved for round-trip payloads.** Only `automation export` emits JSON — it writes directly to stdout, bypassing the global flag system. Every other command produces text.
+4. **JSON is reserved for round-trip payloads.** `automation export` is the only resource command that emits JSON — it writes directly to stdout, bypassing the global flag system. The control-plane `set-credential --json` envelope is the sole other exception; every other command produces text.
 
 5. **The tool knows the instance.** A one-time `jtk init` plus daily cache refresh lets jtk resolve custom fields, users, project types, statuses, link types, and workflow transitions without per-command API calls.
 

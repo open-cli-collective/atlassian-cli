@@ -23,6 +23,7 @@ import (
 
 // Options contains global options for commands
 type Options struct {
+	ConfigPath     string
 	Output         string
 	NoColor        bool
 	Full           bool
@@ -35,7 +36,9 @@ type Options struct {
 	testClient *api.Client
 
 	// cachedConfig stores loaded config for reuse
-	cachedConfig *config.Config
+	cachedConfig   *config.Config
+	tokenResolved  bool
+	configExplicit bool
 }
 
 // View returns a configured View instance.
@@ -75,20 +78,49 @@ func (o *Options) RenderStyle() present.Style {
 // If a test client is set and no config is cached, returns an empty config
 // (since tests inject their own client and typically don't need real config).
 func (o *Options) Config() (*config.Config, error) {
-	if o.cachedConfig != nil {
+	if o.cachedConfig != nil && o.tokenResolved {
 		return o.cachedConfig, nil
 	}
 	// If test client is set, return empty config since tests inject their own client
 	if o.testClient != nil {
 		o.cachedConfig = &config.Config{}
+		o.tokenResolved = true
 		return o.cachedConfig, nil
 	}
-	cfg, err := config.LoadWithEnv(config.DefaultConfigPath())
+	cfg, err := o.loadConfig()
 	if err != nil {
 		return nil, fmt.Errorf("loading config: %w (run 'cfl init' to configure)", err)
 	}
+	if !o.tokenResolved {
+		if err := config.ResolveToken(cfg); err != nil {
+			return nil, fmt.Errorf("loading config: %w (run 'cfl init' to configure)", err)
+		}
+	}
 	if err := cfg.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid config: %w (run 'cfl init' to configure)", err)
+	}
+	o.tokenResolved = true
+	return cfg, nil
+}
+
+// ResolvedConfigPath returns the config path selected by --config, or the
+// default path when no explicit value was supplied.
+func (o *Options) ResolvedConfigPath() string {
+	if o.ConfigPath != "" {
+		return o.ConfigPath
+	}
+	return config.DefaultConfigPath()
+}
+
+func (o *Options) loadConfig() (*config.Config, error) {
+	if o.cachedConfig != nil {
+		return o.cachedConfig, nil
+	}
+	// Defer token resolution until after PersistentPreRunE wires the
+	// backend selected by this same config.
+	cfg, err := config.LoadWithEnv(o.ResolvedConfigPath(), false, !o.configExplicit)
+	if err != nil {
+		return nil, err
 	}
 	o.cachedConfig = cfg
 	return cfg, nil
@@ -97,6 +129,7 @@ func (o *Options) Config() (*config.Config, error) {
 // SetConfig sets a test config (for testing only)
 func (o *Options) SetConfig(cfg *config.Config) {
 	o.cachedConfig = cfg
+	o.tokenResolved = true
 }
 
 // APIClient creates a new API client from config
@@ -149,12 +182,17 @@ Get started by running: cfl init`,
 			if err := validateOutputFormat(opts.Output); err != nil {
 				return err
 			}
-			return wireBackendSelection(cmd)
+			opts.configExplicit = cmd.Flags().Changed("config")
+			cfg, err := opts.loadConfig()
+			if err != nil {
+				return err
+			}
+			return wireBackendSelection(cmd, cfg)
 		},
 	}
 
 	// Global flags - bound to opts struct
-	cmd.PersistentFlags().StringP("config", "c", "", "config file (default: ~/.config/cfl/config.yml)")
+	cmd.PersistentFlags().StringVarP(&opts.ConfigPath, "config", "c", config.DefaultConfigPath(), "config file")
 	cmd.PersistentFlags().StringVarP(&opts.Output, "output", "o", "table", "output format: table, plain")
 	cmd.PersistentFlags().BoolVar(&opts.NoColor, "no-color", false, "disable colored output")
 	cmd.PersistentFlags().BoolVar(&opts.Full, "full", false, "show full inspection-oriented output (default: agent)")
@@ -189,7 +227,7 @@ func validateOutputFormat(format string) error {
 // Best-effort config load: commands that don't need credentials (e.g.,
 // `cfl completion`) must not fail just because config is missing or
 // malformed; commands that do need them handle their own load errors.
-func wireBackendSelection(cmd *cobra.Command) error {
+func wireBackendSelection(cmd *cobra.Command, cfg *config.Config) error {
 	var flagValue string
 	var flagSet bool
 	if bf := cmd.Flag(cccredstore.BackendFlagName); bf != nil {
@@ -197,17 +235,8 @@ func wireBackendSelection(cmd *cobra.Command) error {
 		flagSet = bf.Changed
 	}
 
-	var configBackend string
-	cfgPath, _ := cmd.Root().PersistentFlags().GetString("config")
-	if cfgPath == "" {
-		cfgPath = config.DefaultConfigPath()
-	}
-	if cfg, err := config.Load(cfgPath); err == nil && cfg != nil {
-		configBackend = cfg.Keyring.Backend
-	}
-
 	opts := &cccredstore.Options{}
-	if err := cccredstore.BindBackendFlag(opts, flagValue, flagSet, configBackend); err != nil {
+	if err := cccredstore.BindBackendFlag(opts, flagValue, flagSet, cfg.Keyring.Backend); err != nil {
 		return fmt.Errorf("--%s: %w", cccredstore.BackendFlagName, err)
 	}
 	keyring.SetBackendSelection(opts.Backend, opts.ConfigBackend)

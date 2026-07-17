@@ -191,7 +191,7 @@ These flags are available on all commands:
 | `--config` | `-c` | `~/.config/cfl/config.yml` | Path to config file |
 | `--output` | `-o` | `table` | Output format: `table`, `plain` |
 | `--no-color` | | `false` | Disable colored output |
-| `--full` | | `false` | Inspection-oriented output; supported on view, list, and search commands (rejected elsewhere) |
+| `--full` | | `false` | Inspection-oriented output; supported only by `page list`, `page view`, `space list`, `space view`, `attachment list`, and `search` (rejected elsewhere) |
 | `--help` | `-h` | | Show help for command |
 | `--version` | `-v` | | Show version (root command only) |
 

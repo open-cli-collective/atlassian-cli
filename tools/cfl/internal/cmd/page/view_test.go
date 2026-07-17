@@ -145,6 +145,26 @@ func TestRunView_FullMetadataAcrossBodyFormats(t *testing.T) {
 	}
 }
 
+func TestRunView_FullOmitsAbsentMetadata(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		testutil.Equal(t, "storage", r.URL.Query().Get("body-format"))
+		_, _ = w.Write([]byte(`{
+			"id":"12345","title":"Root Page","version":{"number":3},
+			"body":{"storage":{"value":"<p>Hello</p>"}}
+		}`))
+	}))
+	defer server.Close()
+
+	rootOpts := newViewTestRootOptions()
+	rootOpts.Full = true
+	rootOpts.SetAPIClient(api.NewClient(server.URL, "test@example.com", "token"))
+
+	err := runView(context.Background(), "12345", &viewOptions{Options: rootOpts})
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "Title: Root Page\nID: 12345\nVersion: 3\n\nHello\n", rootOpts.Stdout.(*bytes.Buffer).String())
+}
+
 func TestRunView_FullContentOnlyFailsBeforeNetwork(t *testing.T) {
 	t.Parallel()
 	requests := 0

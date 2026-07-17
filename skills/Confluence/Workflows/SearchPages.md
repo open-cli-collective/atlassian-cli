@@ -63,20 +63,15 @@ Use a positive `--limit N` to control result count (default 25).
 
 ### Scripting / Parsing Output
 
-When the next step depends on extracting a page ID from the results, request JSON output. With `-o json`, the output has this structure:
+When the next step depends on extracting a page ID from the results, use `-o plain`. List and search output is TSV with a header row; the first column is `ID`.
 
-```json
-{
-  "results": [
-    { "id": "...", "title": "...", "type": "page", "spaceName": "...", "excerpt": "..." }
-  ],
-  "_meta": { "count": 0, "hasMore": false }
-}
+```bash
+cfl search --title "Release plan" --space DEV -o plain | awk -F '\t' 'NR > 1 { print $1 }'
 ```
 
 The `--title` filter does substring matching, so multiple pages may be returned — narrow with `--space` when you need a single result.
 
-Avoid pattern-matching against default `table` output — it's human-oriented and layout may change. Always use `-o json` when a downstream step parses the response.
+Avoid pattern-matching against default `table` output — it's human-oriented and layout may change. Use `-o plain` TSV when a downstream step parses the response.
 
 ## Output Format
 

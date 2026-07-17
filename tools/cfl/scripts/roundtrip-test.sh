@@ -139,7 +139,7 @@ process_page() {
     # Step 1: Fetch page and check format
     # Capture raw content first to distinguish fetch failures from ADF pages
     local raw_content
-    if ! raw_content=$(cfl page view "$id" --raw --content-only 2>&1); then
+    if ! raw_content=$(cfl page view "$id" --body-format xhtml --content-only 2>&1); then
         echo "[$id] FAIL: Could not fetch page: $raw_content"
         FAIL=$((FAIL + 1))
         return 1
@@ -152,7 +152,7 @@ process_page() {
         return 1
     fi
 
-    # Check if storage format (XHTML starts with <) vs ADF (JSON starts with {)
+    # Storage XHTML starts with markup; skip pages for which storage is unavailable.
     local first_char="${raw_content:0:1}"
     if [[ "$first_char" != "<" ]]; then
         echo "[$id] SKIP: ADF-backed (not storage format)"
@@ -194,7 +194,7 @@ process_page() {
     CLEANUP_IDS+=("$new_id")
 
     # Step 5: Capture roundtripped XHTML
-    if ! cfl page view "$new_id" --raw --content-only > "$after_file" 2>/dev/null; then
+    if ! cfl page view "$new_id" --body-format xhtml --content-only > "$after_file" 2>/dev/null; then
         echo "[$id] FAIL: Could not fetch roundtripped page"
         FAIL=$((FAIL + 1))
         return 1

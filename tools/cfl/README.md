@@ -286,7 +286,8 @@ View a Confluence page. **Content is displayed as markdown by default.**
 
 ```bash
 cfl page view 12345
-cfl page view 12345 --raw
+cfl page view 12345 --body-format xhtml
+cfl page view 12345 --body-format adf
 cfl page view 12345 --version 7
 cfl page view 12345 --web
 cfl page view 12345 --content-only             # Output only content (no headers)
@@ -295,7 +296,7 @@ cfl page view 12345 --show-macros --content-only | cfl page edit 12345 --legacy 
 
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
-| `--raw` | | `false` | Show raw Confluence format instead of markdown (XHTML storage format, or ADF JSON if storage is empty) |
+| `--body-format` | | `markdown` | Body representation: `markdown`, exact `adf` JSON, or exact storage `xhtml` |
 | `--web` | `-w` | `false` | Open page in browser instead of displaying |
 | `--version` | | `0` | View a specific page version |
 | `--no-truncate` | | `false` | Show full content without truncation |
@@ -340,7 +341,7 @@ Content can be provided via:
 - Standard input (pipe content)
 - Interactive editor (default)
 
-**Markdown is the default format.** Content is automatically converted to Confluence storage format.
+**Markdown is the default format.** It is converted to ADF, or to storage XHTML with `--legacy`.
 
 ```bash
 # Open markdown editor
@@ -352,14 +353,11 @@ cfl page create -s DEV -t "My Page" --file content.md
 # Create from markdown stdin
 echo "# Hello World" | cfl page create -s DEV -t "My Page"
 
-# Create from XHTML file (auto-detected by extension)
-cfl page create -s DEV -t "My Page" --file content.html
+# Create from exact ADF JSON
+cfl page create -s DEV -t "My Page" --file content.json --body-format adf
 
-# Create from XHTML stdin (disable markdown conversion)
-echo "<p>Hello</p>" | cfl page create -s DEV -t "My Page" --no-markdown
-
-# Create from storage format XHTML (sent via storage representation API)
-echo "<p>Hello</p>" | cfl page create -s DEV -t "My Page" --storage
+# Create from exact storage XHTML
+echo "<p>Hello</p>" | cfl page create -s DEV -t "My Page" --body-format xhtml
 
 # Create as child of another page
 cfl page create -s DEV -t "Child Page" --parent 12345
@@ -375,14 +373,10 @@ cfl page create -s DEV -t "Legacy Page" --file content.md --legacy
 | `--parent` | `-p` | | Parent page ID (for nested pages) |
 | `--file` | `-f` | | Read content from file |
 | `--editor` | | `false` | Force open in $EDITOR |
-| `--no-markdown` | | `false` | Disable markdown conversion (use raw XHTML) |
-| `--storage` | | `false` | Input is Confluence storage format (XHTML); sends via storage representation API |
-| `--legacy` | | `false` | Use legacy storage format instead of cloud editor (ADF) |
+| `--body-format` | | `markdown` | Input format: `markdown`, exact `adf` JSON, or exact storage `xhtml` |
+| `--legacy` | | `false` | Convert Markdown to storage XHTML instead of ADF; invalid with `adf` or `xhtml` |
 
-**Format detection:**
-- `.md`, `.markdown` files → markdown (converted to XHTML)
-- `.html`, `.xhtml`, `.htm` files → XHTML (used as-is)
-- stdin, editor → markdown by default (use `--no-markdown` for XHTML)
+The selected format applies equally to files, stdin, and editor input; file extensions do not override it.
 
 ---
 
@@ -395,7 +389,7 @@ Content can be provided via:
 - Standard input (pipe content)
 - Interactive editor (default, opens with existing content)
 
-**Markdown is the default format.** Content is automatically converted to Confluence storage format.
+**Markdown is the default format.** It is converted to ADF, or to storage XHTML with `--legacy`.
 
 ```bash
 # Open editor with existing page content
@@ -419,12 +413,12 @@ cfl page edit 12345 --parent 67890 --title "New Title"
 # Edit using legacy storage format (for pages created in legacy editor)
 cfl page edit 12345 --file content.md --legacy
 
-# Pipe raw Confluence storage format (XHTML) directly
-echo "<p>Updated</p>" | cfl page edit 12345 --storage
+# Pipe exact Confluence storage XHTML directly
+echo "<p>Updated</p>" | cfl page edit 12345 --body-format xhtml
 
 # Extract, transform, and re-upload storage-format content
-cfl page view 12345 --raw --content-only | \
-  sed 's/old/new/g' | cfl page edit 12345 --storage
+cfl page view 12345 --body-format xhtml --content-only | \
+  sed 's/old/new/g' | cfl page edit 12345 --body-format xhtml
 ```
 
 | Flag | Short | Default | Description |
@@ -433,9 +427,8 @@ cfl page view 12345 --raw --content-only | \
 | `--parent` | `-p` | | Move page to new parent page ID |
 | `--file` | `-f` | | Read content from file |
 | `--editor` | | `false` | Force open in $EDITOR |
-| `--no-markdown` | | `false` | Disable markdown conversion (use raw XHTML) |
-| `--storage` | | `false` | Input is Confluence storage format (XHTML); sends via storage representation API |
-| `--legacy` | | `false` | Use legacy storage format instead of cloud editor (ADF) |
+| `--body-format` | | `markdown` | Input/editor format: `markdown`, exact `adf` JSON, or exact storage `xhtml` |
+| `--legacy` | | `false` | Convert Markdown to storage XHTML instead of ADF; invalid with `adf` or `xhtml` |
 
 **Arguments:**
 - `<page-id>` - The page ID (**required**)

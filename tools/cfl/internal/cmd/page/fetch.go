@@ -2,9 +2,59 @@ package page
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/open-cli-collective/confluence-cli/api"
 )
+
+func getPageWithBodyFormat(ctx context.Context, client *api.Client, pageID, bodyFormat string) (*api.Page, error) {
+	if bodyFormat == bodyFormatMarkdown {
+		return getPageWithBodyFallback(ctx, client, pageID)
+	}
+	page, err := client.GetPage(ctx, pageID, &api.GetPageOptions{BodyFormat: apiBodyFormat(bodyFormat)})
+	if err != nil {
+		return nil, err
+	}
+	if !hasBodyRepresentation(page, bodyFormat) {
+		return nil, fmt.Errorf("page does not provide the requested %s body representation", bodyFormat)
+	}
+	return page, nil
+}
+
+func getPageVersionWithBodyFormat(ctx context.Context, client *api.Client, pageID string, version int, bodyFormat string) (*api.Page, error) {
+	if bodyFormat == bodyFormatMarkdown {
+		return getPageVersionWithBodyFallback(ctx, client, pageID, version)
+	}
+	location, err := client.LocatePageVersion(ctx, pageID, version)
+	if err != nil {
+		return nil, err
+	}
+	page, err := client.GetLocatedPageVersion(ctx, pageID, location, apiBodyFormat(bodyFormat))
+	if err != nil {
+		return nil, err
+	}
+	if !hasBodyRepresentation(page, bodyFormat) {
+		return nil, fmt.Errorf("page version %d does not provide the requested %s body representation", version, bodyFormat)
+	}
+	return page, nil
+}
+
+func apiBodyFormat(bodyFormat string) string {
+	if bodyFormat == bodyFormatADF {
+		return "atlas_doc_format"
+	}
+	return "storage"
+}
+
+func hasBodyRepresentation(page *api.Page, bodyFormat string) bool {
+	if page == nil || page.Body == nil {
+		return false
+	}
+	if bodyFormat == bodyFormatADF {
+		return page.Body.AtlasDocFormat != nil
+	}
+	return page.Body.Storage != nil
+}
 
 // getPageWithBodyFallback fetches a page with body content, falling back to
 // atlas_doc_format if storage format returns empty content. This handles

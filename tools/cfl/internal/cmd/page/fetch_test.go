@@ -140,6 +140,19 @@ func TestGetPageWithBodyFallback_GetPageError(t *testing.T) {
 	testutil.RequireError(t, err)
 }
 
+func TestGetPageWithBodyFormat_UnavailableRepresentation(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		testutil.Equal(t, "atlas_doc_format", r.URL.Query().Get("body-format"))
+		_, _ = w.Write([]byte(`{"id":"12345","body":{}}`))
+	}))
+	defer server.Close()
+
+	_, err := getPageWithBodyFormat(context.Background(), api.NewClient(server.URL, "test@example.com", "token"), "12345", bodyFormatADF)
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "does not provide the requested adf")
+}
+
 func TestGetPageWithBodyFallback_ADFFallbackFails_GracefulDegradation(t *testing.T) {
 	t.Parallel()
 	callCount := 0
@@ -217,6 +230,28 @@ func TestGetPageVersionWithBodyFallback_StorageEmpty_FallsBackToADF(t *testing.T
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, 4, callCount)
 	testutil.True(t, hasADFContent(page))
+}
+
+func TestGetPageVersionWithBodyFormat_ADF(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/api/v2/pages/12345":
+			_, _ = w.Write([]byte(`{"id":"12345","title":"Page","version":{"number":2}}`))
+		case strings.Contains(r.URL.Path, "/versions") && r.URL.Query().Get("body-format") == "":
+			_, _ = w.Write([]byte(`{"results":[{"number":2}]}`))
+		case strings.Contains(r.URL.Path, "/versions"):
+			testutil.Equal(t, "atlas_doc_format", r.URL.Query().Get("body-format"))
+			_, _ = w.Write([]byte(`{"results":[{"number":2,"page":{"id":"12345","body":{"atlas_doc_format":{"representation":"atlas_doc_format","value":"{\"type\":\"doc\",\"version\":1,\"content\":[]}"}}}}]}`))
+		default:
+			t.Fatalf("unexpected request: %s?%s", r.URL.Path, r.URL.RawQuery)
+		}
+	}))
+	defer server.Close()
+
+	page, err := getPageVersionWithBodyFormat(context.Background(), api.NewClient(server.URL, "test@example.com", "token"), "12345", 2, bodyFormatADF)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, `{"type":"doc","version":1,"content":[]}`, page.Body.AtlasDocFormat.Value)
 }
 
 func TestHasStorageContent(t *testing.T) {

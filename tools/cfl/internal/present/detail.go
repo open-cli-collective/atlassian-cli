@@ -99,10 +99,6 @@ func (PagePresenter) PresentView(proj pageview.Projection) *sharedpresent.Output
 		sections = append(sections, &sharedpresent.DetailSection{Fields: fields})
 	}
 
-	if advisory := pageViewAdvisory(proj.Fallback); advisory != "" {
-		sections = append(sections, stderrInfo(advisory))
-	}
-
 	body := pageViewBody(proj)
 	if !proj.ContentOnly {
 		sections = append(sections, stdoutInfo(""))
@@ -122,19 +118,6 @@ func pageViewBody(proj pageview.Projection) string {
 		body += fmt.Sprintf("\n\n... [truncated at %d chars, use --no-truncate for complete text]", pageview.MaxChars)
 	}
 	return body
-}
-
-func pageViewAdvisory(fallback pageview.FallbackKind) string {
-	switch fallback {
-	case pageview.FallbackNone:
-		return ""
-	case pageview.FallbackStorageRaw:
-		return "(Failed to convert to markdown, showing raw HTML)"
-	case pageview.FallbackADFRaw:
-		return "(Failed to convert ADF to markdown, showing raw ADF)"
-	default:
-		return ""
-	}
 }
 
 func formatValueWithSource(v cflconfig.ShowValue) string {

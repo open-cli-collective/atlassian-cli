@@ -123,9 +123,8 @@ func TestRunEdit_TitleOnly(t *testing.T) {
 	err := os.WriteFile(mdFile, []byte("<p>Keep this</p>"), 0600)
 	testutil.RequireNoError(t, err)
 
-	useMd := false
 	opts.file = mdFile
-	opts.markdown = &useMd
+	opts.bodyFormat = bodyFormatXHTML
 
 	err = runEdit(context.Background(), opts)
 	testutil.RequireNoError(t, err)
@@ -326,11 +325,10 @@ func TestRunEdit_HTMLFile(t *testing.T) {
 	rootOpts.SetAPIClient(client)
 	rootOpts.Stdin = nil
 	opts := &editOptions{
-		Options: rootOpts,
-		pageID:  "12345",
-		file:    htmlFile,
-		legacy:  true, // Use legacy mode for HTML files
-
+		Options:    rootOpts,
+		pageID:     "12345",
+		file:       htmlFile,
+		bodyFormat: bodyFormatXHTML,
 	}
 
 	err = runEdit(context.Background(), opts)
@@ -381,14 +379,12 @@ func TestRunEdit_NoMarkdownFlag(t *testing.T) {
 	rootOpts := newEditTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
 	rootOpts.SetAPIClient(client)
-	useMd := false
 	rootOpts.Stdin = nil
 	opts := &editOptions{
-		Options:  rootOpts,
-		pageID:   "12345",
-		file:     mdFile,
-		markdown: &useMd,
-		legacy:   true, // Use legacy mode for storage format
+		Options:    rootOpts,
+		pageID:     "12345",
+		file:       mdFile,
+		bodyFormat: bodyFormatXHTML,
 	}
 
 	err = runEdit(context.Background(), opts)
@@ -1305,12 +1301,10 @@ func TestRunEdit_StorageFlag_Stdin(t *testing.T) {
 	client := api.NewClient(server.URL, "test@example.com", "token")
 	rootOpts.SetAPIClient(client)
 	rootOpts.Stdin = strings.NewReader(`<ac:structured-macro ac:name="toc"/><p>Content with <ac:link><ri:user ri:account-id="abc123"/></ac:link></p>`)
-	useMd := false
 	opts := &editOptions{
-		Options:  rootOpts,
-		pageID:   "12345",
-		storage:  true,
-		markdown: &useMd,
+		Options:    rootOpts,
+		pageID:     "12345",
+		bodyFormat: bodyFormatXHTML,
 	}
 
 	err := runEdit(context.Background(), opts)
@@ -1368,13 +1362,11 @@ func TestRunEdit_StorageFlag_File(t *testing.T) {
 	client := api.NewClient(server.URL, "test@example.com", "token")
 	rootOpts.SetAPIClient(client)
 	rootOpts.Stdin = nil
-	useMd := false
 	opts := &editOptions{
-		Options:  rootOpts,
-		pageID:   "12345",
-		file:     htmlFile,
-		storage:  true,
-		markdown: &useMd,
+		Options:    rootOpts,
+		pageID:     "12345",
+		file:       htmlFile,
+		bodyFormat: bodyFormatXHTML,
 	}
 
 	err = runEdit(context.Background(), opts)
@@ -1635,7 +1627,7 @@ func TestRunEdit_FileDash_Stdin_ADF(t *testing.T) {
 	testutil.Contains(t, content, `"type":"strong"`)
 }
 
-// "--file - --storage" pipes raw storage XHTML through unchanged.
+// "--file - --body-format xhtml" pipes storage XHTML through unchanged.
 func TestRunEdit_FileDash_Stdin_Storage(t *testing.T) {
 	t.Parallel()
 	var receivedBody map[string]any
@@ -1646,13 +1638,11 @@ func TestRunEdit_FileDash_Stdin_Storage(t *testing.T) {
 	client := api.NewClient(server.URL, "test@example.com", "token")
 	rootOpts.SetAPIClient(client)
 	rootOpts.Stdin = strings.NewReader(`<p>Updated storage</p>`)
-	useMd := false
 	opts := &editOptions{
-		Options:  rootOpts,
-		pageID:   "12345",
-		file:     "-",
-		storage:  true,
-		markdown: &useMd,
+		Options:    rootOpts,
+		pageID:     "12345",
+		file:       "-",
+		bodyFormat: bodyFormatXHTML,
 	}
 
 	err := runEdit(context.Background(), opts)
@@ -1664,7 +1654,7 @@ func TestRunEdit_FileDash_Stdin_Storage(t *testing.T) {
 	testutil.Nil(t, bodyMap["atlas_doc_format"])
 }
 
-// "--file - --no-markdown" passes raw ADF JSON through to atlas_doc_format
+// "--file - --body-format adf" passes ADF JSON through to atlas_doc_format
 // unconverted (the shape INT-425's edit_page(format="adf") relies on).
 func TestRunEdit_FileDash_Stdin_NoMarkdown_ADF(t *testing.T) {
 	t.Parallel()
@@ -1677,12 +1667,11 @@ func TestRunEdit_FileDash_Stdin_NoMarkdown_ADF(t *testing.T) {
 	client := api.NewClient(server.URL, "test@example.com", "token")
 	rootOpts.SetAPIClient(client)
 	rootOpts.Stdin = strings.NewReader(adf)
-	useMd := false
 	opts := &editOptions{
-		Options:  rootOpts,
-		pageID:   "12345",
-		file:     "-",
-		markdown: &useMd,
+		Options:    rootOpts,
+		pageID:     "12345",
+		file:       "-",
+		bodyFormat: bodyFormatADF,
 	}
 
 	err := runEdit(context.Background(), opts)
@@ -1744,4 +1733,100 @@ func TestRunEdit_FileDash_Stdin_Legacy(t *testing.T) {
 	testutil.Contains(t, content, "<h1")
 	testutil.Contains(t, content, "<strong>bold</strong>")
 	testutil.Nil(t, bodyMap["atlas_doc_format"])
+}
+
+func TestRunEdit_EditorBodyFormats(t *testing.T) {
+	script := filepath.Join(t.TempDir(), "editor")
+	err := os.WriteFile(script, []byte("#!/bin/sh\ncp \"$1\" \"$CFL_EDITOR_CAPTURE\"\nprintf '%s' \"$1\" > \"$CFL_EDITOR_PATH\"\n"), 0700) //nolint:gosec // executable test helper
+	testutil.RequireNoError(t, err)
+	t.Setenv("EDITOR", script)
+
+	const (
+		storageSource = "\n<p>Storage source</p>\n"
+		xhtmlFromADF  = "\n<p>ADF as XHTML</p>\n"
+		adfFromStore  = " \n" + `{"type":"doc","version":1,"content":[{"type":"paragraph","content":[{"type":"text","text":"Storage as ADF"}]}]}` + "\n"
+		adfSource     = " \n" + `{"type":"doc","version":1,"content":[{"type":"paragraph","content":[{"type":"text","text":"ADF source"}]}]}` + "\n"
+	)
+
+	tests := []struct {
+		name, source, format, suffix, prefill string
+	}{
+		{"storage markdown", "storage", bodyFormatMarkdown, ".md", "Storage source"},
+		{"storage adf", "storage", bodyFormatADF, ".json", adfFromStore},
+		{"storage xhtml", "storage", bodyFormatXHTML, ".xhtml", storageSource},
+		{"adf markdown", "adf", bodyFormatMarkdown, ".md", "ADF source"},
+		{"adf adf", "adf", bodyFormatADF, ".json", adfSource},
+		{"adf xhtml", "adf", bodyFormatXHTML, ".xhtml", xhtmlFromADF},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			capture := filepath.Join(dir, "capture")
+			pathCapture := filepath.Join(dir, "path")
+			t.Setenv("CFL_EDITOR_CAPTURE", capture)
+			t.Setenv("CFL_EDITOR_PATH", pathCapture)
+			var update api.UpdatePageRequest
+
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				switch r.Method {
+				case http.MethodGet:
+					format := r.URL.Query().Get("body-format")
+					body := &api.Body{}
+					switch format {
+					case "storage":
+						value := storageSource
+						if tc.source == "adf" {
+							value = xhtmlFromADF
+							if tc.format == bodyFormatMarkdown {
+								value = ""
+							}
+						}
+						body.Storage = &api.BodyRepresentation{Representation: "storage", Value: value}
+					case "atlas_doc_format":
+						value := adfFromStore
+						if tc.source == "adf" {
+							value = adfSource
+						}
+						body.AtlasDocFormat = &api.BodyRepresentation{Representation: "atlas_doc_format", Value: value}
+					default:
+						t.Fatalf("unexpected body-format %q", format)
+					}
+					_ = json.NewEncoder(w).Encode(api.Page{ID: "12345", Title: "Page", Version: &api.Version{Number: 1}, Body: body})
+				case http.MethodPut:
+					testutil.RequireNoError(t, json.NewDecoder(r.Body).Decode(&update))
+					_ = json.NewEncoder(w).Encode(api.Page{ID: "12345", Title: "Page", Version: &api.Version{Number: 2}})
+				}
+			}))
+			defer server.Close()
+
+			rootOpts := newEditTestRootOptions()
+			rootOpts.Stdin = nil
+			rootOpts.SetAPIClient(api.NewClient(server.URL, "test@example.com", "token"))
+			err := runEdit(context.Background(), &editOptions{
+				Options: rootOpts, pageID: "12345", editor: true, bodyFormat: tc.format,
+			})
+			testutil.RequireNoError(t, err)
+
+			prefill, err := os.ReadFile(capture) //nolint:gosec // path is inside t.TempDir
+			testutil.RequireNoError(t, err)
+			if tc.format == bodyFormatMarkdown {
+				testutil.Equal(t, tc.prefill, strings.TrimSpace(string(prefill)))
+			} else {
+				testutil.Equal(t, tc.prefill, string(prefill))
+			}
+			editorPath, err := os.ReadFile(pathCapture) //nolint:gosec // path is inside t.TempDir
+			testutil.RequireNoError(t, err)
+			testutil.Equal(t, tc.suffix, filepath.Ext(string(editorPath)))
+			switch tc.format {
+			case bodyFormatMarkdown:
+				testutil.NotNil(t, update.Body.AtlasDocFormat)
+				testutil.Contains(t, update.Body.AtlasDocFormat.Value, tc.prefill)
+			case bodyFormatADF:
+				testutil.Equal(t, tc.prefill, update.Body.AtlasDocFormat.Value)
+			case bodyFormatXHTML:
+				testutil.Equal(t, tc.prefill, update.Body.Storage.Value)
+			}
+		})
+	}
 }

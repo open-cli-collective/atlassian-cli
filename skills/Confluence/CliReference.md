@@ -26,7 +26,6 @@ cfl config test
 |------|-------------|
 | `-o, --output FORMAT` | Output format (see SKILL.md "Output Representation and Format"): `table` (default), `json`, `plain` |
 | `--full` | Inspection-oriented representation (see SKILL.md). Not a content-truncation flag — for `page view` content truncation, use `--no-truncate`. |
-| `--raw` | Source-faithful representation (see SKILL.md). **Not a true global flag** — only registered on `page view`. |
 | `--no-color` | Disable colored output |
 | `-c, --config PATH` | Override config file location (default: `~/.config/cfl/config.yml`) |
 
@@ -44,7 +43,8 @@ cfl [resource] [action] [ID] [flags]
 | `cfl page view PAGE_ID` | View page content as markdown (truncated at 5000 chars by default) |
 | `cfl page view PAGE_ID --no-truncate` | View full content without truncation |
 | `cfl page view PAGE_ID --content-only` | Output content only (no metadata headers); implies `--no-truncate` |
-| `cfl page view PAGE_ID --raw` | View raw Confluence storage format (XHTML) instead of markdown |
+| `cfl page view PAGE_ID --body-format xhtml` | View exact Confluence storage XHTML |
+| `cfl page view PAGE_ID --body-format adf` | View exact ADF JSON |
 | `cfl page view PAGE_ID --show-macros` | Show macro placeholders (e.g. `[TOC]`) instead of stripping them |
 | `cfl page view PAGE_ID --web` | Open page in browser |
 | `cfl page view PAGE_ID -o json` | Full JSON output (body always included in full) |
@@ -70,9 +70,8 @@ cfl [resource] [action] [ID] [flags]
 | `--title "TEXT"` / `-t` | Page title (required for create) |
 | `--file PATH` / `-f` | Read content from file |
 | `--parent PAGE_ID` / `-p` | Parent page ID |
-| `--legacy` | Use legacy editor format instead of cloud (ADF) |
-| `--no-markdown` | Disable markdown conversion (use raw XHTML) |
-| `--storage` | Input is Confluence storage format (XHTML); sent via storage representation API regardless of the page's editor type |
+| `--body-format markdown\|adf\|xhtml` | Input/editor representation; defaults to Markdown |
+| `--legacy` | Convert Markdown to storage XHTML instead of ADF; invalid with ADF/XHTML input |
 | `--editor` | Open interactive editor |
 
 ### Page View Flags
@@ -81,7 +80,7 @@ cfl [resource] [action] [ID] [flags]
 |------|-------------|
 | `--no-truncate` | Show full content without truncation |
 | `--content-only` | Output only page content (no metadata headers); implies `--no-truncate` |
-| `--raw` | Raw Confluence storage format (XHTML) |
+| `--body-format markdown\|adf\|xhtml` | Body representation; ADF and XHTML are emitted exactly |
 | `--show-macros` | Show macro placeholders (e.g. `[TOC]`) instead of stripping them |
 | `-w, --web` | Open in browser |
 
@@ -102,9 +101,9 @@ cfl page view 12345 --content-only | cfl page edit 12345 --legacy
 ```
 
 Storage-format round-trip (lossless — preserves macros and all formatting):
-- Fetch the page with `-o json` (the `content` field holds the raw storage XHTML)
+- Fetch with `cfl page view PAGE_ID --body-format xhtml --content-only`
 - Modify the XHTML
-- Send the modified XHTML back: `cfl page edit PAGE_ID --storage` (reads from stdin, or pass via `--file`)
+- Send it back with `cfl page edit PAGE_ID --body-format xhtml` (stdin or `--file`)
 
 See ViewPage.md for the JSON output structure and ManagePage.md for a full walkthrough.
 

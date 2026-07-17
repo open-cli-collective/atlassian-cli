@@ -1,6 +1,8 @@
 package pageview
 
 import (
+	"fmt"
+
 	"github.com/open-cli-collective/confluence-cli/api"
 	"github.com/open-cli-collective/confluence-cli/pkg/md"
 )
@@ -10,7 +12,7 @@ const MaxChars = 5000
 
 // Options controls page-view body projection.
 type Options struct {
-	Raw         bool
+	BodyFormat  string
 	NoTruncate  bool
 	ShowMacros  bool
 	ContentOnly bool
@@ -22,17 +24,8 @@ type BodyKind int
 const (
 	BodyKindNone BodyKind = iota
 	BodyKindMarkdown
-	BodyKindStorageRaw
-	BodyKindADFRaw
-)
-
-// FallbackKind identifies whether conversion fell back to a raw/source-faithful body.
-type FallbackKind int
-
-const (
-	FallbackNone FallbackKind = iota
-	FallbackStorageRaw
-	FallbackADFRaw
+	BodyKindXHTML
+	BodyKindADF
 )
 
 // Projection is the presenter-facing view model for page view output.
@@ -46,7 +39,6 @@ type Projection struct {
 	ContentOnly bool
 	Body        string
 	BodyKind    BodyKind
-	Fallback    FallbackKind
 	HasContent  bool
 	Truncated   bool
 }
@@ -57,8 +49,7 @@ var (
 )
 
 // OverrideConvertersForTest swaps the storage/ADF conversion hooks and returns
-// a restore function. It exists so higher-level command tests can force the
-// fallback branches without depending on fragile converter internals.
+// a restore function. It exists so command tests can force conversion errors.
 func OverrideConvertersForTest(
 	storage func(string, md.ConvertOptions) (string, error),
 	adf func(string) (string, error),
@@ -79,7 +70,7 @@ func OverrideConvertersForTest(
 
 // Project builds the presenter-facing page-view projection from API data and
 // command mode flags.
-func Project(page *api.Page, spaceKey string, opts Options) Projection {
+func Project(page *api.Page, spaceKey string, opts Options) (Projection, error) {
 	proj := Projection{
 		Title:       page.Title,
 		ID:          page.ID,
@@ -92,48 +83,61 @@ func Project(page *api.Page, spaceKey string, opts Options) Projection {
 		proj.HasVersion = true
 	}
 
-	switch {
-	case hasStorageContent(page):
-		proj.Body, proj.BodyKind, proj.Fallback, proj.Truncated = projectStorageBody(page.Body.Storage.Value, opts)
-		proj.HasContent = true
-	case hasADFContent(page):
-		proj.Body, proj.BodyKind, proj.Fallback, proj.Truncated = projectADFBody(page.Body.AtlasDocFormat.Value, opts)
-		proj.HasContent = true
+	switch opts.BodyFormat {
+	case "adf":
+		if page.Body != nil && page.Body.AtlasDocFormat != nil {
+			proj.Body, proj.Truncated = TruncateContent(page.Body.AtlasDocFormat.Value, opts)
+			proj.BodyKind = BodyKindADF
+			proj.HasContent = page.Body.AtlasDocFormat.Value != ""
+		}
+	case "xhtml":
+		if page.Body != nil && page.Body.Storage != nil {
+			proj.Body, proj.Truncated = TruncateContent(page.Body.Storage.Value, opts)
+			proj.BodyKind = BodyKindXHTML
+			proj.HasContent = page.Body.Storage.Value != ""
+		}
+	case "", "markdown":
+		switch {
+		case hasStorageContent(page):
+			body, truncated, err := projectStorageBody(page.Body.Storage.Value, opts)
+			if err != nil {
+				return Projection{}, err
+			}
+			proj.Body, proj.Truncated = body, truncated
+			proj.BodyKind = BodyKindMarkdown
+			proj.HasContent = true
+		case hasADFContent(page):
+			body, truncated, err := projectADFBody(page.Body.AtlasDocFormat.Value, opts)
+			if err != nil {
+				return Projection{}, err
+			}
+			proj.Body, proj.Truncated = body, truncated
+			proj.BodyKind = BodyKindMarkdown
+			proj.HasContent = true
+		}
 	default:
-		proj.HasContent = false
+		return Projection{}, fmt.Errorf("unsupported body format %q", opts.BodyFormat)
 	}
 
-	return proj
+	return proj, nil
 }
 
-func projectStorageBody(content string, opts Options) (body string, kind BodyKind, fallback FallbackKind, truncated bool) {
-	if opts.Raw {
-		body, truncated = TruncateContent(content, opts)
-		return body, BodyKindStorageRaw, FallbackNone, truncated
-	}
-
+func projectStorageBody(content string, opts Options) (body string, truncated bool, err error) {
 	markdown, err := fromStorage(content, md.ConvertOptions{ShowMacros: opts.ShowMacros})
 	if err != nil {
-		body, truncated = TruncateContent(content, opts)
-		return body, BodyKindStorageRaw, FallbackStorageRaw, truncated
+		return "", false, fmt.Errorf("failed to convert XHTML to markdown; rerun with --body-format xhtml or --body-format adf: %w", err)
 	}
 	body, truncated = TruncateContent(markdown, opts)
-	return body, BodyKindMarkdown, FallbackNone, truncated
+	return body, truncated, nil
 }
 
-func projectADFBody(content string, opts Options) (body string, kind BodyKind, fallback FallbackKind, truncated bool) {
-	if opts.Raw {
-		body, truncated = TruncateContent(content, opts)
-		return body, BodyKindADFRaw, FallbackNone, truncated
-	}
-
+func projectADFBody(content string, opts Options) (body string, truncated bool, err error) {
 	markdown, err := fromADF(content)
 	if err != nil {
-		body, truncated = TruncateContent(content, opts)
-		return body, BodyKindADFRaw, FallbackADFRaw, truncated
+		return "", false, fmt.Errorf("failed to convert ADF to markdown; rerun with --body-format adf or --body-format xhtml: %w", err)
 	}
 	body, truncated = TruncateContent(markdown, opts)
-	return body, BodyKindMarkdown, FallbackNone, truncated
+	return body, truncated, nil
 }
 
 // TruncateContent truncates content if it exceeds the character limit and

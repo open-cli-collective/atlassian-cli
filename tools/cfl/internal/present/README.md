@@ -109,7 +109,7 @@ These exceptions are allowed when deliberate and tested:
 Exceptions should stay small and named in code review. They must not become a
 general escape hatch for command-local formatting.
 
-Source-faithful modes such as `page view --raw` and `--content-only` are not
+Source-faithful modes such as `page view --body-format xhtml` and `--content-only` are not
 presenter-boundary exceptions. They are presenter/projection-owned output modes
 whose content selection is intentional.
 

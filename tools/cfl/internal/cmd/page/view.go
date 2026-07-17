@@ -21,12 +21,13 @@ const maxViewChars = pageview.MaxChars
 
 type viewOptions struct {
 	*root.Options
-	raw         bool
-	web         bool
-	noTruncate  bool
-	showMacros  bool
-	contentOnly bool
-	version     int
+	bodyFormat         string
+	bodyFormatExplicit bool
+	web                bool
+	noTruncate         bool
+	showMacros         bool
+	contentOnly        bool
+	version            int
 }
 
 func newViewCmd(rootOpts *root.Options) *cobra.Command {
@@ -37,8 +38,9 @@ func newViewCmd(rootOpts *root.Options) *cobra.Command {
 		Short: "View a page",
 		Long: `View a Confluence page content.
 
-The page body is fetched in storage format (XHTML) and converted to
-markdown for display. Use --raw to see the original storage format.
+The page body is displayed as Markdown by default. Use --body-format adf
+for exact Atlassian Document Format JSON or --body-format xhtml for exact
+Confluence storage XHTML.
 
 By default, output is truncated to 5000 characters for concise display.
 Use --no-truncate to show the complete page content without truncation.
@@ -49,8 +51,11 @@ The --content-only flag implies --no-truncate since it is intended for piping.`,
   # View full content without truncation
   cfl page view 12345 --no-truncate
 
-  # View raw storage format (XHTML)
-  cfl page view 12345 --raw
+  # View exact storage format (XHTML)
+  cfl page view 12345 --body-format xhtml
+
+  # View exact ADF JSON
+  cfl page view 12345 --body-format adf
 
   # View a specific historical version
   cfl page view 12345 --version 7
@@ -58,18 +63,31 @@ The --content-only flag implies --no-truncate since it is intended for piping.`,
   # Open in browser
   cfl page view 12345 --web
 
-  # Pipe raw content to edit (lossless roundtrip)
-  cfl page view 12345 --raw --content-only | cfl page edit 12345 --no-markdown --legacy
+  # Pipe XHTML content to edit (lossless roundtrip)
+  cfl page view 12345 --body-format xhtml --content-only | cfl page edit 12345 --body-format xhtml
 
   # Pipe markdown content to edit
   cfl page view 12345 --content-only | cfl page edit 12345 --legacy`,
-		Args: cobra.ExactArgs(1),
+		Args: func(cmd *cobra.Command, args []string) error {
+			if err := cobra.ExactArgs(1)(cmd, args); err != nil {
+				return err
+			}
+			format, err := resolveBodyFormat(opts.bodyFormat, cmd.Flags().Changed("body-format"))
+			if err != nil {
+				return err
+			}
+			if opts.showMacros && format != bodyFormatMarkdown {
+				return fmt.Errorf("--show-macros is only supported with --body-format markdown")
+			}
+			return nil
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			opts.bodyFormatExplicit = cmd.Flags().Changed("body-format")
 			return runView(cmd.Context(), args[0], opts)
 		},
 	}
 
-	cmd.Flags().BoolVar(&opts.raw, "raw", false, "Show raw Confluence storage format (XHTML) instead of markdown")
+	cmd.Flags().StringVar(&opts.bodyFormat, "body-format", bodyFormatMarkdown, "Body format: markdown, adf, or xhtml")
 	cmd.Flags().BoolVarP(&opts.web, "web", "w", false, "Open in browser instead of displaying")
 	cmd.Flags().BoolVar(&opts.noTruncate, "no-truncate", false, "Show full content without truncation")
 	cmd.Flags().BoolVar(&opts.showMacros, "show-macros", false, "Show Confluence macro placeholders (e.g., [TOC]) instead of stripping them")
@@ -80,6 +98,13 @@ The --content-only flag implies --no-truncate since it is intended for piping.`,
 }
 
 func runView(ctx context.Context, pageID string, opts *viewOptions) error {
+	bodyFormat, err := resolveBodyFormat(opts.bodyFormat, opts.bodyFormatExplicit)
+	if err != nil {
+		return err
+	}
+	if opts.showMacros && bodyFormat != bodyFormatMarkdown {
+		return fmt.Errorf("--show-macros is only supported with --body-format markdown")
+	}
 	if opts.contentOnly {
 		if opts.web {
 			return fmt.Errorf("--content-only is incompatible with --web")
@@ -114,9 +139,9 @@ func runView(ctx context.Context, pageID string, opts *viewOptions) error {
 
 	var page *api.Page
 	if opts.version > 0 {
-		page, err = getPageVersionWithBodyFallback(ctx, client, pageID, opts.version)
+		page, err = getPageVersionWithBodyFormat(ctx, client, pageID, opts.version, bodyFormat)
 	} else {
-		page, err = getPageWithBodyFallback(ctx, client, pageID)
+		page, err = getPageWithBodyFormat(ctx, client, pageID, bodyFormat)
 	}
 	if err != nil {
 		return err
@@ -132,12 +157,15 @@ func runView(ctx context.Context, pageID string, opts *viewOptions) error {
 		// Graceful fallback: if GetSpace fails, we just won't show the key
 	}
 
-	proj := pageview.Project(page, spaceKey, pageview.Options{
-		Raw:         opts.raw,
+	proj, err := pageview.Project(page, spaceKey, pageview.Options{
+		BodyFormat:  bodyFormat,
 		NoTruncate:  opts.noTruncate,
 		ShowMacros:  opts.showMacros,
 		ContentOnly: opts.contentOnly,
 	})
+	if err != nil {
+		return cflpresent.EmitError(opts.Options, err)
+	}
 
 	return cflpresent.Emit(opts.Options, cflpresent.PagePresenter{}.PresentView(proj))
 }

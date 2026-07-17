@@ -116,11 +116,11 @@ func TestRunCreate_HTMLFile_Legacy(t *testing.T) {
 	rootOpts.SetAPIClient(client)
 
 	opts := &createOptions{
-		Options: rootOpts,
-		space:   "DEV",
-		title:   "Test Page",
-		file:    htmlFile,
-		legacy:  true, // Use legacy mode for HTML files
+		Options:    rootOpts,
+		space:      "DEV",
+		title:      "Test Page",
+		file:       htmlFile,
+		bodyFormat: bodyFormatXHTML,
 	}
 
 	err = runCreate(context.Background(), opts)
@@ -162,14 +162,12 @@ func TestRunCreate_NoMarkdownFlag_Legacy(t *testing.T) {
 	client := api.NewClient(server.URL, "test@example.com", "token")
 	rootOpts.SetAPIClient(client)
 
-	useMd := false
 	opts := &createOptions{
-		Options:  rootOpts,
-		space:    "DEV",
-		title:    "Test Page",
-		file:     mdFile,
-		markdown: &useMd, // Force no markdown conversion
-		legacy:   true,   // Use legacy mode for storage format
+		Options:    rootOpts,
+		space:      "DEV",
+		title:      "Test Page",
+		file:       mdFile,
+		bodyFormat: bodyFormatXHTML,
 	}
 
 	err = runCreate(context.Background(), opts)
@@ -566,13 +564,11 @@ func TestRunCreate_Stdin_NoMarkdown_Legacy(t *testing.T) {
 	client := api.NewClient(server.URL, "test@example.com", "token")
 	rootOpts.SetAPIClient(client)
 
-	useMd := false
 	opts := &createOptions{
-		Options:  rootOpts,
-		space:    "DEV",
-		title:    "Test Page",
-		markdown: &useMd,
-		legacy:   true,
+		Options:    rootOpts,
+		space:      "DEV",
+		title:      "Test Page",
+		bodyFormat: bodyFormatXHTML,
 	}
 
 	err := runCreate(context.Background(), opts)
@@ -610,13 +606,11 @@ func TestRunCreate_StorageFlag_Stdin(t *testing.T) {
 	client := api.NewClient(server.URL, "test@example.com", "token")
 	rootOpts.SetAPIClient(client)
 
-	useMd := false
 	opts := &createOptions{
-		Options:  rootOpts,
-		space:    "DEV",
-		title:    "Test Page",
-		storage:  true,
-		markdown: &useMd,
+		Options:    rootOpts,
+		space:      "DEV",
+		title:      "Test Page",
+		bodyFormat: bodyFormatXHTML,
 	}
 
 	err := runCreate(context.Background(), opts)
@@ -660,14 +654,12 @@ func TestRunCreate_StorageFlag_File(t *testing.T) {
 	client := api.NewClient(server.URL, "test@example.com", "token")
 	rootOpts.SetAPIClient(client)
 
-	useMd := false
 	opts := &createOptions{
-		Options:  rootOpts,
-		space:    "DEV",
-		title:    "Test Page",
-		file:     htmlFile,
-		storage:  true,
-		markdown: &useMd,
+		Options:    rootOpts,
+		space:      "DEV",
+		title:      "Test Page",
+		file:       htmlFile,
+		bodyFormat: bodyFormatXHTML,
 	}
 
 	err = runCreate(context.Background(), opts)
@@ -881,7 +873,7 @@ func TestRunCreate_FileDash_Stdin_ADF(t *testing.T) {
 	testutil.Contains(t, content, `"type":"strong"`)
 }
 
-// "--file - --storage" pipes raw storage XHTML through unchanged.
+// "--file - --body-format xhtml" pipes storage XHTML through unchanged.
 func TestRunCreate_FileDash_Stdin_Storage(t *testing.T) {
 	t.Parallel()
 	var receivedBody map[string]any
@@ -893,14 +885,12 @@ func TestRunCreate_FileDash_Stdin_Storage(t *testing.T) {
 	client := api.NewClient(server.URL, "test@example.com", "token")
 	rootOpts.SetAPIClient(client)
 
-	useMd := false
 	opts := &createOptions{
-		Options:  rootOpts,
-		space:    "DEV",
-		title:    "Test Page",
-		file:     "-",
-		storage:  true,
-		markdown: &useMd,
+		Options:    rootOpts,
+		space:      "DEV",
+		title:      "Test Page",
+		file:       "-",
+		bodyFormat: bodyFormatXHTML,
 	}
 
 	err := runCreate(context.Background(), opts)
@@ -912,7 +902,7 @@ func TestRunCreate_FileDash_Stdin_Storage(t *testing.T) {
 	testutil.Nil(t, bodyMap["atlas_doc_format"])
 }
 
-// "--file - --no-markdown" passes raw ADF JSON through to atlas_doc_format
+// "--file - --body-format adf" passes ADF JSON through to atlas_doc_format
 // unconverted (the shape INT-425's create_page(format="adf") relies on).
 func TestRunCreate_FileDash_Stdin_NoMarkdown_ADF(t *testing.T) {
 	t.Parallel()
@@ -926,13 +916,12 @@ func TestRunCreate_FileDash_Stdin_NoMarkdown_ADF(t *testing.T) {
 	client := api.NewClient(server.URL, "test@example.com", "token")
 	rootOpts.SetAPIClient(client)
 
-	useMd := false
 	opts := &createOptions{
-		Options:  rootOpts,
-		space:    "DEV",
-		title:    "Test Page",
-		file:     "-",
-		markdown: &useMd,
+		Options:    rootOpts,
+		space:      "DEV",
+		title:      "Test Page",
+		file:       "-",
+		bodyFormat: bodyFormatADF,
 	}
 
 	err := runCreate(context.Background(), opts)

@@ -155,8 +155,8 @@ func TestRunView_ExactOutput_Raw(t *testing.T) {
 	rootOpts.SetAPIClient(api.NewClient(server.URL, "test@example.com", "token"))
 
 	err := runView(context.Background(), "12345", &viewOptions{
-		Options: rootOpts,
-		raw:     true,
+		Options:    rootOpts,
+		bodyFormat: bodyFormatXHTML,
 	})
 	testutil.RequireNoError(t, err)
 
@@ -185,7 +185,7 @@ func TestRunView_ExactOutput_RawContentOnly_NoTruncate(t *testing.T) {
 
 	err := runView(context.Background(), "12345", &viewOptions{
 		Options:     rootOpts,
-		raw:         true,
+		bodyFormat:  bodyFormatXHTML,
 		contentOnly: true,
 		noTruncate:  true,
 	})
@@ -267,10 +267,10 @@ func TestRunView_ExactOutput_ConversionFallback(t *testing.T) {
 		Options:     rootOpts,
 		contentOnly: true,
 	})
-	testutil.RequireNoError(t, err)
-
-	testutil.Equal(t, "{not-json\n", rootOpts.Stdout.(*bytes.Buffer).String())
-	testutil.Equal(t, "(Failed to convert ADF to markdown, showing raw ADF)\n", rootOpts.Stderr.(*bytes.Buffer).String())
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "--body-format adf")
+	testutil.Equal(t, "", rootOpts.Stdout.(*bytes.Buffer).String())
+	testutil.Contains(t, rootOpts.Stderr.(*bytes.Buffer).String(), "--body-format adf")
 }
 
 func TestRunView_ExactOutput_StorageConversionFallback_Default(t *testing.T) {
@@ -306,10 +306,10 @@ func TestRunView_ExactOutput_StorageConversionFallback_Default(t *testing.T) {
 	rootOpts.SetAPIClient(api.NewClient(server.URL, "test@example.com", "token"))
 
 	err := runView(context.Background(), "12345", &viewOptions{Options: rootOpts})
-	testutil.RequireNoError(t, err)
-
-	testutil.Equal(t, "Title: Broken Storage Page\nID: 12345\nSpace: TEST (ID: 98765)\nVersion: 7\n\n<p>Fallback HTML</p>\n", rootOpts.Stdout.(*bytes.Buffer).String())
-	testutil.Equal(t, "(Failed to convert to markdown, showing raw HTML)\n", rootOpts.Stderr.(*bytes.Buffer).String())
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "--body-format xhtml")
+	testutil.Equal(t, "", rootOpts.Stdout.(*bytes.Buffer).String())
+	testutil.Contains(t, rootOpts.Stderr.(*bytes.Buffer).String(), "--body-format xhtml")
 }
 
 func TestRunView_RawFormat(t *testing.T) {
@@ -331,8 +331,8 @@ func TestRunView_RawFormat(t *testing.T) {
 	rootOpts.SetAPIClient(client)
 
 	opts := &viewOptions{
-		Options: rootOpts,
-		raw:     true,
+		Options:    rootOpts,
+		bodyFormat: bodyFormatXHTML,
 	}
 
 	err := runView(context.Background(), "12345", opts)
@@ -492,7 +492,7 @@ func TestRunView_ContentOnly_Raw(t *testing.T) {
 	opts := &viewOptions{
 		Options:     rootOpts,
 		contentOnly: true,
-		raw:         true,
+		bodyFormat:  bodyFormatXHTML,
 	}
 
 	err := runView(context.Background(), "12345", opts)
@@ -590,9 +590,9 @@ func TestRunView_VersionRaw(t *testing.T) {
 	rootOpts.SetAPIClient(api.NewClient(server.URL, "test@example.com", "token"))
 
 	opts := &viewOptions{
-		Options: rootOpts,
-		version: 2,
-		raw:     true,
+		Options:    rootOpts,
+		version:    2,
+		bodyFormat: bodyFormatXHTML,
 	}
 
 	err := runView(context.Background(), "12345", opts)
@@ -642,9 +642,9 @@ func TestRunView_VersionTruncatesByDefault(t *testing.T) {
 	rootOpts.SetAPIClient(api.NewClient(server.URL, "test@example.com", "token"))
 
 	opts := &viewOptions{
-		Options: rootOpts,
-		version: 2,
-		raw:     true,
+		Options:    rootOpts,
+		version:    2,
+		bodyFormat: bodyFormatXHTML,
 	}
 
 	err := runView(context.Background(), "12345", opts)
@@ -663,7 +663,7 @@ func TestRunView_VersionNoTruncate(t *testing.T) {
 	opts := &viewOptions{
 		Options:    rootOpts,
 		version:    2,
-		raw:        true,
+		bodyFormat: bodyFormatXHTML,
 		noTruncate: true,
 	}
 
@@ -985,7 +985,7 @@ func TestRunView_ADFPage_RawFormat(t *testing.T) {
 	rootOpts := newViewTestRootOptions()
 	client := api.NewClient(server.URL, "test@example.com", "token")
 	rootOpts.SetAPIClient(client)
-	opts := &viewOptions{Options: rootOpts, raw: true}
+	opts := &viewOptions{Options: rootOpts, bodyFormat: bodyFormatADF}
 
 	err := runView(context.Background(), "12345", opts)
 	testutil.RequireNoError(t, err)

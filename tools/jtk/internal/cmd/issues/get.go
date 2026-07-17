@@ -16,7 +16,6 @@ import (
 )
 
 func newGetCmd(opts *root.Options) *cobra.Command {
-	var noTruncate bool
 	var fieldsFlag string
 	var customFields bool
 
@@ -42,12 +41,10 @@ func newGetCmd(opts *root.Options) *cobra.Command {
 				}
 				return runGetMulti(cmd.Context(), opts, args)
 			}
-			return runGet(cmd.Context(), opts, args[0], noTruncate || opts.IsFullText(), fieldsFlag, customFields)
+			return runGet(cmd.Context(), opts, args[0], opts.IsFullText(), fieldsFlag, customFields)
 		},
 	}
 
-	cmd.Flags().BoolVar(&noTruncate, "no-truncate", false, "Show full description without truncation")
-	_ = cmd.Flags().MarkDeprecated("no-truncate", "use --fulltext instead")
 	cmd.Flags().StringVar(&fieldsFlag, "fields", "", "Comma-separated display fields (labels, Jira field IDs, or human names)")
 	cmd.Flags().BoolVar(&customFields, "custom-fields", false, "Append custom fields section to output")
 

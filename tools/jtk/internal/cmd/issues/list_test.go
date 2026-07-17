@@ -78,6 +78,32 @@ func TestRunList_SprintNumericPassThrough(t *testing.T) {
 	}
 }
 
+func TestRunList_AmbiguousSprintDoesNotSearch(t *testing.T) {
+	seedCacheForIssues(t)
+	testutil.RequireNoError(t, seedSprints(map[int][]api.Sprint{
+		11: {{ID: 100, Name: "Duplicated Sprint"}},
+		22: {{ID: 200, Name: "Duplicated Sprint"}},
+	}))
+
+	searchCalls := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/search/jql") {
+			searchCalls++
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	opts, stdout, _ := newListOpts(t, server)
+	err := runList(context.Background(), opts, "PROJ", "Duplicated Sprint", 25, "", "")
+	if err == nil || !strings.Contains(err.Error(), "100") || !strings.Contains(err.Error(), "200") {
+		t.Fatalf("expected candidate IDs, got %v", err)
+	}
+	if searchCalls != 0 || stdout.Len() != 0 {
+		t.Fatalf("ambiguous sprint must fail before search/output: calls=%d stdout=%q", searchCalls, stdout.String())
+	}
+}
+
 func TestRunList_SprintCurrentUsesOpenSprints(t *testing.T) {
 	seedCacheForIssues(t)
 
@@ -561,57 +587,44 @@ func TestJqlEscape(t *testing.T) {
 	}
 }
 
-func TestBuildSprintClause_WarnBranches(t *testing.T) {
+func TestBuildSprintClause_FailsClosed(t *testing.T) {
 	seedCacheForIssues(t)
-	// Seed two boards with a sprint of the same name on both, so name resolution
-	// is ambiguous.
 	testutil.RequireNoError(t, seedSprints(map[int][]api.Sprint{
 		11: {{ID: 100, Name: "Duplicated Sprint", State: "active"}},
 		22: {{ID: 200, Name: "Duplicated Sprint", State: "closed"}},
 	}))
 
-	// Hermetic httptest server — prevents any accidental resolver refresh from
-	// reaching a real host (CI outbound-blocked envs would otherwise time out).
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("{}"))
+		w.WriteHeader(http.StatusInternalServerError)
 	}))
 	defer server.Close()
 
 	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "e", APIToken: "t"})
 	testutil.RequireNoError(t, err)
 
-	t.Run("ambiguous_returns_warning", func(t *testing.T) {
-		clause, warning, err := buildSprintClause(context.Background(), resolve.New(client), "Duplicated Sprint")
-		testutil.RequireNoError(t, err)
-		if !strings.Contains(clause, `sprint = "Duplicated Sprint"`) {
-			t.Fatalf("want quoted JQL fallback, got %q", clause)
-		}
-		if warning == nil || warning.Kind != sprintWarningAmbiguity {
-			t.Errorf("want ambiguity warning, got: %v", warning)
+	t.Run("same name on multiple boards lists candidate IDs", func(t *testing.T) {
+		clause, err := buildSprintClause(context.Background(), resolve.New(client), "Duplicated Sprint")
+		if err == nil || !strings.Contains(err.Error(), "100") || !strings.Contains(err.Error(), "200") {
+			t.Fatalf("want ambiguity with candidate IDs, got clause=%q err=%v", clause, err)
 		}
 	})
 
-	t.Run("unresolvable_name_always_returns_some_warning", func(t *testing.T) {
-		clause, warning, err := buildSprintClause(context.Background(), resolve.New(client), "Nonexistent Sprint Name")
-		testutil.RequireNoError(t, err)
-		if !strings.Contains(clause, `sprint = "Nonexistent Sprint Name"`) {
-			t.Fatalf("want quoted JQL fallback, got %q", clause)
-		}
-		if warning == nil {
-			t.Error("want some warning, got nil")
+	t.Run("resolver failure gives refresh and ID guidance", func(t *testing.T) {
+		clause, err := buildSprintClause(context.Background(), resolve.New(client), "Nonexistent Sprint Name")
+		if err == nil || !strings.Contains(err.Error(), "refresh") || !strings.Contains(err.Error(), "numeric sprint ID") {
+			t.Fatalf("want fail-closed guidance, got clause=%q err=%v", clause, err)
 		}
 	})
 
 	t.Run("negative_numeric_rejected", func(t *testing.T) {
-		_, _, err := buildSprintClause(context.Background(), resolve.New(client), "-5")
+		_, err := buildSprintClause(context.Background(), resolve.New(client), "-5")
 		if err == nil || !strings.Contains(err.Error(), "must be positive") {
 			t.Errorf("want positive-only error, got %v", err)
 		}
 	})
 
 	t.Run("zero_numeric_rejected", func(t *testing.T) {
-		_, _, err := buildSprintClause(context.Background(), resolve.New(client), "0")
+		_, err := buildSprintClause(context.Background(), resolve.New(client), "0")
 		if err == nil || !strings.Contains(err.Error(), "must be positive") {
 			t.Errorf("want positive-only error, got %v", err)
 		}

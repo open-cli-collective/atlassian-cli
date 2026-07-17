@@ -23,10 +23,9 @@ func TestNewListCmd(t *testing.T) {
 
 	testutil.Equal(t, cmd.Use, "list <issue-key>")
 
-	// Check that no-truncate flag exists
-	noTruncateFlag := cmd.Flags().Lookup("no-truncate")
-	testutil.NotNil(t, noTruncateFlag)
-	testutil.Equal(t, noTruncateFlag.DefValue, "false")
+	if cmd.Flags().Lookup("no-truncate") != nil {
+		t.Fatal("deprecated --no-truncate flag must be removed")
+	}
 
 	// Check that max flag exists
 	maxFlag := cmd.Flags().Lookup("max")
@@ -161,15 +160,11 @@ func TestRunList_FullCommentBody(t *testing.T) {
 	output := stdout.String()
 	testutil.Contains(t, output, longText)
 	testutil.NotContains(t, output, "[truncated")
-	// Full mode uses key-value layout
-	testutil.Contains(t, output, "ID:")
-	testutil.Contains(t, output, "Author:")
-	testutil.Contains(t, output, "Body:")
+	testutil.Contains(t, output, "ID | AUTHOR | CREATED | BODY")
 }
 
 // TestNewListCmd_FullTextRoutesFromRoot verifies that --fulltext on the root
-// Options flows through the RunE wrapper to disable truncation, even when the
-// local --no-truncate flag is not set.
+// Options flows through the RunE wrapper to disable truncation.
 func TestNewListCmd_FullTextRoutesFromRoot(t *testing.T) {
 	t.Parallel()
 	longText := strings.Repeat("B", 200)
@@ -212,60 +207,7 @@ func TestNewListCmd_FullTextRoutesFromRoot(t *testing.T) {
 	opts.SetAPIClient(client)
 
 	cmd := newListCmd(opts)
-	cmd.SetArgs([]string{"TEST-1"}) // no --no-truncate locally
-	testutil.RequireNoError(t, cmd.Execute())
-
-	output := stdout.String()
-	testutil.Contains(t, output, longText)
-	testutil.NotContains(t, output, "[truncated")
-}
-
-// TestNewListCmd_NoTruncateAndFullTextBothSet guards the OR-combined path:
-// both the local --no-truncate flag and the global --fulltext must produce
-// the same result when set together (prevents accidental && regression).
-func TestNewListCmd_NoTruncateAndFullTextBothSet(t *testing.T) {
-	t.Parallel()
-	longText := strings.Repeat("B", 200)
-	comments := []api.Comment{
-		{
-			ID:     "1",
-			Author: api.User{DisplayName: "Alice"},
-			Body: &api.ADFDocument{
-				Type:    "doc",
-				Version: 1,
-				Content: []*api.ADFNode{
-					{
-						Type: "paragraph",
-						Content: []*api.ADFNode{
-							{Type: "text", Text: longText},
-						},
-					},
-				},
-			},
-			Created: "2024-01-15T10:00:00.000Z",
-		},
-	}
-
-	server := newTestCommentsServer(t, comments)
-	defer server.Close()
-
-	client, err := api.New(api.ClientConfig{
-		URL:      server.URL,
-		Email:    "test@example.com",
-		APIToken: "token",
-	})
-	testutil.RequireNoError(t, err)
-
-	var stdout bytes.Buffer
-	opts := &root.Options{
-		FullText: true,
-		Stdout:   &stdout,
-		Stderr:   &bytes.Buffer{},
-	}
-	opts.SetAPIClient(client)
-
-	cmd := newListCmd(opts)
-	cmd.SetArgs([]string{"TEST-1", "--no-truncate"})
+	cmd.SetArgs([]string{"TEST-1"})
 	testutil.RequireNoError(t, cmd.Execute())
 
 	output := stdout.String()
@@ -383,7 +325,7 @@ func newCommentsOpts(t *testing.T, server *httptest.Server) (*root.Options, *byt
 	return opts, &stdout, &stderr
 }
 
-func TestRunList_FullTextBlockSpacing(t *testing.T) {
+func TestRunList_FullTextRemainsTable(t *testing.T) {
 	t.Parallel()
 	comments := []api.Comment{
 		plainComment("11", "Alice", "First comment body"),
@@ -397,11 +339,10 @@ func TestRunList_FullTextBlockSpacing(t *testing.T) {
 	testutil.RequireNoError(t, err)
 
 	out := stdout.String()
-	// Each comment block ends with "Body: <text>\n" and the second block starts with "ID: 22".
-	// A blank line between blocks means "Body: First comment body\n\nID: 22" appears.
-	if !strings.Contains(out, "First comment body\n\nID: 22") {
-		t.Errorf("expected blank line between comment blocks; got:\n%s", out)
-	}
+	testutil.Contains(t, out, "ID | AUTHOR | CREATED | BODY")
+	testutil.NotContains(t, out, "ID:")
+	testutil.Contains(t, out, "First comment body")
+	testutil.Contains(t, out, "Second comment body")
 }
 
 func TestRunList_FullTextPaginationOnStderr(t *testing.T) {
@@ -633,7 +574,7 @@ func TestRunList_MultipleCommentsFullMode(t *testing.T) {
 	output := stdout.String()
 	testutil.Contains(t, output, "First comment")
 	testutil.Contains(t, output, "Second comment")
-	// Comments are now rendered as DetailSections with blank line separators (renderer-owned)
+	testutil.Contains(t, output, "ID | AUTHOR | CREATED | BODY")
 }
 
 func TestRunAdd_IDOnly(t *testing.T) {

@@ -19,8 +19,8 @@ func newExportCmd(opts *root.Options) *cobra.Command {
 		Short: "Export automation rule as JSON",
 		Long: `Export the full automation rule definition as JSON.
 
-This outputs the exact JSON returned by the API, suitable for editing
-and re-importing via 'jtk auto update'. Output is always JSON.
+This validates and formats the JSON returned by the API, suitable for
+editing and re-importing via 'jtk auto update'. Output is always JSON.
 
 RECOMMENDED WORKFLOW:
   jtk auto export <rule-id> > rule.json
@@ -51,17 +51,14 @@ func runExport(ctx context.Context, opts *root.Options, ruleID string, compact b
 		return err
 	}
 
-	if compact {
-		_, err = fmt.Fprintln(opts.Stdout, string(raw))
-		return err
-	}
-
-	// Pretty-print the JSON
 	var buf bytes.Buffer
-	if err := json.Indent(&buf, raw, "", "  "); err != nil {
-		// If indenting fails, output raw
-		_, err = fmt.Fprintln(opts.Stdout, string(raw))
-		return err
+	if compact {
+		err = json.Compact(&buf, raw)
+	} else {
+		err = json.Indent(&buf, raw, "", "  ")
+	}
+	if err != nil {
+		return fmt.Errorf("formatting automation rule JSON: %w", err)
 	}
 
 	_, err = fmt.Fprintln(opts.Stdout, buf.String())

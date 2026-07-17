@@ -67,7 +67,7 @@ Both `search` and `list` support the same paging/field flags:
 |------|-------------|
 | `--max N` / `-m N` | Maximum results (default 25; auto-paginates) |
 | `--next-page-token TOKEN` | Resume from previous page token |
-| `--all-fields` | Include all fields (descriptions, etc.) |
+| `--fields description` | Select the description field (with the issue key) instead of the default columns |
 | `--fields summary,status,customfield_10005` | Comma-separated list of specific fields |
 
 Examples:
@@ -79,7 +79,7 @@ jtk issues search --jql "project = PROJ" --max 200
 jtk issues search --jql "project = PROJ" --fields summary,status,customfield_10005
 
 # Include full descriptions
-jtk issues search --jql "project = PROJ" --all-fields
+jtk issues search --jql "project = PROJ" --fields description
 ```
 
 ## Output Format

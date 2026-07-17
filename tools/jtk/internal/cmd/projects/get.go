@@ -22,7 +22,6 @@ func newGetCmd(opts *root.Options) *cobra.Command {
   jtk projects get MYPROJECT
 
   # Admin/audit detail (components enumerated, Simplified/Private flags)
-  jtk projects get MYPROJECT --extended
 
   # Just the project key
   jtk projects get MYPROJECT --id
@@ -62,7 +61,6 @@ func runGet(ctx context.Context, opts *root.Options, keyOrID, fieldsFlag string)
 	selected, projected, err := projection.Resolve(
 		ctx,
 		jtkpresent.ProjectDetailSpec,
-		opts.IsExtended(),
 		fieldsFlag,
 		noFieldFetch,
 		"projects get",
@@ -82,5 +80,5 @@ func runGet(ctx context.Context, opts *root.Options, keyOrID, fieldsFlag string)
 		projection.ApplyToDetailInModel(model, selected)
 		return jtkpresent.Emit(opts, model)
 	}
-	return jtkpresent.Emit(opts, presenter.PresentProjectDetail(project, opts.IsExtended()))
+	return jtkpresent.Emit(opts, presenter.PresentProjectDetail(project, false))
 }

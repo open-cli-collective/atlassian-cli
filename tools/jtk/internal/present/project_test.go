@@ -71,7 +71,7 @@ func TestPresentProjectDetail_Extended_EnumeratesComponentsWithTruncation(t *tes
 	// + Simplified/Private (1) + Description label (1) + description body (1)
 	// = 13 sections.
 	if len(lines) != 13 {
-		t.Fatalf("extended sections = %d, want 13\nlines=%v", len(lines), lines)
+		t.Fatalf("includeOptional sections = %d, want 13\nlines=%v", len(lines), lines)
 	}
 	checks := map[int]string{
 		0:  "MON  Platform Development",
@@ -161,7 +161,7 @@ func TestPresentProjectList_ExtendedMatchesSpecShape(t *testing.T) {
 
 	wantHeaders := []string{"KEY", "TYPE", "STYLE", "LEAD", "ISSUE_TYPES", "COMPONENTS", "NAME"}
 	if !equalStringSlices(table.Headers, wantHeaders) {
-		t.Errorf("extended headers = %v, want %v", table.Headers, wantHeaders)
+		t.Errorf("includeOptional headers = %v, want %v", table.Headers, wantHeaders)
 	}
 	wantCells := []string{"MON", "software", "classic", "Rusty Hall", "Epic, SDLC", "3", "Platform Development"}
 	if got := table.Rows[0].Cells; !equalStringSlices(got, wantCells) {
@@ -253,7 +253,7 @@ func TestPresentProjectTypes_ExtendedAddsDescriptionKey(t *testing.T) {
 	model := ProjectPresenter{}.PresentProjectTypes(types, true)
 	table := sectionTable(t, model, 0)
 	if !equalStringSlices(table.Headers, []string{"KEY", "NAME", "DESCRIPTION_KEY"}) {
-		t.Errorf("extended headers = %v", table.Headers)
+		t.Errorf("includeOptional headers = %v", table.Headers)
 	}
 	if got := table.Rows[0].Cells; !equalStringSlices(got, []string{"software", "Software", "jira.project.type.software.description"}) {
 		t.Errorf("row = %v", got)
@@ -262,26 +262,26 @@ func TestPresentProjectTypes_ExtendedAddsDescriptionKey(t *testing.T) {
 
 func TestProjectListSpec_HeaderParityWithPresenter(t *testing.T) {
 	t.Parallel()
-	for _, extended := range []bool{false, true} {
-		model := ProjectPresenter{}.PresentProjectList(nil, extended)
+	for _, includeOptional := range []bool{false, true} {
+		model := ProjectPresenter{}.PresentProjectList(nil, includeOptional)
 		table := sectionTable(t, model, 0)
-		want := registryHeadersFor(ProjectListSpec, extended)
+		want := registryHeadersFor(ProjectListSpec, includeOptional)
 		if !equalStringSlices(table.Headers, want) {
-			t.Errorf("extended=%v headers mismatch: presenter %v vs registry %v",
-				extended, table.Headers, want)
+			t.Errorf("includeOptional=%v headers mismatch: presenter %v vs registry %v",
+				includeOptional, table.Headers, want)
 		}
 	}
 }
 
 func TestProjectTypeSpec_HeaderParityWithPresenter(t *testing.T) {
 	t.Parallel()
-	for _, extended := range []bool{false, true} {
-		model := ProjectPresenter{}.PresentProjectTypes(nil, extended)
+	for _, includeOptional := range []bool{false, true} {
+		model := ProjectPresenter{}.PresentProjectTypes(nil, includeOptional)
 		table := sectionTable(t, model, 0)
-		want := registryHeadersFor(ProjectTypeSpec, extended)
+		want := registryHeadersFor(ProjectTypeSpec, includeOptional)
 		if !equalStringSlices(table.Headers, want) {
-			t.Errorf("extended=%v headers mismatch: presenter %v vs registry %v",
-				extended, table.Headers, want)
+			t.Errorf("includeOptional=%v headers mismatch: presenter %v vs registry %v",
+				includeOptional, table.Headers, want)
 		}
 	}
 }

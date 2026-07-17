@@ -95,9 +95,6 @@ func newListCmd(opts *root.Options) *cobra.Command {
   # List only active sprints
   jtk sprints list --board 123 --state active
 
-  # Extended output with completion dates, board, goal
-  jtk sprints list --board 123 --extended
-
   # Emit only sprint IDs
   jtk sprints list --board 123 --id`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -139,7 +136,6 @@ func runList(ctx context.Context, opts *root.Options, client *api.Client, boardI
 		selected, projected, err = projection.Resolve(
 			ctx,
 			jtkpresent.SprintListSpec,
-			opts.IsExtended(),
 			fieldsFlag,
 			noFieldFetch,
 			"sprints list",
@@ -187,7 +183,7 @@ func runList(ctx context.Context, opts *root.Options, client *api.Client, boardI
 		return jtkpresent.Emit(opts, jtkpresent.SprintPresenter{}.PresentEmpty())
 	}
 
-	model := jtkpresent.SprintPresenter{}.PresentListWithPagination(page, opts.IsExtended(), hasMore, nextToken)
+	model := jtkpresent.SprintPresenter{}.PresentListWithPagination(page, projection.HasOptionalFields(selected, jtkpresent.SprintListSpec), hasMore, nextToken)
 	if projected {
 		projection.ApplyToTableInModel(model, selected)
 	}
@@ -225,8 +221,7 @@ func newCurrentCmd(opts *root.Options) *cobra.Command {
 		Short: "Show current sprint",
 		Long:  "Show the current active sprint for a board. --board accepts a board ID or name.",
 		Example: `  jtk sprints current --board 123
-  jtk sprints current --board "MON board"
-  jtk sprints current --board 123 --extended`,
+  jtk sprints current --board "MON board"`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if err := validateBoardRef(board); err != nil {
 				return err
@@ -257,7 +252,6 @@ func runCurrent(ctx context.Context, opts *root.Options, client *api.Client, boa
 		selected, projected, err = projection.Resolve(
 			ctx,
 			jtkpresent.SprintDetailSpec,
-			opts.IsExtended(),
 			fieldsFlag,
 			noFieldFetch,
 			"sprints current",
@@ -290,7 +284,7 @@ func runCurrent(ctx context.Context, opts *root.Options, client *api.Client, boa
 		return jtkpresent.Emit(opts, model)
 	}
 
-	model := presenter.PresentDetail(sprint, board, opts.IsExtended())
+	model := presenter.PresentDetail(sprint, board, false)
 	return jtkpresent.Emit(opts, model)
 }
 
@@ -341,7 +335,6 @@ func runIssues(ctx context.Context, opts *root.Options, sprintID int, maxResults
 		selected, projected, err = projection.Resolve(
 			ctx,
 			jtkpresent.IssueListSpec,
-			opts.IsExtended(),
 			fieldsFlag,
 			issueFieldsFetcher(client),
 			"sprints issues",
@@ -389,7 +382,7 @@ func runIssues(ctx context.Context, opts *root.Options, sprintID int, maxResults
 		return jtkpresent.Emit(opts, jtkpresent.SprintPresenter{}.PresentNoIssues())
 	}
 
-	model := jtkpresent.IssuePresenter{}.PresentListWithPagination(result.Issues, opts.IsExtended(), hasMore, nextToken)
+	model := jtkpresent.IssuePresenter{}.PresentListWithPagination(result.Issues, projection.HasOptionalFields(selected, jtkpresent.IssueListSpec), hasMore, nextToken)
 	if projected {
 		jtkpresent.AppendDynamicTableColumns(model, result.Issues, projection.DynamicSpecs(selected))
 		projection.ApplyToTableInModel(model, selected)
@@ -480,7 +473,7 @@ func runAdd(ctx context.Context, opts *root.Options, client *api.Client, sprintI
 	}
 
 	if len(matched) == len(issueKeys) {
-		return jtkpresent.Emit(opts, jtkpresent.IssuePresenter{}.PresentList(matched, opts.IsExtended()))
+		return jtkpresent.Emit(opts, jtkpresent.IssuePresenter{}.PresentList(matched, false))
 	}
 
 fallback:
@@ -545,7 +538,7 @@ func runRemove(ctx context.Context, opts *root.Options, client *api.Client, issu
 	}
 
 	if len(matched) == len(issueKeys) {
-		return jtkpresent.Emit(opts, jtkpresent.IssuePresenter{}.PresentList(matched, opts.IsExtended()))
+		return jtkpresent.Emit(opts, jtkpresent.IssuePresenter{}.PresentList(matched, false))
 	}
 
 fallback:

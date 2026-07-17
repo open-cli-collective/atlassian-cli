@@ -23,8 +23,8 @@ var CommentListSpec = projection.Registry{
 	{Header: "ID", Identity: true},
 	{Header: "AUTHOR"},
 	{Header: "CREATED"},
-	{Header: "UPDATED", Extended: true},
-	{Header: "VISIBILITY", Extended: true},
+	{Header: "UPDATED", Optional: true},
+	{Header: "VISIBILITY", Optional: true},
 	{Header: "BODY"},
 }
 
@@ -35,16 +35,16 @@ var CommentDetailSpec = projection.Registry{
 	{Header: "ID", Identity: true},
 	{Header: "Author"},
 	{Header: "Created"},
-	{Header: "Updated", Extended: true},
-	{Header: "Visibility", Extended: true},
+	{Header: "Updated", Optional: true},
+	{Header: "Visibility", Optional: true},
 	{Header: "Body"},
 }
 
-// PresentList creates a table view for a list of comments. Extended
+// PresentList creates a table view for a list of comments. Optional
 // adds UPDATED column with full timestamp.
-func (CommentPresenter) PresentList(comments []api.Comment, extended bool) *present.OutputModel {
+func (CommentPresenter) PresentList(comments []api.Comment, includeOptional bool) *present.OutputModel {
 	var headers []string
-	if extended {
+	if includeOptional {
 		headers = []string{"ID", "AUTHOR", "CREATED", "UPDATED", "VISIBILITY", "BODY"}
 	} else {
 		headers = []string{"ID", "AUTHOR", "CREATED", "BODY"}
@@ -63,7 +63,7 @@ func (CommentPresenter) PresentList(comments []api.Comment, extended bool) *pres
 				body = body[:100] + "..."
 			}
 		}
-		if extended {
+		if includeOptional {
 			rows[i] = present.Row{
 				Cells: []string{c.ID, author, OrDash(c.Created), OrDash(c.Updated), formatVisibility(c.Visibility), body},
 			}
@@ -81,8 +81,8 @@ func (CommentPresenter) PresentList(comments []api.Comment, extended bool) *pres
 }
 
 // PresentListFull creates detail views for comments without truncation.
-// Each comment becomes a DetailSection. Extended adds Updated field.
-func (CommentPresenter) PresentListFull(comments []api.Comment, extended bool) *present.OutputModel {
+// Each comment becomes a DetailSection. Optional adds Updated field.
+func (CommentPresenter) PresentListFull(comments []api.Comment, includeOptional bool) *present.OutputModel {
 	sections := make([]present.Section, len(comments))
 	for i, c := range comments {
 		author := "Unknown"
@@ -98,7 +98,7 @@ func (CommentPresenter) PresentListFull(comments []api.Comment, extended bool) *
 			{Label: "Author", Value: author},
 			{Label: "Created", Value: FormatTime(c.Created)},
 		}
-		if extended {
+		if includeOptional {
 			fields = append(fields,
 				present.Field{Label: "Updated", Value: OrDash(c.Updated)},
 				present.Field{Label: "Visibility", Value: formatVisibility(c.Visibility)},
@@ -112,16 +112,16 @@ func (CommentPresenter) PresentListFull(comments []api.Comment, extended bool) *
 
 // PresentListWithPagination wraps PresentList and appends a stdout-bound
 // pagination hint when hasMore is true.
-func (p CommentPresenter) PresentListWithPagination(comments []api.Comment, extended bool, hasMore bool) *present.OutputModel {
-	model := p.PresentList(comments, extended)
+func (p CommentPresenter) PresentListWithPagination(comments []api.Comment, includeOptional bool, hasMore bool) *present.OutputModel {
+	model := p.PresentList(comments, includeOptional)
 	model.Sections = AppendPaginationHint(model.Sections, hasMore)
 	return model
 }
 
 // PresentListFullWithPagination wraps PresentListFull and appends a
 // stdout-bound pagination hint when hasMore is true.
-func (p CommentPresenter) PresentListFullWithPagination(comments []api.Comment, extended bool, hasMore bool) *present.OutputModel {
-	model := p.PresentListFull(comments, extended)
+func (p CommentPresenter) PresentListFullWithPagination(comments []api.Comment, includeOptional bool, hasMore bool) *present.OutputModel {
+	model := p.PresentListFull(comments, includeOptional)
 	model.Sections = AppendPaginationHint(model.Sections, hasMore)
 	return model
 }

@@ -46,42 +46,26 @@ func (e *AmbiguousFieldNameError) Error() string {
 	)
 }
 
-// ExtendedOnlyError reports a --fields token that matches an Extended-only
-// spec while --extended is off. The user can fix the command by adding
-// --extended.
-type ExtendedOnlyError struct {
-	Token  string
-	Header string
-}
-
-func (e *ExtendedOnlyError) Error() string {
-	return fmt.Sprintf(
-		"field %q is only available with --extended (matches %q)",
-		e.Token, e.Header,
-	)
-}
-
 // Resolve is the single entrypoint commands call.
 //
 // projectionApplied is the authoritative switch; callers MUST branch on it,
 // not on len(selected). selected carries two meanings depending on the flag:
 //   - projectionApplied == false → selected is the full mode registry
-//     (r.ForMode(extended)). Callers render the full model; do NOT call
+//     (r.Default()). Callers render the compact model; do NOT call
 //     ProjectTable/ProjectDetail.
 //   - projectionApplied == true  → selected is the user's chosen subset
 //     (identity-prepended, user order preserved). Callers MUST call
 //     ProjectTable/ProjectDetail to slice the model.
 //
 // Behavior:
-//   - fieldsFlag empty → (r.ForMode(extended), false, nil). fetchFields is
+//   - fieldsFlag empty → (r.Default(), false, nil). fetchFields is
 //     NOT called.
 //   - fieldsFlag non-empty: parse CSV; resolve each token. Tokens that miss
 //     header/alias/FieldID matching trigger a single fetchFields() call
 //     (memoized across tokens in the invocation) and retry against
 //     api.Field.Name (case-insensitive).
 //   - Identity specs are prepended if the user omitted them; dedup preserved.
-//   - If a token matches an Extended-only spec with extended==false, return
-//     ExtendedOnlyError.
+//   - Optional specs remain selectable explicitly with --fields.
 //   - If a token resolves to a real api.Field but no registry entry, a
 //     dynamic ColumnSpec is created (Dynamic: true) so the command can
 //     render it from the issue's raw field data.
@@ -92,16 +76,15 @@ func (e *ExtendedOnlyError) Error() string {
 func Resolve(
 	ctx context.Context,
 	r Registry,
-	extended bool,
 	fieldsFlag string,
 	fetchFields func(context.Context) ([]api.Field, error),
 	_ string,
 ) (selected []ColumnSpec, projectionApplied bool, err error) {
-	modeRegistry := r.ForMode(extended)
+	defaultRegistry := r.Default()
 
 	tokens := parseTokens(fieldsFlag)
 	if len(tokens) == 0 {
-		return modeRegistry, false, nil
+		return defaultRegistry, false, nil
 	}
 
 	var cachedFields []api.Field
@@ -133,7 +116,7 @@ func Resolve(
 
 	// Identity first — always included, silently prepended if the user
 	// omitted it.
-	for _, c := range modeRegistry {
+	for _, c := range defaultRegistry {
 		if c.Identity {
 			appendSpec(c)
 		}
@@ -148,12 +131,13 @@ func Resolve(
 	//
 	// Pass 2 (slow path): if any tokens deferred, fetchFields() once, then
 	// retry each deferred token against the mode registry (picks up human
-	// names), the full registry (for Extended-only errors), and raw Jira
+	// names), the full registry (including explicitly selectable optional specs),
+	// and raw Jira
 	// metadata (for UnrenderedFieldError).
 	resolved := make([]*ColumnSpec, len(tokens))
 	var deferred []int
 	for i, tok := range tokens {
-		if spec, ok := modeRegistry.Match(tok, nil); ok {
+		if spec, ok := r.Match(tok, nil); ok {
 			s := spec
 			resolved[i] = &s
 			continue
@@ -179,17 +163,11 @@ func Resolve(
 		var unknown []string
 		for _, i := range deferred {
 			tok := tokens[i]
-			if spec, ok := modeRegistry.Match(tok, fields); ok {
+			if spec, ok := r.Match(tok, fields); ok {
 				s := spec
 				resolved[i] = &s
 				resolvedHeaders[strings.ToLower(s.Header)] = struct{}{}
 				continue
-			}
-
-			if !extended {
-				if spec, ok := r.Match(tok, fields); ok && spec.Extended {
-					return nil, false, &ExtendedOnlyError{Token: tok, Header: spec.Header}
-				}
 			}
 
 			if jf := findJiraField(fields, tok); jf != nil {
@@ -222,7 +200,7 @@ func Resolve(
 		if len(unknown) > 0 {
 			return nil, false, &UnknownFieldError{
 				Unknown:     unknown,
-				Suggestions: registryHeaders(modeRegistry),
+				Suggestions: registryHeaders(r),
 			}
 		}
 	}

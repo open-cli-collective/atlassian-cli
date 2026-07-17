@@ -67,7 +67,7 @@ Commands use a root `Options` struct for global flags and dependencies. Command 
 
 Read `internal/cmd/GUARDRAILS.md` before changing command names, flags, arguments, pagination, mutation safety, or cache-backed identity resolution.
 
-Read `internal/cmd/OUTPUT_SPEC.md` before changing default output, `--id`, `--extended`, `--fulltext`, or mutation output.
+Read `internal/cmd/OUTPUT_SPEC.md` before changing default output, `--id`, `--fields`, `--fulltext`, or mutation output.
 
 `jtk` is text-first. It has no global output-format flag. JSON is reserved for round-trip payloads such as automation export and control-plane envelopes documented by the shared standards.
 

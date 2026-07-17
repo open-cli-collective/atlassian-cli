@@ -15,7 +15,6 @@ func newSearchCmd(opts *root.Options) *cobra.Command {
 	var jql string
 	var maxResults int
 	var nextPageToken string
-	var allFields bool
 	var fieldsFlag string
 
 	cmd := &cobra.Command{
@@ -33,30 +32,24 @@ func newSearchCmd(opts *root.Options) *cobra.Command {
 
   # Resume from a previous page token
   jtk issues search --jql "project = MYPROJECT" --next-page-token <token>
-
-  # Search with all fields (includes description)
-  jtk issues search --jql "project = MYPROJECT" --all-fields
-
   # Project display columns — headers, Jira field IDs, or human names
   jtk issues search --jql "project = MYPROJECT" --fields SUMMARY,STATUS
   jtk issues search --jql "project = MYPROJECT" --fields "Issue Type"`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runSearch(cmd.Context(), opts, jql, maxResults, nextPageToken, allFields, fieldsFlag)
+			return runSearch(cmd.Context(), opts, jql, maxResults, nextPageToken, fieldsFlag)
 		},
 	}
 
 	cmd.Flags().StringVar(&jql, "jql", "", "JQL query string (required)")
 	cmd.Flags().IntVarP(&maxResults, "max", "m", 50, "Maximum number of results to return")
 	cmd.Flags().StringVar(&nextPageToken, "next-page-token", "", "Token for next page of results")
-	cmd.Flags().BoolVar(&allFields, "all-fields", false, "Include all fields (e.g. description)")
-	_ = cmd.Flags().MarkDeprecated("all-fields", "use --fields description instead")
 	cmd.Flags().StringVar(&fieldsFlag, "fields", "", "Comma-separated display columns (headers, Jira field IDs, or human names)")
 	_ = cmd.MarkFlagRequired("jql")
 
 	return cmd
 }
 
-func runSearch(ctx context.Context, opts *root.Options, jql string, maxResults int, nextPageToken string, allFields bool, fieldsFlag string) error {
+func runSearch(ctx context.Context, opts *root.Options, jql string, maxResults int, nextPageToken, fieldsFlag string) error {
 	client, err := opts.APIClient()
 	if err != nil {
 		return err
@@ -73,7 +66,6 @@ func runSearch(ctx context.Context, opts *root.Options, jql string, maxResults i
 		selected, projected, err = projection.Resolve(
 			ctx,
 			jtkpresent.IssueListSpec,
-			opts.IsExtended(),
 			fieldsFlag,
 			fieldsFetcher(client),
 			"issues search",
@@ -83,7 +75,7 @@ func runSearch(ctx context.Context, opts *root.Options, jql string, maxResults i
 		}
 	}
 
-	fields := deriveFetchFields(selected, projected, opts.IsExtended(), allFields)
+	fields := deriveFetchFields(selected, projected)
 
 	result, err := client.SearchPage(ctx, api.SearchPageOptions{
 		JQL:           jql,
@@ -113,7 +105,7 @@ func runSearch(ctx context.Context, opts *root.Options, jql string, maxResults i
 		return jtkpresent.Emit(opts, jtkpresent.IssuePresenter{}.PresentEmpty())
 	}
 
-	model := jtkpresent.IssuePresenter{}.PresentListWithPagination(result.Issues, opts.IsExtended(), hasMore, nextToken)
+	model := jtkpresent.IssuePresenter{}.PresentListWithPagination(result.Issues, projection.HasOptionalFields(selected, jtkpresent.IssueListSpec), hasMore, nextToken)
 	if projected {
 		jtkpresent.AppendDynamicTableColumns(model, result.Issues, projection.DynamicSpecs(selected))
 		projection.ApplyToTableInModel(model, selected)

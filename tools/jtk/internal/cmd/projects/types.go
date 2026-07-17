@@ -20,7 +20,6 @@ func newTypesCmd(opts *root.Options) *cobra.Command {
 		Example: `  jtk projects types
 
   # Include DESCRIPTION_KEY column
-  jtk projects types --extended
 
   # Emit just the project-type keys
   jtk projects types --id
@@ -51,7 +50,6 @@ func runTypes(ctx context.Context, opts *root.Options, fieldsFlag string) error 
 		selected, projected, err = projection.Resolve(
 			ctx,
 			jtkpresent.ProjectTypeSpec,
-			opts.IsExtended(),
 			fieldsFlag,
 			noFieldFetch,
 			"projects types",
@@ -79,7 +77,7 @@ func runTypes(ctx context.Context, opts *root.Options, fieldsFlag string) error 
 	}
 
 	presenter := jtkpresent.ProjectPresenter{}
-	model := presenter.PresentProjectTypes(types, opts.IsExtended())
+	model := presenter.PresentProjectTypes(types, projection.HasOptionalFields(selected, jtkpresent.ProjectTypeSpec))
 	if projected {
 		projection.ApplyToTableInModel(model, selected)
 	}

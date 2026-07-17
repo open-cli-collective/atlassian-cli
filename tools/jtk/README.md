@@ -15,7 +15,7 @@ A command-line interface for managing Jira Cloud tickets.
 - Manage dashboards and gadgets
 - Create and manage issue links
 - Search and look up users
-- Text-first output with `--id`, `--extended`, and `--fulltext` modifiers
+- Text-first output with `--id`, `--fulltext`, and explicit `--fields` projections
 - Shell completion for bash, zsh, fish, and PowerShell
 
 ## Installation
@@ -152,15 +152,14 @@ These flags are available on all commands:
 
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
-| `--extended` | | `false` | Include admin/schema/audit fields in output |
 | `--fulltext` | | `false` | Disable truncation of descriptions, comments, and history values |
-| `--id` | | `false` | Emit only the primary identifier (takes precedence over `--extended` and `--fulltext`) |
+| `--id` | | `false` | Emit only the primary identifier (takes precedence over `--fulltext`) |
 | `--no-color` | | `false` | Disable colored output |
 | `--verbose` | `-v` | `false` | Log each request's method/URL, JSON body, status, and any 4xx/5xx response body (each capped at 4 KB). Useful for diagnosing opaque Jira errors like `INVALID_INPUT`. |
 | `--help` | `-h` | | Show help for command |
 | `--version` | | | Show version (root command only) |
 
-> `automation export` is the only command that emits JSON — it writes directly to stdout.
+> `automation export` is the only resource command that emits JSON — it writes directly to stdout. The control-plane `set-credential --json` envelope is the sole other exception.
 
 ---
 
@@ -200,11 +199,10 @@ Show information about the currently authenticated user.
 
 ```bash
 jtk me
-jtk me --id        # print just the account ID (for scripting)
-jtk me --extended  # include timezone, locale, and group/application-role counts
+jtk me --id  # print just the account ID (for scripting)
 ```
 
-Uses global flags `--id` and `--extended` — no command-specific flags.
+Uses the global `--id` flag and has no command-specific flags.
 
 ---
 
@@ -329,7 +327,7 @@ List Jira changelog history for an issue as compact changed-field rows. Rows are
 ```bash
 jtk issues history PROJ-123
 jtk issues history PROJ-123 --id
-jtk issues history PROJ-123 --extended
+jtk issues history PROJ-123 --fields ACCOUNT_ID,FIELD_ID,TYPE,FROM_ID,TO_ID
 jtk issues history PROJ-123 --fields CREATED,FIELD,TO
 jtk issues history PROJ-123 --max 1
 jtk issues history PROJ-123 --next-page-token 50
@@ -340,7 +338,6 @@ jtk issues history PROJ-123 --next-page-token 50
 | `--max` | `-m` | `50` | Maximum number of changelog groups to return |
 | `--next-page-token` | | | Token for next page of results |
 | `--fields` | | | Comma-separated display columns |
-| `--extended` | | `false` | Include raw/audit history fields (global) |
 | `--fulltext` | | `false` | Show full history values without truncation (global) |
 | `--id` | | `false` | Emit changelog group IDs only (global) |
 
@@ -707,7 +704,7 @@ List available transitions for an issue.
 
 ```bash
 jtk transitions list PROJ-123
-jtk transitions list PROJ-123 --extended
+jtk transitions list PROJ-123 --fields
 jtk transitions list PROJ-123 --id
 ```
 
@@ -1154,7 +1151,7 @@ Get details for a specific user by account ID.
 ```bash
 jtk users get 5b10ac8d82e05b22cc7d4ef5
 jtk users get 5b10ac8d82e05b22cc7d4ef5 --id     # global flag: emit only account ID
-jtk users get 5b10ac8d82e05b22cc7d4ef5 --extended
+jtk users get 5b10ac8d82e05b22cc7d4ef5 --fields TIMEZONE,LOCALE,GROUPS,APPLICATION_ROLES
 ```
 
 | Flag | Default | Description |
@@ -1223,7 +1220,7 @@ jtk automation export 123 > rule-backup.json
 **Arguments:**
 - `<rule-id>` - The rule ID (**required**)
 
-> Note: Output is always JSON — this is the only jtk command that emits JSON directly.
+> Note: Output is always JSON — this is the only resource command that emits JSON directly (the control-plane `set-credential --json` envelope is the other exception).
 
 ---
 
@@ -1811,7 +1808,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 Adding a new command or flag? Read these specs first — they're the contract every command in this CLI is held to:
 
 - [internal/cmd/GUARDRAILS.md](internal/cmd/GUARDRAILS.md) — verb language, flag aliases, pagination, mutation safety, boolean conventions, positional-vs-flag rule
-- [internal/cmd/OUTPUT_SPEC.md](internal/cmd/OUTPUT_SPEC.md) — list/get/mutation output shapes, `--id` / `--extended` / `--fulltext` semantics, error conventions
+- [internal/cmd/OUTPUT_SPEC.md](internal/cmd/OUTPUT_SPEC.md) — list/get/mutation output shapes, `--id` / `--fields` / `--fulltext` semantics, error conventions
 
 ## License
 

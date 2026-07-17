@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/open-cli-collective/atlassian-go/atime"
 	"github.com/open-cli-collective/atlassian-go/present"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
@@ -238,30 +237,8 @@ func (AutomationPresenter) PresentList(rules []api.AutomationRuleSummary) *prese
 	}
 }
 
-// PresentListExtended creates an extended table: ID | STATE | LABELS | TAGS | AUTHOR | NAME.
+// PresentListExtended creates an includeOptional table: ID | STATE | LABELS | TAGS | AUTHOR | NAME.
 // authorNames maps AuthorAccountID → display name; missing entries render as the raw account ID.
-func (AutomationPresenter) PresentListExtended(rules []api.AutomationRuleSummary, authorNames map[string]string) *present.OutputModel {
-	rows := make([]present.Row, len(rules))
-	for i, r := range rules {
-		labels := OrDash(strings.Join(r.Labels, ", "))
-		tags := OrDash(strings.Join(r.Tags, ", "))
-		author := resolveAuthor(r.AuthorAccountID, authorNames)
-		rows[i] = present.Row{
-			Cells: []string{r.Identifier(), r.State, labels, tags, author, r.Name},
-		}
-	}
-
-	return &present.OutputModel{
-		Sections: []present.Section{
-			&present.TableSection{
-				Headers: []string{"ID", "STATE", "LABELS", "TAGS", "AUTHOR", "NAME"},
-				Rows:    rows,
-			},
-		},
-	}
-}
-
-// PresentGetDetail creates the get-specific detail view with header line + KV rows.
 func (AutomationPresenter) PresentGetDetail(rule *api.AutomationRule, showComponents bool) *present.OutputModel {
 	sections := []present.Section{
 		msg(fmt.Sprintf("%s  %s", rule.Identifier(), rule.Name)),
@@ -280,32 +257,8 @@ func (AutomationPresenter) PresentGetDetail(rule *api.AutomationRule, showCompon
 	return &present.OutputModel{Sections: sections}
 }
 
-// PresentGetDetailExtended creates the extended detail view, adding Labels, Tags,
+// PresentGetDetailExtended creates the includeOptional detail view, adding Labels, Tags,
 // Author, Scope, Created, Updated on top of the default get layout.
-func (AutomationPresenter) PresentGetDetailExtended(rule *api.AutomationRule, showComponents bool, authorName string) *present.OutputModel {
-	sections := []present.Section{
-		msg(fmt.Sprintf("%s  %s", rule.Identifier(), rule.Name)),
-		msg(fmt.Sprintf("State: %s", rule.State)),
-		msg(fmt.Sprintf("Components: %s", SummarizeComponents(rule.Components))),
-	}
-
-	if rule.Description != "" {
-		sections = append(sections, msg(fmt.Sprintf("Description: %s", rule.Description)))
-	}
-
-	sections = append(sections, msg(fmt.Sprintf("Labels: %s", OrDash(strings.Join(rule.Labels, ", ")))))
-	sections = append(sections, msg(fmt.Sprintf("Tags: %s", OrDash(strings.Join(rule.Tags, ", ")))))
-	sections = append(sections, msg(fmt.Sprintf("Author: %s", OrDash(authorName))))
-	sections = append(sections, msg(fmt.Sprintf("Scope: %s", automationScope(rule))))
-	sections = append(sections, msg(fmt.Sprintf("Created: %s   Updated: %s", formatAtlassianTimeOrDash(rule.Created), formatAtlassianTimeOrDash(rule.Updated))))
-
-	if showComponents && (rule.Trigger != nil || len(rule.Components) > 0) {
-		sections = append(sections, componentTree(rule.Trigger, rule.Components))
-	}
-
-	return &present.OutputModel{Sections: sections}
-}
-
 func componentTree(trigger *api.RuleComponent, components []api.RuleComponent) *present.MessageSection {
 	var lines []string
 	if trigger != nil {
@@ -363,16 +316,6 @@ func pluralize(word string, count int) string {
 	return word + "s"
 }
 
-func resolveAuthor(accountID string, authorNames map[string]string) string {
-	if accountID == "" {
-		return "-"
-	}
-	if name, ok := authorNames[accountID]; ok {
-		return name
-	}
-	return accountID
-}
-
 // SummarizeComponents creates a compact summary of rule components.
 // Exported for testing.
 func SummarizeComponents(components []api.RuleComponent) string {
@@ -404,11 +347,4 @@ func SummarizeComponents(components []api.RuleComponent) string {
 	}
 
 	return fmt.Sprintf("%d total — %s", len(components), strings.Join(parts, ", "))
-}
-
-func formatAtlassianTimeOrDash(t *atime.AtlassianTime) string {
-	if t == nil || t.IsZero() {
-		return "-"
-	}
-	return FormatDate(&t.Time)
 }

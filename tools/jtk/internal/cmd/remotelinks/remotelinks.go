@@ -46,7 +46,6 @@ func newListCmd(opts *root.Options) *cobra.Command {
 		Short: "List remote links on an issue",
 		Long:  "List all remote (web) links on a specific issue.",
 		Example: `  jtk remotelinks list PROJ-123
-  jtk remotelinks list PROJ-123 --extended
   jtk remotelinks list PROJ-123 --id
   jtk remotelinks list PROJ-123 --fields TITLE,URL`,
 		Args: cobra.ExactArgs(1),
@@ -70,7 +69,6 @@ func runList(ctx context.Context, opts *root.Options, issueKey, fieldsFlag strin
 		selected, projected, err = projection.Resolve(
 			ctx,
 			jtkpresent.RemoteLinkListSpec,
-			opts.IsExtended(),
 			fieldsFlag,
 			noFieldFetch,
 			"remotelinks list",
@@ -102,7 +100,7 @@ func runList(ctx context.Context, opts *root.Options, issueKey, fieldsFlag strin
 		return jtkpresent.Emit(opts, jtkpresent.RemoteLinkPresenter{}.PresentEmpty(issueKey))
 	}
 
-	model := jtkpresent.RemoteLinkPresenter{}.PresentList(links, opts.IsExtended())
+	model := jtkpresent.RemoteLinkPresenter{}.PresentList(links, projection.HasOptionalFields(selected, jtkpresent.RemoteLinkListSpec))
 	if projected {
 		projection.ApplyToTableInModel(model, selected)
 	}

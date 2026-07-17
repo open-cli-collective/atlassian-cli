@@ -48,7 +48,6 @@ func newGetCmd(opts *root.Options) *cobra.Command {
   jtk users get 61292e4c4f29230069621c5f
 
   # Include timezone, locale, and group/application-role counts
-  jtk users get 61292e4c4f29230069621c5f --extended
 
   # Just the account ID
   jtk users get 61292e4c4f29230069621c5f --id
@@ -84,7 +83,6 @@ func runGet(ctx context.Context, opts *root.Options, accountID, fieldsFlag strin
 	selected, projected, err := projection.Resolve(
 		ctx,
 		jtkpresent.UserDetailSpec,
-		opts.IsExtended(),
 		fieldsFlag,
 		noFieldFetch,
 		"users get",
@@ -94,8 +92,8 @@ func runGet(ctx context.Context, opts *root.Options, accountID, fieldsFlag strin
 	}
 
 	expand := ""
-	if opts.IsExtended() {
-		expand = api.UserExtendedExpand
+	if projection.HasOptionalFields(selected, jtkpresent.UserDetailSpec) {
+		expand = api.UserDetailExpand
 	}
 	user, err := cache.GetUserCacheFirst(ctx, client, accountID, expand)
 	if err != nil {
@@ -110,9 +108,6 @@ func runGet(ctx context.Context, opts *root.Options, accountID, fieldsFlag strin
 	}
 
 	var model = presenter.PresentUserOneLiner(user)
-	if opts.IsExtended() {
-		model = presenter.PresentUserExtended(user)
-	}
 	return jtkpresent.Emit(opts, model)
 }
 
@@ -135,7 +130,6 @@ from the page being full (len(results) == --max).`,
   jtk users search john
 
   # Include timezone and locale columns
-  jtk users search john --extended
 
   # Emit just account IDs, one per line
   jtk users search john --id
@@ -177,7 +171,6 @@ func runSearch(ctx context.Context, opts *root.Options, query string, maxResults
 		selected, projected, err = projection.Resolve(
 			ctx,
 			jtkpresent.UserListSpec,
-			opts.IsExtended(),
 			fieldsFlag,
 			noFieldFetch,
 			"users search",
@@ -217,7 +210,7 @@ func runSearch(ctx context.Context, opts *root.Options, query string, maxResults
 		return jtkpresent.Emit(opts, model)
 	}
 
-	model := jtkpresent.UserPresenter{}.PresentUserListWithPagination(users, opts.IsExtended(), hasMore, nextToken)
+	model := jtkpresent.UserPresenter{}.PresentUserListWithPagination(users, projection.HasOptionalFields(selected, jtkpresent.UserListSpec), hasMore, nextToken)
 	if projected {
 		projection.ApplyToTableInModel(model, selected)
 	}

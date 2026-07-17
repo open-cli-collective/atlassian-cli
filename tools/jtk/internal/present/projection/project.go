@@ -102,19 +102,16 @@ func ApplyToDetailInModel(model *present.OutputModel, selected []ColumnSpec) {
 	}
 }
 
-// HasExtendedFields returns true if any of the selected specs correspond to
-// Extended-only fields in the registry. This lets commands gate expensive
-// fetches on whether the user explicitly requested extended fields via
-// --fields, not just whether --extended is active.
-func HasExtendedFields(selected []ColumnSpec, registry Registry) bool {
-	extendedHeaders := make(map[string]struct{})
+// HasOptionalFields reports whether --fields selected any non-default fields.
+func HasOptionalFields(selected []ColumnSpec, registry Registry) bool {
+	optionalHeaders := make(map[string]struct{})
 	for _, c := range registry {
-		if c.Extended {
-			extendedHeaders[c.Header] = struct{}{}
+		if c.Optional {
+			optionalHeaders[c.Header] = struct{}{}
 		}
 	}
 	for _, c := range selected {
-		if _, ok := extendedHeaders[c.Header]; ok {
+		if _, ok := optionalHeaders[c.Header]; ok {
 			return true
 		}
 	}

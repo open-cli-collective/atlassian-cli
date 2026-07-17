@@ -23,7 +23,6 @@ func newHistoryCmd(opts *root.Options) *cobra.Command {
 		Long:  "List Jira changelog history for an issue as compact changed-field rows.",
 		Example: `  jtk issues history PROJ-123
   jtk issues history PROJ-123 --id
-  jtk issues history PROJ-123 --extended
   jtk issues history PROJ-123 --fields CREATED,FIELD,TO
   jtk issues history PROJ-123 --max 1
   jtk issues history PROJ-123 --next-page-token 50`,
@@ -53,7 +52,6 @@ func runHistory(ctx context.Context, opts *root.Options, issueKey string, maxRes
 		selected, projected, err = projection.Resolve(
 			ctx,
 			jtkpresent.IssueHistorySpec,
-			opts.IsExtended(),
 			fieldsFlag,
 			noIssueFieldsFetcher,
 			"issues history",
@@ -94,8 +92,7 @@ func runHistory(ctx context.Context, opts *root.Options, issueKey string, maxRes
 		return jtkpresent.Emit(opts, jtkpresent.IssueHistoryPresenter{}.PresentNoIssueHistory(issueKey))
 	}
 
-	fulltext := opts.IsFullText() || opts.IsExtended()
-	model := jtkpresent.IssueHistoryPresenter{}.PresentIssueHistoryWithPagination(rows, opts.IsExtended(), fulltext, hasMore, nextToken)
+	model := jtkpresent.IssueHistoryPresenter{}.PresentIssueHistoryWithPagination(rows, projection.HasOptionalFields(selected, jtkpresent.IssueHistorySpec), opts.IsFullText(), hasMore, nextToken)
 	if projected {
 		projection.ApplyToTableInModel(model, selected)
 	}

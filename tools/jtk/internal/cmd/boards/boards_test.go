@@ -6,8 +6,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"strings"
-	"sync"
 	"testing"
 
 	"github.com/open-cli-collective/atlassian-go/testutil"
@@ -91,42 +89,6 @@ func TestRunList_Table(t *testing.T) {
 	testutil.Contains(t, output, "BETA")
 	testutil.Contains(t, output, "scrum")
 	testutil.Contains(t, output, "kanban")
-}
-
-func TestRunList_Extended(t *testing.T) {
-	t.Parallel()
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_ = json.NewEncoder(w).Encode(api.BoardsResponse{
-			Values: []api.Board{
-				{
-					ID:   23,
-					Name: "MON board",
-					Type: "scrum",
-					Location: api.BoardLocation{
-						ProjectKey:  "MON",
-						ProjectName: "Platform Development",
-					},
-				},
-			},
-			Total:  1,
-			IsLast: true,
-		})
-	}))
-	defer server.Close()
-
-	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
-	testutil.RequireNoError(t, err)
-
-	var stdout bytes.Buffer
-	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}, Extended: true}
-	opts.SetAPIClient(client)
-
-	err = runList(context.Background(), opts, "", 50, "", "")
-	testutil.RequireNoError(t, err)
-
-	output := stdout.String()
-	testutil.Contains(t, output, "PROJECT_NAME")
-	testutil.Contains(t, output, "Platform Development")
 }
 
 func TestRunList_IDOnly(t *testing.T) {
@@ -324,99 +286,6 @@ func TestRunList_Pagination(t *testing.T) {
 	testutil.Contains(t, stdout.String(), "More results available (next: 1)")
 }
 
-func TestRunGet_Extended(t *testing.T) {
-	t.Parallel()
-	var mu sync.Mutex
-	requestPaths := make([]string, 0, 2)
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		mu.Lock()
-		requestPaths = append(requestPaths, r.URL.Path)
-		mu.Unlock()
-		if strings.Contains(r.URL.Path, "/configuration") {
-			_ = json.NewEncoder(w).Encode(api.BoardConfiguration{
-				ID:     42,
-				Name:   "Sprint Board",
-				Filter: api.BoardFilter{ID: "100", Name: "my filter"},
-				ColumnConfig: api.BoardColumnConfig{
-					Columns: []api.BoardColumn{{Name: "Backlog"}, {Name: "Done"}},
-				},
-			})
-		} else {
-			_ = json.NewEncoder(w).Encode(api.Board{
-				ID: 42, Name: "Sprint Board", Type: "scrum",
-				Location: api.BoardLocation{ProjectKey: "PROJ", ProjectName: "My Project"},
-			})
-		}
-	}))
-	defer server.Close()
-
-	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
-	testutil.RequireNoError(t, err)
-
-	var stdout bytes.Buffer
-	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}, Extended: true}
-	opts.SetAPIClient(client)
-
-	resolvedBoard := &api.Board{ID: 42, Name: "Sprint Board"}
-	err = runGet(context.Background(), opts, client, resolvedBoard, "")
-	testutil.RequireNoError(t, err)
-
-	output := stdout.String()
-	testutil.Contains(t, output, "Filter: my filter (id: 100)")
-	testutil.Contains(t, output, "Column config: Backlog, Done")
-	// Verify both board and configuration endpoints were hit
-	mu.Lock()
-	pathCount := len(requestPaths)
-	mu.Unlock()
-	if pathCount < 2 {
-		t.Errorf("expected 2 API calls (board + config), got %d", pathCount)
-	}
-}
-
-func TestRunGet_Extended_EmptyFilterName(t *testing.T) {
-	t.Parallel()
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.Contains(r.URL.Path, "/configuration") {
-			_ = json.NewEncoder(w).Encode(api.BoardConfiguration{
-				ID:     42,
-				Name:   "Sprint Board",
-				Filter: api.BoardFilter{ID: "10084", Name: ""},
-				ColumnConfig: api.BoardColumnConfig{
-					Columns: []api.BoardColumn{
-						{Name: "Backlog"},
-						{Name: "Ready for Development"},
-						{Name: "In Development"},
-					},
-				},
-			})
-		} else {
-			_ = json.NewEncoder(w).Encode(api.Board{
-				ID: 42, Name: "Sprint Board", Type: "scrum",
-				Location: api.BoardLocation{ProjectKey: "PROJ", ProjectName: "My Project"},
-			})
-		}
-	}))
-	defer server.Close()
-
-	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
-	testutil.RequireNoError(t, err)
-
-	var stdout bytes.Buffer
-	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}, Extended: true}
-	opts.SetAPIClient(client)
-
-	resolvedBoard := &api.Board{ID: 42, Name: "Sprint Board"}
-	err = runGet(context.Background(), opts, client, resolvedBoard, "")
-	testutil.RequireNoError(t, err)
-
-	output := stdout.String()
-	testutil.Contains(t, output, "Filter: id: 10084")
-	if strings.Contains(output, "Filter:  (id:") {
-		t.Errorf("filter should not have leading space before (id:): %q", output)
-	}
-	testutil.Contains(t, output, "Column config: Backlog, Ready for Development, In Development")
-}
-
 func TestRunGet_NameFallback(t *testing.T) {
 	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -493,127 +362,6 @@ func TestRunGet_MissingArg(t *testing.T) {
 	rootCmd.SetArgs([]string{"boards", "get"})
 	err = rootCmd.Execute()
 	testutil.NotNil(t, err)
-}
-
-func TestRunGet_Extended_FilterNameAlreadyPresent_NoExtraFetch(t *testing.T) {
-	t.Parallel()
-	var filterFetched bool
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		switch {
-		case strings.Contains(r.URL.Path, "/filter/"):
-			filterFetched = true
-			w.WriteHeader(http.StatusInternalServerError)
-		case strings.Contains(r.URL.Path, "/configuration"):
-			_ = json.NewEncoder(w).Encode(api.BoardConfiguration{
-				Filter: api.BoardFilter{ID: "100", Name: "already set"},
-				ColumnConfig: api.BoardColumnConfig{
-					Columns: []api.BoardColumn{{Name: "Done"}},
-				},
-			})
-		default:
-			_ = json.NewEncoder(w).Encode(api.Board{
-				ID: 23, Name: "B", Type: "scrum",
-				Location: api.BoardLocation{ProjectKey: "MON"},
-			})
-		}
-	}))
-	defer server.Close()
-
-	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
-	testutil.RequireNoError(t, err)
-
-	var stdout bytes.Buffer
-	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}, Extended: true}
-	opts.SetAPIClient(client)
-
-	err = runGet(context.Background(), opts, client, &api.Board{ID: 23, Name: "B"}, "")
-	testutil.RequireNoError(t, err)
-	testutil.Contains(t, stdout.String(), "Filter: already set (id: 100)")
-	if filterFetched {
-		t.Error("filter endpoint should not be called when name is already present")
-	}
-}
-
-func TestRunGet_Extended_FilterNameResolved(t *testing.T) {
-	t.Parallel()
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		switch {
-		case strings.Contains(r.URL.Path, "/configuration"):
-			_ = json.NewEncoder(w).Encode(api.BoardConfiguration{
-				ID:     23,
-				Name:   "MON board",
-				Filter: api.BoardFilter{ID: "10026", Name: ""},
-				ColumnConfig: api.BoardColumnConfig{
-					Columns: []api.BoardColumn{{Name: "Ready"}, {Name: "Done"}},
-				},
-			})
-		case strings.Contains(r.URL.Path, "/filter/"):
-			_, _ = w.Write([]byte(`{"id":"10026","name":"MON Aggregate"}`))
-		default:
-			_ = json.NewEncoder(w).Encode(api.Board{
-				ID: 23, Name: "MON board", Type: "scrum",
-				Location: api.BoardLocation{ProjectKey: "MON", ProjectName: "Platform Development"},
-			})
-		}
-	}))
-	defer server.Close()
-
-	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
-	testutil.RequireNoError(t, err)
-
-	var stdout bytes.Buffer
-	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}, Extended: true}
-	opts.SetAPIClient(client)
-
-	resolvedBoard := &api.Board{ID: 23, Name: "MON board"}
-	err = runGet(context.Background(), opts, client, resolvedBoard, "")
-	testutil.RequireNoError(t, err)
-
-	output := stdout.String()
-	testutil.Contains(t, output, "Filter: MON Aggregate (id: 10026)")
-}
-
-func TestRunGet_Extended_FilterNameFallback(t *testing.T) {
-	t.Parallel()
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		switch {
-		case strings.Contains(r.URL.Path, "/configuration"):
-			_ = json.NewEncoder(w).Encode(api.BoardConfiguration{
-				ID:     23,
-				Name:   "MON board",
-				Filter: api.BoardFilter{ID: "10026", Name: ""},
-				ColumnConfig: api.BoardColumnConfig{
-					Columns: []api.BoardColumn{{Name: "Ready"}},
-				},
-			})
-		case strings.Contains(r.URL.Path, "/filter/"):
-			w.WriteHeader(http.StatusForbidden)
-			_, _ = w.Write([]byte(`{"errorMessages":["You do not have permission"]}`))
-		default:
-			_ = json.NewEncoder(w).Encode(api.Board{
-				ID: 23, Name: "MON board", Type: "scrum",
-				Location: api.BoardLocation{ProjectKey: "MON", ProjectName: "Platform Development"},
-			})
-		}
-	}))
-	defer server.Close()
-
-	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
-	testutil.RequireNoError(t, err)
-
-	var stdout bytes.Buffer
-	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}, Extended: true}
-	opts.SetAPIClient(client)
-
-	resolvedBoard := &api.Board{ID: 23, Name: "MON board"}
-	err = runGet(context.Background(), opts, client, resolvedBoard, "")
-	testutil.RequireNoError(t, err)
-
-	output := stdout.String()
-	testutil.Contains(t, output, "Filter: id: 10026")
 }
 
 func TestRunList_FreshCacheSkipsLive(t *testing.T) {

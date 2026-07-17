@@ -84,13 +84,13 @@ Use `jtk refresh --status` to inspect cache freshness without fetching anything.
 
 ### Output Contract
 
-`jtk` commands follow a text-first output model (per the repo's [Output Artifact Contract](https://github.com/open-cli-collective/atlassian-cli/blob/main/docs/ARTIFACT_CONTRACT.md)). Three global flags shape what gets emitted:
+`jtk` commands follow a text-first output model (per the repo's [Output Artifact Contract](https://github.com/open-cli-collective/atlassian-cli/blob/main/docs/ARTIFACT_CONTRACT.md)):
 
-- **`--extended`** — includes admin/schema/audit fields on top of the default output. Use when the user asks for "more detail," "all fields," or similar.
+- **`--fields <csv>`** — explicitly selects supported fields on commands that expose field projection.
 - **`--fulltext`** — disables truncation of descriptions and comments. Use when the user needs full body content (e.g., "show the full description"). `--no-truncate` is a deprecated alias kept during the migration; prefer `--fulltext`.
-- **`--id`** — emits only the primary identifier (issue key, account ID, etc.). Takes precedence over `--extended` and `--fulltext`. Works on both reads and mutations — on a create or update, `--id` emits just the created/updated identifier instead of the full post-state block. Use whenever a downstream step will parse the output — no decoration to strip, formatting is stable. **Caveat for scripts:** when a list command's result is truncated (multi-page), the pagination continuation notice (`More results available ...`) is still appended to STDOUT even with `--id`. For command substitution or line-by-line piping, either size `--max` so all results fit on one page, or post-filter with `grep -oE '[A-Z]+-[0-9]+' | head -1` to isolate just the identifier.
+- **`--id`** — emits only the primary identifier (issue key, account ID, etc.) and takes precedence over `--fulltext` and `--fields` (projection is bypassed entirely). Paginated lists may append a continuation notice on stdout; set `--max` to fit the expected result set or extract identifiers with `grep -oE '[A-Z]+-[0-9]+'`.
 
-`automation export` is the only command that emits JSON — use `--id` for scripting composition.
+`automation export` is the only resource command that emits JSON (`set-credential --json` is the control-plane exception). For every other command, use `--id` for scripting composition.
 
 ### Pagination & Result Sizing
 

@@ -38,59 +38,6 @@ func TestPresentUserOneLiner_DashForEmptyEmail(t *testing.T) {
 	}
 }
 
-func TestPresentUserExtended_AllFieldsPresent(t *testing.T) {
-	t.Parallel()
-	user := &api.User{
-		AccountID:        "abc",
-		DisplayName:      "Alice",
-		EmailAddress:     "alice@example.com",
-		Active:           true,
-		TimeZone:         "Etc/GMT",
-		Locale:           "en_US",
-		Groups:           &api.UserCountBlock{Size: 9},
-		ApplicationRoles: &api.UserCountBlock{Size: 1},
-	}
-
-	model := UserPresenter{}.PresentUserExtended(user)
-	if len(model.Sections) != 3 {
-		t.Fatalf("extended model: expected 3 sections, got %d", len(model.Sections))
-	}
-
-	expect := []string{
-		"abc | Alice | alice@example.com",
-		"Timezone: Etc/GMT   Locale: en_US   Active: yes",
-		"Groups: 9   Application Roles: 1",
-	}
-	for i, want := range expect {
-		if got := renderMessage(t, model, i); got != want {
-			t.Errorf("section %d = %q, want %q", i, got, want)
-		}
-	}
-}
-
-func TestPresentUserExtended_DashesForMissingOptionalFields(t *testing.T) {
-	t.Parallel()
-	user := &api.User{
-		AccountID:   "abc",
-		DisplayName: "Bob",
-		Active:      false,
-		// TimeZone / Locale empty; Groups / ApplicationRoles nil (API omitted expansion)
-	}
-
-	model := UserPresenter{}.PresentUserExtended(user)
-
-	expect := []string{
-		"abc | Bob | -",
-		"Timezone: -   Locale: -   Active: no",
-		"Groups: -   Application Roles: -",
-	}
-	for i, want := range expect {
-		if got := renderMessage(t, model, i); got != want {
-			t.Errorf("section %d = %q, want %q", i, got, want)
-		}
-	}
-}
-
 func TestPresentUserList_DefaultHeaders(t *testing.T) {
 	t.Parallel()
 	users := []api.User{
@@ -124,7 +71,7 @@ func TestPresentUserList_ExtendedHeadersAppendTimezoneLocale(t *testing.T) {
 
 	wantHeaders := []string{"ACCOUNT_ID", "NAME", "EMAIL", "ACTIVE", "TIMEZONE", "LOCALE"}
 	if !equalStringSlices(table.Headers, wantHeaders) {
-		t.Errorf("extended headers = %v, want %v", table.Headers, wantHeaders)
+		t.Errorf("includeOptional headers = %v, want %v", table.Headers, wantHeaders)
 	}
 
 	if got := table.Rows[0].Cells; !equalStringSlices(got, []string{"a1", "Alice", "-", "yes", "Etc/GMT", "en_US"}) {
@@ -181,12 +128,12 @@ func TestUserListSpec_HeaderParityWithPresenter(t *testing.T) {
 		t.Errorf("default headers mismatch: presenter %v vs registry %v", table.Headers, wantHeaders)
 	}
 
-	// Extended mode must also match.
+	// Optional mode must also match.
 	modelExt := UserPresenter{}.PresentUserList(nil, true)
 	tableExt := sectionTable(t, modelExt, 0)
 	wantHeadersExt := registryHeadersFor(UserListSpec, true)
 	if !equalStringSlices(tableExt.Headers, wantHeadersExt) {
-		t.Errorf("extended headers mismatch: presenter %v vs registry %v", tableExt.Headers, wantHeadersExt)
+		t.Errorf("includeOptional headers mismatch: presenter %v vs registry %v", tableExt.Headers, wantHeadersExt)
 	}
 }
 
@@ -233,8 +180,8 @@ func equalStringSlices(a, b []string) bool {
 	return true
 }
 
-func registryHeadersFor(r projection.Registry, extended bool) []string {
-	filtered := r.ForMode(extended)
+func registryHeadersFor(r projection.Registry, includeOptional bool) []string {
+	filtered := r.ForMode(includeOptional)
 	out := make([]string, len(filtered))
 	for i, c := range filtered {
 		out[i] = c.Header

@@ -236,31 +236,6 @@ func TestRunList_Default(t *testing.T) {
 	testutil.Contains(t, out, "In Development")
 }
 
-func TestRunList_Extended(t *testing.T) {
-	t.Parallel()
-	server := transitionsServer(t)
-	defer server.Close()
-
-	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "e@x", APIToken: "t"})
-	testutil.RequireNoError(t, err)
-
-	var stdout bytes.Buffer
-	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
-	opts.SetAPIClient(client)
-
-	err = runList(context.Background(), opts, "TEST-1", true)
-	testutil.RequireNoError(t, err)
-
-	out := stdout.String()
-	testutil.Contains(t, out, "STATUS_CATEGORY")
-	testutil.Contains(t, out, "HAS_SCREEN")
-	testutil.Contains(t, out, "CONDITIONAL")
-	testutil.Contains(t, out, "To Do")
-	testutil.Contains(t, out, "In Progress")
-	testutil.Contains(t, out, "yes")
-	testutil.Contains(t, out, "no")
-}
-
 func TestRunList_IDOnly(t *testing.T) {
 	t.Parallel()
 	server := transitionsServer(t)
@@ -280,16 +255,41 @@ func TestRunList_IDOnly(t *testing.T) {
 	testutil.Equal(t, out, "11\n31\n")
 }
 
-func TestRunList_DeprecatedFieldsAlias(t *testing.T) {
+func TestRunList_Fields_ExpandsAndRendersOptionalColumns(t *testing.T) {
 	t.Parallel()
-	cmd := newListCmd(&root.Options{})
-	flag := cmd.Flags().Lookup("fields")
-	if flag == nil {
-		t.Fatal("expected --fields flag to exist as deprecated alias")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		testutil.Equal(t, "transitions.fields", r.URL.Query().Get("expand"))
+		resp := api.TransitionsResponse{
+			Transitions: []api.Transition{
+				{
+					ID: "21", Name: "Done",
+					To: api.Status{Name: "Done", StatusCategory: api.StatusCategory{Name: "Done"}},
+					Fields: map[string]api.TransitionField{
+						"resolution": {Required: true, Name: "resolution"},
+					},
+				},
+			},
+		}
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "e@x", APIToken: "t"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runList(context.Background(), opts, "TEST-1", true)
+	testutil.RequireNoError(t, err)
+
+	out := stdout.String()
+	for _, col := range []string{"STATUS_CATEGORY", "HAS_SCREEN", "CONDITIONAL", "REQUIRED_FIELDS"} {
+		testutil.Contains(t, out, col)
 	}
-	if !strings.Contains(flag.Deprecated, "extended") {
-		t.Errorf("expected deprecation message to mention --extended, got %q", flag.Deprecated)
-	}
+	testutil.Contains(t, out, "resolution")
 }
 
 func doServer(t *testing.T) *httptest.Server {

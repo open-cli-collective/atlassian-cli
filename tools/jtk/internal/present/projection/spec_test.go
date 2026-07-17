@@ -15,10 +15,10 @@ var testRegistry = Registry{
 	{Header: "STATUS", FieldID: "status"},
 	{Header: "ASSIGNEE", FieldID: "assignee"},
 	{Header: "TYPE", FieldID: "issuetype"},
-	{Header: "POINTS", FieldID: "customfield_10035", Extended: true},
+	{Header: "POINTS", FieldID: "customfield_10035", Optional: true},
 }
 
-func TestRegistry_ForMode_FiltersExtended(t *testing.T) {
+func TestRegistry_ForMode_FiltersOptional(t *testing.T) {
 	t.Parallel()
 	testutil.Equal(t, 5, len(testRegistry.ForMode(false)))
 	testutil.Equal(t, 6, len(testRegistry.ForMode(true)))

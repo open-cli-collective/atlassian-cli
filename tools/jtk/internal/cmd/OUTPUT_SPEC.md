@@ -232,7 +232,7 @@ customfield_10050 | Team | option | Platform
 
 **`issues fields MON-4810 --custom-fields`:** filters to `customfield_*` rows only.
 
-**`issues types MON`** — default:
+**`issues types --project MON`** — default:
 ```
 ID | NAME | SUBTASK | DESCRIPTION
 10000 | Epic | no | A big user story that needs to be broken down.
@@ -401,7 +401,11 @@ Description: Creates Tasks when a new Onboarding Epic is created
 
 **`automation get <id> --show-components`:** dumps the full component tree as indented text (trigger → conditions → actions).
 
+<<<<<<< HEAD
 **`automation export <id>`:** validates and emits the rule definition as pretty-printed JSON to stdout. This is the round-trip format consumed by `automation create --from-file`. `--compact` emits whitespace-normalized minified JSON. Invalid API JSON is an error and emits nothing. This command bypasses the global flag system.
+=======
+**`automation export <id>`:** emits the rule definition as pretty-printed JSON to stdout. This is the round-trip format consumed by `automation create --file`. `--compact` minifies. This command bypasses the global flag system.
+>>>>>>> 455-jtk-pagination
 
 ### `dashboards`
 
@@ -502,13 +506,13 @@ Multi-delete: one line per deleted issue.
 ### `comments add / delete`
 
 ```
-$ jtk comments add MON-4810 "Noting that this needs QA review on Safari 16."
+$ jtk comments add MON-4810 --body "Noting that this needs QA review on Safari 16."
 MON-4810 #21276 — Rian Stockbower, 2026-04-16
 Noting that this needs QA review on Safari 16.
 ```
 
 ```
-$ jtk comments add MON-4810 "..." --id
+$ jtk comments add MON-4810 --body "..." --id
 21276
 ```
 
@@ -569,7 +573,7 @@ Accepts sprint ID or name (resolved via cache).
 ### `attachments add / delete`
 
 ```
-$ jtk attachments add MON-4810 ./audit-notes.md
+$ jtk attachments add MON-4810 --file ./audit-notes.md
 10236 | audit-notes.md | 4.2 KB | Rian Stockbower | 2026-04-16
 ```
 
@@ -596,7 +600,7 @@ Deleted dashboard 10073
 ### `automation create / enable / disable / update / delete`
 
 ```
-$ jtk automation create --from-file rule.json
+$ jtk automation create --file rule.json
 019e1234-abcd-7000-8888-112233445566  [Test] My Rule
 State: ENABLED
 Components: 5 total — 1 condition, 4 actions

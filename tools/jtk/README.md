@@ -159,7 +159,7 @@ These flags are available on all commands:
 | `--help` | `-h` | | Show help for command |
 | `--version` | | | Show version (root command only) |
 
-> `automation export` is the only command that emits JSON — it writes directly to stdout.
+> `automation export` is the only resource command that emits JSON — it writes directly to stdout. The control-plane `set-credential --json` envelope is the sole other exception.
 
 ---
 

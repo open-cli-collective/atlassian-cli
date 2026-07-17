@@ -90,7 +90,7 @@ Use `jtk refresh --status` to inspect cache freshness without fetching anything.
 - **`--fulltext`** — disables truncation of descriptions and comments without changing list output shape. Use when the user needs full body content (e.g., "show the full description").
 - **`--id`** — emits only the primary identifier (issue key, account ID, etc.) and takes precedence over `--fulltext`. Stdout is identifier-only, one per line, safe to pipe; any continuation notice goes to stderr.
 
-`automation export` is the only command that emits JSON — use `--id` for scripting composition.
+`automation export` is the only resource command that emits JSON (`set-credential --json` is the control-plane exception) — use `--id` for scripting composition.
 
 ### Pagination & Result Sizing
 

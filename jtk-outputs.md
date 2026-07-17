@@ -231,4 +231,4 @@ Removed gadget 10124 from dashboard 10072
 
 ## JSON round-trip payload
 
-`jtk automation export <id>` is the only resource command that writes JSON. Its pretty-printed payload is intended for `jtk automation create --from-file`; `--compact` minifies that payload. The control-plane `set-credential --json` envelope is the other exception; all other commands use the text shapes above.
+`jtk automation export <id>` is the only resource command that writes JSON. Its pretty-printed payload is intended for `jtk automation create --file`; `--compact` minifies that payload. The control-plane `set-credential --json` envelope is the other exception; all other commands use the text shapes above.

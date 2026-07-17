@@ -278,6 +278,35 @@ func TestRunView_ExactOutput_RawContentOnly_NoTruncate(t *testing.T) {
 	testutil.Equal(t, "", rootOpts.Stderr.(*bytes.Buffer).String())
 }
 
+func TestRunView_ExactEmptyContentOnly(t *testing.T) {
+	t.Parallel()
+
+	for _, tt := range []struct {
+		name       string
+		bodyFormat string
+		apiFormat  string
+		body       string
+	}{
+		{"ADF", bodyFormatADF, "atlas_doc_format", `"atlas_doc_format": {"value": ""}`},
+		{"XHTML", bodyFormatXHTML, "storage", `"storage": {"value": ""}`},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				testutil.Equal(t, tt.apiFormat, r.URL.Query().Get("body-format"))
+				_, _ = w.Write([]byte(`{"id":"12345","body":{` + tt.body + `}}`))
+			}))
+			defer server.Close()
+
+			rootOpts := newViewTestRootOptions()
+			rootOpts.SetAPIClient(api.NewClient(server.URL, "test@example.com", "token"))
+			err := runView(context.Background(), "12345", &viewOptions{Options: rootOpts, bodyFormat: tt.bodyFormat, contentOnly: true})
+			testutil.RequireNoError(t, err)
+			testutil.Equal(t, "", rootOpts.Stdout.(*bytes.Buffer).String())
+		})
+	}
+}
+
 func TestRunView_ExactOutput_DefaultMarkdown_NoTruncate(t *testing.T) {
 	t.Parallel()
 

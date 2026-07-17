@@ -235,6 +235,40 @@ jtk issues list --project PROJ
 cfl page list --space DEV
 ```
 
+### Headless and Keyring-Free Environments
+
+The API token lives in the OS keyring (macOS Keychain, Windows Credential
+Manager, Linux Secret Service). On a headless host, in CI, or under an
+automation agent there may be no keyring — or one that is locked and
+cannot be unlocked interactively (the unlock prompt never reaches you).
+Both tools support keyring-free operation without putting the token in a
+plaintext config file:
+
+- **Supply the token via an environment variable.** `ATLASSIAN_API_TOKEN`
+  (or the tool-specific `JIRA_API_TOKEN` / `CFL_API_TOKEN`) is resolved
+  *before* the keyring is ever opened, so the keyring is never touched. This
+  is the canonical answer for `op run`-style setups and agent automation.
+
+  ```bash
+  export ATLASSIAN_API_TOKEN="your-api-token"
+  jtk issues list --project PROJ   # never touches the OS keyring
+  ```
+
+- **Use the encrypted-file backend.** `--backend file` (or
+  `ATLASSIAN_CLI_KEYRING_BACKEND=file`, or `keyring.backend: file` in the
+  config file) stores the token in an encrypted file instead of the OS
+  keyring. Supply its passphrase non-interactively with
+  `ATLASSIAN_CLI_KEYRING_PASSPHRASE` for unattended runs.
+
+- **Use the `pass` backend.** `--backend pass` (or
+  `ATLASSIAN_CLI_KEYRING_BACKEND=pass`) integrates with an existing
+  [`pass`](https://www.passwordstore.org/) password-store — the canonical
+  headless-Linux option when you already run one.
+
+If a command fails because the keyring is unavailable or locked, the error
+names these same options. Run `jtk config show` / `cfl config show` to see
+which backend is active on the current machine.
+
 ### Output Representations
 
 Both tools support two output artifact modes:

@@ -102,17 +102,22 @@ func (o *Options) Config() (*config.Config, error) {
 	return cfg, nil
 }
 
+// ResolvedConfigPath returns the config path selected by --config, or the
+// default path when no explicit value was supplied.
+func (o *Options) ResolvedConfigPath() string {
+	if o.ConfigPath != "" {
+		return o.ConfigPath
+	}
+	return config.DefaultConfigPath()
+}
+
 func (o *Options) loadConfig() (*config.Config, error) {
 	if o.cachedConfig != nil {
 		return o.cachedConfig, nil
 	}
-	path := o.ConfigPath
-	if path == "" {
-		path = config.DefaultConfigPath()
-	}
 	// Defer token resolution until after PersistentPreRunE wires the
 	// backend selected by this same config.
-	cfg, err := config.LoadWithEnv(path, false)
+	cfg, err := config.LoadWithEnv(o.ResolvedConfigPath(), false)
 	if err != nil {
 		return nil, err
 	}

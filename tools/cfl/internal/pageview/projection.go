@@ -107,13 +107,13 @@ func Project(page *api.Page, spaceKey string, opts Options) (Projection, error) 
 		if page.Body != nil && page.Body.AtlasDocFormat != nil {
 			proj.Body, proj.Truncated = TruncateContent(page.Body.AtlasDocFormat.Value, opts)
 			proj.BodyKind = BodyKindADF
-			proj.HasContent = page.Body.AtlasDocFormat.Value != ""
+			proj.HasContent = true
 		}
 	case BodyFormatXHTML:
 		if page.Body != nil && page.Body.Storage != nil {
 			proj.Body, proj.Truncated = TruncateContent(page.Body.Storage.Value, opts)
 			proj.BodyKind = BodyKindXHTML
-			proj.HasContent = page.Body.Storage.Value != ""
+			proj.HasContent = true
 		}
 	case "", BodyFormatMarkdown:
 		switch {

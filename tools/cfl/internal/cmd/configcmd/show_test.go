@@ -81,6 +81,22 @@ func TestRunShow_ExactOutput(t *testing.T) {
 	testutil.Equal(t, "\nConfig file: "+cfgPath+"\n", errBuf.String())
 }
 
+func TestRunShow_UsesConfiguredPath(t *testing.T) {
+	credtest.Hermetic(t)
+	defaultPath := cflconfig.DefaultConfigPath()
+	explicitPath := filepath.Join(t.TempDir(), "explicit.yml")
+	testutil.RequireNoError(t, (&cflconfig.Config{URL: "https://default.atlassian.net/wiki", Email: "default@example.com"}).Save(defaultPath))
+	testutil.RequireNoError(t, (&cflconfig.Config{URL: "https://explicit.atlassian.net/wiki", Email: "explicit@example.com"}).Save(explicitPath))
+
+	out, errBuf := &bytes.Buffer{}, &bytes.Buffer{}
+	opts := &root.Options{ConfigPath: explicitPath, Output: "table", NoColor: true, Stdout: out, Stderr: errBuf}
+	testutil.RequireNoError(t, runShow(opts))
+
+	testutil.Contains(t, out.String(), "URL: https://explicit.atlassian.net/wiki  (source: config)")
+	testutil.NotContains(t, out.String(), "default.atlassian.net")
+	testutil.Equal(t, "\nConfig file: "+explicitPath+"\n", errBuf.String())
+}
+
 func TestRunShow_UnreadableConfigNote(t *testing.T) {
 	credtest.Hermetic(t)
 	cfgDir := t.TempDir()

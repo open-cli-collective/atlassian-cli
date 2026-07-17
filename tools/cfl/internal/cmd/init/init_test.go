@@ -221,6 +221,35 @@ func TestRunInit_NonInteractive_MissingToken_RecommendsAllPaths(t *testing.T) {
 	}
 }
 
+func TestRunInit_UsesConfiguredPathForReconciliation(t *testing.T) {
+	credtest.Hermetic(t)
+	defaultPath := config.DefaultConfigPath()
+	explicitPath := filepath.Join(t.TempDir(), "explicit.yml")
+	testutil.RequireNoError(t, (&config.Config{
+		URL: "https://default.atlassian.net/wiki", Email: "default@example.com", DefaultSpace: "DEFAULT",
+	}).Save(defaultPath))
+	testutil.RequireNoError(t, (&config.Config{
+		URL: "https://explicit.atlassian.net/wiki", Email: "explicit@example.com", DefaultSpace: "EXPLICIT",
+	}).Save(explicitPath))
+
+	opts := &root.Options{
+		ConfigPath:     explicitPath,
+		Output:         "table",
+		NoColor:        true,
+		NonInteractive: true,
+		Stdin:          strings.NewReader(cflInitSentinel + "\n"),
+		Stdout:         &bytes.Buffer{},
+		Stderr:         &bytes.Buffer{},
+	}
+	testutil.RequireNoError(t, runInit(context.Background(), opts,
+		"https://configured.atlassian.net", "configured@example.com", true, "", "", "", true))
+
+	store, err := credstore.Load(credtest.SharedConfigPath(t))
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "EXPLICIT", store.CFL.DefaultSpace)
+	testutil.Equal(t, "https://configured.atlassian.net", store.Default.URL)
+}
+
 // finalizeInit tests use t.TempDir() for paths and an httptest-backed
 // clientBuilder so the user's real config is never touched and no real
 // network call is made.

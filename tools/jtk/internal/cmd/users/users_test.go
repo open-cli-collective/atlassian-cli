@@ -106,6 +106,33 @@ func TestRunGet_Fields_ProjectsDetailSection(t *testing.T) {
 	}
 }
 
+func TestRunGet_Fields_OptionalTriggersExpand(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.URL.Query().Get("expand"); got != api.UserDetailExpand {
+			t.Errorf("expand = %q, want %q", got, api.UserDetailExpand)
+		}
+		user := api.User{
+			AccountID: "abc", DisplayName: "Rian", EmailAddress: "r@x.io", Active: true,
+			Groups:           &api.UserCountBlock{Size: 3},
+			ApplicationRoles: &api.UserCountBlock{Size: 2},
+		}
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(user)
+	}))
+	defer server.Close()
+
+	var stdout bytes.Buffer
+	opts := &root.Options{NoColor: true, Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(newClient(t, server.URL))
+
+	testutil.RequireNoError(t, runGet(context.Background(), opts, "abc", "GROUPS,APPLICATION_ROLES"))
+
+	out := stdout.String()
+	testutil.Contains(t, out, "GROUPS: 3")
+	testutil.Contains(t, out, "APPLICATION_ROLES: 2")
+}
+
 func TestRunGet_Fields_UnknownHeaderFails(t *testing.T) {
 	t.Parallel()
 	server := newTestUserServer(t, api.User{AccountID: "abc", DisplayName: "X", Active: true})

@@ -243,7 +243,7 @@ func warnCorruptSharedOnce(err error) {
 // + env so a broken shared file doesn't crash every cfl command. Init
 // uses credstore.Load directly so it can surface the error and refuse
 // to overwrite.
-func LoadWithEnv(path string, resolveToken bool) (*Config, error) {
+func LoadWithEnv(path string, resolveToken, loadShared bool) (*Config, error) {
 	cfg, err := Load(path)
 	if err != nil {
 		// Legacy file missing or corrupt: start empty. cfl init has a
@@ -259,12 +259,14 @@ func LoadWithEnv(path string, resolveToken bool) (*Config, error) {
 	// command keeps working while the conflict is surfaced once. A nil
 	// store (unresolvable/corrupt) → fall back to legacy + env. `cfl
 	// init` uses the fail-loud detect/gated-copy path instead.
-	store, sErr := credstore.LoadSharedRuntime()
-	if sErr != nil {
-		warnCorruptSharedOnce(sErr)
-	}
-	if store != nil {
-		cfg.LoadFromShared(store)
+	if loadShared {
+		store, sErr := credstore.LoadSharedRuntime()
+		if sErr != nil {
+			warnCorruptSharedOnce(sErr)
+		}
+		if store != nil {
+			cfg.LoadFromShared(store)
+		}
 	}
 
 	cfg.LoadFromEnv()

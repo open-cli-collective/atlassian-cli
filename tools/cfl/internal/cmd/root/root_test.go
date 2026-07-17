@@ -9,6 +9,7 @@ import (
 	"github.com/open-cli-collective/atlassian-go/artifact"
 	"github.com/open-cli-collective/atlassian-go/auth"
 	sharedclient "github.com/open-cli-collective/atlassian-go/client"
+	"github.com/open-cli-collective/atlassian-go/credstore"
 	"github.com/open-cli-collective/atlassian-go/credtest"
 	"github.com/open-cli-collective/atlassian-go/keyring"
 	"github.com/open-cli-collective/atlassian-go/present"
@@ -321,6 +322,15 @@ func TestConfigFlagIsAuthoritative(t *testing.T) {
 				Keyring:      config.KeyringConfig{Backend: "file"},
 			}
 			testutil.RequireNoError(t, defaultCfg.Save(config.DefaultConfigPath()))
+			testutil.RequireNoError(t, (&credstore.Store{
+				Default: credstore.Section{
+					URL:        "https://shared.atlassian.net",
+					Email:      "shared@example.com",
+					AuthMethod: auth.AuthMethodBearer,
+					CloudID:    "shared-cloud",
+				},
+				CFL: credstore.ToolSection{DefaultSpace: "SHARED", OutputFormat: "shared-output"},
+			}).Save(credtest.SharedConfigPath(t)))
 
 			explicitPath := filepath.Join(t.TempDir(), "explicit.yml")
 			explicitCfg := &config.Config{
@@ -378,5 +388,52 @@ func TestConfigFlagIsAuthoritative(t *testing.T) {
 				t.Fatal("command output exposed the API token")
 			}
 		})
+	}
+}
+
+func TestDefaultConfigLayersSharedValues(t *testing.T) {
+	credtest.Hermetic(t)
+	keyring.SetBackendSelection("", "")
+	t.Cleanup(func() { keyring.SetBackendSelection("", "") })
+	t.Setenv("CFL_API_TOKEN", "token")
+
+	legacy := &config.Config{
+		URL:          "https://legacy.atlassian.net/wiki",
+		Email:        "legacy@example.com",
+		AuthMethod:   auth.AuthMethodBasic,
+		CloudID:      "legacy-cloud",
+		DefaultSpace: "LEGACY",
+		OutputFormat: "legacy-output",
+	}
+	testutil.RequireNoError(t, legacy.Save(config.DefaultConfigPath()))
+	testutil.RequireNoError(t, (&credstore.Store{
+		Default: credstore.Section{
+			URL:        "https://shared.atlassian.net",
+			Email:      "shared@example.com",
+			AuthMethod: auth.AuthMethodBearer,
+			CloudID:    "shared-cloud",
+		},
+		CFL: credstore.ToolSection{DefaultSpace: "SHARED", OutputFormat: "shared-output"},
+	}).Save(credtest.SharedConfigPath(t)))
+
+	rootCmd, opts := NewCmd()
+	rootCmd.AddCommand(&cobra.Command{
+		Use: "probe",
+		RunE: func(*cobra.Command, []string) error {
+			cfg, err := opts.Config()
+			if err != nil {
+				return err
+			}
+			if cfg.URL != "https://shared.atlassian.net/wiki" || cfg.Email != "shared@example.com" ||
+				cfg.AuthMethod != auth.AuthMethodBearer || cfg.CloudID != "shared-cloud" ||
+				cfg.DefaultSpace != "SHARED" || cfg.OutputFormat != "shared-output" {
+				t.Fatal("default config did not layer shared values")
+			}
+			return nil
+		},
+	})
+	rootCmd.SetArgs([]string{"probe"})
+	if err := rootCmd.Execute(); err != nil {
+		t.Fatalf("Execute failed: %v", err)
 	}
 }

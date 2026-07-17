@@ -67,7 +67,7 @@ Both `search` and `list` support the same paging/field flags:
 |------|-------------|
 | `--max N` / `-m N` | Maximum results (default 25; auto-paginates) |
 | `--next-page-token TOKEN` | Resume from previous page token |
-| `--fields description` | Include all fields (descriptions, etc.) |
+| `--fields description` | Select the description field (with the issue key) instead of the default columns |
 | `--fields summary,status,customfield_10005` | Comma-separated list of specific fields |
 
 Examples:

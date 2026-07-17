@@ -9,7 +9,7 @@ This document declares `jtk` output shapes, flag semantics, and formatting conve
 2. **Default output is contextually rich, not minimal.** An agent reasoning about an issue needs labels, sprint, parent, points, components — not just key/summary/status. The default output carries the semantic weight required for decision-making without flags.
 
 
-3. **Additional fields are explicit.** Commands that support `--fields` fetch and render only the requested supported fields while retaining the primary identifier.
+3. **Additional fields are explicit.** Commands with CSV `--fields` support fetch and render only the requested supported fields while retaining the primary identifier.
 
 4. **JSON is reserved for round-trip payloads.** Only `automation export` emits JSON — it writes directly to stdout, bypassing the global flag system. Every other command produces text.
 
@@ -20,10 +20,17 @@ This document declares `jtk` output shapes, flag semantics, and formatting conve
 | Mode | Flag | Purpose |
 |---|---|---|
 | Default | *(none)* | Contextually-rich human + agent text. Stable format. |
-| Field projection | `--fields` | Selects supported output fields explicitly. |
+| Field projection | `--fields <csv>` | Selects supported output fields explicitly. |
 | Full text | `--fulltext` | Disables body/value truncation without changing fields. |
 | Identifier | `--id` | Emits only the primary identifier and takes precedence over `--fulltext`. |
 | Export | implicit on `automation export` | Round-trip JSON for business-rule import/export. |
+
+`transitions list --fields` is the exception: it is a Boolean flag, not a CSV projection. It fetches required transition fields and adds a `REQUIRED FIELDS` column:
+
+```
+ID | NAME | TO STATUS | REQUIRED FIELDS
+21 | Done | Done | resolution
+```
 
 ## Formatting conventions
 

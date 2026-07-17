@@ -118,7 +118,7 @@ Positional: one or more `<issue-key>` (up to 1000 per request). Jira Cloud only 
 | `--sprint current` / `-s current` | Filter by current sprint (for `list`) |
 | `--max N` / `-m N` | Maximum results (default 25; auto-paginates) |
 | `--next-page-token TOKEN` | Resume from previous page token |
-| `--fields description` | Include all fields (e.g. description) |
+| `--fields description` | Select the description field (with the issue key) instead of the default columns |
 | `--fields summary,status,customfield_10005` | Comma-separated list of specific fields |
 
 ### Common Issue Types
@@ -132,7 +132,7 @@ Status changes happen via `jtk transitions do`, **not** `jtk issues update`.
 | Command | Description |
 |---------|-------------|
 | `jtk transitions list PROJ-123` | List available transitions for issue |
-| `jtk transitions list PROJ-123 --fields` | Show required fields for each transition (renamed from `--fields` in v1.0.84) |
+| `jtk transitions list PROJ-123 --fields` | Show required fields for each transition (renamed from `--extended` in v1.0.84) |
 | `jtk transitions do PROJ-123 "Transition Name"` | Apply transition by name |
 | `jtk transitions do PROJ-123 21` | Apply transition by numeric ID |
 | `jtk transitions do PROJ-123 "Done" --field NAME=VALUE` | Apply with required fields (only when `transitions list --fields` shows a required field) |

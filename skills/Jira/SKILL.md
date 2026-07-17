@@ -88,7 +88,7 @@ Use `jtk refresh --status` to inspect cache freshness without fetching anything.
 
 - **`--fields <csv>`** — explicitly selects supported fields on commands that expose field projection.
 - **`--fulltext`** — disables truncation of descriptions and comments. Use when the user needs full body content (e.g., "show the full description"). `--no-truncate` is a deprecated alias kept during the migration; prefer `--fulltext`.
-- **`--id`** — emits only the primary identifier (issue key, account ID, etc.) and takes precedence over `--fulltext`.
+- **`--id`** — emits only the primary identifier (issue key, account ID, etc.) and takes precedence over `--fulltext`. Paginated lists may append a continuation notice on stdout; set `--max` to fit the expected result set or extract identifiers with `grep -oE '[A-Z]+-[0-9]+'`.
 
 `automation export` is the only command that emits JSON — use `--id` for scripting composition.
 

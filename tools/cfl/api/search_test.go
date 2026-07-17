@@ -109,10 +109,31 @@ func TestClient_Search_RawCQL(t *testing.T) {
 
 	client := NewClient(server.URL, "user@example.com", "token")
 	_, err := client.Search(context.Background(), &SearchOptions{
-		CQL:  `type=page AND lastModified > now("-7d")`,
-		Text: "ignored", // Should be ignored when CQL is set
+		CQL: `type=page AND lastModified > now("-7d")`,
 	})
 	testutil.RequireNoError(t, err)
+}
+
+func TestClient_Search_RawCQLConflicts(t *testing.T) {
+	tests := []struct {
+		name string
+		opts SearchOptions
+	}{
+		{name: "text", opts: SearchOptions{Text: "query"}},
+		{name: "space", opts: SearchOptions{Space: "DEV"}},
+		{name: "type", opts: SearchOptions{Type: "page"}},
+		{name: "title", opts: SearchOptions{Title: "Title"}},
+		{name: "label", opts: SearchOptions{Label: "docs"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.opts.CQL = "type=page"
+			_, err := (&Client{}).Search(context.Background(), &tt.opts)
+			testutil.RequireError(t, err)
+			testutil.Contains(t, err.Error(), "raw CQL cannot be combined")
+		})
+	}
 }
 
 func TestClient_Search_NoQuery(t *testing.T) {

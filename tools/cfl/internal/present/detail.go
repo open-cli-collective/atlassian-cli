@@ -96,6 +96,13 @@ func (PagePresenter) PresentView(proj pageview.Projection) *sharedpresent.Output
 				Value: fmt.Sprintf("%d", proj.Version),
 			})
 		}
+		if proj.Full {
+			fields = append(fields,
+				sharedpresent.Field{Label: "Parent ID", Value: orDash(proj.ParentID)},
+				sharedpresent.Field{Label: "Created At", Value: formatHistoryTime(proj.CreatedAt)},
+				sharedpresent.Field{Label: "Author ID", Value: orDash(proj.AuthorID)},
+			)
+		}
 		sections = append(sections, &sharedpresent.DetailSection{Fields: fields})
 	}
 

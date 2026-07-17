@@ -41,6 +41,8 @@ does not yet match this document exactly, this spec is the contract to implement
   `invalid output format: "json" (valid formats: table, plain)`.
 - `--no-color` may change decoration only; it must not change fields or ordering.
 - `--full` selects the richer artifact for commands that support it.
+- Supported CFL commands are `page list`, `page view`, `space list`, `space view`,
+  `attachment list`, and `search`; other commands reject `--full` before config loading.
 - Local control-plane `--json` flags remain command-local and must not be blocked
   by the global output guard.
 
@@ -194,7 +196,7 @@ Version: <version>
 <markdown body>
 ```
 
-`--full` target additions:
+`--full` additions:
 
 ```text
 Parent ID: <parent-id>
@@ -204,6 +206,7 @@ Author ID: <account-id>
 
 Flag-specific behavior:
 - `--content-only` emits only the body and implies untruncated output.
+- `--full` is incompatible with `--content-only` and `--web` because both discard metadata.
 - `--body-format` selects Markdown (default), exact ADF JSON, or exact storage XHTML.
 - Markdown conversion errors fail with no body on stdout and suggest an exact format.
 - `--show-macros` affects body conversion only.
@@ -282,11 +285,9 @@ Default columns:
 ID | TITLE | MEDIA TYPE | FILE SIZE
 ```
 
-`--full` target:
+`--full` additions:
 
-- Same list surface, with richer attachment inspection fields added only when
-  presenter-backed output is introduced.
-- `--full` must never be a silent no-op once the presenter migration lands.
+- Adds `STATUS` and `COMMENT` columns.
 
 Empty states:
 
@@ -294,6 +295,8 @@ Empty states:
 No attachments found.
 No unused attachments found.
 ```
+
+`--limit` must be greater than zero.
 
 ## `attachment upload`
 
@@ -341,6 +344,11 @@ ID | TYPE | SPACE | TITLE | MODIFIED | URL
 ```
 
 Notes:
+- Positional and query-builder searches are global unless `--space` is explicit;
+  `default_space` is never injected into search CQL.
+- Raw `--cql` is mutually exclusive with the positional query and `--space`,
+  `--type`, `--title`, and `--label`.
+- `--limit` must be greater than zero.
 - The space column label is `SPACE`, not `SPACE KEY`. Current search output still
   renders the space key in that column, extracted from the result URL.
 - Default search output must not require JSON decoding, unescaping XHTML, or

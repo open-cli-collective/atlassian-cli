@@ -17,6 +17,7 @@ The default Markdown body is truncated at 5000 chars. This also applies to ADF, 
 | User Says | Command | When to Use |
 |-----------|---------|-------------|
 | "view page", "show page", "read page" | `cfl page view PAGE_ID` | Default markdown view (subject to truncation) |
+| "show page metadata", "inspect page" | `cfl page view PAGE_ID --full` | Add parent ID, creation time, and author ID |
 | "show full page", "all content", "no truncation" | `cfl page view PAGE_ID --no-truncate` | Full content without truncation |
 | "just the content", "content only" | `cfl page view PAGE_ID --content-only` | Content without metadata headers (implies `--no-truncate`) |
 | "XHTML", "storage format" | `cfl page view PAGE_ID --body-format xhtml` | Exact storage XHTML (subject to truncation) |
@@ -24,6 +25,8 @@ The default Markdown body is truncated at 5000 chars. This also applies to ADF, 
 | "show macros" | `cfl page view PAGE_ID --show-macros` | Preserve macro placeholders like `[TOC]` (subject to truncation) |
 | "open in browser", "open page" | `cfl page view PAGE_ID --web` | Opens in default browser |
 | "page as JSON" | `cfl page view PAGE_ID -o json` | Full JSON output (body always included in full — no truncation) |
+
+`--full` composes with every `--body-format` and is incompatible with `--content-only` and `--web`.
 
 ### Finding Page IDs
 

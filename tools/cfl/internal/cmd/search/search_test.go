@@ -3,8 +3,10 @@ package search
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -255,34 +257,21 @@ func TestRunSearch_NoQuery(t *testing.T) {
 	testutil.Contains(t, err.Error(), "--type")
 }
 
-func TestRunSearch_NegativeLimit(t *testing.T) {
-	t.Parallel()
-	rootOpts := newTestRootOptions()
+func TestRunSearch_InvalidLimitsMakeNoRequest(t *testing.T) {
+	for _, limit := range []int{0, -1} {
+		t.Run(fmt.Sprintf("limit_%d", limit), func(t *testing.T) {
+			requests := 0
+			server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { requests++ }))
+			defer server.Close()
+			rootOpts := newTestRootOptions()
+			rootOpts.SetAPIClient(api.NewClient(server.URL, "test@example.com", "token"))
 
-	opts := &searchOptions{
-		Options: rootOpts,
-		query:   "test",
-		limit:   -1,
+			err := runSearch(context.Background(), &searchOptions{Options: rootOpts, query: "test", limit: limit})
+			testutil.RequireError(t, err)
+			testutil.Contains(t, err.Error(), "must be greater than 0")
+			testutil.Equal(t, 0, requests)
+		})
 	}
-
-	err := runSearch(context.Background(), opts)
-	testutil.RequireError(t, err)
-	testutil.Contains(t, err.Error(), "invalid limit")
-}
-
-func TestRunSearch_ZeroLimit(t *testing.T) {
-	t.Parallel()
-	rootOpts := newTestRootOptions()
-
-	opts := &searchOptions{
-		Options: rootOpts,
-		query:   "test",
-		limit:   0,
-	}
-
-	// Zero limit should return empty without making API call
-	err := runSearch(context.Background(), opts)
-	testutil.RequireNoError(t, err)
 }
 
 func TestRunSearch_WithSpaceFilter(t *testing.T) {
@@ -337,12 +326,12 @@ func TestRunSearch_WithTypeFilter(t *testing.T) {
 	testutil.RequireNoError(t, err)
 }
 
-func TestRunSearch_TypeOnly_UsesDefaultSpaceAfterValidation(t *testing.T) {
+func TestRunSearch_DoesNotUseDefaultSpace(t *testing.T) {
 	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		cql := r.URL.Query().Get("cql")
 		testutil.Contains(t, cql, `type = "page"`)
-		testutil.Contains(t, cql, `space = "DEV"`)
+		testutil.NotContains(t, cql, `space = "DEV"`)
 
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"results": [], "totalSize": 0}`))
@@ -438,6 +427,65 @@ func TestRunSearch_WithRawCQL(t *testing.T) {
 
 	err := runSearch(context.Background(), opts)
 	testutil.RequireNoError(t, err)
+}
+
+func TestRunSearch_RawCQLConflictsMakeNoRequest(t *testing.T) {
+	tests := []struct {
+		name string
+		opts searchOptions
+	}{
+		{name: "positional query", opts: searchOptions{query: "query"}},
+		{name: "space", opts: searchOptions{space: "DEV"}},
+		{name: "type", opts: searchOptions{contentType: "page"}},
+		{name: "title", opts: searchOptions{title: "Title"}},
+		{name: "label", opts: searchOptions{label: "docs"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			requests := 0
+			server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { requests++ }))
+			defer server.Close()
+			rootOpts := newTestRootOptions()
+			rootOpts.SetAPIClient(api.NewClient(server.URL, "test@example.com", "token"))
+			tt.opts.Options = rootOpts
+			tt.opts.cql = "type=page"
+			tt.opts.limit = 25
+
+			err := runSearch(context.Background(), &tt.opts)
+			testutil.RequireError(t, err)
+			testutil.Contains(t, err.Error(), "--cql cannot be combined")
+			testutil.Equal(t, 0, requests)
+			testutil.Equal(t, "", rootOpts.Stdout.(*bytes.Buffer).String())
+		})
+	}
+}
+
+func TestSearch_CQLAndPositionalFailBeforeConfig(t *testing.T) {
+	rootCmd, rootOpts := root.NewCmd()
+	rootOpts.ConfigPath = filepath.Join(t.TempDir(), "missing.yml")
+	rootOpts.Stdout = &bytes.Buffer{}
+	rootOpts.Stderr = &bytes.Buffer{}
+	Register(rootCmd, rootOpts)
+	rootCmd.SetArgs([]string{"search", "query", "--cql", "type=page"})
+
+	err := rootCmd.Execute()
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "--cql cannot be combined")
+	testutil.NotContains(t, err.Error(), "config")
+	testutil.Equal(t, "", rootOpts.Stdout.(*bytes.Buffer).String())
+}
+
+func TestSearch_InvalidLimitFailsBeforeConfig(t *testing.T) {
+	rootCmd, rootOpts := root.NewCmd()
+	rootOpts.ConfigPath = filepath.Join(t.TempDir(), "missing.yml")
+	Register(rootCmd, rootOpts)
+	rootCmd.SetArgs([]string{"search", "query", "--limit", "0"})
+
+	err := rootCmd.Execute()
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "must be greater than 0")
+	testutil.NotContains(t, err.Error(), "config")
 }
 
 func TestRunSearch_CombinedFilters(t *testing.T) {
@@ -574,28 +622,20 @@ func TestRunSearch_SpaceOnlyFilter(t *testing.T) {
 }
 
 func TestRunSearch_LimitParameter(t *testing.T) {
-	t.Parallel()
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		limit := r.URL.Query().Get("limit")
-		testutil.Equal(t, "50", limit)
+	for _, limit := range []int{25, 50} {
+		t.Run(fmt.Sprint(limit), func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				testutil.Equal(t, fmt.Sprint(limit), r.URL.Query().Get("limit"))
+				_, _ = w.Write([]byte(`{"results": [], "totalSize": 0}`))
+			}))
+			defer server.Close()
 
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"results": [], "totalSize": 0}`))
-	}))
-	defer server.Close()
-
-	rootOpts := newTestRootOptions()
-	client := api.NewClient(server.URL, "test@example.com", "token")
-	rootOpts.SetAPIClient(client)
-
-	opts := &searchOptions{
-		Options: rootOpts,
-		query:   "test",
-		limit:   50,
+			rootOpts := newTestRootOptions()
+			rootOpts.SetAPIClient(api.NewClient(server.URL, "test@example.com", "token"))
+			err := runSearch(context.Background(), &searchOptions{Options: rootOpts, query: "test", limit: limit})
+			testutil.RequireNoError(t, err)
+		})
 	}
-
-	err := runSearch(context.Background(), opts)
-	testutil.RequireNoError(t, err)
 }
 
 func TestExtractSpaceKey(t *testing.T) {

@@ -34,7 +34,7 @@ The full artifact provides richer inspection-oriented output for debugging and d
 
 **Examples:**
 - `jtk issues get --full` → agent fields + created, updated, reporter, components, labels
-- `cfl page view --full` → agent fields + version, created, modified, author
+- `cfl page view --full` → agent fields + parent ID, creation time, author ID
 
 ## Page Body Format (cfl)
 
@@ -56,6 +56,9 @@ The full artifact provides richer inspection-oriented output for debugging and d
 --body-format adf       → selected artifact with exact ADF body
 --body-format xhtml     → selected artifact with exact storage XHTML body
 ```
+
+`cfl page view --full` cannot be combined with `--content-only` or `--web`.
+Commands without a defined full artifact reject `--full` instead of ignoring it.
 
 ## Output Format
 

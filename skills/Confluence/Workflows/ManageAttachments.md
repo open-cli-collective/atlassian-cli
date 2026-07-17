@@ -21,7 +21,7 @@ List, upload, download, and delete attachments on Confluence pages.
 ```bash
 cfl attachment list --page PAGE_ID
 
-# Increase result count (default 25)
+# Increase result count with a positive limit (default 25)
 cfl attachment list --page PAGE_ID --limit 100
 
 # Show only unused/orphaned attachments

@@ -286,6 +286,7 @@ View a Confluence page. **Content is displayed as markdown by default.**
 
 ```bash
 cfl page view 12345
+cfl page view 12345 --full                    # Add parent/creation/author metadata
 cfl page view 12345 --body-format xhtml
 cfl page view 12345 --body-format adf
 cfl page view 12345 --version 7
@@ -302,6 +303,8 @@ cfl page view 12345 --show-macros --content-only | cfl page edit 12345 --legacy 
 | `--no-truncate` | | `false` | Show full content without truncation |
 | `--show-macros` | | `false` | Show Confluence macro placeholders (e.g., `[TOC]`) instead of stripping them |
 | `--content-only` | | `false` | Output only page content (no Title/ID/Version headers); implies `--no-truncate` |
+
+`--full` composes with every body format and is incompatible with `--content-only` and `--web`.
 
 **Arguments:**
 - `<page-id>` - The page ID (**required**)
@@ -486,6 +489,7 @@ cfl page delete 12345 --force
 ### `cfl search [query]`
 
 Search for pages, blog posts, attachments, and comments across Confluence.
+Searches are global unless `--space` is provided explicitly; `default_space` is not used.
 
 Uses Confluence Query Language (CQL) under the hood. Convenient flags handle common
 filters, or use `--cql` for advanced queries.
@@ -515,15 +519,17 @@ cfl search --cql "type=page AND space=DEV AND lastModified > now('-7d')"
 
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
-| `--cql` | | | Raw CQL query (advanced) |
-| `--space` | `-s` | (from config) | Filter by space key |
+| `--cql` | | | Raw CQL query (cannot be combined with query or builder flags) |
+| `--space` | `-s` | | Filter by space key |
 | `--type` | `-t` | | Content type: `page`, `blogpost`, `attachment`, `comment` |
 | `--title` | | | Filter by title (contains) |
 | `--label` | | | Filter by label |
-| `--limit` | `-l` | `25` | Maximum number of results |
+| `--limit` | `-l` | `25` | Maximum number of results (must be greater than zero) |
 
 **Arguments:**
 - `[query]` - Full-text search terms (optional if using filters)
+
+Raw `--cql` is mutually exclusive with `[query]`, `--space`, `--type`, `--title`, and `--label`.
 
 **CQL Reference:**
 Common CQL operators for `--cql`:
@@ -600,7 +606,7 @@ cfl attachment list --page 12345 --unused
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
 | `--page` | `-p` | | Page ID (**required**) |
-| `--limit` | `-l` | `25` | Maximum number of attachments to return |
+| `--limit` | `-l` | `25` | Maximum number of attachments to return (must be greater than zero) |
 | `--unused` | | `false` | Show only attachments not referenced in page content |
 
 ---

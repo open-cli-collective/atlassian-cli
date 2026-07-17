@@ -7,6 +7,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -73,6 +74,9 @@ func TestRunView_ExactOutput_Default(t *testing.T) {
 				"id": "12345",
 				"title": "Test Page",
 				"spaceId": "98765",
+				"parentId": "456",
+				"authorId": "author-1",
+				"createdAt": "2024-02-03T04:05:06Z",
 				"version": {"number": 3},
 				"body": {"storage": {"value": "<p>Hello <strong>World</strong></p>"}},
 				"_links": {"webui": "/pages/12345"}
@@ -100,6 +104,73 @@ func TestRunView_ExactOutput_Default(t *testing.T) {
 
 	testutil.Equal(t, "Title: Test Page\nID: 12345\nSpace: TEST (ID: 98765)\nVersion: 3\n\n"+expectedBody+"\n", rootOpts.Stdout.(*bytes.Buffer).String())
 	testutil.Equal(t, "", rootOpts.Stderr.(*bytes.Buffer).String())
+}
+
+func TestRunView_FullMetadataAcrossBodyFormats(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		format    string
+		apiFormat string
+		body      string
+		wantBody  string
+	}{
+		{name: "markdown", format: bodyFormatMarkdown, apiFormat: "storage", body: `"storage":{"value":"<p>Hello</p>"}`, wantBody: "Hello"},
+		{name: "adf", format: bodyFormatADF, apiFormat: "atlas_doc_format", body: `"atlas_doc_format":{"value":"{\"type\":\"doc\",\"version\":1,\"content\":[]}"}`, wantBody: `{"type":"doc","version":1,"content":[]}`},
+		{name: "xhtml", format: bodyFormatXHTML, apiFormat: "storage", body: `"storage":{"value":"<p>Hello</p>"}`, wantBody: "<p>Hello</p>"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				testutil.Equal(t, tt.apiFormat, r.URL.Query().Get("body-format"))
+				_, _ = w.Write([]byte(`{
+					"id":"12345","title":"Full Page","parentId":"456",
+					"authorId":"author-1","createdAt":"2024-02-03T04:05:06Z",
+					"version":{"number":3},"body":{` + tt.body + `}
+				}`))
+			}))
+			defer server.Close()
+
+			rootOpts := newViewTestRootOptions()
+			rootOpts.Full = true
+			rootOpts.SetAPIClient(api.NewClient(server.URL, "test@example.com", "token"))
+
+			err := runView(context.Background(), "12345", &viewOptions{Options: rootOpts, bodyFormat: tt.format})
+			testutil.RequireNoError(t, err)
+			testutil.Equal(t, "Title: Full Page\nID: 12345\nVersion: 3\nParent ID: 456\nCreated At: 2024-02-03T04:05:06Z\nAuthor ID: author-1\n\n"+tt.wantBody+"\n", rootOpts.Stdout.(*bytes.Buffer).String())
+		})
+	}
+}
+
+func TestRunView_FullContentOnlyFailsBeforeNetwork(t *testing.T) {
+	t.Parallel()
+	requests := 0
+	server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { requests++ }))
+	defer server.Close()
+
+	rootOpts := newViewTestRootOptions()
+	rootOpts.Full = true
+	rootOpts.SetAPIClient(api.NewClient(server.URL, "test@example.com", "token"))
+	err := runView(context.Background(), "12345", &viewOptions{Options: rootOpts, contentOnly: true})
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "--full is incompatible with --content-only")
+	testutil.Equal(t, 0, requests)
+	testutil.Equal(t, "", rootOpts.Stdout.(*bytes.Buffer).String())
+}
+
+func TestView_FullContentOnlyFailsBeforeConfig(t *testing.T) {
+	rootCmd, rootOpts := root.NewCmd()
+	rootOpts.ConfigPath = filepath.Join(t.TempDir(), "missing.yml")
+	Register(rootCmd, rootOpts)
+	rootCmd.SetArgs([]string{"page", "view", "12345", "--full", "--content-only"})
+
+	err := rootCmd.Execute()
+	testutil.RequireError(t, err)
+	testutil.Contains(t, err.Error(), "--full is incompatible with --content-only")
+	testutil.NotContains(t, err.Error(), "config")
 }
 
 func TestRunView_ExactOutput_ContentOnly(t *testing.T) {
@@ -581,6 +652,19 @@ func TestRunView_ExactOutput_VersionDefault(t *testing.T) {
 	testutil.Equal(t, "", rootOpts.Stderr.(*bytes.Buffer).String())
 }
 
+func TestRunView_VersionFullMetadata(t *testing.T) {
+	t.Parallel()
+	server := mockVersionedViewServer(t, "<p>Historical</p>")
+	defer server.Close()
+
+	rootOpts := newViewTestRootOptions()
+	rootOpts.Full = true
+	rootOpts.SetAPIClient(api.NewClient(server.URL, "test@example.com", "token"))
+	err := runView(context.Background(), "12345", &viewOptions{Options: rootOpts, version: 2})
+	testutil.RequireNoError(t, err)
+	testutil.Contains(t, rootOpts.Stdout.(*bytes.Buffer).String(), "Parent ID: 456\nCreated At: 2024-02-03T04:05:06Z\nAuthor ID: author-1")
+}
+
 func TestRunView_VersionRaw(t *testing.T) {
 	t.Parallel()
 	server := mockVersionedViewServer(t, "<p>Historical Raw</p>")
@@ -864,7 +948,7 @@ func TestTruncateContent(t *testing.T) {
 		testutil.True(t, truncated)
 	})
 
-	t.Run("--full bypasses truncation", func(t *testing.T) {
+	t.Run("--no-truncate bypasses truncation", func(t *testing.T) {
 		t.Parallel()
 		long := strings.Repeat("x", maxViewChars+100)
 		result, truncated := pageview.TruncateContent(long, pageview.Options{NoTruncate: true})
@@ -1090,6 +1174,9 @@ func mockVersionedViewServer(t *testing.T, storage string) *httptest.Server {
 			_, _ = w.Write([]byte(`{
 				"id": "12345",
 				"title": "Versioned Page",
+				"parentId": "456",
+				"authorId": "author-1",
+				"createdAt": "2024-02-03T04:05:06Z",
 				"version": {"number": 3}
 			}`))
 		case r.URL.Path == "/api/v2/pages/12345/versions" && r.URL.Query().Get("body-format") == "" && r.URL.Query().Get("cursor") == "":

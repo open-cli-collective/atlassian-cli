@@ -44,12 +44,18 @@ Confluence storage XHTML.
 
 By default, output is truncated to 5000 characters for concise display.
 Use --no-truncate to show the complete page content without truncation.
-The --content-only flag implies --no-truncate since it is intended for piping.`,
+The --content-only flag implies --no-truncate since it is intended for piping.
+
+Use --full to add parent ID, creation time, and author ID metadata.
+It cannot be combined with --content-only or --web.`,
 		Example: `  # View a page (markdown, truncated if large)
   cfl page view 12345
 
   # View full content without truncation
   cfl page view 12345 --no-truncate
+
+  # View inspection metadata
+  cfl page view 12345 --full
 
   # View exact storage format (XHTML)
   cfl page view 12345 --body-format xhtml
@@ -79,6 +85,12 @@ The --content-only flag implies --no-truncate since it is intended for piping.`,
 			if opts.showMacros && format != bodyFormatMarkdown {
 				return fmt.Errorf("--show-macros is only supported with --body-format markdown")
 			}
+			if opts.Full && opts.contentOnly {
+				return fmt.Errorf("--full is incompatible with --content-only")
+			}
+			if opts.Full && opts.web {
+				return fmt.Errorf("--full is incompatible with --web")
+			}
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -104,6 +116,12 @@ func runView(ctx context.Context, pageID string, opts *viewOptions) error {
 	}
 	if opts.showMacros && bodyFormat != bodyFormatMarkdown {
 		return fmt.Errorf("--show-macros is only supported with --body-format markdown")
+	}
+	if opts.Full && opts.contentOnly {
+		return fmt.Errorf("--full is incompatible with --content-only")
+	}
+	if opts.Full && opts.web {
+		return fmt.Errorf("--full is incompatible with --web")
 	}
 	if opts.contentOnly {
 		if opts.web {
@@ -162,6 +180,7 @@ func runView(ctx context.Context, pageID string, opts *viewOptions) error {
 		NoTruncate:  opts.noTruncate,
 		ShowMacros:  opts.showMacros,
 		ContentOnly: opts.contentOnly,
+		Full:        opts.Full,
 	})
 	if err != nil {
 		return cflpresent.EmitError(opts.Options, err)

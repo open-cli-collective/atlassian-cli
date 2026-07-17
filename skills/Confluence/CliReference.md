@@ -25,7 +25,7 @@ cfl config test
 | Flag | Description |
 |------|-------------|
 | `-o, --output FORMAT` | Output format (see SKILL.md "Output Representation and Format"): `table` (default), `json`, `plain` |
-| `--full` | Inspection-oriented representation (see SKILL.md). Not a content-truncation flag — for `page view` content truncation, use `--no-truncate`. |
+| `--full` | Inspection additions on supported page/space views and list/search commands. Unsupported commands reject it. |
 | `--no-color` | Disable colored output |
 | `-c, --config PATH` | Override config file location (default: `~/.config/cfl/config.yml`) |
 
@@ -41,6 +41,7 @@ cfl [resource] [action] [ID] [flags]
 |---------|-------------|
 | `cfl page list --space KEY` | List pages in space |
 | `cfl page view PAGE_ID` | View page content as markdown (truncated at 5000 chars by default) |
+| `cfl page view PAGE_ID --full` | Add parent ID, creation time, and author ID metadata |
 | `cfl page view PAGE_ID --no-truncate` | View full content without truncation |
 | `cfl page view PAGE_ID --content-only` | Output content only (no metadata headers); implies `--no-truncate` |
 | `cfl page view PAGE_ID --body-format xhtml` | View exact Confluence storage XHTML |
@@ -84,6 +85,8 @@ cfl [resource] [action] [ID] [flags]
 | `--show-macros` | Show macro placeholders (e.g. `[TOC]`) instead of stripping them |
 | `-w, --web` | Open in browser |
 
+`--full` composes with `--body-format` and is incompatible with `--content-only` and `--web`.
+
 ### Page List Flags
 
 | Flag | Description |
@@ -116,25 +119,26 @@ echo "# Hello World" | cfl page create -s DEV -t "My Page"
 
 | Command | Description |
 |---------|-------------|
-| `cfl search "query"` | Full-text search |
+| `cfl search "query"` | Global full-text search |
 | `cfl search "query" --space KEY` | Search within space |
 | `cfl search "query" --type page` | Search pages only |
 | `cfl search --label TAG` | Filter by label |
 | `cfl search --title "TEXT"` | Filter by title |
 | `cfl search --cql "CQL_QUERY"` | Raw CQL query |
 
-**Note:** When `--cql` is provided, it takes precedence over the positional `[query]` argument. Don't combine them.
+**Scope:** Search is global unless `--space` is explicit; configured `default_space` is not used.
+Raw `--cql` cannot be combined with the positional query or any builder flag.
 
 ### Search Flags
 
 | Flag | Description |
 |------|-------------|
-| `--space KEY` / `-s` | Filter by space key |
+| `--space KEY` / `-s` | Explicitly filter by space key |
 | `--type TYPE` / `-t` | Content type: `page`, `blogpost`, `attachment`, `comment` |
 | `--label TAG` | Filter by label |
 | `--title "TEXT"` | Filter by title (contains) |
-| `--cql "QUERY"` | Raw CQL query (advanced). Takes precedence over positional query. |
-| `--limit N` / `-l` | Max results (default 25) |
+| `--cql "QUERY"` | Raw CQL query; mutually exclusive with query, space, type, title, and label inputs |
+| `--limit N` / `-l` | Max results, greater than zero (default 25) |
 
 ### Common CQL Patterns
 
@@ -187,7 +191,7 @@ echo "# Hello World" | cfl page create -s DEV -t "My Page"
 | Command | Description |
 |---------|-------------|
 | `cfl attachment list --page PAGE_ID` | List attachments on page |
-| `cfl attachment list --page PAGE_ID --limit 50` | List with custom limit (default 25) |
+| `cfl attachment list --page PAGE_ID --limit 50` | List with positive custom limit (default 25) |
 | `cfl attachment list --page PAGE_ID --unused` | List orphaned attachments (not referenced in page content) |
 | `cfl attachment upload --page PAGE_ID --file PATH` | Upload attachment |
 | `cfl attachment upload --page PAGE_ID --file PATH -m "comment"` | Upload with comment |

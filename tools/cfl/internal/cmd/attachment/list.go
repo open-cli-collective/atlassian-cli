@@ -35,13 +35,19 @@ func newListCmd(rootOpts *root.Options) *cobra.Command {
 
   # List unused (orphaned) attachments not referenced in page content
   cfl attachment list --page 12345 --unused`,
+		Args: func(cmd *cobra.Command, args []string) error {
+			if err := cobra.NoArgs(cmd, args); err != nil {
+				return err
+			}
+			return validateListOptions(opts)
+		},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runList(cmd.Context(), opts)
 		},
 	}
 
 	cmd.Flags().StringVarP(&opts.pageID, "page", "p", "", "Page ID (required)")
-	cmd.Flags().IntVarP(&opts.limit, "limit", "l", 25, "Maximum number of attachments to return")
+	cmd.Flags().IntVarP(&opts.limit, "limit", "l", 25, "Maximum number of attachments to return (must be greater than 0)")
 	cmd.Flags().BoolVar(&opts.unused, "unused", false, "Show only attachments not referenced in page content")
 
 	_ = cmd.MarkFlagRequired("page")
@@ -50,6 +56,10 @@ func newListCmd(rootOpts *root.Options) *cobra.Command {
 }
 
 func runList(ctx context.Context, opts *listOptions) error {
+	if err := validateListOptions(opts); err != nil {
+		return err
+	}
+
 	client, err := opts.APIClient()
 	if err != nil {
 		return err
@@ -87,6 +97,13 @@ func runList(ctx context.Context, opts *listOptions) error {
 	}
 
 	return cflpresent.Emit(opts.Options, cflpresent.AttachmentPresenter{}.PresentList(attachments, opts.Full, result.HasMore()))
+}
+
+func validateListOptions(opts *listOptions) error {
+	if opts.limit <= 0 {
+		return fmt.Errorf("invalid limit: %d (must be greater than 0)", opts.limit)
+	}
+	return nil
 }
 
 // filterUnusedAttachments returns attachments that are not referenced in the page content.

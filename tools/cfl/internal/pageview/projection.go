@@ -3,6 +3,8 @@ package pageview
 import (
 	"fmt"
 
+	"github.com/open-cli-collective/atlassian-go/atime"
+
 	"github.com/open-cli-collective/confluence-cli/api"
 	"github.com/open-cli-collective/confluence-cli/pkg/md"
 )
@@ -16,6 +18,7 @@ type Options struct {
 	NoTruncate  bool
 	ShowMacros  bool
 	ContentOnly bool
+	Full        bool
 }
 
 // BodyKind identifies the body representation selected for presentation.
@@ -36,6 +39,10 @@ type Projection struct {
 	SpaceID     string
 	Version     int
 	HasVersion  bool
+	ParentID    string
+	CreatedAt   *atime.AtlassianTime
+	AuthorID    string
+	Full        bool
 	ContentOnly bool
 	Body        string
 	BodyKind    BodyKind
@@ -76,6 +83,10 @@ func Project(page *api.Page, spaceKey string, opts Options) (Projection, error) 
 		ID:          page.ID,
 		SpaceKey:    spaceKey,
 		SpaceID:     page.SpaceID,
+		ParentID:    page.ParentID,
+		CreatedAt:   page.CreatedAt,
+		AuthorID:    page.AuthorID,
+		Full:        opts.Full,
 		ContentOnly: opts.ContentOnly,
 	}
 	if page.Version != nil {

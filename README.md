@@ -363,7 +363,8 @@ cfl page create --space DEV --title "New Page" --file content.md
 cfl page edit 123456
 
 # Search content
-cfl search "my search query"
+cfl search "my search query"                  # Global search
+cfl search "my search query" --space DEV      # Explicit space scope
 cfl search --cql "space = DEV AND type = page"
 
 # Copy a page

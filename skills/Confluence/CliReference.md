@@ -46,7 +46,7 @@ cfl [resource] [action] [ID] [flags]
 | `cfl page view PAGE_ID --content-only` | Output content only (no metadata headers); implies `--no-truncate` |
 | `cfl page view PAGE_ID --body-format xhtml` | View exact Confluence storage XHTML |
 | `cfl page view PAGE_ID --body-format adf` | View exact ADF JSON |
-| `cfl page view PAGE_ID --show-macros` | Show macro placeholders (e.g. `[TOC]`) instead of stripping them |
+| `cfl page view PAGE_ID --show-macros` | Show macro placeholders (e.g. `[TOC]`) instead of stripping them (Markdown-only; rejected with `--body-format adf|xhtml`) |
 | `cfl page view PAGE_ID --web` | Open page in browser |
 | `cfl page create --space KEY --title "TEXT"` | Create page (opens editor) |
 | `cfl page create --space KEY --title "TEXT" --file content.md` | Create from file |
@@ -81,7 +81,7 @@ cfl [resource] [action] [ID] [flags]
 | `--no-truncate` | Show full Markdown content without truncation; exact ADF/XHTML are always complete |
 | `--content-only` | Output only page content (no metadata headers); implies `--no-truncate` |
 | `--body-format markdown\|adf\|xhtml` | Body representation; ADF and XHTML are emitted exactly and never truncated |
-| `--show-macros` | Show macro placeholders (e.g. `[TOC]`) instead of stripping them |
+| `--show-macros` | Show macro placeholders (e.g. `[TOC]`) instead of stripping them. Markdown-only — rejected with `--body-format adf|xhtml` |
 | `-w, --web` | Open in browser |
 
 `--full` composes with `--body-format` and is incompatible with `--content-only` and `--web`.

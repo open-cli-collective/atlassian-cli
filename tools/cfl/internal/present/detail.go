@@ -116,7 +116,7 @@ func (PagePresenter) PresentView(proj pageview.Projection) *sharedpresent.Output
 	}
 	sections = append(sections, &sharedpresent.MessageSection{
 		Message:   body,
-		NoNewline: proj.ContentOnly && proj.HasContent && proj.Body == "" && (proj.BodyKind == pageview.BodyKindADF || proj.BodyKind == pageview.BodyKindXHTML),
+		NoNewline: proj.ContentOnly && (proj.BodyKind == pageview.BodyKindADF || proj.BodyKind == pageview.BodyKindXHTML),
 	})
 
 	return &sharedpresent.OutputModel{Sections: sections}

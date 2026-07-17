@@ -22,7 +22,7 @@ This document declares `jtk` output shapes, flag semantics, and formatting conve
 | Default | *(none)* | Contextually-rich human + agent text. Stable format. |
 | Field projection | `--fields <csv>` | Selects supported output fields explicitly. |
 | Full text | `--fulltext` | Disables body/value truncation without changing fields. |
-| Identifier | `--id` | Emits only the primary identifier and takes precedence over `--fulltext`. |
+| Identifier | `--id` | Emits only the primary identifier and takes precedence over `--fulltext` and `--fields` (projection is bypassed entirely, including transitions list --fields). |
 | Export | implicit on `automation export` | Round-trip JSON for business-rule import/export. |
 
 `transitions list --fields` is the exception: it is a Boolean flag, not a CSV projection. It fetches required transition fields and adds the optional columns:

@@ -106,6 +106,7 @@ func runList(ctx context.Context, opts *root.Options, issueKey, fieldsFlag strin
 
 func newAddCmd(opts *root.Options) *cobra.Command {
 	var files []string
+	var filename string
 
 	cmd := &cobra.Command{
 		Use:   "add <issue-key>",
@@ -115,20 +116,28 @@ func newAddCmd(opts *root.Options) *cobra.Command {
   jtk attachments add PROJ-123 --file screenshot.png
 
   # Add multiple files
-  jtk attachments add PROJ-123 --file doc.pdf --file image.png`,
+  jtk attachments add PROJ-123 --file doc.pdf --file image.png
+
+  # Store under a different name
+  jtk attachments add PROJ-123 --file /tmp/out.png --filename before.png`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runAdd(cmd.Context(), opts, args[0], files)
+			return runAdd(cmd.Context(), opts, args[0], files, filename)
 		},
 	}
 
 	cmd.Flags().StringArrayVarP(&files, "file", "F", nil, "File(s) to attach (can be specified multiple times)")
+	cmd.Flags().StringVar(&filename, "filename", "", "Store the attachment under this name instead of the file's base name (single --file only)")
 	_ = cmd.MarkFlagRequired("file")
 
 	return cmd
 }
 
-func runAdd(ctx context.Context, opts *root.Options, issueKey string, files []string) error {
+func runAdd(ctx context.Context, opts *root.Options, issueKey string, files []string, filename string) error {
+	if filename != "" && len(files) != 1 {
+		return fmt.Errorf("--filename can only be used with a single --file")
+	}
+
 	client, err := opts.APIClient()
 	if err != nil {
 		return err
@@ -145,7 +154,7 @@ func runAdd(ctx context.Context, opts *root.Options, issueKey string, files []st
 			return fmt.Errorf("file not found: %s", filePath)
 		}
 
-		attachments, err := client.AddAttachment(ctx, issueKey, absPath)
+		attachments, err := client.AddAttachment(ctx, issueKey, absPath, filename)
 		if err != nil {
 			// Emit results for files that succeeded before returning the error
 			if len(allAttachments) > 0 {

@@ -147,6 +147,23 @@ func TestAddAttachment(t *testing.T) {
 			wantFilename:    "payload.bespoke",
 			wantContentType: "application/octet-stream",
 		},
+		{
+			// --filename is untrusted input; a quote must be escaped so it
+			// cannot break out of the Content-Disposition header, yet must
+			// round-trip to the literal name Jira should store.
+			name:            "override with quote is escaped and round-trips",
+			srcName:         "tmp.png",
+			override:        `ex"ploit.png`,
+			wantFilename:    `ex"ploit.png`,
+			wantContentType: "image/png",
+		},
+		{
+			name:            "override with backslash is escaped and round-trips",
+			srcName:         "tmp.png",
+			override:        `dir\name.png`,
+			wantFilename:    `dir\name.png`,
+			wantContentType: "image/png",
+		},
 	}
 
 	for _, tt := range tests {
@@ -168,6 +185,10 @@ func TestAddAttachment(t *testing.T) {
 				gotFilename = part.FileName()
 				gotContentType = part.Header.Get("Content-Type")
 				gotBody, _ = io.ReadAll(part)
+
+				// Exactly one part: an escaped filename must not inject a second.
+				_, nextErr := reader.NextPart()
+				testutil.Equal(t, nextErr, io.EOF)
 
 				w.WriteHeader(http.StatusOK)
 				_ = json.NewEncoder(w).Encode([]Attachment{{ID: "10001", Filename: gotFilename}})

@@ -693,7 +693,7 @@ func TestLoadWithEnv_ProxySkipsTokenResolution(t *testing.T) {
 	t.Setenv("ATLASSIAN_AUTH_METHOD", "proxy")
 	t.Setenv("ATLASSIAN_API_TOKEN", "env-token-that-should-be-ignored")
 
-	cfg, err := LoadWithEnv(filepath.Join(t.TempDir(), "missing.yml"))
+	cfg, err := LoadWithEnv(filepath.Join(t.TempDir(), "missing.yml"), true, true)
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, "http://127.0.0.1:8080/atlassian", cfg.URL)
 	testutil.Equal(t, "proxy", cfg.AuthMethod)

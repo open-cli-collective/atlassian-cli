@@ -451,6 +451,13 @@ func TestDefaultConfigLayersSharedValues(t *testing.T) {
 	credtest.Hermetic(t)
 	keyring.SetBackendSelection("", "")
 	t.Cleanup(func() { keyring.SetBackendSelection("", "") })
+	for _, name := range []string{
+		"CFL_URL", "ATLASSIAN_URL", "CFL_EMAIL", "ATLASSIAN_EMAIL",
+		"CFL_AUTH_METHOD", "ATLASSIAN_AUTH_METHOD", "CFL_CLOUD_ID",
+		"ATLASSIAN_CLOUD_ID", "CFL_DEFAULT_SPACE",
+	} {
+		t.Setenv(name, "")
+	}
 	t.Setenv("CFL_API_TOKEN", "token")
 
 	legacy := &config.Config{
@@ -483,7 +490,7 @@ func TestDefaultConfigLayersSharedValues(t *testing.T) {
 			if cfg.URL != "https://shared.atlassian.net/wiki" || cfg.Email != "shared@example.com" ||
 				cfg.AuthMethod != auth.AuthMethodBearer || cfg.CloudID != "shared-cloud" ||
 				cfg.DefaultSpace != "SHARED" || cfg.OutputFormat != "shared-output" {
-				t.Fatal("default config did not layer shared values")
+				t.Fatalf("default config did not layer shared values: %+v", cfg)
 			}
 			return nil
 		},

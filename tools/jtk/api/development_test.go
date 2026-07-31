@@ -57,6 +57,7 @@ func TestGetDevelopment_DeduplicatesPullRequests(t *testing.T) {
 
 	client, err := New(ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
 	testutil.RequireNoError(t, err)
+	client.HTTPClient = server.Client()
 
 	development, err := client.GetDevelopment(context.Background(), "PROJ-123")
 	testutil.RequireNoError(t, err)

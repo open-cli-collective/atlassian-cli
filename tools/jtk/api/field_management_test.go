@@ -21,6 +21,7 @@ func newTestClient(t *testing.T, server *httptest.Server) *Client {
 	testutil.RequireNoError(t, err)
 	if server != nil {
 		client.BaseURL = server.URL + "/rest/api/3"
+		client.HTTPClient = server.Client()
 	}
 	return client
 }

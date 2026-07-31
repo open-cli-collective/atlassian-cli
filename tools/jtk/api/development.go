@@ -83,6 +83,9 @@ func (c *Client) GetDevelopment(ctx context.Context, issueKey string) (*Developm
 	if issueKey == "" {
 		return nil, ErrIssueKeyRequired
 	}
+	if c.IsBearerAuth() {
+		return nil, ErrDevelopmentUnavailable
+	}
 
 	issue, err := c.GetIssue(ctx, issueKey)
 	if err != nil {
@@ -230,6 +233,8 @@ func normalizeDevelopmentURL(raw string) string {
 	}
 	u.Scheme = strings.ToLower(u.Scheme)
 	u.Host = strings.ToLower(u.Host)
+	u.RawQuery = ""
+	u.ForceQuery = false
 	u.Fragment = ""
 	u.Path = strings.TrimRight(u.Path, "/")
 	return u.String()

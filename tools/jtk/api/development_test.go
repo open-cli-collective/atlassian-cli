@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -38,7 +39,7 @@ func TestGetDevelopment_DeduplicatesPullRequests(t *testing.T) {
 			switch r.URL.Query().Get("applicationType") {
 			case "provider-a":
 				writeDevelopmentDetail(t, w, "repo-a", "owner/repo-a", []map[string]any{
-					{"id": "42", "name": "Older duplicate", "url": "HTTPS://GitHub.com/owner/repo-a/pull/42/#fragment", "status": "OPEN", "lastUpdate": "2026-07-30T12:00:00Z"},
+					{"id": "42", "name": "Older duplicate", "url": "HTTPS://GitHub.com/owner/repo-a/pull/42/?utm_source=provider-a#fragment", "status": "OPEN", "lastUpdate": "2026-07-30T12:00:00Z"},
 					{"id": "7", "name": "Repo A seven", "url": "https://github.com/owner/repo-a/pull/7", "status": "OPEN", "lastUpdate": "2026-07-29T12:00:00Z"},
 				})
 			case "provider-b":
@@ -72,6 +73,21 @@ func TestGetDevelopment_DeduplicatesPullRequests(t *testing.T) {
 	testutil.Equal(t, development.PullRequests[1].URL, "https://github.com/owner/repo-a/pull/7")
 	testutil.Equal(t, development.PullRequests[2].URL, "https://github.com/owner/repo-b/pull/7")
 	testutil.Len(t, development.Providers, 1)
+}
+
+func TestGetDevelopment_BearerAuthUnavailable(t *testing.T) {
+	t.Parallel()
+
+	client, err := New(ClientConfig{
+		URL:        "https://example.atlassian.net",
+		APIToken:   "scoped-token",
+		AuthMethod: "bearer",
+		CloudID:    "cloud-id",
+	})
+	testutil.RequireNoError(t, err)
+
+	_, err = client.GetDevelopment(context.Background(), "PROJ-123")
+	testutil.True(t, errors.Is(err, ErrDevelopmentUnavailable))
 }
 
 func TestDevelopmentRepositoryFromURL(t *testing.T) {

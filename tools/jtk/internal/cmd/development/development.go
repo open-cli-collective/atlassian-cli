@@ -14,9 +14,10 @@ import (
 // Register registers the development command.
 func Register(parent *cobra.Command, opts *root.Options) {
 	cmd := &cobra.Command{
-		Use:   "development",
-		Short: "Read issue development data",
-		Long:  "Read the pull requests shown in an issue's Jira Development panel. This uses a private Jira API that may change without notice.",
+		Use:     "development",
+		Aliases: []string{"dev"},
+		Short:   "Read issue development data",
+		Long:    "Read the pull requests shown in an issue's Jira Development panel. This uses a private Jira API that may change without notice.",
 	}
 	cmd.AddCommand(newGetCmd(opts))
 	parent.AddCommand(cmd)

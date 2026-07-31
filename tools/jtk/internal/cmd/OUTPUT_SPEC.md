@@ -726,6 +726,7 @@ All aliases produce identical output to their canonical form.
 | `jtk field`, `jtk f` | `jtk fields` |
 | `jtk link`, `jtk l` | `jtk links` |
 | `jtk dash`, `jtk dashboard` | `jtk dashboards` |
+| `jtk dev` | `jtk development` |
 
 ### Subcommand aliases
 

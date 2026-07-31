@@ -325,6 +325,23 @@ ID | NAME | INWARD | OUTWARD
 
 Cached during init/refresh. `links create` accepts the type name ("Blocker"), the outward verb ("blocks"), or the inward verb ("is blocked by").
 
+### `development`
+
+Development data is the issue-centric summary and pull requests shown in Jira's Development panel. It comes from Jira's private `/rest/dev-status/1.0` API, not issue remote (web) links.
+
+**`development get PROJ-123`** — default:
+```
+PROJ-123  Development
+Pull Requests: 2 (MERGED)   Commits: 5   Builds: 3 (3 successful)
+Providers: GitHub
+
+PR | REPOSITORY | STATUS | UPDATED | TITLE | URL
+#42 | owner/repo | MERGED | 2026-07-31 | Add feature | https://github.com/owner/repo/pull/42
+#41 | owner/repo | MERGED | 2026-07-30 | Fix edge | https://github.com/owner/repo/pull/41
+```
+
+Each pull request occupies one row and therefore has one URL cell; multiple URLs are never joined with a delimiter. `--id` emits the deduplicated canonical PR URLs, one per line. When no pull requests are associated, the summary reports `Pull Requests: 0` and no table is emitted.
+
 ### `remotelinks`
 
 Remote (web) links are external URLs attached to an issue and shown in the Jira links sidebar — distinct from `links`, which connect two Jira issues.
@@ -709,6 +726,7 @@ All aliases produce identical output to their canonical form.
 | `jtk field`, `jtk f` | `jtk fields` |
 | `jtk link`, `jtk l` | `jtk links` |
 | `jtk dash`, `jtk dashboard` | `jtk dashboards` |
+| `jtk dev` | `jtk development` |
 
 ### Subcommand aliases
 

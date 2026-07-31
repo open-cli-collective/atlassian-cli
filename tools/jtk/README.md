@@ -189,7 +189,7 @@ jtk init --auth-method bearer --url https://mycompany.atlassian.net \
 
 > **Bearer Auth:** For [Atlassian service accounts](https://support.atlassian.com/user-management/docs/manage-api-tokens-for-service-accounts/) with scoped API tokens. Email is not required. Requests route through the `api.atlassian.com` gateway.
 >
-> **Scope limitations:** Scoped tokens don't have scopes for Agile (boards/sprints), Automation, or Dashboards. These commands are unavailable with bearer auth — this is an Atlassian platform limitation.
+> **Scope limitations:** Scoped tokens don't have scopes for Agile (boards/sprints), Automation, Dashboards, or the private Development API. These commands are unavailable with bearer auth — this is an Atlassian platform limitation.
 
 ---
 
@@ -695,6 +695,24 @@ jtk links types --id
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--fields` | | Comma-separated display columns |
+
+---
+
+### `jtk development get <issue-key>`
+
+Show the summary and deduplicated pull requests from an issue's Jira Development panel. This command uses Jira's private `/rest/dev-status/1.0` API, which may change without notice.
+
+> Requires classic Basic authentication; Jira's private Development API is unavailable with bearer/scoped-token authentication.
+
+```bash
+jtk development get PROJ-123
+jtk development get PROJ-123 --id
+```
+
+Normal output prints one pull request and one URL per row. `--id` prints canonical pull request URLs only, one per line. This is separate from `jtk remotelinks`, which manages external web links attached to an issue.
+
+**Arguments:**
+- `<issue-key>` - The issue key (**required**)
 
 ---
 

@@ -23,6 +23,7 @@ import (
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/completion"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/configcmd"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/dashboards"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/development"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/fields"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/initcmd"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/issues"
@@ -69,6 +70,7 @@ func run(ctx context.Context) error {
 	comments.Register(rootCmd, opts)
 	links.Register(rootCmd, opts)
 	remotelinks.Register(rootCmd, opts)
+	development.Register(rootCmd, opts)
 	attachments.Register(rootCmd, opts)
 	automation.Register(rootCmd, opts)
 	boards.Register(rootCmd, opts)

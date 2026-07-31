@@ -151,6 +151,10 @@ var ErrAutomationUnavailable = stderrors.New("this command requires the Automati
 // but the client does not support it (e.g., bearer auth with scoped tokens).
 var ErrDashboardUnavailable = stderrors.New("this command requires the Dashboard API, which is not available with bearer auth (scoped tokens lack the Dashboard scope)")
 
+// ErrDevelopmentUnavailable is returned when a command requires Jira's private
+// Development API, which is unavailable through the scoped-token gateway.
+var ErrDevelopmentUnavailable = stderrors.New("this command requires Jira's private Development API, which is not available with bearer auth")
+
 // buildURL builds a URL with query parameters
 func buildURL(base string, params map[string]string) string {
 	if len(params) == 0 {

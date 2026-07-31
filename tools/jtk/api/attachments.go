@@ -6,13 +6,21 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime"
 	"mime/multipart"
 	"net/http"
+	"net/textproto"
 	"os"
 	"path/filepath"
+	"strings"
 
 	sharederrors "github.com/open-cli-collective/atlassian-go/errors"
 )
+
+// quoteEscaper mirrors the escaping mime/multipart applies to Content-Disposition
+// parameters, so an override filename containing a quote or backslash cannot break
+// out of the header.
+var quoteEscaper = strings.NewReplacer("\\", "\\\\", `"`, "\\\"")
 
 // Attachment represents a Jira attachment
 type Attachment struct {
@@ -102,13 +110,22 @@ func (c *Client) GetAttachment(ctx context.Context, attachmentID string) (*Attac
 	return &attachment, nil
 }
 
-// AddAttachment uploads a file as an attachment to an issue
-func (c *Client) AddAttachment(ctx context.Context, issueKey, filePath string) ([]Attachment, error) {
+// AddAttachment uploads a file as an attachment to an issue. When filename is
+// non-empty it overrides the stored attachment name; otherwise the base name of
+// filePath is used. The multipart part is tagged with a Content-Type derived from
+// the stored name's extension so Jira treats images and PDFs as such (rendering
+// thumbnails and inline previews) rather than as generic downloads.
+func (c *Client) AddAttachment(ctx context.Context, issueKey, filePath, filename string) ([]Attachment, error) {
 	if issueKey == "" {
 		return nil, ErrIssueKeyRequired
 	}
 	if filePath == "" {
 		return nil, ErrFilePathRequired
+	}
+
+	storedName := filename
+	if storedName == "" {
+		storedName = filepath.Base(filePath)
 	}
 
 	file, err := os.Open(filePath) //nolint:gosec // CLI tool opens user-provided file paths
@@ -127,7 +144,7 @@ func (c *Client) AddAttachment(ctx context.Context, issueKey, filePath string) (
 		defer pw.Close()
 		defer writer.Close()
 
-		part, err := writer.CreateFormFile("file", filepath.Base(filePath))
+		part, err := writer.CreatePart(attachmentPartHeader(storedName))
 		if err != nil {
 			errChan <- fmt.Errorf("creating form file: %w", err)
 			return
@@ -187,6 +204,23 @@ func (c *Client) AddAttachment(ctx context.Context, issueKey, filePath string) (
 	}
 
 	return attachments, nil
+}
+
+// attachmentPartHeader builds the multipart part header for an attachment upload,
+// setting the Content-Type from the filename extension (falling back to
+// application/octet-stream) so Jira records an accurate MIME type.
+func attachmentPartHeader(filename string) textproto.MIMEHeader {
+	h := make(textproto.MIMEHeader)
+	h.Set("Content-Disposition",
+		fmt.Sprintf(`form-data; name="file"; filename="%s"`, quoteEscaper.Replace(filename)))
+
+	contentType := mime.TypeByExtension(filepath.Ext(filename))
+	if contentType == "" {
+		contentType = "application/octet-stream"
+	}
+	h.Set("Content-Type", contentType)
+
+	return h
 }
 
 // DeleteAttachment deletes an attachment by ID

@@ -840,18 +840,20 @@ jtk attachments list PROJ-123 --id
 
 ### `jtk attachments add <issue-key>`
 
-Upload file(s) to an issue.
+Upload file(s) to an issue. The stored MIME type is detected from each file's extension, so images and PDFs are recognized as such by Jira (thumbnails and inline previews) rather than treated as generic downloads.
 
 **Aliases:** `jtk attachment add`, `jtk att add`
 
 ```bash
 jtk attachments add PROJ-123 --file screenshot.png
 jtk attachments add PROJ-123 --file doc.pdf --file image.png
+jtk attachments add PROJ-123 --file /tmp/out.png --filename before.png
 ```
 
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
 | `--file` | `-F` | | File to attach (**required**, can be repeated) |
+| `--filename` | | | Store the attachment under this name instead of the file's base name (single `--file` only) |
 
 **Arguments:**
 - `<issue-key>` - The issue key (**required**)

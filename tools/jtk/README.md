@@ -698,6 +698,22 @@ jtk links types --id
 
 ---
 
+### `jtk development get <issue-key>`
+
+Show the summary and deduplicated pull requests from an issue's Jira Development panel. This command uses Jira's private `/rest/dev-status/1.0` API, which may change without notice.
+
+```bash
+jtk development get PROJ-123
+jtk development get PROJ-123 --id
+```
+
+Normal output prints one pull request and one URL per row. `--id` prints canonical pull request URLs only, one per line. This is separate from `jtk remotelinks`, which manages external web links attached to an issue.
+
+**Arguments:**
+- `<issue-key>` - The issue key (**required**)
+
+---
+
 ### `jtk transitions list <issue-key>`
 
 List available transitions for an issue.

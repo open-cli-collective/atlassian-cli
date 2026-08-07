@@ -934,6 +934,16 @@ func TestFormatFieldValue_Clearing(t *testing.T) {
 			want:  nil,
 		},
 		{
+			name: "issuelink clears on empty",
+			field: &Field{
+				ID:     "customfield_10014",
+				Name:   "Epic Link",
+				Schema: FieldSchema{Type: "issuelink"},
+			},
+			value: "",
+			want:  nil,
+		},
+		{
 			name: "priority clears on empty",
 			field: &Field{
 				ID:     "priority",

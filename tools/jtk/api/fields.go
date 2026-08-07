@@ -114,6 +114,10 @@ func IsNullValue(v string) bool {
 //   - number fields: converts string to float64
 //   - issuelink fields (e.g., parent): wraps value as {"key": "..."} or {"id": "..."}
 //   - textarea custom fields: converts to ADF document
+//
+// Clearing: an empty value returns nil (JSON null) for every structured
+// type; "none"/"null" additionally clear number and user fields. Free-text
+// fields keep the verbatim value.
 func FormatFieldValue(field *Field, value string) any {
 	if field == nil {
 		return value
@@ -128,9 +132,23 @@ func FormatFieldValue(field *Field, value string) any {
 	// preserve the original value.
 	trimmed := strings.TrimSpace(value)
 
+	// Structured fields clear to JSON null. An empty value ("key=") is an
+	// explicit clear for every structured type — no structured field has a
+	// meaningful empty-string value, and the Jira update API otherwise
+	// rejects it with an unhelpful per-type validation error. The
+	// "none"/"null" spellings additionally clear the types where those
+	// strings can never be legitimate values (number, user); option-like
+	// and name-addressed types keep them as values because a select list or
+	// priority scheme may legitimately contain an entry named "None".
+	// Free-text fields (textarea above, default below) always keep the
+	// verbatim value — for text, empty string IS the idiomatic clear.
+
 	// The parent field requires {"key": "..."} format but Jira reports an empty
 	// schema type for it, so handle it before the type switch.
 	if field.ID == "parent" {
+		if trimmed == "" {
+			return nil
+		}
 		if _, err := strconv.Atoi(trimmed); err == nil {
 			return map[string]string{"id": trimmed}
 		}
@@ -139,8 +157,14 @@ func FormatFieldValue(field *Field, value string) any {
 
 	switch field.Schema.Type {
 	case "option":
+		if trimmed == "" {
+			return nil
+		}
 		return map[string]string{"value": trimmed}
 	case "array":
+		if trimmed == "" {
+			return nil
+		}
 		if field.Schema.Items == "option" {
 			return []map[string]string{{"value": trimmed}}
 		}
@@ -157,16 +181,25 @@ func FormatFieldValue(field *Field, value string) any {
 		}
 		return map[string]string{"accountId": trimmed}
 	case "number":
+		if IsNullValue(trimmed) {
+			return nil
+		}
 		if n, err := strconv.ParseFloat(trimmed, 64); err == nil {
 			return n
 		}
 		return trimmed
 	case "issuelink":
+		if trimmed == "" {
+			return nil
+		}
 		if _, err := strconv.Atoi(trimmed); err == nil {
 			return map[string]string{"id": trimmed}
 		}
 		return map[string]string{"key": trimmed}
 	case "priority", "resolution", "status", "issuetype", "securitylevel":
+		if trimmed == "" {
+			return nil
+		}
 		if _, err := strconv.Atoi(trimmed); err == nil {
 			return map[string]string{"id": trimmed}
 		}

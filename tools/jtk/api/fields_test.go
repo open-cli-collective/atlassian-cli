@@ -954,6 +954,18 @@ func TestFormatFieldValue_Clearing(t *testing.T) {
 			want:  nil,
 		},
 		{
+			// Jira ships a built-in Priority literally named "None" in many
+			// instances — name-addressed types must keep it as a value.
+			name: "priority keeps the literal string None",
+			field: &Field{
+				ID:     "priority",
+				Name:   "Priority",
+				Schema: FieldSchema{Type: "priority"},
+			},
+			value: "None",
+			want:  map[string]string{"name": "None"},
+		},
+		{
 			name: "parent clears on empty",
 			field: &Field{
 				ID:     "parent",

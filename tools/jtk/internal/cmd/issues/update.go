@@ -64,7 +64,12 @@ preceding field edit must be performed as a separate command.`,
   jtk issues update PROJ-123 --assignee none
 
   # Update custom fields
-  jtk issues update PROJ-123 --field priority=High --field "Story Points"=5`,
+  jtk issues update PROJ-123 --field priority=High --field "Story Points"=5
+
+  # Clear a field (structured types clear on an empty value; number and
+  # user fields also accept none/null)
+  jtk issues update PROJ-123 --field "Story Points"=
+  jtk issues update PROJ-123 --field "Story Points"=none`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runUpdate(cmd.Context(), opts, args[0], summary, description, parent, assignee, issueType, status, fields)

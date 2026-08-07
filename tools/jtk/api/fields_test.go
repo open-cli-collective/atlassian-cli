@@ -890,3 +890,98 @@ func TestResolveFieldArg(t *testing.T) {
 		})
 	}
 }
+
+func TestFormatFieldValue_Clearing(t *testing.T) {
+	t.Parallel()
+
+	numberField := &Field{
+		ID:     "customfield_10035",
+		Name:   "Story Points",
+		Schema: FieldSchema{Type: "number"},
+	}
+	optionField := &Field{
+		ID:     "customfield_10005",
+		Name:   "Change type",
+		Schema: FieldSchema{Type: "option"},
+	}
+
+	tests := []struct {
+		name  string
+		field *Field
+		value string
+		want  any
+	}{
+		{name: "number clears on empty", field: numberField, value: "", want: nil},
+		{name: "number clears on none", field: numberField, value: "none", want: nil},
+		{name: "number clears on null", field: numberField, value: "NULL", want: nil},
+		{name: "option clears on empty", field: optionField, value: "", want: nil},
+		{
+			// A select list may legitimately contain an option named "None" —
+			// only the empty value clears option-like fields.
+			name:  "option keeps the literal string None",
+			field: optionField,
+			value: "None",
+			want:  map[string]string{"value": "None"},
+		},
+		{
+			name: "array clears on empty",
+			field: &Field{
+				ID:     "labels",
+				Name:   "Labels",
+				Schema: FieldSchema{Type: "array", Items: "string"},
+			},
+			value: "",
+			want:  nil,
+		},
+		{
+			name: "issuelink clears on empty",
+			field: &Field{
+				ID:     "customfield_10014",
+				Name:   "Epic Link",
+				Schema: FieldSchema{Type: "issuelink"},
+			},
+			value: "",
+			want:  nil,
+		},
+		{
+			name: "priority clears on empty",
+			field: &Field{
+				ID:     "priority",
+				Name:   "Priority",
+				Schema: FieldSchema{Type: "priority"},
+			},
+			value: "",
+			want:  nil,
+		},
+		{
+			name: "parent clears on empty",
+			field: &Field{
+				ID:     "parent",
+				Name:   "Parent",
+				Schema: FieldSchema{},
+			},
+			value: "",
+			want:  nil,
+		},
+		{
+			// Free-text keeps the verbatim value — empty string IS the
+			// idiomatic clear for text, not JSON null.
+			name: "default string field keeps empty string",
+			field: &Field{
+				ID:     "summary",
+				Name:   "Summary",
+				Schema: FieldSchema{Type: "string"},
+			},
+			value: "",
+			want:  "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := FormatFieldValue(tt.field, tt.value)
+			testutil.Equal(t, got, tt.want)
+		})
+	}
+}

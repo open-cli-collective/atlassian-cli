@@ -26,6 +26,8 @@ type editOptions struct {
 	bodyFormatExplicit bool
 	legacy             bool
 	parent             string
+	message            string
+	messageExplicit    bool
 }
 
 func newEditCmd(rootOpts *root.Options) *cobra.Command {
@@ -71,6 +73,9 @@ without conversion.`,
   # Move page to a new parent
   cfl page edit 12345 --parent 67890
 
+  # Update with a custom version comment
+  cfl page edit 12345 --file content.md -m "Fixed typos"
+
   # Move page and update title
   cfl page edit 12345 --parent 67890 --title "New Title"
 
@@ -93,6 +98,7 @@ without conversion.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			opts.pageID = args[0]
 			opts.bodyFormatExplicit = cmd.Flags().Changed("body-format")
+			opts.messageExplicit = cmd.Flags().Changed("message")
 			return runEdit(cmd.Context(), opts)
 		},
 	}
@@ -100,6 +106,7 @@ without conversion.`,
 	cmd.Flags().StringVarP(&opts.title, "title", "t", "", "New page title")
 	cmd.Flags().StringVarP(&opts.file, "file", "f", "", "Read content from file")
 	cmd.Flags().StringVarP(&opts.parent, "parent", "p", "", "Move page to new parent page ID")
+	cmd.Flags().StringVarP(&opts.message, "message", "m", "", "Version comment for the update")
 	cmd.Flags().BoolVar(&opts.editor, "editor", false, "Open editor for content")
 	cmd.Flags().StringVar(&opts.bodyFormat, "body-format", bodyFormatMarkdown, "Input format: markdown, adf, or xhtml")
 	cmd.Flags().BoolVar(&opts.legacy, "legacy", false, "Edit page in legacy editor format (Markdown input only)")
@@ -187,13 +194,19 @@ func runEdit(ctx context.Context, opts *editOptions) error {
 		}
 	}
 
+	// Backwards compatibility
+	versionMessage := "Updated via cfl"
+	if opts.messageExplicit {
+		versionMessage = opts.message
+	}
+
 	req := &api.UpdatePageRequest{
 		ID:     opts.pageID,
 		Status: "current",
 		Title:  newTitle,
 		Version: &api.Version{
 			Number:  existingPage.Version.Number + 1,
-			Message: "Updated via cfl",
+			Message: versionMessage,
 		},
 	}
 

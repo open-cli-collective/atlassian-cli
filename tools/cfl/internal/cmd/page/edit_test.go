@@ -288,13 +288,13 @@ func TestRunEdit_HTMLFile(t *testing.T) {
 		switch r.Method {
 		case "GET":
 			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte(`{
+			_, _ = w.Write([]byte(storedPageJSON(receivedBody, `{
 				"id": "12345",
 				"title": "Test",
 				"version": {"number": 1},
 				"body": {"storage": {"value": "<p>Old</p>"}},
 				"_links": {"webui": "/pages/12345"}
-			}`))
+			}`)))
 		case "PUT":
 			body, _ := io.ReadAll(r.Body)
 			_ = json.Unmarshal(body, &receivedBody)
@@ -344,13 +344,13 @@ func TestRunEdit_NoMarkdownFlag(t *testing.T) {
 		switch r.Method {
 		case "GET":
 			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte(`{
+			_, _ = w.Write([]byte(storedPageJSON(receivedBody, `{
 				"id": "12345",
 				"title": "Test",
 				"version": {"number": 1},
 				"body": {"storage": {"value": "<p>Old</p>"}},
 				"_links": {"webui": "/pages/12345"}
-			}`))
+			}`)))
 		case "PUT":
 			body, _ := io.ReadAll(r.Body)
 			_ = json.Unmarshal(body, &receivedBody)
@@ -1265,13 +1265,13 @@ func TestRunEdit_StorageFlag_Stdin(t *testing.T) {
 		switch r.Method {
 		case "GET":
 			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte(`{
+			_, _ = w.Write([]byte(storedPageJSON(receivedBody, `{
 				"id": "12345",
 				"title": "Test",
 				"version": {"number": 1},
 				"body": {"storage": {"value": "<p>Old</p>"}},
 				"_links": {"webui": "/pages/12345"}
-			}`))
+			}`)))
 		case "PUT":
 			body, _ := io.ReadAll(r.Body)
 			_ = json.Unmarshal(body, &receivedBody)
@@ -1326,13 +1326,13 @@ func TestRunEdit_StorageFlag_File(t *testing.T) {
 		switch r.Method {
 		case "GET":
 			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte(`{
+			_, _ = w.Write([]byte(storedPageJSON(receivedBody, `{
 				"id": "12345",
 				"title": "Test",
 				"version": {"number": 1},
 				"body": {"storage": {"value": "<p>Old</p>"}},
 				"_links": {"webui": "/pages/12345"}
-			}`))
+			}`)))
 		case "PUT":
 			body, _ := io.ReadAll(r.Body)
 			_ = json.Unmarshal(body, &receivedBody)
@@ -1566,13 +1566,13 @@ func mockEditBodyServer(t *testing.T, received *map[string]any) *httptest.Server
 		switch r.Method {
 		case "GET":
 			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte(`{
+			_, _ = w.Write([]byte(storedPageJSON(*received, `{
 				"id": "12345",
 				"title": "Test",
 				"version": {"number": 1},
 				"body": {"storage": {"value": "<p>Old</p>"}},
 				"_links": {"webui": "/pages/12345"}
-			}`))
+			}`)))
 		case "PUT":
 			body, _ := io.ReadAll(r.Body)
 			_ = json.Unmarshal(body, received)
@@ -1820,4 +1820,21 @@ func TestRunEdit_EditorBodyFormats(t *testing.T) {
 			}
 		})
 	}
+}
+
+// storedPageJSON reports the page the way Confluence would after a write:
+// a GET reflects what was stored, not the body the page had beforehand. The
+// post-write verification in runEdit compares against this, so a fake that
+// kept returning its original body would report drift on every exact-format
+// write.
+func storedPageJSON(received map[string]any, before string) string {
+	body, ok := received["body"].(map[string]any)
+	if !ok {
+		return before
+	}
+	raw, err := json.Marshal(body)
+	if err != nil {
+		return before
+	}
+	return `{"id":"12345","title":"Test","version":{"number":2},"body":` + string(raw) + `,"_links":{"webui":"/pages/12345"}}`
 }

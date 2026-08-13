@@ -144,6 +144,25 @@ type WriteDrift struct {
 	AddedAttrs    []string
 }
 
+// attrLines lists attribute changes, which identify the embedded content
+// involved when the visible text cannot.
+func attrLines(d WriteDrift) []string {
+	var lines []string
+	if len(d.DroppedAttrs) > 0 {
+		lines = append(lines, "  attributes dropped:")
+		for _, a := range d.DroppedAttrs {
+			lines = append(lines, "    - "+a)
+		}
+	}
+	if len(d.AddedAttrs) > 0 {
+		lines = append(lines, "  attributes added:")
+		for _, a := range d.AddedAttrs {
+			lines = append(lines, "    + "+a)
+		}
+	}
+	return lines
+}
+
 // describeContentChange states what moved in terms of the document: the
 // characters a reader sees, and whether embedded content changed underneath
 // unchanged text.
@@ -171,6 +190,9 @@ func (PagePresenter) PresentWriteDrift(d WriteDrift) *sharedpresent.OutputModel 
 		if d.DiffOffset >= 0 {
 			lines = append(lines, fmt.Sprintf("  first difference at offset %d — sent %q, stored %q", d.DiffOffset, d.SentExcerpt, d.StoredExcerpt))
 		}
+		// Name what vanished. When only embedded content moved there is no
+		// text position to point at, so this is the only detail available.
+		lines = append(lines, attrLines(d)...)
 	} else {
 		if len(d.DroppedAttrs) > 0 {
 			lines = append(lines, fmt.Sprintf("Confluence normalized the stored %s body. Content is intact; these attributes were dropped:", d.BodyFormat))

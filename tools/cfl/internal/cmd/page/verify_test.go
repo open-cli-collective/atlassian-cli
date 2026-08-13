@@ -186,9 +186,9 @@ func driftReport(t *testing.T, d writeDrift) string {
 		VisibleSent:   d.VisibleSent,
 		VisibleStored: d.VisibleStored,
 		AtomsChanged:  d.AtomsChanged,
-		DiffOffset:    diffOffset(d.SentText, d.StoredText),
-		SentExcerpt:   readableExcerpt(d.SentText, diffOffset(d.SentText, d.StoredText)),
-		StoredExcerpt: readableExcerpt(d.StoredText, diffOffset(d.SentText, d.StoredText)),
+		DiffOffset:    diffOffset(d.SentVisible, d.StoredVisible),
+		SentExcerpt:   readableExcerpt(d.SentVisible, diffOffset(d.SentVisible, d.StoredVisible)),
+		StoredExcerpt: readableExcerpt(d.StoredVisible, diffOffset(d.SentVisible, d.StoredVisible)),
 		DroppedAttrs:  d.DroppedAttrs,
 		AddedAttrs:    d.AddedAttrs,
 	})
@@ -351,7 +351,7 @@ func TestExcerptHidesFingerprintSeparators(t *testing.T) {
 		t.Errorf("report leaked the fingerprint separator:\n%s", report)
 	}
 	if !strings.Contains(report, "inlineCard") {
-		t.Errorf("report should still name the lost atom:\n%s", report)
+		t.Errorf("report should still name the lost atom via its attributes:\n%s", report)
 	}
 }
 
@@ -487,8 +487,41 @@ func TestReportedCountsDescribeTheDocument(t *testing.T) {
 		if d.VisibleSent != 7 || d.VisibleStored != 3 {
 			t.Errorf("visible counts = %d/%d, want 7/3 runes", d.VisibleSent, d.VisibleStored)
 		}
-		if off := diffOffset(d.SentText, d.StoredText); off != 3 {
+		if off := diffOffset(d.SentVisible, d.StoredVisible); off != 3 {
 			t.Errorf("diffOffset = %d, want 3 (runes, not bytes)", off)
 		}
 	})
+}
+
+// The XHTML branch must measure the document too, or the report states a
+// length of zero characters for a body it never counted.
+func TestXHTMLDriftReportsRealCounts(t *testing.T) {
+	d, err := compareStoredBody("<p>hello world</p>", "<p>hello</p>", bodyFormatXHTML)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d.VisibleSent != len("hello world") || d.VisibleStored != len("hello") {
+		t.Errorf("visible counts = %d/%d, want %d/%d", d.VisibleSent, d.VisibleStored, len("hello world"), len("hello"))
+	}
+	report := driftReport(t, d)
+	if strings.Contains(report, "0 characters") {
+		t.Errorf("report claimed zero characters for a measured body:\n%s", report)
+	}
+}
+
+// An atoms-only change has no position in the visible text, so none is
+// claimed.
+func TestAtomOnlyChangeReportsNoTextOffset(t *testing.T) {
+	sent := adfDoc(`{"type":"text","text":"hello"},{"type":"inlineCard","attrs":{"url":"https://example.test/a"}}`)
+	stored := adfDoc(`{"type":"text","text":"hello"},{"type":"inlineCard","attrs":{"url":"https://example.test/b"}}`)
+	d, err := compareStoredBody(sent, stored, bodyFormatADF)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if off := diffOffset(d.SentVisible, d.StoredVisible); off != -1 {
+		t.Errorf("diffOffset = %d, want -1: the visible text is identical", off)
+	}
+	if r := driftReport(t, d); strings.Contains(r, "first difference at offset") {
+		t.Errorf("report claimed a text position for an atoms-only change:\n%s", r)
+	}
 }

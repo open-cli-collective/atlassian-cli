@@ -270,6 +270,13 @@ Confluence normalized the stored <format> body. Content is intact; these attribu
   - <node>.attrs.<name> (<before>→<after>)
 ```
 
+Attributes the server added rather than dropped are reported the same way:
+
+```text
+Confluence added attributes that were not sent:
+  + <node>.attrs.<name> (<before>→<after>)
+```
+
 Content loss is reported the same way and the command exits non-zero. The
 first line names what moved in the document — one of three shapes:
 
@@ -284,7 +291,14 @@ followed by:
 ```text
 The page was updated, but it does not hold the content supplied. Re-read the page before treating the change as applied.
   first difference at offset <n> — sent "<excerpt>", stored "<excerpt>"
+  attributes dropped:
+    - <node>.attrs.<name> (<before>→<after>)
+  attributes added:
+    + <node>.attrs.<name> (<before>→<after>)
 ```
+
+The offset line is omitted when the visible text is identical and only
+embedded content changed; the attribute lines then identify what moved.
 
 Counts are characters a reader sees and the offset is a character position,
 both measured on the document rather than on any internal representation.

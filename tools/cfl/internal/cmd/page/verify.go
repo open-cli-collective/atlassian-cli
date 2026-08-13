@@ -34,6 +34,11 @@ type writeDrift struct {
 	// AtomsChanged reports that embedded content (cards, images, mentions,
 	// breaks) differs even where the visible text does not.
 	AtomsChanged bool
+	// SentVisible and StoredVisible are the reader-visible text, which is
+	// where a reported position has to be measured for it to mean anything
+	// to the operator.
+	SentVisible   string
+	StoredVisible string
 
 	// TextChanged reports that the document's text content differs. This is
 	// a failed write, not a normalization.
@@ -62,9 +67,13 @@ func compareStoredBody(sent, stored, bodyFormat string) (writeDrift, error) {
 	case bodyFormatXHTML:
 		sentText, storedText := xhtmlText(sent), xhtmlText(stored)
 		return writeDrift{
-			TextChanged: sentText != storedText,
-			SentText:    sentText,
-			StoredText:  storedText,
+			TextChanged:   sentText != storedText,
+			SentText:      sentText,
+			StoredText:    storedText,
+			VisibleSent:   len([]rune(sentText)),
+			VisibleStored: len([]rune(storedText)),
+			SentVisible:   sentText,
+			StoredVisible: storedText,
 		}, nil
 	default:
 		return writeDrift{}, fmt.Errorf("cannot verify %s input: it is converted before sending, so the stored body is not comparable to what was supplied", bodyFormat)
@@ -90,6 +99,8 @@ func compareADF(sent, stored string) (writeDrift, error) {
 		VisibleSent:   len([]rune(sentVisible)),
 		VisibleStored: len([]rune(storedVisible)),
 		AtomsChanged:  sentText != storedText && sentVisible == storedVisible,
+		SentVisible:   sentVisible,
+		StoredVisible: storedVisible,
 		DroppedAttrs:  dropped,
 		AddedAttrs:    added,
 	}, nil
@@ -325,15 +336,16 @@ func verifyStoredBody(ctx context.Context, req verifyRequest) error {
 		return nil
 	}
 
+	off := diffOffset(drift.SentVisible, drift.StoredVisible)
 	finding := cflpresent.WriteDrift{
 		BodyFormat:    req.bodyFormat,
 		TextChanged:   drift.TextChanged,
 		VisibleSent:   drift.VisibleSent,
 		VisibleStored: drift.VisibleStored,
 		AtomsChanged:  drift.AtomsChanged,
-		DiffOffset:    diffOffset(drift.SentText, drift.StoredText),
-		SentExcerpt:   readableExcerpt(drift.SentText, diffOffset(drift.SentText, drift.StoredText)),
-		StoredExcerpt: readableExcerpt(drift.StoredText, diffOffset(drift.SentText, drift.StoredText)),
+		DiffOffset:    off,
+		SentExcerpt:   readableExcerpt(drift.SentVisible, off),
+		StoredExcerpt: readableExcerpt(drift.StoredVisible, off),
 		DroppedAttrs:  drift.DroppedAttrs,
 		AddedAttrs:    drift.AddedAttrs,
 	}
@@ -364,10 +376,12 @@ func bodyValue(page *api.Page, bodyFormat string) string {
 	return ""
 }
 
-// diffOffset reports where two content fingerprints first diverge, or -1
-// when they match.
+// diffOffset reports the character position where two reader-visible texts
+// first differ, or -1 when they match. Measuring on the visible text is what
+// makes the number a position in the document rather than in the compared
+// representation.
 func diffOffset(sent, stored string) int {
-	a, b := []rune(scrubFingerprint(sent)), []rune(scrubFingerprint(stored))
+	a, b := []rune(sent), []rune(stored)
 	limit := len(a)
 	if len(b) < limit {
 		limit = len(b)
@@ -393,7 +407,7 @@ func scrubFingerprint(s string) string {
 // separates atoms with NUL so they cannot collide with document text, which
 // is an internal detail an operator should never be shown.
 func readableExcerpt(s string, at int) string {
-	r := []rune(scrubFingerprint(s))
+	r := []rune(s)
 	if at < 0 || at > len(r) {
 		return ""
 	}

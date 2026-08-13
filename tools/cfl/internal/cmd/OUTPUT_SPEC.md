@@ -270,13 +270,24 @@ Confluence normalized the stored <format> body. Content is intact; these attribu
   - <node>.attrs.<name> (<before>→<after>)
 ```
 
-Content loss is reported the same way and the command exits non-zero:
+Content loss is reported the same way and the command exits non-zero. The
+first line names what moved in the document — one of three shapes:
 
 ```text
-Stored <format> body does not match what was sent: content differs (<n> chars sent, <n> stored).
-The page was updated, but it does not hold the content supplied. Re-read the page before treating the change as applied.
-  first difference: at offset <n> — sent "<excerpt>", stored "<excerpt>"
+Stored <format> body does not match what was sent: visible text went from <n> to <n> characters.
+Stored <format> body does not match what was sent: visible text is unchanged at <n> characters, but embedded content differs.
+Stored <format> body does not match what was sent: content differs at the same length of <n> characters.
 ```
+
+followed by:
+
+```text
+The page was updated, but it does not hold the content supplied. Re-read the page before treating the change as applied.
+  first difference at offset <n> — sent "<excerpt>", stored "<excerpt>"
+```
+
+Counts are characters a reader sees and the offset is a character position,
+both measured on the document rather than on any internal representation.
 
 ## `page copy <page-id>`
 

@@ -130,8 +130,11 @@ type WriteDrift struct {
 	BodyFormat string
 	// TextChanged reports that content differs, not merely formatting.
 	TextChanged bool
-	SentLen     int
-	StoredLen   int
+	// VisibleSent and VisibleStored count characters a reader sees.
+	VisibleSent   int
+	VisibleStored int
+	// AtomsChanged reports embedded content differing where the text does not.
+	AtomsChanged bool
 	// DiffOffset is where the two bodies first diverge, or -1 when they do
 	// not. SentExcerpt and StoredExcerpt are the text from that point.
 	DiffOffset    int
@@ -139,6 +142,19 @@ type WriteDrift struct {
 	StoredExcerpt string
 	DroppedAttrs  []string
 	AddedAttrs    []string
+}
+
+// describeContentChange states what moved in terms of the document: the
+// characters a reader sees, and whether embedded content changed underneath
+// unchanged text.
+func describeContentChange(d WriteDrift) string {
+	if d.AtomsChanged {
+		return fmt.Sprintf("visible text is unchanged at %d characters, but embedded content differs", d.VisibleSent)
+	}
+	if d.VisibleSent == d.VisibleStored {
+		return fmt.Sprintf("content differs at the same length of %d characters", d.VisibleSent)
+	}
+	return fmt.Sprintf("visible text went from %d to %d characters", d.VisibleSent, d.VisibleStored)
 }
 
 // PresentWriteDrift reports what Confluence stored versus what was sent.
@@ -149,7 +165,7 @@ func (PagePresenter) PresentWriteDrift(d WriteDrift) *sharedpresent.OutputModel 
 	var lines []string
 	if d.TextChanged {
 		lines = append(lines,
-			fmt.Sprintf("Stored %s body does not match what was sent: content differs (%d chars sent, %d stored).", d.BodyFormat, d.SentLen, d.StoredLen),
+			fmt.Sprintf("Stored %s body does not match what was sent: %s.", d.BodyFormat, describeContentChange(d)),
 			"The page was updated, but it does not hold the content supplied. Re-read the page before treating the change as applied.",
 		)
 		if d.DiffOffset >= 0 {

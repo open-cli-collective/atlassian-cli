@@ -26,6 +26,15 @@ import (
 
 // writeDrift describes how a stored body differs from the body that was sent.
 type writeDrift struct {
+	// VisibleSent and VisibleStored count the characters a reader sees, so
+	// the numbers reported are facts about the document rather than
+	// positions in the internal fingerprint.
+	VisibleSent   int
+	VisibleStored int
+	// AtomsChanged reports that embedded content (cards, images, mentions,
+	// breaks) differs even where the visible text does not.
+	AtomsChanged bool
+
 	// TextChanged reports that the document's text content differs. This is
 	// a failed write, not a normalization.
 	TextChanged bool
@@ -72,13 +81,17 @@ func compareADF(sent, stored string) (writeDrift, error) {
 	}
 
 	sentText, storedText := adfContent(sentDoc), adfContent(storedDoc)
+	sentVisible, storedVisible := visibleText(sentDoc), visibleText(storedDoc)
 	dropped, added := diffAttrProfiles(adfAttrProfile(sentDoc), adfAttrProfile(storedDoc))
 	return writeDrift{
-		TextChanged:  sentText != storedText,
-		SentText:     sentText,
-		StoredText:   storedText,
-		DroppedAttrs: dropped,
-		AddedAttrs:   added,
+		TextChanged:   sentText != storedText,
+		SentText:      sentText,
+		StoredText:    storedText,
+		VisibleSent:   len([]rune(sentVisible)),
+		VisibleStored: len([]rune(storedVisible)),
+		AtomsChanged:  sentText != storedText && sentVisible == storedVisible,
+		DroppedAttrs:  dropped,
+		AddedAttrs:    added,
 	}, nil
 }
 
@@ -132,6 +145,34 @@ func adfContent(node any) string {
 			}
 			// Content order is what makes this comparable, so walk it
 			// explicitly rather than ranging over the map.
+			if content, ok := v["content"].([]any); ok {
+				for _, c := range content {
+					walk(c)
+				}
+			}
+		case []any:
+			for _, c := range v {
+				walk(c)
+			}
+		}
+	}
+	walk(node)
+	return b.String()
+}
+
+// visibleText is only the characters a reader sees, with no atom markers, so
+// a length taken from it is a statement about the document.
+func visibleText(node any) string {
+	var b strings.Builder
+	var walk func(any)
+	walk = func(n any) {
+		switch v := n.(type) {
+		case map[string]any:
+			if v["type"] == "text" {
+				if s, ok := v["text"].(string); ok {
+					b.WriteString(s)
+				}
+			}
 			if content, ok := v["content"].([]any); ok {
 				for _, c := range content {
 					walk(c)
@@ -287,8 +328,9 @@ func verifyStoredBody(ctx context.Context, req verifyRequest) error {
 	finding := cflpresent.WriteDrift{
 		BodyFormat:    req.bodyFormat,
 		TextChanged:   drift.TextChanged,
-		SentLen:       len(drift.SentText),
-		StoredLen:     len(drift.StoredText),
+		VisibleSent:   drift.VisibleSent,
+		VisibleStored: drift.VisibleStored,
+		AtomsChanged:  drift.AtomsChanged,
 		DiffOffset:    diffOffset(drift.SentText, drift.StoredText),
 		SentExcerpt:   readableExcerpt(drift.SentText, diffOffset(drift.SentText, drift.StoredText)),
 		StoredExcerpt: readableExcerpt(drift.StoredText, diffOffset(drift.SentText, drift.StoredText)),
@@ -325,30 +367,39 @@ func bodyValue(page *api.Page, bodyFormat string) string {
 // diffOffset reports where two content fingerprints first diverge, or -1
 // when they match.
 func diffOffset(sent, stored string) int {
-	limit := len(sent)
-	if len(stored) < limit {
-		limit = len(stored)
+	a, b := []rune(scrubFingerprint(sent)), []rune(scrubFingerprint(stored))
+	limit := len(a)
+	if len(b) < limit {
+		limit = len(b)
 	}
 	i := 0
-	for i < limit && sent[i] == stored[i] {
+	for i < limit && a[i] == b[i] {
 		i++
 	}
-	if i == limit && len(sent) == len(stored) {
+	if i == limit && len(a) == len(b) {
 		return -1
 	}
 	return i
+}
+
+// scrubFingerprint removes the NUL separators that keep atom markers from
+// colliding with document text. They are an internal device and must not
+// reach a reader.
+func scrubFingerprint(s string) string {
+	return strings.ReplaceAll(s, "\x00", "")
 }
 
 // readableExcerpt renders part of a fingerprint for a person. The fingerprint
 // separates atoms with NUL so they cannot collide with document text, which
 // is an internal detail an operator should never be shown.
 func readableExcerpt(s string, at int) string {
-	if at < 0 || at > len(s) {
+	r := []rune(scrubFingerprint(s))
+	if at < 0 || at > len(r) {
 		return ""
 	}
 	end := at + 40
-	if end > len(s) {
-		end = len(s)
+	if end > len(r) {
+		end = len(r)
 	}
-	return strings.ReplaceAll(s[at:end], "\x00", "")
+	return string(r[at:end])
 }

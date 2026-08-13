@@ -183,8 +183,9 @@ func driftReport(t *testing.T, d writeDrift) string {
 	model := cflpresent.PagePresenter{}.PresentWriteDrift(cflpresent.WriteDrift{
 		BodyFormat:    bodyFormatADF,
 		TextChanged:   d.TextChanged,
-		SentLen:       len(d.SentText),
-		StoredLen:     len(d.StoredText),
+		VisibleSent:   d.VisibleSent,
+		VisibleStored: d.VisibleStored,
+		AtomsChanged:  d.AtomsChanged,
 		DiffOffset:    diffOffset(d.SentText, d.StoredText),
 		SentExcerpt:   readableExcerpt(d.SentText, diffOffset(d.SentText, d.StoredText)),
 		StoredExcerpt: readableExcerpt(d.StoredText, diffOffset(d.SentText, d.StoredText)),
@@ -452,4 +453,42 @@ func TestRunCreateToleratesNormalization(t *testing.T) {
 	if err := runCreate(context.Background(), createOptsFor(t, srv, "<p>what we sent</p>", false)); err != nil {
 		t.Fatalf("normalized markup should not fail the create: %v", err)
 	}
+}
+
+// The numbers reported must describe the document, not the internal
+// fingerprint: an atom marker must not inflate a character count, and a
+// multibyte change must not report equal lengths as if nothing moved.
+func TestReportedCountsDescribeTheDocument(t *testing.T) {
+	t.Run("atom does not inflate the character count", func(t *testing.T) {
+		sent := adfDoc(`{"type":"text","text":"hello ."},{"type":"inlineCard","attrs":{"url":"https://example.test/a-very-long-url"}}`)
+		stored := adfDoc(`{"type":"text","text":"hello ."}`)
+		d, err := compareStoredBody(sent, stored, bodyFormatADF)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if d.VisibleSent != 7 {
+			t.Errorf("VisibleSent = %d, want 7 (the characters a reader sees)", d.VisibleSent)
+		}
+		if !d.AtomsChanged {
+			t.Error("AtomsChanged = false, but only the embedded card differs")
+		}
+		if r := driftReport(t, d); !strings.Contains(r, "embedded content differs") {
+			t.Errorf("report should say the embedded content changed:\n%s", r)
+		}
+	})
+
+	t.Run("multibyte text counts runes", func(t *testing.T) {
+		sent := adfDoc(`{"type":"text","text":"日本語テキスト"}`)
+		stored := adfDoc(`{"type":"text","text":"日本語"}`)
+		d, err := compareStoredBody(sent, stored, bodyFormatADF)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if d.VisibleSent != 7 || d.VisibleStored != 3 {
+			t.Errorf("visible counts = %d/%d, want 7/3 runes", d.VisibleSent, d.VisibleStored)
+		}
+		if off := diffOffset(d.SentText, d.StoredText); off != 3 {
+			t.Errorf("diffOffset = %d, want 3 (runes, not bytes)", off)
+		}
+	})
 }

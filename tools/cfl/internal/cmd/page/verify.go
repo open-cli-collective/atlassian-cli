@@ -396,13 +396,6 @@ func diffOffset(sent, stored string) int {
 	return i
 }
 
-// scrubFingerprint removes the NUL separators that keep atom markers from
-// colliding with document text. They are an internal device and must not
-// reach a reader.
-func scrubFingerprint(s string) string {
-	return strings.ReplaceAll(s, "\x00", "")
-}
-
 // readableExcerpt renders part of a fingerprint for a person. The fingerprint
 // separates atoms with NUL so they cannot collide with document text, which
 // is an internal detail an operator should never be shown.

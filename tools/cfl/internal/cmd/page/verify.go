@@ -39,6 +39,10 @@ type writeDrift struct {
 	// to the operator.
 	SentVisible   string
 	StoredVisible string
+	// AtomChanges names embedded node types whose counts moved. Attribute
+	// diffs cannot cover this: hardBreak and rule carry no attributes, so
+	// without it a change confined to them has nothing to report.
+	AtomChanges []string
 
 	// TextChanged reports that the document's text content differs. This is
 	// a failed write, not a normalization.
@@ -101,6 +105,7 @@ func compareADF(sent, stored string) (writeDrift, error) {
 		AtomsChanged:  sentText != storedText && sentVisible == storedVisible,
 		SentVisible:   sentVisible,
 		StoredVisible: storedVisible,
+		AtomChanges:   diffAtomProfiles(atomProfile(sentDoc), atomProfile(storedDoc)),
 		DroppedAttrs:  dropped,
 		AddedAttrs:    added,
 	}, nil
@@ -169,6 +174,54 @@ func adfContent(node any) string {
 	}
 	walk(node)
 	return b.String()
+}
+
+// atomProfile counts content-bearing atoms by type.
+func atomProfile(node any) map[string]int {
+	profile := map[string]int{}
+	var walk func(any)
+	walk = func(n any) {
+		switch v := n.(type) {
+		case map[string]any:
+			if t, _ := v["type"].(string); contentAtoms[t] {
+				profile[t]++
+			}
+			if content, ok := v["content"].([]any); ok {
+				for _, c := range content {
+					walk(c)
+				}
+			}
+		case []any:
+			for _, c := range v {
+				walk(c)
+			}
+		}
+	}
+	walk(node)
+	return profile
+}
+
+// diffAtomProfiles names atom types whose counts moved, in sorted order.
+func diffAtomProfiles(sent, stored map[string]int) []string {
+	seen := map[string]bool{}
+	var out []string
+	for k := range sent {
+		seen[k] = true
+	}
+	for k := range stored {
+		seen[k] = true
+	}
+	keys := make([]string, 0, len(seen))
+	for k := range seen {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		if sent[k] != stored[k] {
+			out = append(out, fmt.Sprintf("%s (%d→%d)", k, sent[k], stored[k]))
+		}
+	}
+	return out
 }
 
 // visibleText is only the characters a reader sees, with no atom markers, so
@@ -346,6 +399,7 @@ func verifyStoredBody(ctx context.Context, req verifyRequest) error {
 		DiffOffset:    off,
 		SentExcerpt:   readableExcerpt(drift.SentVisible, off),
 		StoredExcerpt: readableExcerpt(drift.StoredVisible, off),
+		AtomChanges:   drift.AtomChanges,
 		DroppedAttrs:  drift.DroppedAttrs,
 		AddedAttrs:    drift.AddedAttrs,
 	}
@@ -396,9 +450,8 @@ func diffOffset(sent, stored string) int {
 	return i
 }
 
-// readableExcerpt renders part of a fingerprint for a person. The fingerprint
-// separates atoms with NUL so they cannot collide with document text, which
-// is an internal detail an operator should never be shown.
+// readableExcerpt returns part of the reader-visible text, starting at a
+// character position, for quoting back in a report.
 func readableExcerpt(s string, at int) string {
 	r := []rune(s)
 	if at < 0 || at > len(r) {

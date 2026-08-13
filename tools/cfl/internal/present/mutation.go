@@ -140,14 +140,22 @@ type WriteDrift struct {
 	DiffOffset    int
 	SentExcerpt   string
 	StoredExcerpt string
-	DroppedAttrs  []string
-	AddedAttrs    []string
+	// AtomChanges names embedded node types whose counts moved.
+	AtomChanges  []string
+	DroppedAttrs []string
+	AddedAttrs   []string
 }
 
 // attrLines lists attribute changes, which identify the embedded content
 // involved when the visible text cannot.
 func attrLines(d WriteDrift) []string {
 	var lines []string
+	if len(d.AtomChanges) > 0 {
+		lines = append(lines, "  embedded content changed:")
+		for _, a := range d.AtomChanges {
+			lines = append(lines, "    ~ "+a)
+		}
+	}
 	if len(d.DroppedAttrs) > 0 {
 		lines = append(lines, "  attributes dropped:")
 		for _, a := range d.DroppedAttrs {

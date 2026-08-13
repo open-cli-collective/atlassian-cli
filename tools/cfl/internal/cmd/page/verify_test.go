@@ -189,6 +189,7 @@ func driftReport(t *testing.T, d writeDrift) string {
 		DiffOffset:    diffOffset(d.SentVisible, d.StoredVisible),
 		SentExcerpt:   readableExcerpt(d.SentVisible, diffOffset(d.SentVisible, d.StoredVisible)),
 		StoredExcerpt: readableExcerpt(d.StoredVisible, diffOffset(d.SentVisible, d.StoredVisible)),
+		AtomChanges:   d.AtomChanges,
 		DroppedAttrs:  d.DroppedAttrs,
 		AddedAttrs:    d.AddedAttrs,
 	})
@@ -523,5 +524,23 @@ func TestAtomOnlyChangeReportsNoTextOffset(t *testing.T) {
 	}
 	if r := driftReport(t, d); strings.Contains(r, "first difference at offset") {
 		t.Errorf("report claimed a text position for an atoms-only change:\n%s", r)
+	}
+}
+
+// hardBreak and rule carry no attributes, so a change confined to them has
+// no attribute lines to identify it. The atom names have to carry that.
+func TestAttributelessAtomChangeIsNamed(t *testing.T) {
+	sent := adfDoc(`{"type":"text","text":"a"},{"type":"hardBreak"},{"type":"text","text":"b"}`)
+	stored := adfDoc(`{"type":"text","text":"a"},{"type":"text","text":"b"}`)
+	d, err := compareStoredBody(sent, stored, bodyFormatADF)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(d.DroppedAttrs) != 0 {
+		t.Fatalf("precondition: hardBreak should contribute no attributes, got %v", d.DroppedAttrs)
+	}
+	report := driftReport(t, d)
+	if !strings.Contains(report, "hardBreak") {
+		t.Errorf("report must name the changed atom when no attributes can:\n%s", report)
 	}
 }

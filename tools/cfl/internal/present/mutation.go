@@ -2,6 +2,7 @@ package present
 
 import (
 	"fmt"
+	"strings"
 
 	sharedpresent "github.com/open-cli-collective/atlassian-go/present"
 
@@ -121,4 +122,56 @@ func pageVersionValue(v *api.Version) string {
 		return "-"
 	}
 	return fmt.Sprintf("%d", v.Number)
+}
+
+// WriteDrift describes how a stored page body differed from the body that
+// was submitted. Commands supply the finding; the wording is owned here.
+type WriteDrift struct {
+	BodyFormat   string
+	TextChanged  bool
+	SentLen      int
+	StoredLen    int
+	Difference   string
+	DroppedAttrs []string
+	AddedAttrs   []string
+}
+
+// PresentWriteDrift reports what Confluence stored versus what was sent.
+// Losing content and normalizing attributes are worded differently because
+// they oblige the reader differently: one means the change did not land, the
+// other means it landed in a document the server tidied.
+func (PagePresenter) PresentWriteDrift(d WriteDrift) *sharedpresent.OutputModel {
+	var lines []string
+	if d.TextChanged {
+		lines = append(lines,
+			fmt.Sprintf("Stored %s body does not match what was sent: content differs (%d chars sent, %d stored).", d.BodyFormat, d.SentLen, d.StoredLen),
+			"The page was updated, but it does not hold the content supplied. Re-read the page before treating the change as applied.",
+		)
+		if d.Difference != "" {
+			lines = append(lines, "  first difference: "+d.Difference)
+		}
+	} else {
+		if len(d.DroppedAttrs) > 0 {
+			lines = append(lines, fmt.Sprintf("Confluence normalized the stored %s body. Content is intact; these attributes were dropped:", d.BodyFormat))
+			for _, a := range d.DroppedAttrs {
+				lines = append(lines, "  - "+a)
+			}
+		}
+		if len(d.AddedAttrs) > 0 {
+			lines = append(lines, "Confluence added attributes that were not sent:")
+			for _, a := range d.AddedAttrs {
+				lines = append(lines, "  + "+a)
+			}
+		}
+	}
+	if len(lines) == 0 {
+		return &sharedpresent.OutputModel{}
+	}
+	return &sharedpresent.OutputModel{Sections: []sharedpresent.Section{
+		&sharedpresent.MessageSection{
+			Kind:    sharedpresent.MessageWarning,
+			Message: strings.Join(lines, "\n"),
+			Stream:  sharedpresent.StreamStderr,
+		},
+	}}
 }

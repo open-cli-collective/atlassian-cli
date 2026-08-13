@@ -7,8 +7,6 @@ import (
 	"sort"
 	"strings"
 
-	sharedpresent "github.com/open-cli-collective/atlassian-go/present"
-
 	"github.com/open-cli-collective/confluence-cli/api"
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
 	cflpresent "github.com/open-cli-collective/confluence-cli/internal/present"
@@ -73,7 +71,7 @@ func compareADF(sent, stored string) (writeDrift, error) {
 		return writeDrift{}, fmt.Errorf("parsing stored ADF: %w", err)
 	}
 
-	sentText, storedText := adfText(sentDoc), adfText(storedDoc)
+	sentText, storedText := adfContent(sentDoc), adfContent(storedDoc)
 	dropped, added := diffAttrProfiles(adfAttrProfile(sentDoc), adfAttrProfile(storedDoc))
 	return writeDrift{
 		TextChanged:  sentText != storedText,
@@ -84,17 +82,44 @@ func compareADF(sent, stored string) (writeDrift, error) {
 	}, nil
 }
 
-// adfText concatenates every text node in document order.
-func adfText(node any) string {
+// contentAtoms are ADF leaf nodes that carry content the reader sees but
+// hold no text of their own. They must count toward the content fingerprint:
+// otherwise dropping an entire card, image or mention leaves the text
+// identical and the loss is reported as harmless attribute normalization.
+var contentAtoms = map[string]bool{
+	"inlineCard":      true,
+	"blockCard":       true,
+	"embedCard":       true,
+	"media":           true,
+	"mediaInline":     true,
+	"mention":         true,
+	"emoji":           true,
+	"status":          true,
+	"date":            true,
+	"extension":       true,
+	"inlineExtension": true,
+	"bodiedExtension": true,
+}
+
+// adfContent renders a document's content fingerprint in document order:
+// text as itself, and each content-bearing atom as a marker. Two documents
+// with the same fingerprint hold the same content for a reader.
+func adfContent(node any) string {
 	var b strings.Builder
 	var walk func(any)
 	walk = func(n any) {
 		switch v := n.(type) {
 		case map[string]any:
-			if v["type"] == "text" {
+			nodeType, _ := v["type"].(string)
+			switch {
+			case nodeType == "text":
 				if s, ok := v["text"].(string); ok {
 					b.WriteString(s)
 				}
+			case contentAtoms[nodeType]:
+				// Identity, not just presence: swapping one card for another
+				// keeps the count identical.
+				b.WriteString("\x00" + nodeType + "(" + atomIdentity(v) + ")")
 			}
 			// Content order is what makes this comparable, so walk it
 			// explicitly rather than ranging over the map.
@@ -111,6 +136,25 @@ func adfText(node any) string {
 	}
 	walk(node)
 	return b.String()
+}
+
+// atomIdentity summarizes an atom's identifying attributes so a substitution
+// is visible, using a stable order.
+func atomIdentity(node map[string]any) string {
+	attrs, ok := node["attrs"].(map[string]any)
+	if !ok {
+		return ""
+	}
+	keys := make([]string, 0, len(attrs))
+	for k := range attrs {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	parts := make([]string, 0, len(keys))
+	for _, k := range keys {
+		parts = append(parts, fmt.Sprintf("%s=%v", k, attrs[k]))
+	}
+	return strings.Join(parts, ",")
 }
 
 // adfAttrProfile counts "nodeType.attrName" occurrences, including the
@@ -188,66 +232,8 @@ func xhtmlText(s string) string {
 	return strings.Join(strings.Fields(b.String()), " ")
 }
 
-// describeDrift renders drift for an operator: what was lost, and whether it
-// cost them content or only normalization.
-func describeDrift(d writeDrift, bodyFormat string) []string {
-	var lines []string
-	if d.TextChanged {
-		lines = append(lines,
-			fmt.Sprintf("Stored %s body does not match what was sent: text content differs (%d chars sent, %d stored).",
-				bodyFormat, len(d.SentText), len(d.StoredText)),
-			"The page was updated, but it does not contain the content supplied. Re-read the page before assuming the change landed.",
-		)
-		if diff := firstTextDifference(d.SentText, d.StoredText); diff != "" {
-			lines = append(lines, "  first difference: "+diff)
-		}
-		return lines
-	}
-	if len(d.DroppedAttrs) > 0 {
-		lines = append(lines, fmt.Sprintf("Confluence normalized the stored %s body. Text content is intact; these attributes were dropped:", bodyFormat))
-		for _, a := range d.DroppedAttrs {
-			lines = append(lines, "  - "+a)
-		}
-	}
-	if len(d.AddedAttrs) > 0 {
-		lines = append(lines, "Confluence added attributes that were not sent:")
-		for _, a := range d.AddedAttrs {
-			lines = append(lines, "  + "+a)
-		}
-	}
-	return lines
-}
-
-// firstTextDifference locates where two texts diverge so the report points at
-// the change rather than restating both documents.
-func firstTextDifference(sent, stored string) string {
-	limit := len(sent)
-	if len(stored) < limit {
-		limit = len(stored)
-	}
-	i := 0
-	for i < limit && sent[i] == stored[i] {
-		i++
-	}
-	if i == limit && len(sent) == len(stored) {
-		return ""
-	}
-	return fmt.Sprintf("at offset %d — sent %q, stored %q", i, excerpt(sent, i), excerpt(stored, i))
-}
-
-func excerpt(s string, at int) string {
-	if at > len(s) {
-		return ""
-	}
-	end := at + 40
-	if end > len(s) {
-		end = len(s)
-	}
-	return s[at:end]
-}
-
-// verifyRequest carries what a post-write readback needs, so edit and create
-// share one verification path.
+// verifyRequest carries what a post-write readback needs, so page edit and
+// page create share one verification path.
 type verifyRequest struct {
 	opts        *root.Options
 	client      *api.Client
@@ -289,24 +275,22 @@ func verifyStoredBody(ctx context.Context, req verifyRequest) error {
 		return nil
 	}
 
-	lines := describeDrift(drift, req.bodyFormat)
-	if emitErr := cflpresent.Emit(req.opts, stderrLines(lines)); emitErr != nil {
+	finding := cflpresent.WriteDrift{
+		BodyFormat:   req.bodyFormat,
+		TextChanged:  drift.TextChanged,
+		SentLen:      len(drift.SentText),
+		StoredLen:    len(drift.StoredText),
+		Difference:   firstTextDifference(drift.SentText, drift.StoredText),
+		DroppedAttrs: drift.DroppedAttrs,
+		AddedAttrs:   drift.AddedAttrs,
+	}
+	if emitErr := cflpresent.Emit(req.opts, cflpresent.PagePresenter{}.PresentWriteDrift(finding)); emitErr != nil {
 		return emitErr
 	}
 	if drift.TextChanged {
 		return fmt.Errorf("stored page content does not match what was sent")
 	}
 	return nil
-}
-
-func stderrLines(lines []string) *sharedpresent.OutputModel {
-	return &sharedpresent.OutputModel{Sections: []sharedpresent.Section{
-		&sharedpresent.MessageSection{
-			Kind:    sharedpresent.MessageWarning,
-			Message: strings.Join(lines, "\n"),
-			Stream:  sharedpresent.StreamStderr,
-		},
-	}}
 }
 
 // bodyValue returns the page body in the requested representation.
@@ -325,4 +309,32 @@ func bodyValue(page *api.Page, bodyFormat string) string {
 		}
 	}
 	return ""
+}
+
+// firstTextDifference locates where two content fingerprints diverge so the
+// report points at the change rather than restating both documents.
+func firstTextDifference(sent, stored string) string {
+	limit := len(sent)
+	if len(stored) < limit {
+		limit = len(stored)
+	}
+	i := 0
+	for i < limit && sent[i] == stored[i] {
+		i++
+	}
+	if i == limit && len(sent) == len(stored) {
+		return ""
+	}
+	return fmt.Sprintf("at offset %d — sent %q, stored %q", i, excerpt(sent, i), excerpt(stored, i))
+}
+
+func excerpt(s string, at int) string {
+	if at > len(s) {
+		return ""
+	}
+	end := at + 40
+	if end > len(s) {
+		end = len(s)
+	}
+	return s[at:end]
 }

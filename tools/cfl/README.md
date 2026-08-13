@@ -352,6 +352,8 @@ Content can be provided via:
 
 **Markdown is the default format.** It is converted to ADF, or to storage XHTML with `--legacy`.
 
+**Writes are read back.** With `--body-format adf` or `xhtml` the page is fetched again after a write and the stored body compared against what was sent, because Confluence can store something other than what it was given — it drops `__confluenceMetadata` from link marks, for example. Losing content is an error and exits non-zero; attributes the server normalizes away are reported on stderr and tolerated. Markdown is converted before sending, so there is nothing to compare it against and the check is skipped. Use `--no-verify` to skip the extra read.
+
 ```bash
 # Open markdown editor
 cfl page create --space DEV --title "My Page"
@@ -384,6 +386,7 @@ cfl page create -s DEV -t "Legacy Page" --file content.md --legacy
 | `--editor` | | `false` | Force open in $EDITOR |
 | `--body-format` | | `markdown` | Input format: `markdown`, exact `adf` JSON, or exact storage `xhtml` |
 | `--legacy` | | `false` | Convert Markdown to storage XHTML instead of ADF; invalid with `adf` or `xhtml` |
+| `--no-verify` | | `false` | Skip reading the page back after writing to confirm what Confluence stored (`adf`/`xhtml` only) |
 
 The selected format applies equally to files, stdin, and editor input; file extensions do not override it.
 
@@ -438,6 +441,7 @@ cfl page view 12345 --body-format xhtml --content-only | \
 | `--editor` | | `false` | Force open in $EDITOR |
 | `--body-format` | | `markdown` | Input/editor format: `markdown`, exact `adf` JSON, or exact storage `xhtml` |
 | `--legacy` | | `false` | Convert Markdown to storage XHTML instead of ADF; invalid with `adf` or `xhtml` |
+| `--no-verify` | | `false` | Skip reading the page back after writing to confirm what Confluence stored (`adf`/`xhtml` only) |
 
 **Arguments:**
 - `<page-id>` - The page ID (**required**)

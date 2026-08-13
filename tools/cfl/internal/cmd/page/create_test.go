@@ -100,6 +100,9 @@ func TestRunCreate_HTMLFile_Legacy(t *testing.T) {
 		case r.Method == "GET" && strings.Contains(r.URL.Path, "/spaces"):
 			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write([]byte(`{"results": [{"id": "123456", "key": "DEV"}]}`))
+		case r.Method == "GET" && strings.Contains(r.URL.Path, "/pages/"):
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(storedCreatedPageJSON(receivedBody)))
 		case r.Method == "POST" && strings.Contains(r.URL.Path, "/pages"):
 			body, _ := io.ReadAll(r.Body)
 			_ = json.Unmarshal(body, &receivedBody)
@@ -147,6 +150,9 @@ func TestRunCreate_NoMarkdownFlag_Legacy(t *testing.T) {
 		case r.Method == "GET" && strings.Contains(r.URL.Path, "/spaces"):
 			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write([]byte(`{"results": [{"id": "123456", "key": "DEV"}]}`))
+		case r.Method == "GET" && strings.Contains(r.URL.Path, "/pages/"):
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(storedCreatedPageJSON(receivedBody)))
 		case r.Method == "POST" && strings.Contains(r.URL.Path, "/pages"):
 			body, _ := io.ReadAll(r.Body)
 			_ = json.Unmarshal(body, &receivedBody)
@@ -304,6 +310,9 @@ func TestRunCreate_WithParent(t *testing.T) {
 		case r.Method == "GET" && strings.Contains(r.URL.Path, "/spaces"):
 			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write([]byte(`{"results": [{"id": "123456", "key": "DEV"}]}`))
+		case r.Method == "GET" && strings.Contains(r.URL.Path, "/pages/"):
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(storedCreatedPageJSON(receivedBody)))
 		case r.Method == "POST" && strings.Contains(r.URL.Path, "/pages"):
 			body, _ := io.ReadAll(r.Body)
 			_ = json.Unmarshal(body, &receivedBody)
@@ -347,6 +356,9 @@ func TestRunCreate_MarkdownConversion_Legacy(t *testing.T) {
 		case r.Method == "GET" && strings.Contains(r.URL.Path, "/spaces"):
 			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write([]byte(`{"results": [{"id": "123456", "key": "DEV"}]}`))
+		case r.Method == "GET" && strings.Contains(r.URL.Path, "/pages/"):
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(storedCreatedPageJSON(receivedBody)))
 		case r.Method == "POST" && strings.Contains(r.URL.Path, "/pages"):
 			body, _ := io.ReadAll(r.Body)
 			_ = json.Unmarshal(body, &receivedBody)
@@ -396,6 +408,9 @@ func TestRunCreate_MarkdownToADF(t *testing.T) {
 		case r.Method == "GET" && strings.Contains(r.URL.Path, "/spaces"):
 			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write([]byte(`{"results": [{"id": "123456", "key": "DEV"}]}`))
+		case r.Method == "GET" && strings.Contains(r.URL.Path, "/pages/"):
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(storedCreatedPageJSON(receivedBody)))
 		case r.Method == "POST" && strings.Contains(r.URL.Path, "/pages"):
 			body, _ := io.ReadAll(r.Body)
 			_ = json.Unmarshal(body, &receivedBody)
@@ -462,6 +477,9 @@ func TestRunCreate_Stdin_ADF(t *testing.T) {
 		case r.Method == "GET" && strings.Contains(r.URL.Path, "/spaces"):
 			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write([]byte(`{"results": [{"id": "123456", "key": "DEV"}]}`))
+		case r.Method == "GET" && strings.Contains(r.URL.Path, "/pages/"):
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(storedCreatedPageJSON(receivedBody)))
 		case r.Method == "POST" && strings.Contains(r.URL.Path, "/pages"):
 			body, _ := io.ReadAll(r.Body)
 			_ = json.Unmarshal(body, &receivedBody)
@@ -505,6 +523,9 @@ func TestRunCreate_Stdin_Legacy(t *testing.T) {
 		case r.Method == "GET" && strings.Contains(r.URL.Path, "/spaces"):
 			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write([]byte(`{"results": [{"id": "123456", "key": "DEV"}]}`))
+		case r.Method == "GET" && strings.Contains(r.URL.Path, "/pages/"):
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(storedCreatedPageJSON(receivedBody)))
 		case r.Method == "POST" && strings.Contains(r.URL.Path, "/pages"):
 			body, _ := io.ReadAll(r.Body)
 			_ = json.Unmarshal(body, &receivedBody)
@@ -548,6 +569,9 @@ func TestRunCreate_Stdin_NoMarkdown_Legacy(t *testing.T) {
 		case r.Method == "GET" && strings.Contains(r.URL.Path, "/spaces"):
 			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write([]byte(`{"results": [{"id": "123456", "key": "DEV"}]}`))
+		case r.Method == "GET" && strings.Contains(r.URL.Path, "/pages/"):
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(storedCreatedPageJSON(receivedBody)))
 		case r.Method == "POST" && strings.Contains(r.URL.Path, "/pages"):
 			body, _ := io.ReadAll(r.Body)
 			_ = json.Unmarshal(body, &receivedBody)
@@ -590,6 +614,9 @@ func TestRunCreate_StorageFlag_Stdin(t *testing.T) {
 		case r.Method == "GET" && strings.Contains(r.URL.Path, "/spaces"):
 			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write([]byte(`{"results": [{"id": "123456", "key": "DEV"}]}`))
+		case r.Method == "GET" && strings.Contains(r.URL.Path, "/pages/"):
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(storedCreatedPageJSON(receivedBody)))
 		case r.Method == "POST" && strings.Contains(r.URL.Path, "/pages"):
 			body, _ := io.ReadAll(r.Body)
 			_ = json.Unmarshal(body, &receivedBody)
@@ -639,6 +666,9 @@ func TestRunCreate_StorageFlag_File(t *testing.T) {
 		case r.Method == "GET" && strings.Contains(r.URL.Path, "/spaces"):
 			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write([]byte(`{"results": [{"id": "123456", "key": "DEV"}]}`))
+		case r.Method == "GET" && strings.Contains(r.URL.Path, "/pages/"):
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(storedCreatedPageJSON(receivedBody)))
 		case r.Method == "POST" && strings.Contains(r.URL.Path, "/pages"):
 			body, _ := io.ReadAll(r.Body)
 			_ = json.Unmarshal(body, &receivedBody)
@@ -681,6 +711,9 @@ func TestRunCreate_ComplexMarkdown_ADF(t *testing.T) {
 		case r.Method == "GET" && strings.Contains(r.URL.Path, "/spaces"):
 			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write([]byte(`{"results": [{"id": "123456", "key": "DEV"}]}`))
+		case r.Method == "GET" && strings.Contains(r.URL.Path, "/pages/"):
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(storedCreatedPageJSON(receivedBody)))
 		case r.Method == "POST" && strings.Contains(r.URL.Path, "/pages"):
 			body, _ := io.ReadAll(r.Body)
 			_ = json.Unmarshal(body, &receivedBody)
@@ -831,6 +864,9 @@ func mockCreateBodyServer(t *testing.T, received *map[string]any) *httptest.Serv
 		case r.Method == "GET" && strings.Contains(r.URL.Path, "/spaces"):
 			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write([]byte(`{"results": [{"id": "123456", "key": "DEV"}]}`))
+		case r.Method == "GET" && strings.Contains(r.URL.Path, "/pages/"):
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(storedCreatedPageJSON(*received)))
 		case r.Method == "POST" && strings.Contains(r.URL.Path, "/pages"):
 			body, _ := io.ReadAll(r.Body)
 			_ = json.Unmarshal(body, received)
@@ -986,4 +1022,21 @@ func TestRunCreate_FileDash_Stdin_Legacy(t *testing.T) {
 	testutil.Contains(t, content, "<h1")
 	testutil.Contains(t, content, "<strong>bold</strong>")
 	testutil.Nil(t, bodyMap["atlas_doc_format"])
+}
+
+// storedCreatedPageJSON reports a created page the way Confluence does: a GET
+// after the write returns the body that was stored. runCreate now reads the
+// page back to verify the write, so a fake without this branch answers 404
+// for a create that in fact succeeded.
+func storedCreatedPageJSON(received map[string]any) string {
+	fallback := `{"id":"99999","title":"Test","version":{"number":1}}`
+	body, ok := received["body"].(map[string]any)
+	if !ok {
+		return fallback
+	}
+	raw, err := json.Marshal(body)
+	if err != nil {
+		return fallback
+	}
+	return `{"id":"99999","title":"Test","version":{"number":1},"body":` + string(raw) + `}`
 }

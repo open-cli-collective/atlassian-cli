@@ -256,6 +256,24 @@ Version: <version>
 URL: <url>
 ```
 
+With `--body-format adf` or `xhtml` the page is read back and compared with
+what was sent. When the stored body differs, a warning is written to stderr
+after the success block. Attribute normalization is reported and the command
+still succeeds:
+
+```text
+Confluence normalized the stored <format> body. Content is intact; these attributes were dropped:
+  - <node>.attrs.<name> (<before>→<after>)
+```
+
+Content loss is reported the same way and the command exits non-zero:
+
+```text
+Stored <format> body does not match what was sent: content differs (<n> chars sent, <n> stored).
+The page was updated, but it does not hold the content supplied. Re-read the page before treating the change as applied.
+  first difference: at offset <n> — sent "<excerpt>", stored "<excerpt>"
+```
+
 ## `page copy <page-id>`
 
 Success:

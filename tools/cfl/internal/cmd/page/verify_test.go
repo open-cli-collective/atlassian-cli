@@ -1,8 +1,19 @@
 package page
 
 import (
+	"context"
+	"encoding/json"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/open-cli-collective/confluence-cli/api"
+
+	sharedpresent "github.com/open-cli-collective/atlassian-go/present"
+
+	cflpresent "github.com/open-cli-collective/confluence-cli/internal/present"
 )
 
 // adfDoc builds a minimal ADF document around one paragraph's content JSON.
@@ -74,8 +85,8 @@ func TestDroppedAttrIsNotTextLoss(t *testing.T) {
 	if d.TextChanged {
 		t.Error("attribute normalization reported as text loss")
 	}
-	lines := strings.Join(describeDrift(d, bodyFormatADF), "\n")
-	if !strings.Contains(lines, "Text content is intact") {
+	lines := driftReport(t, d)
+	if !strings.Contains(lines, "Content is intact") {
 		t.Errorf("report should say the text survived, got:\n%s", lines)
 	}
 	if !strings.Contains(lines, "__confluenceMetadata") {
@@ -156,11 +167,169 @@ func TestDescribeDriftPointsAtTheDifference(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	lines := strings.Join(describeDrift(d, bodyFormatADF), "\n")
-	if !strings.Contains(lines, "does not contain the content supplied") {
+	lines := driftReport(t, d)
+	if !strings.Contains(lines, "does not hold the content supplied") {
 		t.Errorf("report should state the content did not land, got:\n%s", lines)
 	}
 	if !strings.Contains(lines, "offset") {
 		t.Errorf("report should locate the difference, got:\n%s", lines)
+	}
+}
+
+// driftReport renders a finding through the presenter that owns the wording,
+// so the tests assert on what an operator actually reads.
+func driftReport(t *testing.T, d writeDrift) string {
+	t.Helper()
+	model := cflpresent.PagePresenter{}.PresentWriteDrift(cflpresent.WriteDrift{
+		BodyFormat:   bodyFormatADF,
+		TextChanged:  d.TextChanged,
+		SentLen:      len(d.SentText),
+		StoredLen:    len(d.StoredText),
+		Difference:   firstTextDifference(d.SentText, d.StoredText),
+		DroppedAttrs: d.DroppedAttrs,
+		AddedAttrs:   d.AddedAttrs,
+	})
+	var b strings.Builder
+	for _, sec := range model.Sections {
+		if msg, ok := sec.(*sharedpresent.MessageSection); ok {
+			b.WriteString(msg.Message)
+		}
+	}
+	return b.String()
+}
+
+// A dropped content atom is content loss, not normalization: the text is
+// unchanged when an entire card, image or mention disappears.
+func TestContentAtomLossCountsAsContentChange(t *testing.T) {
+	sent := adfDoc(`{"type":"text","text":"see "},{"type":"inlineCard","attrs":{"url":"https://example.test/x"}}`)
+	stored := adfDoc(`{"type":"text","text":"see "}`)
+	d, err := compareStoredBody(sent, stored, bodyFormatADF)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !d.TextChanged {
+		t.Error("a dropped inlineCard was not reported as content loss")
+	}
+}
+
+// Swapping one atom for another keeps every count identical, so identity has
+// to be part of the fingerprint.
+func TestContentAtomSubstitutionDetected(t *testing.T) {
+	sent := adfDoc(`{"type":"inlineCard","attrs":{"url":"https://example.test/a"}}`)
+	stored := adfDoc(`{"type":"inlineCard","attrs":{"url":"https://example.test/b"}}`)
+	d, err := compareStoredBody(sent, stored, bodyFormatADF)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !d.TextChanged {
+		t.Error("a substituted inlineCard was not reported as content loss")
+	}
+}
+
+// driftServer serves a page whose GET body is whatever storedBody returns,
+// so a test can make Confluence "store" something other than what was sent.
+func driftServer(t *testing.T, storedBody func(sent map[string]any) string) (*httptest.Server, *int) {
+	t.Helper()
+	gets := 0
+	var received map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case "GET":
+			gets++
+			w.WriteHeader(http.StatusOK)
+			body := `{"storage":{"value":"<p>Old</p>"}}`
+			if received != nil {
+				body = storedBody(received)
+			}
+			_, _ = w.Write([]byte(`{"id":"12345","title":"Test","version":{"number":1},"body":` + body + `,"_links":{"webui":"/pages/12345"}}`))
+		case "PUT":
+			raw, _ := io.ReadAll(r.Body)
+			_ = json.Unmarshal(raw, &received)
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"id":"12345","title":"Test","version":{"number":2},"_links":{"webui":"/pages/12345"}}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	return srv, &gets
+}
+
+func editOptsFor(t *testing.T, srv *httptest.Server, content string, noVerify bool) *editOptions {
+	t.Helper()
+	rootOpts := newEditTestRootOptions()
+	rootOpts.SetAPIClient(api.NewClient(srv.URL, "test@example.com", "token"))
+	rootOpts.Stdin = strings.NewReader(content)
+	return &editOptions{
+		Options:    rootOpts,
+		pageID:     "12345",
+		file:       "-",
+		bodyFormat: bodyFormatXHTML,
+		noVerify:   noVerify,
+	}
+}
+
+// The point of the feature: a write the server quietly altered must fail
+// rather than report the version number and exit zero.
+func TestRunEditFailsWhenStoredContentDiffers(t *testing.T) {
+	srv, _ := driftServer(t, func(map[string]any) string {
+		return `{"storage":{"value":"<p>something else entirely</p>"}}`
+	})
+	defer srv.Close()
+
+	err := runEdit(context.Background(), editOptsFor(t, srv, "<p>what we sent</p>", false))
+	if err == nil {
+		t.Fatal("expected an error when the stored body does not match what was sent")
+	}
+	if !strings.Contains(err.Error(), "does not match what was sent") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+// --no-verify keeps the old behavior, including skipping the extra read.
+func TestRunEditNoVerifySkipsReadback(t *testing.T) {
+	srv, gets := driftServer(t, func(map[string]any) string {
+		return `{"storage":{"value":"<p>something else entirely</p>"}}`
+	})
+	defer srv.Close()
+
+	before := *gets
+	if err := runEdit(context.Background(), editOptsFor(t, srv, "<p>what we sent</p>", true)); err != nil {
+		t.Fatalf("--no-verify should not fail on drift: %v", err)
+	}
+	if after := *gets - before; after != 1 {
+		t.Errorf("GET count = %d, want 1 (the pre-write fetch only)", after)
+	}
+}
+
+// Normalization is not failure: the write stands and the drift is reported.
+func TestRunEditToleratesNormalization(t *testing.T) {
+	srv, _ := driftServer(t, func(map[string]any) string {
+		// Same text, markup rewritten — what storage-format normalization
+		// looks like.
+		return `{"storage":{"value":"<p class=\"auto\">what we sent</p>"}}`
+	})
+	defer srv.Close()
+
+	if err := runEdit(context.Background(), editOptsFor(t, srv, "<p>what we sent</p>", false)); err != nil {
+		t.Fatalf("normalized markup should not fail the write: %v", err)
+	}
+}
+
+// Markdown is converted before sending, so verification must not run and
+// must not invent a mismatch.
+func TestRunEditSkipsVerificationForMarkdown(t *testing.T) {
+	srv, gets := driftServer(t, func(map[string]any) string {
+		return `{"storage":{"value":"<p>totally different</p>"}}`
+	})
+	defer srv.Close()
+
+	opts := editOptsFor(t, srv, "# heading", false)
+	opts.bodyFormat = bodyFormatMarkdown
+	before := *gets
+	if err := runEdit(context.Background(), opts); err != nil {
+		t.Fatalf("markdown edit should not be verified: %v", err)
+	}
+	if after := *gets - before; after != 1 {
+		t.Errorf("GET count = %d, want 1 (no verification read)", after)
 	}
 }

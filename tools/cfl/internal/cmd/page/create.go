@@ -16,6 +16,7 @@ import (
 )
 
 type createOptions struct {
+	noVerify bool
 	*root.Options
 	space              string
 	title              string
@@ -95,6 +96,7 @@ without conversion.`,
 	cmd.Flags().BoolVar(&opts.editor, "editor", false, "Open editor for content")
 	cmd.Flags().StringVar(&opts.bodyFormat, "body-format", bodyFormatMarkdown, "Input format: markdown, adf, or xhtml")
 	cmd.Flags().BoolVar(&opts.legacy, "legacy", false, "Create page in legacy editor format (Markdown input only)")
+	cmd.Flags().BoolVar(&opts.noVerify, "no-verify", false, "Skip reading the page back to confirm what Confluence stored (adf/xhtml input)")
 
 	_ = cmd.MarkFlagRequired("title")
 
@@ -128,6 +130,7 @@ func runCreate(ctx context.Context, opts *createOptions) error {
 	if strings.TrimSpace(content) == "" {
 		return fmt.Errorf("page content cannot be empty")
 	}
+	sentContent := content
 	body, err := bodyForInput(content, bodyFormat, opts.legacy)
 	if err != nil {
 		return err
@@ -173,7 +176,20 @@ func runCreate(ctx context.Context, opts *createOptions) error {
 		return err
 	}
 
-	return cflpresent.Emit(opts.Options, cflpresent.PagePresenter{}.PresentCreate(page, cfg.URL))
+	if err := cflpresent.Emit(opts.Options, cflpresent.PagePresenter{}.PresentCreate(page, cfg.URL)); err != nil {
+		return err
+	}
+
+	// A create writes the same verbatim body an edit does, so it can suffer
+	// the same unseen server-side loss.
+	return verifyStoredBody(ctx, verifyRequest{
+		opts:        opts.Options,
+		client:      client,
+		pageID:      page.ID,
+		bodyFormat:  bodyFormat,
+		sentContent: sentContent,
+		enabled:     !opts.noVerify,
+	})
 }
 
 func getContent(opts *createOptions, bodyFormat string) (string, error) {

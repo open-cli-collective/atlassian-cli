@@ -127,13 +127,18 @@ func pageVersionValue(v *api.Version) string {
 // WriteDrift describes how a stored page body differed from the body that
 // was submitted. Commands supply the finding; the wording is owned here.
 type WriteDrift struct {
-	BodyFormat   string
-	TextChanged  bool
-	SentLen      int
-	StoredLen    int
-	Difference   string
-	DroppedAttrs []string
-	AddedAttrs   []string
+	BodyFormat string
+	// TextChanged reports that content differs, not merely formatting.
+	TextChanged bool
+	SentLen     int
+	StoredLen   int
+	// DiffOffset is where the two bodies first diverge, or -1 when they do
+	// not. SentExcerpt and StoredExcerpt are the text from that point.
+	DiffOffset    int
+	SentExcerpt   string
+	StoredExcerpt string
+	DroppedAttrs  []string
+	AddedAttrs    []string
 }
 
 // PresentWriteDrift reports what Confluence stored versus what was sent.
@@ -147,8 +152,8 @@ func (PagePresenter) PresentWriteDrift(d WriteDrift) *sharedpresent.OutputModel 
 			fmt.Sprintf("Stored %s body does not match what was sent: content differs (%d chars sent, %d stored).", d.BodyFormat, d.SentLen, d.StoredLen),
 			"The page was updated, but it does not hold the content supplied. Re-read the page before treating the change as applied.",
 		)
-		if d.Difference != "" {
-			lines = append(lines, "  first difference: "+d.Difference)
+		if d.DiffOffset >= 0 {
+			lines = append(lines, fmt.Sprintf("  first difference at offset %d — sent %q, stored %q", d.DiffOffset, d.SentExcerpt, d.StoredExcerpt))
 		}
 	} else {
 		if len(d.DroppedAttrs) > 0 {

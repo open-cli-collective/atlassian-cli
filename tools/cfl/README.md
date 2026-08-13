@@ -403,6 +403,8 @@ Content can be provided via:
 
 **Markdown is the default format.** It is converted to ADF, or to storage XHTML with `--legacy`.
 
+**Writes are read back.** With `--body-format adf` or `xhtml` the page is fetched again after a write and the stored body compared against what was sent, because Confluence can store something other than what it was given — it drops `__confluenceMetadata` from link marks, for example. Losing content is an error and exits non-zero; attributes the server normalizes away are reported on stderr and tolerated. Markdown is converted before sending, so there is nothing to compare it against and the check is skipped. Use `--no-verify` to skip the extra read.
+
 ```bash
 # Open editor with existing page content
 cfl page edit 12345

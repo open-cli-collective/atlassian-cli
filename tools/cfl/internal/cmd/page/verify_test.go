@@ -181,13 +181,15 @@ func TestDescribeDriftPointsAtTheDifference(t *testing.T) {
 func driftReport(t *testing.T, d writeDrift) string {
 	t.Helper()
 	model := cflpresent.PagePresenter{}.PresentWriteDrift(cflpresent.WriteDrift{
-		BodyFormat:   bodyFormatADF,
-		TextChanged:  d.TextChanged,
-		SentLen:      len(d.SentText),
-		StoredLen:    len(d.StoredText),
-		Difference:   firstTextDifference(d.SentText, d.StoredText),
-		DroppedAttrs: d.DroppedAttrs,
-		AddedAttrs:   d.AddedAttrs,
+		BodyFormat:    bodyFormatADF,
+		TextChanged:   d.TextChanged,
+		SentLen:       len(d.SentText),
+		StoredLen:     len(d.StoredText),
+		DiffOffset:    diffOffset(d.SentText, d.StoredText),
+		SentExcerpt:   readableExcerpt(d.SentText, diffOffset(d.SentText, d.StoredText)),
+		StoredExcerpt: readableExcerpt(d.StoredText, diffOffset(d.SentText, d.StoredText)),
+		DroppedAttrs:  d.DroppedAttrs,
+		AddedAttrs:    d.AddedAttrs,
 	})
 	var b strings.Builder
 	for _, sec := range model.Sections {
@@ -331,5 +333,123 @@ func TestRunEditSkipsVerificationForMarkdown(t *testing.T) {
 	}
 	if after := *gets - before; after != 1 {
 		t.Errorf("GET count = %d, want 1 (no verification read)", after)
+	}
+}
+
+// The fingerprint's NUL atom separators are an internal detail; an operator
+// must never be shown them.
+func TestExcerptHidesFingerprintSeparators(t *testing.T) {
+	sent := adfDoc(`{"type":"text","text":"see "},{"type":"inlineCard","attrs":{"url":"https://example.test/x"}}`)
+	stored := adfDoc(`{"type":"text","text":"see "}`)
+	d, err := compareStoredBody(sent, stored, bodyFormatADF)
+	if err != nil {
+		t.Fatal(err)
+	}
+	report := driftReport(t, d)
+	if strings.Contains(report, "\x00") || strings.ContainsRune(report, 0) {
+		t.Errorf("report leaked the fingerprint separator:\n%s", report)
+	}
+	if !strings.Contains(report, "inlineCard") {
+		t.Errorf("report should still name the lost atom:\n%s", report)
+	}
+}
+
+// Attribute-less atoms move neither the text nor the attribute profile, so
+// they have to be named in the fingerprint or their loss is invisible.
+func TestAttributelessAtomLossDetected(t *testing.T) {
+	for _, atom := range []string{"hardBreak", "rule"} {
+		t.Run(atom, func(t *testing.T) {
+			sent := adfDoc(`{"type":"text","text":"a"},{"type":"` + atom + `"},{"type":"text","text":"b"}`)
+			stored := adfDoc(`{"type":"text","text":"a"},{"type":"text","text":"b"}`)
+			d, err := compareStoredBody(sent, stored, bodyFormatADF)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !d.TextChanged {
+				t.Errorf("a dropped %s was not reported as content loss", atom)
+			}
+		})
+	}
+}
+
+// createDriftServer answers a create and then serves whatever storedBody
+// returns on the readback, so a test can make Confluence "store" something
+// other than what was posted.
+func createDriftServer(t *testing.T, storedBody func() string) (*httptest.Server, *int) {
+	t.Helper()
+	gets := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == "GET" && strings.Contains(r.URL.Path, "/spaces"):
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"results":[{"id":"123456","key":"DEV"}]}`))
+		case r.Method == "GET" && strings.Contains(r.URL.Path, "/pages/"):
+			gets++
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"id":"99999","title":"Test","version":{"number":1},"body":` + storedBody() + `}`))
+		case r.Method == "POST" && strings.Contains(r.URL.Path, "/pages"):
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"id":"99999","title":"Test","version":{"number":1}}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	return srv, &gets
+}
+
+func createOptsFor(t *testing.T, srv *httptest.Server, content string, noVerify bool) *createOptions {
+	t.Helper()
+	rootOpts := newCreateTestRootOptions()
+	rootOpts.SetAPIClient(api.NewClient(srv.URL, "test@example.com", "token"))
+	rootOpts.Stdin = strings.NewReader(content)
+	return &createOptions{
+		Options:    rootOpts,
+		space:      "DEV",
+		title:      "Test Page",
+		file:       "-",
+		bodyFormat: bodyFormatXHTML,
+		noVerify:   noVerify,
+	}
+}
+
+// A create writes the same verbatim body an edit does, so it must fail the
+// same way when the server stores something else.
+func TestRunCreateFailsWhenStoredContentDiffers(t *testing.T) {
+	srv, _ := createDriftServer(t, func() string {
+		return `{"storage":{"value":"<p>something else entirely</p>"}}`
+	})
+	defer srv.Close()
+
+	err := runCreate(context.Background(), createOptsFor(t, srv, "<p>what we sent</p>", false))
+	if err == nil {
+		t.Fatal("expected an error when the created page does not hold what was sent")
+	}
+	if !strings.Contains(err.Error(), "does not match what was sent") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestRunCreateNoVerifySkipsReadback(t *testing.T) {
+	srv, gets := createDriftServer(t, func() string {
+		return `{"storage":{"value":"<p>something else entirely</p>"}}`
+	})
+	defer srv.Close()
+
+	if err := runCreate(context.Background(), createOptsFor(t, srv, "<p>what we sent</p>", true)); err != nil {
+		t.Fatalf("--no-verify should not fail on drift: %v", err)
+	}
+	if *gets != 0 {
+		t.Errorf("readback GET count = %d, want 0", *gets)
+	}
+}
+
+func TestRunCreateToleratesNormalization(t *testing.T) {
+	srv, _ := createDriftServer(t, func() string {
+		return `{"storage":{"value":"<p class=\"auto\">what we sent</p>"}}`
+	})
+	defer srv.Close()
+
+	if err := runCreate(context.Background(), createOptsFor(t, srv, "<p>what we sent</p>", false)); err != nil {
+		t.Fatalf("normalized markup should not fail the create: %v", err)
 	}
 }

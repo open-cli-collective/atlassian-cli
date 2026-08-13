@@ -99,11 +99,20 @@ var contentAtoms = map[string]bool{
 	"extension":       true,
 	"inlineExtension": true,
 	"bodiedExtension": true,
+	// Attribute-less atoms: dropping one moves neither the text nor the
+	// attribute profile, so without naming them here the loss is invisible.
+	"hardBreak": true,
+	"rule":      true,
 }
 
 // adfContent renders a document's content fingerprint in document order:
-// text as itself, and each content-bearing atom as a marker. Two documents
-// with the same fingerprint hold the same content for a reader.
+// text as itself, and each atom named in contentAtoms as a marker carrying
+// its identifying attributes.
+//
+// The atom set is an allowlist, so the fingerprint is a sound signal and not
+// a complete one: a differing fingerprint always means the content changed,
+// while an identical one means nothing outside the allowlist moved. A node
+// type ADF gains later goes unnoticed until it is added here.
 func adfContent(node any) string {
 	var b strings.Builder
 	var walk func(any)
@@ -276,13 +285,15 @@ func verifyStoredBody(ctx context.Context, req verifyRequest) error {
 	}
 
 	finding := cflpresent.WriteDrift{
-		BodyFormat:   req.bodyFormat,
-		TextChanged:  drift.TextChanged,
-		SentLen:      len(drift.SentText),
-		StoredLen:    len(drift.StoredText),
-		Difference:   firstTextDifference(drift.SentText, drift.StoredText),
-		DroppedAttrs: drift.DroppedAttrs,
-		AddedAttrs:   drift.AddedAttrs,
+		BodyFormat:    req.bodyFormat,
+		TextChanged:   drift.TextChanged,
+		SentLen:       len(drift.SentText),
+		StoredLen:     len(drift.StoredText),
+		DiffOffset:    diffOffset(drift.SentText, drift.StoredText),
+		SentExcerpt:   readableExcerpt(drift.SentText, diffOffset(drift.SentText, drift.StoredText)),
+		StoredExcerpt: readableExcerpt(drift.StoredText, diffOffset(drift.SentText, drift.StoredText)),
+		DroppedAttrs:  drift.DroppedAttrs,
+		AddedAttrs:    drift.AddedAttrs,
 	}
 	if emitErr := cflpresent.Emit(req.opts, cflpresent.PagePresenter{}.PresentWriteDrift(finding)); emitErr != nil {
 		return emitErr
@@ -311,9 +322,9 @@ func bodyValue(page *api.Page, bodyFormat string) string {
 	return ""
 }
 
-// firstTextDifference locates where two content fingerprints diverge so the
-// report points at the change rather than restating both documents.
-func firstTextDifference(sent, stored string) string {
+// diffOffset reports where two content fingerprints first diverge, or -1
+// when they match.
+func diffOffset(sent, stored string) int {
 	limit := len(sent)
 	if len(stored) < limit {
 		limit = len(stored)
@@ -323,18 +334,21 @@ func firstTextDifference(sent, stored string) string {
 		i++
 	}
 	if i == limit && len(sent) == len(stored) {
-		return ""
+		return -1
 	}
-	return fmt.Sprintf("at offset %d — sent %q, stored %q", i, excerpt(sent, i), excerpt(stored, i))
+	return i
 }
 
-func excerpt(s string, at int) string {
-	if at > len(s) {
+// readableExcerpt renders part of a fingerprint for a person. The fingerprint
+// separates atoms with NUL so they cannot collide with document text, which
+// is an internal detail an operator should never be shown.
+func readableExcerpt(s string, at int) string {
+	if at < 0 || at > len(s) {
 		return ""
 	}
 	end := at + 40
 	if end > len(s) {
 		end = len(s)
 	}
-	return s[at:end]
+	return strings.ReplaceAll(s[at:end], "\x00", "")
 }

@@ -245,6 +245,10 @@ ID: <id>
 URL: <url>
 ```
 
+With `--body-format adf` or `xhtml` the page is read back after the write and
+compared with what was sent, exactly as `page edit` does. See that section for
+the stderr blocks emitted on normalization and on content loss.
+
 ## `page edit <page-id>`
 
 Success:

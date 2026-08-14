@@ -191,16 +191,15 @@ func runEdit(ctx context.Context, opts *editOptions) error {
 	// opens. It is the lossy-format guard's evidence and the verification
 	// baseline both, and refusing after an editor session would discard work
 	// the operator had just done.
-	// A title- or parent-only edit resends the body it just read. That is a
-	// write, but only a lossy one if what gets resent is the lossy
-	// representation: getPageWithBodyFallback asks for storage first, so a
-	// page with a storage body is resent losslessly.
+	// A title- or parent-only edit resends the body it just read.
 	resendsExistingBody := !hasNewContent && !opts.editor && (opts.title != "" || opts.parent != "")
 	writesBody := hasNewContent || opts.editor || resendsExistingBody
-	// What gets sent decides, not what was asked for. A resend passes the
-	// page's own body straight back, so nothing is converted and nothing can
-	// be lost; only a caller-supplied ADF payload can drop what the page
-	// currently has.
+	// What gets sent decides, not what was asked for. A resend hands the
+	// page's own body back unchanged, so --body-format is irrelevant to it:
+	// verified against a page carrying both an ac:link and emphasis around a
+	// code span, where a title-only edit with --body-format adf left every
+	// one of them intact. Only a caller-supplied ADF payload can drop what
+	// the page currently has.
 	writesADF := bodyFormat == bodyFormatADF && !resendsExistingBody
 
 	currentStorage := func() (string, string) {

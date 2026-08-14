@@ -43,6 +43,10 @@ for exact Atlassian Document Format JSON or --body-format xhtml for exact
 Confluence storage XHTML.
 
 Markdown output is truncated to 5000 characters by default for concise display.
+ADF output is lossy: it does not carry emphasis wrapping inline code, nor
+internal link elements. Use --body-format xhtml when the output will be
+edited and written back.
+
 Exact ADF and XHTML output is never truncated. Use --no-truncate to show the
 complete Markdown page content without truncation.
 The --content-only flag implies --no-truncate since it is intended for piping.

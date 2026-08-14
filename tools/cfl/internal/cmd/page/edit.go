@@ -27,6 +27,7 @@ type editOptions struct {
 	legacy             bool
 	parent             string
 	noVerify           bool
+	allowLossy         bool
 }
 
 func newEditCmd(rootOpts *root.Options) *cobra.Command {
@@ -48,6 +49,14 @@ Content can be provided via:
 Content format is selected with --body-format markdown|adf|xhtml.
 Omitting --body-format means Markdown. ADF and XHTML are validated or sent
 without conversion.
+
+ADF IS LOSSY. Confluence's ADF representation does not carry everything its
+storage representation does: emphasis wrapping an inline code span is
+dropped, and internal links become plain expanded URLs. Reading a page as
+ADF and writing it back therefore destroys content the caller never touched,
+and the caller cannot see it because their copy is already missing it. A
+write that would remove such content is refused; use --body-format xhtml to
+edit those pages, or --allow-lossy to proceed anyway.
 
 For --body-format adf or xhtml the page is read back after writing and the
 stored body compared against what was sent, because Confluence can store
@@ -112,6 +121,7 @@ skipped. Use --no-verify to skip the read.`,
 	cmd.Flags().StringVar(&opts.bodyFormat, "body-format", bodyFormatMarkdown, "Input format: markdown, adf, or xhtml")
 	cmd.Flags().BoolVar(&opts.legacy, "legacy", false, "Edit page in legacy editor format (Markdown input only)")
 	cmd.Flags().BoolVar(&opts.noVerify, "no-verify", false, "Skip reading the page back to confirm what Confluence stored (adf/xhtml input)")
+	cmd.Flags().BoolVar(&opts.allowLossy, "allow-lossy", false, "Write in a body format that cannot carry content the page currently has")
 
 	return cmd
 }
@@ -219,6 +229,20 @@ func runEdit(ctx context.Context, opts *editOptions) error {
 	// caller inherited from a lossy read of their own.
 	// The page was already fetched above, and the non-editor path asks for
 	// the storage representation, so the baseline is usually in hand.
+	// Refuse before writing, not after: once the ADF is written the content
+	// is gone, and the caller's own copy never had it to restore from.
+	if hasNewContent && bodyFormat == bodyFormatADF && !opts.allowLossy {
+		current := bodyValue(existingPage, bodyFormatXHTML)
+		if current == "" {
+			if body, err := readStorageBody(ctx, client, opts.pageID); err == nil {
+				current = body
+			}
+		}
+		if findings := findLossyConstructs(current); len(findings) > 0 {
+			return lossyFormatError(findings, bodyFormat)
+		}
+	}
+
 	var storageBefore, storageBeforeErr string
 	if verificationApplies(bodyFormat, hasNewContent, opts.noVerify) {
 		storageBefore = bodyValue(existingPage, bodyFormatXHTML)

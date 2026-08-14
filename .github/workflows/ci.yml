@@ -40,18 +40,27 @@ jobs:
 
   build-test-cfl:
     needs: detect-changes
-    if: needs.detect-changes.outputs.cfl == 'true' || needs.detect-changes.outputs.shared == 'true'
+    # Runs on every PR so the check reports a conclusion; branch
+    # protection requires it, and a skipped check never satisfies that.
+    # The work itself is gated per step (INT-726).
+    env:
+      RELEVANT: ${{ needs.detect-changes.outputs.cfl == 'true' || needs.detect-changes.outputs.shared == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        if: env.RELEVANT == 'true'
       - uses: actions/setup-go@v5
+        if: env.RELEVANT == 'true'
         with:
           go-version: '1.26'
       - name: Tidy cfl
+        if: env.RELEVANT == 'true'
         run: cd tools/cfl && go mod tidy && git diff --exit-code go.mod go.sum
       - name: Build cfl
+        if: env.RELEVANT == 'true'
         run: go build -v ./tools/cfl/...
       - name: Static release build guard cfl
+        if: env.RELEVANT == 'true'
         run: |
           set -euo pipefail
           cd tools/cfl
@@ -70,22 +79,32 @@ jobs:
             fi
           done
       - name: Test cfl
+        if: env.RELEVANT == 'true'
         run: go test -v -race -coverprofile=coverage-cfl.out ./tools/cfl/...
 
   build-test-jtk:
     needs: detect-changes
-    if: needs.detect-changes.outputs.jtk == 'true' || needs.detect-changes.outputs.shared == 'true'
+    # Runs on every PR so the check reports a conclusion; branch
+    # protection requires it, and a skipped check never satisfies that.
+    # The work itself is gated per step (INT-726).
+    env:
+      RELEVANT: ${{ needs.detect-changes.outputs.jtk == 'true' || needs.detect-changes.outputs.shared == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        if: env.RELEVANT == 'true'
       - uses: actions/setup-go@v5
+        if: env.RELEVANT == 'true'
         with:
           go-version: '1.26'
       - name: Tidy jtk
+        if: env.RELEVANT == 'true'
         run: cd tools/jtk && go mod tidy && git diff --exit-code go.mod go.sum
       - name: Build jtk
+        if: env.RELEVANT == 'true'
         run: go build -v ./tools/jtk/...
       - name: Static release build guard jtk
+        if: env.RELEVANT == 'true'
         run: |
           set -euo pipefail
           cd tools/jtk
@@ -104,32 +123,47 @@ jobs:
             fi
           done
       - name: Test jtk
+        if: env.RELEVANT == 'true'
         run: go test -v -race -coverprofile=coverage-jtk.out ./tools/jtk/...
 
   lint-cfl:
     needs: detect-changes
-    if: needs.detect-changes.outputs.cfl == 'true' || needs.detect-changes.outputs.shared == 'true'
+    # Runs on every PR so the check reports a conclusion; branch
+    # protection requires it, and a skipped check never satisfies that.
+    # The work itself is gated per step (INT-726).
+    env:
+      RELEVANT: ${{ needs.detect-changes.outputs.cfl == 'true' || needs.detect-changes.outputs.shared == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        if: env.RELEVANT == 'true'
       - uses: actions/setup-go@v5
+        if: env.RELEVANT == 'true'
         with:
           go-version: '1.26'
       - uses: golangci/golangci-lint-action@v7
+        if: env.RELEVANT == 'true'
         with:
           working-directory: tools/cfl
           version: v2.12.2
 
   lint-jtk:
     needs: detect-changes
-    if: needs.detect-changes.outputs.jtk == 'true' || needs.detect-changes.outputs.shared == 'true'
+    # Runs on every PR so the check reports a conclusion; branch
+    # protection requires it, and a skipped check never satisfies that.
+    # The work itself is gated per step (INT-726).
+    env:
+      RELEVANT: ${{ needs.detect-changes.outputs.jtk == 'true' || needs.detect-changes.outputs.shared == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        if: env.RELEVANT == 'true'
       - uses: actions/setup-go@v5
+        if: env.RELEVANT == 'true'
         with:
           go-version: '1.26'
       - uses: golangci/golangci-lint-action@v7
+        if: env.RELEVANT == 'true'
         with:
           working-directory: tools/jtk
           version: v2.12.2
@@ -182,21 +216,33 @@ jobs:
   # goreleaser_config resolves (distribution.md §8.3 / .github#15).
   identity-check-cfl:
     needs: detect-changes
-    if: needs.detect-changes.outputs.cfl == 'true' || needs.detect-changes.outputs.shared == 'true'
+    # Runs on every PR so the check reports a conclusion; branch
+    # protection requires it, and a skipped check never satisfies that.
+    # The work itself is gated per step (INT-726).
+    env:
+      RELEVANT: ${{ needs.detect-changes.outputs.cfl == 'true' || needs.detect-changes.outputs.shared == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        if: env.RELEVANT == 'true'
       - uses: open-cli-collective/.github/actions/identity-check@v1
+        if: env.RELEVANT == 'true'
         with:
           working-directory: tools/cfl
 
   identity-check-jtk:
     needs: detect-changes
-    if: needs.detect-changes.outputs.jtk == 'true' || needs.detect-changes.outputs.shared == 'true'
+    # Runs on every PR so the check reports a conclusion; branch
+    # protection requires it, and a skipped check never satisfies that.
+    # The work itself is gated per step (INT-726).
+    env:
+      RELEVANT: ${{ needs.detect-changes.outputs.jtk == 'true' || needs.detect-changes.outputs.shared == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        if: env.RELEVANT == 'true'
       - uses: open-cli-collective/.github/actions/identity-check@v1
+        if: env.RELEVANT == 'true'
         with:
           working-directory: tools/jtk
 

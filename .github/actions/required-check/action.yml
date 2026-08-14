@@ -1,0 +1,47 @@
+name: Required check
+description: >-
+  Report a protected check from the job that did the work. Branch protection
+  does not accept a skipped check as satisfied, so a tool-scoped PR cannot
+  merge while the other tool's jobs skip. A wrapper using this action always
+  runs and passes on that job's behalf.
+
+inputs:
+  job:
+    description: Name of the job whose outcome is being reported.
+    required: true
+  result:
+    description: result of that job (needs.<job>.result).
+    required: true
+  gate-result:
+    description: >-
+      result of the job whose outputs decide whether the work runs. A skip is
+      only meaningful if this succeeded; when it did not, the work was skipped
+      for an unrelated reason and nothing was verified.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        JOB: ${{ inputs.job }}
+        RESULT: ${{ inputs.result }}
+        GATE: ${{ inputs.gate-result }}
+      run: |
+        set -euo pipefail
+        if [ "$GATE" != "success" ]; then
+          echo "::error::change detection did not succeed (result: $GATE), so $JOB was skipped for an unrelated reason and nothing was verified"
+          exit 1
+        fi
+        case "$RESULT" in
+          success)
+            echo "$JOB ran and passed"
+            ;;
+          skipped)
+            echo "$JOB had no relevant changes; nothing to verify"
+            ;;
+          *)
+            echo "::error::$JOB result: $RESULT"
+            exit 1
+            ;;
+        esac

@@ -38,7 +38,7 @@ jobs:
               - 'Makefile'
               - '.github/workflows/ci.yml'
 
-  build-test-cfl:
+  build-test-cfl-run:
     needs: detect-changes
     if: needs.detect-changes.outputs.cfl == 'true' || needs.detect-changes.outputs.shared == 'true'
     runs-on: ubuntu-latest
@@ -72,7 +72,7 @@ jobs:
       - name: Test cfl
         run: go test -v -race -coverprofile=coverage-cfl.out ./tools/cfl/...
 
-  build-test-jtk:
+  build-test-jtk-run:
     needs: detect-changes
     if: needs.detect-changes.outputs.jtk == 'true' || needs.detect-changes.outputs.shared == 'true'
     runs-on: ubuntu-latest
@@ -106,7 +106,7 @@ jobs:
       - name: Test jtk
         run: go test -v -race -coverprofile=coverage-jtk.out ./tools/jtk/...
 
-  lint-cfl:
+  lint-cfl-run:
     needs: detect-changes
     if: needs.detect-changes.outputs.cfl == 'true' || needs.detect-changes.outputs.shared == 'true'
     runs-on: ubuntu-latest
@@ -120,7 +120,7 @@ jobs:
           working-directory: tools/cfl
           version: v2.12.2
 
-  lint-jtk:
+  lint-jtk-run:
     needs: detect-changes
     if: needs.detect-changes.outputs.jtk == 'true' || needs.detect-changes.outputs.shared == 'true'
     runs-on: ubuntu-latest
@@ -180,7 +180,7 @@ jobs:
   # packaging/identity.yml matches its tool-native files. working-directory is
   # the tool root; repo-root defaults to "." so the root-relative
   # goreleaser_config resolves (distribution.md §8.3 / .github#15).
-  identity-check-cfl:
+  identity-check-cfl-run:
     needs: detect-changes
     if: needs.detect-changes.outputs.cfl == 'true' || needs.detect-changes.outputs.shared == 'true'
     runs-on: ubuntu-latest
@@ -190,7 +190,7 @@ jobs:
         with:
           working-directory: tools/cfl
 
-  identity-check-jtk:
+  identity-check-jtk-run:
     needs: detect-changes
     if: needs.detect-changes.outputs.jtk == 'true' || needs.detect-changes.outputs.shared == 'true'
     runs-on: ubuntu-latest
@@ -207,3 +207,84 @@ jobs:
       - uses: open-cli-collective/.github/actions/pr-title@v1
         with:
           title: ${{ github.event.pull_request.title }}
+
+  # Required-check wrappers (INT-726). Branch protection requires these
+  # names, and GitHub does not accept a skipped check as satisfied, so a PR
+  # touching one tool could not merge without an admin bypass. Each wrapper
+  # always runs and reports on behalf of the job that does the work, so the
+  # -run jobs stay free of per-step guards.
+  #
+  # detect-changes is in needs so a skip can be told apart from a skip
+  # caused by change detection failing, which would otherwise pass every
+  # required check with nothing verified.
+  build-test-cfl:
+    needs: [detect-changes, build-test-cfl-run]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/required-check
+        with:
+          job: build-test-cfl-run
+          result: ${{ needs.build-test-cfl-run.result }}
+          gate-result: ${{ needs.detect-changes.result }}
+
+  build-test-jtk:
+    needs: [detect-changes, build-test-jtk-run]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/required-check
+        with:
+          job: build-test-jtk-run
+          result: ${{ needs.build-test-jtk-run.result }}
+          gate-result: ${{ needs.detect-changes.result }}
+
+  lint-cfl:
+    needs: [detect-changes, lint-cfl-run]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/required-check
+        with:
+          job: lint-cfl-run
+          result: ${{ needs.lint-cfl-run.result }}
+          gate-result: ${{ needs.detect-changes.result }}
+
+  lint-jtk:
+    needs: [detect-changes, lint-jtk-run]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/required-check
+        with:
+          job: lint-jtk-run
+          result: ${{ needs.lint-jtk-run.result }}
+          gate-result: ${{ needs.detect-changes.result }}
+
+  identity-check-cfl:
+    needs: [detect-changes, identity-check-cfl-run]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/required-check
+        with:
+          job: identity-check-cfl-run
+          result: ${{ needs.identity-check-cfl-run.result }}
+          gate-result: ${{ needs.detect-changes.result }}
+
+  identity-check-jtk:
+    needs: [detect-changes, identity-check-jtk-run]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/required-check
+        with:
+          job: identity-check-jtk-run
+          result: ${{ needs.identity-check-jtk-run.result }}
+          gate-result: ${{ needs.detect-changes.result }}

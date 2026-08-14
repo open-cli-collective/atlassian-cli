@@ -108,3 +108,17 @@ func getPageVersionWithBodyFallback(ctx context.Context, client *api.Client, pag
 
 	return page, nil
 }
+
+// fetchStorageBody returns a page's storage body, or an explanation of why it
+// is unavailable. One place answers that question so callers cannot drift.
+func fetchStorageBody(ctx context.Context, client *api.Client, pageID string) (body, reason string) {
+	got, err := readStorageBody(ctx, client, pageID)
+	switch {
+	case err != nil:
+		return "", err.Error()
+	case got == "":
+		return "", "the page returned no storage body"
+	default:
+		return got, ""
+	}
+}

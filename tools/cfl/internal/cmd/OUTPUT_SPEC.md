@@ -254,6 +254,17 @@ comparison-unavailable blocks described there are never emitted here.
 
 ## `page edit <page-id>`
 
+Refused, when the page holds content the requested body format cannot carry
+(exit non-zero, nothing written):
+
+```text
+refusing to write this page as <format>: the <format> representation cannot carry content it currently has, and writing would remove it
+  - <construct> (<count>) — <consequence>
+
+Use --body-format xhtml to edit this page without losing them.
+Pass --allow-lossy to write it as <format> anyway.
+```
+
 Success:
 
 ```text

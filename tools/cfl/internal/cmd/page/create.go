@@ -183,12 +183,13 @@ func runCreate(ctx context.Context, opts *createOptions) error {
 	// A create writes the same verbatim body an edit does, so it can suffer
 	// the same unseen server-side loss.
 	return verifyStoredBody(ctx, verifyRequest{
-		opts:        opts.Options,
-		client:      client,
-		pageID:      page.ID,
-		bodyFormat:  bodyFormat,
-		sentContent: sentContent,
-		enabled:     !opts.noVerify,
+		opts:          opts.Options,
+		client:        client,
+		pageID:        page.ID,
+		bodyFormat:    bodyFormat,
+		sentContent:   sentContent,
+		storageBefore: "",
+		enabled:       !opts.noVerify,
 	})
 }
 

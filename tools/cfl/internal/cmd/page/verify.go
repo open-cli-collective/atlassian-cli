@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -355,6 +356,20 @@ type verifyRequest struct {
 	bodyFormat  string
 	sentContent string
 	enabled     bool
+	// storageBefore is the page's storage body read before the write. It is
+	// the representation that survives an ADF round trip, so it is what
+	// reveals loss the caller inherited from their own read.
+	storageBefore string
+}
+
+// verificationApplies reports whether a write will be verified. Markdown is
+// converted before sending, so the stored body is not comparable to what the
+// caller supplied and no read is worth paying for.
+func verificationApplies(bodyFormat string, hasNewContent, noVerify bool) bool {
+	if !hasNewContent || noVerify {
+		return false
+	}
+	return bodyFormat == bodyFormatADF || bodyFormat == bodyFormatXHTML
 }
 
 // verifyStoredBody re-reads a page after a write and reports what Confluence
@@ -385,7 +400,8 @@ func verifyStoredBody(ctx context.Context, req verifyRequest) error {
 	if err != nil {
 		return fmt.Errorf("verifying stored page: %w", err)
 	}
-	if drift.Clean() {
+	lostElements := verifyStorageLoss(ctx, req)
+	if drift.Clean() && len(lostElements) == 0 {
 		return nil
 	}
 
@@ -402,6 +418,7 @@ func verifyStoredBody(ctx context.Context, req verifyRequest) error {
 		AtomChanges:   drift.AtomChanges,
 		DroppedAttrs:  drift.DroppedAttrs,
 		AddedAttrs:    drift.AddedAttrs,
+		LostElements:  lostElements,
 	}
 	if emitErr := cflpresent.Emit(req.opts, cflpresent.PagePresenter{}.PresentWriteDrift(finding)); emitErr != nil {
 		return emitErr
@@ -462,4 +479,65 @@ func readableExcerpt(s string, at int) string {
 		end = len(r)
 	}
 	return string(r[at:end])
+}
+
+// Comparing what was sent against what was stored cannot see loss the caller
+// inherited from their own read. Confluence's atlas_doc_format representation
+// of a page does not always carry marks its storage representation does — em
+// and strong wrapping a code span in a table cell are dropped — so reading a
+// page as ADF and writing it straight back destroys them, and both sides of a
+// sent-versus-stored comparison carry the loss equally.
+//
+// The storage representation is the one that survives the round trip, so it
+// is the one worth watching. Element types whose counts fall across a write
+// are reported: text edits move no element counts, while losing emphasis, a
+// code span, or a link is collateral a caller almost never intends.
+
+var storageElementRE = regexp.MustCompile(`<(\w[\w-]*)[\s/>]`)
+
+// storageProfile counts elements in a storage-format body.
+func storageProfile(body string) map[string]int {
+	profile := map[string]int{}
+	for _, m := range storageElementRE.FindAllStringSubmatch(body, -1) {
+		profile[m[1]]++
+	}
+	return profile
+}
+
+// diffStorageLoss names element types that became less frequent, in sorted
+// order. Additions are not reported: adding content is what an edit is for.
+func diffStorageLoss(before, after map[string]int) []string {
+	var lost []string
+	for name, n := range before {
+		if after[name] < n {
+			lost = append(lost, fmt.Sprintf("%s (%d→%d)", name, n, after[name]))
+		}
+	}
+	sort.Strings(lost)
+	return lost
+}
+
+// verifyStorageLoss compares the page's storage body across the write. An
+// empty result means either nothing was lost or the comparison could not be
+// made; it never reports loss it did not observe.
+func verifyStorageLoss(ctx context.Context, req verifyRequest) []string {
+	if req.storageBefore == "" {
+		return nil
+	}
+	after, err := readStorageBody(ctx, req.client, req.pageID)
+	if err != nil || after == "" {
+		return nil
+	}
+	return diffStorageLoss(storageProfile(req.storageBefore), storageProfile(after))
+}
+
+// readStorageBody fetches a page's storage representation, or "" when it is
+// unavailable. Callers treat that as "cannot compare" rather than as "no
+// loss", so a failure here never manufactures a clean result.
+func readStorageBody(ctx context.Context, client *api.Client, pageID string) (string, error) {
+	page, err := client.GetPage(ctx, pageID, &api.GetPageOptions{BodyFormat: apiBodyFormat(bodyFormatXHTML)})
+	if err != nil {
+		return "", err
+	}
+	return bodyValue(page, bodyFormatXHTML), nil
 }

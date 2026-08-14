@@ -144,6 +144,9 @@ type WriteDrift struct {
 	AtomChanges  []string
 	DroppedAttrs []string
 	AddedAttrs   []string
+	// LostElements names storage element types that became less frequent
+	// across the write.
+	LostElements []string
 }
 
 // attrLines lists attribute changes, which identify the embedded content
@@ -190,6 +193,13 @@ func describeContentChange(d WriteDrift) string {
 // other means it landed in a document the server tidied.
 func (PagePresenter) PresentWriteDrift(d WriteDrift) *sharedpresent.OutputModel {
 	var lines []string
+	if len(d.LostElements) > 0 {
+		lines = append(lines, "The stored page lost formatting that was present before this write:")
+		for _, e := range d.LostElements {
+			lines = append(lines, "  - "+e)
+		}
+		lines = append(lines, "Reading a page as ADF and writing it back does not always preserve marks its storage form carries. Compare against the storage body before assuming the change was clean.", "")
+	}
 	if d.TextChanged {
 		lines = append(lines,
 			fmt.Sprintf("Stored %s body does not match what was sent: %s.", d.BodyFormat, describeContentChange(d)),

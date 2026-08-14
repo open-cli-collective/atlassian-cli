@@ -544,3 +544,83 @@ func TestAttributelessAtomChangeIsNamed(t *testing.T) {
 		t.Errorf("report must name the changed atom when no attributes can:\n%s", report)
 	}
 }
+
+// The loss this exists to catch: a no-op ADF round trip that Confluence
+// stores without the emphasis marks its storage body carried. Sent and
+// stored agree, so only the storage comparison sees it.
+func TestStorageLossDetectedWhenSentAndStoredAgree(t *testing.T) {
+	before := `<p><em><strong><code>KEY</code></strong></em></p><p><strong>bold</strong></p>`
+	after := `<p><code>KEY</code></p><p><strong>bold</strong></p>`
+	lost := diffStorageLoss(storageProfile(before), storageProfile(after))
+	if len(lost) != 2 {
+		t.Fatalf("lost = %v, want em and strong", lost)
+	}
+	joined := strings.Join(lost, " ")
+	if !strings.Contains(joined, "em (1→0)") || !strings.Contains(joined, "strong (2→1)") {
+		t.Errorf("unexpected loss report: %v", lost)
+	}
+}
+
+// Editing text moves no element counts, so an ordinary edit stays quiet.
+func TestStorageLossQuietOnTextOnlyEdit(t *testing.T) {
+	before := `<p>hello <strong>world</strong></p>`
+	after := `<p>goodbye <strong>world</strong></p>`
+	if lost := diffStorageLoss(storageProfile(before), storageProfile(after)); len(lost) != 0 {
+		t.Errorf("text-only edit reported loss: %v", lost)
+	}
+}
+
+// Adding content is what an edit is for; only losses are reported.
+func TestStorageLossIgnoresAdditions(t *testing.T) {
+	before := `<p>hello</p>`
+	after := `<p>hello</p><p><strong>new</strong></p>`
+	if lost := diffStorageLoss(storageProfile(before), storageProfile(after)); len(lost) != 0 {
+		t.Errorf("additions reported as loss: %v", lost)
+	}
+}
+
+// A missing baseline must read as "cannot compare", never as "no loss".
+func TestStorageLossNotClaimedWithoutBaseline(t *testing.T) {
+	req := verifyRequest{storageBefore: ""}
+	if lost := verifyStorageLoss(context.Background(), req); lost != nil {
+		t.Errorf("claimed a comparison with no baseline: %v", lost)
+	}
+}
+
+func TestVerificationApplies(t *testing.T) {
+	tests := []struct {
+		format               string
+		hasNewContent, noVer bool
+		want                 bool
+	}{
+		{bodyFormatADF, true, false, true},
+		{bodyFormatXHTML, true, false, true},
+		{bodyFormatMarkdown, true, false, false},
+		{bodyFormatADF, true, true, false},
+		{bodyFormatADF, false, false, false},
+	}
+	for _, tc := range tests {
+		if got := verificationApplies(tc.format, tc.hasNewContent, tc.noVer); got != tc.want {
+			t.Errorf("verificationApplies(%q,%v,%v) = %v, want %v", tc.format, tc.hasNewContent, tc.noVer, got, tc.want)
+		}
+	}
+}
+
+func TestPresentedStorageLossExplainsTheCause(t *testing.T) {
+	model := cflpresent.PagePresenter{}.PresentWriteDrift(cflpresent.WriteDrift{
+		BodyFormat:   bodyFormatADF,
+		LostElements: []string{"em (3→1)", "strong (3→1)"},
+	})
+	var b strings.Builder
+	for _, sec := range model.Sections {
+		if msg, ok := sec.(*sharedpresent.MessageSection); ok {
+			b.WriteString(msg.Message)
+		}
+	}
+	out := b.String()
+	for _, want := range []string{"lost formatting", "em (3→1)", "writing it back"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("report missing %q:\n%s", want, out)
+		}
+	}
+}

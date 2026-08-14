@@ -215,6 +215,13 @@ func runEdit(ctx context.Context, opts *editOptions) error {
 		req.Body = existingPage.Body
 	}
 
+	// Captured before the write: the storage body is what reveals loss the
+	// caller inherited from a lossy read of their own.
+	var storageBefore string
+	if verificationApplies(bodyFormat, hasNewContent, opts.noVerify) {
+		storageBefore, _ = readStorageBody(ctx, client, opts.pageID)
+	}
+
 	page, err := client.UpdatePage(ctx, opts.pageID, req)
 	if err != nil {
 		return err
@@ -231,12 +238,13 @@ func runEdit(ctx context.Context, opts *editOptions) error {
 	}
 
 	return verifyStoredBody(ctx, verifyRequest{
-		opts:        opts.Options,
-		client:      client,
-		pageID:      opts.pageID,
-		bodyFormat:  bodyFormat,
-		sentContent: sentContent,
-		enabled:     hasNewContent && !opts.noVerify,
+		opts:          opts.Options,
+		client:        client,
+		pageID:        opts.pageID,
+		bodyFormat:    bodyFormat,
+		sentContent:   sentContent,
+		storageBefore: storageBefore,
+		enabled:       hasNewContent && !opts.noVerify,
 	})
 }
 

@@ -246,8 +246,11 @@ URL: <url>
 ```
 
 With `--body-format adf` or `xhtml` the page is read back after the write and
-compared with what was sent, exactly as `page edit` does. See that section for
-the stderr blocks emitted on normalization and on content loss.
+compared with what was sent. See the `page edit` section for the stderr blocks
+emitted on normalization and on content loss.
+
+A create has no state to compare against, so the formatting-loss and
+comparison-unavailable blocks described there are never emitted here.
 
 ## `page edit <page-id>`
 

@@ -728,3 +728,23 @@ func TestStorageLossDetectsRemovedMacro(t *testing.T) {
 		t.Errorf("a removed macro was not reported: %s", lost)
 	}
 }
+
+// The baseline comes from the page already fetched, and the xhtml readback
+// is reused for the storage comparison. Both were review findings; without a
+// count pinned on the verified path, either could be reintroduced silently.
+func TestRunEditVerifiedPathMakesNoRedundantReads(t *testing.T) {
+	srv, gets := driftServer(t, func(map[string]any) string {
+		return `{"storage":{"value":"<p>what we sent</p>"}}`
+	})
+	defer srv.Close()
+
+	if err := runEdit(context.Background(), editOptsFor(t, srv, "<p>what we sent</p>", false)); err != nil {
+		t.Fatalf("verified edit: %v", err)
+	}
+	// One read before the write, one to read the result back. A third would
+	// mean the baseline or the storage comparison re-fetched what the
+	// command already had.
+	if *gets != 2 {
+		t.Errorf("GET count = %d, want 2 (pre-write fetch + post-write readback)", *gets)
+	}
+}

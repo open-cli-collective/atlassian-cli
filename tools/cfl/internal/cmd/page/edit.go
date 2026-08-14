@@ -197,13 +197,10 @@ func runEdit(ctx context.Context, opts *editOptions) error {
 	// page with a storage body is resent losslessly.
 	resendsExistingBody := !hasNewContent && !opts.editor && (opts.title != "" || opts.parent != "")
 	writesBody := hasNewContent || opts.editor || resendsExistingBody
-	// What gets sent decides, not what was asked for: a resend of an
-	// ADF-derived body is lossy even without --body-format adf, and a resend
-	// of a storage body is safe even with it.
-	// A resend passes the page's own body straight back, so nothing is
-	// converted and nothing can be lost — an ADF-native page has no storage
-	// body to lose in the first place. Only a caller-supplied ADF payload
-	// can drop what the page currently has.
+	// What gets sent decides, not what was asked for. A resend passes the
+	// page's own body straight back, so nothing is converted and nothing can
+	// be lost; only a caller-supplied ADF payload can drop what the page
+	// currently has.
 	writesADF := bodyFormat == bodyFormatADF && !resendsExistingBody
 
 	currentStorage := func() (string, string) {
@@ -223,14 +220,11 @@ func runEdit(ctx context.Context, opts *editOptions) error {
 	// Refuse before writing, and before the editor: once the ADF is written
 	// the content is gone, and the caller's own copy never had it to restore
 	// from.
+	// --no-verify silences the readback, not this: the baseline gate above
+	// includes writesADF for that reason, so the guard always has its
+	// evidence here.
 	if writesBody && writesADF && !opts.allowLossy {
-		// --no-verify silences the readback, not this: skipping the check
-		// that reports damage is a different decision from consenting to
-		// cause it.
 		current, currentErr := storageBefore, storageBeforeErr
-		if current == "" && currentErr == "" {
-			current, currentErr = currentStorage()
-		}
 		if current == "" {
 			return fmt.Errorf("cannot confirm this page is safe to write as %s: its current content could not be read (%s)\nUse --body-format xhtml, or --allow-lossy to write anyway", bodyFormat, orUnknown(currentErr))
 		}

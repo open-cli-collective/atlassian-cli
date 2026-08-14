@@ -270,6 +270,27 @@ Confluence normalized the stored <format> body. Content is intact; these attribu
   - <node>.attrs.<name> (<before>→<after>)
 ```
 
+Formatting the stored page no longer carries is reported before the other
+blocks, and the command still succeeds — the write landed, only formatting
+was collateral:
+
+```text
+The stored page lost formatting that was present before this write:
+  - <element> (<before>→<after>)
+<cause> Compare against the storage body before assuming the change was clean.
+```
+
+`<cause>` names why loss is possible for the format in use: an ADF round trip
+does not always preserve marks the storage body carries, whereas a storage
+write carries only what the caller submitted.
+
+When the comparison could not be made at all, that is stated rather than
+passed over in silence, because silence is what a clean write looks like:
+
+```text
+Could not compare the stored page against its state before the write, so formatting loss would not have been noticed. (<reason>)
+```
+
 Attributes the server added rather than dropped are reported the same way:
 
 ```text

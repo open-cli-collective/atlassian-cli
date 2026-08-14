@@ -579,11 +579,55 @@ func TestStorageLossIgnoresAdditions(t *testing.T) {
 	}
 }
 
-// A missing baseline must read as "cannot compare", never as "no loss".
-func TestStorageLossNotClaimedWithoutBaseline(t *testing.T) {
-	req := verifyRequest{storageBefore: ""}
-	if lost := verifyStorageLoss(context.Background(), req); lost != nil {
-		t.Errorf("claimed a comparison with no baseline: %v", lost)
+// A missing baseline must be reported as "cannot compare", never pass as
+// silence: silence is what a clean write looks like.
+func TestStorageComparisonUnavailableWithoutBaseline(t *testing.T) {
+	req := verifyRequest{storageBefore: "", storageBeforeErr: "resource not found"}
+	got := compareStorage(context.Background(), req, "")
+	if !got.Unavailable {
+		t.Error("a missing baseline was not reported as uncomparable")
+	}
+	if got.Reason != "resource not found" {
+		t.Errorf("Reason = %q, want the captured cause", got.Reason)
+	}
+	if len(got.Lost) != 0 {
+		t.Errorf("claimed loss without a baseline: %v", got.Lost)
+	}
+}
+
+// An xhtml write already read the stored body back; reuse it rather than
+// fetching the same thing twice.
+func TestStorageComparisonReusesSuppliedBody(t *testing.T) {
+	req := verifyRequest{storageBefore: `<p><strong>a</strong></p>`}
+	got := compareStorage(context.Background(), req, `<p>a</p>`)
+	if got.Unavailable {
+		t.Fatal("reported uncomparable despite a supplied body")
+	}
+	if len(got.Lost) != 1 || !strings.Contains(got.Lost[0], "strong") {
+		t.Errorf("Lost = %v, want the dropped strong", got.Lost)
+	}
+}
+
+// Storage keeps macro bodies verbatim inside CDATA; angle brackets there are
+// content, and counting them would invent losses that never happened.
+func TestStorageProfileIgnoresCDATAAndComments(t *testing.T) {
+	body := `<p>x</p><ac:plain-text-body><![CDATA[<strong>not markup</strong>]]></ac:plain-text-body><!-- <em>also not</em> -->`
+	p := storageProfile(body)
+	if p["strong"] != 0 || p["em"] != 0 {
+		t.Errorf("counted markup inside CDATA/comments: %v", p)
+	}
+	if p["p"] != 1 {
+		t.Errorf("real elements not counted: %v", p)
+	}
+}
+
+// The stated cause must match the format actually used.
+func TestStorageLossCauseMatchesFormat(t *testing.T) {
+	if !strings.Contains(storageLossCause(bodyFormatADF), "ADF") {
+		t.Error("adf cause should name the ADF round trip")
+	}
+	if strings.Contains(storageLossCause(bodyFormatXHTML), "ADF") {
+		t.Error("an xhtml write must not be blamed on the ADF round trip")
 	}
 }
 
@@ -610,6 +654,7 @@ func TestPresentedStorageLossExplainsTheCause(t *testing.T) {
 	model := cflpresent.PagePresenter{}.PresentWriteDrift(cflpresent.WriteDrift{
 		BodyFormat:   bodyFormatADF,
 		LostElements: []string{"em (3→1)", "strong (3→1)"},
+		LossCause:    storageLossCause(bodyFormatADF),
 	})
 	var b strings.Builder
 	for _, sec := range model.Sections {
@@ -619,6 +664,28 @@ func TestPresentedStorageLossExplainsTheCause(t *testing.T) {
 	}
 	out := b.String()
 	for _, want := range []string{"lost formatting", "em (3→1)", "writing it back"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("report missing %q:\n%s", want, out)
+		}
+	}
+}
+
+// A comparison that could not run must say so; silence is what a clean write
+// looks like, and the two must never be confused.
+func TestPresentedUncomparableStorageIsStated(t *testing.T) {
+	model := cflpresent.PagePresenter{}.PresentWriteDrift(cflpresent.WriteDrift{
+		BodyFormat:          bodyFormatADF,
+		StorageUncomparable: true,
+		StorageReason:       "resource not found",
+	})
+	var b strings.Builder
+	for _, sec := range model.Sections {
+		if msg, ok := sec.(*sharedpresent.MessageSection); ok {
+			b.WriteString(msg.Message)
+		}
+	}
+	out := b.String()
+	for _, want := range []string{"Could not compare", "would not have been noticed", "resource not found"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("report missing %q:\n%s", want, out)
 		}

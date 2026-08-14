@@ -217,9 +217,17 @@ func runEdit(ctx context.Context, opts *editOptions) error {
 
 	// Captured before the write: the storage body is what reveals loss the
 	// caller inherited from a lossy read of their own.
-	var storageBefore string
+	var storageBefore, storageBeforeErr string
 	if verificationApplies(bodyFormat, hasNewContent, opts.noVerify) {
-		storageBefore, _ = readStorageBody(ctx, client, opts.pageID)
+		body, err := readStorageBody(ctx, client, opts.pageID)
+		switch {
+		case err != nil:
+			storageBeforeErr = err.Error()
+		case body == "":
+			storageBeforeErr = "the page returned no storage body"
+		default:
+			storageBefore = body
+		}
 	}
 
 	page, err := client.UpdatePage(ctx, opts.pageID, req)
@@ -238,13 +246,14 @@ func runEdit(ctx context.Context, opts *editOptions) error {
 	}
 
 	return verifyStoredBody(ctx, verifyRequest{
-		opts:          opts.Options,
-		client:        client,
-		pageID:        opts.pageID,
-		bodyFormat:    bodyFormat,
-		sentContent:   sentContent,
-		storageBefore: storageBefore,
-		enabled:       hasNewContent && !opts.noVerify,
+		opts:             opts.Options,
+		client:           client,
+		pageID:           opts.pageID,
+		bodyFormat:       bodyFormat,
+		sentContent:      sentContent,
+		storageBefore:    storageBefore,
+		storageBeforeErr: storageBeforeErr,
+		enabled:          verificationApplies(bodyFormat, hasNewContent, opts.noVerify),
 	})
 }
 

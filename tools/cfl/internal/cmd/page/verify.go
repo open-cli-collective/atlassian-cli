@@ -360,6 +360,10 @@ type verifyRequest struct {
 	// the representation that survives an ADF round trip, so it is what
 	// reveals loss the caller inherited from their own read.
 	storageBefore string
+	// storageBeforeErr explains a missing baseline so the operator learns
+	// the check could not run, rather than seeing the silence of a clean
+	// write.
+	storageBeforeErr string
 }
 
 // verificationApplies reports whether a write will be verified. Markdown is
@@ -383,9 +387,6 @@ func verifyStoredBody(ctx context.Context, req verifyRequest) error {
 	if !req.enabled || req.sentContent == "" {
 		return nil
 	}
-	if req.bodyFormat != bodyFormatADF && req.bodyFormat != bodyFormatXHTML {
-		return nil
-	}
 
 	stored, err := getPageWithBodyFormat(ctx, req.client, req.pageID, req.bodyFormat)
 	if err != nil {
@@ -400,25 +401,33 @@ func verifyStoredBody(ctx context.Context, req verifyRequest) error {
 	if err != nil {
 		return fmt.Errorf("verifying stored page: %w", err)
 	}
-	lostElements := verifyStorageLoss(ctx, req)
-	if drift.Clean() && len(lostElements) == 0 {
+	// An xhtml write already read the storage body back; reuse it.
+	reuse := ""
+	if req.bodyFormat == bodyFormatXHTML {
+		reuse = storedContent
+	}
+	storage := compareStorage(ctx, req, reuse)
+	if drift.Clean() && len(storage.Lost) == 0 && !storage.Unavailable {
 		return nil
 	}
 
 	off := diffOffset(drift.SentVisible, drift.StoredVisible)
 	finding := cflpresent.WriteDrift{
-		BodyFormat:    req.bodyFormat,
-		TextChanged:   drift.TextChanged,
-		VisibleSent:   drift.VisibleSent,
-		VisibleStored: drift.VisibleStored,
-		AtomsChanged:  drift.AtomsChanged,
-		DiffOffset:    off,
-		SentExcerpt:   readableExcerpt(drift.SentVisible, off),
-		StoredExcerpt: readableExcerpt(drift.StoredVisible, off),
-		AtomChanges:   drift.AtomChanges,
-		DroppedAttrs:  drift.DroppedAttrs,
-		AddedAttrs:    drift.AddedAttrs,
-		LostElements:  lostElements,
+		BodyFormat:          req.bodyFormat,
+		TextChanged:         drift.TextChanged,
+		VisibleSent:         drift.VisibleSent,
+		VisibleStored:       drift.VisibleStored,
+		AtomsChanged:        drift.AtomsChanged,
+		DiffOffset:          off,
+		SentExcerpt:         readableExcerpt(drift.SentVisible, off),
+		StoredExcerpt:       readableExcerpt(drift.StoredVisible, off),
+		AtomChanges:         drift.AtomChanges,
+		DroppedAttrs:        drift.DroppedAttrs,
+		AddedAttrs:          drift.AddedAttrs,
+		LostElements:        storage.Lost,
+		StorageUncomparable: storage.Unavailable,
+		StorageReason:       storage.Reason,
+		LossCause:           storageLossCause(req.bodyFormat),
 	}
 	if emitErr := cflpresent.Emit(req.opts, cflpresent.PagePresenter{}.PresentWriteDrift(finding)); emitErr != nil {
 		return emitErr
@@ -495,10 +504,14 @@ func readableExcerpt(s string, at int) string {
 
 var storageElementRE = regexp.MustCompile(`<(\w[\w-]*)[\s/>]`)
 
-// storageProfile counts elements in a storage-format body.
+var storageInertRE = regexp.MustCompile(`(?s)<!--.*?-->|<!\[CDATA\[.*?\]\]>`)
+
+// storageProfile counts elements in a storage-format body. Comment and CDATA
+// spans are removed first: storage format carries macro bodies verbatim
+// inside CDATA, and angle brackets there are content, not markup.
 func storageProfile(body string) map[string]int {
 	profile := map[string]int{}
-	for _, m := range storageElementRE.FindAllStringSubmatch(body, -1) {
+	for _, m := range storageElementRE.FindAllStringSubmatch(storageInertRE.ReplaceAllString(body, ""), -1) {
 		profile[m[1]]++
 	}
 	return profile
@@ -517,18 +530,44 @@ func diffStorageLoss(before, after map[string]int) []string {
 	return lost
 }
 
-// verifyStorageLoss compares the page's storage body across the write. An
-// empty result means either nothing was lost or the comparison could not be
-// made; it never reports loss it did not observe.
-func verifyStorageLoss(ctx context.Context, req verifyRequest) []string {
+// storageLossCause names why formatting can vanish for the format in use.
+// An ADF round trip drops marks Confluence's storage body carries; a storage
+// write loses only what the caller's own pipeline removed.
+func storageLossCause(bodyFormat string) string {
+	if bodyFormat == bodyFormatADF {
+		return "Reading a page as ADF and writing it back does not always preserve marks its storage form carries."
+	}
+	return "The submitted storage body did not carry these elements."
+}
+
+// storageComparison reports what the storage bodies showed, and says so when
+// they could not be compared at all. A silent nil would be indistinguishable
+// from a clean write, which is the failure this check exists to remove.
+type storageComparison struct {
+	Lost        []string
+	Unavailable bool
+	Reason      string
+}
+
+// compareStorage diffs the page's storage body across the write. storedAfter
+// may be supplied by a caller that already read it, so an xhtml write does
+// not pay for the same fetch twice.
+func compareStorage(ctx context.Context, req verifyRequest, storedAfter string) storageComparison {
 	if req.storageBefore == "" {
-		return nil
+		return storageComparison{Unavailable: true, Reason: req.storageBeforeErr}
 	}
-	after, err := readStorageBody(ctx, req.client, req.pageID)
-	if err != nil || after == "" {
-		return nil
+	after := storedAfter
+	if after == "" {
+		body, err := readStorageBody(ctx, req.client, req.pageID)
+		if err != nil {
+			return storageComparison{Unavailable: true, Reason: err.Error()}
+		}
+		after = body
 	}
-	return diffStorageLoss(storageProfile(req.storageBefore), storageProfile(after))
+	if after == "" {
+		return storageComparison{Unavailable: true, Reason: "the page returned no storage body"}
+	}
+	return storageComparison{Lost: diffStorageLoss(storageProfile(req.storageBefore), storageProfile(after))}
 }
 
 // readStorageBody fetches a page's storage representation, or "" when it is

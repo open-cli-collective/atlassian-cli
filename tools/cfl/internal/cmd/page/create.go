@@ -189,7 +189,7 @@ func runCreate(ctx context.Context, opts *createOptions) error {
 		bodyFormat:    bodyFormat,
 		sentContent:   sentContent,
 		storageBefore: "",
-		enabled:       !opts.noVerify,
+		enabled:       verificationApplies(bodyFormat, true, opts.noVerify),
 	})
 }
 

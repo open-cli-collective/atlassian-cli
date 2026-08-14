@@ -12,6 +12,7 @@ import (
 
 	"github.com/open-cli-collective/confluence-cli/api"
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
+	"github.com/open-cli-collective/confluence-cli/internal/pageview"
 	cflpresent "github.com/open-cli-collective/confluence-cli/internal/present"
 	"github.com/open-cli-collective/confluence-cli/pkg/md"
 )
@@ -191,43 +192,38 @@ func runEdit(ctx context.Context, opts *editOptions) error {
 	// opens. It is the lossy-format guard's evidence and the verification
 	// baseline both, and refusing after an editor session would discard work
 	// the operator had just done.
-	// A title- or parent-only edit still resends the body it just read, so
-	// it rewrites the page and is subject to the same loss.
-	writesBody := hasNewContent || opts.editor || opts.title != "" || opts.parent != ""
+	// A title- or parent-only edit resends the body it just read. That is a
+	// write, but only a lossy one if what gets resent is the lossy
+	// representation: getPageWithBodyFallback asks for storage first, so a
+	// page with a storage body is resent losslessly.
+	resendsExistingBody := !hasNewContent && !opts.editor && (opts.title != "" || opts.parent != "")
+	writesBody := hasNewContent || opts.editor || resendsExistingBody
+	currentStorage := func() (string, string) {
+		if body := bodyValue(existingPage, bodyFormatXHTML); body != "" {
+			return body, ""
+		}
+		return fetchStorageBody(ctx, client, opts.pageID)
+	}
+
 	var storageBefore, storageBeforeErr string
 	if writesBody && !opts.noVerify {
-		storageBefore = bodyValue(existingPage, bodyFormatXHTML)
-		if storageBefore == "" {
-			body, err := readStorageBody(ctx, client, opts.pageID)
-			switch {
-			case err != nil:
-				storageBeforeErr = err.Error()
-			case body == "":
-				storageBeforeErr = "the page returned no storage body"
-			default:
-				storageBefore = body
-			}
-		}
+		storageBefore, storageBeforeErr = currentStorage()
 	}
 
 	// Refuse before writing, and before the editor: once the ADF is written
 	// the content is gone, and the caller's own copy never had it to restore
 	// from.
-	if writesBody && bodyFormat == bodyFormatADF && !opts.allowLossy {
+	// A resend of an existing storage body carries no loss regardless of
+	// --body-format, so only an actual ADF payload is guarded.
+	writesADF := bodyFormat == bodyFormatADF &&
+		(!resendsExistingBody || !pageview.HasStorageContent(existingPage))
+	if writesBody && writesADF && !opts.allowLossy {
 		// --no-verify silences the readback, not this: skipping the check
 		// that reports damage is a different decision from consenting to
 		// cause it.
 		current, currentErr := storageBefore, storageBeforeErr
-		if current == "" && opts.noVerify {
-			body, err := readStorageBody(ctx, client, opts.pageID)
-			switch {
-			case err != nil:
-				currentErr = err.Error()
-			case body == "":
-				currentErr = "the page returned no storage body"
-			default:
-				current = body
-			}
+		if current == "" && currentErr == "" {
+			current, currentErr = currentStorage()
 		}
 		if current == "" {
 			return fmt.Errorf("cannot confirm this page is safe to write as %s: its current content could not be read (%s)\nUse --body-format xhtml, or --allow-lossy to write anyway", bodyFormat, orUnknown(currentErr))
@@ -274,11 +270,6 @@ func runEdit(ctx context.Context, opts *editOptions) error {
 	} else {
 		req.Body = existingPage.Body
 	}
-
-	// Captured before the write: the storage body is what reveals loss the
-	// caller inherited from a lossy read of their own.
-	// The page was already fetched above, and the non-editor path asks for
-	// the storage representation, so the baseline is usually in hand.
 
 	page, err := client.UpdatePage(ctx, opts.pageID, req)
 	if err != nil {

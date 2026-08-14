@@ -220,9 +220,11 @@ func TestCountEmphasisedCodeToleratesInterveningMarkup(t *testing.T) {
 	}
 }
 
-// A title-only edit resends the body it just read, so it is a write and
-// carries the same loss.
-func TestRunEditRefusesLossyTitleOnlyEdit(t *testing.T) {
+// A title-only edit on a page with a storage body resends that storage
+// losslessly, whatever --body-format was asked for. Refusing it would be a
+// false positive, and a guard that fires on safe edits gets overridden by
+// reflex.
+func TestRunEditAllowsTitleOnlyEditOfStoragePage(t *testing.T) {
 	srv := storageServer(t, `<p><ac:link ac:anchor="a11"><ac:link-body>see</ac:link-body></ac:link></p>`)
 	defer srv.Close()
 
@@ -235,12 +237,8 @@ func TestRunEditRefusesLossyTitleOnlyEdit(t *testing.T) {
 		title:      "New Title",
 		bodyFormat: bodyFormatADF,
 	}
-	err := runEdit(context.Background(), opts)
-	if err == nil {
-		t.Fatal("a title-only edit rewrites the body and must be guarded")
-	}
-	if !strings.Contains(err.Error(), "internal links") {
-		t.Errorf("unexpected error: %v", err)
+	if err := runEdit(context.Background(), opts); err != nil {
+		t.Fatalf("a title-only edit resends storage and must not be refused: %v", err)
 	}
 }
 

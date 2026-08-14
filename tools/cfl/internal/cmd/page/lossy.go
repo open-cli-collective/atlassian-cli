@@ -1,9 +1,12 @@
 package page
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 	"strings"
+
+	"github.com/open-cli-collective/confluence-cli/api"
 )
 
 // Confluence's ADF export does not carry everything its storage
@@ -134,4 +137,19 @@ func orUnknown(reason string) string {
 		return "cause unknown"
 	}
 	return reason
+}
+
+// fetchStorageBody returns the page's storage body, or an explanation of why
+// it is unavailable. One place answers that question so the two callers
+// cannot drift.
+func fetchStorageBody(ctx context.Context, client *api.Client, pageID string) (body, reason string) {
+	got, err := readStorageBody(ctx, client, pageID)
+	switch {
+	case err != nil:
+		return "", err.Error()
+	case got == "":
+		return "", "the page returned no storage body"
+	default:
+		return got, ""
+	}
 }

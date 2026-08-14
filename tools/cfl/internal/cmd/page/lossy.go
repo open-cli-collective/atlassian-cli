@@ -40,13 +40,8 @@ var lossyConstructs = []lossyConstruct{
 	},
 	{
 		name:    "emphasis on code spans",
-		pattern: regexp.MustCompile(`(?s)<(strong|em)>\s*<code>|<code>\s*<(strong|em)>`),
+		pattern: regexp.MustCompile(`(?s)<(?:strong|em)>(?:\s|<(?:strong|em)>)*<code>|<code>(?:\s|<(?:strong|em)>)*<(?:strong|em)>`),
 		detail:  "bold or italic wrapping inline code is dropped",
-	},
-	{
-		name:    "structured macros",
-		pattern: regexp.MustCompile(`<ac:structured-macro[\s>]`),
-		detail:  "macro bodies may not survive the conversion",
 	},
 }
 
@@ -61,13 +56,19 @@ type lossyFinding struct {
 // it currently stands. It inspects the existing storage body rather than the
 // caller's content, because the caller's ADF has already lost these things —
 // that is the whole problem.
+//
+// Comment and CDATA spans are removed first, for the same reason
+// storageProfile removes them: storage carries macro bodies verbatim inside
+// CDATA, where angle brackets are content rather than markup, and a match
+// there would refuse a write over nothing.
 func findLossyConstructs(storageBody string) []lossyFinding {
 	if strings.TrimSpace(storageBody) == "" {
 		return nil
 	}
+	markup := storageInertRE.ReplaceAllString(storageBody, "")
 	var found []lossyFinding
 	for _, c := range lossyConstructs {
-		if n := len(c.pattern.FindAllString(storageBody, -1)); n > 0 {
+		if n := len(c.pattern.FindAllString(markup, -1)); n > 0 {
 			found = append(found, lossyFinding{Construct: c.name, Detail: c.detail, Count: n})
 		}
 	}
@@ -87,4 +88,12 @@ func lossyFormatError(findings []lossyFinding, bodyFormat string) error {
 	b.WriteString("\nUse --body-format xhtml to edit this page without losing them.\n")
 	b.WriteString("Pass --allow-lossy to write it as " + bodyFormat + " anyway.")
 	return fmt.Errorf("%s", b.String())
+}
+
+// orUnknown keeps a refusal honest when the cause could not be captured.
+func orUnknown(reason string) string {
+	if strings.TrimSpace(reason) == "" {
+		return "cause unknown"
+	}
+	return reason
 }

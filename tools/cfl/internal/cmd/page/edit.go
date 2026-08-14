@@ -187,6 +187,38 @@ func runEdit(ctx context.Context, opts *editOptions) error {
 		return err
 	}
 
+	// One derivation of the page's current storage body, before the editor
+	// opens: it is both the lossy-format guard's evidence and the
+	// verification baseline, and refusing after an editor session would
+	// throw away work the operator just did.
+	var storageBefore, storageBeforeErr string
+	if hasNewContent || opts.editor {
+		storageBefore = bodyValue(existingPage, bodyFormatXHTML)
+		if storageBefore == "" {
+			body, err := readStorageBody(ctx, client, opts.pageID)
+			switch {
+			case err != nil:
+				storageBeforeErr = err.Error()
+			case body == "":
+				storageBeforeErr = "the page returned no storage body"
+			default:
+				storageBefore = body
+			}
+		}
+	}
+
+	// Refuse before writing, and before the editor: once the ADF is written
+	// the content is gone, and the caller's own copy never had it to restore
+	// from.
+	if (hasNewContent || opts.editor) && bodyFormat == bodyFormatADF && !opts.allowLossy {
+		if storageBefore == "" {
+			return fmt.Errorf("cannot confirm this page is safe to write as %s: its current content could not be read (%s)\nUse --body-format xhtml, or --allow-lossy to write anyway", bodyFormat, orUnknown(storageBeforeErr))
+		}
+		if findings := findLossyConstructs(storageBefore); len(findings) > 0 {
+			return lossyFormatError(findings, bodyFormat)
+		}
+	}
+
 	newTitle := opts.title
 	if newTitle == "" {
 		newTitle = existingPage.Title
@@ -229,35 +261,6 @@ func runEdit(ctx context.Context, opts *editOptions) error {
 	// caller inherited from a lossy read of their own.
 	// The page was already fetched above, and the non-editor path asks for
 	// the storage representation, so the baseline is usually in hand.
-	// Refuse before writing, not after: once the ADF is written the content
-	// is gone, and the caller's own copy never had it to restore from.
-	if hasNewContent && bodyFormat == bodyFormatADF && !opts.allowLossy {
-		current := bodyValue(existingPage, bodyFormatXHTML)
-		if current == "" {
-			if body, err := readStorageBody(ctx, client, opts.pageID); err == nil {
-				current = body
-			}
-		}
-		if findings := findLossyConstructs(current); len(findings) > 0 {
-			return lossyFormatError(findings, bodyFormat)
-		}
-	}
-
-	var storageBefore, storageBeforeErr string
-	if verificationApplies(bodyFormat, hasNewContent, opts.noVerify) {
-		storageBefore = bodyValue(existingPage, bodyFormatXHTML)
-		if storageBefore == "" {
-			body, err := readStorageBody(ctx, client, opts.pageID)
-			switch {
-			case err != nil:
-				storageBeforeErr = err.Error()
-			case body == "":
-				storageBeforeErr = "the page returned no storage body"
-			default:
-				storageBefore = body
-			}
-		}
-	}
 
 	page, err := client.UpdatePage(ctx, opts.pageID, req)
 	if err != nil {

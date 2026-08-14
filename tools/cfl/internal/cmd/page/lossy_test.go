@@ -68,9 +68,12 @@ func TestFindLossyConstructs(t *testing.T) {
 			want:    []string{"emphasis on code spans"},
 		},
 		{
-			name:    "macro",
-			storage: `<ac:structured-macro ac:name="info"><p>x</p></ac:structured-macro>`,
-			want:    []string{"structured macros"},
+			// Verified against Confluence: a structured macro round-trips
+			// through ADF as a panel node and comes back intact, so
+			// refusing on it would block a great many pages over a loss
+			// that does not happen.
+			name:    "structured macro survives and is not refused",
+			storage: `<ac:structured-macro ac:name="info"><ac:rich-text-body><p>x</p></ac:rich-text-body></ac:structured-macro>`,
 		},
 		{
 			name:    "empty body reports nothing",
@@ -151,5 +154,40 @@ func TestRunEditDoesNotRefuseXhtml(t *testing.T) {
 	opts := editOptsFor(t, srv, `<p><ac:link ac:anchor="a11"><ac:link-body>see</ac:link-body></ac:link></p>`, true)
 	if err := runEdit(context.Background(), opts); err != nil {
 		t.Fatalf("xhtml write should not be refused: %v", err)
+	}
+}
+
+// Angle brackets inside CDATA are content, not markup; matching there would
+// refuse a write over nothing.
+func TestFindLossyConstructsIgnoresCDATA(t *testing.T) {
+	body := `<p>ok</p><ac:plain-text-body><![CDATA[<ac:link ac:anchor="x"/>]]></ac:plain-text-body>`
+	if got := findLossyConstructs(body); len(got) != 0 {
+		t.Errorf("matched inside CDATA: %v", got)
+	}
+}
+
+// A guard that cannot read the page must refuse, not wave the write through:
+// failing open is the behaviour it exists to prevent.
+func TestRunEditRefusesWhenBaselineUnreadable(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "GET" {
+			// A page whose body carries no storage representation.
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"id":"12345","title":"T","version":{"number":1},"body":{},"_links":{"webui":"/p"}}`))
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"id":"12345","title":"T","version":{"number":2},"_links":{"webui":"/p"}}`))
+	}))
+	defer srv.Close()
+
+	opts := editOptsFor(t, srv, `{"type":"doc","version":1,"content":[]}`, true)
+	opts.bodyFormat = bodyFormatADF
+	err := runEdit(context.Background(), opts)
+	if err == nil {
+		t.Fatal("expected a refusal when the page's current content cannot be read")
+	}
+	if !strings.Contains(err.Error(), "could not be read") {
+		t.Errorf("refusal should say the check could not run: %v", err)
 	}
 }

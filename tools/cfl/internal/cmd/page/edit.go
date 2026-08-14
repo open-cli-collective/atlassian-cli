@@ -26,6 +26,7 @@ type editOptions struct {
 	bodyFormatExplicit bool
 	legacy             bool
 	parent             string
+	noVerify           bool
 }
 
 func newEditCmd(rootOpts *root.Options) *cobra.Command {
@@ -46,7 +47,14 @@ Content can be provided via:
 
 Content format is selected with --body-format markdown|adf|xhtml.
 Omitting --body-format means Markdown. ADF and XHTML are validated or sent
-without conversion.`,
+without conversion.
+
+For --body-format adf or xhtml the page is read back after writing and the
+stored body compared against what was sent, because Confluence can store
+something other than what it was given. Losing text is an error; attributes
+the server normalizes away are reported and tolerated. Markdown is converted
+before sending, so there is nothing to compare it against and the check is
+skipped. Use --no-verify to skip the read.`,
 		Example: `  # Edit a page in the editor with current content
   cfl page edit 12345 --editor
 
@@ -103,6 +111,7 @@ without conversion.`,
 	cmd.Flags().BoolVar(&opts.editor, "editor", false, "Open editor for content")
 	cmd.Flags().StringVar(&opts.bodyFormat, "body-format", bodyFormatMarkdown, "Input format: markdown, adf, or xhtml")
 	cmd.Flags().BoolVar(&opts.legacy, "legacy", false, "Edit page in legacy editor format (Markdown input only)")
+	cmd.Flags().BoolVar(&opts.noVerify, "no-verify", false, "Skip reading the page back to confirm what Confluence stored (adf/xhtml input)")
 
 	return cmd
 }
@@ -132,6 +141,7 @@ func runEdit(ctx context.Context, opts *editOptions) error {
 	hasStdinData := (opts.Stdin != nil && opts.Stdin != os.Stdin) || hasPipedOSStdin(opts.Options)
 	hasNewContent := opts.file != "" || opts.editor || hasStdinData
 	var newBody *api.Body
+	var sentContent string
 	if hasNewContent && !opts.editor {
 		content, err := getEditContent(opts, nil, bodyFormat)
 		if err != nil {
@@ -140,6 +150,7 @@ func runEdit(ctx context.Context, opts *editOptions) error {
 		if strings.TrimSpace(content) == "" {
 			return fmt.Errorf("page content cannot be empty")
 		}
+		sentContent = content
 		newBody, err = bodyForInput(content, bodyFormat, opts.legacy)
 		if err != nil {
 			return err
@@ -181,6 +192,7 @@ func runEdit(ctx context.Context, opts *editOptions) error {
 			return fmt.Errorf("page content cannot be empty")
 		}
 
+		sentContent = content
 		newBody, err = bodyForInput(content, bodyFormat, opts.legacy)
 		if err != nil {
 			return err
@@ -214,7 +226,18 @@ func runEdit(ctx context.Context, opts *editOptions) error {
 		}
 	}
 
-	return cflpresent.Emit(opts.Options, cflpresent.PagePresenter{}.PresentEdit(page, cfg.URL, opts.legacy && hasNewContent))
+	if err := cflpresent.Emit(opts.Options, cflpresent.PagePresenter{}.PresentEdit(page, cfg.URL, opts.legacy && hasNewContent)); err != nil {
+		return err
+	}
+
+	return verifyStoredBody(ctx, verifyRequest{
+		opts:        opts.Options,
+		client:      client,
+		pageID:      opts.pageID,
+		bodyFormat:  bodyFormat,
+		sentContent: sentContent,
+		enabled:     hasNewContent && !opts.noVerify,
+	})
 }
 
 func getEditContent(opts *editOptions, existingPage *api.Page, bodyFormat string) (string, error) {

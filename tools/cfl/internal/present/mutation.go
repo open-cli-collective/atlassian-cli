@@ -2,6 +2,7 @@ package present
 
 import (
 	"fmt"
+	"strings"
 
 	sharedpresent "github.com/open-cli-collective/atlassian-go/present"
 
@@ -121,4 +122,107 @@ func pageVersionValue(v *api.Version) string {
 		return "-"
 	}
 	return fmt.Sprintf("%d", v.Number)
+}
+
+// WriteDrift describes how a stored page body differed from the body that
+// was submitted. Commands supply the finding; the wording is owned here.
+type WriteDrift struct {
+	BodyFormat string
+	// TextChanged reports that content differs, not merely formatting.
+	TextChanged bool
+	// VisibleSent and VisibleStored count characters a reader sees.
+	VisibleSent   int
+	VisibleStored int
+	// AtomsChanged reports embedded content differing where the text does not.
+	AtomsChanged bool
+	// DiffOffset is where the two bodies first diverge, or -1 when they do
+	// not. SentExcerpt and StoredExcerpt are the text from that point.
+	DiffOffset    int
+	SentExcerpt   string
+	StoredExcerpt string
+	// AtomChanges names embedded node types whose counts moved.
+	AtomChanges  []string
+	DroppedAttrs []string
+	AddedAttrs   []string
+}
+
+// attrLines lists attribute changes, which identify the embedded content
+// involved when the visible text cannot.
+func attrLines(d WriteDrift) []string {
+	var lines []string
+	if len(d.AtomChanges) > 0 {
+		lines = append(lines, "  embedded content changed:")
+		for _, a := range d.AtomChanges {
+			lines = append(lines, "    ~ "+a)
+		}
+	}
+	if len(d.DroppedAttrs) > 0 {
+		lines = append(lines, "  attributes dropped:")
+		for _, a := range d.DroppedAttrs {
+			lines = append(lines, "    - "+a)
+		}
+	}
+	if len(d.AddedAttrs) > 0 {
+		lines = append(lines, "  attributes added:")
+		for _, a := range d.AddedAttrs {
+			lines = append(lines, "    + "+a)
+		}
+	}
+	return lines
+}
+
+// describeContentChange states what moved in terms of the document: the
+// characters a reader sees, and whether embedded content changed underneath
+// unchanged text.
+func describeContentChange(d WriteDrift) string {
+	if d.AtomsChanged {
+		return fmt.Sprintf("visible text is unchanged at %d characters, but embedded content differs", d.VisibleSent)
+	}
+	if d.VisibleSent == d.VisibleStored {
+		return fmt.Sprintf("content differs at the same length of %d characters", d.VisibleSent)
+	}
+	return fmt.Sprintf("visible text went from %d to %d characters", d.VisibleSent, d.VisibleStored)
+}
+
+// PresentWriteDrift reports what Confluence stored versus what was sent.
+// Losing content and normalizing attributes are worded differently because
+// they oblige the reader differently: one means the change did not land, the
+// other means it landed in a document the server tidied.
+func (PagePresenter) PresentWriteDrift(d WriteDrift) *sharedpresent.OutputModel {
+	var lines []string
+	if d.TextChanged {
+		lines = append(lines,
+			fmt.Sprintf("Stored %s body does not match what was sent: %s.", d.BodyFormat, describeContentChange(d)),
+			"The page was updated, but it does not hold the content supplied. Re-read the page before treating the change as applied.",
+		)
+		if d.DiffOffset >= 0 {
+			lines = append(lines, fmt.Sprintf("  first difference at offset %d — sent %q, stored %q", d.DiffOffset, d.SentExcerpt, d.StoredExcerpt))
+		}
+		// Name what vanished. When only embedded content moved there is no
+		// text position to point at, so this is the only detail available.
+		lines = append(lines, attrLines(d)...)
+	} else {
+		if len(d.DroppedAttrs) > 0 {
+			lines = append(lines, fmt.Sprintf("Confluence normalized the stored %s body. Content is intact; these attributes were dropped:", d.BodyFormat))
+			for _, a := range d.DroppedAttrs {
+				lines = append(lines, "  - "+a)
+			}
+		}
+		if len(d.AddedAttrs) > 0 {
+			lines = append(lines, "Confluence added attributes that were not sent:")
+			for _, a := range d.AddedAttrs {
+				lines = append(lines, "  + "+a)
+			}
+		}
+	}
+	if len(lines) == 0 {
+		return &sharedpresent.OutputModel{}
+	}
+	return &sharedpresent.OutputModel{Sections: []sharedpresent.Section{
+		&sharedpresent.MessageSection{
+			Kind:    sharedpresent.MessageWarning,
+			Message: strings.Join(lines, "\n"),
+			Stream:  sharedpresent.StreamStderr,
+		},
+	}}
 }

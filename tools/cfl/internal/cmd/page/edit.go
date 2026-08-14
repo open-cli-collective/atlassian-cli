@@ -187,12 +187,15 @@ func runEdit(ctx context.Context, opts *editOptions) error {
 		return err
 	}
 
-	// One derivation of the page's current storage body, before the editor
-	// opens: it is both the lossy-format guard's evidence and the
-	// verification baseline, and refusing after an editor session would
-	// throw away work the operator just did.
+	// The page's current storage body, derived once and before the editor
+	// opens. It is the lossy-format guard's evidence and the verification
+	// baseline both, and refusing after an editor session would discard work
+	// the operator had just done.
+	// A title- or parent-only edit still resends the body it just read, so
+	// it rewrites the page and is subject to the same loss.
+	writesBody := hasNewContent || opts.editor || opts.title != "" || opts.parent != ""
 	var storageBefore, storageBeforeErr string
-	if hasNewContent || opts.editor {
+	if writesBody && !opts.noVerify {
 		storageBefore = bodyValue(existingPage, bodyFormatXHTML)
 		if storageBefore == "" {
 			body, err := readStorageBody(ctx, client, opts.pageID)
@@ -210,11 +213,26 @@ func runEdit(ctx context.Context, opts *editOptions) error {
 	// Refuse before writing, and before the editor: once the ADF is written
 	// the content is gone, and the caller's own copy never had it to restore
 	// from.
-	if (hasNewContent || opts.editor) && bodyFormat == bodyFormatADF && !opts.allowLossy {
-		if storageBefore == "" {
-			return fmt.Errorf("cannot confirm this page is safe to write as %s: its current content could not be read (%s)\nUse --body-format xhtml, or --allow-lossy to write anyway", bodyFormat, orUnknown(storageBeforeErr))
+	if writesBody && bodyFormat == bodyFormatADF && !opts.allowLossy {
+		// --no-verify silences the readback, not this: skipping the check
+		// that reports damage is a different decision from consenting to
+		// cause it.
+		current, currentErr := storageBefore, storageBeforeErr
+		if current == "" && opts.noVerify {
+			body, err := readStorageBody(ctx, client, opts.pageID)
+			switch {
+			case err != nil:
+				currentErr = err.Error()
+			case body == "":
+				currentErr = "the page returned no storage body"
+			default:
+				current = body
+			}
 		}
-		if findings := findLossyConstructs(storageBefore); len(findings) > 0 {
+		if current == "" {
+			return fmt.Errorf("cannot confirm this page is safe to write as %s: its current content could not be read (%s)\nUse --body-format xhtml, or --allow-lossy to write anyway", bodyFormat, orUnknown(currentErr))
+		}
+		if findings := findLossyConstructs(current); len(findings) > 0 {
 			return lossyFormatError(findings, bodyFormat)
 		}
 	}

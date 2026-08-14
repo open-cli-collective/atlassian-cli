@@ -38,11 +38,42 @@ var lossyConstructs = []lossyConstruct{
 		pattern: regexp.MustCompile(`<ac:link[\s>]`),
 		detail:  "anchor and page references become plain expanded URLs",
 	},
-	{
-		name:    "emphasis on code spans",
-		pattern: regexp.MustCompile(`(?s)<(?:strong|em)>(?:\s|<(?:strong|em)>)*<code>|<code>(?:\s|<(?:strong|em)>)*<(?:strong|em)>`),
-		detail:  "bold or italic wrapping inline code is dropped",
-	},
+}
+
+var emphasisTagRE = regexp.MustCompile(`</?(strong|em|code)>`)
+
+// countEmphasisedCode reports how many inline code spans sit inside bold or
+// italic, or vice versa. Nesting is what matters and the two need not be
+// adjacent, so this tracks open tags rather than matching a shape: a regex
+// would either miss intervening markup or, with RE2's lack of lookahead,
+// match across unrelated elements.
+func countEmphasisedCode(markup string) int {
+	var depth struct{ emphasis, code int }
+	found := 0
+	for _, m := range emphasisTagRE.FindAllStringSubmatch(markup, -1) {
+		closing := strings.HasPrefix(m[0], "</")
+		switch m[1] {
+		case "code":
+			if closing {
+				depth.code--
+			} else {
+				if depth.emphasis > 0 {
+					found++
+				}
+				depth.code++
+			}
+		default:
+			if closing {
+				depth.emphasis--
+			} else {
+				if depth.code > 0 {
+					found++
+				}
+				depth.emphasis++
+			}
+		}
+	}
+	return found
 }
 
 // lossyFinding names one construct a write would destroy.
@@ -71,6 +102,13 @@ func findLossyConstructs(storageBody string) []lossyFinding {
 		if n := len(c.pattern.FindAllString(markup, -1)); n > 0 {
 			found = append(found, lossyFinding{Construct: c.name, Detail: c.detail, Count: n})
 		}
+	}
+	if n := countEmphasisedCode(markup); n > 0 {
+		found = append(found, lossyFinding{
+			Construct: "emphasis on code spans",
+			Detail:    "bold or italic wrapping inline code is dropped",
+			Count:     n,
+		})
 	}
 	return found
 }

@@ -8,6 +8,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/open-cli-collective/confluence-cli/api"
 )
 
 // storageServer serves a page whose storage body is fixed from the outset,
@@ -189,5 +191,73 @@ func TestRunEditRefusesWhenBaselineUnreadable(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "could not be read") {
 		t.Errorf("refusal should say the check could not run: %v", err)
+	}
+}
+
+// Emphasis and code are not always adjacent; a shape-matching regex missed
+// the case with markup in between, which is the common one in real pages.
+func TestCountEmphasisedCodeToleratesInterveningMarkup(t *testing.T) {
+	tests := []struct {
+		name   string
+		markup string
+		want   int
+	}{
+		{"adjacent", `<strong><code>K</code></strong>`, 1},
+		{"code outside", `<code><em>K</em></code>`, 1},
+		{"markup in between", `<strong>label <a href="x">link</a> <code>K</code></strong>`, 1},
+		{"two in one run", `<strong><code>A</code> and <code>B</code></strong>`, 2},
+		{"siblings, not nested", `<strong>bold</strong> <code>K</code>`, 0},
+		{"emphasis alone", `<strong><em>bold italic</em></strong>`, 0},
+		{"code alone", `<p><code>K</code></p>`, 0},
+		{"closed before code", `<strong>bold</strong><p><code>K</code></p>`, 0},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := countEmphasisedCode(tc.markup); got != tc.want {
+				t.Errorf("countEmphasisedCode(%q) = %d, want %d", tc.markup, got, tc.want)
+			}
+		})
+	}
+}
+
+// A title-only edit resends the body it just read, so it is a write and
+// carries the same loss.
+func TestRunEditRefusesLossyTitleOnlyEdit(t *testing.T) {
+	srv := storageServer(t, `<p><ac:link ac:anchor="a11"><ac:link-body>see</ac:link-body></ac:link></p>`)
+	defer srv.Close()
+
+	rootOpts := newEditTestRootOptions()
+	rootOpts.SetAPIClient(api.NewClient(srv.URL, "test@example.com", "token"))
+	rootOpts.Stdin = nil
+	opts := &editOptions{
+		Options:    rootOpts,
+		pageID:     "12345",
+		title:      "New Title",
+		bodyFormat: bodyFormatADF,
+	}
+	err := runEdit(context.Background(), opts)
+	if err == nil {
+		t.Fatal("a title-only edit rewrites the body and must be guarded")
+	}
+	if !strings.Contains(err.Error(), "internal links") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+// --no-verify silences the readback. Consenting to skip the report is not
+// consenting to cause the damage.
+func TestNoVerifyDoesNotDisableTheGuard(t *testing.T) {
+	srv := storageServer(t, `<p><ac:link ac:anchor="a11"><ac:link-body>see</ac:link-body></ac:link></p>`)
+	defer srv.Close()
+
+	opts := editOptsFor(t, srv, `{"type":"doc","version":1,"content":[]}`, true)
+	opts.bodyFormat = bodyFormatADF
+	opts.noVerify = true
+	err := runEdit(context.Background(), opts)
+	if err == nil {
+		t.Fatal("--no-verify must not permit a lossy write")
+	}
+	if !strings.Contains(err.Error(), "internal links") {
+		t.Errorf("unexpected error: %v", err)
 	}
 }

@@ -364,6 +364,10 @@ type verifyRequest struct {
 	// the check could not run, rather than seeing the silence of a clean
 	// write.
 	storageBeforeErr string
+	// comparePriorState is false when there is no prior state to compare
+	// against, as on a create. That is not a failed comparison and must not
+	// be reported as one.
+	comparePriorState bool
 }
 
 // verificationApplies reports whether a write will be verified. Markdown is
@@ -502,7 +506,11 @@ func readableExcerpt(s string, at int) string {
 // are reported: text edits move no element counts, while losing emphasis, a
 // code span, or a link is collateral a caller almost never intends.
 
-var storageElementRE = regexp.MustCompile(`<(\w[\w-]*)[\s/>]`)
+// Storage format is XHTML with namespaced elements: macros arrive as
+// <ac:structured-macro>, attachment references as <ri:attachment>. The
+// namespace prefix is part of the name, so it has to be matched or a lost
+// macro is a loss the profile cannot see.
+var storageElementRE = regexp.MustCompile(`<([A-Za-z][\w-]*(?::[\w-]+)?)[\s/>]`)
 
 var storageInertRE = regexp.MustCompile(`(?s)<!--.*?-->|<!\[CDATA\[.*?\]\]>`)
 
@@ -553,6 +561,9 @@ type storageComparison struct {
 // may be supplied by a caller that already read it, so an xhtml write does
 // not pay for the same fetch twice.
 func compareStorage(ctx context.Context, req verifyRequest, storedAfter string) storageComparison {
+	if !req.comparePriorState {
+		return storageComparison{}
+	}
 	if req.storageBefore == "" {
 		return storageComparison{Unavailable: true, Reason: req.storageBeforeErr}
 	}

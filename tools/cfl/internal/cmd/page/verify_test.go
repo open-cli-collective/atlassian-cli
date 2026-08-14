@@ -582,7 +582,7 @@ func TestStorageLossIgnoresAdditions(t *testing.T) {
 // A missing baseline must be reported as "cannot compare", never pass as
 // silence: silence is what a clean write looks like.
 func TestStorageComparisonUnavailableWithoutBaseline(t *testing.T) {
-	req := verifyRequest{storageBefore: "", storageBeforeErr: "resource not found"}
+	req := verifyRequest{storageBefore: "", storageBeforeErr: "resource not found", comparePriorState: true}
 	got := compareStorage(context.Background(), req, "")
 	if !got.Unavailable {
 		t.Error("a missing baseline was not reported as uncomparable")
@@ -598,7 +598,7 @@ func TestStorageComparisonUnavailableWithoutBaseline(t *testing.T) {
 // An xhtml write already read the stored body back; reuse it rather than
 // fetching the same thing twice.
 func TestStorageComparisonReusesSuppliedBody(t *testing.T) {
-	req := verifyRequest{storageBefore: `<p><strong>a</strong></p>`}
+	req := verifyRequest{storageBefore: `<p><strong>a</strong></p>`, comparePriorState: true}
 	got := compareStorage(context.Background(), req, `<p>a</p>`)
 	if got.Unavailable {
 		t.Fatal("reported uncomparable despite a supplied body")
@@ -689,5 +689,42 @@ func TestPresentedUncomparableStorageIsStated(t *testing.T) {
 		if !strings.Contains(out, want) {
 			t.Errorf("report missing %q:\n%s", want, out)
 		}
+	}
+}
+
+// A create has no prior state. That is not a failed comparison, and saying
+// so on every clean create would train the operator to ignore the warning.
+func TestStorageComparisonSilentWhenThereIsNoPriorState(t *testing.T) {
+	req := verifyRequest{storageBefore: "", comparePriorState: false}
+	got := compareStorage(context.Background(), req, "")
+	if got.Unavailable {
+		t.Error("a create was reported as a failed comparison")
+	}
+	if len(got.Lost) != 0 {
+		t.Errorf("Lost = %v, want none", got.Lost)
+	}
+}
+
+// Storage carries namespaced elements; a lost macro must not be invisible.
+func TestStorageProfileCountsNamespacedElements(t *testing.T) {
+	body := `<p>x</p><ac:structured-macro ac:name="info"><ac:rich-text-body><p>y</p></ac:rich-text-body></ac:structured-macro><ri:attachment ri:filename="a.png"/>`
+	p := storageProfile(body)
+	for _, want := range []string{"ac:structured-macro", "ac:rich-text-body", "ri:attachment"} {
+		if p[want] != 1 {
+			t.Errorf("%s not counted: %v", want, p)
+		}
+	}
+	if p["p"] != 2 {
+		t.Errorf("plain elements miscounted: %v", p)
+	}
+}
+
+// The loss that motivated namespacing: a macro removed by a write.
+func TestStorageLossDetectsRemovedMacro(t *testing.T) {
+	before := `<p>x</p><ac:structured-macro ac:name="info"><p>y</p></ac:structured-macro>`
+	after := `<p>x</p>`
+	lost := strings.Join(diffStorageLoss(storageProfile(before), storageProfile(after)), " ")
+	if !strings.Contains(lost, "ac:structured-macro") {
+		t.Errorf("a removed macro was not reported: %s", lost)
 	}
 }

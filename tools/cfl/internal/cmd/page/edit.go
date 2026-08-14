@@ -217,16 +217,21 @@ func runEdit(ctx context.Context, opts *editOptions) error {
 
 	// Captured before the write: the storage body is what reveals loss the
 	// caller inherited from a lossy read of their own.
+	// The page was already fetched above, and the non-editor path asks for
+	// the storage representation, so the baseline is usually in hand.
 	var storageBefore, storageBeforeErr string
 	if verificationApplies(bodyFormat, hasNewContent, opts.noVerify) {
-		body, err := readStorageBody(ctx, client, opts.pageID)
-		switch {
-		case err != nil:
-			storageBeforeErr = err.Error()
-		case body == "":
-			storageBeforeErr = "the page returned no storage body"
-		default:
-			storageBefore = body
+		storageBefore = bodyValue(existingPage, bodyFormatXHTML)
+		if storageBefore == "" {
+			body, err := readStorageBody(ctx, client, opts.pageID)
+			switch {
+			case err != nil:
+				storageBeforeErr = err.Error()
+			case body == "":
+				storageBeforeErr = "the page returned no storage body"
+			default:
+				storageBefore = body
+			}
 		}
 	}
 
@@ -246,14 +251,15 @@ func runEdit(ctx context.Context, opts *editOptions) error {
 	}
 
 	return verifyStoredBody(ctx, verifyRequest{
-		opts:             opts.Options,
-		client:           client,
-		pageID:           opts.pageID,
-		bodyFormat:       bodyFormat,
-		sentContent:      sentContent,
-		storageBefore:    storageBefore,
-		storageBeforeErr: storageBeforeErr,
-		enabled:          verificationApplies(bodyFormat, hasNewContent, opts.noVerify),
+		opts:              opts.Options,
+		client:            client,
+		pageID:            opts.pageID,
+		bodyFormat:        bodyFormat,
+		sentContent:       sentContent,
+		storageBefore:     storageBefore,
+		storageBeforeErr:  storageBeforeErr,
+		comparePriorState: true,
+		enabled:           verificationApplies(bodyFormat, hasNewContent, opts.noVerify),
 	})
 }
 

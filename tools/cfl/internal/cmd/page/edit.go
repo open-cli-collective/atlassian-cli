@@ -12,7 +12,6 @@ import (
 
 	"github.com/open-cli-collective/confluence-cli/api"
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
-	"github.com/open-cli-collective/confluence-cli/internal/pageview"
 	cflpresent "github.com/open-cli-collective/confluence-cli/internal/present"
 	"github.com/open-cli-collective/confluence-cli/pkg/md"
 )
@@ -198,6 +197,15 @@ func runEdit(ctx context.Context, opts *editOptions) error {
 	// page with a storage body is resent losslessly.
 	resendsExistingBody := !hasNewContent && !opts.editor && (opts.title != "" || opts.parent != "")
 	writesBody := hasNewContent || opts.editor || resendsExistingBody
+	// What gets sent decides, not what was asked for: a resend of an
+	// ADF-derived body is lossy even without --body-format adf, and a resend
+	// of a storage body is safe even with it.
+	// A resend passes the page's own body straight back, so nothing is
+	// converted and nothing can be lost — an ADF-native page has no storage
+	// body to lose in the first place. Only a caller-supplied ADF payload
+	// can drop what the page currently has.
+	writesADF := bodyFormat == bodyFormatADF && !resendsExistingBody
+
 	currentStorage := func() (string, string) {
 		if body := bodyValue(existingPage, bodyFormatXHTML); body != "" {
 			return body, ""
@@ -205,18 +213,16 @@ func runEdit(ctx context.Context, opts *editOptions) error {
 		return fetchStorageBody(ctx, client, opts.pageID)
 	}
 
+	// Read it only when a consumer wants it: verification needs it for an
+	// exact body format, and the guard needs it for an ADF payload.
 	var storageBefore, storageBeforeErr string
-	if writesBody && !opts.noVerify {
+	if writesBody && (verificationApplies(bodyFormat, hasNewContent, opts.noVerify) || writesADF) {
 		storageBefore, storageBeforeErr = currentStorage()
 	}
 
 	// Refuse before writing, and before the editor: once the ADF is written
 	// the content is gone, and the caller's own copy never had it to restore
 	// from.
-	// A resend of an existing storage body carries no loss regardless of
-	// --body-format, so only an actual ADF payload is guarded.
-	writesADF := bodyFormat == bodyFormatADF &&
-		(!resendsExistingBody || !pageview.HasStorageContent(existingPage))
 	if writesBody && writesADF && !opts.allowLossy {
 		// --no-verify silences the readback, not this: skipping the check
 		// that reports damage is a different decision from consenting to

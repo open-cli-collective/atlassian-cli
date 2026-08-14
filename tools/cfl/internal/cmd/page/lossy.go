@@ -1,12 +1,9 @@
 package page
 
 import (
-	"context"
 	"fmt"
 	"regexp"
 	"strings"
-
-	"github.com/open-cli-collective/confluence-cli/api"
 )
 
 // Confluence's ADF export does not carry everything its storage
@@ -50,6 +47,10 @@ var emphasisTagRE = regexp.MustCompile(`</?(strong|em|code)>`)
 // adjacent, so this tracks open tags rather than matching a shape: a regex
 // would either miss intervening markup or, with RE2's lack of lookahead,
 // match across unrelated elements.
+//
+// Depths are clamped at zero. Storage bodies are not guaranteed to be
+// balanced, and an unmatched closing tag would otherwise drive a counter
+// negative and blind the detector to every later nesting on the page.
 func countEmphasisedCode(markup string) int {
 	var depth struct{ emphasis, code int }
 	found := 0
@@ -58,7 +59,9 @@ func countEmphasisedCode(markup string) int {
 		switch m[1] {
 		case "code":
 			if closing {
-				depth.code--
+				if depth.code > 0 {
+					depth.code--
+				}
 			} else {
 				if depth.emphasis > 0 {
 					found++
@@ -67,7 +70,9 @@ func countEmphasisedCode(markup string) int {
 			}
 		default:
 			if closing {
-				depth.emphasis--
+				if depth.emphasis > 0 {
+					depth.emphasis--
+				}
 			} else {
 				if depth.code > 0 {
 					found++
@@ -137,19 +142,4 @@ func orUnknown(reason string) string {
 		return "cause unknown"
 	}
 	return reason
-}
-
-// fetchStorageBody returns the page's storage body, or an explanation of why
-// it is unavailable. One place answers that question so the two callers
-// cannot drift.
-func fetchStorageBody(ctx context.Context, client *api.Client, pageID string) (body, reason string) {
-	got, err := readStorageBody(ctx, client, pageID)
-	switch {
-	case err != nil:
-		return "", err.Error()
-	case got == "":
-		return "", "the page returned no storage body"
-	default:
-		return got, ""
-	}
 }

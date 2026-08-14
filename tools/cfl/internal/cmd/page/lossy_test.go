@@ -259,3 +259,54 @@ func TestNoVerifyDoesNotDisableTheGuard(t *testing.T) {
 		t.Errorf("unexpected error: %v", err)
 	}
 }
+
+// Storage bodies are not guaranteed balanced. An unmatched closing tag must
+// not drive a counter negative and blind the detector to later nesting —
+// silently missing the thing it exists to find.
+func TestCountEmphasisedCodeSurvivesUnbalancedMarkup(t *testing.T) {
+	tests := []struct {
+		name   string
+		markup string
+		want   int
+	}{
+		{"stray close then real nesting", `</strong><p><strong><code>K</code></strong></p>`, 1},
+		{"stray code close first", `</code><p><em><code>K</code></em></p>`, 1},
+		{"many strays", `</strong></strong></em><strong><code>K</code></strong>`, 1},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := countEmphasisedCode(tc.markup); got != tc.want {
+				t.Errorf("countEmphasisedCode(%q) = %d, want %d", tc.markup, got, tc.want)
+			}
+		})
+	}
+}
+
+// A resend hands the page's own body straight back, so nothing is converted
+// and nothing can be lost — including on an ADF-native page, which has no
+// storage body to lose.
+func TestRunEditAllowsTitleOnlyEditOfAdfNativePage(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "GET" {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"id":"12345","title":"T","version":{"number":1},"body":{"atlas_doc_format":{"value":"{\"type\":\"doc\",\"version\":1,\"content\":[]}"}},"_links":{"webui":"/p"}}`))
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"id":"12345","title":"T2","version":{"number":2},"_links":{"webui":"/p"}}`))
+	}))
+	defer srv.Close()
+
+	rootOpts := newEditTestRootOptions()
+	rootOpts.SetAPIClient(api.NewClient(srv.URL, "test@example.com", "token"))
+	rootOpts.Stdin = nil
+	opts := &editOptions{
+		Options:    rootOpts,
+		pageID:     "12345",
+		title:      "New Title",
+		bodyFormat: bodyFormatADF,
+	}
+	if err := runEdit(context.Background(), opts); err != nil {
+		t.Fatalf("a resend converts nothing and must not be refused: %v", err)
+	}
+}

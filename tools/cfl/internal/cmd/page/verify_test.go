@@ -544,3 +544,207 @@ func TestAttributelessAtomChangeIsNamed(t *testing.T) {
 		t.Errorf("report must name the changed atom when no attributes can:\n%s", report)
 	}
 }
+
+// The loss this exists to catch: a no-op ADF round trip that Confluence
+// stores without the emphasis marks its storage body carried. Sent and
+// stored agree, so only the storage comparison sees it.
+func TestStorageLossDetectedWhenSentAndStoredAgree(t *testing.T) {
+	before := `<p><em><strong><code>KEY</code></strong></em></p><p><strong>bold</strong></p>`
+	after := `<p><code>KEY</code></p><p><strong>bold</strong></p>`
+	lost := diffStorageLoss(storageProfile(before), storageProfile(after))
+	if len(lost) != 2 {
+		t.Fatalf("lost = %v, want em and strong", lost)
+	}
+	joined := strings.Join(lost, " ")
+	if !strings.Contains(joined, "em (1→0)") || !strings.Contains(joined, "strong (2→1)") {
+		t.Errorf("unexpected loss report: %v", lost)
+	}
+}
+
+// Editing text moves no element counts, so an ordinary edit stays quiet.
+func TestStorageLossQuietOnTextOnlyEdit(t *testing.T) {
+	before := `<p>hello <strong>world</strong></p>`
+	after := `<p>goodbye <strong>world</strong></p>`
+	if lost := diffStorageLoss(storageProfile(before), storageProfile(after)); len(lost) != 0 {
+		t.Errorf("text-only edit reported loss: %v", lost)
+	}
+}
+
+// Adding content is what an edit is for; only losses are reported.
+func TestStorageLossIgnoresAdditions(t *testing.T) {
+	before := `<p>hello</p>`
+	after := `<p>hello</p><p><strong>new</strong></p>`
+	if lost := diffStorageLoss(storageProfile(before), storageProfile(after)); len(lost) != 0 {
+		t.Errorf("additions reported as loss: %v", lost)
+	}
+}
+
+// A missing baseline must be reported as "cannot compare", never pass as
+// silence: silence is what a clean write looks like.
+func TestStorageComparisonUnavailableWithoutBaseline(t *testing.T) {
+	req := verifyRequest{storageBefore: "", storageBeforeErr: "resource not found", comparePriorState: true}
+	got := compareStorage(context.Background(), req, "")
+	if !got.Unavailable {
+		t.Error("a missing baseline was not reported as uncomparable")
+	}
+	if got.Reason != "resource not found" {
+		t.Errorf("Reason = %q, want the captured cause", got.Reason)
+	}
+	if len(got.Lost) != 0 {
+		t.Errorf("claimed loss without a baseline: %v", got.Lost)
+	}
+}
+
+// An xhtml write already read the stored body back; reuse it rather than
+// fetching the same thing twice.
+func TestStorageComparisonReusesSuppliedBody(t *testing.T) {
+	req := verifyRequest{storageBefore: `<p><strong>a</strong></p>`, comparePriorState: true}
+	got := compareStorage(context.Background(), req, `<p>a</p>`)
+	if got.Unavailable {
+		t.Fatal("reported uncomparable despite a supplied body")
+	}
+	if len(got.Lost) != 1 || !strings.Contains(got.Lost[0], "strong") {
+		t.Errorf("Lost = %v, want the dropped strong", got.Lost)
+	}
+}
+
+// Storage keeps macro bodies verbatim inside CDATA; angle brackets there are
+// content, and counting them would invent losses that never happened.
+func TestStorageProfileIgnoresCDATAAndComments(t *testing.T) {
+	body := `<p>x</p><ac:plain-text-body><![CDATA[<strong>not markup</strong>]]></ac:plain-text-body><!-- <em>also not</em> -->`
+	p := storageProfile(body)
+	if p["strong"] != 0 || p["em"] != 0 {
+		t.Errorf("counted markup inside CDATA/comments: %v", p)
+	}
+	if p["p"] != 1 {
+		t.Errorf("real elements not counted: %v", p)
+	}
+}
+
+// The stated cause must match the format actually used.
+func TestStorageLossCauseMatchesFormat(t *testing.T) {
+	if !strings.Contains(storageLossCause(bodyFormatADF), "ADF") {
+		t.Error("adf cause should name the ADF round trip")
+	}
+	if strings.Contains(storageLossCause(bodyFormatXHTML), "ADF") {
+		t.Error("an xhtml write must not be blamed on the ADF round trip")
+	}
+}
+
+func TestVerificationApplies(t *testing.T) {
+	tests := []struct {
+		format               string
+		hasNewContent, noVer bool
+		want                 bool
+	}{
+		{bodyFormatADF, true, false, true},
+		{bodyFormatXHTML, true, false, true},
+		{bodyFormatMarkdown, true, false, false},
+		{bodyFormatADF, true, true, false},
+		{bodyFormatADF, false, false, false},
+	}
+	for _, tc := range tests {
+		if got := verificationApplies(tc.format, tc.hasNewContent, tc.noVer); got != tc.want {
+			t.Errorf("verificationApplies(%q,%v,%v) = %v, want %v", tc.format, tc.hasNewContent, tc.noVer, got, tc.want)
+		}
+	}
+}
+
+func TestPresentedStorageLossExplainsTheCause(t *testing.T) {
+	model := cflpresent.PagePresenter{}.PresentWriteDrift(cflpresent.WriteDrift{
+		BodyFormat:   bodyFormatADF,
+		LostElements: []string{"em (3→1)", "strong (3→1)"},
+		LossCause:    storageLossCause(bodyFormatADF),
+	})
+	var b strings.Builder
+	for _, sec := range model.Sections {
+		if msg, ok := sec.(*sharedpresent.MessageSection); ok {
+			b.WriteString(msg.Message)
+		}
+	}
+	out := b.String()
+	for _, want := range []string{"lost formatting", "em (3→1)", "writing it back"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("report missing %q:\n%s", want, out)
+		}
+	}
+}
+
+// A comparison that could not run must say so; silence is what a clean write
+// looks like, and the two must never be confused.
+func TestPresentedUncomparableStorageIsStated(t *testing.T) {
+	model := cflpresent.PagePresenter{}.PresentWriteDrift(cflpresent.WriteDrift{
+		BodyFormat:          bodyFormatADF,
+		StorageUncomparable: true,
+		StorageReason:       "resource not found",
+	})
+	var b strings.Builder
+	for _, sec := range model.Sections {
+		if msg, ok := sec.(*sharedpresent.MessageSection); ok {
+			b.WriteString(msg.Message)
+		}
+	}
+	out := b.String()
+	for _, want := range []string{"Could not compare", "would not have been noticed", "resource not found"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("report missing %q:\n%s", want, out)
+		}
+	}
+}
+
+// A create has no prior state. That is not a failed comparison, and saying
+// so on every clean create would train the operator to ignore the warning.
+func TestStorageComparisonSilentWhenThereIsNoPriorState(t *testing.T) {
+	req := verifyRequest{storageBefore: "", comparePriorState: false}
+	got := compareStorage(context.Background(), req, "")
+	if got.Unavailable {
+		t.Error("a create was reported as a failed comparison")
+	}
+	if len(got.Lost) != 0 {
+		t.Errorf("Lost = %v, want none", got.Lost)
+	}
+}
+
+// Storage carries namespaced elements; a lost macro must not be invisible.
+func TestStorageProfileCountsNamespacedElements(t *testing.T) {
+	body := `<p>x</p><ac:structured-macro ac:name="info"><ac:rich-text-body><p>y</p></ac:rich-text-body></ac:structured-macro><ri:attachment ri:filename="a.png"/>`
+	p := storageProfile(body)
+	for _, want := range []string{"ac:structured-macro", "ac:rich-text-body", "ri:attachment"} {
+		if p[want] != 1 {
+			t.Errorf("%s not counted: %v", want, p)
+		}
+	}
+	if p["p"] != 2 {
+		t.Errorf("plain elements miscounted: %v", p)
+	}
+}
+
+// The loss that motivated namespacing: a macro removed by a write.
+func TestStorageLossDetectsRemovedMacro(t *testing.T) {
+	before := `<p>x</p><ac:structured-macro ac:name="info"><p>y</p></ac:structured-macro>`
+	after := `<p>x</p>`
+	lost := strings.Join(diffStorageLoss(storageProfile(before), storageProfile(after)), " ")
+	if !strings.Contains(lost, "ac:structured-macro") {
+		t.Errorf("a removed macro was not reported: %s", lost)
+	}
+}
+
+// The baseline comes from the page already fetched, and the xhtml readback
+// is reused for the storage comparison. Both were review findings; without a
+// count pinned on the verified path, either could be reintroduced silently.
+func TestRunEditVerifiedPathMakesNoRedundantReads(t *testing.T) {
+	srv, gets := driftServer(t, func(map[string]any) string {
+		return `{"storage":{"value":"<p>what we sent</p>"}}`
+	})
+	defer srv.Close()
+
+	if err := runEdit(context.Background(), editOptsFor(t, srv, "<p>what we sent</p>", false)); err != nil {
+		t.Fatalf("verified edit: %v", err)
+	}
+	// One read before the write, one to read the result back. A third would
+	// mean the baseline or the storage comparison re-fetched what the
+	// command already had.
+	if *gets != 2 {
+		t.Errorf("GET count = %d, want 2 (pre-write fetch + post-write readback)", *gets)
+	}
+}

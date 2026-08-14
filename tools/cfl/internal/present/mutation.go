@@ -144,6 +144,15 @@ type WriteDrift struct {
 	AtomChanges  []string
 	DroppedAttrs []string
 	AddedAttrs   []string
+	// LostElements names storage element types that became less frequent
+	// across the write.
+	LostElements []string
+	// StorageUncomparable reports that the check could not run; silence
+	// would otherwise be indistinguishable from a clean write.
+	StorageUncomparable bool
+	StorageReason       string
+	// LossCause explains why formatting can vanish for the format in use.
+	LossCause string
 }
 
 // attrLines lists attribute changes, which identify the embedded content
@@ -190,6 +199,24 @@ func describeContentChange(d WriteDrift) string {
 // other means it landed in a document the server tidied.
 func (PagePresenter) PresentWriteDrift(d WriteDrift) *sharedpresent.OutputModel {
 	var lines []string
+	if d.StorageUncomparable {
+		msg := "Could not compare the stored page against its state before the write, so formatting loss would not have been noticed."
+		if d.StorageReason != "" {
+			msg += " (" + d.StorageReason + ")"
+		}
+		lines = append(lines, msg, "")
+	}
+	if len(d.LostElements) > 0 {
+		lines = append(lines, "The stored page lost formatting that was present before this write:")
+		for _, e := range d.LostElements {
+			lines = append(lines, "  - "+e)
+		}
+		tail := "Compare against the storage body before assuming the change was clean."
+		if d.LossCause != "" {
+			tail = d.LossCause + " " + tail
+		}
+		lines = append(lines, tail, "")
+	}
 	if d.TextChanged {
 		lines = append(lines,
 			fmt.Sprintf("Stored %s body does not match what was sent: %s.", d.BodyFormat, describeContentChange(d)),

@@ -246,8 +246,11 @@ URL: <url>
 ```
 
 With `--body-format adf` or `xhtml` the page is read back after the write and
-compared with what was sent, exactly as `page edit` does. See that section for
-the stderr blocks emitted on normalization and on content loss.
+compared with what was sent. See the `page edit` section for the stderr blocks
+emitted on normalization and on content loss.
+
+A create has no state to compare against, so the formatting-loss and
+comparison-unavailable blocks described there are never emitted here.
 
 ## `page edit <page-id>`
 
@@ -268,6 +271,27 @@ still succeeds:
 ```text
 Confluence normalized the stored <format> body. Content is intact; these attributes were dropped:
   - <node>.attrs.<name> (<before>→<after>)
+```
+
+Formatting the stored page no longer carries is reported before the other
+blocks, and the command still succeeds — the write landed, only formatting
+was collateral:
+
+```text
+The stored page lost formatting that was present before this write:
+  - <element> (<before>→<after>)
+<cause> Compare against the storage body before assuming the change was clean.
+```
+
+`<cause>` names why loss is possible for the format in use: an ADF round trip
+does not always preserve marks the storage body carries, whereas a storage
+write carries only what the caller submitted.
+
+When the comparison could not be made at all, that is stated rather than
+passed over in silence, because silence is what a clean write looks like:
+
+```text
+Could not compare the stored page against its state before the write, so formatting loss would not have been noticed. (<reason>)
 ```
 
 Attributes the server added rather than dropped are reported the same way:

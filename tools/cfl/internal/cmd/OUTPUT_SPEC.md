@@ -344,8 +344,9 @@ The page was updated, but it does not hold the content supplied. Re-read the pag
     - <node>.attrs.<name> (<before>→<after>)
   attributes added:
     + <node>.attrs.<name> (<before>→<after>)
-  macro parameters changed:
+  macro parameters dropped:
     - macro <n> parameter <name>=<value> (<before>→<after>)
+  macro parameters added:
     + macro <n> parameter <name>=<value> (<before>→<after>)
 ```
 

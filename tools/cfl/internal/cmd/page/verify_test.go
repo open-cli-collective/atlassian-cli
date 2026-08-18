@@ -194,8 +194,8 @@ func TestCompareStoredBodyXHTMLMacroParameterOrder(t *testing.T) {
 			if d.TextChanged {
 				t.Errorf("TextChanged = true; the page text is identical, only parameters differ")
 			}
-			if len(d.ParamChanges) != tc.wantChanges {
-				t.Errorf("ParamChanges = %v, want %d entries", d.ParamChanges, tc.wantChanges)
+			if got := len(d.ParamsDropped) + len(d.ParamsAdded); got != tc.wantChanges {
+				t.Errorf("parameter changes = %v/%v, want %d entries", d.ParamsDropped, d.ParamsAdded, tc.wantChanges)
 			}
 			if d.Clean() != (tc.wantChanges == 0) {
 				t.Errorf("Clean() = %v, want %v", d.Clean(), tc.wantChanges == 0)
@@ -246,8 +246,53 @@ func TestMacroParameterProfileIsScopedPerMacro(t *testing.T) {
 	}
 	sent := macro("none") + macro("dark")
 	stored := macro("dark") + macro("none")
-	if changes := diffMacroParameters(sent, stored); len(changes) == 0 {
+	if dropped, added := diffMacroParameters(sent, stored); len(dropped)+len(added) == 0 {
 		t.Error("a parameter swapped between two macros reported as an in-macro reordering")
+	}
+}
+
+// A parameter-only mismatch has to fail the command, not just set a field on
+// a struct. Without this the fatal branch and its wording could be deleted and
+// every other test would still pass.
+func TestRunEditFailsWhenStoredMacroParametersDiffer(t *testing.T) {
+	const sent = `<ac:structured-macro ac:name="code">` +
+		`<ac:parameter ac:name="theme">none</ac:parameter>` +
+		`<ac:plain-text-body><![CDATA[echo hi]]></ac:plain-text-body></ac:structured-macro>`
+	srv, _ := driftServer(t, func(map[string]any) string {
+		// Same page text, one parameter value changed by the server.
+		return `{"storage":{"value":"` + strings.ReplaceAll(
+			strings.Replace(sent, ">none<", ">dark<", 1), `"`, `\"`) + `"}}`
+	})
+	defer srv.Close()
+
+	err := runEdit(context.Background(), editOptsFor(t, srv, sent, false))
+	if err == nil {
+		t.Fatal("expected an error when a stored macro parameter differs from what was sent")
+	}
+	if !strings.Contains(err.Error(), "macro parameters") {
+		t.Errorf("error should name the macro parameters, got: %v", err)
+	}
+}
+
+// The parameter scan and the text scan have to agree on what a parameter is.
+// The profile skips CDATA because markup quoted in a macro body is content, so
+// the text scan must keep it: otherwise a server edit to a documented sample is
+// dropped from the text and absent from the profile, and nothing catches it.
+func TestQuotedParameterMarkupStaysInComparedText(t *testing.T) {
+	sample := func(inner string) string {
+		return `<ac:structured-macro ac:name="code"><ac:plain-text-body><![CDATA[if (a > b) {}` + "\n" +
+			inner + "\n" + `tail]]></ac:plain-text-body></ac:structured-macro>`
+	}
+	sent := sample(`<ac:parameter ac:name="x">DOCUMENTED SAMPLE</ac:parameter>`)
+	stored := sample(`<ac:parameter ac:name="x">SERVER MANGLED IT</ac:parameter>`)
+
+	d, err := compareStoredBody(sent, stored, bodyFormatXHTML)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d.Clean() {
+		t.Errorf("a server edit inside a quoted code sample went unreported\n sent  %q\n stored %q",
+			xhtmlText(sent), xhtmlText(stored))
 	}
 }
 

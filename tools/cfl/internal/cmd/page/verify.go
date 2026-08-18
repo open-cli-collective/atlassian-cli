@@ -56,17 +56,20 @@ type writeDrift struct {
 	DroppedAttrs []string
 	AddedAttrs   []string
 
-	// ParamChanges names macro parameters the server did not store as they
-	// were sent. Their order within a macro is the server's to choose, so
-	// only an added, dropped or edited parameter appears here. It is kept
-	// apart from TextChanged because the page text is intact: saying
-	// otherwise would make the report assert something untrue.
-	ParamChanges []string
+	// ParamsDropped and ParamsAdded name macro parameters whose occurrence
+	// counts fell or rose, in sorted order. Their order within a macro is
+	// the server's to choose, so only an added, dropped or edited parameter
+	// appears here. They are kept apart from TextChanged because the page
+	// text is intact: saying otherwise would make the report assert
+	// something untrue.
+	ParamsDropped []string
+	ParamsAdded   []string
 }
 
 // Clean reports whether the stored body matched what was sent.
 func (d writeDrift) Clean() bool {
-	return !d.TextChanged && len(d.DroppedAttrs) == 0 && len(d.AddedAttrs) == 0 && len(d.ParamChanges) == 0
+	return !d.TextChanged && len(d.DroppedAttrs) == 0 && len(d.AddedAttrs) == 0 &&
+		len(d.ParamsDropped) == 0 && len(d.ParamsAdded) == 0
 }
 
 // compareStoredBody diffs a submitted body against the one Confluence stored.
@@ -78,6 +81,7 @@ func compareStoredBody(sent, stored, bodyFormat string) (writeDrift, error) {
 		return compareADF(sent, stored)
 	case bodyFormatXHTML:
 		sentText, storedText := xhtmlText(sent), xhtmlText(stored)
+		paramsDropped, paramsAdded := diffMacroParameters(sent, stored)
 		return writeDrift{
 			TextChanged:   sentText != storedText,
 			SentText:      sentText,
@@ -86,7 +90,8 @@ func compareStoredBody(sent, stored, bodyFormat string) (writeDrift, error) {
 			VisibleStored: len([]rune(storedText)),
 			SentVisible:   sentText,
 			StoredVisible: storedText,
-			ParamChanges:  diffMacroParameters(sent, stored),
+			ParamsDropped: paramsDropped,
+			ParamsAdded:   paramsAdded,
 		}, nil
 	default:
 		return writeDrift{}, fmt.Errorf("cannot verify %s input: it is converted before sending, so the stored body is not comparable to what was supplied", bodyFormat)
@@ -334,6 +339,23 @@ func diffAttrProfiles(sent, stored map[string]int) (dropped, added []string) {
 	return dropped, added
 }
 
+// stripMacroParameters removes parameter elements from a storage body, leaving
+// comment and CDATA spans untouched. macroParameterProfile skips those spans
+// because markup quoted in a macro body is content; if this scan did not skip
+// them too, a quoted parameter would be dropped from the compared text and
+// absent from the profile, so a server edit to it would be caught by neither.
+func stripMacroParameters(s string) string {
+	var b strings.Builder
+	last := 0
+	for _, span := range storageInertRE.FindAllStringIndex(s, -1) {
+		b.WriteString(acParameterPairRE.ReplaceAllString(s[last:span[0]], ""))
+		b.WriteString(s[span[0]:span[1]])
+		last = span[1]
+	}
+	b.WriteString(acParameterPairRE.ReplaceAllString(s[last:], ""))
+	return b.String()
+}
+
 // acParameterPairRE matches a macro parameter written as an open/close pair,
 // capturing its attributes and its value. The `[^/]` before the closing angle
 // bracket keeps it from starting on a self-closing tag, which has no value and
@@ -407,19 +429,11 @@ func macroParameterProfile(s string) map[string]int {
 }
 
 // diffMacroParameters names the macro parameters that did not survive the
-// write as they were sent, in sorted order. An empty result means every
-// parameter came back, whatever order the server chose to return them in.
-func diffMacroParameters(sent, stored string) []string {
-	dropped, added := diffAttrProfiles(macroParameterProfile(sent), macroParameterProfile(stored))
-	changes := make([]string, 0, len(dropped)+len(added))
-	for _, d := range dropped {
-		changes = append(changes, "- "+d)
-	}
-	for _, a := range added {
-		changes = append(changes, "+ "+a)
-	}
-	sort.Strings(changes)
-	return changes
+// write as they were sent, dropped and added kept apart so the presenter owns
+// how they are marked. Two empty results mean every parameter came back,
+// whatever order the server chose to return them in.
+func diffMacroParameters(sent, stored string) (dropped, added []string) {
+	return diffAttrProfiles(macroParameterProfile(sent), macroParameterProfile(stored))
 }
 
 // xhtmlText strips tags so storage-format bodies compare on their text.
@@ -430,7 +444,7 @@ func xhtmlText(s string) string {
 	// Confluence reorders them within a macro. Left in the text stream, a
 	// reordering reads as rewritten content and fails an otherwise clean
 	// write; macroParameterProfile compares them order-independently instead.
-	s = acParameterPairRE.ReplaceAllString(s, "")
+	s = stripMacroParameters(s)
 	var b strings.Builder
 	depth := 0
 	for _, r := range s {
@@ -527,7 +541,8 @@ func verifyStoredBody(ctx context.Context, req verifyRequest) error {
 		SentExcerpt:         readableExcerpt(drift.SentVisible, off),
 		StoredExcerpt:       readableExcerpt(drift.StoredVisible, off),
 		AtomChanges:         drift.AtomChanges,
-		ParamChanges:        drift.ParamChanges,
+		ParamsDropped:       drift.ParamsDropped,
+		ParamsAdded:         drift.ParamsAdded,
 		DroppedAttrs:        drift.DroppedAttrs,
 		AddedAttrs:          drift.AddedAttrs,
 		LostElements:        storage.Lost,
@@ -544,7 +559,7 @@ func verifyStoredBody(ctx context.Context, req verifyRequest) error {
 	// A parameter the server did not store as sent is a failed write too. It
 	// was fatal before macro parameters were excluded from the text compare,
 	// and nothing about excluding them makes it safe to pass.
-	if len(drift.ParamChanges) > 0 {
+	if len(drift.ParamsDropped) > 0 || len(drift.ParamsAdded) > 0 {
 		return fmt.Errorf("stored page does not hold the macro parameters that were sent")
 	}
 	return nil

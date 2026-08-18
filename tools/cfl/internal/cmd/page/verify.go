@@ -339,20 +339,44 @@ func diffAttrProfiles(sent, stored map[string]int) (dropped, added []string) {
 	return dropped, added
 }
 
+// blankInert masks comment and CDATA spans with spaces, preserving every
+// offset. Storage format carries macro bodies verbatim inside CDATA, so markup
+// quoted there is content rather than page configuration.
+//
+// Both parameter scans match against this one masked view and then index back
+// into the original, so they cannot disagree about where a parameter is: a
+// single notion of what counts as markup serves the text comparison and the
+// parameter profile alike.
+func blankInert(s string) string {
+	spans := storageInertRE.FindAllStringIndex(s, -1)
+	if len(spans) == 0 {
+		return s
+	}
+	b := []byte(s)
+	for _, span := range spans {
+		for i := span[0]; i < span[1]; i++ {
+			b[i] = ' '
+		}
+	}
+	return string(b)
+}
+
 // stripMacroParameters removes parameter elements from a storage body, leaving
-// comment and CDATA spans untouched. macroParameterProfile skips those spans
-// because markup quoted in a macro body is content; if this scan did not skip
-// them too, a quoted parameter would be dropped from the compared text and
-// absent from the profile, so a server edit to it would be caught by neither.
+// comment and CDATA spans as the content they are. Matching happens on the
+// masked view while the text is cut from the original, so a parameter quoted
+// inside a macro body stays in the compared text and a real one does not.
 func stripMacroParameters(s string) string {
+	matches := acParameterPairRE.FindAllStringIndex(blankInert(s), -1)
+	if len(matches) == 0 {
+		return s
+	}
 	var b strings.Builder
 	last := 0
-	for _, span := range storageInertRE.FindAllStringIndex(s, -1) {
-		b.WriteString(acParameterPairRE.ReplaceAllString(s[last:span[0]], ""))
-		b.WriteString(s[span[0]:span[1]])
-		last = span[1]
+	for _, m := range matches {
+		b.WriteString(s[last:m[0]])
+		last = m[1]
 	}
-	b.WriteString(acParameterPairRE.ReplaceAllString(s[last:], ""))
+	b.WriteString(s[last:])
 	return b.String()
 }
 
@@ -385,11 +409,11 @@ var acParameterNameRe = regexp.MustCompile(`ac:name\s*=\s*"([^"]*)"`)
 // macros carrying the same name and value would read as a reordering, and the
 // swap this guard exists to catch would pass.
 //
-// Comment and CDATA spans are removed first, matching storageProfile: storage
-// format carries macro bodies verbatim inside CDATA, so markup quoted in a code
-// block is content rather than page configuration.
+// Comment and CDATA spans are masked first by blankInert, the same view
+// stripMacroParameters matches against, so the text comparison and this profile
+// agree on which parameters are real and which are quoted content.
 func macroParameterProfile(s string) map[string]int {
-	s = storageInertRE.ReplaceAllString(s, "")
+	s = blankInert(s)
 	macroOpens := acMacroOpenRE.FindAllStringIndex(s, -1)
 	// macroAt reports how many macros have opened before position i, which
 	// identifies the macro a parameter sits in.

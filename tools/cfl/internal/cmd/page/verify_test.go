@@ -807,6 +807,53 @@ func TestVerificationApplies(t *testing.T) {
 	}
 }
 
+// The dropped-before-added ordering is a claim about rendered output, so it is
+// asserted against rendered output. An edit has to read old value then new.
+func TestPresentedMacroParametersReadOldThenNew(t *testing.T) {
+	render := func(d cflpresent.WriteDrift) string {
+		var b strings.Builder
+		for _, sec := range (cflpresent.PagePresenter{}).PresentWriteDrift(d).Sections {
+			if msg, ok := sec.(*sharedpresent.MessageSection); ok {
+				b.WriteString(msg.Message)
+			}
+		}
+		return b.String()
+	}
+	drift := cflpresent.WriteDrift{
+		BodyFormat:    bodyFormatXHTML,
+		ParamsDropped: []string{"macro 1 parameter breakoutWidth=760 (1→0)"},
+		ParamsAdded:   []string{"macro 1 parameter breakoutWidth=500 (0→1)"},
+	}
+
+	out := render(drift)
+	if !strings.Contains(out, "macro parameters that were sent") {
+		t.Errorf("report should say the parameters did not survive:\n%s", out)
+	}
+	if !strings.Contains(out, "Page text is intact") {
+		t.Errorf("report should say the text survived, not that it changed:\n%s", out)
+	}
+	dropped, added := strings.Index(out, "- macro 1 parameter breakoutWidth=760"), strings.Index(out, "+ macro 1 parameter breakoutWidth=500")
+	if dropped < 0 || added < 0 {
+		t.Fatalf("report missing one of the parameter lines:\n%s", out)
+	}
+	if dropped > added {
+		t.Errorf("an edit reads backwards: the new value is printed above the one it replaced:\n%s", out)
+	}
+
+	// The same ordering has to hold in the text-loss branch, which renders
+	// through a different code path.
+	drift.TextChanged = true
+	drift.DiffOffset = -1
+	out = render(drift)
+	dropped, added = strings.Index(out, "macro parameters dropped:"), strings.Index(out, "macro parameters added:")
+	if dropped < 0 || added < 0 {
+		t.Fatalf("text-loss branch missing a parameter header:\n%s", out)
+	}
+	if dropped > added {
+		t.Errorf("text-loss branch prints added before dropped:\n%s", out)
+	}
+}
+
 func TestPresentedStorageLossExplainsTheCause(t *testing.T) {
 	model := cflpresent.PagePresenter{}.PresentWriteDrift(cflpresent.WriteDrift{
 		BodyFormat:   bodyFormatADF,

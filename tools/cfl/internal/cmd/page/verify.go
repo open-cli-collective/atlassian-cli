@@ -55,11 +55,18 @@ type writeDrift struct {
 	// occurrence counts fell or rose, in sorted order.
 	DroppedAttrs []string
 	AddedAttrs   []string
+
+	// ParamChanges names macro parameters the server did not store as they
+	// were sent. Their order within a macro is the server's to choose, so
+	// only an added, dropped or edited parameter appears here. It is kept
+	// apart from TextChanged because the page text is intact: saying
+	// otherwise would make the report assert something untrue.
+	ParamChanges []string
 }
 
 // Clean reports whether the stored body matched what was sent.
 func (d writeDrift) Clean() bool {
-	return !d.TextChanged && len(d.DroppedAttrs) == 0 && len(d.AddedAttrs) == 0
+	return !d.TextChanged && len(d.DroppedAttrs) == 0 && len(d.AddedAttrs) == 0 && len(d.ParamChanges) == 0
 }
 
 // compareStoredBody diffs a submitted body against the one Confluence stored.
@@ -71,21 +78,15 @@ func compareStoredBody(sent, stored, bodyFormat string) (writeDrift, error) {
 		return compareADF(sent, stored)
 	case bodyFormatXHTML:
 		sentText, storedText := xhtmlText(sent), xhtmlText(stored)
-		// Reordering a macro's parameters is not a change; adding, dropping
-		// or editing one still is, and stays as fatal as it was when the
-		// parameter values were compared as part of the text. Naming the
-		// parameter beats the opaque text offset that reported it before.
-		dropped, added := diffAttrProfiles(macroParameterProfile(sent), macroParameterProfile(stored))
 		return writeDrift{
-			TextChanged:   sentText != storedText || len(dropped) > 0 || len(added) > 0,
+			TextChanged:   sentText != storedText,
 			SentText:      sentText,
 			StoredText:    storedText,
 			VisibleSent:   len([]rune(sentText)),
 			VisibleStored: len([]rune(storedText)),
 			SentVisible:   sentText,
 			StoredVisible: storedText,
-			DroppedAttrs:  dropped,
-			AddedAttrs:    added,
+			ParamChanges:  diffMacroParameters(sent, stored),
 		}, nil
 	default:
 		return writeDrift{}, fmt.Errorf("cannot verify %s input: it is converted before sending, so the stored body is not comparable to what was supplied", bodyFormat)
@@ -333,27 +334,92 @@ func diffAttrProfiles(sent, stored map[string]int) (dropped, added []string) {
 	return dropped, added
 }
 
-// acParameterRe matches a macro parameter element, capturing its attributes
-// and its value. (?s) so a value containing newlines is still one match.
-var acParameterRe = regexp.MustCompile(`(?s)<ac:parameter\b([^>]*)>(.*?)</ac:parameter>`)
+// acParameterPairRE matches a macro parameter written as an open/close pair,
+// capturing its attributes and its value. The `[^/]` before the closing angle
+// bracket keeps it from starting on a self-closing tag, which has no value and
+// no closing tag: matching one would run the value capture on to the *next*
+// parameter's closing tag and swallow every element in between, including page
+// content. (?s) so a value containing newlines is still one match.
+var acParameterPairRE = regexp.MustCompile(`(?s)<ac:parameter\b([^>]*[^/])?>(.*?)</ac:parameter>`)
+
+// acParameterEmptyRE matches a self-closing parameter, which carries a name
+// but no value.
+var acParameterEmptyRE = regexp.MustCompile(`<ac:parameter\b([^>]*?)/>`)
+
+// acMacroOpenRE marks where each macro begins, so a parameter can be attributed
+// to the macro that contains it.
+var acMacroOpenRE = regexp.MustCompile(`<ac:structured-macro\b`)
 
 // acParameterNameRe pulls a parameter's name out of its attributes.
 var acParameterNameRe = regexp.MustCompile(`ac:name\s*=\s*"([^"]*)"`)
 
-// macroParameterProfile counts a body's macro parameters as name=value pairs.
-// Confluence returns a macro's parameters in an order of its own choosing, so
-// they are compared as a multiset rather than a sequence: a reordering is not
-// a change, while a parameter that is dropped, added or edited still is.
+// macroParameterProfile counts a body's macro parameters. Confluence returns a
+// macro's parameters in an order of its own choosing, so they are compared as a
+// multiset rather than a sequence: a reordering within one macro is not a
+// change, while a parameter that is dropped, added or edited still is.
+//
+// Each key is scoped to the macro that holds the parameter, identified by how
+// many macros open before it. Without that scope a parameter moving between two
+// macros carrying the same name and value would read as a reordering, and the
+// swap this guard exists to catch would pass.
+//
+// Comment and CDATA spans are removed first, matching storageProfile: storage
+// format carries macro bodies verbatim inside CDATA, so markup quoted in a code
+// block is content rather than page configuration.
 func macroParameterProfile(s string) map[string]int {
+	s = storageInertRE.ReplaceAllString(s, "")
+	macroOpens := acMacroOpenRE.FindAllStringIndex(s, -1)
+	// macroAt reports how many macros have opened before position i, which
+	// identifies the macro a parameter sits in.
+	macroAt := func(i int) int {
+		n := 0
+		for _, m := range macroOpens {
+			if m[0] < i {
+				n++
+			}
+		}
+		return n
+	}
+
 	profile := map[string]int{}
-	for _, m := range acParameterRe.FindAllStringSubmatch(s, -1) {
+	record := func(start int, attrs, value string) {
 		name := ""
-		if n := acParameterNameRe.FindStringSubmatch(m[1]); n != nil {
+		if n := acParameterNameRe.FindStringSubmatch(attrs); n != nil {
 			name = n[1]
 		}
-		profile["macro parameter "+name+"="+strings.TrimSpace(m[2])]++
+		// Collapse whitespace exactly as the surrounding text comparison
+		// does, so a value that only had its spacing normalized is not
+		// reported as an edit.
+		value = strings.Join(strings.Fields(value), " ")
+		profile[fmt.Sprintf("macro %d parameter %s=%s", macroAt(start), name, value)]++
+	}
+	for _, m := range acParameterPairRE.FindAllStringSubmatchIndex(s, -1) {
+		attrs := ""
+		if m[2] >= 0 {
+			attrs = s[m[2]:m[3]]
+		}
+		record(m[0], attrs, s[m[4]:m[5]])
+	}
+	for _, m := range acParameterEmptyRE.FindAllStringSubmatchIndex(s, -1) {
+		record(m[0], s[m[2]:m[3]], "")
 	}
 	return profile
+}
+
+// diffMacroParameters names the macro parameters that did not survive the
+// write as they were sent, in sorted order. An empty result means every
+// parameter came back, whatever order the server chose to return them in.
+func diffMacroParameters(sent, stored string) []string {
+	dropped, added := diffAttrProfiles(macroParameterProfile(sent), macroParameterProfile(stored))
+	changes := make([]string, 0, len(dropped)+len(added))
+	for _, d := range dropped {
+		changes = append(changes, "- "+d)
+	}
+	for _, a := range added {
+		changes = append(changes, "+ "+a)
+	}
+	sort.Strings(changes)
+	return changes
 }
 
 // xhtmlText strips tags so storage-format bodies compare on their text.
@@ -364,7 +430,7 @@ func xhtmlText(s string) string {
 	// Confluence reorders them within a macro. Left in the text stream, a
 	// reordering reads as rewritten content and fails an otherwise clean
 	// write; macroParameterProfile compares them order-independently instead.
-	s = acParameterRe.ReplaceAllString(s, "")
+	s = acParameterPairRE.ReplaceAllString(s, "")
 	var b strings.Builder
 	depth := 0
 	for _, r := range s {
@@ -461,6 +527,7 @@ func verifyStoredBody(ctx context.Context, req verifyRequest) error {
 		SentExcerpt:         readableExcerpt(drift.SentVisible, off),
 		StoredExcerpt:       readableExcerpt(drift.StoredVisible, off),
 		AtomChanges:         drift.AtomChanges,
+		ParamChanges:        drift.ParamChanges,
 		DroppedAttrs:        drift.DroppedAttrs,
 		AddedAttrs:          drift.AddedAttrs,
 		LostElements:        storage.Lost,
@@ -473,6 +540,12 @@ func verifyStoredBody(ctx context.Context, req verifyRequest) error {
 	}
 	if drift.TextChanged {
 		return fmt.Errorf("stored page content does not match what was sent")
+	}
+	// A parameter the server did not store as sent is a failed write too. It
+	// was fatal before macro parameters were excluded from the text compare,
+	// and nothing about excluding them makes it safe to pass.
+	if len(drift.ParamChanges) > 0 {
+		return fmt.Errorf("stored page does not hold the macro parameters that were sent")
 	}
 	return nil
 }

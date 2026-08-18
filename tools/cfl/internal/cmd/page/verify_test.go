@@ -153,28 +153,34 @@ func TestCompareStoredBodyXHTMLMacroParameterOrder(t *testing.T) {
 	theme := `<ac:parameter ac:name="theme">none</ac:parameter>`
 
 	tests := []struct {
-		name            string
-		sent, stored    string
-		wantTextChanged bool
-		wantClean       bool
+		name         string
+		sent, stored string
+		wantChanges  int
 	}{
 		{
-			name:      "parameters reordered by the server",
-			sent:      macro(theme, mode, width),
-			stored:    macro(mode, width, theme),
-			wantClean: true,
+			name:   "parameters reordered by the server",
+			sent:   macro(theme, mode, width),
+			stored: macro(mode, width, theme),
 		},
 		{
-			name:            "a parameter value edited",
-			sent:            macro(mode, width),
-			stored:          macro(mode, `<ac:parameter ac:name="breakoutWidth">500</ac:parameter>`),
-			wantTextChanged: true,
+			name:        "a parameter value edited",
+			sent:        macro(mode, width),
+			stored:      macro(mode, `<ac:parameter ac:name="breakoutWidth">500</ac:parameter>`),
+			wantChanges: 2, // the old value dropped, the new one added
 		},
 		{
-			name:            "a parameter dropped",
-			sent:            macro(mode, width),
-			stored:          macro(mode),
-			wantTextChanged: true,
+			name:        "a parameter dropped",
+			sent:        macro(mode, width),
+			stored:      macro(mode),
+			wantChanges: 1,
+		},
+		{
+			// Only the whitespace inside a value moved. It travelled in a
+			// whitespace-collapsed text stream before, so collapsing it here
+			// keeps the comparison exactly as strict as it was.
+			name:   "a parameter value respaced",
+			sent:   macro(`<ac:parameter ac:name="t">a  b</ac:parameter>`),
+			stored: macro(`<ac:parameter ac:name="t">a b</ac:parameter>`),
 		},
 	}
 	for _, tc := range tests {
@@ -183,15 +189,65 @@ func TestCompareStoredBodyXHTMLMacroParameterOrder(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			// A reordering must not fail the write; a parameter that was
-			// edited or dropped must still fail it, as it did before.
-			if d.TextChanged != tc.wantTextChanged {
-				t.Errorf("TextChanged = %v, want %v", d.TextChanged, tc.wantTextChanged)
+			// The page text is identical in every case here, so claiming the
+			// text changed would make the report assert something untrue.
+			if d.TextChanged {
+				t.Errorf("TextChanged = true; the page text is identical, only parameters differ")
 			}
-			if d.Clean() != tc.wantClean {
-				t.Errorf("Clean() = %v, want %v (dropped %v, added %v)", d.Clean(), tc.wantClean, d.DroppedAttrs, d.AddedAttrs)
+			if len(d.ParamChanges) != tc.wantChanges {
+				t.Errorf("ParamChanges = %v, want %d entries", d.ParamChanges, tc.wantChanges)
+			}
+			if d.Clean() != (tc.wantChanges == 0) {
+				t.Errorf("Clean() = %v, want %v", d.Clean(), tc.wantChanges == 0)
 			}
 		})
+	}
+}
+
+// A self-closing parameter is valid storage XHTML and the sent body is the
+// caller's own markup. Matching it as if it opened a pair runs the value
+// capture on to the next closing tag and swallows the page content in between,
+// which would hide exactly the loss this guard exists to catch.
+func TestMacroParameterSelfClosingDoesNotSwallowContent(t *testing.T) {
+	body := `<ac:structured-macro ac:name="m"><ac:parameter ac:name="e"/></ac:structured-macro>` +
+		`<p>IMPORTANT PARAGRAPH</p>` +
+		`<ac:structured-macro ac:name="code"><ac:parameter ac:name="f">v</ac:parameter></ac:structured-macro>`
+	if got := xhtmlText(body); !strings.Contains(got, "IMPORTANT PARAGRAPH") {
+		t.Errorf("page text was swallowed by a self-closing parameter: xhtmlText = %q", got)
+	}
+	// Losing that paragraph must still read as a failed write.
+	d, err := compareStoredBody(body, strings.Replace(body, "<p>IMPORTANT PARAGRAPH</p>", "", 1), bodyFormatXHTML)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !d.TextChanged {
+		t.Error("dropping a paragraph next to a self-closing parameter reported as unchanged")
+	}
+}
+
+// Storage format carries macro bodies verbatim inside CDATA, so markup quoted
+// in a code block is content and not page configuration. storageProfile
+// already strips those spans; the parameter scan has to agree with it.
+func TestMacroParameterProfileIgnoresQuotedMarkup(t *testing.T) {
+	body := `<ac:structured-macro ac:name="code"><ac:plain-text-body>` +
+		`<![CDATA[<ac:parameter ac:name="x">1</ac:parameter>]]></ac:plain-text-body></ac:structured-macro>`
+	if got := macroParameterProfile(body); len(got) != 0 {
+		t.Errorf("markup quoted inside CDATA read as configuration: %v", got)
+	}
+}
+
+// A parameter is scoped to the macro holding it, so a value moving between two
+// macros is a change rather than a reordering. Without that scope the two
+// bodies share one document-wide multiset and the swap passes silently.
+func TestMacroParameterProfileIsScopedPerMacro(t *testing.T) {
+	macro := func(theme string) string {
+		return `<ac:structured-macro ac:name="code"><ac:parameter ac:name="theme">` + theme +
+			`</ac:parameter></ac:structured-macro>`
+	}
+	sent := macro("none") + macro("dark")
+	stored := macro("dark") + macro("none")
+	if changes := diffMacroParameters(sent, stored); len(changes) == 0 {
+		t.Error("a parameter swapped between two macros reported as an in-macro reordering")
 	}
 }
 

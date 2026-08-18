@@ -71,14 +71,21 @@ func compareStoredBody(sent, stored, bodyFormat string) (writeDrift, error) {
 		return compareADF(sent, stored)
 	case bodyFormatXHTML:
 		sentText, storedText := xhtmlText(sent), xhtmlText(stored)
+		// Reordering a macro's parameters is not a change; adding, dropping
+		// or editing one still is, and stays as fatal as it was when the
+		// parameter values were compared as part of the text. Naming the
+		// parameter beats the opaque text offset that reported it before.
+		dropped, added := diffAttrProfiles(macroParameterProfile(sent), macroParameterProfile(stored))
 		return writeDrift{
-			TextChanged:   sentText != storedText,
+			TextChanged:   sentText != storedText || len(dropped) > 0 || len(added) > 0,
 			SentText:      sentText,
 			StoredText:    storedText,
 			VisibleSent:   len([]rune(sentText)),
 			VisibleStored: len([]rune(storedText)),
 			SentVisible:   sentText,
 			StoredVisible: storedText,
+			DroppedAttrs:  dropped,
+			AddedAttrs:    added,
 		}, nil
 	default:
 		return writeDrift{}, fmt.Errorf("cannot verify %s input: it is converted before sending, so the stored body is not comparable to what was supplied", bodyFormat)
@@ -326,10 +333,38 @@ func diffAttrProfiles(sent, stored map[string]int) (dropped, added []string) {
 	return dropped, added
 }
 
+// acParameterRe matches a macro parameter element, capturing its attributes
+// and its value. (?s) so a value containing newlines is still one match.
+var acParameterRe = regexp.MustCompile(`(?s)<ac:parameter\b([^>]*)>(.*?)</ac:parameter>`)
+
+// acParameterNameRe pulls a parameter's name out of its attributes.
+var acParameterNameRe = regexp.MustCompile(`ac:name\s*=\s*"([^"]*)"`)
+
+// macroParameterProfile counts a body's macro parameters as name=value pairs.
+// Confluence returns a macro's parameters in an order of its own choosing, so
+// they are compared as a multiset rather than a sequence: a reordering is not
+// a change, while a parameter that is dropped, added or edited still is.
+func macroParameterProfile(s string) map[string]int {
+	profile := map[string]int{}
+	for _, m := range acParameterRe.FindAllStringSubmatch(s, -1) {
+		name := ""
+		if n := acParameterNameRe.FindStringSubmatch(m[1]); n != nil {
+			name = n[1]
+		}
+		profile["macro parameter "+name+"="+strings.TrimSpace(m[2])]++
+	}
+	return profile
+}
+
 // xhtmlText strips tags so storage-format bodies compare on their text.
 // Confluence rewrites storage markup freely, so element-level equality would
 // report drift on every write.
 func xhtmlText(s string) string {
+	// Macro parameter values are configuration, not text a reader sees, and
+	// Confluence reorders them within a macro. Left in the text stream, a
+	// reordering reads as rewritten content and fails an otherwise clean
+	// write; macroParameterProfile compares them order-independently instead.
+	s = acParameterRe.ReplaceAllString(s, "")
 	var b strings.Builder
 	depth := 0
 	for _, r := range s {

@@ -139,6 +139,62 @@ func TestCompareStoredBodyXHTMLComparesText(t *testing.T) {
 	}
 }
 
+// Confluence returns a macro's parameters in an order of its own choosing. The
+// guard exists to stop a write that lost content, so it must not fail a write
+// that lost nothing: a reordering has to read as clean, while an edited or
+// missing parameter still has to surface.
+func TestCompareStoredBodyXHTMLMacroParameterOrder(t *testing.T) {
+	macro := func(params ...string) string {
+		return `<ac:structured-macro ac:name="code">` + strings.Join(params, "") +
+			`<ac:plain-text-body><![CDATA[echo hi]]></ac:plain-text-body></ac:structured-macro>`
+	}
+	mode := `<ac:parameter ac:name="breakoutMode">wide</ac:parameter>`
+	width := `<ac:parameter ac:name="breakoutWidth">760</ac:parameter>`
+	theme := `<ac:parameter ac:name="theme">none</ac:parameter>`
+
+	tests := []struct {
+		name            string
+		sent, stored    string
+		wantTextChanged bool
+		wantClean       bool
+	}{
+		{
+			name:      "parameters reordered by the server",
+			sent:      macro(theme, mode, width),
+			stored:    macro(mode, width, theme),
+			wantClean: true,
+		},
+		{
+			name:            "a parameter value edited",
+			sent:            macro(mode, width),
+			stored:          macro(mode, `<ac:parameter ac:name="breakoutWidth">500</ac:parameter>`),
+			wantTextChanged: true,
+		},
+		{
+			name:            "a parameter dropped",
+			sent:            macro(mode, width),
+			stored:          macro(mode),
+			wantTextChanged: true,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			d, err := compareStoredBody(tc.sent, tc.stored, bodyFormatXHTML)
+			if err != nil {
+				t.Fatal(err)
+			}
+			// A reordering must not fail the write; a parameter that was
+			// edited or dropped must still fail it, as it did before.
+			if d.TextChanged != tc.wantTextChanged {
+				t.Errorf("TextChanged = %v, want %v", d.TextChanged, tc.wantTextChanged)
+			}
+			if d.Clean() != tc.wantClean {
+				t.Errorf("Clean() = %v, want %v (dropped %v, added %v)", d.Clean(), tc.wantClean, d.DroppedAttrs, d.AddedAttrs)
+			}
+		})
+	}
+}
+
 // Markdown is converted before it is sent, so there is nothing to compare it
 // against; saying so is better than reporting a false mismatch.
 func TestCompareStoredBodyRejectsMarkdown(t *testing.T) {

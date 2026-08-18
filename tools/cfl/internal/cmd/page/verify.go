@@ -55,11 +55,21 @@ type writeDrift struct {
 	// occurrence counts fell or rose, in sorted order.
 	DroppedAttrs []string
 	AddedAttrs   []string
+
+	// ParamsDropped and ParamsAdded name macro parameters whose occurrence
+	// counts fell or rose, in sorted order. Their order within a macro is
+	// the server's to choose, so only an added, dropped or edited parameter
+	// appears here. They are kept apart from TextChanged because the page
+	// text is intact: saying otherwise would make the report assert
+	// something untrue.
+	ParamsDropped []string
+	ParamsAdded   []string
 }
 
 // Clean reports whether the stored body matched what was sent.
 func (d writeDrift) Clean() bool {
-	return !d.TextChanged && len(d.DroppedAttrs) == 0 && len(d.AddedAttrs) == 0
+	return !d.TextChanged && len(d.DroppedAttrs) == 0 && len(d.AddedAttrs) == 0 &&
+		len(d.ParamsDropped) == 0 && len(d.ParamsAdded) == 0
 }
 
 // compareStoredBody diffs a submitted body against the one Confluence stored.
@@ -71,6 +81,7 @@ func compareStoredBody(sent, stored, bodyFormat string) (writeDrift, error) {
 		return compareADF(sent, stored)
 	case bodyFormatXHTML:
 		sentText, storedText := xhtmlText(sent), xhtmlText(stored)
+		paramsDropped, paramsAdded := diffMacroParameters(sent, stored)
 		return writeDrift{
 			TextChanged:   sentText != storedText,
 			SentText:      sentText,
@@ -79,6 +90,8 @@ func compareStoredBody(sent, stored, bodyFormat string) (writeDrift, error) {
 			VisibleStored: len([]rune(storedText)),
 			SentVisible:   sentText,
 			StoredVisible: storedText,
+			ParamsDropped: paramsDropped,
+			ParamsAdded:   paramsAdded,
 		}, nil
 	default:
 		return writeDrift{}, fmt.Errorf("cannot verify %s input: it is converted before sending, so the stored body is not comparable to what was supplied", bodyFormat)
@@ -326,10 +339,136 @@ func diffAttrProfiles(sent, stored map[string]int) (dropped, added []string) {
 	return dropped, added
 }
 
+// blankInert masks comment and CDATA spans with spaces, preserving every
+// offset. Storage format carries macro bodies verbatim inside CDATA, so markup
+// quoted there is content rather than page configuration.
+//
+// Both parameter scans match against this one masked view and then index back
+// into the original, so they cannot disagree about where a parameter is: a
+// single notion of what counts as markup serves the text comparison and the
+// parameter profile alike.
+func blankInert(s string) string {
+	spans := storageInertRE.FindAllStringIndex(s, -1)
+	if len(spans) == 0 {
+		return s
+	}
+	b := []byte(s)
+	for _, span := range spans {
+		for i := span[0]; i < span[1]; i++ {
+			b[i] = ' '
+		}
+	}
+	return string(b)
+}
+
+// stripMacroParameters removes parameter elements from a storage body, leaving
+// comment and CDATA spans as the content they are. Matching happens on the
+// masked view while the text is cut from the original, so a parameter quoted
+// inside a macro body stays in the compared text and a real one does not.
+func stripMacroParameters(s string) string {
+	matches := acParameterPairRE.FindAllStringIndex(blankInert(s), -1)
+	if len(matches) == 0 {
+		return s
+	}
+	var b strings.Builder
+	last := 0
+	for _, m := range matches {
+		b.WriteString(s[last:m[0]])
+		last = m[1]
+	}
+	b.WriteString(s[last:])
+	return b.String()
+}
+
+// acParameterPairRE matches a macro parameter written as an open/close pair,
+// capturing its attributes and its value. The `[^/]` before the closing angle
+// bracket keeps it from starting on a self-closing tag, which has no value and
+// no closing tag: matching one would run the value capture on to the *next*
+// parameter's closing tag and swallow every element in between, including page
+// content. (?s) so a value containing newlines is still one match.
+var acParameterPairRE = regexp.MustCompile(`(?s)<ac:parameter\b([^>]*[^/])?>(.*?)</ac:parameter>`)
+
+// acParameterEmptyRE matches a self-closing parameter, which carries a name
+// but no value.
+var acParameterEmptyRE = regexp.MustCompile(`<ac:parameter\b([^>]*?)/>`)
+
+// acMacroOpenRE marks where each macro begins, so a parameter can be attributed
+// to the macro that contains it.
+var acMacroOpenRE = regexp.MustCompile(`<ac:structured-macro\b`)
+
+// acParameterNameRe pulls a parameter's name out of its attributes.
+var acParameterNameRe = regexp.MustCompile(`ac:name\s*=\s*"([^"]*)"`)
+
+// macroParameterProfile counts a body's macro parameters. Confluence returns a
+// macro's parameters in an order of its own choosing, so they are compared as a
+// multiset rather than a sequence: a reordering within one macro is not a
+// change, while a parameter that is dropped, added or edited still is.
+//
+// Each key is scoped to the macro that holds the parameter, identified by how
+// many macros open before it. Without that scope a parameter moving between two
+// macros carrying the same name and value would read as a reordering, and the
+// swap this guard exists to catch would pass.
+//
+// Comment and CDATA spans are masked first by blankInert, the same view
+// stripMacroParameters matches against, so the text comparison and this profile
+// agree on which parameters are real and which are quoted content.
+func macroParameterProfile(s string) map[string]int {
+	s = blankInert(s)
+	macroOpens := acMacroOpenRE.FindAllStringIndex(s, -1)
+	// macroAt reports how many macros have opened before position i, which
+	// identifies the macro a parameter sits in.
+	macroAt := func(i int) int {
+		n := 0
+		for _, m := range macroOpens {
+			if m[0] < i {
+				n++
+			}
+		}
+		return n
+	}
+
+	profile := map[string]int{}
+	record := func(start int, attrs, value string) {
+		name := ""
+		if n := acParameterNameRe.FindStringSubmatch(attrs); n != nil {
+			name = n[1]
+		}
+		// Collapse whitespace exactly as the surrounding text comparison
+		// does, so a value that only had its spacing normalized is not
+		// reported as an edit.
+		value = strings.Join(strings.Fields(value), " ")
+		profile[fmt.Sprintf("macro %d parameter %s=%s", macroAt(start), name, value)]++
+	}
+	for _, m := range acParameterPairRE.FindAllStringSubmatchIndex(s, -1) {
+		attrs := ""
+		if m[2] >= 0 {
+			attrs = s[m[2]:m[3]]
+		}
+		record(m[0], attrs, s[m[4]:m[5]])
+	}
+	for _, m := range acParameterEmptyRE.FindAllStringSubmatchIndex(s, -1) {
+		record(m[0], s[m[2]:m[3]], "")
+	}
+	return profile
+}
+
+// diffMacroParameters names the macro parameters that did not survive the
+// write as they were sent, dropped and added kept apart so the presenter owns
+// how they are marked. Two empty results mean every parameter came back,
+// whatever order the server chose to return them in.
+func diffMacroParameters(sent, stored string) (dropped, added []string) {
+	return diffAttrProfiles(macroParameterProfile(sent), macroParameterProfile(stored))
+}
+
 // xhtmlText strips tags so storage-format bodies compare on their text.
 // Confluence rewrites storage markup freely, so element-level equality would
 // report drift on every write.
 func xhtmlText(s string) string {
+	// Macro parameter values are configuration, not text a reader sees, and
+	// Confluence reorders them within a macro. Left in the text stream, a
+	// reordering reads as rewritten content and fails an otherwise clean
+	// write; macroParameterProfile compares them order-independently instead.
+	s = stripMacroParameters(s)
 	var b strings.Builder
 	depth := 0
 	for _, r := range s {
@@ -426,6 +565,8 @@ func verifyStoredBody(ctx context.Context, req verifyRequest) error {
 		SentExcerpt:         readableExcerpt(drift.SentVisible, off),
 		StoredExcerpt:       readableExcerpt(drift.StoredVisible, off),
 		AtomChanges:         drift.AtomChanges,
+		ParamsDropped:       drift.ParamsDropped,
+		ParamsAdded:         drift.ParamsAdded,
 		DroppedAttrs:        drift.DroppedAttrs,
 		AddedAttrs:          drift.AddedAttrs,
 		LostElements:        storage.Lost,
@@ -438,6 +579,12 @@ func verifyStoredBody(ctx context.Context, req verifyRequest) error {
 	}
 	if drift.TextChanged {
 		return fmt.Errorf("stored page content does not match what was sent")
+	}
+	// A parameter the server did not store as sent is a failed write too. It
+	// was fatal before macro parameters were excluded from the text compare,
+	// and nothing about excluding them makes it safe to pass.
+	if len(drift.ParamsDropped) > 0 || len(drift.ParamsAdded) > 0 {
+		return fmt.Errorf("stored page does not hold the macro parameters that were sent")
 	}
 	return nil
 }

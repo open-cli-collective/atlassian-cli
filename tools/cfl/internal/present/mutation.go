@@ -144,6 +144,10 @@ type WriteDrift struct {
 	AtomChanges  []string
 	DroppedAttrs []string
 	AddedAttrs   []string
+	// ParamsDropped and ParamsAdded name macro parameters the server did not
+	// store as sent, marker-free so the wording stays owned here.
+	ParamsDropped []string
+	ParamsAdded   []string
 	// LostElements names storage element types that became less frequent
 	// across the write.
 	LostElements []string
@@ -175,6 +179,18 @@ func attrLines(d WriteDrift) []string {
 		lines = append(lines, "  attributes added:")
 		for _, a := range d.AddedAttrs {
 			lines = append(lines, "    + "+a)
+		}
+	}
+	if len(d.ParamsDropped) > 0 {
+		lines = append(lines, "  macro parameters dropped:")
+		for _, p := range d.ParamsDropped {
+			lines = append(lines, "    - "+p)
+		}
+	}
+	if len(d.ParamsAdded) > 0 {
+		lines = append(lines, "  macro parameters added:")
+		for _, p := range d.ParamsAdded {
+			lines = append(lines, "    + "+p)
 		}
 	}
 	return lines
@@ -239,6 +255,15 @@ func (PagePresenter) PresentWriteDrift(d WriteDrift) *sharedpresent.OutputModel 
 			lines = append(lines, "Confluence added attributes that were not sent:")
 			for _, a := range d.AddedAttrs {
 				lines = append(lines, "  + "+a)
+			}
+		}
+		if len(d.ParamsDropped) > 0 || len(d.ParamsAdded) > 0 {
+			lines = append(lines, fmt.Sprintf("Stored %s body does not hold the macro parameters that were sent. Page text is intact; these parameters differ:", d.BodyFormat))
+			for _, p := range d.ParamsDropped {
+				lines = append(lines, "  - "+p)
+			}
+			for _, p := range d.ParamsAdded {
+				lines = append(lines, "  + "+p)
 			}
 		}
 	}

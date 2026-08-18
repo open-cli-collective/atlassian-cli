@@ -139,6 +139,163 @@ func TestCompareStoredBodyXHTMLComparesText(t *testing.T) {
 	}
 }
 
+// Confluence returns a macro's parameters in an order of its own choosing. The
+// guard exists to stop a write that lost content, so it must not fail a write
+// that lost nothing: a reordering has to read as clean, while an edited or
+// missing parameter still has to surface.
+func TestCompareStoredBodyXHTMLMacroParameterOrder(t *testing.T) {
+	macro := func(params ...string) string {
+		return `<ac:structured-macro ac:name="code">` + strings.Join(params, "") +
+			`<ac:plain-text-body><![CDATA[echo hi]]></ac:plain-text-body></ac:structured-macro>`
+	}
+	mode := `<ac:parameter ac:name="breakoutMode">wide</ac:parameter>`
+	width := `<ac:parameter ac:name="breakoutWidth">760</ac:parameter>`
+	theme := `<ac:parameter ac:name="theme">none</ac:parameter>`
+
+	tests := []struct {
+		name         string
+		sent, stored string
+		wantChanges  int
+	}{
+		{
+			name:   "parameters reordered by the server",
+			sent:   macro(theme, mode, width),
+			stored: macro(mode, width, theme),
+		},
+		{
+			name:        "a parameter value edited",
+			sent:        macro(mode, width),
+			stored:      macro(mode, `<ac:parameter ac:name="breakoutWidth">500</ac:parameter>`),
+			wantChanges: 2, // the old value dropped, the new one added
+		},
+		{
+			name:        "a parameter dropped",
+			sent:        macro(mode, width),
+			stored:      macro(mode),
+			wantChanges: 1,
+		},
+		{
+			// Only the whitespace inside a value moved. It travelled in a
+			// whitespace-collapsed text stream before, so collapsing it here
+			// keeps the comparison exactly as strict as it was.
+			name:   "a parameter value respaced",
+			sent:   macro(`<ac:parameter ac:name="t">a  b</ac:parameter>`),
+			stored: macro(`<ac:parameter ac:name="t">a b</ac:parameter>`),
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			d, err := compareStoredBody(tc.sent, tc.stored, bodyFormatXHTML)
+			if err != nil {
+				t.Fatal(err)
+			}
+			// The page text is identical in every case here, so claiming the
+			// text changed would make the report assert something untrue.
+			if d.TextChanged {
+				t.Errorf("TextChanged = true; the page text is identical, only parameters differ")
+			}
+			if got := len(d.ParamsDropped) + len(d.ParamsAdded); got != tc.wantChanges {
+				t.Errorf("parameter changes = %v/%v, want %d entries", d.ParamsDropped, d.ParamsAdded, tc.wantChanges)
+			}
+			if d.Clean() != (tc.wantChanges == 0) {
+				t.Errorf("Clean() = %v, want %v", d.Clean(), tc.wantChanges == 0)
+			}
+		})
+	}
+}
+
+// A self-closing parameter is valid storage XHTML and the sent body is the
+// caller's own markup. Matching it as if it opened a pair runs the value
+// capture on to the next closing tag and swallows the page content in between,
+// which would hide exactly the loss this guard exists to catch.
+func TestMacroParameterSelfClosingDoesNotSwallowContent(t *testing.T) {
+	body := `<ac:structured-macro ac:name="m"><ac:parameter ac:name="e"/></ac:structured-macro>` +
+		`<p>IMPORTANT PARAGRAPH</p>` +
+		`<ac:structured-macro ac:name="code"><ac:parameter ac:name="f">v</ac:parameter></ac:structured-macro>`
+	if got := xhtmlText(body); !strings.Contains(got, "IMPORTANT PARAGRAPH") {
+		t.Errorf("page text was swallowed by a self-closing parameter: xhtmlText = %q", got)
+	}
+	// Losing that paragraph must still read as a failed write.
+	d, err := compareStoredBody(body, strings.Replace(body, "<p>IMPORTANT PARAGRAPH</p>", "", 1), bodyFormatXHTML)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !d.TextChanged {
+		t.Error("dropping a paragraph next to a self-closing parameter reported as unchanged")
+	}
+}
+
+// Storage format carries macro bodies verbatim inside CDATA, so markup quoted
+// in a code block is content and not page configuration. storageProfile
+// already strips those spans; the parameter scan has to agree with it.
+func TestMacroParameterProfileIgnoresQuotedMarkup(t *testing.T) {
+	body := `<ac:structured-macro ac:name="code"><ac:plain-text-body>` +
+		`<![CDATA[<ac:parameter ac:name="x">1</ac:parameter>]]></ac:plain-text-body></ac:structured-macro>`
+	if got := macroParameterProfile(body); len(got) != 0 {
+		t.Errorf("markup quoted inside CDATA read as configuration: %v", got)
+	}
+}
+
+// A parameter is scoped to the macro holding it, so a value moving between two
+// macros is a change rather than a reordering. Without that scope the two
+// bodies share one document-wide multiset and the swap passes silently.
+func TestMacroParameterProfileIsScopedPerMacro(t *testing.T) {
+	macro := func(theme string) string {
+		return `<ac:structured-macro ac:name="code"><ac:parameter ac:name="theme">` + theme +
+			`</ac:parameter></ac:structured-macro>`
+	}
+	sent := macro("none") + macro("dark")
+	stored := macro("dark") + macro("none")
+	if dropped, added := diffMacroParameters(sent, stored); len(dropped)+len(added) == 0 {
+		t.Error("a parameter swapped between two macros reported as an in-macro reordering")
+	}
+}
+
+// A parameter-only mismatch has to fail the command, not just set a field on
+// a struct. Without this the fatal branch and its wording could be deleted and
+// every other test would still pass.
+func TestRunEditFailsWhenStoredMacroParametersDiffer(t *testing.T) {
+	const sent = `<ac:structured-macro ac:name="code">` +
+		`<ac:parameter ac:name="theme">none</ac:parameter>` +
+		`<ac:plain-text-body><![CDATA[echo hi]]></ac:plain-text-body></ac:structured-macro>`
+	srv, _ := driftServer(t, func(map[string]any) string {
+		// Same page text, one parameter value changed by the server.
+		return `{"storage":{"value":"` + strings.ReplaceAll(
+			strings.Replace(sent, ">none<", ">dark<", 1), `"`, `\"`) + `"}}`
+	})
+	defer srv.Close()
+
+	err := runEdit(context.Background(), editOptsFor(t, srv, sent, false))
+	if err == nil {
+		t.Fatal("expected an error when a stored macro parameter differs from what was sent")
+	}
+	if !strings.Contains(err.Error(), "macro parameters") {
+		t.Errorf("error should name the macro parameters, got: %v", err)
+	}
+}
+
+// The parameter scan and the text scan have to agree on what a parameter is.
+// The profile skips CDATA because markup quoted in a macro body is content, so
+// the text scan must keep it: otherwise a server edit to a documented sample is
+// dropped from the text and absent from the profile, and nothing catches it.
+func TestQuotedParameterMarkupStaysInComparedText(t *testing.T) {
+	sample := func(inner string) string {
+		return `<ac:structured-macro ac:name="code"><ac:plain-text-body><![CDATA[if (a > b) {}` + "\n" +
+			inner + "\n" + `tail]]></ac:plain-text-body></ac:structured-macro>`
+	}
+	sent := sample(`<ac:parameter ac:name="x">DOCUMENTED SAMPLE</ac:parameter>`)
+	stored := sample(`<ac:parameter ac:name="x">SERVER MANGLED IT</ac:parameter>`)
+
+	d, err := compareStoredBody(sent, stored, bodyFormatXHTML)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d.Clean() {
+		t.Errorf("a server edit inside a quoted code sample went unreported\n sent  %q\n stored %q",
+			xhtmlText(sent), xhtmlText(stored))
+	}
+}
+
 // Markdown is converted before it is sent, so there is nothing to compare it
 // against; saying so is better than reporting a false mismatch.
 func TestCompareStoredBodyRejectsMarkdown(t *testing.T) {
@@ -647,6 +804,53 @@ func TestVerificationApplies(t *testing.T) {
 		if got := verificationApplies(tc.format, tc.hasNewContent, tc.noVer); got != tc.want {
 			t.Errorf("verificationApplies(%q,%v,%v) = %v, want %v", tc.format, tc.hasNewContent, tc.noVer, got, tc.want)
 		}
+	}
+}
+
+// The dropped-before-added ordering is a claim about rendered output, so it is
+// asserted against rendered output. An edit has to read old value then new.
+func TestPresentedMacroParametersReadOldThenNew(t *testing.T) {
+	render := func(d cflpresent.WriteDrift) string {
+		var b strings.Builder
+		for _, sec := range (cflpresent.PagePresenter{}).PresentWriteDrift(d).Sections {
+			if msg, ok := sec.(*sharedpresent.MessageSection); ok {
+				b.WriteString(msg.Message)
+			}
+		}
+		return b.String()
+	}
+	drift := cflpresent.WriteDrift{
+		BodyFormat:    bodyFormatXHTML,
+		ParamsDropped: []string{"macro 1 parameter breakoutWidth=760 (1→0)"},
+		ParamsAdded:   []string{"macro 1 parameter breakoutWidth=500 (0→1)"},
+	}
+
+	out := render(drift)
+	if !strings.Contains(out, "macro parameters that were sent") {
+		t.Errorf("report should say the parameters did not survive:\n%s", out)
+	}
+	if !strings.Contains(out, "Page text is intact") {
+		t.Errorf("report should say the text survived, not that it changed:\n%s", out)
+	}
+	dropped, added := strings.Index(out, "- macro 1 parameter breakoutWidth=760"), strings.Index(out, "+ macro 1 parameter breakoutWidth=500")
+	if dropped < 0 || added < 0 {
+		t.Fatalf("report missing one of the parameter lines:\n%s", out)
+	}
+	if dropped > added {
+		t.Errorf("an edit reads backwards: the new value is printed above the one it replaced:\n%s", out)
+	}
+
+	// The same ordering has to hold in the text-loss branch, which renders
+	// through a different code path.
+	drift.TextChanged = true
+	drift.DiffOffset = -1
+	out = render(drift)
+	dropped, added = strings.Index(out, "macro parameters dropped:"), strings.Index(out, "macro parameters added:")
+	if dropped < 0 || added < 0 {
+		t.Fatalf("text-loss branch missing a parameter header:\n%s", out)
+	}
+	if dropped > added {
+		t.Errorf("text-loss branch prints added before dropped:\n%s", out)
 	}
 }
 

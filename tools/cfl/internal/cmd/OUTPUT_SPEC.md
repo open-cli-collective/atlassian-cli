@@ -312,6 +312,18 @@ Confluence added attributes that were not sent:
   + <node>.attrs.<name> (<before>→<after>)
 ```
 
+A storage-format write also compares each macro's parameters. Their order
+within a macro is the server's to choose and is not reported; a parameter that
+was added, dropped or edited is, and the command exits non-zero. `<n>` counts
+the macros opening before the parameter, so a value moving between two macros
+reads as a change rather than a reordering:
+
+```text
+Stored <format> body does not hold the macro parameters that were sent. Page text is intact; these parameters differ:
+  - macro <n> parameter <name>=<value> (<before>→<after>)
+  + macro <n> parameter <name>=<value> (<before>→<after>)
+```
+
 Content loss is reported the same way and the command exits non-zero. The
 first line names what moved in the document — one of three shapes:
 
@@ -332,6 +344,10 @@ The page was updated, but it does not hold the content supplied. Re-read the pag
     - <node>.attrs.<name> (<before>→<after>)
   attributes added:
     + <node>.attrs.<name> (<before>→<after>)
+  macro parameters dropped:
+    - macro <n> parameter <name>=<value> (<before>→<after>)
+  macro parameters added:
+    + macro <n> parameter <name>=<value> (<before>→<after>)
 ```
 
 The offset line is omitted when the visible text is identical and only

@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Export to PDF</title>
+    <meta name="ajs-page-id" content="123456">
+    <meta name="ajs-page-title" content="Quarterly Handoff">
+    <meta name="ajs-space-key" content="DEV">
+    <meta name="ajs-taskId" content="module-11111111-2222-3333-4444-555555555555">
+    <meta name="ajs-pageId" content="123456">
+    <meta name="ajs-spaceKey" content="">
+    <meta name="ajs-isV3" content="true">
+    <meta name="ajs-context-path" content="/wiki">
+    <meta name="ajs-base-url" content="https://example.atlassian.net/wiki">
+</head>
+<body>
+<div id="main">
+    <h1>Exporting to PDF</h1>
+    <div id="taskGrayBar"></div>
+    <span id="percentComplete">0% complete</span>
+    <span id="taskCurrentStatus"></span>
+    <a id="downloadableLink_dynamic" class="hidden">Download</a>
+</div>
+<script>
+    LongRunningTask = {};
+    (function (document, $) {
+        LongRunningTask.reloadProgressBar = function (nextButton) {
+            var taskId = AJS.Meta.get("taskId");
+            var isV3 = AJS.Meta.get("isV3");
+            var spaceKey = AJS.Meta.get("spaceKey");
+            var url = isV3
+                ? "/wiki/api/v2/pdfexporttask/progress/" + taskId + (spaceKey ? "?isSpaceExport=true" : "")
+                : "/wiki/services/api/v1/task/" + taskId + "/progress";
+        };
+    })(document, jQuery);
+</script>
+</body>
+</html>

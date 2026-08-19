@@ -380,6 +380,35 @@ Success:
 Deleted page: <title> (ID: <id>)
 ```
 
+## `page export <page-id>`
+
+Success:
+
+```text
+Exported: <output-path>
+Size: <human-readable size>
+```
+
+Confluence renders the document server-side, so the export runs as a task that
+is polled until it finishes. Each change in reported completion emits one
+stderr line, which keeps a wait distinguishable from a stall:
+
+```text
+Exporting: <percent>% complete
+```
+
+Notes:
+- Progress is stderr only; stdout carries the success block and nothing else.
+- `--format` accepts `pdf` and rejects anything else with
+  `invalid export format: "<value>" (valid formats: pdf)`.
+- Without `--output-file` the filename derives from the page title, reduced to a
+  single path element, falling back to the page ID when the title leaves nothing
+  usable.
+- An existing output file is refused unless `--force` is passed, and the refusal
+  precedes the export so no render is spent on it.
+- A wait that exceeds `--timeout` fails naming the flag rather than the deadline
+  alone.
+
 ## `attachment list --page <page-id>`
 
 Default columns:

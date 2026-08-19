@@ -8,6 +8,7 @@ A command-line interface for Atlassian Confluence Cloud, inspired by [jira-cli](
 - **Markdown-first**: Write and view pages in markdown, auto-converted to/from Confluence format
 - List and browse spaces
 - Create, view, edit, copy, and delete pages
+- Export a page to PDF
 - Inspect page history and view specific page versions
 - **Search content** using CQL (Confluence Query Language)
 - Upload, download, list, and delete attachments
@@ -498,6 +499,39 @@ cfl page delete 12345 --force
 
 **Arguments:**
 - `<page-id>` - The page ID (**required**)
+
+---
+
+### `cfl page export <page-id>`
+
+Export a page as a PDF.
+
+```bash
+cfl page export 12345                        # Filename from the page title
+cfl page export 12345 -O handoff.pdf
+cfl page export 12345 -O handoff.pdf --force
+cfl page export 12345 --timeout 10m          # Allow longer for a large page
+```
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--format` | | `pdf` | Export format; `pdf` is the only supported value |
+| `--output-file` | `-O` | (from page title) | Output file path |
+| `--force` | `-f` | `false` | Overwrite existing file without warning |
+| `--timeout` | | `5m` | How long to wait for Confluence to render the export |
+
+**Arguments:**
+- `<page-id>` - The page ID (**required**)
+
+Confluence renders the PDF server-side, so the command starts an export task,
+polls it until it finishes, and then downloads the result. Completion updates
+go to stderr, leaving stdout to carry only the success block, so redirecting
+stdout captures the two-line result and nothing else.
+
+Without `--output-file` the page title names the file. Titles are free text and
+can carry path separators, so the name is reduced to a single file in the
+working directory, falling back to the page ID when a title leaves nothing
+usable.
 
 ---
 

@@ -1,7 +1,27 @@
 // Package text provides text manipulation utilities.
 package text
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/open-cli-collective/jira-ticket-cli/api"
+)
+
+// InterpretEscapesUnlessRawADF interprets C-style escape sequences in s via
+// InterpretEscapes, unless s is itself a raw ADF JSON document (see
+// api.IsRawADFDocument). Escape interpretation is a markdown convenience;
+// running it over raw ADF JSON first would corrupt the JSON (e.g. turning
+// an escaped "\n" inside a JSON string into a literal newline byte) before
+// the ADF parser ever sees it, so raw ADF is passed through unmodified
+// instead. Call sites that hand free-text description/body/field values to
+// NewADFDocument or MarkdownToADF should route them through this helper
+// rather than calling InterpretEscapes directly.
+func InterpretEscapesUnlessRawADF(s string) string {
+	if api.IsRawADFDocument(s) {
+		return s
+	}
+	return InterpretEscapes(s)
+}
 
 // InterpretEscapes processes C-style escape sequences in a string.
 // This handles the common case where CLI users pass literal \n, \t, or \\

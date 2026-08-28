@@ -77,7 +77,7 @@ preceding field edit must be performed as a separate command.`,
 	}
 
 	cmd.Flags().StringVarP(&summary, "summary", "s", "", "New summary")
-	cmd.Flags().StringVarP(&description, "description", "d", "", "New description (raw ADF JSON passes through verbatim)")
+	cmd.Flags().StringVarP(&description, "description", "d", "", "New description (raw ADF JSON is sent as structured ADF)")
 	cmd.Flags().StringVar(&parent, "parent", "", "Parent issue key (epic or parent issue)")
 	cmd.Flags().StringVarP(&assignee, "assignee", "a", "", "Assignee (account ID, email, or \"me\")")
 	cmd.Flags().StringVarP(&issueType, "type", "t", "", "New issue type (uses bulk move API)")

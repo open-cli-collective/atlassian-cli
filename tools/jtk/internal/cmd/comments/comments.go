@@ -169,7 +169,7 @@ func newAddCmd(opts *root.Options) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVarP(&body, "body", "b", "", "Comment text (raw ADF JSON passes through verbatim) (required)")
+	cmd.Flags().StringVarP(&body, "body", "b", "", "Comment text (raw ADF JSON is sent as structured ADF) (required)")
 	_ = cmd.MarkFlagRequired("body")
 
 	return cmd

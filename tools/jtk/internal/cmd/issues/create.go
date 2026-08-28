@@ -54,7 +54,7 @@ func newCreateCmd(opts *root.Options) *cobra.Command {
 	cmd.Flags().StringVarP(&project, "project", "p", "", "Project key or name (required)")
 	cmd.Flags().StringVarP(&issueType, "type", "t", "Task", "Issue type name (resolved via cache)")
 	cmd.Flags().StringVarP(&summary, "summary", "s", "", "Issue summary (required)")
-	cmd.Flags().StringVarP(&description, "description", "d", "", "Issue description (raw ADF JSON passes through verbatim)")
+	cmd.Flags().StringVarP(&description, "description", "d", "", "Issue description (raw ADF JSON is sent as structured ADF)")
 	cmd.Flags().StringVar(&parent, "parent", "", "Parent issue key (epic or parent issue)")
 	cmd.Flags().StringVarP(&assignee, "assignee", "a", "", "Assignee: accountId, email, display name, or \"me\"")
 	cmd.Flags().StringArrayVarP(&fields, "field", "f", nil, "Additional fields (key=value)")

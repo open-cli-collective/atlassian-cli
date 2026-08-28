@@ -54,7 +54,7 @@ func newCreateCmd(opts *root.Options) *cobra.Command {
 	cmd.Flags().StringVarP(&project, "project", "p", "", "Project key or name (required)")
 	cmd.Flags().StringVarP(&issueType, "type", "t", "Task", "Issue type name (resolved via cache)")
 	cmd.Flags().StringVarP(&summary, "summary", "s", "", "Issue summary (required)")
-	cmd.Flags().StringVarP(&description, "description", "d", "", "Issue description")
+	cmd.Flags().StringVarP(&description, "description", "d", "", "Issue description (raw ADF JSON passes through verbatim)")
 	cmd.Flags().StringVar(&parent, "parent", "", "Parent issue key (epic or parent issue)")
 	cmd.Flags().StringVarP(&assignee, "assignee", "a", "", "Assignee: accountId, email, display name, or \"me\"")
 	cmd.Flags().StringArrayVarP(&fields, "field", "f", nil, "Additional fields (key=value)")
@@ -124,7 +124,9 @@ func runCreate(ctx context.Context, opts *root.Options, project, issueType, summ
 		extraFields["assignee"] = map[string]string{"accountId": resolvedUser.AccountID}
 	}
 
-	req := api.BuildCreateRequest(projectKey, typeName, summary, text.InterpretEscapes(description), extraFields)
+	// Raw ADF passthrough (e.g. --description "$(cat doc.adf.json)") must
+	// reach BuildCreateRequest unmodified; see text.InterpretEscapesUnlessRawADF.
+	req := api.BuildCreateRequest(projectKey, typeName, summary, text.InterpretEscapesUnlessRawADF(description), extraFields)
 
 	issue, err := client.CreateIssue(ctx, req)
 	if err != nil {

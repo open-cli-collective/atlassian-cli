@@ -169,7 +169,7 @@ func newAddCmd(opts *root.Options) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVarP(&body, "body", "b", "", "Comment text (required)")
+	cmd.Flags().StringVarP(&body, "body", "b", "", "Comment text (raw ADF JSON passes through verbatim) (required)")
 	_ = cmd.MarkFlagRequired("body")
 
 	return cmd
@@ -181,7 +181,9 @@ func runAdd(ctx context.Context, opts *root.Options, issueKey, body string) erro
 		return err
 	}
 
-	comment, err := client.AddComment(ctx, issueKey, text.InterpretEscapes(body))
+	// Raw ADF passthrough (e.g. --body "$(cat doc.adf.json)") must reach
+	// AddComment unmodified; see text.InterpretEscapesUnlessRawADF.
+	comment, err := client.AddComment(ctx, issueKey, text.InterpretEscapesUnlessRawADF(body))
 	if err != nil {
 		return err
 	}

@@ -368,7 +368,7 @@ jtk issues create -p MYPROJECT -t Task -s "Their task" --assignee "Aaron Wong"
 | `--project` | `-p` | | Project key or name (**required**) |
 | `--type` | `-t` | `Task` | Issue type: `Task`, `Bug`, `Story`, etc. |
 | `--summary` | `-s` | | Issue summary (**required**) |
-| `--description` | `-d` | | Issue description (supports `\n`, `\t`, `\\` escape sequences) |
+| `--description` | `-d` | | Issue description (supports `\n`, `\t`, `\\` escape sequences; input recognized as a raw ADF document — `{"type":"doc","version":1,...}` — is passed through verbatim and skips escape interpretation) |
 | `--parent` | | | Parent issue key (epic or parent issue) |
 | `--assignee` | `-a` | | Assignee (account ID, email, display name, or `"me"`) |
 | `--field` | `-f` | | Additional field in `key=value` format (can be repeated) |
@@ -398,7 +398,7 @@ jtk issues update PROJ-123 --field customfield_10050=Option1 --field customfield
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
 | `--summary` | `-s` | | New summary |
-| `--description` | `-d` | | New description (supports `\n`, `\t`, `\\` escape sequences) |
+| `--description` | `-d` | | New description (supports `\n`, `\t`, `\\` escape sequences; input recognized as a raw ADF document — `{"type":"doc","version":1,...}` — is passed through verbatim and skips escape interpretation) |
 | `--parent` | | | Parent issue key (epic or parent issue) |
 | `--assignee` | `-a` | | Assignee (account ID, email, display name, `"me"`, or `"none"` to unassign) |
 | `--type` | `-t` | | New issue type (uses Jira Cloud bulk move API) |
@@ -797,7 +797,7 @@ jtk comments add PROJ-123 --body "Line one\nLine two\n\tIndented line"
 
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
-| `--body` | `-b` | | Comment text (supports `\n`, `\t`, `\\` escape sequences) (**required**) |
+| `--body` | `-b` | | Comment text (supports `\n`, `\t`, `\\` escape sequences; input recognized as a raw ADF document — `{"type":"doc","version":1,...}` — is passed through verbatim and skips escape interpretation) (**required**) |
 
 **Arguments:**
 - `<issue-key>` - The issue key (**required**)

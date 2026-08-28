@@ -75,6 +75,178 @@ func TestRunUpdate_RequestBodyNoDoubleQuoting(t *testing.T) {
 	testutil.Equal(t, descText, "Updated description")
 }
 
+// TestRunUpdate_RawADFDescriptionPassthrough verifies that a --description
+// value which is itself a JSON-encoded ADF document (e.g.
+// --description "$(cat doc.adf.json)") is sent to the API as a structured
+// ADF object, preserved exactly — including an inlineCard node (which the
+// markdown converter has no syntax to produce) and a text node whose JSON
+// source contains an escaped "\n". The latter proves description escape
+// handling (meant for markdown convenience) does not run ahead of raw-ADF
+// detection and corrupt the JSON before it's parsed. See #484.
+func TestRunUpdate_RawADFDescriptionPassthrough(t *testing.T) {
+	t.Parallel()
+	var capturedBody []byte
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "PUT" {
+			capturedBody, _ = io.ReadAll(r.Body)
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{
+		URL:      server.URL,
+		Email:    "test@example.com",
+		APIToken: "token",
+	})
+	testutil.RequireNoError(t, err)
+
+	rawADF := `{
+		"type": "doc",
+		"version": 1,
+		"content": [
+			{
+				"type": "paragraph",
+				"content": [
+					{"type": "text", "text": "Line one\nLine two"},
+					{"type": "inlineCard", "attrs": {"url": "https://example.com/doc"}}
+				]
+			}
+		]
+	}`
+
+	var stdout bytes.Buffer
+	opts := &root.Options{
+		Stdout: &stdout,
+		Stderr: &bytes.Buffer{},
+	}
+	opts.SetAPIClient(client)
+
+	err = runUpdate(context.Background(), opts, "PROJ-123", "", rawADF, "", "", "", "", nil)
+	testutil.RequireNoError(t, err)
+
+	testutil.NotEmpty(t, capturedBody)
+
+	var reqBody map[string]any
+	err = json.Unmarshal(capturedBody, &reqBody)
+	testutil.RequireNoError(t, err)
+
+	fields := reqBody["fields"].(map[string]any)
+	desc := fields["description"].(map[string]any)
+	testutil.Equal(t, desc["type"], "doc")
+	testutil.Equal(t, desc["version"], float64(1))
+
+	content := desc["content"].([]any)
+	testutil.Len(t, content, 1)
+	para := content[0].(map[string]any)
+	testutil.Equal(t, para["type"], "paragraph")
+	paraContent := para["content"].([]any)
+	testutil.Len(t, paraContent, 2)
+
+	textNode := paraContent[0].(map[string]any)
+	testutil.Equal(t, textNode["type"], "text")
+	// The escaped "\n" from the JSON source decodes to a real newline via
+	// ordinary JSON unmarshaling — it must not be pre-mangled by
+	// text.InterpretEscapes before the raw-ADF detector and parser ever see
+	// the JSON.
+	testutil.Equal(t, textNode["text"], "Line one\nLine two")
+
+	cardNode := paraContent[1].(map[string]any)
+	testutil.Equal(t, cardNode["type"], "inlineCard")
+	cardAttrs := cardNode["attrs"].(map[string]any)
+	testutil.Equal(t, cardAttrs["url"], "https://example.com/doc")
+}
+
+// TestRunUpdate_FieldTextareaRawADFPassthrough exercises raw ADF passthrough
+// through the rich-text --field path end-to-end: --field
+// customfield_10099=<raw ADF JSON> is parsed by ResolveFieldArg (which
+// splits the arg on the first "="), formatted by FormatFieldValue for a
+// textarea custom field, and PUT to the update API. The inlineCard URL
+// carries query parameters (itself containing "=" and "&") to lock in that
+// ResolveFieldArg's strings.SplitN(arg, "=", 2) only ever splits on the
+// first "=" — the rest of the raw ADF JSON, "=" characters included, is
+// preserved verbatim as the field value. See #484.
+func TestRunUpdate_FieldTextareaRawADFPassthrough(t *testing.T) {
+	t.Parallel()
+	var capturedBody []byte
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/rest/api/3/field" && r.Method == "GET":
+			fields := []api.Field{
+				{
+					ID:   "customfield_10099",
+					Name: "Release Notes",
+					Schema: api.FieldSchema{
+						Type:   "string",
+						Custom: "com.atlassian.jira.plugin.system.customfieldtypes:textarea",
+					},
+				},
+			}
+			_ = json.NewEncoder(w).Encode(fields)
+		case r.Method == "PUT":
+			capturedBody, _ = io.ReadAll(r.Body)
+			w.WriteHeader(http.StatusNoContent)
+		default:
+			t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@example.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	rawADF := `{
+		"type": "doc",
+		"version": 1,
+		"content": [
+			{
+				"type": "paragraph",
+				"content": [
+					{"type": "inlineCard", "attrs": {"url": "https://example.com/doc?foo=bar&baz=qux"}}
+				]
+			}
+		]
+	}`
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}, IDOnly: true}
+	opts.SetAPIClient(client)
+
+	err = runUpdate(context.Background(), opts, "PROJ-123", "", "", "", "", "", "", []string{
+		"customfield_10099=" + rawADF,
+	})
+	testutil.RequireNoError(t, err)
+
+	testutil.NotEmpty(t, capturedBody)
+
+	var reqBody map[string]any
+	err = json.Unmarshal(capturedBody, &reqBody)
+	testutil.RequireNoError(t, err)
+
+	fields := reqBody["fields"].(map[string]any)
+	field := fields["customfield_10099"].(map[string]any)
+	testutil.Equal(t, field["type"], "doc")
+	testutil.Equal(t, field["version"], float64(1))
+
+	content := field["content"].([]any)
+	testutil.Len(t, content, 1)
+	para := content[0].(map[string]any)
+	paraContent := para["content"].([]any)
+	testutil.Len(t, paraContent, 1)
+
+	cardNode := paraContent[0].(map[string]any)
+	testutil.Equal(t, cardNode["type"], "inlineCard")
+	cardAttrs := cardNode["attrs"].(map[string]any)
+	// Proves the "=" and "&" inside the URL's query string survived
+	// ResolveFieldArg's SplitN(arg, "=", 2) intact.
+	testutil.Equal(t, cardAttrs["url"], "https://example.com/doc?foo=bar&baz=qux")
+}
+
 func TestNewUpdateCmd(t *testing.T) {
 	opts := &root.Options{}
 	cmd := newUpdateCmd(opts)

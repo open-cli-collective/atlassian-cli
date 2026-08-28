@@ -543,6 +543,49 @@ func TestFormatFieldValue_TextareaField(t *testing.T) {
 	testutil.Equal(t, adf.Content[0].Type, "paragraph")
 }
 
+// TestFormatFieldValue_TextareaField_RawADFPassthrough verifies that a
+// rich-text --field override (a textarea custom field) accepts raw ADF JSON
+// the same way --description does: preserved as a structured document,
+// including an inlineCard node the markdown converter has no syntax to
+// produce. See #484.
+func TestFormatFieldValue_TextareaField_RawADFPassthrough(t *testing.T) {
+	field := &Field{
+		ID:   "customfield_10046",
+		Name: "QA Notes",
+		Schema: FieldSchema{
+			Type:   "string",
+			Custom: "com.atlassian.jira.plugin.system.customfieldtypes:textarea",
+		},
+	}
+
+	rawADF := `{
+		"type": "doc",
+		"version": 1,
+		"content": [
+			{
+				"type": "paragraph",
+				"content": [
+					{"type": "inlineCard", "attrs": {"url": "https://example.com/doc"}}
+				]
+			}
+		]
+	}`
+
+	got := FormatFieldValue(field, rawADF)
+
+	adf, ok := got.(*ADFDocument)
+	testutil.True(t, ok, fmt.Sprintf("expected *ADFDocument, got %T", got))
+	testutil.NotNil(t, adf)
+	testutil.Equal(t, adf.Type, "doc")
+	testutil.Len(t, adf.Content, 1)
+	para := adf.Content[0]
+	testutil.Equal(t, para.Type, "paragraph")
+	testutil.Len(t, para.Content, 1)
+	card := para.Content[0]
+	testutil.Equal(t, card.Type, "inlineCard")
+	testutil.Equal(t, card.Attrs["url"], "https://example.com/doc")
+}
+
 func TestClient_GetFieldOptionsFromEditMeta(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testutil.Contains(t, r.URL.Path, "/issue/PROJ-123/editmeta")

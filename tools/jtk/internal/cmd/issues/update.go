@@ -77,7 +77,7 @@ preceding field edit must be performed as a separate command.`,
 	}
 
 	cmd.Flags().StringVarP(&summary, "summary", "s", "", "New summary")
-	cmd.Flags().StringVarP(&description, "description", "d", "", "New description")
+	cmd.Flags().StringVarP(&description, "description", "d", "", "New description (raw ADF JSON passes through verbatim)")
 	cmd.Flags().StringVar(&parent, "parent", "", "Parent issue key (epic or parent issue)")
 	cmd.Flags().StringVarP(&assignee, "assignee", "a", "", "Assignee (account ID, email, or \"me\")")
 	cmd.Flags().StringVarP(&issueType, "type", "t", "", "New issue type (uses bulk move API)")
@@ -137,7 +137,9 @@ func runUpdate(ctx context.Context, opts *root.Options, issueKey, summary, descr
 	}
 
 	if description != "" {
-		fields["description"] = api.NewADFDocument(text.InterpretEscapes(description))
+		// Raw ADF passthrough (e.g. --description "$(cat doc.adf.json)") must
+		// reach NewADFDocument unmodified; see text.InterpretEscapesUnlessRawADF.
+		fields["description"] = api.NewADFDocument(text.InterpretEscapesUnlessRawADF(description))
 	}
 
 	if parent != "" {

@@ -755,3 +755,173 @@ func TestMarkdownToADF_InlineOnlyWikiNotDetected(t *testing.T) {
 		})
 	}
 }
+
+// --- Raw ADF passthrough (#484) ---
+//
+// MarkdownToADF checks, before any markdown or wiki handling, whether the
+// input is already a JSON-encoded ADF document ({"type":"doc","version":N,
+// ...}). If so it is unmarshaled and returned unconverted, so callers can
+// pass through documents built by another tool — including node types (like
+// inlineCard) the markdown converter has no syntax to produce. Anything else
+// falls through to the existing markdown/wiki conversion unchanged.
+
+func TestMarkdownToADF_RawADFPassthrough_ValidDoc(t *testing.T) {
+	t.Parallel()
+	raw := `{
+		"type": "doc",
+		"version": 1,
+		"content": [
+			{
+				"type": "paragraph",
+				"content": [
+					{"type": "text", "text": "Hello from raw ADF"}
+				]
+			}
+		]
+	}`
+
+	result := MarkdownToADF(raw)
+	testutil.NotNil(t, result)
+	testutil.Equal(t, result.Type, "doc")
+	testutil.Equal(t, result.Version, 1)
+	testutil.Len(t, result.Content, 1)
+	testutil.Equal(t, result.Content[0].Type, "paragraph")
+	testutil.Len(t, result.Content[0].Content, 1)
+	testutil.Equal(t, result.Content[0].Content[0].Type, "text")
+	testutil.Equal(t, result.Content[0].Content[0].Text, "Hello from raw ADF")
+}
+
+// TestMarkdownToADF_RawADFPassthrough_InlineCard verifies that node types the
+// markdown converter cannot itself produce (inlineCard has no markdown
+// syntax) survive passthrough intact, attrs included.
+func TestMarkdownToADF_RawADFPassthrough_InlineCard(t *testing.T) {
+	t.Parallel()
+	raw := `{
+		"type": "doc",
+		"version": 1,
+		"content": [
+			{
+				"type": "paragraph",
+				"content": [
+					{
+						"type": "inlineCard",
+						"attrs": {"url": "https://example.com/doc"}
+					}
+				]
+			}
+		]
+	}`
+
+	result := MarkdownToADF(raw)
+	testutil.NotNil(t, result)
+	testutil.Len(t, result.Content, 1)
+	para := result.Content[0]
+	testutil.Equal(t, para.Type, "paragraph")
+	testutil.Len(t, para.Content, 1)
+	card := para.Content[0]
+	testutil.Equal(t, card.Type, "inlineCard")
+	testutil.Equal(t, card.Attrs["url"], "https://example.com/doc")
+}
+
+// TestMarkdownToADF_RawADFPassthrough_InvalidJSON verifies malformed JSON
+// falls through to markdown conversion rather than erroring.
+func TestMarkdownToADF_RawADFPassthrough_InvalidJSON(t *testing.T) {
+	t.Parallel()
+	input := `{"type": "doc", "version": 1, "content": [` // truncated / malformed
+
+	result := MarkdownToADF(input)
+	testutil.NotNil(t, result)
+	// Falls through to the markdown converter's raw-text fallback: a single
+	// paragraph containing the literal input text.
+	testutil.Len(t, result.Content, 1)
+	testutil.Equal(t, result.Content[0].Type, "paragraph")
+}
+
+// TestMarkdownToADF_RawADFPassthrough_NotADoc verifies valid JSON that isn't
+// shaped like a passthrough-eligible ADF document — wrong/missing "type", a
+// JSON array, an unrecognized version (anything other than exactly 1), or a
+// doc with no content nodes — is rejected by the detector and falls through
+// to markdown conversion. The version-0 and no-content cases matter beyond
+// the generic "not a doc" cases: version 0 is Go's int zero value, so it
+// must be rejected the same as a missing version key; and a content-less
+// doc must be rejected rather than passed through, since marshaling it
+// would produce "content": null, which Jira's API 400s on.
+func TestMarkdownToADF_RawADFPassthrough_NotADoc(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{name: "object with wrong type", input: `{"type": "paragraph"}`},
+		{name: "doc type but no version", input: `{"type": "doc", "content": []}`},
+		{name: "json array", input: `[1, 2, 3]`},
+		{name: "version 99", input: `{"type": "doc", "version": 99, "content": [{"type": "paragraph"}]}`},
+		{name: "version -1", input: `{"type": "doc", "version": -1, "content": [{"type": "paragraph"}]}`},
+		{name: "version 0", input: `{"type": "doc", "version": 0, "content": [{"type": "paragraph"}]}`},
+		{name: "version 1, no content", input: `{"type": "doc", "version": 1}`},
+		{name: "version 1, empty content", input: `{"type": "doc", "version": 1, "content": []}`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			testutil.False(t, IsRawADFDocument(tt.input), "should not be detected as raw ADF")
+
+			result := MarkdownToADF(tt.input)
+			testutil.NotNil(t, result)
+			// Went through markdown conversion, not raw-JSON passthrough: the
+			// literal JSON text becomes the fallback single-paragraph content.
+			testutil.Len(t, result.Content, 1)
+			testutil.Equal(t, result.Content[0].Type, "paragraph")
+		})
+	}
+}
+
+// TestMarkdownToADF_RawADFPassthrough_MarkdownStartingWithBrace verifies
+// ordinary markdown/plain text that merely starts with "{" (but is not valid
+// JSON) is treated as markdown, not rejected or mishandled.
+func TestMarkdownToADF_RawADFPassthrough_MarkdownStartingWithBrace(t *testing.T) {
+	t.Parallel()
+	input := "{not json} just a sentence that starts with a brace"
+
+	testutil.False(t, IsRawADFDocument(input))
+
+	result := MarkdownToADF(input)
+	testutil.NotNil(t, result)
+	testutil.Len(t, result.Content, 1)
+	testutil.Equal(t, result.Content[0].Type, "paragraph")
+	testutil.Equal(t, result.Content[0].Content[0].Type, "text")
+	testutil.Equal(t, result.Content[0].Content[0].Text, input)
+}
+
+// TestIsRawADFDocument covers the detector directly (used by call sites that
+// must skip CLI escape-sequence interpretation for raw ADF input — see
+// IsRawADFDocument's doc comment).
+func TestIsRawADFDocument(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name  string
+		input string
+		want  bool
+	}{
+		{name: "valid ADF doc", input: `{"type":"doc","version":1,"content":[{"type":"paragraph"}]}`, want: true},
+		{name: "valid ADF doc with inlineCard", input: `{"type":"doc","version":1,"content":[{"type":"inlineCard","attrs":{"url":"https://example.com"}}]}`, want: true},
+		{name: "invalid JSON", input: `{"type": "doc", "version": 1,`, want: false},
+		{name: "valid JSON, not a doc (paragraph)", input: `{"type":"paragraph"}`, want: false},
+		{name: "valid JSON, not a doc (array)", input: `[1,2,3]`, want: false},
+		{name: "markdown starting with brace", input: "{this is not json at all", want: false},
+		{name: "empty string", input: "", want: false},
+		{name: "version 99", input: `{"type":"doc","version":99,"content":[{"type":"paragraph"}]}`, want: false},
+		{name: "version -1", input: `{"type":"doc","version":-1,"content":[{"type":"paragraph"}]}`, want: false},
+		{name: "version 0", input: `{"type":"doc","version":0,"content":[{"type":"paragraph"}]}`, want: false},
+		{name: "version 1, no content", input: `{"type":"doc","version":1}`, want: false},
+		{name: "version 1, empty content", input: `{"type":"doc","version":1,"content":[]}`, want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			testutil.Equal(t, IsRawADFDocument(tt.input), tt.want)
+		})
+	}
+}

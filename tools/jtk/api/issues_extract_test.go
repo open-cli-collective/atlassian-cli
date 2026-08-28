@@ -105,6 +105,21 @@ func TestFormatCustomFieldValue_Types(t *testing.T) {
 		{"bool_true", true, "yes"},
 		{"bool_false", false, "no"},
 		{"nil", nil, ""},
+		{"adf_document", map[string]any{
+			"type":    "doc",
+			"version": float64(1),
+			"content": []any{
+				map[string]any{
+					"type": "paragraph",
+					"content": []any{
+						map[string]any{
+							"type": "text",
+							"text": "Hello ADF",
+						},
+					},
+				},
+			},
+		}, "Hello ADF\n"},
 		{"unhandled_map", map[string]any{"progress": float64(0), "total": float64(0)}, ""},
 		{"unhandled_type", struct{ X int }{42}, ""},
 		{"serialized_java_object", "{pullrequest={dataType=pullrequest, state=MERGED}}", ""},

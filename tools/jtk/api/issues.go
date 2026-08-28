@@ -422,6 +422,14 @@ func FormatCustomFieldValue(v any) string {
 		}
 		return fmt.Sprintf("%g", val)
 	case map[string]any:
+		// Detect ADF documents (type: "doc") and extract plain text.
+		if t, _ := val["type"].(string); t == "doc" {
+			b, _ := json.Marshal(val)
+			var doc ADFDocument
+			if err := json.Unmarshal(b, &doc); err == nil {
+				return doc.ToPlainText()
+			}
+		}
 		if s, ok := val["value"].(string); ok {
 			return s
 		}

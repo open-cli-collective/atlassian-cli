@@ -44,10 +44,9 @@ func newShowCmd(opts *root.Options) *cobra.Command {
 
 The API token is shown as a presence status only (its value lives in the
 OS keyring and is never displayed); token/keyring reporting is
-authoritative. The non-secret rows reflect environment variables and the
-legacy per-tool file ONLY — a value set solely in the shared
-~/.config/atlassian-cli/config.yml is shown as "-" here even though jtk
-resolves and uses it at runtime.`,
+authoritative. The non-secret rows reflect the same precedence the
+runtime uses: environment variables, then the shared
+~/.config/atlassian-cli/config.yml, then the legacy per-tool file.`,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			cfg := config.GetValuesWithSources()
 

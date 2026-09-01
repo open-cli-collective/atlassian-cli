@@ -110,6 +110,28 @@ func TestAttachmentMutationPresenters(t *testing.T) {
 	testutil.Equal(t, "Deleted attachment: spec.pdf (ID: att-1)", deleteSummary.Message)
 }
 
+func TestPagePresenterExport(t *testing.T) {
+	t.Parallel()
+
+	model := PagePresenter{}.PresentExport("handoff.pdf", 261759)
+	summary := requireMessageSection(t, model, 0)
+	testutil.Equal(t, sharedpresent.StreamStdout, summary.Stream)
+	testutil.Equal(t, "Exported: handoff.pdf", summary.Message)
+	fields := requireDetailSection(t, model, 1)
+	testutil.Equal(t, []sharedpresent.Field{{Label: "Size", Value: "255.6 KB"}}, fields.Fields)
+}
+
+// TestPagePresenterExportProgress pins progress to stderr so stdout carries
+// only the success artifact.
+func TestPagePresenterExportProgress(t *testing.T) {
+	t.Parallel()
+
+	model := PagePresenter{}.PresentExportProgress(40)
+	msg := requireMessageSection(t, model, 0)
+	testutil.Equal(t, sharedpresent.StreamStderr, msg.Stream)
+	testutil.Equal(t, "Exporting: 40% complete", msg.Message)
+}
+
 func TestPresentDeletionCancelled(t *testing.T) {
 	t.Parallel()
 

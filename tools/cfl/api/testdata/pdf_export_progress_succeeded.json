@@ -1,0 +1,7 @@
+{
+  "progress": 100,
+  "state": "SUCCEEDED",
+  "result": "https://api.media.example.com/file/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/binary?token=signed-token&client=example-client&name=Quarterly%20Handoff.pdf",
+  "estimatedTimeRemaining": 30000,
+  "timeElapsed": 35
+}

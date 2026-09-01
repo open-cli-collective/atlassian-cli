@@ -8,6 +8,7 @@
 
 ### Added
 
+- `page export` command to export a page as a PDF, waiting on the server-side render and writing the result to a file
 - Service account support with bearer auth (`--auth-method bearer`) for scoped API tokens ([#171](https://github.com/open-cli-collective/atlassian-cli/pull/171))
 - Wiki-link syntax `[[Page Title]]` and `[[SPACE:Page Title]]` for internal Confluence page links ([#129](https://github.com/open-cli-collective/atlassian-cli/pull/129))
 - `space view`, `space create`, `space update`, `space delete` commands for full space management ([#151](https://github.com/open-cli-collective/atlassian-cli/issues/151))

@@ -61,6 +61,23 @@ cfl [resource] [action] [ID] [flags]
 | `cfl page copy PAGE_ID --title "Copy" --no-labels` | Copy without labels |
 | `cfl page delete PAGE_ID` | Delete page (with confirmation) |
 | `cfl page delete PAGE_ID --force` | Delete without confirmation |
+| `cfl page export PAGE_ID` | Export page as PDF (filename from the page title) |
+| `cfl page export PAGE_ID -O handoff.pdf` | Export to a specific file |
+| `cfl page export PAGE_ID --force` | Overwrite existing file without warning |
+| `cfl page export PAGE_ID --timeout 10m` | Allow longer for a large page to render |
+
+### Page Export Flags
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--format` | | `pdf` | Export format; `pdf` is the only value |
+| `--output-file` | `-O` | (from page title) | Output file path |
+| `--force` | `-f` | `false` | Overwrite existing file without warning |
+| `--timeout` | | `5m` | How long to wait for Confluence to render |
+
+Confluence renders the document server-side, so the command starts an export
+task, polls it, and downloads the result once it finishes. Progress is written
+to stderr; stdout carries only the success block.
 
 ### Create/Edit Flags
 

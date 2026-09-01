@@ -142,6 +142,37 @@ All cfl commands should work with both auth methods (no scope limitations for Co
 
 ---
 
+### page export
+
+Confluence Cloud publishes no REST endpoint for PDF export, so this command
+drives the same undocumented flow the Confluence UI uses: an action that starts
+a server-side render, a progress endpoint, and a download. Atlassian has moved
+the progress endpoint before without notice, so these cases are the tripwire for
+that happening again, and they are worth re-running after any Confluence Cloud
+change that breaks export in the browser.
+
+| Test Case | Command | Expected Result |
+|-----------|---------|-----------------|
+| Default filename | `cfl page export <id>` | Writes `<page title>.pdf`; `Exported:` and `Size:` on stdout |
+| File is a real PDF | `file '<page title>.pdf'` | Reports a PDF document, not HTML |
+| Progress is visible | `cfl page export <id> -O out.pdf` | `Exporting: N% complete` on stderr while it renders |
+| Stdout is clean | `cfl page export <id> -O out.pdf 2>/dev/null` | Only the `Exported:`/`Size:` block, no progress lines |
+| Custom output path | `cfl page export <id> -O handoff.pdf` | Writes `handoff.pdf` |
+| Existing file refused | `cfl page export <id> -O handoff.pdf` again | Error: file already exists, suggests `--force` |
+| Overwrite | `cfl page export <id> -O handoff.pdf --force` | File replaced |
+| Invalid format | `cfl page export <id> --format docx` | Error: invalid export format, valid formats: pdf |
+| Invalid timeout | `cfl page export <id> --timeout 0` | Error: invalid `--timeout`, must be greater than zero |
+| Non-existent page | `cfl page export 99999999999` | Error: page not found, or not visible to this user |
+| Title needing sanitizing | Export a page whose title contains `/` or `:` | Writes one file in the working directory, separators replaced |
+| Large page | `cfl page export <large-id> --timeout 10m` | Completes, or fails naming `--timeout` rather than hanging |
+
+**Bearer auth is unverified for this command.** The export is driven through a
+Confluence web action rather than a REST endpoint, and whether the
+`api.atlassian.com` gateway proxies that action has not been established. Run
+the default-filename case under bearer auth and record the result here.
+
+---
+
 ## Attachment Operations
 
 ### attachment list

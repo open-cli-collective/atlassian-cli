@@ -67,6 +67,31 @@ func TestConfig_Validate(t *testing.T) {
 			errMsg:  "url must use https",
 		},
 		{
+			name: "proxy with loopback http URL needs no token or email",
+			config: Config{
+				URL:        "http://127.0.0.1:8080/atlassian/wiki",
+				AuthMethod: "proxy",
+			},
+			wantErr: false,
+		},
+		{
+			name: "proxy with https URL needs no token or email",
+			config: Config{
+				URL:        "https://proxy.example.com/atlassian/wiki",
+				AuthMethod: "proxy",
+			},
+			wantErr: false,
+		},
+		{
+			name: "proxy rejects arbitrary http URL",
+			config: Config{
+				URL:        "http://example.com/atlassian/wiki",
+				AuthMethod: "proxy",
+			},
+			wantErr: true,
+			errMsg:  "url must use https",
+		},
+		{
 			name: "valid bearer config",
 			config: Config{
 				URL:        "https://example.atlassian.net",
@@ -119,6 +144,75 @@ func TestConfig_Validate(t *testing.T) {
 			} else {
 				testutil.NoError(t, err)
 			}
+		})
+	}
+}
+
+func TestConfig_ValidateForInit(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		config   Config
+		noVerify bool
+		wantErr  string
+	}{
+		{
+			name: "basic auth without token allowed when verification skipped",
+			config: Config{
+				URL:   "https://example.atlassian.net/wiki",
+				Email: "user@example.com",
+			},
+			noVerify: true,
+		},
+		{
+			name: "bearer auth without token allowed when verification skipped",
+			config: Config{
+				URL:        "https://example.atlassian.net/wiki",
+				AuthMethod: "bearer",
+				CloudID:    "cloud-id",
+			},
+			noVerify: true,
+		},
+		{
+			name: "token remains required when verification runs",
+			config: Config{
+				URL:   "https://example.atlassian.net/wiki",
+				Email: "user@example.com",
+			},
+			wantErr: "api_token is required",
+		},
+		{
+			name: "bearer cloud ID remains required when verification skipped",
+			config: Config{
+				URL:        "https://example.atlassian.net/wiki",
+				AuthMethod: "bearer",
+			},
+			noVerify: true,
+			wantErr:  "cloud_id is required",
+		},
+		{
+			name: "URL scheme remains validated when verification skipped",
+			config: Config{
+				URL:   "http://example.atlassian.net/wiki",
+				Email: "user@example.com",
+			},
+			noVerify: true,
+			wantErr:  "url must use https",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := tt.config.ValidateForInit(tt.noVerify)
+			if tt.wantErr == "" {
+				testutil.NoError(t, err)
+				return
+			}
+			testutil.RequireError(t, err)
+			testutil.Contains(t, err.Error(), tt.wantErr)
 		})
 	}
 }
@@ -590,5 +684,18 @@ func TestLoadWithEnv_CorruptSharedFallsBackToLegacy(t *testing.T) {
 	testutil.Equal(t, "https://x.atlassian.net/wiki", cfg.URL)
 	// Corrupt shared store defers migration; keyring is empty → no token,
 	// but the command still works (no error).
+	testutil.Equal(t, "", cfg.APIToken)
+}
+
+func TestLoadWithEnv_ProxySkipsTokenResolution(t *testing.T) {
+	credtest.Hermetic(t)
+	t.Setenv("ATLASSIAN_URL", "http://127.0.0.1:8080/atlassian")
+	t.Setenv("ATLASSIAN_AUTH_METHOD", "proxy")
+	t.Setenv("ATLASSIAN_API_TOKEN", "env-token-that-should-be-ignored")
+
+	cfg, err := LoadWithEnv(filepath.Join(t.TempDir(), "missing.yml"), true, true)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "http://127.0.0.1:8080/atlassian", cfg.URL)
+	testutil.Equal(t, "proxy", cfg.AuthMethod)
 	testutil.Equal(t, "", cfg.APIToken)
 }

@@ -12,6 +12,7 @@ import (
 	cccredstore "github.com/open-cli-collective/cli-common/credstore"
 
 	"github.com/open-cli-collective/atlassian-go/artifact"
+	"github.com/open-cli-collective/atlassian-go/auth"
 	"github.com/open-cli-collective/atlassian-go/keyring"
 	"github.com/open-cli-collective/atlassian-go/present"
 	"github.com/open-cli-collective/atlassian-go/version"
@@ -88,16 +89,21 @@ func (o *Options) APIClient() (*api.Client, error) {
 	if o.cachedClient != nil {
 		return o.cachedClient, nil
 	}
-	token, err := config.ResolveAPIToken()
-	if err != nil {
-		return nil, err
+	authMethod := config.GetAuthMethod()
+	var token string
+	if authMethod != auth.AuthMethodProxy {
+		var err error
+		token, err = config.ResolveAPIToken()
+		if err != nil {
+			return nil, err
+		}
 	}
 	c, err := api.New(api.ClientConfig{
 		URL:        config.GetURL(),
 		Email:      config.GetEmail(),
 		APIToken:   token,
 		Verbose:    o.Verbose,
-		AuthMethod: config.GetAuthMethod(),
+		AuthMethod: authMethod,
 		CloudID:    config.GetCloudID(),
 	})
 	if err != nil {

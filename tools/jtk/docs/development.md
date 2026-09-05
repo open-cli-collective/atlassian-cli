@@ -75,7 +75,7 @@ Read `internal/cmd/OUTPUT_SPEC.md` before changing default output, `--id`, `--fi
 
 `jtk` participates in the shared Atlassian credential/config model described by the monorepo guide. `ATLASSIAN_*` variables apply across both tools; `JIRA_*` variables override for jtk. The jtk-specific config section carries non-secret defaults such as `default_project`.
 
-Basic auth uses an instance URL plus email and token. Bearer auth routes through `api.atlassian.com`, requires a cloud ID, and has Atlassian platform scope limitations for some Jira surfaces.
+Basic auth uses an instance URL plus email and token. Bearer auth routes through `api.atlassian.com`, requires a cloud ID, and has Atlassian platform scope limitations for some Jira surfaces. Proxy auth uses only a URL, sends no `Authorization` header, and allows loopback `http://` URLs for trusted local proxies while keeping arbitrary cleartext proxy URLs rejected. Bearer gateway routing can be overridden with `JIRA_GATEWAY_BASE_URL` or `ATLASSIAN_GATEWAY_BASE_URL`.
 
 ## Testing Notes
 

@@ -424,6 +424,45 @@ func TestNew_BearerAuth(t *testing.T) {
 		testutil.RequireNoError(t, err)
 	})
 
+	t.Run("proxy auth requires URL only and sends no auth header", func(t *testing.T) {
+		t.Parallel()
+		var capturedAuth string
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			capturedAuth = r.Header.Get("Authorization")
+			testutil.Equal(t, "/rest/api/3/myself", r.URL.Path)
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{}`))
+		}))
+		defer server.Close()
+
+		c, err := New(ClientConfig{
+			URL:        server.URL,
+			AuthMethod: "proxy",
+		})
+		testutil.RequireNoError(t, err)
+		testutil.Equal(t, server.URL+"/rest/api/3", c.BaseURL)
+		testutil.Equal(t, "", c.GetAuthHeader())
+		testutil.True(t, c.SupportsAgile())
+		testutil.False(t, c.IsBearerAuth())
+
+		_, err = c.Get(context.Background(), "/myself")
+		testutil.RequireNoError(t, err)
+		testutil.Equal(t, "", capturedAuth)
+	})
+
+	t.Run("proxy auth rejects arbitrary http URLs", func(t *testing.T) {
+		t.Parallel()
+		c, err := New(ClientConfig{
+			URL:        "http://example.com",
+			AuthMethod: "proxy",
+		})
+		testutil.Error(t, err)
+		testutil.Nil(t, c)
+		if !errors.Is(err, ErrProxyURLRequiresHTTPS) {
+			t.Errorf("got error %v, want %v", err, ErrProxyURLRequiresHTTPS)
+		}
+	})
+
 	t.Run("basic auth unchanged when AuthMethod empty", func(t *testing.T) {
 		t.Parallel()
 		c, err := New(ClientConfig{
@@ -472,4 +511,17 @@ func TestNew_BearerAuth(t *testing.T) {
 			t.Error("IssueURL should use instance URL, not gateway URL")
 		}
 	})
+}
+
+func TestNew_BearerAuth_GatewayBaseFromEnv(t *testing.T) {
+	t.Setenv("JIRA_GATEWAY_BASE_URL", "https://gateway.example/")
+	t.Setenv("ATLASSIAN_GATEWAY_BASE_URL", "")
+	c, err := New(ClientConfig{
+		URL:        "https://example.atlassian.net",
+		APIToken:   "scoped-token",
+		AuthMethod: "bearer",
+		CloudID:    "abc-123",
+	})
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "https://gateway.example/ex/jira/abc-123/rest/api/3", c.BaseURL)
 }

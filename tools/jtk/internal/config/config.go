@@ -76,7 +76,7 @@ type Config struct {
 	Email          string `json:"email"`
 	APIToken       string `json:"api_token"`
 	DefaultProject string `json:"default_project,omitempty"`
-	AuthMethod     string `json:"auth_method,omitempty"` // "basic" (default) or "bearer"
+	AuthMethod     string `json:"auth_method,omitempty"` // "basic" (default), "bearer", or "proxy"
 	CloudID        string `json:"cloud_id,omitempty"`    // Required for bearer auth (gateway URL)
 	// Keyring's `omitempty` is a no-op on this struct type — encoding/json
 	// emits an empty {} for zero-valued struct fields regardless. Kept for
@@ -269,16 +269,19 @@ func GetAPIToken() string {
 	return tok
 }
 
-// IsConfigured returns true if the NON-SECRET config is complete and a
-// token is resolvable (env or keyring, non-migrating). The token left
-// the plaintext config store, so completeness is composed from both
-// halves. For bearer auth: URL + Cloud ID + token; for basic: URL +
-// email + token.
+// IsConfigured returns true if the config is complete for the selected auth
+// method. For proxy auth, only the URL is required because credentials are
+// injected by the proxy. For bearer auth: URL + Cloud ID + token. For basic:
+// URL + email + token.
 func IsConfigured() bool {
-	if GetAuthMethod() == auth.AuthMethodBearer {
+	switch GetAuthMethod() {
+	case auth.AuthMethodProxy:
+		return GetURL() != ""
+	case auth.AuthMethodBearer:
 		return GetURL() != "" && GetCloudID() != "" && GetAPIToken() != ""
+	default:
+		return GetURL() != "" && GetEmail() != "" && GetAPIToken() != ""
 	}
-	return GetURL() != "" && GetEmail() != "" && GetAPIToken() != ""
 }
 
 // GetAuthMethod returns the auth method from config or environment.

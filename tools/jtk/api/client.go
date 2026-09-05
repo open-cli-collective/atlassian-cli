@@ -39,19 +39,17 @@ type ClientConfig struct {
 	Email      string
 	APIToken   string
 	Verbose    bool
-	AuthMethod string // "basic" (default) or "bearer"
+	AuthMethod string // "basic" (default), "bearer", or "proxy"
 	CloudID    string // Required for bearer auth (used to construct gateway URL)
 }
 
 // New creates a new Jira API client from config.
 // For bearer auth: URL + API token + Cloud ID are required (no email).
 // For basic auth: URL + email + API token are required.
+// For proxy auth: only URL is required; no Authorization header is sent.
 func New(cfg ClientConfig) (*Client, error) {
 	if cfg.URL == "" {
 		return nil, ErrURLRequired
-	}
-	if cfg.APIToken == "" {
-		return nil, ErrAPITokenRequired
 	}
 
 	if cfg.AuthMethod != "" {
@@ -60,13 +58,19 @@ func New(cfg ClientConfig) (*Client, error) {
 		}
 	}
 
-	if cfg.AuthMethod == auth.AuthMethodBearer {
+	switch cfg.AuthMethod {
+	case auth.AuthMethodBearer:
 		return newBearerClient(cfg)
+	case auth.AuthMethodProxy:
+		return newProxyClient(cfg)
 	}
 
 	// Basic auth (default)
 	if cfg.Email == "" {
 		return nil, ErrEmailRequired
+	}
+	if cfg.APIToken == "" {
+		return nil, ErrAPITokenRequired
 	}
 
 	// Normalize URL: ensure https and no trailing slash
@@ -89,6 +93,9 @@ func New(cfg ClientConfig) (*Client, error) {
 
 // newBearerClient creates a client configured for bearer auth via the API gateway.
 func newBearerClient(cfg ClientConfig) (*Client, error) {
+	if cfg.APIToken == "" {
+		return nil, ErrAPITokenRequired
+	}
 	if cfg.CloudID == "" {
 		return nil, ErrCloudIDRequired
 	}
@@ -97,7 +104,7 @@ func newBearerClient(cfg ClientConfig) (*Client, error) {
 	instanceURL := url.NormalizeURL(cfg.URL)
 
 	// Gateway URLs for bearer auth
-	gatewayBase := fmt.Sprintf("%s/ex/jira/%s", client.GatewayBaseURL, cfg.CloudID)
+	gatewayBase := fmt.Sprintf("%s/ex/jira/%s", client.GatewayBaseURLFromEnv("JIRA_GATEWAY_BASE_URL"), cfg.CloudID)
 	restURL := gatewayBase + "/rest/api/3"
 
 	opts := &client.Options{
@@ -117,6 +124,28 @@ func newBearerClient(cfg ClientConfig) (*Client, error) {
 	}, nil
 }
 
+// newProxyClient creates a client configured for a trusted proxy that injects
+// authentication upstream. No Authorization header is sent by the CLI.
+func newProxyClient(cfg ClientConfig) (*Client, error) {
+	baseURL := url.NormalizeURL(cfg.URL)
+	if strings.HasPrefix(baseURL, "http://") && !url.IsLoopbackHTTP(baseURL) {
+		return nil, ErrProxyURLRequiresHTTPS
+	}
+	restURL := baseURL + "/rest/api/3"
+
+	opts := &client.Options{SkipAuthHeader: true}
+	if cfg.Verbose {
+		opts.Verbose = true
+	}
+
+	return &Client{
+		Client:   client.New(restURL, "", "", opts),
+		URL:      baseURL,
+		BaseURL:  restURL,
+		AgileURL: baseURL + "/rest/agile/1.0",
+	}, nil
+}
+
 // SupportsAgile returns true if the client can access the Agile REST API.
 // Bearer auth clients (service accounts with scoped tokens) cannot access
 // the Agile API because Atlassian does not provide an Agile scope.
@@ -133,10 +162,11 @@ func (c *Client) IsBearerAuth() bool {
 
 // Validation errors
 var (
-	ErrURLRequired      = stderrors.New("URL is required")
-	ErrEmailRequired    = stderrors.New("email is required")
-	ErrAPITokenRequired = stderrors.New("API token is required")
-	ErrCloudIDRequired  = stderrors.New("cloud ID is required for bearer auth")
+	ErrURLRequired           = stderrors.New("URL is required")
+	ErrEmailRequired         = stderrors.New("email is required")
+	ErrAPITokenRequired      = stderrors.New("API token is required")
+	ErrCloudIDRequired       = stderrors.New("cloud ID is required for bearer auth")
+	ErrProxyURLRequiresHTTPS = stderrors.New("proxy auth URL must use https unless it is loopback http")
 )
 
 // ErrAgileUnavailable is returned when a command requires the Agile API

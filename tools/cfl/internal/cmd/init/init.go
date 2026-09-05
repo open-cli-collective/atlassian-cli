@@ -23,12 +23,15 @@ import (
 
 // clientBuilder constructs an *api.Client from a config.
 // Pulled out as a parameter so tests can inject an httptest-pointed client
-// without depending on api.NewBearerClient's hardcoded gateway URL.
+// without depending on api.NewBearerClient's gateway URL.
 type clientBuilder func(cfg *config.Config) (*api.Client, error)
 
 func defaultClientBuilder(cfg *config.Config) (*api.Client, error) {
 	if cfg.AuthMethod == auth.AuthMethodBearer {
 		return api.NewBearerClient(cfg.APIToken, cfg.CloudID)
+	}
+	if cfg.AuthMethod == auth.AuthMethodProxy {
+		return api.NewProxyClient(cfg.URL)
 	}
 	return api.NewClient(cfg.URL, cfg.Email, cfg.APIToken), nil
 }
@@ -67,6 +70,10 @@ For service account scoped tokens (bearer auth):
   Use --auth-method bearer with your scoped API token and Cloud ID.
   Find your Cloud ID at: https://your-site.atlassian.net/_edge/tenant_info
 
+For trusted local proxies:
+  Use --auth-method proxy with the proxy URL. The CLI sends no
+  Authorization header; the proxy is expected to authenticate upstream.
+
 Scripted ingress (§1.5.1): use --token-stdin or --token-from-env VAR for
 the API token. cfl init has never had a --token <value> flag because
 flag-passed plaintext secrets leak into shell history and process
@@ -84,7 +91,10 @@ listings.`,
 
   # Service account (bearer auth) setup
   cfl init --auth-method bearer --url https://mycompany.atlassian.net \
-    --token-from-env CFL_API_TOKEN --cloud-id YOUR_CLOUD_ID`,
+    --token-from-env CFL_API_TOKEN --cloud-id YOUR_CLOUD_ID
+
+  # Local proxy setup
+  cfl init --auth-method proxy --url http://127.0.0.1:8080/atlassian --no-verify`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runInit(cmd.Context(), opts, url, email, tokenStdin, tokenFromEnv, authMethod, cloudID, noVerify)
 		},
@@ -94,7 +104,7 @@ listings.`,
 	cmd.Flags().StringVar(&email, "email", "", "Your Atlassian account email")
 	cmd.Flags().BoolVar(&tokenStdin, "token-stdin", false, "Read the API token from stdin (xor with --token-from-env)")
 	cmd.Flags().StringVar(&tokenFromEnv, "token-from-env", "", "Read the API token from this env var (xor with --token-stdin)")
-	cmd.Flags().StringVar(&authMethod, "auth-method", "", "Authentication method: basic (default) or bearer")
+	cmd.Flags().StringVar(&authMethod, "auth-method", "", "Authentication method: basic (default), bearer, or proxy")
 	cmd.Flags().StringVar(&cloudID, "cloud-id", "", "Atlassian Cloud ID (required for bearer auth)")
 	cmd.Flags().BoolVar(&noVerify, "no-verify", false, "Skip connection verification")
 
@@ -132,14 +142,17 @@ func runInit(ctx context.Context, opts *root.Options, prefillURL, prefillEmail s
 		return err
 	}
 	cfg := result.prefill
+	isProxy := cfg.AuthMethod == auth.AuthMethodProxy
 
-	// Now the one-time §1.8 token migration: relocate any pre-existing
-	// legacy plaintext token into the single shared keyring api_token
-	// (token-only, connection-preserving scrub) before the user sets a
-	// new one.
-	if err := keyring.EnsureMigrated(); err != nil {
-		v.Error("Could not prepare secure credential storage: %v", err)
-		return err
+	if !isProxy {
+		// Now the one-time §1.8 token migration: relocate any pre-existing
+		// legacy plaintext token into the single shared keyring api_token
+		// (token-only, connection-preserving scrub) before the user sets a
+		// new one.
+		if err := keyring.EnsureMigrated(); err != nil {
+			v.Error("Could not prepare secure credential storage: %v", err)
+			return err
+		}
 	}
 
 	// EnsureMigrated relocated any legacy plaintext token into the
@@ -178,7 +191,7 @@ func runInit(ctx context.Context, opts *root.Options, prefillURL, prefillEmail s
 		cfg.APIToken = scripted
 	}
 
-	if cfg.APIToken == "" {
+	if !isProxy && cfg.APIToken == "" {
 		if tok, _, terr := keyring.ResolveTokenNoMigrate(credstore.ToolCFL); terr == nil {
 			cfg.APIToken = tok
 		}
@@ -190,7 +203,28 @@ func runInit(ctx context.Context, opts *root.Options, prefillURL, prefillEmail s
 	// Build the form based on auth method
 	var formGroups []*huh.Group
 
-	if isBearer {
+	if isProxy {
+		// Proxy auth: URL only. The proxy injects authentication upstream.
+		formGroups = append(formGroups, huh.NewGroup(
+			huh.NewInput().
+				Title("Confluence Proxy URL").
+				Description("Trusted proxy URL; loopback http or https").
+				Placeholder("http://127.0.0.1:8080/atlassian").
+				Value(&cfg.URL).
+				Validate(func(s string) error {
+					if s == "" {
+						return fmt.Errorf("URL is required")
+					}
+					return nil
+				}),
+
+			huh.NewInput().
+				Title("Default Space (optional)").
+				Description("Default space key for page operations").
+				Placeholder("MYSPACE").
+				Value(&cfg.DefaultSpace),
+		))
+	} else if isBearer {
 		// Bearer auth: URL + token + cloud ID (no email)
 		formGroups = append(formGroups, huh.NewGroup(
 			huh.NewInput().
@@ -211,7 +245,7 @@ func runInit(ctx context.Context, opts *root.Options, prefillURL, prefillEmail s
 				EchoMode(huh.EchoModePassword).
 				Value(&cfg.APIToken).
 				Validate(func(s string) error {
-					if s == "" {
+					if s == "" && !noVerify {
 						return fmt.Errorf("API token is required")
 					}
 					return nil
@@ -267,7 +301,7 @@ func runInit(ctx context.Context, opts *root.Options, prefillURL, prefillEmail s
 				EchoMode(huh.EchoModePassword).
 				Value(&cfg.APIToken).
 				Validate(func(s string) error {
-					if s == "" {
+					if s == "" && !noVerify {
 						return fmt.Errorf("API token is required")
 					}
 					return nil
@@ -288,7 +322,10 @@ func runInit(ctx context.Context, opts *root.Options, prefillURL, prefillEmail s
 	// (via `cfl set-credential`). Fail loud naming the first missing
 	// field.
 	if !prompt.WantPrompt(opts.NonInteractive, opts.Stdin) {
-		if err := requireNonInteractiveFields(cfg, isBearer); err != nil {
+		if err := auth.RequireNonInteractiveFields(
+			cfg.URL, cfg.AuthMethod, cfg.Email, cfg.APIToken, cfg.CloudID,
+			"cfl set-credential --ref atlassian-cli/default --key api_token --stdin",
+		); err != nil {
 			return err
 		}
 	} else {
@@ -299,8 +336,11 @@ func runInit(ctx context.Context, opts *root.Options, prefillURL, prefillEmail s
 	}
 
 	cfg.NormalizeURL()
+	cfg.AuthMethod, cfg.Email, cfg.APIToken, cfg.CloudID = auth.NormalizeConfig(
+		cfg.AuthMethod, cfg.Email, cfg.APIToken, cfg.CloudID,
+	)
 
-	if err := cfg.Validate(); err != nil {
+	if err := cfg.ValidateForInit(noVerify); err != nil {
 		return fmt.Errorf("invalid configuration: %w", err)
 	}
 
@@ -372,16 +412,21 @@ func finalizeInit(
 		return fmt.Errorf("saving shared store: %w", err)
 	}
 
-	// The token never lands in the plaintext store (Save strips it) — it
-	// goes to the OS keyring under the single shared api_token (§1.11.10:
-	// one key for both jtk and cfl; the reconcile write-target governs
-	// only NON-secret placement, untouched here).
-	if err := keyring.PersistToken(cfg.APIToken); err != nil {
-		v.Error("Saved the non-secret config to %s, but could not store the API token in the keyring: %v", sharedPath, err)
-		v.Error("Recover by storing just the token (no need to re-run init): `cfl set-credential --ref atlassian-cli/default --key api_token --stdin --overwrite` (reads stdin; use --from-env VAR for env-driven setup).")
-		return err
+	// Direct auth tokens never land in the plaintext store (Save strips them).
+	// Proxy auth has no CLI-side token; basic/bearer tokens go to the OS
+	// keyring under the single shared api_token (§1.11.10).
+	if cfg.AuthMethod == auth.AuthMethodProxy {
+		v.Success("Configuration saved to %s (proxy auth; no token stored)", sharedPath)
+	} else if cfg.APIToken == "" {
+		v.Success("Configuration saved to %s (token not stored; run `cfl set-credential --ref atlassian-cli/default --key api_token --stdin` before authenticated commands)", sharedPath)
+	} else {
+		if err := keyring.PersistToken(cfg.APIToken); err != nil {
+			v.Error("Saved the non-secret config to %s, but could not store the API token in the keyring: %v", sharedPath, err)
+			v.Error("Recover by storing just the token (no need to re-run init): `cfl set-credential --ref atlassian-cli/default --key api_token --stdin --overwrite` (reads stdin; use --from-env VAR for env-driven setup).")
+			return err
+		}
+		v.Success("Configuration saved to %s (token stored in the OS keyring)", sharedPath)
 	}
-	v.Success("Configuration saved to %s (token stored in the OS keyring)", sharedPath)
 
 	// Optional: clean up legacy files we just migrated.
 	for _, lp := range result.consumedLegacies {
@@ -425,33 +470,14 @@ func finalizeInit(
 	v.Println("  cfl space list")
 	v.Println("  cfl page list --space <SPACE_KEY>")
 
-	if cfg.AuthMethod == auth.AuthMethodBearer {
+	switch cfg.AuthMethod {
+	case auth.AuthMethodBearer:
 		v.Println("")
 		v.Info("To switch back to basic auth later, run: cfl init --auth-method basic")
+	case auth.AuthMethodProxy:
+		v.Println("")
+		v.Info("To switch to direct authentication later, run: cfl init --auth-method basic")
 	}
 
-	return nil
-}
-
-// requireNonInteractiveFields enforces the §3.4 fail-loud contract for
-// scripted/CI runs of `cfl init`. cfl init has no --token flag, so the
-// token MUST come from a pre-staged keyring entry via cfl set-credential;
-// the error names that path explicitly.
-func requireNonInteractiveFields(cfg *config.Config, isBearer bool) error {
-	if cfg.URL == "" {
-		return fmt.Errorf("--non-interactive: missing required value for --url")
-	}
-	if isBearer {
-		if cfg.CloudID == "" {
-			return fmt.Errorf("--non-interactive: missing required value for --cloud-id (bearer auth)")
-		}
-	} else {
-		if cfg.Email == "" {
-			return fmt.Errorf("--non-interactive: missing required value for --email (basic auth)")
-		}
-	}
-	if cfg.APIToken == "" {
-		return fmt.Errorf("--non-interactive: missing required value for --token-stdin or --token-from-env VAR (or pre-stage with `cfl set-credential --ref atlassian-cli/default --key api_token --stdin`)")
-	}
 	return nil
 }

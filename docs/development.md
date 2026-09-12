@@ -98,6 +98,8 @@ make build-jtk
 
 `make check` is the root sanity target: tidy, lint, race tests, and build across `shared`, `tools/cfl`, and `tools/jtk`. Tool-level Makefiles also provide their own `check` targets.
 
+On macOS, set `CODESIGN_IDENTITY` to a code-signing certificate in your login keychain (its name or SHA-1) and `make build` re-signs `bin/cfl` and `bin/jtk` with a stable designated requirement, so Keychain asks for "Always Allow" once per credential instead of once per rebuild. Leave it unset (the default, and on CI/Linux) and the build is unchanged.
+
 ## Shared Atlassian Credentials and State
 
 Both tools use the shared Atlassian credential/config model.

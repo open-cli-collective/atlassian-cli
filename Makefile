@@ -4,6 +4,18 @@
 # exclude the 1Password and passage backends credstore never exposes.
 export GOFLAGS := -tags=keyring_no1password,keyring_nopassage
 
+# macOS code-signing for local builds: a stable designated requirement so the
+# Keychain "Always Allow" grant survives a rebuild (cli-common distribution.md
+# §2A). Identifier scheme and flags mirror open-cli-collective/.github
+# macos-codesign-setup/codesign-darwin.sh, which signs releases. CODESIGN_IDENTITY
+# unset (the CI/Linux default) is a no-op. $(1) is the binary name under bin/.
+define codesign-darwin
+@if [ -n "$(CODESIGN_IDENTITY)" ] && [ "$$(uname -s)" = Darwin ] && [ "$$(go env GOOS)" = darwin ]; then \
+	codesign --force --timestamp=none --sign "$(CODESIGN_IDENTITY)" --identifier "org.open-cli-collective.$(1)" bin/$(1) && \
+	codesign --verify --strict -R '=identifier "org.open-cli-collective.$(1)"' bin/$(1); \
+fi
+endef
+
 # CI gate: everything that must pass before merge
 check: tidy lint test build
 
@@ -12,11 +24,13 @@ all: check
 # Build all binaries into bin/
 build:
 	go build -v -o bin/cfl ./tools/cfl/cmd/cfl
+	$(call codesign-darwin,cfl)
 	@if [ -n "$(CODESIGN_IDENTITY)" ] && [ "$$(uname -s)" = Darwin ]; then \
 		codesign --force --timestamp=none --sign "$(CODESIGN_IDENTITY)" --identifier "org.open-cli-collective.cfl" bin/cfl; \
 		codesign --verify --strict bin/cfl; \
 	fi
 	go build -v -o bin/jtk ./tools/jtk/cmd/jtk
+	$(call codesign-darwin,jtk)
 	@if [ -n "$(CODESIGN_IDENTITY)" ] && [ "$$(uname -s)" = Darwin ]; then \
 		codesign --force --timestamp=none --sign "$(CODESIGN_IDENTITY)" --identifier "org.open-cli-collective.jtk" bin/jtk; \
 		codesign --verify --strict bin/jtk; \
@@ -44,6 +58,7 @@ tidy:
 # Build individual tools to bin/
 build-cfl:
 	go build -v -o bin/cfl ./tools/cfl/cmd/cfl
+	$(call codesign-darwin,cfl)
 	@if [ -n "$(CODESIGN_IDENTITY)" ] && [ "$$(uname -s)" = Darwin ]; then \
 		codesign --force --timestamp=none --sign "$(CODESIGN_IDENTITY)" --identifier "org.open-cli-collective.cfl" bin/cfl; \
 		codesign --verify --strict bin/cfl; \
@@ -51,6 +66,7 @@ build-cfl:
 
 build-jtk:
 	go build -v -o bin/jtk ./tools/jtk/cmd/jtk
+	$(call codesign-darwin,jtk)
 	@if [ -n "$(CODESIGN_IDENTITY)" ] && [ "$$(uname -s)" = Darwin ]; then \
 		codesign --force --timestamp=none --sign "$(CODESIGN_IDENTITY)" --identifier "org.open-cli-collective.jtk" bin/jtk; \
 		codesign --verify --strict bin/jtk; \

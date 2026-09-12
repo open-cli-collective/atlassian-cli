@@ -25,16 +25,8 @@ all: check
 build:
 	go build -v -o bin/cfl ./tools/cfl/cmd/cfl
 	$(call codesign-darwin,cfl)
-	@if [ -n "$(CODESIGN_IDENTITY)" ] && [ "$$(uname -s)" = Darwin ]; then \
-		codesign --force --timestamp=none --sign "$(CODESIGN_IDENTITY)" --identifier "org.open-cli-collective.cfl" bin/cfl; \
-		codesign --verify --strict bin/cfl; \
-	fi
 	go build -v -o bin/jtk ./tools/jtk/cmd/jtk
 	$(call codesign-darwin,jtk)
-	@if [ -n "$(CODESIGN_IDENTITY)" ] && [ "$$(uname -s)" = Darwin ]; then \
-		codesign --force --timestamp=none --sign "$(CODESIGN_IDENTITY)" --identifier "org.open-cli-collective.jtk" bin/jtk; \
-		codesign --verify --strict bin/jtk; \
-	fi
 
 # Run tests with race detector
 test:
@@ -59,18 +51,10 @@ tidy:
 build-cfl:
 	go build -v -o bin/cfl ./tools/cfl/cmd/cfl
 	$(call codesign-darwin,cfl)
-	@if [ -n "$(CODESIGN_IDENTITY)" ] && [ "$$(uname -s)" = Darwin ]; then \
-		codesign --force --timestamp=none --sign "$(CODESIGN_IDENTITY)" --identifier "org.open-cli-collective.cfl" bin/cfl; \
-		codesign --verify --strict bin/cfl; \
-	fi
 
 build-jtk:
 	go build -v -o bin/jtk ./tools/jtk/cmd/jtk
 	$(call codesign-darwin,jtk)
-	@if [ -n "$(CODESIGN_IDENTITY)" ] && [ "$$(uname -s)" = Darwin ]; then \
-		codesign --force --timestamp=none --sign "$(CODESIGN_IDENTITY)" --identifier "org.open-cli-collective.jtk" bin/jtk; \
-		codesign --verify --strict bin/jtk; \
-	fi
 
 test-shared:
 	go test -v -race -coverprofile=coverage-shared.out ./shared/...

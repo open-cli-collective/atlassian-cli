@@ -164,8 +164,22 @@ jobs:
           Set-Content $nuspecPath $nuspec
 
           $scriptPath = Join-Path $packageDir 'tools/chocolateyInstall.ps1'
-          $checksumAmd64 = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
-          $checksumArm64 = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
+          $expectedChecksumAmd64 = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+          $expectedChecksumArm64 = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
+          $checksumsPath = Join-Path $env:RUNNER_TEMP "jtk-checksums-$([guid]::NewGuid()).txt"
+          @(
+            "$expectedChecksumAmd64  jtk_${version}_windows_amd64.zip"
+            "$expectedChecksumArm64  jtk_${version}_windows_arm64.zip"
+          ) | Set-Content $checksumsPath
+          $checksumJson = pwsh -NoProfile -File tools/jtk/scripts/extract-chocolatey-checksums.ps1 `
+            -Version $version `
+            -ChecksumsPath $checksumsPath
+          if ($LASTEXITCODE -ne 0) { throw 'Checksum extraction failed' }
+          $checksums = $checksumJson | ConvertFrom-Json
+          $checksumAmd64 = $checksums.amd64
+          $checksumArm64 = $checksums.arm64
+          if ($checksumAmd64 -ne $expectedChecksumAmd64) { throw "AMD64 checksum was parsed as '$checksumAmd64'" }
+          if ($checksumArm64 -ne $expectedChecksumArm64) { throw "ARM64 checksum was parsed as '$checksumArm64'" }
           pwsh -File tools/jtk/scripts/render-chocolatey-install.ps1 `
             -Version $version `
             -ScriptPath $scriptPath `
@@ -209,8 +223,8 @@ jobs:
 
           $env:ChocolateyPackageName = 'jira-ticket-cli'
           $architectures = @(
-            @{ Name = 'AMD64'; Environment = 'AMD64'; Url = $expectedAmd64; Checksum = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' },
-            @{ Name = 'ARM64'; Environment = 'ARM64'; Url = $expectedArm64; Checksum = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' }
+            @{ Name = 'AMD64'; Environment = 'AMD64'; Url = $expectedAmd64; Checksum = $expectedChecksumAmd64 },
+            @{ Name = 'ARM64'; Environment = 'ARM64'; Url = $expectedArm64; Checksum = $expectedChecksumArm64 }
           )
           foreach ($architecture in $architectures) {
             $previousArchitecture = $env:PROCESSOR_ARCHITECTURE

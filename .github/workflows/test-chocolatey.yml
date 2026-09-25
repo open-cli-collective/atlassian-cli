@@ -7,12 +7,14 @@ on:
       - 'tools/*/packaging/chocolatey/**'
       - 'tools/cfl/scripts/**'
       - '.github/workflows/chocolatey-publish-cfl.yml'
+      - '.github/workflows/chocolatey-publish-jtk.yml'
       - '.github/workflows/test-chocolatey.yml'
   pull_request:
     paths:
       - 'tools/*/packaging/chocolatey/**'
       - 'tools/cfl/scripts/**'
       - '.github/workflows/chocolatey-publish-cfl.yml'
+      - '.github/workflows/chocolatey-publish-jtk.yml'
       - '.github/workflows/test-chocolatey.yml'
 
 jobs:
@@ -150,11 +152,40 @@ jobs:
           }
           Write-Host "Install script syntax is valid"
 
-      - name: Test pack (dry run)
+      - name: Test rendered package
+        shell: pwsh
         run: |
-          cd tools/jtk/packaging/chocolatey
-          # Update version for test
-          $nuspec = Get-Content jira-ticket-cli.nuspec
-          $nuspec = $nuspec -replace '<version>.*</version>', '<version>0.0.1-test</version>'
-          $nuspec | Set-Content jira-ticket-cli.nuspec
-          choco pack --verbose
+          $version = '0.0.1-test'
+          $packageDir = 'tools/jtk/packaging/chocolatey'
+          $nuspecPath = Join-Path $packageDir 'jira-ticket-cli.nuspec'
+          $nuspec = (Get-Content $nuspecPath -Raw).Replace('<version>0.0.0</version>', "<version>$version</version>")
+          Set-Content $nuspecPath $nuspec
+
+          $scriptPath = Join-Path $packageDir 'tools/chocolateyInstall.ps1'
+          $script = Get-Content $scriptPath -Raw
+          $script = $script.Replace('URL_AMD64_PLACEHOLDER', "https://github.com/open-cli-collective/atlassian-cli/releases/download/jtk-v$version/jtk_${version}_windows_amd64.zip")
+          $script = $script.Replace('URL_ARM64_PLACEHOLDER', "https://github.com/open-cli-collective/atlassian-cli/releases/download/jtk-v$version/jtk_${version}_windows_arm64.zip")
+          $script = $script.Replace('CHECKSUM_AMD64_PLACEHOLDER', 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')
+          $script = $script.Replace('CHECKSUM_ARM64_PLACEHOLDER', 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb')
+          Set-Content $scriptPath $script
+
+          Push-Location $packageDir
+          try {
+            choco pack --verbose
+          } finally {
+            Pop-Location
+          }
+
+          $packagePath = Join-Path $packageDir "jira-ticket-cli.$version.nupkg"
+          if (-not (Test-Path $packagePath)) { throw "Expected package was not created: $packagePath" }
+          $extractDir = Join-Path $env:RUNNER_TEMP "jtk-choco-$([guid]::NewGuid())"
+          [IO.Compression.ZipFile]::ExtractToDirectory($packagePath, $extractDir)
+          $renderedPath = Join-Path $extractDir 'tools/chocolateyInstall.ps1'
+          $rendered = Get-Content $renderedPath -Raw
+          if ($rendered -match 'URL_AMD64_PLACEHOLDER|URL_ARM64_PLACEHOLDER|CHECKSUM_AMD64_PLACEHOLDER|CHECKSUM_ARM64_PLACEHOLDER|ChocolateyPackageVersion|\$\{version\}') {
+            throw 'Rendered jtk package still contains a URL/checksum placeholder or runtime package-version expression'
+          }
+          $expectedAmd64 = "https://github.com/open-cli-collective/atlassian-cli/releases/download/jtk-v$version/jtk_${version}_windows_amd64.zip"
+          $expectedArm64 = "https://github.com/open-cli-collective/atlassian-cli/releases/download/jtk-v$version/jtk_${version}_windows_arm64.zip"
+          if (-not $rendered.Contains($expectedAmd64)) { throw "Rendered package is missing $expectedAmd64" }
+          if (-not $rendered.Contains($expectedArm64)) { throw "Rendered package is missing $expectedArm64" }

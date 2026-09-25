@@ -171,15 +171,27 @@ jobs:
             "$expectedChecksumAmd64  jtk_${version}_windows_amd64.zip"
             "$expectedChecksumArm64  jtk_${version}_windows_arm64.zip"
           ) | Set-Content $checksumsPath
-          $checksumJson = pwsh -NoProfile -File tools/jtk/scripts/extract-chocolatey-checksums.ps1 `
+          $checksumEnv = @(pwsh -NoProfile -File tools/jtk/scripts/extract-chocolatey-checksums.ps1 `
             -Version $version `
-            -ChecksumsPath $checksumsPath
+            -ChecksumsPath $checksumsPath)
           if ($LASTEXITCODE -ne 0) { throw 'Checksum extraction failed' }
-          $checksums = $checksumJson | ConvertFrom-Json
-          $checksumAmd64 = $checksums.amd64
-          $checksumArm64 = $checksums.arm64
-          if ($checksumAmd64 -ne $expectedChecksumAmd64) { throw "AMD64 checksum was parsed as '$checksumAmd64'" }
-          if ($checksumArm64 -ne $expectedChecksumArm64) { throw "ARM64 checksum was parsed as '$checksumArm64'" }
+          $expectedChecksumEnv = @(
+            "CHECKSUM_AMD64=$expectedChecksumAmd64"
+            "CHECKSUM_ARM64=$expectedChecksumArm64"
+          )
+          if ($checksumEnv.Count -ne $expectedChecksumEnv.Count -or
+              $checksumEnv[0] -ne $expectedChecksumEnv[0] -or
+              $checksumEnv[1] -ne $expectedChecksumEnv[1]) {
+            throw "Checksum extraction output was '$($checksumEnv -join ', ')', expected '$($expectedChecksumEnv -join ', ')'"
+          }
+          $checksumEnvPath = Join-Path $env:RUNNER_TEMP "jtk-checksum-env-$([guid]::NewGuid()).txt"
+          $checksumEnv | Set-Content $checksumEnvPath
+          foreach ($assignment in Get-Content $checksumEnvPath) {
+            $name, $value = $assignment -split '=', 2
+            Set-Item -Path "Env:$name" -Value $value
+          }
+          $checksumAmd64 = $env:CHECKSUM_AMD64
+          $checksumArm64 = $env:CHECKSUM_ARM64
           pwsh -File tools/jtk/scripts/render-chocolatey-install.ps1 `
             -Version $version `
             -ScriptPath $scriptPath `

@@ -33,4 +33,5 @@ foreach ($architecture in $assetNames.Keys) {
     $parsed[$architecture] = $assetMatches[0].Groups['hash'].Value.ToLowerInvariant()
 }
 
-$parsed | ConvertTo-Json -Compress
+"CHECKSUM_AMD64=$($parsed.amd64)"
+"CHECKSUM_ARM64=$($parsed.arm64)"

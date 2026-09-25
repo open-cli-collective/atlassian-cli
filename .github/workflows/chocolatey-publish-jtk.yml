@@ -33,13 +33,11 @@ jobs:
 
       - name: Extract checksums
         run: |
-          $checksumJson = pwsh -NoProfile -File tools/jtk/scripts/extract-chocolatey-checksums.ps1 `
+          $checksumEnv = pwsh -NoProfile -File tools/jtk/scripts/extract-chocolatey-checksums.ps1 `
             -Version $env:VERSION `
             -ChecksumsPath artifacts/checksums.txt
           if ($LASTEXITCODE -ne 0) { throw 'Checksum extraction failed' }
-          $checksums = $checksumJson | ConvertFrom-Json
-          "CHECKSUM_AMD64=$($checksums.amd64)" >> $env:GITHUB_ENV
-          "CHECKSUM_ARM64=$($checksums.arm64)" >> $env:GITHUB_ENV
+          $checksumEnv >> $env:GITHUB_ENV
 
       - name: Update nuspec version
         run: |

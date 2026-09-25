@@ -11,20 +11,29 @@ on:
 jobs:
   publish:
     runs-on: windows-latest
+    env:
+      VERSION: ${{ inputs.version }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Validate version
+        shell: pwsh
+        run: |
+          if ($env:VERSION -notmatch '^[0-9]+\.[0-9]+\.[0-9]+$') {
+            throw "Version must be numeric SemVer (major.minor.patch): $env:VERSION"
+          }
 
       - name: Download release assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          $version = "${{ inputs.version }}"
+          $version = $env:VERSION
           $tag = "cfl-v$version"
           gh release download $tag --pattern "cfl_${version}_windows_*.zip" --pattern "checksums.txt" --dir artifacts
 
       - name: Extract checksums
         run: |
-          $version = "${{ inputs.version }}"
+          $version = $env:VERSION
           $checksums = Get-Content artifacts/checksums.txt
           $amd64 = ($checksums | Select-String "cfl_${version}_windows_amd64.zip").ToString().Split(" ")[0]
           $arm64 = ($checksums | Select-String "cfl_${version}_windows_arm64.zip").ToString().Split(" ")[0]
@@ -33,7 +42,7 @@ jobs:
 
       - name: Update nuspec version
         run: |
-          $version = "${{ inputs.version }}"
+          $version = $env:VERSION
           $nuspec = Get-Content tools/cfl/packaging/chocolatey/confluence-cli.nuspec
           $nuspec = $nuspec -replace '<version>.*</version>', "<version>$version</version>"
           $nuspec | Set-Content tools/cfl/packaging/chocolatey/confluence-cli.nuspec
@@ -41,7 +50,7 @@ jobs:
       - name: Render install script
         run: |
           pwsh -File tools/cfl/scripts/render-chocolatey-install.ps1 `
-            -Version "${{ inputs.version }}" `
+            -Version $env:VERSION `
             -ScriptPath tools/cfl/packaging/chocolatey/tools/chocolateyInstall.ps1 `
             -ChecksumAmd64 $env:CHECKSUM_AMD64 `
             -ChecksumArm64 $env:CHECKSUM_ARM64
@@ -50,4 +59,5 @@ jobs:
         run: |
           cd tools/cfl/packaging/chocolatey
           choco pack
-          choco push confluence-cli.${{ inputs.version }}.nupkg --source https://push.chocolatey.org/ --api-key ${{ secrets.CHOCOLATEY_API_KEY }}
+          $package = "confluence-cli.$($env:VERSION).nupkg"
+          choco push $package --source https://push.chocolatey.org/ --api-key ${{ secrets.CHOCOLATEY_API_KEY }}

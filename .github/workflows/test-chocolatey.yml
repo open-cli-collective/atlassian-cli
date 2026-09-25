@@ -189,3 +189,44 @@ jobs:
           $expectedArm64 = "https://github.com/open-cli-collective/atlassian-cli/releases/download/jtk-v$version/jtk_${version}_windows_arm64.zip"
           if (-not $rendered.Contains($expectedAmd64)) { throw "Rendered package is missing $expectedAmd64" }
           if (-not $rendered.Contains($expectedArm64)) { throw "Rendered package is missing $expectedArm64" }
+
+          function Install-ChocolateyZipPackage {
+            param(
+              [string]$PackageName,
+              [string]$Url,
+              [string]$UnzipLocation,
+              [string]$Checksum,
+              [string]$ChecksumType
+            )
+            $global:capturedPackageName = $PackageName
+            $global:capturedUrl = $Url
+            $global:capturedChecksum = $Checksum
+            $global:capturedChecksumType = $ChecksumType
+          }
+
+          $env:ChocolateyPackageName = 'jira-ticket-cli'
+          $architectures = @(
+            @{ Name = 'AMD64'; Environment = 'AMD64'; Url = $expectedAmd64; Checksum = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' },
+            @{ Name = 'ARM64'; Environment = 'ARM64'; Url = $expectedArm64; Checksum = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' }
+          )
+          foreach ($architecture in $architectures) {
+            $previousArchitecture = $env:PROCESSOR_ARCHITECTURE
+            try {
+              $env:PROCESSOR_ARCHITECTURE = $architecture.Environment
+              $global:capturedUrl = $null
+              $global:capturedChecksum = $null
+              $global:capturedChecksumType = $null
+              & $renderedPath
+            } finally {
+              $env:PROCESSOR_ARCHITECTURE = $previousArchitecture
+            }
+            if ($global:capturedUrl -ne $architecture.Url) {
+              throw "$($architecture.Name) selected URL '$global:capturedUrl', expected '$($architecture.Url)'"
+            }
+            if ($global:capturedChecksum -ne $architecture.Checksum) {
+              throw "$($architecture.Name) selected checksum '$global:capturedChecksum', expected '$($architecture.Checksum)'"
+            }
+            if ($global:capturedChecksumType -ne 'sha256') {
+              throw "$($architecture.Name) selected checksum type '$global:capturedChecksumType', expected 'sha256'"
+            }
+          }

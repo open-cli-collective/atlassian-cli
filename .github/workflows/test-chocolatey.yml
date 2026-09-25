@@ -90,10 +90,10 @@ jobs:
               [string]$Checksum,
               [string]$ChecksumType
             )
-            $script:capturedPackageName = $PackageName
-            $script:capturedUrl = $Url
-            $script:capturedChecksum = $Checksum
-            $script:capturedChecksumType = $ChecksumType
+            $global:capturedPackageName = $PackageName
+            $global:capturedUrl = $Url
+            $global:capturedChecksum = $Checksum
+            $global:capturedChecksumType = $ChecksumType
           }
 
           $env:ChocolateyPackageName = 'confluence-cli'
@@ -105,21 +105,21 @@ jobs:
             $previousArchitecture = $env:PROCESSOR_ARCHITECTURE
             try {
               $env:PROCESSOR_ARCHITECTURE = $architecture.Environment
-              $script:capturedUrl = $null
-              $script:capturedChecksum = $null
-              $script:capturedChecksumType = $null
+              $global:capturedUrl = $null
+              $global:capturedChecksum = $null
+              $global:capturedChecksumType = $null
               & $renderedPath
             } finally {
               $env:PROCESSOR_ARCHITECTURE = $previousArchitecture
             }
-            if ($script:capturedUrl -ne $architecture.Url) {
-              throw "$($architecture.Name) selected URL '$script:capturedUrl', expected '$($architecture.Url)'"
+            if ($global:capturedUrl -ne $architecture.Url) {
+              throw "$($architecture.Name) selected URL '$global:capturedUrl', expected '$($architecture.Url)'"
             }
-            if ($script:capturedChecksum -ne $architecture.Checksum) {
-              throw "$($architecture.Name) selected checksum '$script:capturedChecksum', expected '$($architecture.Checksum)'"
+            if ($global:capturedChecksum -ne $architecture.Checksum) {
+              throw "$($architecture.Name) selected checksum '$global:capturedChecksum', expected '$($architecture.Checksum)'"
             }
-            if ($script:capturedChecksumType -ne 'sha256') {
-              throw "$($architecture.Name) selected checksum type '$script:capturedChecksumType', expected 'sha256'"
+            if ($global:capturedChecksumType -ne 'sha256') {
+              throw "$($architecture.Name) selected checksum type '$global:capturedChecksumType', expected 'sha256'"
             }
           }
 

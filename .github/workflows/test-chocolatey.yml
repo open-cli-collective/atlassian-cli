@@ -46,7 +46,7 @@ jobs:
       - name: Test rendered package
         shell: pwsh
         run: |
-          $version = '0.0.1-test'
+          $version = '0.0.1'
           $packageDir = 'tools/cfl/packaging/chocolatey'
           $nuspecPath = Join-Path $packageDir 'confluence-cli.nuspec'
           $nuspec = (Get-Content $nuspecPath -Raw).Replace('<version>0.0.0</version>', "<version>$version</version>")

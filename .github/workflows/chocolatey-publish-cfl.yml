@@ -38,30 +38,13 @@ jobs:
           $nuspec = $nuspec -replace '<version>.*</version>', "<version>$version</version>"
           $nuspec | Set-Content tools/cfl/packaging/chocolatey/confluence-cli.nuspec
 
-      - name: Update install script checksums
+      - name: Render install script
         run: |
-          $script = Get-Content tools/cfl/packaging/chocolatey/tools/chocolateyInstall.ps1
-          $script = $script -replace "CHECKSUM_AMD64_PLACEHOLDER", $env:CHECKSUM_AMD64
-          $script = $script -replace "CHECKSUM_ARM64_PLACEHOLDER", $env:CHECKSUM_ARM64
-          $script | Set-Content tools/cfl/packaging/chocolatey/tools/chocolateyInstall.ps1
-
-      - name: Update install script URLs
-        run: |
-          $version = "${{ inputs.version }}"
-          $scriptPath = 'tools/cfl/packaging/chocolatey/tools/chocolateyInstall.ps1'
-          $script = Get-Content $scriptPath -Raw
-          $amd64Url = "https://github.com/open-cli-collective/atlassian-cli/releases/download/cfl-v$version/cfl_${version}_windows_amd64.zip"
-          $arm64Url = "https://github.com/open-cli-collective/atlassian-cli/releases/download/cfl-v$version/cfl_${version}_windows_arm64.zip"
-          if (-not $script.Contains('URL_AMD64_PLACEHOLDER')) { throw 'Missing URL_AMD64_PLACEHOLDER' }
-          if (-not $script.Contains('URL_ARM64_PLACEHOLDER')) { throw 'Missing URL_ARM64_PLACEHOLDER' }
-          $script = $script.Replace('URL_AMD64_PLACEHOLDER', $amd64Url)
-          $script = $script.Replace('URL_ARM64_PLACEHOLDER', $arm64Url)
-          if ($script -match 'URL_AMD64_PLACEHOLDER|URL_ARM64_PLACEHOLDER|CHECKSUM_AMD64_PLACEHOLDER|CHECKSUM_ARM64_PLACEHOLDER|ChocolateyPackageVersion|\$\{version\}') {
-            throw 'Rendered cfl install script still contains a URL/checksum placeholder or runtime package-version expression'
-          }
-          if (-not $script.Contains($amd64Url)) { throw "Rendered script is missing $amd64Url" }
-          if (-not $script.Contains($arm64Url)) { throw "Rendered script is missing $arm64Url" }
-          Set-Content $scriptPath $script
+          pwsh -File tools/cfl/scripts/render-chocolatey-install.ps1 `
+            -Version "${{ inputs.version }}" `
+            -ScriptPath tools/cfl/packaging/chocolatey/tools/chocolateyInstall.ps1 `
+            -ChecksumAmd64 $env:CHECKSUM_AMD64 `
+            -ChecksumArm64 $env:CHECKSUM_ARM64
 
       - name: Pack and push
         run: |

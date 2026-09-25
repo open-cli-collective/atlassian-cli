@@ -5,9 +5,15 @@ on:
     branches: [main]
     paths:
       - 'tools/*/packaging/chocolatey/**'
+      - 'tools/cfl/scripts/**'
+      - '.github/workflows/chocolatey-publish-cfl.yml'
+      - '.github/workflows/test-chocolatey.yml'
   pull_request:
     paths:
       - 'tools/*/packaging/chocolatey/**'
+      - 'tools/cfl/scripts/**'
+      - '.github/workflows/chocolatey-publish-cfl.yml'
+      - '.github/workflows/test-chocolatey.yml'
 
 jobs:
   test-cfl:
@@ -47,12 +53,13 @@ jobs:
           Set-Content $nuspecPath $nuspec
 
           $scriptPath = Join-Path $packageDir 'tools/chocolateyInstall.ps1'
-          $script = Get-Content $scriptPath -Raw
-          $script = $script.Replace('URL_AMD64_PLACEHOLDER', "https://github.com/open-cli-collective/atlassian-cli/releases/download/cfl-v$version/cfl_${version}_windows_amd64.zip")
-          $script = $script.Replace('URL_ARM64_PLACEHOLDER', "https://github.com/open-cli-collective/atlassian-cli/releases/download/cfl-v$version/cfl_${version}_windows_arm64.zip")
-          $script = $script.Replace('CHECKSUM_AMD64_PLACEHOLDER', 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')
-          $script = $script.Replace('CHECKSUM_ARM64_PLACEHOLDER', 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb')
-          Set-Content $scriptPath $script
+          $checksumAmd64 = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
+          $checksumArm64 = 'fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210'
+          pwsh -File tools/cfl/scripts/render-chocolatey-install.ps1 `
+            -Version $version `
+            -ScriptPath $scriptPath `
+            -ChecksumAmd64 $checksumAmd64 `
+            -ChecksumArm64 $checksumArm64
 
           Push-Location $packageDir
           try {
@@ -74,6 +81,47 @@ jobs:
           $expectedArm64 = "https://github.com/open-cli-collective/atlassian-cli/releases/download/cfl-v$version/cfl_${version}_windows_arm64.zip"
           if (-not $rendered.Contains($expectedAmd64)) { throw "Rendered package is missing $expectedAmd64" }
           if (-not $rendered.Contains($expectedArm64)) { throw "Rendered package is missing $expectedArm64" }
+
+          function Install-ChocolateyZipPackage {
+            param(
+              [string]$PackageName,
+              [string]$Url,
+              [string]$UnzipLocation,
+              [string]$Checksum,
+              [string]$ChecksumType
+            )
+            $script:capturedPackageName = $PackageName
+            $script:capturedUrl = $Url
+            $script:capturedChecksum = $Checksum
+            $script:capturedChecksumType = $ChecksumType
+          }
+
+          $env:ChocolateyPackageName = 'confluence-cli'
+          $architectures = @(
+            @{ Name = 'AMD64'; Environment = 'AMD64'; Url = $expectedAmd64; Checksum = $checksumAmd64 },
+            @{ Name = 'ARM64'; Environment = 'ARM64'; Url = $expectedArm64; Checksum = $checksumArm64 }
+          )
+          foreach ($architecture in $architectures) {
+            $previousArchitecture = $env:PROCESSOR_ARCHITECTURE
+            try {
+              $env:PROCESSOR_ARCHITECTURE = $architecture.Environment
+              $script:capturedUrl = $null
+              $script:capturedChecksum = $null
+              $script:capturedChecksumType = $null
+              & $renderedPath
+            } finally {
+              $env:PROCESSOR_ARCHITECTURE = $previousArchitecture
+            }
+            if ($script:capturedUrl -ne $architecture.Url) {
+              throw "$($architecture.Name) selected URL '$script:capturedUrl', expected '$($architecture.Url)'"
+            }
+            if ($script:capturedChecksum -ne $architecture.Checksum) {
+              throw "$($architecture.Name) selected checksum '$script:capturedChecksum', expected '$($architecture.Checksum)'"
+            }
+            if ($script:capturedChecksumType -ne 'sha256') {
+              throw "$($architecture.Name) selected checksum type '$script:capturedChecksumType', expected 'sha256'"
+            }
+          }
 
   test-jtk:
     runs-on: windows-latest

@@ -5,6 +5,9 @@ on:
     branches: [main]
     paths:
       - 'tools/*/packaging/chocolatey/**'
+  pull_request:
+    paths:
+      - 'tools/*/packaging/chocolatey/**'
 
 jobs:
   test-cfl:
@@ -61,7 +64,7 @@ jobs:
           $packagePath = Join-Path $packageDir "confluence-cli.$version.nupkg"
           if (-not (Test-Path $packagePath)) { throw "Expected package was not created: $packagePath" }
           $extractDir = Join-Path $env:RUNNER_TEMP "cfl-choco-$([guid]::NewGuid())"
-          Expand-Archive -Path $packagePath -DestinationPath $extractDir
+          [IO.Compression.ZipFile]::ExtractToDirectory($packagePath, $extractDir)
           $renderedPath = Join-Path $extractDir 'tools/chocolateyInstall.ps1'
           $rendered = Get-Content $renderedPath -Raw
           if ($rendered -match 'URL_AMD64_PLACEHOLDER|URL_ARM64_PLACEHOLDER|CHECKSUM_AMD64_PLACEHOLDER|CHECKSUM_ARM64_PLACEHOLDER|ChocolateyPackageVersion|\$\{version\}') {

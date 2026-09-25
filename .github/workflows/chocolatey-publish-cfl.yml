@@ -56,6 +56,11 @@ jobs:
           if (-not $script.Contains('URL_ARM64_PLACEHOLDER')) { throw 'Missing URL_ARM64_PLACEHOLDER' }
           $script = $script.Replace('URL_AMD64_PLACEHOLDER', $amd64Url)
           $script = $script.Replace('URL_ARM64_PLACEHOLDER', $arm64Url)
+          if ($script -match 'URL_AMD64_PLACEHOLDER|URL_ARM64_PLACEHOLDER|CHECKSUM_AMD64_PLACEHOLDER|CHECKSUM_ARM64_PLACEHOLDER|ChocolateyPackageVersion|\$\{version\}') {
+            throw 'Rendered cfl install script still contains a URL/checksum placeholder or runtime package-version expression'
+          }
+          if (-not $script.Contains($amd64Url)) { throw "Rendered script is missing $amd64Url" }
+          if (-not $script.Contains($arm64Url)) { throw "Rendered script is missing $arm64Url" }
           Set-Content $scriptPath $script
 
       - name: Pack and push

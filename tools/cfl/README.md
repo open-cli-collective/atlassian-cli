@@ -209,18 +209,25 @@ cfl init --url https://mycompany.atlassian.net --email you@example.com
 # Service account with scoped token (Bearer Auth)
 cfl init --auth-method bearer
 cfl init --auth-method bearer --url https://mycompany.atlassian.net \
-  --token YOUR_SCOPED_TOKEN --cloud-id YOUR_CLOUD_ID --no-verify
+  --token-from-env CFL_API_TOKEN --cloud-id YOUR_CLOUD_ID --no-verify
+
+# Trusted proxy (no CLI-side Authorization header)
+cfl init --auth-method proxy --url http://127.0.0.1:8080/atlassian --no-verify
 ```
 
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
 | `--url` | | | Pre-populate Confluence URL |
 | `--email` | | | Pre-populate email address |
-| `--auth-method` | | | Auth method: `basic` (default) or `bearer` |
+| `--token-stdin` | | `false` | Read the API token from stdin |
+| `--token-from-env` | | | Read the API token from an environment variable |
+| `--auth-method` | | | Auth method: `basic` (default), `bearer`, or `proxy` |
 | `--cloud-id` | | | Cloud ID for bearer auth (find at `https://your-site.atlassian.net/_edge/tenant_info`) |
 | `--no-verify` | | `false` | Skip connection verification |
 
 > **Bearer Auth:** For [Atlassian service accounts](https://support.atlassian.com/user-management/docs/manage-api-tokens-for-service-accounts/) with scoped API tokens. Email is not required. Requests route through the `api.atlassian.com` gateway.
+>
+> **Proxy Auth:** Use `--auth-method proxy` for a trusted proxy that injects credentials upstream. The CLI requires only a URL and sends no `Authorization` header. HTTPS URLs are accepted; `http://` URLs are accepted only for loopback hosts such as `localhost`, `127.0.0.1`, or `[::1]`. cfl appends `/wiki` for Confluence API calls.
 
 After a successful save, `cfl init` prints the equivalent of `cfl me` so you can confirm which user the saved credentials authenticate as. (Skipped when `--no-verify` is set, since no live API call is made and there is no user to render.)
 
@@ -823,7 +830,7 @@ shared store at `~/.config/atlassian-cli/config.yml`:
 default:
   url: https://mycompany.atlassian.net   # base URL; cfl appends /wiki on read
   email: you@example.com
-  auth_method: basic                     # or "bearer"
+  auth_method: basic                     # or "bearer" / "proxy"
   cloud_id: ""                           # required for bearer
 cfl:
   default_space: DEV                     # cfl-only defaults
@@ -885,8 +892,11 @@ Environment variables override file-based config. Variables are checked in order
 | Default Space | `CFL_DEFAULT_SPACE` → shared `cfl.default_space` → legacy |
 | Auth Method | `CFL_AUTH_METHOD` → `ATLASSIAN_AUTH_METHOD` → shared `default` → legacy → `basic` |
 | Cloud ID | `CFL_CLOUD_ID` → `ATLASSIAN_CLOUD_ID` → shared `default` → legacy |
+| Bearer Gateway Base URL | `CFL_GATEWAY_BASE_URL` → `ATLASSIAN_GATEWAY_BASE_URL` → `https://api.atlassian.com` |
 
 Per §2.2 connection config is single-sourced from the shared `default` section — per-tool `cfl:`/`jtk:` sections carry only non-secret defaults and may not override `url`/`email`/`auth_method`/`cloud_id`.
+
+Set `ATLASSIAN_AUTH_METHOD=proxy` (or `CFL_AUTH_METHOD=proxy`) with `ATLASSIAN_URL`/`CFL_URL` to use a trusted proxy. Proxy auth ignores email, token, and cloud ID because the proxy is responsible for upstream authentication.
 
 **Shared credentials:** If you use both `cfl` and `jtk` (Jira CLI), set `ATLASSIAN_*` variables once:
 

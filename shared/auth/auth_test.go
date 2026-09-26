@@ -114,6 +114,7 @@ func TestValidateAuthMethod(t *testing.T) {
 	}{
 		{name: "basic is valid", method: "basic", wantErr: false},
 		{name: "bearer is valid", method: "bearer", wantErr: false},
+		{name: "proxy is valid", method: "proxy", wantErr: false},
 		{name: "empty string is invalid", method: "", wantErr: true},
 		{name: "capitalized Bearer is invalid", method: "Bearer", wantErr: true},
 		{name: "unknown method is invalid", method: "oauth", wantErr: true},
@@ -139,6 +140,165 @@ func TestValidateAuthMethod(t *testing.T) {
 	}
 }
 
+func TestNormalizeConfig(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name           string
+		authMethod     string
+		email          string
+		apiToken       string
+		cloudID        string
+		wantAuthMethod string
+		wantEmail      string
+		wantAPIToken   string
+		wantCloudID    string
+	}{
+		{
+			name:           "empty auth method defaults to basic",
+			email:          "user@example.com",
+			apiToken:       "token",
+			cloudID:        "cloud-id",
+			wantAuthMethod: AuthMethodBasic,
+			wantEmail:      "user@example.com",
+			wantAPIToken:   "token",
+			wantCloudID:    "cloud-id",
+		},
+		{
+			name:           "basic auth keeps direct credentials",
+			authMethod:     AuthMethodBasic,
+			email:          "user@example.com",
+			apiToken:       "token",
+			cloudID:        "cloud-id",
+			wantAuthMethod: AuthMethodBasic,
+			wantEmail:      "user@example.com",
+			wantAPIToken:   "token",
+			wantCloudID:    "cloud-id",
+		},
+		{
+			name:           "bearer auth keeps token and cloud ID",
+			authMethod:     AuthMethodBearer,
+			email:          "user@example.com",
+			apiToken:       "token",
+			cloudID:        "cloud-id",
+			wantAuthMethod: AuthMethodBearer,
+			wantEmail:      "user@example.com",
+			wantAPIToken:   "token",
+			wantCloudID:    "cloud-id",
+		},
+		{
+			name:           "proxy auth strips direct credentials",
+			authMethod:     AuthMethodProxy,
+			email:          "user@example.com",
+			apiToken:       "token",
+			cloudID:        "cloud-id",
+			wantAuthMethod: AuthMethodProxy,
+			wantEmail:      "",
+			wantAPIToken:   "",
+			wantCloudID:    "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			gotAuthMethod, gotEmail, gotAPIToken, gotCloudID := NormalizeConfig(
+				tt.authMethod, tt.email, tt.apiToken, tt.cloudID,
+			)
+
+			if gotAuthMethod != tt.wantAuthMethod {
+				t.Errorf("auth method = %q, want %q", gotAuthMethod, tt.wantAuthMethod)
+			}
+			if gotEmail != tt.wantEmail {
+				t.Errorf("email = %q, want %q", gotEmail, tt.wantEmail)
+			}
+			if gotAPIToken != tt.wantAPIToken {
+				t.Errorf("api token = %q, want %q", gotAPIToken, tt.wantAPIToken)
+			}
+			if gotCloudID != tt.wantCloudID {
+				t.Errorf("cloud ID = %q, want %q", gotCloudID, tt.wantCloudID)
+			}
+		})
+	}
+}
+
+func TestRequireNonInteractiveFields(t *testing.T) {
+	t.Parallel()
+
+	const toolHint = "cfl set-credential --ref atlassian-cli/default --key api_token --stdin"
+	tests := []struct {
+		name       string
+		url        string
+		authMethod string
+		email      string
+		apiToken   string
+		cloudID    string
+		wantError  string
+	}{
+		{name: "missing URL", wantError: "--url"},
+		{
+			name:      "basic auth missing email",
+			url:       "https://example.atlassian.net",
+			apiToken:  "token",
+			wantError: "--email (basic auth)",
+		},
+		{
+			name:       "bearer auth missing cloud ID",
+			url:        "https://example.atlassian.net",
+			authMethod: AuthMethodBearer,
+			apiToken:   "token",
+			wantError:  "--cloud-id (bearer auth)",
+		},
+		{
+			name:      "basic auth missing token includes tool hint",
+			url:       "https://example.atlassian.net",
+			email:     "user@example.com",
+			wantError: toolHint,
+		},
+		{
+			name:       "bearer auth missing token includes tool hint",
+			url:        "https://example.atlassian.net",
+			authMethod: AuthMethodBearer,
+			cloudID:    "cloud-id",
+			wantError:  toolHint,
+		},
+		{
+			name:       "proxy auth needs only URL",
+			url:        "http://127.0.0.1:8080/atlassian",
+			authMethod: AuthMethodProxy,
+		},
+		{
+			name:     "complete basic auth",
+			url:      "https://example.atlassian.net",
+			email:    "user@example.com",
+			apiToken: "token",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := RequireNonInteractiveFields(
+				tt.url, tt.authMethod, tt.email, tt.apiToken, tt.cloudID, toolHint,
+			)
+			if tt.wantError == "" {
+				if err != nil {
+					t.Fatalf("RequireNonInteractiveFields() error = %v, want nil", err)
+				}
+				return
+			}
+			if err == nil {
+				t.Fatalf("RequireNonInteractiveFields() error = nil, want containing %q", tt.wantError)
+			}
+			if !strings.Contains(err.Error(), tt.wantError) {
+				t.Fatalf("RequireNonInteractiveFields() error = %q, want containing %q", err, tt.wantError)
+			}
+		})
+	}
+}
+
 func TestAuthMethodConstants(t *testing.T) {
 	t.Parallel()
 	if AuthMethodBasic != "basic" {
@@ -146,5 +306,8 @@ func TestAuthMethodConstants(t *testing.T) {
 	}
 	if AuthMethodBearer != "bearer" {
 		t.Errorf("AuthMethodBearer = %q, want %q", AuthMethodBearer, "bearer")
+	}
+	if AuthMethodProxy != "proxy" {
+		t.Errorf("AuthMethodProxy = %q, want %q", AuthMethodProxy, "proxy")
 	}
 }

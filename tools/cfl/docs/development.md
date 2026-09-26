@@ -84,7 +84,7 @@ Add new Confluence macros through `MacroRegistry` in `macro.go`; the tokenizer, 
 
 `cfl` participates in the shared Atlassian credential/config model described by the monorepo guide. `ATLASSIAN_*` variables apply across both tools; `CFL_*` variables override for cfl. The cfl-specific config section carries non-secret defaults such as `default_space` and `output_format`.
 
-Basic auth uses an instance URL plus email and token. Bearer auth routes through `api.atlassian.com` and requires a cloud ID. `cfl init` and `cfl me` verify against Confluence's current-user endpoint.
+Basic auth uses an instance URL plus email and token. Bearer auth routes through `api.atlassian.com` and requires a cloud ID. Proxy auth uses only a URL, sends no `Authorization` header, and allows loopback `http://` URLs for trusted local proxies while keeping arbitrary cleartext proxy URLs rejected. Bearer gateway routing can be overridden with `CFL_GATEWAY_BASE_URL` or `ATLASSIAN_GATEWAY_BASE_URL`. `cfl init` and `cfl me` verify against Confluence's current-user endpoint.
 
 ## Output
 

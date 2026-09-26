@@ -175,21 +175,28 @@ jtk init --url https://mycompany.atlassian.net --email user@example.com
 # Service account with scoped token (Bearer Auth)
 jtk init --auth-method bearer
 jtk init --auth-method bearer --url https://mycompany.atlassian.net \
-  --token YOUR_SCOPED_TOKEN --cloud-id YOUR_CLOUD_ID --no-verify
+  --token-from-env JIRA_API_TOKEN --cloud-id YOUR_CLOUD_ID --no-verify
+
+# Trusted proxy (no CLI-side Authorization header)
+jtk init --auth-method proxy --url http://127.0.0.1:8080/atlassian --no-verify
 ```
 
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--url` | | Jira URL (e.g., `https://mycompany.atlassian.net`) |
 | `--email` | | Email address for authentication |
-| `--token` | | API token |
-| `--auth-method` | | Auth method: `basic` (default) or `bearer` |
+| `--token` | | Deprecated API token literal; prefer `--token-stdin` or `--token-from-env` |
+| `--token-stdin` | `false` | Read the API token from stdin |
+| `--token-from-env` | | Read the API token from an environment variable |
+| `--auth-method` | | Auth method: `basic` (default), `bearer`, or `proxy` |
 | `--cloud-id` | | Cloud ID for bearer auth (find at `https://your-site.atlassian.net/_edge/tenant_info`) |
 | `--no-verify` | `false` | Skip connection verification |
 
 > **Bearer Auth:** For [Atlassian service accounts](https://support.atlassian.com/user-management/docs/manage-api-tokens-for-service-accounts/) with scoped API tokens. Email is not required. Requests route through the `api.atlassian.com` gateway.
 >
 > **Scope limitations:** Scoped tokens don't have scopes for Agile (boards/sprints), Automation, Dashboards, or the private Development API. These commands are unavailable with bearer auth — this is an Atlassian platform limitation.
+>
+> **Proxy Auth:** Use `--auth-method proxy` for a trusted proxy that injects credentials upstream. The CLI requires only a URL and sends no `Authorization` header. HTTPS URLs are accepted; `http://` URLs are accepted only for loopback hosts such as `localhost`, `127.0.0.1`, or `[::1]`.
 
 ---
 
@@ -1663,7 +1670,7 @@ shared store at `~/.config/atlassian-cli/config.yml`:
 default:
   url: https://mycompany.atlassian.net
   email: user@example.com
-  auth_method: basic                # or "bearer"
+  auth_method: basic                # or "bearer" / "proxy"
   cloud_id: ""                      # required for bearer
 jtk:
   default_project: MYPROJECT        # jtk-only defaults
@@ -1722,8 +1729,11 @@ Environment variables override file-based config. Variables are checked in order
 | Default Project | `JIRA_DEFAULT_PROJECT` → shared `jtk.default_project` → legacy |
 | Auth Method | `JIRA_AUTH_METHOD` → `ATLASSIAN_AUTH_METHOD` → shared `default` → legacy → `basic` |
 | Cloud ID | `JIRA_CLOUD_ID` → `ATLASSIAN_CLOUD_ID` → shared `default` → legacy |
+| Bearer Gateway Base URL | `JIRA_GATEWAY_BASE_URL` → `ATLASSIAN_GATEWAY_BASE_URL` → `https://api.atlassian.com` |
 
 Per §2.2 connection config is single-sourced from the shared `default` section — per-tool `cfl:`/`jtk:` sections carry only non-secret defaults and may not override `url`/`email`/`auth_method`/`cloud_id`.
+
+Set `ATLASSIAN_AUTH_METHOD=proxy` (or `JIRA_AUTH_METHOD=proxy`) with `ATLASSIAN_URL`/`JIRA_URL` to use a trusted proxy. Proxy auth ignores email, token, and cloud ID because the proxy is responsible for upstream authentication.
 
 **Shared credentials:** If you use both `jtk` and `cfl` (Confluence CLI), set `ATLASSIAN_*` variables once:
 

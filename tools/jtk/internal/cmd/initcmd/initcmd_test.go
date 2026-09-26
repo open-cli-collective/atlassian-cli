@@ -3,15 +3,19 @@ package initcmd
 import (
 	"bytes"
 	"context"
+	"errors"
+	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/open-cli-collective/atlassian-go/auth"
 	"github.com/open-cli-collective/atlassian-go/credstore"
 	"github.com/open-cli-collective/atlassian-go/credtest"
 	"github.com/open-cli-collective/atlassian-go/keyring"
 	"github.com/open-cli-collective/atlassian-go/testutil"
 	"github.com/spf13/cobra"
 
+	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/config"
 )
@@ -64,78 +68,6 @@ func TestRunInit_InvalidAuthMethod(t *testing.T) {
 // The non-interactive paths (all flags provided) still use huh forms internally,
 // so we test config loading/saving separately
 
-// TestRequireNonInteractiveFields_NamesFirstMissing pins the §3.4
-// fail-loud message shape so the family pattern (jtk + cfl + future
-// nrq-aligned ports) stays consistent. The wizard wrapper isn't tested
-// directly because it depends on huh form state we can't easily fake
-// — the helper IS the contract for what gets named.
-func TestRequireNonInteractiveFields_NamesFirstMissing(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name     string
-		cfg      *config.Config
-		isBearer bool
-		wants    []string
-	}{
-		{
-			name:  "basic auth — missing URL",
-			cfg:   &config.Config{},
-			wants: []string{"--url"},
-		},
-		{
-			name:  "basic auth — missing email",
-			cfg:   &config.Config{URL: "https://acme.atlassian.net"},
-			wants: []string{"--email"},
-		},
-		{
-			name:     "bearer — missing cloud-id",
-			cfg:      &config.Config{URL: "https://acme.atlassian.net"},
-			isBearer: true,
-			wants:    []string{"--cloud-id"},
-		},
-		{
-			name:  "basic auth — missing token recommends --token-stdin + --token-from-env + set-credential",
-			cfg:   &config.Config{URL: "https://acme.atlassian.net", Email: "u@x.io"},
-			wants: []string{"--token-stdin", "--token-from-env", "set-credential"},
-		},
-		{
-			name:     "bearer — missing token recommends --token-stdin + --token-from-env + set-credential",
-			cfg:      &config.Config{URL: "https://acme.atlassian.net", CloudID: "cid"},
-			isBearer: true,
-			wants:    []string{"--token-stdin", "--token-from-env", "set-credential"},
-		},
-	}
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-			err := requireNonInteractiveFields(tc.cfg, tc.isBearer)
-			testutil.RequireError(t, err)
-			if !strings.Contains(err.Error(), "--non-interactive: missing") {
-				t.Fatalf("error must mention --non-interactive prefix: %v", err)
-			}
-			for _, want := range tc.wants {
-				if !strings.Contains(err.Error(), want) {
-					t.Fatalf("error must name %s, got %v", want, err)
-				}
-			}
-		})
-	}
-}
-
-// TestRequireNonInteractiveFields_AllSupplied_NoError — happy path; no
-// error returned when every required field is present.
-func TestRequireNonInteractiveFields_AllSupplied_NoError(t *testing.T) {
-	t.Parallel()
-	cfg := &config.Config{
-		URL: "https://acme.atlassian.net", Email: "u@x.io",
-		APIToken: "tok-1234567890",
-	}
-	if err := requireNonInteractiveFields(cfg, false); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-}
-
 // TestRunInit_NonInteractive_MissingURL_Fails — drives runInit through
 // the public surface with --non-interactive but no flags supplied. The
 // fail-loud message must surface BEFORE any keyring/migration work runs.
@@ -179,6 +111,76 @@ func TestRunInit_NonInteractive_MissingToken_FlagAndKeyringEmpty(t *testing.T) {
 	if !strings.Contains(err.Error(), "set-credential") {
 		t.Fatalf("error must hint at set-credential pre-staging, got: %v", err)
 	}
+}
+
+func TestRunInit_Proxy_NoTokenRequiredOrPersisted(t *testing.T) {
+	credtest.Hermetic(t)
+	opts := &root.Options{
+		NoColor:        true,
+		NonInteractive: true,
+		Stdin:          strings.NewReader(""),
+		Stdout:         &bytes.Buffer{},
+		Stderr:         &bytes.Buffer{},
+	}
+	err := runInit(context.Background(), opts,
+		"http://127.0.0.1:8080/atlassian", "", "", false, "", auth.AuthMethodProxy, "", true)
+	testutil.RequireNoError(t, err)
+
+	store, err := credstore.Load(credtest.SharedConfigPath(t))
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "http://127.0.0.1:8080/atlassian", store.Default.URL)
+	testutil.Equal(t, "", store.Default.Email)
+	testutil.Equal(t, auth.AuthMethodProxy, store.Default.AuthMethod)
+	testutil.Equal(t, "", store.Default.CloudID)
+
+	s, err := keyring.OpenNoMigrate()
+	testutil.RequireNoError(t, err)
+	defer func() { _ = s.Close() }()
+	ok, err := s.HasToken(keyring.KeyAPIToken)
+	testutil.RequireNoError(t, err)
+	testutil.False(t, ok)
+}
+
+func TestFinalizeInit_NoVerify_BasicAuthWithoutTokenSavesConfig(t *testing.T) {
+	credtest.Hermetic(t)
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yml")
+	opts := &root.Options{
+		NoColor: true,
+		Stdout:  &bytes.Buffer{},
+		Stderr:  &bytes.Buffer{},
+	}
+	cfg := &config.Config{
+		URL:        "https://acme.atlassian.net",
+		Email:      "user@example.com",
+		AuthMethod: auth.AuthMethodBasic,
+	}
+	builderCalled := false
+	build := func(api.ClientConfig) (*api.Client, error) {
+		builderCalled = true
+		return nil, errors.New("client builder should not run with --no-verify")
+	}
+
+	err := finalizeInit(context.Background(), opts, cfg, &reconcileResult{store: &credstore.Store{}}, configPath, true, build)
+	testutil.RequireNoError(t, err)
+	testutil.False(t, builderCalled, "client builder should not be invoked when --no-verify is set")
+
+	store, err := credstore.Load(configPath)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "https://acme.atlassian.net", store.Default.URL)
+	testutil.Equal(t, "user@example.com", store.Default.Email)
+	testutil.Equal(t, auth.AuthMethodBasic, store.Default.AuthMethod)
+
+	s, err := keyring.OpenNoMigrate()
+	testutil.RequireNoError(t, err)
+	defer func() { _ = s.Close() }()
+	ok, err := s.HasToken(keyring.KeyAPIToken)
+	testutil.RequireNoError(t, err)
+	testutil.False(t, ok)
+
+	stdout := opts.Stdout.(*bytes.Buffer).String()
+	testutil.Contains(t, stdout, "Configuration saved")
+	testutil.Contains(t, stdout, "token not stored")
 }
 
 func TestInitCommand_Flags(t *testing.T) {

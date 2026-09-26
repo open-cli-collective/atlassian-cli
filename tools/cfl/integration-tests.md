@@ -4,12 +4,13 @@ This document catalogs the manual integration test suite for `cfl`. These tests 
 
 ## Auth Methods
 
-cfl supports two authentication methods. The full integration test suite should be run with both:
+cfl supports three authentication methods. The full integration test suite should be run with each configured auth method:
 
 - **Basic Auth** (default): Classic API tokens using `email:token` against the instance URL.
 - **Bearer Auth**: Scoped API tokens for service accounts using `Authorization: Bearer <token>` against the `api.atlassian.com` gateway.
+- **Proxy Auth**: Trusted proxy setup using `--auth-method proxy`; the CLI sends no `Authorization` header and requires only a URL.
 
-All cfl commands should work with both auth methods (no scope limitations for Confluence).
+All cfl commands should work with all configured auth methods (no scope limitations for Confluence).
 
 ---
 
@@ -24,6 +25,10 @@ All cfl commands should work with both auth methods (no scope limitations for Co
 - An Atlassian service account with a scoped API token
 - Your Cloud ID (find at `https://your-site.atlassian.net/_edge/tenant_info`)
 - `cfl init --auth-method bearer` completed
+
+### Proxy Auth Prerequisites
+- A trusted proxy that authenticates upstream and exposes Confluence `/wiki` paths.
+- `cfl init --auth-method proxy --url <proxy-url>` completed.
 
 ### Test Data Conventions
 - Test pages use `[Test]` prefix: `[Test] My Page`
@@ -574,7 +579,7 @@ Copies in the TEST space (originals from INT, CUS, PROD, PLAYBOOK):
 
 ## Test Execution Checklist
 
-All cfl commands work with both auth methods (no scope restrictions for Confluence). Run the full checklist twice with separate passes to ensure both auth paths work.
+All cfl commands work with all configured auth methods (no scope restrictions for Confluence). Run the full checklist with separate passes to ensure each auth path works.
 
 ### Pass 1: Basic Auth
 
@@ -753,6 +758,27 @@ All cfl commands work with both auth methods (no scope restrictions for Confluen
 
 ---
 
+### Pass 3: Proxy Auth
+
+#### Setup (Proxy Auth)
+- [ ] Configure a trusted proxy that authenticates upstream and exposes a loopback `http://` URL or an `https://` URL
+- [ ] `cfl init --auth-method proxy --url http://127.0.0.1:8080/atlassian --no-verify` (adjust URL for your proxy)
+- [ ] `cfl config show` — auth_method = proxy; email, api_token, and cloud_id are empty
+- [ ] `cfl config test` — Connection verified through the proxy
+- [ ] `cfl space list` works
+
+#### Full Checklist (Proxy Auth)
+- [ ] Run Page CRUD, ADF Body Fallback, Wiki Links, Attachment CRUD, Search, Space CRUD, and Edge Cases using the same steps as Pass 1
+- [ ] No sections are skipped; proxy auth has no cfl scope restrictions
+
+#### Cleanup (Proxy Auth)
+- [ ] Delete all [Test] prefixed pages
+- [ ] `cfl space delete INTTEST --force`
+- [ ] `cfl space delete INTTEST2 --force`
+- [ ] Verify no test data remains
+
+---
+
 ## Adding New Tests
 
 When adding new features or fixing bugs:
@@ -760,4 +786,4 @@ When adding new features or fixing bugs:
 1. Add test cases to the appropriate section above
 2. Include both happy path and error cases
 3. Document any known limitations or edge cases
-4. Update the "Test Execution Checklist" if needed
+4. Update Pass 1, Pass 2, and Pass 3 in the Test Execution Checklist

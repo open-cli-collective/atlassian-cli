@@ -199,8 +199,9 @@ func (s *Store) ResolveWithSource(_, field string) (string, Source) {
 // complete enough to authenticate once a token is supplied. The api_token
 // is no longer part of this store (it lives in the keyring), so callers
 // must compose this with keyring.HasToken for full readiness. Basic
-// requires url + email; bearer requires url + cloud_id. Empty auth_method
-// defaults to basic, matching the rest of the codebase.
+// requires url + email; bearer requires url + cloud_id; proxy requires
+// only url because authentication is delegated to the proxy. Empty
+// auth_method defaults to basic, matching the rest of the codebase.
 func (s *Store) HasUsableConfig(tool string) bool {
 	r := s.Resolve(tool)
 	method := r.AuthMethod
@@ -210,6 +211,8 @@ func (s *Store) HasUsableConfig(tool string) bool {
 	switch method {
 	case auth.AuthMethodBearer:
 		return r.URL != "" && r.CloudID != ""
+	case auth.AuthMethodProxy:
+		return r.URL != ""
 	case auth.AuthMethodBasic:
 		return r.URL != "" && r.Email != ""
 	default:

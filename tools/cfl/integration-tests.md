@@ -162,7 +162,8 @@ change that breaks export in the browser.
 | Overwrite | `cfl page export <id> -O handoff.pdf --force` | File replaced |
 | Invalid format | `cfl page export <id> --format docx` | Error: invalid export format, valid formats: pdf |
 | Invalid timeout | `cfl page export <id> --timeout 0` | Error: invalid `--timeout`, must be greater than zero |
-| Non-existent page | `cfl page export 99999999999` | Error: page not found, or not visible to this user |
+| Non-existent page | `cfl page export 99999999999` | Error: `getting page: resource not found` |
+| Non-existent page, explicit path | `cfl page export 99999999999 -O missing.pdf` | Error: `starting export of page 99999999999: resource not found`; no `missing.pdf` written |
 | Title needing sanitizing | Export a page whose title contains `/` or `:` | Writes one file in the working directory, separators replaced |
 | Large page | `cfl page export <large-id> --timeout 10m` | Completes, or fails naming `--timeout` rather than hanging |
 

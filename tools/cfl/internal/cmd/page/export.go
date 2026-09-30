@@ -2,6 +2,7 @@ package page
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -20,8 +21,9 @@ import (
 // single page through its export task.
 const exportFormatPDF = "pdf"
 
-// pollInterval paces the progress reads while Confluence renders.
-const pollInterval = 2 * time.Second
+// pollInterval paces the progress reads while Confluence renders. It is a
+// variable so tests can poll without waiting in real time.
+var pollInterval = 2 * time.Second
 
 type exportOptions struct {
 	*root.Options
@@ -134,7 +136,7 @@ func exportOutputPath(ctx context.Context, client *api.Client, pageID string, op
 
 	page, err := client.GetPage(ctx, pageID, nil)
 	if err != nil {
-		return "", fmt.Errorf("getting page: %w", err)
+		return "", err
 	}
 
 	return exportFilename(page.Title, pageID), nil
@@ -173,6 +175,11 @@ func awaitExport(ctx context.Context, client *api.Client, export *api.PDFExport,
 	for {
 		progress, err := client.GetPDFExportProgress(ctx, export)
 		if err != nil {
+			// The deadline can lapse during a read as well as between reads,
+			// and either way the remedy is the same.
+			if ctx.Err() != nil {
+				return nil, exportWaitExpired(ctx)
+			}
 			return nil, fmt.Errorf("waiting for export: %w", err)
 		}
 		if progress.Failed() {
@@ -189,24 +196,48 @@ func awaitExport(ctx context.Context, client *api.Client, export *api.PDFExport,
 
 		select {
 		case <-ctx.Done():
-			return nil, fmt.Errorf("waiting for export: %w (use --timeout to wait longer)", ctx.Err())
+			return nil, exportWaitExpired(ctx)
 		case <-time.After(pollInterval):
 		}
 	}
 }
 
-// writeExport streams the document to disk and reports its size.
-func writeExport(outputPath string, reader io.Reader) (int64, error) {
-	outFile, err := os.Create(outputPath) //nolint:gosec // CLI tool creates user-specified output file
+// exportWaitExpired reports a wait that ended before the render finished,
+// pointing at --timeout only when that deadline is what ended it.
+func exportWaitExpired(ctx context.Context) error {
+	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		return fmt.Errorf("waiting for export: %w (use --timeout to wait longer)", ctx.Err())
+	}
+	return fmt.Errorf("waiting for export: %w", ctx.Err())
+}
+
+// writeExport streams the document to disk and reports its size. The bytes
+// go to a temporary file beside the destination that is renamed into place
+// only once the download completes, so a failure midway leaves no truncated
+// document for a retry without --force to refuse.
+func writeExport(outputPath string, reader io.Reader) (written int64, err error) {
+	tmpFile, err := os.CreateTemp(filepath.Dir(outputPath), "."+filepath.Base(outputPath)+".*.tmp")
 	if err != nil {
 		return 0, fmt.Errorf("creating output file: %w", err)
 	}
-	defer func() { _ = outFile.Close() }()
+	tmpPath := tmpFile.Name()
+	defer func() {
+		if err != nil {
+			_ = tmpFile.Close()
+			_ = os.Remove(tmpPath)
+		}
+	}()
 
-	bytesWritten, err := io.Copy(outFile, reader)
+	written, err = io.Copy(tmpFile, reader)
 	if err != nil {
 		return 0, fmt.Errorf("writing file: %w", err)
 	}
+	if err = tmpFile.Close(); err != nil {
+		return 0, fmt.Errorf("writing file: %w", err)
+	}
+	if err = os.Rename(tmpPath, outputPath); err != nil {
+		return 0, fmt.Errorf("finalizing output file: %w", err)
+	}
 
-	return bytesWritten, nil
+	return written, nil
 }

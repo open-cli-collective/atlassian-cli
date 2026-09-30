@@ -41,7 +41,11 @@ transition against the issue's current workflow and POSTs to the transitions
 endpoint. If multiple transitions land on the same target status, run
 ` + "`jtk transitions do <key> <id>`" + ` instead. ` + "`--status`" + ` is resolved before any
 writes; condition-based transitions that become available only after a
-preceding field edit must be performed as a separate command.`,
+preceding field edit must be performed as a separate command.
+
+A text --description keeps the images and attachments already embedded in the
+description, appended after the new text. To remove or rearrange them, pass
+the description as a raw ADF document, which replaces it exactly as given.`,
 		Example: `  # Update summary
   jtk issues update PROJ-123 --summary "New summary"
 
@@ -77,7 +81,7 @@ preceding field edit must be performed as a separate command.`,
 	}
 
 	cmd.Flags().StringVarP(&summary, "summary", "s", "", "New summary")
-	cmd.Flags().StringVarP(&description, "description", "d", "", "New description")
+	cmd.Flags().StringVarP(&description, "description", "d", "", "New description (raw ADF JSON is sent as structured ADF)")
 	cmd.Flags().StringVar(&parent, "parent", "", "Parent issue key (epic or parent issue)")
 	cmd.Flags().StringVarP(&assignee, "assignee", "a", "", "Assignee (account ID, email, or \"me\")")
 	cmd.Flags().StringVarP(&issueType, "type", "t", "", "New issue type (uses bulk move API)")
@@ -118,6 +122,21 @@ func runUpdate(ctx context.Context, opts *root.Options, issueKey, summary, descr
 		}
 	}
 
+	// Preflight: a text description replaces the stored ADF wholesale, so
+	// read the current one first to carry its media over. A failed read
+	// stops the update rather than writing a replacement without the media.
+	var descriptionDoc *api.ADFDocument
+	if description != "" {
+		descriptionDoc = api.NewADFDocument(text.InterpretEscapesUnlessRawADF(description))
+		if !api.IsRawADFDocument(description) {
+			current, err := client.GetIssue(ctx, issueKey)
+			if err != nil {
+				return fmt.Errorf("reading current description to preserve its media: %w", err)
+			}
+			descriptionDoc = api.PreserveDescriptionMedia(descriptionDoc, current.Fields.Description)
+		}
+	}
+
 	// Handle type change via the move API
 	if issueType != "" {
 		if err := changeIssueType(ctx, client, opts, issueKey, issueType); err != nil {
@@ -136,8 +155,8 @@ func runUpdate(ctx context.Context, opts *root.Options, issueKey, summary, descr
 		fields["summary"] = summary
 	}
 
-	if description != "" {
-		fields["description"] = api.NewADFDocument(text.InterpretEscapes(description))
+	if descriptionDoc != nil {
+		fields["description"] = descriptionDoc
 	}
 
 	if parent != "" {

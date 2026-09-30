@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -602,6 +603,84 @@ func TestRunAdd_IDOnly(t *testing.T) {
 	err = runAdd(context.Background(), opts, "TEST-1", "test body")
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, stdout.String(), "21276\n")
+}
+
+// TestRunAdd_RawADFBodyPassthrough verifies that a --body value which is
+// itself a JSON-encoded ADF document is sent to the API as a structured ADF
+// object, preserved exactly — including an inlineCard node the markdown
+// converter has no syntax to produce, and a text node whose JSON source
+// contains an escaped "\n". The latter proves body escape handling (meant
+// for markdown convenience) does not run ahead of raw-ADF detection and
+// corrupt the JSON before it's parsed. See #484.
+func TestRunAdd_RawADFBodyPassthrough(t *testing.T) {
+	t.Parallel()
+	var capturedBody []byte
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			capturedBody, _ = io.ReadAll(r.Body)
+			w.WriteHeader(http.StatusCreated)
+			_ = json.NewEncoder(w).Encode(api.Comment{
+				ID:     "21276",
+				Author: api.User{DisplayName: "Alice"},
+			})
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	rawADF := `{
+		"type": "doc",
+		"version": 1,
+		"content": [
+			{
+				"type": "paragraph",
+				"content": [
+					{"type": "text", "text": "Line one\nLine two"},
+					{"type": "inlineCard", "attrs": {"url": "https://example.com/doc"}}
+				]
+			}
+		]
+	}`
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runAdd(context.Background(), opts, "TEST-1", rawADF)
+	testutil.RequireNoError(t, err)
+
+	testutil.NotEmpty(t, capturedBody)
+
+	var reqBody map[string]any
+	err = json.Unmarshal(capturedBody, &reqBody)
+	testutil.RequireNoError(t, err)
+
+	body := reqBody["body"].(map[string]any)
+	testutil.Equal(t, body["type"], "doc")
+
+	content := body["content"].([]any)
+	testutil.Len(t, content, 1)
+	para := content[0].(map[string]any)
+	paraContent := para["content"].([]any)
+	testutil.Len(t, paraContent, 2)
+
+	textNode := paraContent[0].(map[string]any)
+	testutil.Equal(t, textNode["type"], "text")
+	// The escaped "\n" from the JSON source decodes to a real newline via
+	// ordinary JSON unmarshaling — it must not be pre-mangled by
+	// text.InterpretEscapesUnlessRawADF before the raw-ADF detector and
+	// parser ever see the JSON.
+	testutil.Equal(t, textNode["text"], "Line one\nLine two")
+
+	cardNode := paraContent[1].(map[string]any)
+	testutil.Equal(t, cardNode["type"], "inlineCard")
+	cardAttrs := cardNode["attrs"].(map[string]any)
+	testutil.Equal(t, cardAttrs["url"], "https://example.com/doc")
 }
 
 func TestRunAdd_PostState(t *testing.T) {

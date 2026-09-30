@@ -1,0 +1,23 @@
+{
+  "expand": "renderedFields,names,schema,operations,editmeta,changelog,versionedRepresentations",
+  "id": "10001",
+  "self": "https://example.atlassian.net/rest/api/3/issue/10001",
+  "key": "TEST-1",
+  "fields": {
+    "customfield_10046": {
+      "type": "doc",
+      "version": 1,
+      "content": [
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "text",
+              "text": "Verified in staging: both records return Registered when the flag is set. Ordinary reads are unchanged."
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

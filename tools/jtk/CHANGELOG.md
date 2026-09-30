@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Raw ADF JSON passthrough for `--description` (`issues create`/`update`), `--body` (`comments add`), and rich-text `--field` overrides: a value that parses as `{"type":"doc","version":1,...}` with content is sent as a structured ADF document instead of going through markdown conversion, so documents with node types markdown can't express (e.g. `inlineCard` smart links) can be written directly. ([#486](https://github.com/open-cli-collective/atlassian-cli/pull/486))
 - `issues get` now accepts multiple issue keys and renders a summary table for the batch. ([#327](https://github.com/open-cli-collective/atlassian-cli/pull/327))
 - `issues check <issue-key>` subcommand to audit an issue for populated/missing field values, with `--require` (hard-fail) and `--warn` (advisory) flags. A curated default warn-list (Summary, Description, Assignee, Priority, Labels, Story Points, Sprint, Components, Fix Version/s) applies when no flags are passed. Useful as a transition guardrail or CI step.
 - `users get <account-id>` subcommand to look up a user by account ID ([#189](https://github.com/open-cli-collective/atlassian-cli/pull/189))
@@ -57,6 +58,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `issues update --description` no longer deletes images and attachments embedded in the stored description. Text input now keeps the existing media blocks, appended after the new text, and the update stops with an error instead of writing if the current description cannot be read. Raw ADF input still replaces the description exactly. Thanks to @tio-foosy, who proposed media preservation in [#407](https://github.com/open-cli-collective/atlassian-cli/pull/407). ([#488](https://github.com/open-cli-collective/atlassian-cli/issues/488))
+- Rich-text (paragraph) custom fields now render in `issues get --fields`, `issues get --custom-fields`, `issues fields <key>`, and `issues list/search --fields`, and count as populated in `issues check`. The v3 API returns these fields as ADF documents, which were previously shown as `-`, omitted, or reported as missing. Thanks to @tio-foosy, who proposed the same fix in [#407](https://github.com/open-cli-collective/atlassian-cli/pull/407). ([#493](https://github.com/open-cli-collective/atlassian-cli/pull/493))
 - `jtk issues create --field components=<id-or-name>` and `--field fixVersions=<id-or-name>` now work. Previously the array formatter only handled multi-checkbox (`option` items) and fell through to a plain string array for component and version items, which Jira rejects with `The list contains an invalid value`. Multi-value via repeated `--field` accumulates as expected. Thanks to @romiguelangel for the fix. ([#227](https://github.com/open-cli-collective/atlassian-cli/issues/227))
 - `--field "key = value"` (whitespace around `=`) now parses correctly. ([#326](https://github.com/open-cli-collective/atlassian-cli/pull/326))
 - `issues move` and `issues update --type` no longer rely on string-matching the API error message to detect 404s — uses the structured error code instead, eliminating false negatives if Jira reword the message. ([#334](https://github.com/open-cli-collective/atlassian-cli/pull/334))

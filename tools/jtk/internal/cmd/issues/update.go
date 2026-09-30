@@ -41,7 +41,11 @@ transition against the issue's current workflow and POSTs to the transitions
 endpoint. If multiple transitions land on the same target status, run
 ` + "`jtk transitions do <key> <id>`" + ` instead. ` + "`--status`" + ` is resolved before any
 writes; condition-based transitions that become available only after a
-preceding field edit must be performed as a separate command.`,
+preceding field edit must be performed as a separate command.
+
+A text --description keeps the images and attachments already embedded in the
+description, appended after the new text. To remove or rearrange them, pass
+the description as a raw ADF document, which replaces it exactly as given.`,
 		Example: `  # Update summary
   jtk issues update PROJ-123 --summary "New summary"
 
@@ -118,6 +122,21 @@ func runUpdate(ctx context.Context, opts *root.Options, issueKey, summary, descr
 		}
 	}
 
+	// Preflight: a text description replaces the stored ADF wholesale, so
+	// read the current one first to carry its media over. A failed read
+	// stops the update rather than writing a replacement without the media.
+	var descriptionDoc *api.ADFDocument
+	if description != "" {
+		descriptionDoc = api.NewADFDocument(text.InterpretEscapesUnlessRawADF(description))
+		if !api.IsRawADFDocument(description) {
+			current, err := client.GetIssue(ctx, issueKey)
+			if err != nil {
+				return fmt.Errorf("reading current description to preserve its media: %w", err)
+			}
+			descriptionDoc = api.PreserveDescriptionMedia(descriptionDoc, current.Fields.Description)
+		}
+	}
+
 	// Handle type change via the move API
 	if issueType != "" {
 		if err := changeIssueType(ctx, client, opts, issueKey, issueType); err != nil {
@@ -136,10 +155,8 @@ func runUpdate(ctx context.Context, opts *root.Options, issueKey, summary, descr
 		fields["summary"] = summary
 	}
 
-	if description != "" {
-		// Raw ADF passthrough (e.g. --description "$(cat doc.adf.json)") must
-		// reach NewADFDocument unmodified; see text.InterpretEscapesUnlessRawADF.
-		fields["description"] = api.NewADFDocument(text.InterpretEscapesUnlessRawADF(description))
+	if descriptionDoc != nil {
+		fields["description"] = descriptionDoc
 	}
 
 	if parent != "" {

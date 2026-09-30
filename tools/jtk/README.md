@@ -398,7 +398,7 @@ jtk issues update PROJ-123 --field customfield_10050=Option1 --field customfield
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
 | `--summary` | `-s` | | New summary |
-| `--description` | `-d` | | New description (supports `\n`, `\t`, `\\` escape sequences; input recognized as a raw ADF document — `{"type":"doc","version":1,...}` — is sent as structured ADF and skips escape interpretation) |
+| `--description` | `-d` | | New description (supports `\n`, `\t`, `\\` escape sequences; input recognized as a raw ADF document — `{"type":"doc","version":1,...}` — is sent as structured ADF and skips escape interpretation). Text input keeps the images and attachments already embedded in the description, appended after the new text; a raw ADF document replaces the description exactly as given |
 | `--parent` | | | Parent issue key (epic or parent issue) |
 | `--assignee` | `-a` | | Assignee (account ID, email, display name, `"me"`, or `"none"` to unassign) |
 | `--type` | `-t` | | New issue type (uses Jira Cloud bulk move API) |

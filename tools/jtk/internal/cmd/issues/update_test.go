@@ -8,7 +8,9 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/open-cli-collective/atlassian-go/testutil"
@@ -26,6 +28,11 @@ func TestRunUpdate_RequestBodyNoDoubleQuoting(t *testing.T) {
 		if r.Method == "PUT" {
 			capturedBody, _ = io.ReadAll(r.Body)
 			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		if r.Method == "GET" && r.URL.Path == "/rest/api/3/issue/PROJ-123" {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"key":"PROJ-123","fields":{"summary":"Old summary"}}`))
 			return
 		}
 		w.WriteHeader(http.StatusNotFound)
@@ -73,6 +80,81 @@ func TestRunUpdate_RequestBodyNoDoubleQuoting(t *testing.T) {
 	firstTextNode := paraContent[0].(map[string]any)
 	descText := firstTextNode["text"].(string)
 	testutil.Equal(t, descText, "Updated description")
+}
+
+// TestRunUpdate_DescriptionPreservesMedia verifies that replacing the
+// description with markdown keeps the stored media blocks, including one
+// nested in a table, after the new text. See #488.
+func TestRunUpdate_DescriptionPreservesMedia(t *testing.T) {
+	t.Parallel()
+	existing, err := os.ReadFile("testdata/issue_description_with_media.json")
+	testutil.RequireNoError(t, err)
+	var capturedBody []byte
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == "PUT":
+			capturedBody, _ = io.ReadAll(r.Body)
+			w.WriteHeader(http.StatusNoContent)
+		case r.Method == "GET" && r.URL.Path == "/rest/api/3/issue/PROJ-123":
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write(existing)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@example.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+	opts := &root.Options{Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runUpdate(context.Background(), opts, "PROJ-123", "", "Replacement text only.", "", "", "", "", nil)
+	testutil.RequireNoError(t, err)
+
+	var reqBody struct {
+		Fields struct {
+			Description api.ADFDocument `json:"description"`
+		} `json:"fields"`
+	}
+	testutil.RequireNoError(t, json.Unmarshal(capturedBody, &reqBody))
+	content := reqBody.Fields.Description.Content
+	testutil.RequireEqual(t, len(content), 3)
+	testutil.Equal(t, content[0].Type, "paragraph")
+	testutil.Equal(t, content[0].Content[0].Text, "Replacement text only.")
+	testutil.Equal(t, content[1].Type, "mediaSingle")
+	testutil.Equal(t, content[1].Content[0].Attrs["id"], "6e2f1c3a-5d4b-4a8e-9f1c-2b3a4d5e6f70")
+	testutil.Equal(t, content[2].Type, "mediaGroup")
+	testutil.Equal(t, content[2].Content[0].Attrs["id"], "0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d")
+}
+
+// TestRunUpdate_DescriptionReadFailureDoesNotWrite verifies the media
+// preservation read fails closed: no PUT is sent when the current
+// description cannot be read. See #488.
+func TestRunUpdate_DescriptionReadFailureDoesNotWrite(t *testing.T) {
+	t.Parallel()
+	var putCalled atomic.Bool
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "PUT" {
+			putCalled.Store(true)
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@example.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+	opts := &root.Options{Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runUpdate(context.Background(), opts, "PROJ-123", "New summary", "Replacement text only.", "", "", "", "", nil)
+	testutil.Error(t, err)
+	testutil.Contains(t, err.Error(), "reading current description to preserve its media")
+	testutil.False(t, putCalled.Load())
 }
 
 // TestRunUpdate_RawADFDescriptionPassthrough verifies that a --description

@@ -4,6 +4,7 @@
 
 ### Fixed
 
+- `attachment list --unused` now reads ADF pages whose storage body is empty, matches attachment references structurally (storage `ri:attachment` elements and ADF media nodes) instead of by filename substring, and pages through all attachments until `--limit` unused results are found ([#456](https://github.com/open-cli-collective/atlassian-cli/issues/456))
 - `page view` and `page edit` now fall back to ADF format when the Confluence API returns empty storage content for cloud editor pages ([#150](https://github.com/open-cli-collective/atlassian-cli/issues/150))
 
 ### Added

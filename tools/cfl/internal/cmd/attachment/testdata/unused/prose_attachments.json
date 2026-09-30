@@ -1,0 +1,7 @@
+{
+  "results": [
+    {"id": "att1", "status": "current", "title": "diagram.png", "mediaType": "image/png", "fileSize": 2048, "pageId": "12345"},
+    {"id": "att2", "status": "current", "title": "notes.txt", "mediaType": "text/plain", "fileSize": 512, "pageId": "12345"}
+  ],
+  "_links": {"base": "https://example.atlassian.net/wiki"}
+}

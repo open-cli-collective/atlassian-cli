@@ -12,6 +12,7 @@ import (
 
 	"github.com/open-cli-collective/confluence-cli/api"
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
+	"github.com/open-cli-collective/confluence-cli/internal/pageview"
 	cflpresent "github.com/open-cli-collective/confluence-cli/internal/present"
 	"github.com/open-cli-collective/confluence-cli/pkg/md"
 )
@@ -181,7 +182,7 @@ func runEdit(ctx context.Context, opts *editOptions) error {
 	if opts.editor {
 		existingPage, err = getPageWithBodyFormat(ctx, client, opts.pageID, bodyFormat)
 	} else {
-		existingPage, err = getPageWithBodyFallback(ctx, client, opts.pageID)
+		existingPage, err = pageview.GetPageWithBodyFallback(ctx, client, opts.pageID)
 	}
 	if err != nil {
 		return err

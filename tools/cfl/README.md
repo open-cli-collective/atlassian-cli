@@ -624,6 +624,8 @@ cfl attachment list --page 12345 --unused
 | `--limit` | `-l` | `25` | Maximum number of attachments to return (must be greater than zero) |
 | `--unused` | | `false` | Show only attachments not referenced in page content |
 
+With `--unused`, an attachment counts as used only when the page embeds or links it (a storage `ri:attachment` element or an ADF media node); a filename mentioned in text does not count. The command pages through all of the page's attachments, and `--limit` caps the number of unused attachments returned.
+
 ---
 
 ### `cfl attachment upload`

@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	sharederrors "github.com/open-cli-collective/atlassian-go/errors"
 	"github.com/open-cli-collective/atlassian-go/testutil"
 )
 
@@ -43,20 +44,40 @@ func TestClient_StartPDFExport(t *testing.T) {
 	testutil.Equal(t, "no-check", gotToken)
 }
 
-func TestClient_StartPDFExport_PageNotFound(t *testing.T) {
+// TestClient_StartPDFExport_ErrorStatus pins that the start leg reports
+// failures with the same typed errors as the rest of the client, so callers
+// can tell a missing page from a refused one without matching message text.
+func TestClient_StartPDFExport_ErrorStatus(t *testing.T) {
 	t.Parallel()
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusNotFound)
-		_, _ = w.Write([]byte("<html><body>not found</body></html>"))
-	}))
-	defer server.Close()
+	tests := []struct {
+		name    string
+		status  int
+		fixture string
+		want    error
+	}{
+		{"not found", http.StatusNotFound, "pdf_export_start_not_found.html", sharederrors.ErrNotFound},
+		{"forbidden", http.StatusForbidden, "pdf_export_start_forbidden.html", sharederrors.ErrForbidden},
+	}
 
-	client := NewClient(server.URL, "user@example.com", "token")
-	_, err := client.StartPDFExport(context.Background(), "999999999")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			fixture := loadTestData(t, tt.fixture)
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.Header().Set("Content-Type", "text/html;charset=UTF-8")
+				w.WriteHeader(tt.status)
+				_, _ = w.Write(fixture)
+			}))
+			defer server.Close()
 
-	testutil.RequireError(t, err)
-	testutil.ErrorContains(t, err, "999999999")
-	testutil.ErrorContains(t, err, "not found")
+			client := NewClient(server.URL, "user@example.com", "token")
+			_, err := client.StartPDFExport(context.Background(), "999999999")
+
+			testutil.RequireError(t, err)
+			testutil.True(t, errors.Is(err, tt.want), "want "+tt.want.Error()+", got "+err.Error())
+			testutil.ErrorContains(t, err, "999999999")
+		})
+	}
 }
 
 func TestClient_StartPDFExport_NoTaskID(t *testing.T) {

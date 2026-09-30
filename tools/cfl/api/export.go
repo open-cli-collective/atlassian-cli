@@ -11,6 +11,8 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+
+	sharederrors "github.com/open-cli-collective/atlassian-go/errors"
 )
 
 // Export task states reported by Confluence. A task that is neither
@@ -124,11 +126,8 @@ func (c *Client) StartPDFExport(ctx context.Context, pageID string) (*PDFExport,
 	if err != nil {
 		return nil, fmt.Errorf("reading export response: %w", err)
 	}
-	if resp.StatusCode == http.StatusNotFound {
-		return nil, fmt.Errorf("starting export: page %s not found, or not visible to this user", pageID)
-	}
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("starting export: status %d", resp.StatusCode)
+	if resp.StatusCode >= http.StatusBadRequest {
+		return nil, fmt.Errorf("starting export of page %s: %w", pageID, sharederrors.ParseAPIError(resp.StatusCode, body))
 	}
 
 	meta := ajsMeta(string(body))

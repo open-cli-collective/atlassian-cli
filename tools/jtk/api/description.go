@@ -5,7 +5,8 @@ package api
 // input have no syntax for Jira media, so a replacement built from text would
 // otherwise drop every inline attachment reference from the description.
 // Media nested in containers such as tables or panels is kept at the top level,
-// because the container it sat in is being replaced.
+// because the container it sat in is being replaced. doc is modified in place,
+// and the appended nodes are shared with existing rather than copied.
 func PreserveDescriptionMedia(doc *ADFDocument, existing *Description) *ADFDocument {
 	if existing == nil || existing.ADF == nil {
 		return doc

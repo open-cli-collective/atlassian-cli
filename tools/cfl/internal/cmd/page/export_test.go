@@ -302,6 +302,30 @@ func TestRunExport_PollsUntilDone(t *testing.T) {
 	testutil.RequireNoError(t, err)
 }
 
+// TestRunExport_FileModeFollowsUmask pins that the exported document gets
+// the permissions os.Create would give it, as attachment download does,
+// rather than the fixed 0600 of a temporary file.
+func TestRunExport_FileModeFollowsUmask(t *testing.T) {
+	t.Parallel()
+	server := mockExportServer(t, 0, nil)
+	defer server.Close()
+
+	dir := t.TempDir()
+	reference, err := os.Create(filepath.Join(dir, "reference")) //nolint:gosec // test file in a temp dir
+	testutil.RequireNoError(t, err)
+	testutil.RequireNoError(t, reference.Close())
+	want, err := os.Stat(reference.Name())
+	testutil.RequireNoError(t, err)
+
+	opts := newExportTestOptions(t, server)
+	opts.outputFile = filepath.Join(dir, "handoff.pdf")
+	testutil.RequireNoError(t, runExport(context.Background(), "123456", opts))
+
+	got, err := os.Stat(opts.outputFile)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, want.Mode().Perm(), got.Mode().Perm())
+}
+
 // TestRunExport_DownloadCutOff pins that a download failing midway leaves
 // nothing at the destination, so a retry without --force is not refused by
 // a truncated document.

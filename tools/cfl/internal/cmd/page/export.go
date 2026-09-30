@@ -2,9 +2,12 @@ package page
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -216,7 +219,7 @@ func exportWaitExpired(ctx context.Context) error {
 // only once the download completes, so a failure midway leaves no truncated
 // document for a retry without --force to refuse.
 func writeExport(outputPath string, reader io.Reader) (written int64, err error) {
-	tmpFile, err := os.CreateTemp(filepath.Dir(outputPath), "."+filepath.Base(outputPath)+".*.tmp")
+	tmpFile, err := createExportTemp(outputPath)
 	if err != nil {
 		return 0, fmt.Errorf("creating output file: %w", err)
 	}
@@ -240,4 +243,27 @@ func writeExport(outputPath string, reader io.Reader) (written int64, err error)
 	}
 
 	return written, nil
+}
+
+// exportTempAttempts bounds the retries when a temporary name is taken.
+const exportTempAttempts = 10
+
+// createExportTemp creates the temporary file beside outputPath. It is not
+// os.CreateTemp because that fixes the mode at 0600, and the document should
+// get the same umask-derived permissions os.Create gives any other download.
+func createExportTemp(outputPath string) (*os.File, error) {
+	dir, base := filepath.Dir(outputPath), filepath.Base(outputPath)
+	for range exportTempAttempts {
+		suffix := make([]byte, 8)
+		if _, err := rand.Read(suffix); err != nil {
+			return nil, err
+		}
+		name := filepath.Join(dir, "."+base+"."+hex.EncodeToString(suffix)+".tmp")
+		file, err := os.OpenFile(name, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0o666) //nolint:gosec // CLI tool creates user-specified output file
+		if errors.Is(err, fs.ErrExist) {
+			continue
+		}
+		return file, err
+	}
+	return nil, fmt.Errorf("no free temporary name beside %s after %d attempts", outputPath, exportTempAttempts)
 }

@@ -3,6 +3,7 @@ package adf
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"testing"
 
 	"github.com/open-cli-collective/atlassian-go/testutil"
@@ -897,4 +898,19 @@ func assertNoEmptyTextNodes(t *testing.T, nodes []*Node) {
 			assertNoEmptyTextNodes(t, n.Content)
 		}
 	}
+}
+
+func TestToPlainText_NodesWithTextInAttrs(t *testing.T) {
+	t.Parallel()
+	data, err := os.ReadFile("testdata/attr_text_nodes.json")
+	testutil.RequireNoError(t, err)
+
+	var doc Document
+	testutil.RequireNoError(t, json.Unmarshal(data, &doc))
+
+	want := "See https://example.atlassian.net/browse/PROJ-1 for details.\n" +
+		"Ping @Jane Doe\n" +
+		"https://example.com/block\n" +
+		"https://example.com/embed\n"
+	testutil.Equal(t, doc.ToPlainText(), want)
 }

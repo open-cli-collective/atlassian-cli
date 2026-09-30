@@ -78,6 +78,14 @@ func extractTextWithDepth(nodes []*Node, depth int) string {
 			result += "\n"
 		case "hardBreak":
 			result += "\n"
+		case "inlineCard":
+			result += attrString(node, "url")
+		case "mention":
+			result += attrString(node, "text")
+		case "blockCard", "embedCard":
+			if url := attrString(node, "url"); url != "" {
+				result += url + "\n"
+			}
 		default:
 			if node.Text != "" {
 				result += node.Text
@@ -88,6 +96,11 @@ func extractTextWithDepth(nodes []*Node, depth int) string {
 		}
 	}
 	return result
+}
+
+func attrString(node *Node, key string) string {
+	s, _ := node.Attrs[key].(string)
+	return s
 }
 
 // splitLines splits text into lines, stripping trailing empty lines.

@@ -31,3 +31,28 @@ func TestInterpretEscapes(t *testing.T) {
 		})
 	}
 }
+
+func TestInterpretEscapesUnlessRawADF(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{"plain text still gets escapes interpreted", `first\nsecond`, "first\nsecond"},
+		{
+			"raw ADF document passes through unmodified, escapes untouched",
+			`{"type":"doc","version":1,"content":[{"type":"text","text":"line one\nline two"}]}`,
+			`{"type":"doc","version":1,"content":[{"type":"text","text":"line one\nline two"}]}`,
+		},
+		{"empty string", "", ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := InterpretEscapesUnlessRawADF(tt.input)
+			if got != tt.want {
+				t.Errorf("InterpretEscapesUnlessRawADF(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}

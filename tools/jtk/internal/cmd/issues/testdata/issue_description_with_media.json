@@ -1,0 +1,69 @@
+{
+  "id": "10001",
+  "key": "PROJ-123",
+  "self": "https://example.atlassian.net/rest/api/3/issue/10001",
+  "fields": {
+    "summary": "Issue with an inline image",
+    "description": {
+      "type": "doc",
+      "version": 1,
+      "content": [
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "text",
+              "text": "Original description text."
+            }
+          ]
+        },
+        {
+          "type": "mediaSingle",
+          "attrs": {
+            "layout": "center"
+          },
+          "content": [
+            {
+              "type": "media",
+              "attrs": {
+                "id": "6e2f1c3a-5d4b-4a8e-9f1c-2b3a4d5e6f70",
+                "type": "file",
+                "collection": "",
+                "width": 1,
+                "height": 1
+              }
+            }
+          ]
+        },
+        {
+          "type": "table",
+          "content": [
+            {
+              "type": "tableRow",
+              "content": [
+                {
+                  "type": "tableCell",
+                  "content": [
+                    {
+                      "type": "mediaGroup",
+                      "content": [
+                        {
+                          "type": "media",
+                          "attrs": {
+                            "id": "0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d",
+                            "type": "file",
+                            "collection": ""
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

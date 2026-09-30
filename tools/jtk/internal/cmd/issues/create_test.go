@@ -80,6 +80,92 @@ func TestRunCreate_RequestBodyNoDoubleQuoting(t *testing.T) {
 	testutil.NotContains(t, descText, `"`)
 }
 
+// TestRunCreate_RawADFDescriptionPassthrough verifies that a --description
+// value which is itself a JSON-encoded ADF document is sent to the API as a
+// structured ADF object, preserved exactly — including an inlineCard node
+// the markdown converter has no syntax to produce, and a text node whose
+// JSON source contains an escaped "\n". The latter proves description
+// escape handling (meant for markdown convenience) does not run ahead of
+// raw-ADF detection and corrupt the JSON before it's parsed. See #484.
+func TestRunCreate_RawADFDescriptionPassthrough(t *testing.T) {
+	seedCacheForIssues(t)
+	var capturedBody []byte
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/rest/api/3/issue" && r.Method == "POST" {
+			capturedBody, _ = io.ReadAll(r.Body)
+			w.WriteHeader(http.StatusCreated)
+			_ = json.NewEncoder(w).Encode(api.Issue{
+				Key: "TEST-1",
+				ID:  "10001",
+			})
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{
+		URL:      server.URL,
+		Email:    "test@example.com",
+		APIToken: "token",
+	})
+	testutil.RequireNoError(t, err)
+
+	rawADF := `{
+		"type": "doc",
+		"version": 1,
+		"content": [
+			{
+				"type": "paragraph",
+				"content": [
+					{"type": "text", "text": "Line one\nLine two"},
+					{"type": "inlineCard", "attrs": {"url": "https://example.com/doc"}}
+				]
+			}
+		]
+	}`
+
+	var stdout bytes.Buffer
+	opts := &root.Options{
+		Stdout: &stdout,
+		Stderr: &bytes.Buffer{},
+	}
+	opts.SetAPIClient(client)
+
+	err = runCreate(context.Background(), opts, "MYPROJECT", "Task", "Fix login bug", rawADF, "", "", nil)
+	testutil.RequireNoError(t, err)
+
+	testutil.NotEmpty(t, capturedBody)
+
+	var reqBody map[string]any
+	err = json.Unmarshal(capturedBody, &reqBody)
+	testutil.RequireNoError(t, err)
+
+	fields := reqBody["fields"].(map[string]any)
+	desc := fields["description"].(map[string]any)
+	testutil.Equal(t, desc["type"], "doc")
+
+	content := desc["content"].([]any)
+	testutil.Len(t, content, 1)
+	para := content[0].(map[string]any)
+	paraContent := para["content"].([]any)
+	testutil.Len(t, paraContent, 2)
+
+	textNode := paraContent[0].(map[string]any)
+	testutil.Equal(t, textNode["type"], "text")
+	// The escaped "\n" from the JSON source decodes to a real newline via
+	// ordinary JSON unmarshaling — it must not be pre-mangled by
+	// text.InterpretEscapesUnlessRawADF before the raw-ADF detector and
+	// parser ever see the JSON.
+	testutil.Equal(t, textNode["text"], "Line one\nLine two")
+
+	cardNode := paraContent[1].(map[string]any)
+	testutil.Equal(t, cardNode["type"], "inlineCard")
+	cardAttrs := cardNode["attrs"].(map[string]any)
+	testutil.Equal(t, cardAttrs["url"], "https://example.com/doc")
+}
+
 func TestRunCreate_SummaryWithSpecialCharacters(t *testing.T) {
 	seedCacheForIssues(t)
 	var capturedBody []byte

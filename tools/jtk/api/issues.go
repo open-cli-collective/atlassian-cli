@@ -422,6 +422,9 @@ func FormatCustomFieldValue(v any) string {
 		}
 		return fmt.Sprintf("%g", val)
 	case map[string]any:
+		if val["type"] == "doc" {
+			return formatADFFieldValue(val)
+		}
 		if s, ok := val["value"].(string); ok {
 			return s
 		}
@@ -455,6 +458,20 @@ func FormatCustomFieldValue(v any) string {
 	default:
 		return ""
 	}
+}
+
+// formatADFFieldValue renders a rich-text (textarea) custom field, which the
+// v3 API returns as an ADF document rather than a string.
+func formatADFFieldValue(v map[string]any) string {
+	data, err := json.Marshal(v)
+	if err != nil {
+		return ""
+	}
+	var doc ADFDocument
+	if err := json.Unmarshal(data, &doc); err != nil {
+		return ""
+	}
+	return strings.TrimSpace(doc.ToPlainText())
 }
 
 // safeString extracts a string from an interface value.

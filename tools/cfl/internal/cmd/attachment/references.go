@@ -41,9 +41,10 @@ func pageAttachmentRefs(page *api.Page) (attachmentRefs, error) {
 		return adfAttachmentRefs(page.Body.AtlasDocFormat.Value, page.ID)
 	default:
 		// Even a blank page has an ADF document, so no body at all means the
-		// content could not be read. Reporting every attachment as unused
-		// would invite deleting attachments the page still shows.
-		return attachmentRefs{}, errors.New("page returned no storage or ADF body; cannot determine attachment usage")
+		// ADF request failed (GetPageWithBodyFallback tolerates that). Reporting
+		// every attachment as unused would invite deleting attachments the
+		// page still shows.
+		return attachmentRefs{}, errors.New("page returned an empty storage body and its ADF body could not be read; cannot determine attachment usage")
 	}
 }
 

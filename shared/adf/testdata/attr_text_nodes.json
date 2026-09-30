@@ -1,0 +1,23 @@
+{
+  "type": "doc",
+  "version": 1,
+  "content": [
+    {
+      "type": "paragraph",
+      "content": [
+        { "type": "text", "text": "See " },
+        { "type": "inlineCard", "attrs": { "url": "https://example.atlassian.net/browse/PROJ-1" } },
+        { "type": "text", "text": " for details." }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "content": [
+        { "type": "text", "text": "Ping " },
+        { "type": "mention", "attrs": { "id": "5b10ac8d82e05b22cc7d4ef5", "text": "@Jane Doe", "accessLevel": "" } }
+      ]
+    },
+    { "type": "blockCard", "attrs": { "url": "https://example.com/block" } },
+    { "type": "embedCard", "attrs": { "url": "https://example.com/embed", "layout": "center", "width": 100 } }
+  ]
+}

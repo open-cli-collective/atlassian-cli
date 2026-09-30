@@ -1,0 +1,8 @@
+{
+  "results": [
+    {"id": "att1", "status": "current", "title": "diagram.png", "fileId": "0a1b2c3d-0000-4000-8000-000000000001", "mediaType": "image/png", "fileSize": 2048, "pageId": "12345"},
+    {"id": "att2", "status": "current", "title": "spec.pdf", "fileId": "0a1b2c3d-0000-4000-8000-000000000002", "mediaType": "application/pdf", "fileSize": 4096, "pageId": "12345"},
+    {"id": "att3", "status": "current", "title": "notes.txt", "fileId": "0a1b2c3d-0000-4000-8000-000000000003", "mediaType": "text/plain", "fileSize": 512, "pageId": "12345"}
+  ],
+  "_links": {"base": "https://example.atlassian.net/wiki"}
+}

@@ -1,0 +1,10 @@
+{
+  "results": [
+    {"id": "att1", "status": "current", "title": "diagram.png", "fileId": "0a1b2c3d-0000-4000-8000-000000000011", "mediaType": "image/png", "fileSize": 2048, "pageId": "12345"},
+    {"id": "att2", "status": "current", "title": "Q&A spec.pdf", "fileId": "0a1b2c3d-0000-4000-8000-000000000012", "mediaType": "application/pdf", "fileSize": 4096, "pageId": "12345"},
+    {"id": "att3", "status": "current", "title": "notes.txt", "fileId": "0a1b2c3d-0000-4000-8000-000000000013", "mediaType": "text/plain", "fileSize": 512, "pageId": "12345"},
+    {"id": "att4", "status": "current", "title": "logo.png", "fileId": "0a1b2c3d-0000-4000-8000-000000000014", "mediaType": "image/png", "fileSize": 1024, "pageId": "12345"},
+    {"id": "att5", "status": "current", "title": "archive.zip", "fileId": "0a1b2c3d-0000-4000-8000-000000000015", "mediaType": "application/zip", "fileSize": 8192, "pageId": "12345"}
+  ],
+  "_links": {"base": "https://example.atlassian.net/wiki"}
+}

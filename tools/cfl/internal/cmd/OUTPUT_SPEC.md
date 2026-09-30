@@ -399,7 +399,9 @@ No attachments found.
 No unused attachments found.
 ```
 
-`--limit` must be greater than zero.
+`--limit` must be greater than zero. With `--unused`, `--limit` caps the number
+of unused attachments returned; the command pages through the page's
+attachments until it finds that many or the list ends.
 
 ## `attachment upload`
 

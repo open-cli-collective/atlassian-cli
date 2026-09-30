@@ -58,6 +58,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Rich-text (paragraph) custom fields now render in `issues get --fields`, `issues get --custom-fields`, `issues fields <key>`, and `issues list/search --fields`, and count as populated in `issues check`. The v3 API returns these fields as ADF documents, which were previously shown as `-`, omitted, or reported as missing.
 - `jtk issues create --field components=<id-or-name>` and `--field fixVersions=<id-or-name>` now work. Previously the array formatter only handled multi-checkbox (`option` items) and fell through to a plain string array for component and version items, which Jira rejects with `The list contains an invalid value`. Multi-value via repeated `--field` accumulates as expected. Thanks to @romiguelangel for the fix. ([#227](https://github.com/open-cli-collective/atlassian-cli/issues/227))
 - `--field "key = value"` (whitespace around `=`) now parses correctly. ([#326](https://github.com/open-cli-collective/atlassian-cli/pull/326))
 - `issues move` and `issues update --type` no longer rely on string-matching the API error message to detect 404s — uses the structured error code instead, eliminating false negatives if Jira reword the message. ([#334](https://github.com/open-cli-collective/atlassian-cli/pull/334))

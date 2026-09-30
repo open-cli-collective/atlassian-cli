@@ -1,6 +1,8 @@
 package api
 
 import (
+	"encoding/json"
+	"os"
 	"testing"
 
 	"github.com/open-cli-collective/atlassian-go/testutil"
@@ -106,6 +108,7 @@ func TestFormatCustomFieldValue_Types(t *testing.T) {
 		{"bool_false", false, "no"},
 		{"nil", nil, ""},
 		{"unhandled_map", map[string]any{"progress": float64(0), "total": float64(0)}, ""},
+		{"adf_empty_doc", map[string]any{"type": "doc", "version": float64(1), "content": []any{}}, ""},
 		{"unhandled_type", struct{ X int }{42}, ""},
 		{"serialized_java_object", "{pullrequest={dataType=pullrequest, state=MERGED}}", ""},
 		{"normal_string_with_equals", "key=value", "key=value"},
@@ -117,6 +120,23 @@ func TestFormatCustomFieldValue_Types(t *testing.T) {
 			testutil.Equal(t, got, tt.want)
 		})
 	}
+}
+
+func TestRichTextCustomField_RendersADF(t *testing.T) {
+	t.Parallel()
+	data, err := os.ReadFile("testdata/issue_rich_text_custom_field.json")
+	testutil.RequireNoError(t, err)
+	var issue Issue
+	testutil.RequireNoError(t, json.Unmarshal(data, &issue))
+
+	want := "Verified in staging: both records return Registered when the flag is set. Ordinary reads are unchanged."
+	testutil.Equal(t, ExtractFieldValue(&issue, "customfield_10046"), want)
+
+	fields := []Field{{ID: "customfield_10046", Name: "QA Notes", Schema: FieldSchema{Type: "string"}}}
+	entries := ExtractIssueFieldValues(&issue, fields)
+	testutil.Len(t, entries, 1)
+	testutil.Equal(t, entries[0].Name, "QA Notes")
+	testutil.Equal(t, entries[0].Value, want)
 }
 
 func TestKnownFieldExtractors_ParityWithKnownFieldKeys(t *testing.T) {

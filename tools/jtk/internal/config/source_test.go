@@ -1,6 +1,8 @@
 package config
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/open-cli-collective/atlassian-go/credstore"
@@ -164,7 +166,7 @@ func TestGetValuesWithSources_SharedStore(t *testing.T) {
 			URL:   "https://shared.atlassian.net",
 			Email: "shared@example.com",
 		},
-		JTK: credstore.ToolSection{DefaultProject: "MON"},
+		JTK: credstore.ToolSection{DefaultProject: "SHARED"},
 	}
 	testutil.RequireNoError(t, store.Save(sharedPath))
 
@@ -176,8 +178,8 @@ func TestGetValuesWithSources_SharedStore(t *testing.T) {
 	testutil.Equal(t, result.Email, "shared@example.com")
 	testutil.Equal(t, result.EmailSource, string(credstore.SourceDefault))
 
-	testutil.Equal(t, result.DefaultProject, "MON")
-	testutil.Equal(t, result.ProjectSource, "shared jtk")
+	testutil.Equal(t, result.DefaultProject, "SHARED")
+	testutil.Equal(t, result.ProjectSource, string(credstore.SourceJTK))
 
 	// The path row names the file actually read.
 	testutil.Equal(t, result.Path, sharedPath)
@@ -212,6 +214,22 @@ func TestGetValuesWithSources_SharedBeatsLegacy(t *testing.T) {
 	value, source = GetEmailWithSource()
 	testutil.Equal(t, value, "legacy@example.com")
 	testutil.Equal(t, source, "config")
+}
+
+// A corrupt shared file makes the resolvers fall back to the legacy
+// per-tool file, so the path row must name the legacy file too.
+func TestGetValuesWithSources_CorruptSharedShowsLegacyPath(t *testing.T) {
+	sharedPath, cleanup := setupTestConfig(t)
+	defer cleanup()
+
+	testutil.RequireNoError(t, Save(&Config{URL: "https://legacy.atlassian.net"}))
+	testutil.RequireNoError(t, os.MkdirAll(filepath.Dir(sharedPath), 0o700))
+	testutil.RequireNoError(t, os.WriteFile(sharedPath, []byte("default: [unclosed\n"), 0o600))
+
+	result := GetValuesWithSources()
+	testutil.Equal(t, result.URL, "https://legacy.atlassian.net")
+	testutil.Equal(t, result.URLSource, "config")
+	testutil.Equal(t, result.Path, Path())
 }
 
 func TestGetValuesWithSources_AllFields(t *testing.T) {

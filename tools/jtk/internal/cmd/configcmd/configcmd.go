@@ -46,7 +46,8 @@ The API token is shown as a presence status only (its value lives in the
 OS keyring and is never displayed); token/keyring reporting is
 authoritative. The non-secret rows reflect the same precedence the
 runtime uses: environment variables, then the shared
-~/.config/atlassian-cli/config.yml, then the legacy per-tool file.`,
+atlassian-cli/config.yml, then the legacy per-tool file. The path row
+names the file the runtime reads.`,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			cfg := config.GetValuesWithSources()
 

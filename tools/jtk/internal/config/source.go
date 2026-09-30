@@ -5,6 +5,7 @@ import (
 
 	"github.com/open-cli-collective/atlassian-go/credstore"
 	"github.com/open-cli-collective/atlassian-go/keyring"
+	"github.com/open-cli-collective/atlassian-go/url"
 )
 
 // ValuesWithSources holds all config values with their source information.
@@ -69,14 +70,13 @@ func GetValuesWithSources() ValuesWithSources {
 }
 
 // activeConfigPath returns the config file the resolvers actually read:
-// the shared store when it exists on disk, else the legacy per-tool
+// the shared store credstore resolves at runtime (including the prior
+// location on the relocation read fallback), else the legacy per-tool
 // file. `config show` used to always print the legacy path, which is
 // misleading once `jtk init` has written the shared store.
 func activeConfigPath() string {
-	if sp, err := credstore.DefaultPath(); err == nil {
-		if _, statErr := os.Stat(sp); statErr == nil {
-			return sp
-		}
+	if sp, _ := credstore.SharedRuntimePath(); sp != "" {
+		return sp
 	}
 	return Path()
 }
@@ -103,7 +103,7 @@ func GetURLWithSource() (value, source string) {
 		return GetURL(), "env (ATLASSIAN_URL)"
 	}
 	if v, src := jtkSectionWithSource("url"); v != "" {
-		return GetURL(), string(src)
+		return url.NormalizeURL(v), string(src)
 	}
 	cfg, err := Load()
 	if err != nil {
@@ -151,7 +151,7 @@ func GetDefaultProjectWithSource() (value, source string) {
 		return GetDefaultProject(), "env (JIRA_DEFAULT_PROJECT)"
 	}
 	if v := loadShared().JTK.DefaultProject; v != "" {
-		return v, "shared jtk"
+		return v, string(credstore.SourceJTK)
 	}
 	cfg, err := Load()
 	if err != nil {

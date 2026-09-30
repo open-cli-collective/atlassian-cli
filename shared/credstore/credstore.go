@@ -167,6 +167,9 @@ type Source string
 const (
 	SourceUnset   Source = "unset"
 	SourceDefault Source = "shared default"
+	// SourceJTK labels a value read from the per-tool jtk section
+	// (jtk.default_project), which is not part of the shared default.
+	SourceJTK Source = "shared " + ToolJTK
 )
 
 // ResolveWithSource returns the resolved value and where it came from.

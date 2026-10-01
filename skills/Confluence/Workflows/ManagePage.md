@@ -14,6 +14,7 @@ Create, edit, copy, move, and delete Confluence pages.
 | "move page", "reparent" | Move | `cfl page edit PAGE_ID --parent NEW_PARENT_ID` |
 | "copy page", "duplicate" | Copy | `cfl page copy PAGE_ID --title "Copy Title"` |
 | "delete page", "remove page" | Delete | `cfl page delete PAGE_ID` |
+| "export page", "save as PDF", "send it as a PDF" | Export | `cfl page export PAGE_ID` |
 
 ### Content Source Mapping (for create/edit)
 
@@ -131,6 +132,34 @@ Or do it as two explicit steps (capture ID from the table output, then edit).
 cfl page delete PAGE_ID
 ```
 
+### Export Page to PDF
+
+Use this when a page has to leave Confluence as a document — an attachment to
+send to someone outside the site, for instance.
+
+```bash
+# Filename comes from the page title
+cfl page export PAGE_ID
+
+# Name the file yourself
+cfl page export PAGE_ID -O handoff.pdf
+
+# Overwrite an existing file
+cfl page export PAGE_ID -O handoff.pdf --force
+
+# A large page can take longer to render
+cfl page export PAGE_ID --timeout 10m
+```
+
+Confluence renders the PDF server-side, so the command waits on an export task
+and reports completion on stderr while it does. Stdout carries only the success
+block, so the path is scriptable:
+
+```bash
+# A title-derived filename can contain spaces, so take the rest of the line
+PDF=$(cfl page export PAGE_ID 2>/dev/null | sed -n 's/^Exported: //p')
+```
+
 ## Post-Action
 
 After any action:
@@ -138,4 +167,5 @@ After any action:
 2. For edits: confirm what was changed (content, title, parent)
 3. For copies: show the new page ID and location
 4. For deletes: confirm which page was deleted
+5. For exports: show the output path and size
 5. For moves: confirm old and new parent

@@ -408,6 +408,9 @@ cfl search --cql "space = DEV AND type = page"
 # Copy a page
 cfl page copy 123456 --title "Copy of Page"
 
+# Export a page to PDF
+cfl page export 123456 -O handoff.pdf
+
 # Spaces
 cfl space list
 cfl space view DEV

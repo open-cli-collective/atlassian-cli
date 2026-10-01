@@ -35,6 +35,7 @@ func Register(rootCmd *cobra.Command, opts *root.Options) {
 	cmd.AddCommand(newEditCmd(opts))
 	cmd.AddCommand(newDeleteCmd(opts))
 	cmd.AddCommand(newCopyCmd(opts))
+	cmd.AddCommand(newExportCmd(opts))
 
 	rootCmd.AddCommand(cmd)
 }

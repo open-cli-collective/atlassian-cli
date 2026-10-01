@@ -68,6 +68,22 @@ func (PagePresenter) PresentCopy(page *api.Page) *sharedpresent.OutputModel {
 	return successWithFields(fmt.Sprintf("Copied page: %s", orDash(page.Title)), fields...)
 }
 
+func (PagePresenter) PresentExport(outputPath string, sizeBytes int64) *sharedpresent.OutputModel {
+	return successWithFields(
+		fmt.Sprintf("Exported: %s", outputPath),
+		sharedpresent.Field{Label: "Size", Value: formatAttachmentFileSize(sizeBytes)},
+	)
+}
+
+// PresentExportProgress reports that an export is still running. Confluence
+// renders the document server-side, so a caller with no output for that
+// stretch cannot tell waiting apart from a hang.
+func (PagePresenter) PresentExportProgress(percent int) *sharedpresent.OutputModel {
+	return &sharedpresent.OutputModel{Sections: []sharedpresent.Section{
+		stderrInfo(fmt.Sprintf("Exporting: %d%% complete", percent)),
+	}}
+}
+
 func (PagePresenter) PresentDelete(page *api.Page) *sharedpresent.OutputModel {
 	return successMessage(fmt.Sprintf("Deleted page: %s (ID: %s)", orDash(page.Title), orDash(page.ID)))
 }

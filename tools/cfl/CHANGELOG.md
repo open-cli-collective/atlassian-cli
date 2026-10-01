@@ -9,6 +9,7 @@
 
 ### Added
 
+- `page export` command to export a page as a PDF, waiting on the server-side render and writing the result to a file ([#481](https://github.com/open-cli-collective/atlassian-cli/pull/481))
 - `page edit --message`/`-m` sets the page version comment, which was always "Updated via cfl". Omitting the flag keeps that default; an empty value sends no comment. Thanks to @dmoruzzi for the feature. ([#473](https://github.com/open-cli-collective/atlassian-cli/pull/473))
 - Service account support with bearer auth (`--auth-method bearer`) for scoped API tokens ([#171](https://github.com/open-cli-collective/atlassian-cli/pull/171))
 - Wiki-link syntax `[[Page Title]]` and `[[SPACE:Page Title]]` for internal Confluence page links ([#129](https://github.com/open-cli-collective/atlassian-cli/pull/129))

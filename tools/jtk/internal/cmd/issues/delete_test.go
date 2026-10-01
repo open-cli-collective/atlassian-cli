@@ -15,6 +15,15 @@ import (
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 )
 
+// requireDeleted fails with the per-issue errors runDelete wrote to stderr,
+// since its returned error only carries the failure count.
+func requireDeleted(t *testing.T, err error, stderr *bytes.Buffer) {
+	t.Helper()
+	if err != nil {
+		t.Fatalf("unexpected error: %v\nstderr:\n%s", err, stderr.String())
+	}
+}
+
 func TestRunDelete_SingleIssue(t *testing.T) {
 	t.Parallel()
 
@@ -32,7 +41,7 @@ func TestRunDelete_SingleIssue(t *testing.T) {
 	opts.SetAPIClient(client)
 
 	err = runDelete(context.Background(), opts, []string{"PROJ-123"}, true)
-	testutil.RequireNoError(t, err)
+	requireDeleted(t, err, &stderr)
 	testutil.Equal(t, stdout.String(), "Deleted PROJ-123\n")
 	testutil.Equal(t, stderr.String(), "")
 }
@@ -54,7 +63,7 @@ func TestRunDelete_MultipleIssues(t *testing.T) {
 	opts.SetAPIClient(client)
 
 	err = runDelete(context.Background(), opts, []string{"PROJ-1", "PROJ-2", "PROJ-3"}, true)
-	testutil.RequireNoError(t, err)
+	requireDeleted(t, err, &stderr)
 	testutil.Equal(t, stdout.String(), "Deleted PROJ-1\nDeleted PROJ-2\nDeleted PROJ-3\n")
 	testutil.Equal(t, stderr.String(), "")
 }
@@ -146,7 +155,7 @@ func TestRunDelete_NonInteractive_WithForce_Proceeds(t *testing.T) {
 	opts.SetAPIClient(client)
 
 	err = runDelete(context.Background(), opts, []string{"PROJ-123"}, true)
-	testutil.RequireNoError(t, err)
+	requireDeleted(t, err, &stderr)
 	testutil.Equal(t, stdout.String(), "Deleted PROJ-123\n")
 }
 
@@ -165,7 +174,7 @@ func TestRunDelete_PromptDeclined(t *testing.T) {
 	opts.SetAPIClient(client)
 
 	err = runDelete(context.Background(), opts, []string{"PROJ-123"}, false)
-	testutil.RequireNoError(t, err)
+	requireDeleted(t, err, &stderr)
 	testutil.Equal(t, stdout.String(), "Deletion cancelled.\n")
 	testutil.Contains(t, stderr.String(), "permanently delete issue PROJ-123")
 }
@@ -185,7 +194,7 @@ func TestRunDelete_BatchPromptDeclined(t *testing.T) {
 	opts.SetAPIClient(client)
 
 	err = runDelete(context.Background(), opts, []string{"PROJ-1", "PROJ-2", "PROJ-3"}, false)
-	testutil.RequireNoError(t, err)
+	requireDeleted(t, err, &stderr)
 	testutil.Contains(t, stderr.String(), "3 issues")
 	testutil.Equal(t, stdout.String(), "Deletion cancelled.\n")
 }
@@ -210,7 +219,7 @@ func TestRunDelete_PromptAccepted(t *testing.T) {
 	opts.SetAPIClient(client)
 
 	err = runDelete(context.Background(), opts, []string{"PROJ-123"}, false)
-	testutil.RequireNoError(t, err)
+	requireDeleted(t, err, &stderr)
 	testutil.Equal(t, stdout.String(), "Deleted PROJ-123\n")
 }
 
@@ -234,7 +243,7 @@ func TestRunDelete_BatchPromptAccepted(t *testing.T) {
 	opts.SetAPIClient(client)
 
 	err = runDelete(context.Background(), opts, []string{"PROJ-1", "PROJ-2"}, false)
-	testutil.RequireNoError(t, err)
+	requireDeleted(t, err, &stderr)
 	testutil.Equal(t, stdout.String(), "Deleted PROJ-1\nDeleted PROJ-2\n")
 }
 

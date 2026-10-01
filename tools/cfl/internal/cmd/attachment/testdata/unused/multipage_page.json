@@ -1,0 +1,12 @@
+{
+  "id": "12345",
+  "title": "Gallery",
+  "version": {"number": 2},
+  "body": {
+    "storage": {
+      "representation": "storage",
+      "value": "<ac:image><ri:attachment ri:filename=\"a.png\" /></ac:image><ac:image><ri:attachment ri:filename=\"b.png\" /></ac:image><ac:image><ri:attachment ri:filename=\"d.png\" /></ac:image>"
+    }
+  },
+  "_links": {"webui": "/spaces/DOCS/pages/12345"}
+}

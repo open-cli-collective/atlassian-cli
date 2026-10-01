@@ -88,6 +88,7 @@ type Attachment struct {
 	ID                   string   `json:"id"`
 	Status               string   `json:"status"`
 	Title                string   `json:"title"`
+	FileID               string   `json:"fileId,omitempty"`
 	MediaType            string   `json:"mediaType"`
 	MediaTypeDescription string   `json:"mediaTypeDescription,omitempty"`
 	Comment              string   `json:"comment,omitempty"`

@@ -1,0 +1,12 @@
+{
+  "id": "12345",
+  "title": "Storage Page",
+  "version": {"number": 7},
+  "body": {
+    "storage": {
+      "representation": "storage",
+      "value": "<p>Architecture overview. See diagram.png and notes.txt for details.</p><ac:image ac:width=\"800\"><ri:attachment ri:filename=\"diagram.png\" ri:version-at-save=\"1\" /></ac:image><p><ac:link><ri:attachment ri:filename=\"Q&amp;A spec.pdf\" /></ac:link>&nbsp;is the current spec.</p><ac:image><ri:attachment ri:filename=\"logo.png\"><ri:page ri:space-key=\"OTHER\" ri:content-title=\"Brand Assets\" /></ri:attachment></ac:image><ac:structured-macro ac:name=\"code\"><ac:plain-text-body><![CDATA[<ri:attachment ri:filename=\"archive.zip\" />]]></ac:plain-text-body></ac:structured-macro>"
+    }
+  },
+  "_links": {"webui": "/spaces/DOCS/pages/12345"}
+}

@@ -62,11 +62,25 @@ func New(baseURL, email, apiToken string, opts *Options) *Client {
 		BaseURL:    baseURL,
 		AuthHeader: authHeader,
 		HTTPClient: &http.Client{
-			Timeout: timeout,
+			Timeout:   timeout,
+			Transport: newTransport(),
 		},
 		Verbose:    verbose,
 		VerboseOut: verboseOut,
 	}
+}
+
+// newTransport returns a connection pool owned by one Client. Sharing
+// http.DefaultTransport lets unrelated code that calls its
+// CloseIdleConnections (httptest.Server.Close does, for example) close a
+// connection that net/http has already returned to the idle pool while the
+// response for a bodiless request (such as a 204) is still being handed to
+// the caller, which fails that request with "CloseIdleConnections called".
+func newTransport() http.RoundTripper {
+	if t, ok := http.DefaultTransport.(*http.Transport); ok {
+		return t.Clone()
+	}
+	return http.DefaultTransport
 }
 
 // Do executes an HTTP request with the given method, path, and optional body.

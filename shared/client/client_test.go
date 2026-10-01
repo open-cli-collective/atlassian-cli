@@ -65,6 +65,19 @@ func TestNew(t *testing.T) {
 			t.Error("VerboseOut not set correctly")
 		}
 	})
+
+	t.Run("owns its transport", func(t *testing.T) {
+		t.Parallel()
+		a := New("https://example.atlassian.net", "user@example.com", "token", nil)
+		b := New("https://example.atlassian.net", "user@example.com", "token", nil)
+
+		if a.HTTPClient.Transport == nil || a.HTTPClient.Transport == http.DefaultTransport {
+			t.Error("Transport should not be http.DefaultTransport")
+		}
+		if a.HTTPClient.Transport == b.HTTPClient.Transport {
+			t.Error("each Client should have its own Transport")
+		}
+	})
 }
 
 func TestClient_Do(t *testing.T) {

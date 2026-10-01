@@ -5,6 +5,7 @@ import (
 
 	"github.com/open-cli-collective/atlassian-go/credstore"
 	"github.com/open-cli-collective/atlassian-go/keyring"
+	"github.com/open-cli-collective/atlassian-go/url"
 )
 
 // ValuesWithSources holds all config values with their source information.
@@ -64,8 +65,20 @@ func GetValuesWithSources() ValuesWithSources {
 		AuthMethodSrc:     authMethodSrc,
 		CloudID:           cloudID,
 		CloudIDSrc:        cloudIDSrc,
-		Path:              Path(),
+		Path:              activeConfigPath(),
 	}
+}
+
+// activeConfigPath returns the config file the resolvers actually read:
+// the shared store credstore resolves at runtime (including the prior
+// location on the relocation read fallback), else the legacy per-tool
+// file. `config show` used to always print the legacy path, which is
+// misleading once `jtk init` has written the shared store.
+func activeConfigPath() string {
+	if sp, _ := credstore.SharedRuntimePath(); sp != "" {
+		return sp
+	}
+	return Path()
 }
 
 // keyringBackendLabel renders the backend and how it was selected, e.g.
@@ -81,13 +94,16 @@ func keyringBackendLabel(kr keyring.Info) string {
 }
 
 // GetURLWithSource returns the URL and its source.
-// Precedence: JIRA_URL → ATLASSIAN_URL → config url → JIRA_DOMAIN (legacy) → config domain (legacy)
+// Precedence: JIRA_URL → ATLASSIAN_URL → shared default → config url → JIRA_DOMAIN (legacy) → config domain (legacy)
 func GetURLWithSource() (value, source string) {
 	if os.Getenv("JIRA_URL") != "" {
 		return GetURL(), "env (JIRA_URL)"
 	}
 	if os.Getenv("ATLASSIAN_URL") != "" {
 		return GetURL(), "env (ATLASSIAN_URL)"
+	}
+	if v, src := jtkSectionWithSource("url"); v != "" {
+		return url.NormalizeURL(v), string(src)
 	}
 	cfg, err := Load()
 	if err != nil {
@@ -107,13 +123,16 @@ func GetURLWithSource() (value, source string) {
 }
 
 // GetEmailWithSource returns the email and its source.
-// Precedence: JIRA_EMAIL → ATLASSIAN_EMAIL → config email
+// Precedence: JIRA_EMAIL → ATLASSIAN_EMAIL → shared default → config email
 func GetEmailWithSource() (value, source string) {
 	if os.Getenv("JIRA_EMAIL") != "" {
 		return GetEmail(), "env (JIRA_EMAIL)"
 	}
 	if os.Getenv("ATLASSIAN_EMAIL") != "" {
 		return GetEmail(), "env (ATLASSIAN_EMAIL)"
+	}
+	if v, src := jtkSectionWithSource("email"); v != "" {
+		return v, string(src)
 	}
 	cfg, err := Load()
 	if err != nil {
@@ -126,10 +145,13 @@ func GetEmailWithSource() (value, source string) {
 }
 
 // GetDefaultProjectWithSource returns the default project and its source.
-// Precedence: JIRA_DEFAULT_PROJECT → config default_project
+// Precedence: JIRA_DEFAULT_PROJECT → shared jtk.default_project → config default_project
 func GetDefaultProjectWithSource() (value, source string) {
 	if os.Getenv("JIRA_DEFAULT_PROJECT") != "" {
 		return GetDefaultProject(), "env (JIRA_DEFAULT_PROJECT)"
+	}
+	if v := loadShared().JTK.DefaultProject; v != "" {
+		return v, string(credstore.SourceJTK)
 	}
 	cfg, err := Load()
 	if err != nil {

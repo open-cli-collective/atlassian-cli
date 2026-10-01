@@ -313,6 +313,57 @@ func TestLoadSharedRuntime_PathIdentityUsesCanonical(t *testing.T) {
 	}
 }
 
+func TestSharedRuntimePath(t *testing.T) {
+	body := "default:\n  url: https://acme.atlassian.net\n"
+	tests := []struct {
+		name     string
+		writeOld bool
+		newBody  string // "" leaves the canonical file absent
+		wantOld  bool   // expect the prior location instead of newPath
+		wantNone bool
+		wantErr  error
+	}{
+		{name: "none present", wantNone: true},
+		{name: "old only reads the prior file", writeOld: true, wantOld: true},
+		{name: "new only", newBody: body},
+		{name: "both equal uses canonical", writeOld: true, newBody: body},
+		{name: "divergent names canonical with conflict", writeOld: true,
+			newBody: "default:\n  url: https://NEW.atlassian.net\n", wantErr: ErrRelocationConflict},
+		{name: "corrupt canonical", newBody: "default: [unclosed\n", wantNone: true, wantErr: ErrCorruptStore},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			oldPath := oldBase(t)
+			newPath := filepath.Join(t.TempDir(), "new", "config.yml")
+			if tc.writeOld {
+				writeFile(t, oldPath, body)
+			}
+			if tc.newBody != "" {
+				writeFile(t, newPath, tc.newBody)
+			}
+
+			got, err := sharedRuntimePath(newPath)
+			if tc.wantErr != nil {
+				if !errors.Is(err, tc.wantErr) {
+					t.Fatalf("want %v, got %v", tc.wantErr, err)
+				}
+			} else if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			want := newPath
+			switch {
+			case tc.wantNone:
+				want = ""
+			case tc.wantOld:
+				want = oldPath
+			}
+			if got != want {
+				t.Fatalf("path = %q, want %q", got, want)
+			}
+		})
+	}
+}
+
 func TestApplySharedRelocation_NoOpWhenNotNeeded(t *testing.T) {
 	if err := ApplySharedRelocation(nil); err != nil {
 		t.Fatalf("nil ⇒ no-op, got %v", err)

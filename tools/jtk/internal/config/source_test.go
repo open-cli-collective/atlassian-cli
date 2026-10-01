@@ -1,8 +1,11 @@
 package config
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
+	"github.com/open-cli-collective/atlassian-go/credstore"
 	"github.com/open-cli-collective/atlassian-go/keyring"
 	"github.com/open-cli-collective/atlassian-go/testutil"
 )
@@ -149,6 +152,84 @@ func TestGetDefaultProjectWithSource_EnvPrecedence(t *testing.T) {
 	value, source = GetDefaultProjectWithSource()
 	testutil.Equal(t, value, "ENV-PROJ")
 	testutil.Equal(t, source, "env (JIRA_DEFAULT_PROJECT)")
+}
+
+// Values set only in the shared store must show up in `config show`
+// with the shared source label — they are what the runtime resolves
+// (this used to render as empty "-" rows, hiding a working config).
+func TestGetValuesWithSources_SharedStore(t *testing.T) {
+	sharedPath, cleanup := setupTestConfig(t)
+	defer cleanup()
+
+	store := &credstore.Store{
+		Default: credstore.Section{
+			URL:   "https://shared.atlassian.net",
+			Email: "shared@example.com",
+		},
+		JTK: credstore.ToolSection{DefaultProject: "SHARED"},
+	}
+	testutil.RequireNoError(t, store.Save(sharedPath))
+
+	result := GetValuesWithSources()
+
+	testutil.Equal(t, result.URL, "https://shared.atlassian.net")
+	testutil.Equal(t, result.URLSource, string(credstore.SourceDefault))
+
+	testutil.Equal(t, result.Email, "shared@example.com")
+	testutil.Equal(t, result.EmailSource, string(credstore.SourceDefault))
+
+	testutil.Equal(t, result.DefaultProject, "SHARED")
+	testutil.Equal(t, result.ProjectSource, string(credstore.SourceJTK))
+
+	// The path row names the file actually read.
+	testutil.Equal(t, result.Path, sharedPath)
+
+	// Env still outranks shared.
+	t.Setenv("JIRA_URL", "https://env.atlassian.net")
+	value, source := GetURLWithSource()
+	testutil.Equal(t, value, "https://env.atlassian.net")
+	testutil.Equal(t, source, "env (JIRA_URL)")
+}
+
+// Shared store outranks the legacy per-tool file in the source column,
+// matching runtime resolution.
+func TestGetValuesWithSources_SharedBeatsLegacy(t *testing.T) {
+	sharedPath, cleanup := setupTestConfig(t)
+	defer cleanup()
+
+	testutil.RequireNoError(t, Save(&Config{
+		URL:   "https://legacy.atlassian.net",
+		Email: "legacy@example.com",
+	}))
+	store := &credstore.Store{
+		Default: credstore.Section{URL: "https://shared.atlassian.net"},
+	}
+	testutil.RequireNoError(t, store.Save(sharedPath))
+
+	value, source := GetURLWithSource()
+	testutil.Equal(t, value, "https://shared.atlassian.net")
+	testutil.Equal(t, source, string(credstore.SourceDefault))
+
+	// Email is unset in shared, so the legacy file still supplies it.
+	value, source = GetEmailWithSource()
+	testutil.Equal(t, value, "legacy@example.com")
+	testutil.Equal(t, source, "config")
+}
+
+// A corrupt shared file makes the resolvers fall back to the legacy
+// per-tool file, so the path row must name the legacy file too.
+func TestGetValuesWithSources_CorruptSharedShowsLegacyPath(t *testing.T) {
+	sharedPath, cleanup := setupTestConfig(t)
+	defer cleanup()
+
+	testutil.RequireNoError(t, Save(&Config{URL: "https://legacy.atlassian.net"}))
+	testutil.RequireNoError(t, os.MkdirAll(filepath.Dir(sharedPath), 0o700))
+	testutil.RequireNoError(t, os.WriteFile(sharedPath, []byte("default: [unclosed\n"), 0o600))
+
+	result := GetValuesWithSources()
+	testutil.Equal(t, result.URL, "https://legacy.atlassian.net")
+	testutil.Equal(t, result.URLSource, "config")
+	testutil.Equal(t, result.Path, Path())
 }
 
 func TestGetValuesWithSources_AllFields(t *testing.T) {

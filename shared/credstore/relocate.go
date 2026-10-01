@@ -263,9 +263,36 @@ func LoadSharedRuntime() (*Store, error) {
 // branches hermetically testable on Linux (where the resolver would
 // otherwise collapse old≡new).
 func loadSharedRuntime(newPath string) (*Store, error) {
+	s, _, err := resolveSharedRuntime(newPath)
+	return s, err
+}
+
+// SharedRuntimePath returns the shared config file that
+// LoadSharedRuntime reads: the canonical path, or the prior location on
+// the old-only read fallback. "" means no shared file is in effect
+// (absent, or corrupt, in which case the error is ErrCorruptStore). On
+// an old/new divergence it returns the canonical path together with
+// ErrRelocationConflict, matching the store LoadSharedRuntime returns.
+func SharedRuntimePath() (string, error) {
+	newPath, err := DefaultPath()
+	if err != nil {
+		return "", err
+	}
+	return sharedRuntimePath(newPath)
+}
+
+func sharedRuntimePath(newPath string) (string, error) {
+	_, path, err := resolveSharedRuntime(newPath)
+	return path, err
+}
+
+// resolveSharedRuntime is the single runtime resolution behind
+// loadSharedRuntime and sharedRuntimePath, returning the store and the
+// file it was read from ("" when no shared file exists).
+func resolveSharedRuntime(newPath string) (*Store, string, error) {
 	st, err := classifyRelocation(newPath)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	switch st.kind {
 	case relocOldOnly:
@@ -273,15 +300,18 @@ func loadSharedRuntime(newPath string) (*Store, error) {
 		// store IS the effective config until init materializes it.
 		oldStore, oerr := Load(st.oldPath)
 		if oerr != nil {
-			return nil, oerr
+			return nil, "", oerr
 		}
-		return oldStore, nil
+		return oldStore, st.oldPath, nil
 	case relocBothDivergent:
-		return st.newStore, relocationConflict(st.oldPath, newPath, "run init to reconcile")
+		return st.newStore, newPath, relocationConflict(st.oldPath, newPath, "run init to reconcile")
 	case relocNone, relocBothEqual:
-		return st.newStore, nil
+		if _, serr := os.Stat(newPath); serr != nil {
+			return st.newStore, "", nil
+		}
+		return st.newStore, newPath, nil
 	}
-	return st.newStore, nil
+	return st.newStore, "", nil
 }
 
 // OldSharedConnCandidates yields the origin-labeled connection

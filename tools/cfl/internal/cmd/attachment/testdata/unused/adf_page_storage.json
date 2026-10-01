@@ -1,0 +1,7 @@
+{
+  "id": "12345",
+  "title": "ADF Page",
+  "version": {"number": 4},
+  "body": {"storage": {"representation": "storage", "value": ""}},
+  "_links": {"webui": "/spaces/DOCS/pages/12345"}
+}

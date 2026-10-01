@@ -4,10 +4,12 @@
 
 ### Fixed
 
+- `attachment list --unused` now reads ADF pages whose storage body is empty, matches attachment references structurally (storage `ri:attachment` elements and ADF media nodes) instead of by filename substring, and pages through all attachments until `--limit` unused results are found ([#456](https://github.com/open-cli-collective/atlassian-cli/issues/456))
 - `page view` and `page edit` now fall back to ADF format when the Confluence API returns empty storage content for cloud editor pages ([#150](https://github.com/open-cli-collective/atlassian-cli/issues/150))
 
 ### Added
 
+- `page edit --message`/`-m` sets the page version comment, which was always "Updated via cfl". Omitting the flag keeps that default; an empty value sends no comment. Thanks to @dmoruzzi for the feature. ([#473](https://github.com/open-cli-collective/atlassian-cli/pull/473))
 - Service account support with bearer auth (`--auth-method bearer`) for scoped API tokens ([#171](https://github.com/open-cli-collective/atlassian-cli/pull/171))
 - Wiki-link syntax `[[Page Title]]` and `[[SPACE:Page Title]]` for internal Confluence page links ([#129](https://github.com/open-cli-collective/atlassian-cli/pull/129))
 - `space view`, `space create`, `space update`, `space delete` commands for full space management ([#151](https://github.com/open-cli-collective/atlassian-cli/issues/151))

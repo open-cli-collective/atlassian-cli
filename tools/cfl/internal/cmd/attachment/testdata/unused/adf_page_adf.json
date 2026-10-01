@@ -1,0 +1,12 @@
+{
+  "id": "12345",
+  "title": "ADF Page",
+  "version": {"number": 4},
+  "body": {
+    "atlas_doc_format": {
+      "representation": "atlas_doc_format",
+      "value": "{\"type\":\"doc\",\"version\":1,\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"The notes.txt file is attached for reference.\"}]},{\"type\":\"mediaSingle\",\"attrs\":{\"layout\":\"center\"},\"content\":[{\"type\":\"media\",\"attrs\":{\"id\":\"0a1b2c3d-0000-4000-8000-000000000001\",\"collection\":\"contentId-12345\",\"type\":\"file\",\"width\":800,\"height\":600}}]},{\"type\":\"paragraph\",\"content\":[{\"type\":\"mediaInline\",\"attrs\":{\"id\":\"0a1b2c3d-0000-4000-8000-000000000002\",\"collection\":\"contentId-12345\",\"type\":\"file\"}}]},{\"type\":\"mediaSingle\",\"content\":[{\"type\":\"media\",\"attrs\":{\"id\":\"0a1b2c3d-0000-4000-8000-000000000099\",\"collection\":\"contentId-67890\",\"type\":\"file\",\"__fileName\":\"notes.txt\"}}]}]}"
+    }
+  },
+  "_links": {"webui": "/spaces/DOCS/pages/12345"}
+}

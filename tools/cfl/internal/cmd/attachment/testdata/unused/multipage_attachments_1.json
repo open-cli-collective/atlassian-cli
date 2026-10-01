@@ -1,0 +1,7 @@
+{
+  "results": [
+    {"id": "att1", "status": "current", "title": "a.png", "mediaType": "image/png", "fileSize": 1024, "pageId": "12345"},
+    {"id": "att2", "status": "current", "title": "b.png", "mediaType": "image/png", "fileSize": 1024, "pageId": "12345"}
+  ],
+  "_links": {"next": "/wiki/api/v2/pages/12345/attachments?limit=2&cursor=cursor-2", "base": "https://example.atlassian.net/wiki"}
+}

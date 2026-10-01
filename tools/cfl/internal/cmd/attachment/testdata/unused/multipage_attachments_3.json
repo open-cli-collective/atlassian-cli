@@ -1,0 +1,6 @@
+{
+  "results": [
+    {"id": "att5", "status": "current", "title": "e.png", "mediaType": "image/png", "fileSize": 1024, "pageId": "12345"}
+  ],
+  "_links": {"base": "https://example.atlassian.net/wiki"}
+}

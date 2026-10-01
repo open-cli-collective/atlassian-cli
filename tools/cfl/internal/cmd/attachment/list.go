@@ -3,12 +3,12 @@ package attachment
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/open-cli-collective/confluence-cli/api"
 	"github.com/open-cli-collective/confluence-cli/internal/cmd/root"
+	"github.com/open-cli-collective/confluence-cli/internal/pageview"
 	cflpresent "github.com/open-cli-collective/confluence-cli/internal/present"
 )
 
@@ -65,38 +65,65 @@ func runList(ctx context.Context, opts *listOptions) error {
 		return err
 	}
 
-	apiOpts := &api.ListAttachmentsOptions{
-		Limit: opts.limit,
+	if opts.unused {
+		return runListUnused(ctx, client, opts)
 	}
 
-	result, err := client.ListAttachments(ctx, opts.pageID, apiOpts)
+	result, err := client.ListAttachments(ctx, opts.pageID, &api.ListAttachmentsOptions{Limit: opts.limit})
 	if err != nil {
 		return fmt.Errorf("listing attachments: %w", err)
 	}
+	return emitAttachments(opts, result.Results, result.HasMore())
+}
 
-	attachments := result.Results
-
-	if opts.unused {
-		page, err := client.GetPage(ctx, opts.pageID, &api.GetPageOptions{
-			BodyFormat: "storage",
-		})
-		if err != nil {
-			return fmt.Errorf("getting page content: %w", err)
-		}
-
-		pageContent := ""
-		if page.Body != nil && page.Body.Storage != nil {
-			pageContent = page.Body.Storage.Value
-		}
-
-		attachments = filterUnusedAttachments(attachments, pageContent)
+// runListUnused pages through every attachment until it has found one more
+// unused attachment than --limit, so the "more results" hint is exact.
+func runListUnused(ctx context.Context, client *api.Client, opts *listOptions) error {
+	page, err := pageview.GetPageWithBodyFallback(ctx, client, opts.pageID)
+	if err != nil {
+		return fmt.Errorf("getting page content: %w", err)
+	}
+	refs, err := pageAttachmentRefs(page)
+	if err != nil {
+		return err
 	}
 
+	var unused []api.Attachment
+	cursor := ""
+	for len(unused) <= opts.limit {
+		result, err := client.ListAttachments(ctx, opts.pageID, &api.ListAttachmentsOptions{
+			Limit:  opts.limit,
+			Cursor: cursor,
+		})
+		if err != nil {
+			return fmt.Errorf("listing attachments: %w", err)
+		}
+		for _, att := range result.Results {
+			if !refs.references(att) {
+				unused = append(unused, att)
+			}
+		}
+		if !result.HasMore() {
+			break
+		}
+		cursor = cflpresent.ExtractCursor(result.Links.Next)
+		if cursor == "" {
+			return fmt.Errorf("listing attachments: next page link has no cursor: %q", result.Links.Next)
+		}
+	}
+
+	hasMore := len(unused) > opts.limit
+	if hasMore {
+		unused = unused[:opts.limit]
+	}
+	return emitAttachments(opts, unused, hasMore)
+}
+
+func emitAttachments(opts *listOptions, attachments []api.Attachment, hasMore bool) error {
 	if len(attachments) == 0 {
 		return cflpresent.Emit(opts.Options, cflpresent.AttachmentPresenter{}.PresentEmpty(opts.unused))
 	}
-
-	return cflpresent.Emit(opts.Options, cflpresent.AttachmentPresenter{}.PresentList(attachments, opts.Full, result.HasMore()))
+	return cflpresent.Emit(opts.Options, cflpresent.AttachmentPresenter{}.PresentList(attachments, opts.Full, hasMore))
 }
 
 func validateListOptions(opts *listOptions) error {
@@ -104,36 +131,4 @@ func validateListOptions(opts *listOptions) error {
 		return fmt.Errorf("invalid limit: %d (must be greater than 0)", opts.limit)
 	}
 	return nil
-}
-
-// filterUnusedAttachments returns attachments that are not referenced in the page content.
-// Confluence references attachments in storage format as:
-//   - <ri:attachment ri:filename="example.png"/>
-//   - Attachment filename may also appear in href attributes
-func filterUnusedAttachments(attachments []api.Attachment, pageContent string) []api.Attachment {
-	var unused []api.Attachment
-	for _, att := range attachments {
-		if !isAttachmentReferenced(att.Title, pageContent) {
-			unused = append(unused, att)
-		}
-	}
-	return unused
-}
-
-// isAttachmentReferenced checks if an attachment filename appears in page content.
-func isAttachmentReferenced(filename, content string) bool {
-	if strings.Contains(content, fmt.Sprintf(`ri:filename="%s"`, filename)) {
-		return true
-	}
-
-	encodedFilename := strings.ReplaceAll(filename, " ", "%20")
-	if strings.Contains(content, encodedFilename) {
-		return true
-	}
-
-	if strings.Contains(content, filename) {
-		return true
-	}
-
-	return false
 }

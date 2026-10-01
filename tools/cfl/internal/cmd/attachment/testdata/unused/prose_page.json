@@ -1,0 +1,12 @@
+{
+  "id": "12345",
+  "title": "Release Notes",
+  "version": {"number": 3},
+  "body": {
+    "storage": {
+      "representation": "storage",
+      "value": "<p>The raw export is in notes.txt, attached below.</p><ac:image><ri:attachment ri:filename=\"diagram.png\" /></ac:image>"
+    }
+  },
+  "_links": {"webui": "/spaces/DOCS/pages/12345"}
+}

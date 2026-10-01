@@ -426,6 +426,9 @@ cfl page edit 12345 --parent 67890
 # Move page and rename in one command
 cfl page edit 12345 --parent 67890 --title "New Title"
 
+# Update with a custom version comment
+cfl page edit 12345 --file content.md -m "Fixed typos"
+
 # Edit using legacy storage format (for pages created in legacy editor)
 cfl page edit 12345 --file content.md --legacy
 
@@ -442,6 +445,7 @@ cfl page view 12345 --body-format xhtml --content-only | \
 | `--title` | `-t` | | New page title (keeps existing if not specified) |
 | `--parent` | `-p` | | Move page to new parent page ID |
 | `--file` | `-f` | | Read content from file |
+| `--message` | `-m` | `Updated via cfl` | Version comment for the update; an empty value sends none |
 | `--editor` | | `false` | Force open in $EDITOR |
 | `--body-format` | | `markdown` | Input/editor format: `markdown`, exact `adf` JSON, or exact storage `xhtml` |
 | `--legacy` | | `false` | Convert Markdown to storage XHTML instead of ADF; invalid with `adf` or `xhtml` |
@@ -623,6 +627,8 @@ cfl attachment list --page 12345 --unused
 | `--page` | `-p` | | Page ID (**required**) |
 | `--limit` | `-l` | `25` | Maximum number of attachments to return (must be greater than zero) |
 | `--unused` | | `false` | Show only attachments not referenced in page content |
+
+With `--unused`, an attachment counts as used only when the page embeds or links it (a storage `ri:attachment` element or an ADF media node); a filename mentioned in text does not count. `--limit` caps the number of unused attachments returned; the command pages through the page's attachments until it has found that many or the list ends.
 
 ---
 

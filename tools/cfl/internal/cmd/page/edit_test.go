@@ -124,6 +124,70 @@ func TestRunEdit_TitleOnly(t *testing.T) {
 	testutil.Equal(t, "<p>Keep this</p>", storage["value"])
 }
 
+func TestRunEdit_VersionMessage(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name            string
+		message         string
+		messageExplicit bool
+		wantMessage     any
+	}{
+		{name: "default when flag absent", wantMessage: "Updated via cfl"},
+		{name: "custom message", message: "Fixed typos", messageExplicit: true, wantMessage: "Fixed typos"},
+		{name: "explicit empty omits field", message: "", messageExplicit: true, wantMessage: nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			var receivedBody map[string]any
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				switch {
+				case r.Method == "GET" && strings.Contains(r.URL.Path, "/pages/12345"):
+					w.WriteHeader(http.StatusOK)
+					_, _ = w.Write([]byte(`{
+						"id": "12345",
+						"title": "Old Title",
+						"version": {"number": 3},
+						"body": {"storage": {"representation": "storage", "value": "<p>Keep this</p>"}},
+						"_links": {"webui": "/pages/12345"}
+					}`))
+				case r.Method == "PUT" && strings.Contains(r.URL.Path, "/pages/12345"):
+					body, _ := io.ReadAll(r.Body)
+					_ = json.Unmarshal(body, &receivedBody)
+					w.WriteHeader(http.StatusOK)
+					_, _ = w.Write([]byte(`{
+						"id": "12345",
+						"title": "Old Title",
+						"version": {"number": 4},
+						"_links": {"webui": "/pages/12345"}
+					}`))
+				default:
+					w.WriteHeader(http.StatusNotFound)
+				}
+			}))
+			defer server.Close()
+
+			rootOpts := newEditTestRootOptions()
+			client := api.NewClient(server.URL, "test@example.com", "token")
+			rootOpts.SetAPIClient(client)
+			rootOpts.Stdin = nil
+			opts := &editOptions{
+				Options:         rootOpts,
+				pageID:          "12345",
+				title:           "Old Title",
+				message:         tt.message,
+				messageExplicit: tt.messageExplicit,
+			}
+
+			err := runEdit(context.Background(), opts)
+			testutil.RequireNoError(t, err)
+
+			version := receivedBody["version"].(map[string]any)
+			testutil.Equal(t, version["message"], tt.wantMessage)
+		})
+	}
+}
+
 func TestRunEdit_PageNotFound(t *testing.T) {
 	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

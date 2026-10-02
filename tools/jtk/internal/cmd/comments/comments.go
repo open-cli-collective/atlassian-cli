@@ -32,6 +32,7 @@ func Register(parent *cobra.Command, opts *root.Options) {
 
 	cmd.AddCommand(newListCmd(opts))
 	cmd.AddCommand(newAddCmd(opts))
+	cmd.AddCommand(newUpdateCmd(opts))
 	cmd.AddCommand(newDeleteCmd(opts))
 
 	parent.AddCommand(cmd)
@@ -184,6 +185,44 @@ func runAdd(ctx context.Context, opts *root.Options, issueKey, body string) erro
 	// Raw ADF passthrough (e.g. --body "$(cat doc.adf.json)") must reach
 	// AddComment unmodified; see text.InterpretEscapesUnlessRawADF.
 	comment, err := client.AddComment(ctx, issueKey, text.InterpretEscapesUnlessRawADF(body))
+	if err != nil {
+		return err
+	}
+
+	if opts.EmitIDOnly() {
+		return jtkpresent.EmitIDs(opts, []string{comment.ID})
+	}
+
+	return jtkpresent.Emit(opts, jtkpresent.CommentPresenter{}.PresentAddedDetail(issueKey, comment))
+}
+
+func newUpdateCmd(opts *root.Options) *cobra.Command {
+	var body string
+
+	cmd := &cobra.Command{
+		Use:     "update <issue-key> <comment-id>",
+		Short:   "Update a comment on an issue",
+		Long:    "Replace the body of an existing comment. The comment keeps its ID and position in the thread.",
+		Example: `  jtk comments update PROJ-123 12345 --body "Corrected text"`,
+		Args:    cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runUpdate(cmd.Context(), opts, args[0], args[1], body)
+		},
+	}
+
+	cmd.Flags().StringVarP(&body, "body", "b", "", "New comment text (raw ADF JSON is sent as structured ADF) (required)")
+	_ = cmd.MarkFlagRequired("body")
+
+	return cmd
+}
+
+func runUpdate(ctx context.Context, opts *root.Options, issueKey, commentID, body string) error {
+	client, err := opts.APIClient()
+	if err != nil {
+		return err
+	}
+
+	comment, err := client.UpdateComment(ctx, issueKey, commentID, text.InterpretEscapesUnlessRawADF(body))
 	if err != nil {
 		return err
 	}

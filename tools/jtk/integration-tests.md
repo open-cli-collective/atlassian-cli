@@ -460,6 +460,12 @@ Run these steps in order. Each step depends on the previous.
    Expected: Comment detail block (Issue Key, Comment ID, Author, body excerpt)
    Capture the comment ID → `$COMMENT_ID`
 
+   Update the comment in place and confirm the ID is unchanged:
+   ```bash
+   jtk comments update $TEST_ISSUE $COMMENT_ID -b "Updated comment text"
+   ```
+   Expected: Comment detail block with the same comment ID and the new body
+
    Also test `--id` variant. Capture the ID so it can be cleaned up:
    ```bash
    COMMENT_ID_2=$(jtk comments add $TEST_ISSUE -b "ID flag test comment" --id)

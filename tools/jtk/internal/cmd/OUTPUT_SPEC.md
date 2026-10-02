@@ -520,7 +520,7 @@ Deleted MON-4820
 
 Multi-delete: one line per deleted issue.
 
-### `comments add / delete`
+### `comments add / update / delete`
 
 ```
 $ jtk comments add MON-4810 --body "Noting that this needs QA review on Safari 16."
@@ -531,6 +531,14 @@ Noting that this needs QA review on Safari 16.
 ```
 $ jtk comments add MON-4810 --body "..." --id
 21276
+```
+
+`comments update` renders the same detail block as `comments add`, and `--id` emits the comment ID.
+
+```
+$ jtk comments update PROJ-123 21276 --body "Corrected text"
+PROJ-123 #21276 — Jane Doe, 2026-04-16
+Corrected text
 ```
 
 ```

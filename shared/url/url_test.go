@@ -1,6 +1,38 @@
 package url //nolint:revive // test file for url package
 
-import "testing"
+import (
+	"errors"
+	"testing"
+)
+
+func TestRequireSecureOrLoopback(t *testing.T) {
+	t.Parallel()
+	for _, tt := range []struct {
+		url   string
+		valid bool
+	}{
+		{"https://proxy.example.com/path", true},
+		{"proxy.example.com/path", true},
+		{"http://localhost:8080/path", true},
+		{"http://127.0.0.1:8080/path", true},
+		{"http://[::1]:8080/path", true},
+		{"http://proxy.example.com/path", false},
+		{"ftp://proxy.example.com/path", false},
+		{"https://", false},
+		{"", false},
+	} {
+		t.Run(tt.url, func(t *testing.T) {
+			t.Parallel()
+			err := RequireSecureOrLoopback(tt.url)
+			if tt.valid && err != nil {
+				t.Fatalf("RequireSecureOrLoopback(%q) = %v, want nil", tt.url, err)
+			}
+			if !tt.valid && !errors.Is(err, ErrRequiresHTTPS) {
+				t.Fatalf("RequireSecureOrLoopback(%q) = %v, want ErrRequiresHTTPS", tt.url, err)
+			}
+		})
+	}
+}
 
 func TestNormalizeURL(t *testing.T) {
 	t.Parallel()
@@ -111,6 +143,34 @@ func TestTrimTrailingSlashes(t *testing.T) {
 			got := TrimTrailingSlashes(tt.input)
 			if got != tt.want {
 				t.Errorf("TrimTrailingSlashes(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsLoopbackHTTP(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		input string
+		want  bool
+	}{
+		{"http://localhost:8080/atlassian", true},
+		{"http://LOCALHOST/atlassian", true},
+		{"http://127.0.0.1:8080/atlassian", true},
+		{"http://127.42.0.1:8080/atlassian", true},
+		{"http://[::1]:8080/atlassian", true},
+		{"https://localhost:8080/atlassian", false},
+		{"http://example.com/atlassian", false},
+		{"http://10.0.0.1/atlassian", false},
+		{"localhost:8080/atlassian", false},
+		{"", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			t.Parallel()
+			if got := IsLoopbackHTTP(tt.input); got != tt.want {
+				t.Errorf("IsLoopbackHTTP(%q) = %v, want %v", tt.input, got, tt.want)
 			}
 		})
 	}

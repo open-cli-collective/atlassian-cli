@@ -10,7 +10,7 @@ View, add, update, and delete comments on Jira issues.
 |-----------|---------|----------|
 | "view comments", "list comments", "show comments" | `jtk comments list PROJ-123` | Issue key |
 | "add comment", "comment on", "post comment" | `jtk comments add PROJ-123 --body "TEXT"` | Issue key + `--body` text |
-| "edit comment", "update comment", "fix comment" | `jtk comments update PROJ-123 COMMENT_ID --body "TEXT"` | Issue key + comment ID + `--body` text |
+| "edit comment", "update comment", "fix comment" | `jtk comments update PROJ-123 COMMENT_ID --body "TEXT" --force` | Issue key + comment ID + `--body` text |
 | "delete comment", "remove comment" | `jtk comments delete PROJ-123 COMMENT_ID` | Issue key + comment ID |
 
 ## Execute
@@ -46,10 +46,10 @@ jtk comments add PROJ-123 --body "Line 1\nLine 2\nLine 3"
 
 ### Update Comment
 
-Replaces the whole body of an existing comment; the comment keeps its ID and position. `--body` is handled exactly like `comments add`.
+**Agent must confirm with user before calling this command.** It replaces the whole body of an existing comment and the previous body cannot be recovered; the comment keeps its ID and position. `--body` is handled exactly like `comments add`. The command prompts unless `--force` is passed, so after the user confirms, pass `--force`:
 
 ```bash
-jtk comments update PROJ-123 COMMENT_ID --body "Corrected text"
+jtk comments update PROJ-123 COMMENT_ID --body "Corrected text" --force
 ```
 
 Prefer this over delete-and-re-add, which changes the comment ID and moves the comment to the end of the thread. If the user refers to the comment by content or author, list comments first to recover the ID.

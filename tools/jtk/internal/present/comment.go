@@ -118,6 +118,19 @@ func (CommentPresenter) PresentAdded(commentID, issueKey string) *present.Output
 	}
 }
 
+// PresentUpdateCancelled creates an info message for a declined update.
+func (CommentPresenter) PresentUpdateCancelled() *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageInfo,
+				Message: "Update cancelled.",
+				Stream:  present.StreamStdout,
+			},
+		},
+	}
+}
+
 // PresentDeleted creates a success message for comment deletion.
 func (CommentPresenter) PresentDeleted(commentID, issueKey string) *present.OutputModel {
 	return &present.OutputModel{

@@ -462,7 +462,7 @@ Run these steps in order. Each step depends on the previous.
 
    Update the comment in place and confirm the ID is unchanged:
    ```bash
-   jtk comments update $TEST_ISSUE $COMMENT_ID -b "Updated comment text"
+   jtk comments update $TEST_ISSUE $COMMENT_ID -b "Updated comment text" --force
    ```
    Expected: Comment detail block with the same comment ID and the new body
 

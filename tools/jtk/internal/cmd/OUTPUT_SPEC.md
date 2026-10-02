@@ -536,7 +536,7 @@ $ jtk comments add MON-4810 --body "..." --id
 `comments update` renders the same detail block as `comments add`, and `--id` emits the comment ID.
 
 ```
-$ jtk comments update PROJ-123 21276 --body "Corrected text"
+$ jtk comments update PROJ-123 21276 --body "Corrected text" --force
 PROJ-123 #21276 — Jane Doe, 2026-04-16
 Corrected text
 ```

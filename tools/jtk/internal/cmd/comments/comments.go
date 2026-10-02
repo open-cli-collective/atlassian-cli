@@ -3,9 +3,12 @@ package comments
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 
 	"github.com/spf13/cobra"
+
+	"github.com/open-cli-collective/atlassian-go/prompt"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
@@ -198,25 +201,43 @@ func runAdd(ctx context.Context, opts *root.Options, issueKey, body string) erro
 
 func newUpdateCmd(opts *root.Options) *cobra.Command {
 	var body string
+	var force bool
 
 	cmd := &cobra.Command{
-		Use:     "update <issue-key> <comment-id>",
-		Short:   "Update a comment on an issue",
-		Long:    "Replace the body of an existing comment. The comment keeps its ID and position in the thread.",
-		Example: `  jtk comments update PROJ-123 12345 --body "Corrected text"`,
-		Args:    cobra.ExactArgs(2),
+		Use:   "update <issue-key> <comment-id>",
+		Short: "Update a comment on an issue",
+		Long:  "Replace the body of an existing comment. The comment keeps its ID and position in the thread. The previous body cannot be recovered.",
+		Example: `  # Update a comment (will prompt for confirmation)
+  jtk comments update PROJ-123 12345 --body "Corrected text"
+
+  # Update without confirmation
+  jtk comments update PROJ-123 12345 --body "Corrected text" --force`,
+		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runUpdate(cmd.Context(), opts, args[0], args[1], body)
+			return runUpdate(cmd.Context(), opts, args[0], args[1], body, force)
 		},
 	}
 
 	cmd.Flags().StringVarP(&body, "body", "b", "", "New comment text (raw ADF JSON is sent as structured ADF) (required)")
 	_ = cmd.MarkFlagRequired("body")
+	cmd.Flags().BoolVar(&force, "force", false, "Skip confirmation prompt")
 
 	return cmd
 }
 
-func runUpdate(ctx context.Context, opts *root.Options, issueKey, commentID, body string) error {
+func runUpdate(ctx context.Context, opts *root.Options, issueKey, commentID, body string, force bool) error {
+	if !force && !opts.NonInteractive {
+		fmt.Fprintf(opts.Stderr, "This will replace the body of comment %s on %s. The previous body cannot be recovered.\n", commentID, issueKey)
+		fmt.Fprint(opts.Stderr, "Are you sure? [y/N]: ")
+	}
+	confirmed, err := prompt.ConfirmOrFail(force, opts.NonInteractive, opts.Stdin)
+	if err != nil {
+		return err
+	}
+	if !confirmed {
+		return jtkpresent.Emit(opts, jtkpresent.CommentPresenter{}.PresentUpdateCancelled())
+	}
+
 	client, err := opts.APIClient()
 	if err != nil {
 		return err

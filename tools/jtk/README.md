@@ -804,6 +804,28 @@ jtk comments add PROJ-123 --body "Line one\nLine two\n\tIndented line"
 
 ---
 
+### `jtk comments update <issue-key> <comment-id>`
+
+Replace the body of an existing comment. The comment keeps its ID and position in the thread. The previous body cannot be recovered, so the command prompts for confirmation unless `--force` is passed.
+
+**Aliases:** `jtk comment update`, `jtk c update`
+
+```bash
+jtk comments update PROJ-123 10042 --body "Corrected text"
+jtk comments update PROJ-123 10042 --body "$(cat comment.adf.json)" --force
+```
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--body` | `-b` | | New comment text, handled the same way as `comments add --body` (**required**) |
+| `--force` | | `false` | Skip the confirmation prompt (required with `--non-interactive`) |
+
+**Arguments:**
+- `<issue-key>` - The issue key (**required**)
+- `<comment-id>` - The comment ID (**required**)
+
+---
+
 ### `jtk comments delete <issue-key> <comment-id>`
 
 Delete a comment from an issue.

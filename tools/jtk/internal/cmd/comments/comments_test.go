@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -11,6 +12,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/open-cli-collective/atlassian-go/prompt"
 	"github.com/open-cli-collective/atlassian-go/testutil"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
@@ -749,5 +751,175 @@ func TestRunDelete_EmitsText(t *testing.T) {
 	err = runDelete(context.Background(), opts, "PROJ-1", "12345")
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, stdout.String(), "Deleted comment 12345 from PROJ-1\n")
+	testutil.Equal(t, stderr.String(), "")
+}
+
+func TestNewUpdateCmd_RequiresBodyAndTwoArgs(t *testing.T) {
+	t.Parallel()
+	cmd := newUpdateCmd(&root.Options{})
+	testutil.Equal(t, cmd.Use, "update <issue-key> <comment-id>")
+	testutil.Error(t, cmd.Args(cmd, []string{"PROJ-1"}))
+	testutil.NoError(t, cmd.Args(cmd, []string{"PROJ-1", "10001"}))
+
+	flag := cmd.Flags().Lookup("body")
+	testutil.NotNil(t, flag)
+	testutil.Equal(t, flag.Shorthand, "b")
+
+	force := cmd.Flags().Lookup("force")
+	testutil.NotNil(t, force)
+	testutil.Equal(t, force.Shorthand, "")
+
+	cmd.SetArgs([]string{"PROJ-1", "10001"})
+	cmd.SetOut(&bytes.Buffer{})
+	cmd.SetErr(&bytes.Buffer{})
+	err := cmd.Execute()
+	testutil.Error(t, err)
+	testutil.Contains(t, err.Error(), `required flag(s) "body" not set`)
+}
+
+func TestRunUpdate_PostState(t *testing.T) {
+	t.Parallel()
+	var method, path string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		method, path = r.Method, r.URL.Path
+		_ = json.NewEncoder(w).Encode(api.Comment{
+			ID:      "10001",
+			Author:  api.User{DisplayName: "Alice"},
+			Created: "2024-06-15T10:00:00Z",
+		})
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runUpdate(context.Background(), opts, "PROJ-1", "10001", "Corrected text", true)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, method, http.MethodPut)
+	testutil.Equal(t, path, "/rest/api/3/issue/PROJ-1/comment/10001")
+	testutil.Contains(t, stdout.String(), "PROJ-1 #10001")
+	testutil.Contains(t, stdout.String(), "Alice")
+}
+
+func TestRunUpdate_IDOnly(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(api.Comment{ID: "10001"})
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}, IDOnly: true}
+	opts.SetAPIClient(client)
+
+	err = runUpdate(context.Background(), opts, "PROJ-1", "10001", "Corrected text", true)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, stdout.String(), "10001\n")
+}
+
+// TestRunUpdate_RawADFBodyPassthrough mirrors TestRunAdd_RawADFBodyPassthrough:
+// a raw ADF --body, including an escaped "\n" and an inlineCard, must reach
+// the API unmodified.
+func TestRunUpdate_RawADFBodyPassthrough(t *testing.T) {
+	t.Parallel()
+	var capturedBody []byte
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		capturedBody, _ = io.ReadAll(r.Body)
+		_ = json.NewEncoder(w).Encode(api.Comment{ID: "10001"})
+	}))
+	defer server.Close()
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	rawADF := `{"type":"doc","version":1,"content":[{"type":"paragraph","content":[` +
+		`{"type":"text","text":"Line one\nLine two"},` +
+		`{"type":"inlineCard","attrs":{"url":"https://example.com/doc"}}]}]}`
+
+	opts := &root.Options{Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
+	opts.SetAPIClient(client)
+
+	err = runUpdate(context.Background(), opts, "PROJ-1", "10001", rawADF, true)
+	testutil.RequireNoError(t, err)
+
+	var req map[string]any
+	testutil.RequireNoError(t, json.Unmarshal(capturedBody, &req))
+	para := req["body"].(map[string]any)["content"].([]any)[0].(map[string]any)
+	nodes := para["content"].([]any)
+	testutil.Len(t, nodes, 2)
+	testutil.Equal(t, nodes[0].(map[string]any)["text"], "Line one\nLine two")
+	testutil.Equal(t, nodes[1].(map[string]any)["type"], "inlineCard")
+}
+
+func newUpdateTestServer(t *testing.T, calls *atomic.Int32) *httptest.Server {
+	t.Helper()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		calls.Add(1)
+		_ = json.NewEncoder(w).Encode(api.Comment{ID: "10001", Author: api.User{DisplayName: "Alice"}})
+	}))
+	t.Cleanup(server.Close)
+	return server
+}
+
+func TestRunUpdate_PromptDeclined_DoesNotWrite(t *testing.T) {
+	t.Parallel()
+	var calls atomic.Int32
+	server := newUpdateTestServer(t, &calls)
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout, stderr bytes.Buffer
+	opts := &root.Options{Stdout: &stdout, Stderr: &stderr, Stdin: strings.NewReader("n\n")}
+	opts.SetAPIClient(client)
+
+	err = runUpdate(context.Background(), opts, "PROJ-1", "10001", "Corrected text", false)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, calls.Load(), int32(0))
+	testutil.Contains(t, stderr.String(), "replace the body of comment 10001 on PROJ-1")
+	testutil.Equal(t, stdout.String(), "Update cancelled.\n")
+}
+
+func TestRunUpdate_PromptConfirmed_Writes(t *testing.T) {
+	t.Parallel()
+	var calls atomic.Int32
+	server := newUpdateTestServer(t, &calls)
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stdout bytes.Buffer
+	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}, Stdin: strings.NewReader("y\n")}
+	opts.SetAPIClient(client)
+
+	err = runUpdate(context.Background(), opts, "PROJ-1", "10001", "Corrected text", false)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, calls.Load(), int32(1))
+	testutil.Contains(t, stdout.String(), "PROJ-1 #10001")
+}
+
+func TestRunUpdate_NonInteractiveWithoutForce_FailsWithoutWriting(t *testing.T) {
+	t.Parallel()
+	var calls atomic.Int32
+	server := newUpdateTestServer(t, &calls)
+
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "test@test.com", APIToken: "token"})
+	testutil.RequireNoError(t, err)
+
+	var stderr bytes.Buffer
+	opts := &root.Options{Stdout: &bytes.Buffer{}, Stderr: &stderr, Stdin: strings.NewReader(""), NonInteractive: true}
+	opts.SetAPIClient(client)
+
+	err = runUpdate(context.Background(), opts, "PROJ-1", "10001", "Corrected text", false)
+	testutil.Error(t, err)
+	testutil.True(t, errors.Is(err, prompt.ErrConfirmationRequired))
+	testutil.Equal(t, calls.Load(), int32(0))
 	testutil.Equal(t, stderr.String(), "")
 }

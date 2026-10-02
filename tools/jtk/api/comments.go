@@ -60,6 +60,33 @@ func (c *Client) AddComment(ctx context.Context, issueKey, commentBody string) (
 	return &comment, nil
 }
 
+// UpdateComment replaces the body of an existing comment
+func (c *Client) UpdateComment(ctx context.Context, issueKey, commentID, commentBody string) (*Comment, error) {
+	if issueKey == "" {
+		return nil, ErrIssueKeyRequired
+	}
+	if commentID == "" {
+		return nil, ErrCommentIDRequired
+	}
+
+	urlStr := fmt.Sprintf("%s/issue/%s/comment/%s", c.BaseURL, url.PathEscape(issueKey), url.PathEscape(commentID))
+	req := AddCommentRequest{
+		Body: NewADFDocument(commentBody),
+	}
+
+	body, err := c.Put(ctx, urlStr, req)
+	if err != nil {
+		return nil, fmt.Errorf("updating comment %s: %w", commentID, err)
+	}
+
+	var comment Comment
+	if err := json.Unmarshal(body, &comment); err != nil {
+		return nil, fmt.Errorf("parsing comment: %w", err)
+	}
+
+	return &comment, nil
+}
+
 // DeleteComment deletes a comment from an issue
 func (c *Client) DeleteComment(ctx context.Context, issueKey, commentID string) error {
 	if issueKey == "" {

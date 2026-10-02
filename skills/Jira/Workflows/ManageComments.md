@@ -1,6 +1,6 @@
 # ManageComments Workflow
 
-View and add comments on Jira issues.
+View, add, update, and delete comments on Jira issues.
 
 ## Intent-to-Flag Mapping
 
@@ -10,6 +10,7 @@ View and add comments on Jira issues.
 |-----------|---------|----------|
 | "view comments", "list comments", "show comments" | `jtk comments list PROJ-123` | Issue key |
 | "add comment", "comment on", "post comment" | `jtk comments add PROJ-123 --body "TEXT"` | Issue key + `--body` text |
+| "edit comment", "update comment", "fix comment" | `jtk comments update PROJ-123 COMMENT_ID --body "TEXT" --force` | Issue key + comment ID + `--body` text |
 | "delete comment", "remove comment" | `jtk comments delete PROJ-123 COMMENT_ID` | Issue key + comment ID |
 
 ## Execute
@@ -43,6 +44,16 @@ Line 3"
 jtk comments add PROJ-123 --body "Line 1\nLine 2\nLine 3"
 ```
 
+### Update Comment
+
+**Agent must confirm with user before calling this command.** It replaces the whole body of an existing comment and the previous body cannot be recovered; the comment keeps its ID and position. `--body` is handled exactly like `comments add`. The command prompts unless `--force` is passed, so after the user confirms, pass `--force`:
+
+```bash
+jtk comments update PROJ-123 COMMENT_ID --body "Corrected text" --force
+```
+
+Prefer this over delete-and-re-add, which changes the comment ID and moves the comment to the end of the thread. If the user refers to the comment by content or author, list comments first to recover the ID.
+
 ### Delete Comment
 
 **Agent must confirm with user before calling this command.** `jtk comments delete` executes immediately with no interactive CLI-level prompt. The operation is destructive and cannot be undone; the agent is responsible for the pre-call confirmation.
@@ -57,6 +68,7 @@ The `COMMENT_ID` is a numeric ID (e.g., `12345`). If the user refers to the comm
 
 - **List comments:** A table with ID, author, timestamp, and body; `--fulltext` preserves these columns
 - **Add comment:** Confirm comment was added with issue key and a snippet of the comment text
+- **Update comment:** Same detail block as add, with the unchanged comment ID
 
 ## Post-Action
 

@@ -225,6 +225,22 @@ func TestHasUsableConfig(t *testing.T) {
 			want: true,
 		},
 		{
+			name: "proxy needs only URL",
+			s: &Store{Default: Section{
+				URL: "http://127.0.0.1:8080/atlassian", AuthMethod: auth.AuthMethodProxy,
+			}},
+			tool: ToolCFL,
+			want: true,
+		},
+		{
+			name: "proxy missing URL",
+			s: &Store{Default: Section{
+				AuthMethod: auth.AuthMethodProxy,
+			}},
+			tool: ToolJTK,
+			want: false,
+		},
+		{
 			name: "empty store",
 			s:    &Store{},
 			tool: ToolCFL,

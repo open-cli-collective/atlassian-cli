@@ -1,0 +1,104 @@
+name: Arch package
+
+on:
+  pull_request:
+    paths:
+      - .goreleaser-cfl.yml
+      - .goreleaser-jtk.yml
+      - .github/workflows/arch-package.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: macos-15
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - package: cfl
+            binary: cfl
+            config: .goreleaser-cfl.yml
+            go-mod: tools/cfl/go.mod
+          - package: jtk
+            binary: jtk
+            config: .goreleaser-jtk.yml
+            go-mod: tools/jtk/go.mod
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version-file: ${{ matrix.go-mod }}
+      # Production release automation temporarily supplies a SemVer tag for
+      # cfl-v*/jtk-v* tags. Mirror that normalization in this snapshot check.
+      - name: Set SemVer tag for monorepo snapshot
+        run: git tag v0.0.0-arch-smoke
+      - uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7.2.3
+        with:
+          version: v2.18.2
+          args: release --snapshot --clean --skip=before --config ${{ matrix.config }}
+        env:
+          GORELEASER_CURRENT_TAG: v0.0.0-arch-smoke
+      - name: Verify both Arch architectures were rendered
+        shell: bash
+        run: |
+          set -euo pipefail
+          for arch in amd64 arm64; do
+            packages=(dist/*"${arch}.pkg.tar.zst")
+            test "${#packages[@]}" -eq 1
+            test -f "${packages[0]}"
+          done
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: arch-${{ matrix.package }}
+          path: dist/*.pkg.tar.zst
+          if-no-files-found: error
+
+  install:
+    needs: package
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - package: cfl
+            binary: cfl
+            config: .goreleaser-cfl.yml
+            go-mod: tools/cfl/go.mod
+          - package: jtk
+            binary: jtk
+            config: .goreleaser-jtk.yml
+            go-mod: tools/jtk/go.mod
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: arch-${{ matrix.package }}
+          path: packages
+      - name: Install, verify and remove in Arch Linux
+        env:
+          PACKAGE: ${{ matrix.package }}
+          BINARY: ${{ matrix.binary }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm -e PACKAGE -e BINARY -v "$PWD/packages:/packages:ro" archlinux:base bash -c '
+            set -euo pipefail
+            package=(/packages/*amd64.pkg.tar.zst)
+            test "${#package[@]}" -eq 1
+            pacman -U --noconfirm "${package[0]}"
+            "$BINARY" --version
+            "$BINARY" --help > /tmp/cli-help
+            test -s /tmp/cli-help
+            pacman -Qo "/usr/bin/$BINARY"
+            pacman -Qkk "$PACKAGE"
+            pacman -R --noconfirm "$PACKAGE"
+            test ! -e "/usr/bin/$BINARY"
+            pacman -U --noconfirm "${package[0]}"
+            "$BINARY" --version
+          '

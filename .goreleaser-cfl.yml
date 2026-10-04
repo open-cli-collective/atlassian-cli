@@ -102,6 +102,9 @@ nfpms:
     formats:
       - deb
       - rpm
+      - archlinux
+    # Keep tar entry timestamps aligned with pacman integrity metadata.
+    mtime: "{{ .CommitDate }}"
     bindir: /usr/bin
     contents:
       - src: tools/cfl/LICENSE

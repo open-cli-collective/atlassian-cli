@@ -120,6 +120,10 @@ make build
 # Binaries are in bin/
 ```
 
+### Arch Linux / Omarchy
+
+Add the signed [Open CLI Collective pacman repository](https://github.com/open-cli-collective/linux-packages#arch-linux-pacman) once. Native Arch packages are published with new releases and updated by `sudo pacman -Syu`. Install with `sudo pacman -Syu cfl jtk`; executable names remain unchanged.
+
 ## Migrating from the Old Repos
 
 If you previously installed from `jira-ticket-cli` or `confluence-cli`:

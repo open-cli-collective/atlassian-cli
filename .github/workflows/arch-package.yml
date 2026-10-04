@@ -34,10 +34,16 @@ jobs:
       - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
           go-version-file: ${{ matrix.go-mod }}
+      # Production release automation temporarily supplies a SemVer tag for
+      # cfl-v*/jtk-v* tags. Mirror that normalization in this snapshot check.
+      - name: Set SemVer tag for monorepo snapshot
+        run: git tag v0.0.0-arch-smoke
       - uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7.2.3
         with:
           version: v2.18.2
           args: release --snapshot --clean --skip=before --config ${{ matrix.config }}
+        env:
+          GORELEASER_CURRENT_TAG: v0.0.0-arch-smoke
       - name: Verify both Arch architectures were rendered
         shell: bash
         run: |

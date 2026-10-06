@@ -12,6 +12,7 @@ import (
 	cccredstore "github.com/open-cli-collective/cli-common/credstore"
 
 	"github.com/open-cli-collective/atlassian-go/artifact"
+	"github.com/open-cli-collective/atlassian-go/client"
 	"github.com/open-cli-collective/atlassian-go/keyring"
 	"github.com/open-cli-collective/atlassian-go/present"
 	"github.com/open-cli-collective/atlassian-go/version"
@@ -93,12 +94,13 @@ func (o *Options) APIClient() (*api.Client, error) {
 		return nil, err
 	}
 	c, err := api.New(api.ClientConfig{
-		URL:        config.GetURL(),
-		Email:      config.GetEmail(),
-		APIToken:   token,
-		Verbose:    o.Verbose,
-		AuthMethod: config.GetAuthMethod(),
-		CloudID:    config.GetCloudID(),
+		URL:            config.GetURL(),
+		Email:          config.GetEmail(),
+		APIToken:       token,
+		Verbose:        o.Verbose,
+		AuthMethod:     config.GetAuthMethod(),
+		CloudID:        config.GetCloudID(),
+		GatewayBaseURL: client.GatewayBaseURLFromEnv("JIRA_GATEWAY_BASE_URL"),
 	})
 	if err != nil {
 		return nil, err

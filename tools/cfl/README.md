@@ -925,6 +925,9 @@ Environment variables override file-based config. Variables are checked in order
 | Default Space | `CFL_DEFAULT_SPACE` → shared `cfl.default_space` → legacy |
 | Auth Method | `CFL_AUTH_METHOD` → `ATLASSIAN_AUTH_METHOD` → shared `default` → legacy → `basic` |
 | Cloud ID | `CFL_CLOUD_ID` → `ATLASSIAN_CLOUD_ID` → shared `default` → legacy |
+| Bearer Gateway Base URL | `CFL_GATEWAY_BASE_URL` → `ATLASSIAN_GATEWAY_BASE_URL` → `https://api.atlassian.com` |
+
+Gateway overrides must use HTTPS, except for loopback HTTP endpoints used in local testing.
 
 Per §2.2 connection config is single-sourced from the shared `default` section — per-tool `cfl:`/`jtk:` sections carry only non-secret defaults and may not override `url`/`email`/`auth_method`/`cloud_id`.
 

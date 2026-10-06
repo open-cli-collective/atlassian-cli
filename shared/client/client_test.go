@@ -604,3 +604,21 @@ func TestOptions_timeoutOrDefault(t *testing.T) {
 		}
 	})
 }
+
+func TestGatewayBaseURLFromEnv(t *testing.T) {
+	t.Setenv("JIRA_GATEWAY_BASE_URL", "")
+	t.Setenv("ATLASSIAN_GATEWAY_BASE_URL", "")
+	if got := GatewayBaseURLFromEnv("JIRA_GATEWAY_BASE_URL"); got != GatewayBaseURL {
+		t.Fatalf("default gateway = %q, want %q", got, GatewayBaseURL)
+	}
+
+	t.Setenv("ATLASSIAN_GATEWAY_BASE_URL", "https://shared.example/")
+	if got := GatewayBaseURLFromEnv("JIRA_GATEWAY_BASE_URL"); got != "https://shared.example" {
+		t.Fatalf("shared gateway = %q", got)
+	}
+
+	t.Setenv("JIRA_GATEWAY_BASE_URL", "https://jira.example/")
+	if got := GatewayBaseURLFromEnv("JIRA_GATEWAY_BASE_URL"); got != "https://jira.example" {
+		t.Fatalf("tool gateway = %q", got)
+	}
+}

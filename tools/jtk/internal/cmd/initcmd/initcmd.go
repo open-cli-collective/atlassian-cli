@@ -17,6 +17,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/open-cli-collective/atlassian-go/auth"
+	"github.com/open-cli-collective/atlassian-go/client"
 	"github.com/open-cli-collective/atlassian-go/credstore"
 	"github.com/open-cli-collective/atlassian-go/keyring"
 	"github.com/open-cli-collective/atlassian-go/prompt"
@@ -293,11 +294,12 @@ func runInit(ctx context.Context, opts *root.Options, prefillURL, prefillEmail, 
 		v.Println("Testing connection...")
 
 		client, err := api.New(api.ClientConfig{
-			URL:        cfg.URL,
-			Email:      cfg.Email,
-			APIToken:   cfg.APIToken,
-			AuthMethod: cfg.AuthMethod,
-			CloudID:    cfg.CloudID,
+			URL:            cfg.URL,
+			Email:          cfg.Email,
+			APIToken:       cfg.APIToken,
+			AuthMethod:     cfg.AuthMethod,
+			CloudID:        cfg.CloudID,
+			GatewayBaseURL: client.GatewayBaseURLFromEnv("JIRA_GATEWAY_BASE_URL"),
 		})
 		if err != nil {
 			return fmt.Errorf("creating client: %w", err)

@@ -86,6 +86,8 @@ Add new Confluence macros through `MacroRegistry` in `macro.go`; the tokenizer, 
 
 Basic auth uses an instance URL plus email and token. Bearer auth routes through `api.atlassian.com` and requires a cloud ID. `cfl init` and `cfl me` verify against Confluence's current-user endpoint.
 
+Bearer gateway routing can be overridden with `CFL_GATEWAY_BASE_URL` or `ATLASSIAN_GATEWAY_BASE_URL`; overrides must use HTTPS or loopback HTTP. Gateway values are resolved by commands and passed explicitly to API clients.
+
 ## Output
 
 `cfl` is markdown-first for page content. The target text-output contract lives in `internal/cmd/OUTPUT_SPEC.md`. The presenter migration guide lives in `internal/present/README.md` and records the cfl-specific command/presenter/renderer boundaries for #271. Resource `-o json` is removed; JSON is reserved for control-plane envelopes documented by the shared standards.

@@ -7,6 +7,8 @@ import (
 	"testing"
 
 	"github.com/open-cli-collective/atlassian-go/artifact"
+	"github.com/open-cli-collective/atlassian-go/auth"
+	"github.com/open-cli-collective/atlassian-go/credtest"
 	"github.com/open-cli-collective/atlassian-go/present"
 	"github.com/open-cli-collective/atlassian-go/testutil"
 	"github.com/open-cli-collective/atlassian-go/view"
@@ -218,4 +220,17 @@ func TestVersion_BareOutput(t *testing.T) {
 	if got != "dev" && !regexp.MustCompile(`^\d+\.\d+\.\d+`).MatchString(got) {
 		t.Errorf("version output should be semver or 'dev', got %q", got)
 	}
+}
+
+func TestOptions_APIClient_UsesGatewayOverride(t *testing.T) {
+	credtest.Hermetic(t)
+	t.Setenv("JIRA_URL", "https://example.atlassian.net")
+	t.Setenv("JIRA_AUTH_METHOD", auth.AuthMethodBearer)
+	t.Setenv("JIRA_CLOUD_ID", "cloud-123")
+	t.Setenv("JIRA_API_TOKEN", "token")
+	t.Setenv("JIRA_GATEWAY_BASE_URL", "https://gateway.example/")
+	opts := &Options{}
+	c, err := opts.APIClient()
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "https://gateway.example/ex/jira/cloud-123/rest/api/3", c.BaseURL)
 }

@@ -35,12 +35,13 @@ type Client struct {
 
 // ClientConfig contains configuration for creating a new client
 type ClientConfig struct {
-	URL        string // Full Jira URL (e.g., https://mycompany.atlassian.net or https://jira.internal.corp.com)
-	Email      string
-	APIToken   string
-	Verbose    bool
-	AuthMethod string // "basic" (default) or "bearer"
-	CloudID    string // Required for bearer auth (used to construct gateway URL)
+	URL            string // Full Jira URL (e.g., https://mycompany.atlassian.net or https://jira.internal.corp.com)
+	Email          string
+	APIToken       string
+	Verbose        bool
+	AuthMethod     string // "basic" (default) or "bearer"
+	CloudID        string // Required for bearer auth (used to construct gateway URL)
+	GatewayBaseURL string // Optional bearer gateway base; defaults to api.atlassian.com
 }
 
 // New creates a new Jira API client from config.
@@ -89,6 +90,9 @@ func New(cfg ClientConfig) (*Client, error) {
 
 // newBearerClient creates a client configured for bearer auth via the API gateway.
 func newBearerClient(cfg ClientConfig) (*Client, error) {
+	if cfg.APIToken == "" {
+		return nil, ErrAPITokenRequired
+	}
 	if cfg.CloudID == "" {
 		return nil, ErrCloudIDRequired
 	}
@@ -97,7 +101,14 @@ func newBearerClient(cfg ClientConfig) (*Client, error) {
 	instanceURL := url.NormalizeURL(cfg.URL)
 
 	// Gateway URLs for bearer auth
-	gatewayBase := fmt.Sprintf("%s/ex/jira/%s", client.GatewayBaseURL, cfg.CloudID)
+	gatewayURL := cfg.GatewayBaseURL
+	if gatewayURL == "" {
+		gatewayURL = client.GatewayBaseURL
+	}
+	if err := url.RequireSecureOrLoopback(gatewayURL); err != nil {
+		return nil, fmt.Errorf("invalid gateway base URL: %w", err)
+	}
+	gatewayBase := fmt.Sprintf("%s/ex/jira/%s", url.NormalizeURL(gatewayURL), cfg.CloudID)
 	restURL := gatewayBase + "/rest/api/3"
 
 	opts := &client.Options{

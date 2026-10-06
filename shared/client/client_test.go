@@ -568,6 +568,27 @@ func TestNew_AuthHeaderOverride(t *testing.T) {
 		}
 	})
 
+	t.Run("SkipAuthHeader sends no Authorization header", func(t *testing.T) {
+		t.Parallel()
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if auth := r.Header.Get("Authorization"); auth != "" {
+				t.Errorf("Authorization = %v, want empty", auth)
+			}
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{}`))
+		}))
+		defer server.Close()
+
+		c := New(server.URL, "", "", &Options{SkipAuthHeader: true})
+		if c.AuthHeader != "" {
+			t.Errorf("AuthHeader = %v, want empty", c.AuthHeader)
+		}
+
+		if _, err := c.Get(context.Background(), "/api/test"); err != nil {
+			t.Fatalf("Get() error = %v", err)
+		}
+	})
+
 	t.Run("nil options uses Basic auth", func(t *testing.T) {
 		t.Parallel()
 		c := New("https://example.atlassian.net", "user@example.com", "token", nil)

@@ -2,6 +2,8 @@ package root
 
 import (
 	"bytes"
+	"net/http"
+	"net/http/httptest"
 	"regexp"
 	"strings"
 	"testing"
@@ -130,6 +132,29 @@ func TestOptions_SetAPIClient(t *testing.T) {
 	got, err := opts.APIClient()
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, got, client)
+}
+
+func TestOptions_APIClient_ProxySkipsToken(t *testing.T) {
+	credtest.Hermetic(t)
+	var capturedAuth string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		capturedAuth = r.Header.Get("Authorization")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer server.Close()
+
+	t.Setenv("JIRA_URL", server.URL)
+	t.Setenv("JIRA_AUTH_METHOD", "proxy")
+
+	opts := &Options{Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
+	c, err := opts.APIClient()
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "", c.GetAuthHeader())
+
+	_, err = c.Get(t.Context(), "/myself")
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "", capturedAuth)
 }
 
 func TestRegisterCommands(t *testing.T) {

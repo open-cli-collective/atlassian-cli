@@ -16,10 +16,11 @@ import (
 
 // Validation errors for auth configuration.
 var (
-	ErrAPITokenRequired = errors.New("API token is required")
-	ErrCloudIDRequired  = errors.New("cloud ID is required for bearer auth")
-	ErrURLRequired      = errors.New("URL is required")
-	ErrEmailRequired    = errors.New("email is required")
+	ErrAPITokenRequired      = errors.New("API token is required")
+	ErrCloudIDRequired       = errors.New("cloud ID is required for bearer auth")
+	ErrURLRequired           = errors.New("URL is required")
+	ErrEmailRequired         = errors.New("email is required")
+	ErrProxyURLRequiresHTTPS = sharedurl.ErrRequiresHTTPS
 )
 
 // Client is the Confluence Cloud API client.
@@ -48,6 +49,8 @@ func New(cfg ClientConfig) (*Client, error) {
 	switch cfg.AuthMethod {
 	case auth.AuthMethodBearer:
 		return newBearerClient(cfg)
+	case auth.AuthMethodProxy:
+		return newProxyClient(cfg.URL)
 	default:
 		if cfg.URL == "" {
 			return nil, ErrURLRequired
@@ -67,6 +70,25 @@ func NewClient(baseURL, email, apiToken string) *Client {
 	return &Client{
 		Client: client.New(baseURL, email, apiToken, nil),
 	}
+}
+
+// NewProxyClient creates a Confluence client for a trusted proxy that injects
+// authentication upstream. No Authorization header is sent by the CLI.
+func NewProxyClient(baseURL string) (*Client, error) {
+	return New(ClientConfig{URL: baseURL, AuthMethod: auth.AuthMethodProxy})
+}
+
+func newProxyClient(baseURL string) (*Client, error) {
+	if baseURL == "" {
+		return nil, ErrURLRequired
+	}
+	if err := sharedurl.RequireSecureOrLoopback(baseURL); err != nil {
+		return nil, err
+	}
+	normalized := normalizeWikiBaseURL(baseURL)
+	return &Client{
+		Client: client.New(normalized, "", "", &client.Options{SkipAuthHeader: true}),
+	}, nil
 }
 
 // NewBearerClient creates a new Confluence API client using bearer auth via the API gateway.
@@ -96,6 +118,14 @@ func newBearerClient(cfg ClientConfig) (*Client, error) {
 	return &Client{
 		Client: client.New(gatewayBase, "", "", opts),
 	}, nil
+}
+
+func normalizeWikiBaseURL(baseURL string) string {
+	baseURL = sharedurl.NormalizeURL(baseURL)
+	if !strings.HasSuffix(baseURL, "/wiki") {
+		baseURL += "/wiki"
+	}
+	return baseURL
 }
 
 // GetHTTPClient returns the underlying HTTP client for custom requests.

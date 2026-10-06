@@ -11,18 +11,58 @@ import (
 
 	"github.com/open-cli-collective/atlassian-go/auth"
 	"github.com/open-cli-collective/atlassian-go/client"
+	sharedurl "github.com/open-cli-collective/atlassian-go/url"
 )
 
-// Validation errors for bearer auth.
+// Validation errors for auth configuration.
 var (
-	ErrAPITokenRequired = errors.New("API token is required")
-	ErrCloudIDRequired  = errors.New("cloud ID is required for bearer auth")
+	ErrAPITokenRequired      = errors.New("API token is required")
+	ErrCloudIDRequired       = errors.New("cloud ID is required for bearer auth")
+	ErrURLRequired           = errors.New("URL is required")
+	ErrEmailRequired         = errors.New("email is required")
+	ErrProxyURLRequiresHTTPS = sharedurl.ErrRequiresHTTPS
 )
 
 // Client is the Confluence Cloud API client.
 // HTTP methods (Get, Post, Put, Delete) are promoted from the embedded *client.Client.
 type Client struct {
 	*client.Client
+}
+
+// ClientConfig contains the inputs for a Confluence API client.
+type ClientConfig struct {
+	URL            string
+	Email          string
+	APIToken       string
+	AuthMethod     string
+	CloudID        string
+	GatewayBaseURL string // Optional bearer gateway base; defaults to api.atlassian.com
+}
+
+// New dispatches all supported authentication methods through one entry point.
+func New(cfg ClientConfig) (*Client, error) {
+	if cfg.AuthMethod != "" {
+		if err := auth.ValidateAuthMethod(cfg.AuthMethod); err != nil {
+			return nil, err
+		}
+	}
+	switch cfg.AuthMethod {
+	case auth.AuthMethodBearer:
+		return newBearerClient(cfg)
+	case auth.AuthMethodProxy:
+		return newProxyClient(cfg.URL)
+	default:
+		if cfg.URL == "" {
+			return nil, ErrURLRequired
+		}
+		if cfg.Email == "" {
+			return nil, ErrEmailRequired
+		}
+		if cfg.APIToken == "" {
+			return nil, ErrAPITokenRequired
+		}
+		return NewClient(cfg.URL, cfg.Email, cfg.APIToken), nil
+	}
 }
 
 // NewClient creates a new Confluence API client using basic auth.
@@ -32,22 +72,60 @@ func NewClient(baseURL, email, apiToken string) *Client {
 	}
 }
 
+// NewProxyClient creates a Confluence client for a trusted proxy that injects
+// authentication upstream. No Authorization header is sent by the CLI.
+func NewProxyClient(baseURL string) (*Client, error) {
+	return New(ClientConfig{URL: baseURL, AuthMethod: auth.AuthMethodProxy})
+}
+
+func newProxyClient(baseURL string) (*Client, error) {
+	if baseURL == "" {
+		return nil, ErrURLRequired
+	}
+	if err := sharedurl.RequireSecureOrLoopback(baseURL); err != nil {
+		return nil, err
+	}
+	normalized := normalizeWikiBaseURL(baseURL)
+	return &Client{
+		Client: client.New(normalized, "", "", &client.Options{SkipAuthHeader: true}),
+	}, nil
+}
+
 // NewBearerClient creates a new Confluence API client using bearer auth via the API gateway.
 // The cloudID is used to construct the gateway URL: https://api.atlassian.com/ex/confluence/{cloudId}/wiki
 func NewBearerClient(apiToken, cloudID string) (*Client, error) {
-	if apiToken == "" {
+	return New(ClientConfig{APIToken: apiToken, CloudID: cloudID, AuthMethod: auth.AuthMethodBearer})
+}
+
+func newBearerClient(cfg ClientConfig) (*Client, error) {
+	if cfg.APIToken == "" {
 		return nil, ErrAPITokenRequired
 	}
-	if cloudID == "" {
+	if cfg.CloudID == "" {
 		return nil, ErrCloudIDRequired
 	}
-	gatewayBase := fmt.Sprintf("%s/ex/confluence/%s/wiki", client.GatewayBaseURL, cloudID)
+	gatewayURL := cfg.GatewayBaseURL
+	if gatewayURL == "" {
+		gatewayURL = client.GatewayBaseURL
+	}
+	if err := sharedurl.RequireSecureOrLoopback(gatewayURL); err != nil {
+		return nil, fmt.Errorf("invalid gateway base URL: %w", err)
+	}
+	gatewayBase := fmt.Sprintf("%s/ex/confluence/%s/wiki", sharedurl.NormalizeURL(gatewayURL), cfg.CloudID)
 	opts := &client.Options{
-		AuthHeader: auth.BearerAuthHeader(apiToken),
+		AuthHeader: auth.BearerAuthHeader(cfg.APIToken),
 	}
 	return &Client{
 		Client: client.New(gatewayBase, "", "", opts),
 	}, nil
+}
+
+func normalizeWikiBaseURL(baseURL string) string {
+	baseURL = sharedurl.NormalizeURL(baseURL)
+	if !strings.HasSuffix(baseURL, "/wiki") {
+		baseURL += "/wiki"
+	}
+	return baseURL
 }
 
 // GetHTTPClient returns the underlying HTTP client for custom requests.

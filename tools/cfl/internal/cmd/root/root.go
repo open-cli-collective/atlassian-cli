@@ -11,7 +11,7 @@ import (
 	cccredstore "github.com/open-cli-collective/cli-common/credstore"
 
 	"github.com/open-cli-collective/atlassian-go/artifact"
-	"github.com/open-cli-collective/atlassian-go/auth"
+	"github.com/open-cli-collective/atlassian-go/client"
 	"github.com/open-cli-collective/atlassian-go/keyring"
 	"github.com/open-cli-collective/atlassian-go/present"
 	"github.com/open-cli-collective/atlassian-go/version"
@@ -141,10 +141,11 @@ func (o *Options) APIClient() (*api.Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	if cfg.AuthMethod == auth.AuthMethodBearer {
-		return api.NewBearerClient(cfg.APIToken, cfg.CloudID)
-	}
-	return api.NewClient(cfg.URL, cfg.Email, cfg.APIToken), nil
+	return api.New(api.ClientConfig{
+		URL: cfg.URL, Email: cfg.Email, APIToken: cfg.APIToken,
+		AuthMethod: cfg.AuthMethod, CloudID: cfg.CloudID,
+		GatewayBaseURL: client.GatewayBaseURLFromEnv("CFL_GATEWAY_BASE_URL"),
+	})
 }
 
 // SetAPIClient sets a test client (for testing only)

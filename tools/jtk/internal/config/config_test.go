@@ -485,6 +485,17 @@ func TestIsConfigured_Bearer(t *testing.T) {
 	testutil.True(t, IsConfigured())
 }
 
+func TestIsConfigured_Proxy(t *testing.T) {
+	_, cleanup := setupTestConfig(t)
+	defer cleanup()
+
+	t.Setenv("JIRA_AUTH_METHOD", "proxy")
+	testutil.False(t, IsConfigured())
+
+	t.Setenv("JIRA_URL", "http://127.0.0.1:8080/atlassian")
+	testutil.True(t, IsConfigured())
+}
+
 func TestConfig_SaveAndLoad_WithAuthFields(t *testing.T) {
 	_, cleanup := setupTestConfig(t)
 	defer cleanup()

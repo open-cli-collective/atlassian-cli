@@ -2,11 +2,15 @@ package root
 
 import (
 	"bytes"
+	"net/http"
+	"net/http/httptest"
 	"regexp"
 	"strings"
 	"testing"
 
 	"github.com/open-cli-collective/atlassian-go/artifact"
+	"github.com/open-cli-collective/atlassian-go/auth"
+	"github.com/open-cli-collective/atlassian-go/credtest"
 	"github.com/open-cli-collective/atlassian-go/present"
 	"github.com/open-cli-collective/atlassian-go/testutil"
 	"github.com/open-cli-collective/atlassian-go/view"
@@ -130,6 +134,29 @@ func TestOptions_SetAPIClient(t *testing.T) {
 	testutil.Equal(t, got, client)
 }
 
+func TestOptions_APIClient_ProxySkipsToken(t *testing.T) {
+	credtest.Hermetic(t)
+	var capturedAuth string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		capturedAuth = r.Header.Get("Authorization")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer server.Close()
+
+	t.Setenv("JIRA_URL", server.URL)
+	t.Setenv("JIRA_AUTH_METHOD", "proxy")
+
+	opts := &Options{Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
+	c, err := opts.APIClient()
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "", c.GetAuthHeader())
+
+	_, err = c.Get(t.Context(), "/myself")
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "", capturedAuth)
+}
+
 func TestRegisterCommands(t *testing.T) {
 	cmd, opts := NewCmd()
 
@@ -218,4 +245,17 @@ func TestVersion_BareOutput(t *testing.T) {
 	if got != "dev" && !regexp.MustCompile(`^\d+\.\d+\.\d+`).MatchString(got) {
 		t.Errorf("version output should be semver or 'dev', got %q", got)
 	}
+}
+
+func TestOptions_APIClient_UsesGatewayOverride(t *testing.T) {
+	credtest.Hermetic(t)
+	t.Setenv("JIRA_URL", "https://example.atlassian.net")
+	t.Setenv("JIRA_AUTH_METHOD", auth.AuthMethodBearer)
+	t.Setenv("JIRA_CLOUD_ID", "cloud-123")
+	t.Setenv("JIRA_API_TOKEN", "token")
+	t.Setenv("JIRA_GATEWAY_BASE_URL", "https://gateway.example/")
+	opts := &Options{}
+	c, err := opts.APIClient()
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "https://gateway.example/ex/jira/cloud-123/rest/api/3", c.BaseURL)
 }

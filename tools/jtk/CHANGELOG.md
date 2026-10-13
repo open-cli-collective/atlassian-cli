@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `--custom-fields` on `issues create`, `issues update`, `issues assign` and `transitions do` appends the issue's non-empty custom fields to the post-write view, matching `issues get --custom-fields`. ([#503](https://github.com/open-cli-collective/atlassian-cli/pull/503))
 - `comments update <issue-key> <comment-id> --body` replaces the body of an existing comment in place, with the same markdown, escape-sequence, and raw ADF handling as `comments add`. Prompts for confirmation because the previous body is not recoverable; `--force` skips the prompt. ([#498](https://github.com/open-cli-collective/atlassian-cli/issues/498))
 - Raw ADF JSON passthrough for `--description` (`issues create`/`update`), `--body` (`comments add`), and rich-text `--field` overrides: a value that parses as `{"type":"doc","version":1,...}` with content is sent as a structured ADF document instead of going through markdown conversion, so documents with node types markdown can't express (e.g. `inlineCard` smart links) can be written directly. ([#486](https://github.com/open-cli-collective/atlassian-cli/pull/486))
 - `issues get` now accepts multiple issue keys and renders a summary table for the batch. ([#327](https://github.com/open-cli-collective/atlassian-cli/pull/327))

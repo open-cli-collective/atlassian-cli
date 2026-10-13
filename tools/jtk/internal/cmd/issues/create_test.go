@@ -48,7 +48,7 @@ func TestRunCreate_RequestBodyNoDoubleQuoting(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runCreate(context.Background(), opts, "MYPROJECT", "Task", "Fix login bug", "Users cannot log in with SSO credentials", "", "", nil)
+	err = runCreate(context.Background(), opts, "MYPROJECT", "Task", "Fix login bug", "Users cannot log in with SSO credentials", "", "", nil, false)
 	testutil.RequireNoError(t, err)
 
 	// Parse the captured request body
@@ -133,7 +133,7 @@ func TestRunCreate_RawADFDescriptionPassthrough(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runCreate(context.Background(), opts, "MYPROJECT", "Task", "Fix login bug", rawADF, "", "", nil)
+	err = runCreate(context.Background(), opts, "MYPROJECT", "Task", "Fix login bug", rawADF, "", "", nil, false)
 	testutil.RequireNoError(t, err)
 
 	testutil.NotEmpty(t, capturedBody)
@@ -195,7 +195,7 @@ func TestRunCreate_SummaryWithSpecialCharacters(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runCreate(context.Background(), opts, "PROJ", "Bug", `Error: "unexpected token" in parser`, "", "", "", nil)
+	err = runCreate(context.Background(), opts, "PROJ", "Bug", `Error: "unexpected token" in parser`, "", "", "", nil, false)
 	testutil.RequireNoError(t, err)
 
 	var reqBody map[string]any
@@ -318,7 +318,7 @@ func TestRunCreate_WithParent(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runCreate(context.Background(), opts, "PROJ", "Task", "Child task", "", "PROJ-100", "", nil)
+	err = runCreate(context.Background(), opts, "PROJ", "Task", "Child task", "", "PROJ-100", "", nil, false)
 	testutil.RequireNoError(t, err)
 
 	testutil.NotEmpty(t, capturedBody)
@@ -362,7 +362,7 @@ func TestRunCreate_WithoutParent(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runCreate(context.Background(), opts, "PROJ", "Task", "Standalone task", "", "", "", nil)
+	err = runCreate(context.Background(), opts, "PROJ", "Task", "Standalone task", "", "", "", nil, false)
 	testutil.RequireNoError(t, err)
 
 	testutil.NotEmpty(t, capturedBody)
@@ -453,7 +453,7 @@ func TestRunCreate_WithAssigneeAccountID(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runCreate(context.Background(), opts, "PROJ", "Task", "Assigned task", "", "", "61292e4c4f29230069621c5f", nil)
+	err = runCreate(context.Background(), opts, "PROJ", "Task", "Assigned task", "", "", "61292e4c4f29230069621c5f", nil, false)
 	testutil.RequireNoError(t, err)
 
 	testutil.NotEmpty(t, capturedBody)
@@ -502,7 +502,7 @@ func TestRunCreate_WithAssigneeMe(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runCreate(context.Background(), opts, "PROJ", "Task", "My task", "", "", "me", nil)
+	err = runCreate(context.Background(), opts, "PROJ", "Task", "My task", "", "", "me", nil, false)
 	testutil.RequireNoError(t, err)
 
 	testutil.NotEmpty(t, capturedBody)
@@ -551,7 +551,7 @@ func TestRunCreate_WithAssigneeEmail(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runCreate(context.Background(), opts, "PROJ", "Task", "Their task", "", "", "user@example.com", nil)
+	err = runCreate(context.Background(), opts, "PROJ", "Task", "Their task", "", "", "user@example.com", nil, false)
 	testutil.RequireNoError(t, err)
 
 	testutil.NotEmpty(t, capturedBody)
@@ -595,7 +595,7 @@ func TestRunCreate_DescriptionEscapeSequences(t *testing.T) {
 
 	// Simulate what the shell passes when user types: --description "First paragraph.\n\nSecond paragraph."
 	// The shell delivers literal backslash-n, not actual newlines.
-	err = runCreate(context.Background(), opts, "PROJ", "Task", "Test", `First paragraph.\n\nSecond paragraph.`, "", "", nil)
+	err = runCreate(context.Background(), opts, "PROJ", "Task", "Test", `First paragraph.\n\nSecond paragraph.`, "", "", nil, false)
 	testutil.RequireNoError(t, err)
 
 	testutil.NotEmpty(t, capturedBody)
@@ -642,7 +642,7 @@ func TestRunCreate_WithoutAssignee(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runCreate(context.Background(), opts, "PROJ", "Task", "Unassigned task", "", "", "", nil)
+	err = runCreate(context.Background(), opts, "PROJ", "Task", "Unassigned task", "", "", "", nil, false)
 	testutil.RequireNoError(t, err)
 
 	testutil.NotEmpty(t, capturedBody)
@@ -692,7 +692,7 @@ func TestRunCreate_ShowsPostState(t *testing.T) {
 	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runCreate(context.Background(), opts, "PROJ", "Task", "New issue", "", "", "", nil)
+	err = runCreate(context.Background(), opts, "PROJ", "Task", "New issue", "", "", "", nil, false)
 	testutil.RequireNoError(t, err)
 
 	out := stdout.String()
@@ -713,7 +713,7 @@ func TestRunCreate_IDOnly(t *testing.T) {
 	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}, IDOnly: true}
 	opts.SetAPIClient(client)
 
-	err = runCreate(context.Background(), opts, "PROJ", "Task", "New issue", "", "", "", nil)
+	err = runCreate(context.Background(), opts, "PROJ", "Task", "New issue", "", "", "", nil, false)
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, stdout.String(), "TEST-1\n")
 }
@@ -760,7 +760,7 @@ func TestRunCreate_FieldComponentArrayAndOptionMerge(t *testing.T) {
 		"components=Frontend",
 		"customfield_10100=Opt1",
 		"customfield_10100=Opt2",
-	})
+	}, false)
 	testutil.RequireNoError(t, err)
 
 	testutil.NotEmpty(t, capturedBody)

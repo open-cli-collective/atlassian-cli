@@ -10,6 +10,7 @@ import (
 	"github.com/open-cli-collective/atlassian-go/present"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/cache"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/mutation"
 	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
@@ -90,6 +91,7 @@ func getRequiredFields(t api.Transition) string {
 
 func newDoCmd(opts *root.Options) *cobra.Command {
 	var fields []string
+	var customFields bool
 
 	cmd := &cobra.Command{
 		Use:   "do <issue-key> <transition>",
@@ -108,16 +110,17 @@ Some transitions require additional fields to be set. Use --field to provide the
   jtk transitions do PROJ-123 "Done" --field customfield_10001="some value"`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runDo(cmd.Context(), opts, args[0], args[1], fields)
+			return runDo(cmd.Context(), opts, args[0], args[1], fields, customFields)
 		},
 	}
 
 	cmd.Flags().StringArrayVarP(&fields, "field", "f", nil, "Fields to set during transition (key=value)")
+	cmd.Flags().BoolVar(&customFields, "custom-fields", false, "Append the issue's custom fields to the post-transition view")
 
 	return cmd
 }
 
-func runDo(ctx context.Context, opts *root.Options, issueKey, transitionNameOrID string, fieldArgs []string) error {
+func runDo(ctx context.Context, opts *root.Options, issueKey, transitionNameOrID string, fieldArgs []string, customFields bool) error {
 	client, err := opts.APIClient()
 	if err != nil {
 		return err
@@ -192,9 +195,15 @@ func runDo(ctx context.Context, opts *root.Options, issueKey, transitionNameOrID
 			if err != nil {
 				return nil, err
 			}
-			return jtkpresent.IssuePresenter{}.PresentDetail(
+			model := jtkpresent.IssuePresenter{}.PresentDetail(
 				issue, client.IssueURL(id), false, opts.IsFullText(),
-			), nil
+			)
+			if customFields {
+				jtkpresent.AppendIssueCustomFields(ctx, func(ctx context.Context) ([]api.Field, error) {
+					return cache.GetFieldsCacheFirst(ctx, client)
+				}, issue, model)
+			}
+			return model, nil
 		},
 		IsFresh: func(m *present.OutputModel) bool {
 			if targetStatus == "" {

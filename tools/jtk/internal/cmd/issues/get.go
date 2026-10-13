@@ -6,10 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/open-cli-collective/atlassian-go/present"
-
 	"github.com/open-cli-collective/jira-ticket-cli/api"
-	"github.com/open-cli-collective/jira-ticket-cli/internal/cache"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/present/projection"
@@ -88,13 +85,13 @@ func runGet(ctx context.Context, opts *root.Options, issueKey string, noTruncate
 		jtkpresent.AppendDynamicDetailFields(model, issue, projection.DynamicSpecs(selected))
 		projection.ApplyToDetailInModel(model, selected)
 		if customFields {
-			appendCustomFields(ctx, client, issue, model)
+			jtkpresent.AppendIssueCustomFields(ctx, fieldsFetcher(client), issue, model)
 		}
 		return jtkpresent.Emit(opts, model)
 	}
 	model := presenter.PresentDetail(issue, client.IssueURL(issue.Key), false, noTruncate)
 	if customFields {
-		appendCustomFields(ctx, client, issue, model)
+		jtkpresent.AppendIssueCustomFields(ctx, fieldsFetcher(client), issue, model)
 	}
 	return jtkpresent.Emit(opts, model)
 }
@@ -128,13 +125,4 @@ func runGetMulti(ctx context.Context, opts *root.Options, issueKeys []string) er
 
 	model := jtkpresent.IssuePresenter{}.PresentList(issues, false)
 	return jtkpresent.Emit(opts, model)
-}
-
-func appendCustomFields(ctx context.Context, client *api.Client, issue *api.Issue, model *present.OutputModel) {
-	fields, err := cache.GetFieldsCacheFirst(ctx, client)
-	if err != nil {
-		return
-	}
-	entries := api.ExtractIssueFieldValues(issue, fields)
-	jtkpresent.AppendCustomFieldsSection(model, entries)
 }

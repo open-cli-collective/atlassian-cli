@@ -361,6 +361,9 @@ jtk issues create -p MYPROJECT -s "Custom field issue" --field priority=High --f
 jtk issues create -p MYPROJECT -t Task -s "My task" --assignee me
 jtk issues create -p MYPROJECT -t Task -s "Their task" --assignee user@example.com
 jtk issues create -p MYPROJECT -t Task -s "Their task" --assignee "Aaron Wong"
+
+# Show custom fields in the created-issue view
+jtk issues create -p MYPROJECT -s "With custom fields" --field customfield_10005=Feature --custom-fields
 ```
 
 | Flag | Short | Default | Description |
@@ -372,6 +375,7 @@ jtk issues create -p MYPROJECT -t Task -s "Their task" --assignee "Aaron Wong"
 | `--parent` | | | Parent issue key (epic or parent issue) |
 | `--assignee` | `-a` | | Assignee (account ID, email, display name, or `"me"`) |
 | `--field` | `-f` | | Additional field in `key=value` format (can be repeated) |
+| `--custom-fields` | | `false` | Append the issue's custom fields (non-empty only) to the created-issue view |
 
 ---
 
@@ -393,6 +397,9 @@ jtk issues update PROJ-123 --status "Done"
 
 # Multi-value fields: repeat --field with the same key to accumulate values
 jtk issues update PROJ-123 --field customfield_10050=Option1 --field customfield_10050=Option2
+
+# Confirm a custom field change in the post-update view
+jtk issues update PROJ-123 --field customfield_10005=Feature --custom-fields
 ```
 
 | Flag | Short | Default | Description |
@@ -404,6 +411,7 @@ jtk issues update PROJ-123 --field customfield_10050=Option1 --field customfield
 | `--type` | `-t` | | New issue type (uses Jira Cloud bulk move API) |
 | `--status` | | | New workflow status (uses Jira transitions API; resolved before any writes) |
 | `--field` | `-f` | | Field to update in `key=value` format (can be repeated; repeating the same key accumulates values for multi-select fields) |
+| `--custom-fields` | | `false` | Append the issue's custom fields (non-empty only) to the post-update view |
 
 **Arguments:**
 - `<issue-key>` - The issue key (**required**)
@@ -449,6 +457,7 @@ jtk issues assign PROJ-123 --unassign
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--unassign` | `false` | Remove current assignee |
+| `--custom-fields` | `false` | Append the issue's custom fields (non-empty only) to the post-assign view |
 
 **Arguments:**
 - `<issue-key>` - The issue key (**required**)
@@ -747,11 +756,13 @@ a transition by ID.
 jtk transitions do PROJ-123 "In Progress"
 jtk transitions do PROJ-123 "Done"
 jtk transitions do PROJ-123 "Done" --field resolution=Fixed
+jtk transitions do PROJ-123 "Done" --custom-fields
 ```
 
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
 | `--field` | `-f` | | Field to set during transition in `key=value` format (can be repeated) |
+| `--custom-fields` | | `false` | Append the issue's custom fields (non-empty only) to the post-transition view |
 
 **Arguments:**
 - `<issue-key>` - The issue key (**required**)

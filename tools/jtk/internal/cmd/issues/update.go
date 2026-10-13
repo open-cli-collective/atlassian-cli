@@ -27,6 +27,7 @@ func newUpdateCmd(opts *root.Options) *cobra.Command {
 	var issueType string
 	var status string
 	var fields []string
+	var customFields bool
 
 	cmd := &cobra.Command{
 		Use:   "update <issue-key>",
@@ -76,7 +77,7 @@ the description as a raw ADF document, which replaces it exactly as given.`,
   jtk issues update PROJ-123 --field "Story Points"=none`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runUpdate(cmd.Context(), opts, args[0], summary, description, parent, assignee, issueType, status, fields)
+			return runUpdate(cmd.Context(), opts, args[0], summary, description, parent, assignee, issueType, status, fields, customFields)
 		},
 	}
 
@@ -87,6 +88,7 @@ the description as a raw ADF document, which replaces it exactly as given.`,
 	cmd.Flags().StringVarP(&issueType, "type", "t", "", "New issue type (uses bulk move API)")
 	cmd.Flags().StringVar(&status, "status", "", "New workflow status (uses transitions API)")
 	cmd.Flags().StringArrayVarP(&fields, "field", "f", nil, "Fields to update (key=value)")
+	cmd.Flags().BoolVar(&customFields, "custom-fields", false, "Append the issue's custom fields to the post-update view")
 
 	return cmd
 }
@@ -100,7 +102,7 @@ type statusChange struct {
 	targetStatus string // resolved To.Name; used by mutation.ModelContainsStatus
 }
 
-func runUpdate(ctx context.Context, opts *root.Options, issueKey, summary, description, parent, assignee, issueType, status string, fieldArgs []string) error {
+func runUpdate(ctx context.Context, opts *root.Options, issueKey, summary, description, parent, assignee, issueType, status string, fieldArgs []string, customFields bool) error {
 	// Validate that at least one field is being updated before making API calls
 	if summary == "" && description == "" && parent == "" && assignee == "" && issueType == "" && status == "" && len(fieldArgs) == 0 {
 		return fmt.Errorf("no fields specified to update")
@@ -258,9 +260,13 @@ func runUpdate(ctx context.Context, opts *root.Options, issueKey, summary, descr
 			if err != nil {
 				return nil, err
 			}
-			return jtkpresent.IssuePresenter{}.PresentDetail(
+			model := jtkpresent.IssuePresenter{}.PresentDetail(
 				issue, client.IssueURL(id), false, opts.IsFullText(),
-			), nil
+			)
+			if customFields {
+				jtkpresent.AppendIssueCustomFields(ctx, client, issue, model)
+			}
+			return model, nil
 		},
 		IsFresh: isFresh,
 		Fallback: func(id string) *present.OutputModel {

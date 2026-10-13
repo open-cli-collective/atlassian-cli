@@ -53,7 +53,7 @@ func TestRunUpdate_RequestBodyNoDoubleQuoting(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runUpdate(context.Background(), opts, "PROJ-123", "Updated summary", "Updated description", "", "", "", "", nil)
+	err = runUpdate(context.Background(), opts, "PROJ-123", "Updated summary", "Updated description", "", "", "", "", nil, false)
 	testutil.RequireNoError(t, err)
 
 	testutil.NotEmpty(t, capturedBody)
@@ -110,7 +110,7 @@ func TestRunUpdate_DescriptionPreservesMedia(t *testing.T) {
 	opts := &root.Options{Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runUpdate(context.Background(), opts, "PROJ-123", "", "Replacement text only.", "", "", "", "", nil)
+	err = runUpdate(context.Background(), opts, "PROJ-123", "", "Replacement text only.", "", "", "", "", nil, false)
 	testutil.RequireNoError(t, err)
 
 	var reqBody struct {
@@ -151,7 +151,7 @@ func TestRunUpdate_DescriptionReadFailureDoesNotWrite(t *testing.T) {
 	opts := &root.Options{Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runUpdate(context.Background(), opts, "PROJ-123", "New summary", "Replacement text only.", "", "", "", "", nil)
+	err = runUpdate(context.Background(), opts, "PROJ-123", "New summary", "Replacement text only.", "", "", "", "", nil, false)
 	testutil.Error(t, err)
 	testutil.Contains(t, err.Error(), "reading current description to preserve its media")
 	testutil.False(t, putCalled.Load())
@@ -207,7 +207,7 @@ func TestRunUpdate_RawADFDescriptionPassthrough(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runUpdate(context.Background(), opts, "PROJ-123", "", rawADF, "", "", "", "", nil)
+	err = runUpdate(context.Background(), opts, "PROJ-123", "", rawADF, "", "", "", "", nil, false)
 	testutil.RequireNoError(t, err)
 
 	testutil.NotEmpty(t, capturedBody)
@@ -301,7 +301,7 @@ func TestRunUpdate_FieldTextareaRawADFPassthrough(t *testing.T) {
 
 	err = runUpdate(context.Background(), opts, "PROJ-123", "", "", "", "", "", "", []string{
 		"customfield_10099=" + rawADF,
-	})
+	}, false)
 	testutil.RequireNoError(t, err)
 
 	testutil.NotEmpty(t, capturedBody)
@@ -423,7 +423,7 @@ func TestRunUpdate_TypeChange(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runUpdate(context.Background(), opts, "PROJ-123", "", "", "", "", "Task", "", nil)
+	err = runUpdate(context.Background(), opts, "PROJ-123", "", "", "", "", "Task", "", nil, false)
 	testutil.RequireNoError(t, err)
 	testutil.True(t, moveCompleted, "should have called the move API")
 
@@ -477,7 +477,7 @@ func TestRunUpdate_TypeAlreadyCorrect(t *testing.T) {
 	// Should succeed without calling move API since it's already the right type.
 	// The silent changeIssueType returns nil (no-op), then WriteAndPresent
 	// re-fetches and shows post-state detail.
-	err = runUpdate(context.Background(), opts, "PROJ-123", "", "", "", "", "Task", "", nil)
+	err = runUpdate(context.Background(), opts, "PROJ-123", "", "", "", "", "Task", "", nil, false)
 	testutil.RequireNoError(t, err)
 	testutil.Contains(t, stdout.String(), "PROJ-123")
 }
@@ -509,7 +509,7 @@ func TestRunUpdate_SummaryOnly(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runUpdate(context.Background(), opts, "PROJ-123", "New summary", "", "", "", "", "", nil)
+	err = runUpdate(context.Background(), opts, "PROJ-123", "New summary", "", "", "", "", "", nil, false)
 	testutil.RequireNoError(t, err)
 
 	var reqBody map[string]any
@@ -539,7 +539,7 @@ func TestRunUpdate_IDOnly(t *testing.T) {
 	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}, IDOnly: true}
 	opts.SetAPIClient(client)
 
-	err = runUpdate(context.Background(), opts, "PROJ-123", "New summary", "", "", "", "", "", nil)
+	err = runUpdate(context.Background(), opts, "PROJ-123", "New summary", "", "", "", "", "", nil, false)
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, stdout.String(), "PROJ-123\n")
 }
@@ -550,7 +550,7 @@ func TestRunUpdate_NoFieldsError(t *testing.T) {
 		Stderr: &bytes.Buffer{},
 	}
 
-	err := runUpdate(context.Background(), opts, "PROJ-123", "", "", "", "", "", "", nil)
+	err := runUpdate(context.Background(), opts, "PROJ-123", "", "", "", "", "", "", nil, false)
 	testutil.Error(t, err)
 	testutil.Contains(t, err.Error(), "no fields specified")
 }
@@ -582,7 +582,7 @@ func TestRunUpdate_ParentOnly(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runUpdate(context.Background(), opts, "PROJ-456", "", "", "PROJ-100", "", "", "", nil)
+	err = runUpdate(context.Background(), opts, "PROJ-456", "", "", "PROJ-100", "", "", "", nil, false)
 	testutil.RequireNoError(t, err)
 
 	testutil.NotEmpty(t, capturedBody)
@@ -624,7 +624,7 @@ func TestRunUpdate_ParentWithSummary(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runUpdate(context.Background(), opts, "PROJ-456", "Updated title", "", "PROJ-200", "", "", "", nil)
+	err = runUpdate(context.Background(), opts, "PROJ-456", "Updated title", "", "PROJ-200", "", "", "", nil, false)
 	testutil.RequireNoError(t, err)
 
 	testutil.NotEmpty(t, capturedBody)
@@ -714,7 +714,7 @@ func TestRunUpdate_AssigneeOnly(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runUpdate(context.Background(), opts, "PROJ-789", "", "", "", "61292e4c4f29230069621c5f", "", "", nil)
+	err = runUpdate(context.Background(), opts, "PROJ-789", "", "", "", "61292e4c4f29230069621c5f", "", "", nil, false)
 	testutil.RequireNoError(t, err)
 
 	testutil.NotEmpty(t, capturedBody)
@@ -762,7 +762,7 @@ func TestRunUpdate_AssigneeMe(t *testing.T) {
 	}
 	opts.SetAPIClient(client)
 
-	err = runUpdate(context.Background(), opts, "PROJ-789", "", "", "", "me", "", "", nil)
+	err = runUpdate(context.Background(), opts, "PROJ-789", "", "", "", "me", "", "", nil, false)
 	testutil.RequireNoError(t, err)
 
 	testutil.NotEmpty(t, capturedBody)
@@ -857,7 +857,7 @@ func TestRunUpdate_TypeChange_MoveNotFound_ServerDCError(t *testing.T) {
 	opts := &root.Options{Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runUpdate(context.Background(), opts, "PROJ-123", "", "", "", "", "Task", "", nil)
+	err = runUpdate(context.Background(), opts, "PROJ-123", "", "", "", "", "Task", "", nil, false)
 	if err == nil {
 		t.Fatal("expected error for Server/DC detection")
 	}
@@ -908,7 +908,7 @@ func TestRunUpdate_TypeChange_PollNotFound_ContinuesFieldUpdates(t *testing.T) {
 	opts := &root.Options{Stdout: &stdout, Stderr: &stderr}
 	opts.SetAPIClient(client)
 
-	err = runUpdate(context.Background(), opts, "PROJ-123", "New summary", "", "", "", "Task", "", nil)
+	err = runUpdate(context.Background(), opts, "PROJ-123", "New summary", "", "", "", "Task", "", nil, false)
 	testutil.RequireNoError(t, err)
 
 	testutil.Contains(t, stderr.String(), "could not be verified")
@@ -1005,7 +1005,7 @@ func TestRunUpdate_StatusOnly_HappyPath(t *testing.T) {
 	})
 	opts, stdout, _ := newOptsForServer(t, srv.URL)
 
-	err := runUpdate(context.Background(), opts, "PROJ-123", "", "", "", "", "", "Done", nil)
+	err := runUpdate(context.Background(), opts, "PROJ-123", "", "", "", "", "", "Done", nil, false)
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, rec.postTransition, 1)
 	testutil.Equal(t, rec.putIssue, 0)
@@ -1061,7 +1061,7 @@ func TestRunUpdate_Status_FreshnessRetries(t *testing.T) {
 	defer srv.Close()
 
 	opts, stdout, _ := newOptsForServer(t, srv.URL)
-	err := runUpdate(context.Background(), opts, "PROJ-123", "", "", "", "", "", "Done", nil)
+	err := runUpdate(context.Background(), opts, "PROJ-123", "", "", "", "", "", "Done", nil, false)
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, postCount, 1)
 	testutil.Contains(t, stdout.String(), "Done")
@@ -1074,7 +1074,7 @@ func TestRunUpdate_StatusOnly_AlreadyCurrent(t *testing.T) {
 	})
 	opts, _, stderr := newOptsForServer(t, srv.URL)
 
-	err := runUpdate(context.Background(), opts, "PROJ-123", "", "", "", "", "", "done", nil)
+	err := runUpdate(context.Background(), opts, "PROJ-123", "", "", "", "", "", "done", nil, false)
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, rec.postTransition, 0)
 	testutil.Equal(t, rec.getTransitions, 0)
@@ -1085,7 +1085,7 @@ func TestRunUpdate_StatusAndSummary_AlreadyCurrent(t *testing.T) {
 	srv, rec := newStatusServer(t, statusServerConfig{currentStatus: "Done"})
 	opts, _, _ := newOptsForServer(t, srv.URL)
 
-	err := runUpdate(context.Background(), opts, "PROJ-123", "New summary", "", "", "", "", "Done", nil)
+	err := runUpdate(context.Background(), opts, "PROJ-123", "New summary", "", "", "", "", "Done", nil, false)
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, rec.postTransition, 0)
 	testutil.Equal(t, rec.putIssue, 1)
@@ -1100,7 +1100,7 @@ func TestRunUpdate_Status_NotFound(t *testing.T) {
 	})
 	opts, _, stderr := newOptsForServer(t, srv.URL)
 
-	err := runUpdate(context.Background(), opts, "PROJ-123", "", "", "", "", "", "Bogus", nil)
+	err := runUpdate(context.Background(), opts, "PROJ-123", "", "", "", "", "", "Bogus", nil, false)
 	testutil.Error(t, err)
 	testutil.True(t, errors.Is(err, root.ErrAlreadyReported), "expected ErrAlreadyReported sentinel")
 	testutil.Equal(t, rec.postTransition, 0)
@@ -1119,7 +1119,7 @@ func TestRunUpdate_Status_NotFound_DoesNotWriteSummary(t *testing.T) {
 	})
 	opts, _, _ := newOptsForServer(t, srv.URL)
 
-	err := runUpdate(context.Background(), opts, "PROJ-123", "New summary", "", "", "", "", "Bogus", nil)
+	err := runUpdate(context.Background(), opts, "PROJ-123", "New summary", "", "", "", "", "Bogus", nil, false)
 	testutil.Error(t, err)
 	testutil.Equal(t, rec.putIssue, 0)
 }
@@ -1134,7 +1134,7 @@ func TestRunUpdate_Status_Ambiguous(t *testing.T) {
 	})
 	opts, _, stderr := newOptsForServer(t, srv.URL)
 
-	err := runUpdate(context.Background(), opts, "PROJ-123", "", "", "", "", "", "Done", nil)
+	err := runUpdate(context.Background(), opts, "PROJ-123", "", "", "", "", "", "Done", nil, false)
 	testutil.Error(t, err)
 	testutil.True(t, errors.Is(err, root.ErrAlreadyReported))
 	testutil.Equal(t, rec.postTransition, 0)
@@ -1171,7 +1171,7 @@ func TestRunUpdate_StatusAndSummary_HappyPath_OrdersWritesPutBeforePost(t *testi
 	defer srv.Close()
 
 	opts, _, _ := newOptsForServer(t, srv.URL)
-	err := runUpdate(context.Background(), opts, "PROJ-123", "New summary", "", "", "", "", "Done", nil)
+	err := runUpdate(context.Background(), opts, "PROJ-123", "New summary", "", "", "", "", "Done", nil, false)
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, len(order), 2)
 	testutil.Equal(t, order[0], "PUT")
@@ -1190,7 +1190,7 @@ func TestRunUpdate_Status_TransitionPostFailsAfterPut(t *testing.T) {
 	})
 	opts, _, _ := newOptsForServer(t, srv.URL)
 
-	err := runUpdate(context.Background(), opts, "PROJ-123", "New summary", "", "", "", "", "Done", nil)
+	err := runUpdate(context.Background(), opts, "PROJ-123", "New summary", "", "", "", "", "Done", nil, false)
 	testutil.Error(t, err)
 	testutil.Equal(t, rec.putIssue, 1)
 	testutil.Equal(t, rec.postTransition, 1)
@@ -1206,7 +1206,7 @@ func TestRunUpdate_Status_IDOnly(t *testing.T) {
 	opts, stdout, _ := newOptsForServer(t, srv.URL)
 	opts.IDOnly = true
 
-	err := runUpdate(context.Background(), opts, "PROJ-123", "", "", "", "", "", "Done", nil)
+	err := runUpdate(context.Background(), opts, "PROJ-123", "", "", "", "", "", "Done", nil, false)
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, rec.postTransition, 1)
 	testutil.Equal(t, stdout.String(), "PROJ-123\n")
@@ -1217,7 +1217,7 @@ func TestRunUpdate_Status_IDOnly_AlreadyCurrent_EmitsKeyNoAdvisory(t *testing.T)
 	opts, stdout, stderr := newOptsForServer(t, srv.URL)
 	opts.IDOnly = true
 
-	err := runUpdate(context.Background(), opts, "PROJ-123", "", "", "", "", "", "Done", nil)
+	err := runUpdate(context.Background(), opts, "PROJ-123", "", "", "", "", "", "Done", nil, false)
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, rec.postTransition, 0)
 	testutil.Equal(t, rec.getTransitions, 0)
@@ -1284,7 +1284,7 @@ func TestRunUpdate_TypeAndStatus_HappyPath(t *testing.T) {
 	defer srv.Close()
 
 	opts, _, _ := newOptsForServer(t, srv.URL)
-	err := runUpdate(context.Background(), opts, "PROJ-123", "", "", "", "", "Task", "Done", nil)
+	err := runUpdate(context.Background(), opts, "PROJ-123", "", "", "", "", "Task", "Done", nil, false)
 	testutil.RequireNoError(t, err)
 	testutil.True(t, moveCalled, "bulk move must be called")
 	testutil.True(t, transitionPosted, "transition POST must follow the move")
@@ -1345,7 +1345,7 @@ func TestRunUpdate_TypeAndStatus_TransitionPostFailsAfterMove(t *testing.T) {
 	defer srv.Close()
 
 	opts, _, _ := newOptsForServer(t, srv.URL)
-	err := runUpdate(context.Background(), opts, "PROJ-123", "", "", "", "", "Task", "Done", nil)
+	err := runUpdate(context.Background(), opts, "PROJ-123", "", "", "", "", "Task", "Done", nil, false)
 	testutil.Error(t, err)
 	testutil.True(t, moveCalled, "type change happened before the transition failed (non-rollback)")
 }
@@ -1360,7 +1360,7 @@ func TestRunUpdate_Status_GetTransitionsError(t *testing.T) {
 	})
 	opts, _, _ := newOptsForServer(t, srv.URL)
 
-	err := runUpdate(context.Background(), opts, "PROJ-123", "", "", "", "", "", "Done", nil)
+	err := runUpdate(context.Background(), opts, "PROJ-123", "", "", "", "", "", "Done", nil, false)
 	testutil.Error(t, err)
 	testutil.Contains(t, err.Error(), "failed to get transitions")
 	testutil.Equal(t, rec.postTransition, 0)
@@ -1386,7 +1386,7 @@ func TestRunUpdate_Status_GetIssueError(t *testing.T) {
 	defer srv.Close()
 
 	opts, _, _ := newOptsForServer(t, srv.URL)
-	err := runUpdate(context.Background(), opts, "PROJ-123", "New summary", "", "", "", "", "Done", nil)
+	err := runUpdate(context.Background(), opts, "PROJ-123", "New summary", "", "", "", "", "Done", nil, false)
 	testutil.Error(t, err)
 	testutil.Contains(t, err.Error(), "failed to get issue")
 	testutil.False(t, putCalled, "preflight failure must block the field PUT")

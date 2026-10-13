@@ -90,7 +90,7 @@ func TestRunAssign_ResolvesDisplayName(t *testing.T) {
 	opts.SetAPIClient(client)
 
 	// "User One" is seeded with AccountID=abc123 in seedCacheForIssues.
-	err = runAssign(context.Background(), opts, "PROJ-123", "User One", false)
+	err = runAssign(context.Background(), opts, "PROJ-123", "User One", false, false)
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, captured, "abc123")
 	testutil.Contains(t, stdout.String(), "PROJ-123")
@@ -113,7 +113,7 @@ func TestRunAssign_ResolvesByAccountID(t *testing.T) {
 	opts.SetAPIClient(client)
 
 	// Raw accountId passes cache lookup directly.
-	err = runAssign(context.Background(), opts, "PROJ-123", "61292e4c4f29230069621c5f", false)
+	err = runAssign(context.Background(), opts, "PROJ-123", "61292e4c4f29230069621c5f", false, false)
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, captured, "61292e4c4f29230069621c5f")
 	testutil.Contains(t, stdout.String(), "PROJ-123")
@@ -138,7 +138,7 @@ func TestRunAssign_SyntheticUserFallsBackToAccountID(t *testing.T) {
 	opts.SetAPIClient(client)
 
 	rawID := "557058:295fe89c-10c2-4b0c-ba84-a4dd14ea7729"
-	err = runAssign(context.Background(), opts, "PROJ-123", rawID, false)
+	err = runAssign(context.Background(), opts, "PROJ-123", rawID, false, false)
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, captured, rawID)
 	testutil.Contains(t, stdout.String(), "PROJ-123")
@@ -165,7 +165,7 @@ func TestRunAssign_Unassign(t *testing.T) {
 	// --unassign with an accountId arg: the flag wins and the resolver is
 	// bypassed (see runAssign's guard). Confirms we don't accidentally resolve
 	// the ignored positional.
-	err = runAssign(context.Background(), opts, "PROJ-123", "some-ignored-id", true)
+	err = runAssign(context.Background(), opts, "PROJ-123", "some-ignored-id", true, false)
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, captured, "<null>")
 	testutil.Contains(t, stdout.String(), "PROJ-123")
@@ -201,7 +201,7 @@ func TestRunAssign_ResolverNotFoundPropagates(t *testing.T) {
 	opts := &root.Options{Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runAssign(context.Background(), opts, "PROJ-123", "Zzznonexistent", false)
+	err = runAssign(context.Background(), opts, "PROJ-123", "Zzznonexistent", false, false)
 	var nf *resolve.NotFoundError
 	if !errors.As(err, &nf) {
 		t.Fatalf("expected NotFoundError, got %T: %v", err, err)

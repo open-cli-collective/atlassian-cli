@@ -24,6 +24,7 @@ func newCreateCmd(opts *root.Options) *cobra.Command {
 	var parent string
 	var assignee string
 	var fields []string
+	var customFields bool
 
 	cmd := &cobra.Command{
 		Use:   "create",
@@ -47,7 +48,7 @@ func newCreateCmd(opts *root.Options) *cobra.Command {
   # Create with custom fields
   jtk issues create --project MYPROJECT --type Story --summary "New feature" --field priority=High`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runCreate(cmd.Context(), opts, project, issueType, summary, description, parent, assignee, fields)
+			return runCreate(cmd.Context(), opts, project, issueType, summary, description, parent, assignee, fields, customFields)
 		},
 	}
 
@@ -58,6 +59,7 @@ func newCreateCmd(opts *root.Options) *cobra.Command {
 	cmd.Flags().StringVar(&parent, "parent", "", "Parent issue key (epic or parent issue)")
 	cmd.Flags().StringVarP(&assignee, "assignee", "a", "", "Assignee: accountId, email, display name, or \"me\"")
 	cmd.Flags().StringArrayVarP(&fields, "field", "f", nil, "Additional fields (key=value)")
+	cmd.Flags().BoolVar(&customFields, "custom-fields", false, "Append the issue's custom fields to the created-issue view")
 
 	_ = cmd.MarkFlagRequired("project")
 	_ = cmd.MarkFlagRequired("summary")
@@ -65,7 +67,7 @@ func newCreateCmd(opts *root.Options) *cobra.Command {
 	return cmd
 }
 
-func runCreate(ctx context.Context, opts *root.Options, project, issueType, summary, description, parent, assignee string, fieldArgs []string) error {
+func runCreate(ctx context.Context, opts *root.Options, project, issueType, summary, description, parent, assignee string, fieldArgs []string, customFields bool) error {
 	client, err := opts.APIClient()
 	if err != nil {
 		return err
@@ -147,9 +149,13 @@ func runCreate(ctx context.Context, opts *root.Options, project, issueType, summ
 			if err != nil {
 				return nil, err
 			}
-			return jtkpresent.IssuePresenter{}.PresentDetail(
+			model := jtkpresent.IssuePresenter{}.PresentDetail(
 				fetched, client.IssueURL(id), false, opts.IsFullText(),
-			), nil
+			)
+			if customFields {
+				jtkpresent.AppendIssueCustomFields(ctx, client, fetched, model)
+			}
+			return model, nil
 		},
 		Fallback: func(id string) *present.OutputModel {
 			return jtkpresent.IssuePresenter{}.PresentCreated(id, client.IssueURL(id))

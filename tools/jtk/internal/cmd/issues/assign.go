@@ -16,6 +16,7 @@ import (
 
 func newAssignCmd(opts *root.Options) *cobra.Command {
 	var unassign bool
+	var customFields bool
 
 	cmd := &cobra.Command{
 		Use:   "assign <issue-key> [user]",
@@ -35,16 +36,17 @@ func newAssignCmd(opts *root.Options) *cobra.Command {
 			if len(args) > 1 {
 				accountID = args[1]
 			}
-			return runAssign(cmd.Context(), opts, args[0], accountID, unassign)
+			return runAssign(cmd.Context(), opts, args[0], accountID, unassign, customFields)
 		},
 	}
 
 	cmd.Flags().BoolVar(&unassign, "unassign", false, "Remove current assignee")
+	cmd.Flags().BoolVar(&customFields, "custom-fields", false, "Append the issue's custom fields to the post-assign view")
 
 	return cmd
 }
 
-func runAssign(ctx context.Context, opts *root.Options, issueKey, userInput string, unassign bool) error {
+func runAssign(ctx context.Context, opts *root.Options, issueKey, userInput string, unassign, customFields bool) error {
 	client, err := opts.APIClient()
 	if err != nil {
 		return err
@@ -94,9 +96,13 @@ func runAssign(ctx context.Context, opts *root.Options, issueKey, userInput stri
 			if err != nil {
 				return nil, err
 			}
-			return jtkpresent.IssuePresenter{}.PresentDetail(
+			model := jtkpresent.IssuePresenter{}.PresentDetail(
 				issue, client.IssueURL(id), false, opts.IsFullText(),
-			), nil
+			)
+			if customFields {
+				jtkpresent.AppendIssueCustomFields(ctx, client, issue, model)
+			}
+			return model, nil
 		},
 		IsFresh: isFresh,
 		Fallback: func(id string) *present.OutputModel {

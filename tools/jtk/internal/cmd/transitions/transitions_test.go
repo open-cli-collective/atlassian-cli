@@ -337,7 +337,7 @@ func TestRunDo_ShowsPostState(t *testing.T) {
 	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}}
 	opts.SetAPIClient(client)
 
-	err = runDo(context.Background(), opts, "TEST-1", "In Development", nil)
+	err = runDo(context.Background(), opts, "TEST-1", "In Development", nil, false)
 	testutil.RequireNoError(t, err)
 
 	out := stdout.String()
@@ -358,7 +358,7 @@ func TestRunDo_IDOnly(t *testing.T) {
 	opts := &root.Options{Stdout: &stdout, Stderr: &bytes.Buffer{}, IDOnly: true}
 	opts.SetAPIClient(client)
 
-	err = runDo(context.Background(), opts, "TEST-1", "In Development", nil)
+	err = runDo(context.Background(), opts, "TEST-1", "In Development", nil, false)
 	testutil.RequireNoError(t, err)
 	testutil.Equal(t, stdout.String(), "TEST-1\n")
 }
@@ -389,7 +389,7 @@ func TestRunDo_FallbackOnFetchError(t *testing.T) {
 	opts := &root.Options{Stdout: &stdout, Stderr: &stderr}
 	opts.SetAPIClient(client)
 
-	err = runDo(context.Background(), opts, "TEST-1", "In Development", nil)
+	err = runDo(context.Background(), opts, "TEST-1", "In Development", nil, false)
 	testutil.RequireNoError(t, err)
 	testutil.Contains(t, stdout.String(), "TEST-1")
 	testutil.Contains(t, stderr.String(), "post-state unavailable")

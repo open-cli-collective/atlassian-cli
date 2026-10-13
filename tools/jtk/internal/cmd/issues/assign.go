@@ -100,7 +100,7 @@ func runAssign(ctx context.Context, opts *root.Options, issueKey, userInput stri
 				issue, client.IssueURL(id), false, opts.IsFullText(),
 			)
 			if customFields {
-				jtkpresent.AppendIssueCustomFields(ctx, client, issue, model)
+				jtkpresent.AppendIssueCustomFields(ctx, fieldsFetcher(client), issue, model)
 			}
 			return model, nil
 		},

@@ -85,13 +85,13 @@ func runGet(ctx context.Context, opts *root.Options, issueKey string, noTruncate
 		jtkpresent.AppendDynamicDetailFields(model, issue, projection.DynamicSpecs(selected))
 		projection.ApplyToDetailInModel(model, selected)
 		if customFields {
-			jtkpresent.AppendIssueCustomFields(ctx, client, issue, model)
+			jtkpresent.AppendIssueCustomFields(ctx, fieldsFetcher(client), issue, model)
 		}
 		return jtkpresent.Emit(opts, model)
 	}
 	model := presenter.PresentDetail(issue, client.IssueURL(issue.Key), false, noTruncate)
 	if customFields {
-		jtkpresent.AppendIssueCustomFields(ctx, client, issue, model)
+		jtkpresent.AppendIssueCustomFields(ctx, fieldsFetcher(client), issue, model)
 	}
 	return jtkpresent.Emit(opts, model)
 }

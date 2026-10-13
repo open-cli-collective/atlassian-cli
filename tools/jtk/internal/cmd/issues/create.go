@@ -153,7 +153,7 @@ func runCreate(ctx context.Context, opts *root.Options, project, issueType, summ
 				fetched, client.IssueURL(id), false, opts.IsFullText(),
 			)
 			if customFields {
-				jtkpresent.AppendIssueCustomFields(ctx, client, fetched, model)
+				jtkpresent.AppendIssueCustomFields(ctx, fieldsFetcher(client), fetched, model)
 			}
 			return model, nil
 		},

@@ -10,6 +10,7 @@ import (
 	"github.com/open-cli-collective/atlassian-go/present"
 
 	"github.com/open-cli-collective/jira-ticket-cli/api"
+	"github.com/open-cli-collective/jira-ticket-cli/internal/cache"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	"github.com/open-cli-collective/jira-ticket-cli/internal/mutation"
 	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
@@ -198,7 +199,9 @@ func runDo(ctx context.Context, opts *root.Options, issueKey, transitionNameOrID
 				issue, client.IssueURL(id), false, opts.IsFullText(),
 			)
 			if customFields {
-				jtkpresent.AppendIssueCustomFields(ctx, client, issue, model)
+				jtkpresent.AppendIssueCustomFields(ctx, func(ctx context.Context) ([]api.Field, error) {
+					return cache.GetFieldsCacheFirst(ctx, client)
+				}, issue, model)
 			}
 			return model, nil
 		},

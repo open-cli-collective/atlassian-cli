@@ -2,6 +2,8 @@ module github.com/open-cli-collective/atlassian-go
 
 go 1.26
 
+toolchain go1.26.10
+
 require (
 	github.com/byteness/keyring v1.11.0
 	github.com/fatih/color v1.18.0

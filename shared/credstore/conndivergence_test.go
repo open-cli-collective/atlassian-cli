@@ -123,6 +123,18 @@ func TestDetectConnDivergence(t *testing.T) {
 		testutil.Equal(t, basic, got.AuthMethod)
 	})
 
+	t.Run("explicit proxy is preserved without email", func(t *testing.T) {
+		t.Parallel()
+		got, conf := DetectConnDivergence([]NamedConn{
+			nc("shared config", "default", "/c.yml", ConnProfile{
+				URL: "http://127.0.0.1:8080/atlassian", AuthMethod: "proxy",
+			}),
+		})
+		testutil.Equal(t, 0, len(conf))
+		testutil.Equal(t, "proxy", got.AuthMethod)
+		testutil.Equal(t, "http://127.0.0.1:8080/atlassian", got.URL)
+	})
+
 	t.Run("all-empty source ignored", func(t *testing.T) {
 		t.Parallel()
 		got, conf := DetectConnDivergence([]NamedConn{

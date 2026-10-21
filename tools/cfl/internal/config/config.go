@@ -13,6 +13,7 @@ import (
 	sharedconfig "github.com/open-cli-collective/atlassian-go/config"
 	"github.com/open-cli-collective/atlassian-go/credstore"
 	"github.com/open-cli-collective/atlassian-go/keyring"
+	sharedurl "github.com/open-cli-collective/atlassian-go/url"
 	"gopkg.in/yaml.v3"
 )
 
@@ -23,7 +24,7 @@ type Config struct {
 	APIToken     string        `yaml:"api_token"`
 	DefaultSpace string        `yaml:"default_space,omitempty"`
 	OutputFormat string        `yaml:"output_format,omitempty"`
-	AuthMethod   string        `yaml:"auth_method,omitempty"` // "basic" (default) or "bearer"
+	AuthMethod   string        `yaml:"auth_method,omitempty"` // "basic" (default), "bearer", or "proxy"
 	CloudID      string        `yaml:"cloud_id,omitempty"`    // Required for bearer auth (gateway URL)
 	Keyring      KeyringConfig `yaml:"keyring,omitempty"`
 }
@@ -41,12 +42,21 @@ type KeyringConfig struct {
 // Validate checks that all required fields are present and valid.
 // For bearer auth: URL + API token + Cloud ID are required (no email).
 // For basic auth: URL + email + API token are required.
+// For proxy auth: only URL is required; no Authorization header is sent.
 func (c *Config) Validate() error {
+	return c.validate(true)
+}
+
+// ValidateForInit validates config produced by init. A skipped connection
+// verification permits deferring the API token to set-credential while all
+// non-secret connection fields remain required and validated.
+func (c *Config) ValidateForInit(noVerify bool) error {
+	return c.validate(!noVerify)
+}
+
+func (c *Config) validate(requireToken bool) error {
 	if c.URL == "" {
 		return errors.New("url is required")
-	}
-	if c.APIToken == "" {
-		return errors.New("api_token is required")
 	}
 
 	// Validate auth method if set (empty defaults to basic)
@@ -56,19 +66,33 @@ func (c *Config) Validate() error {
 		}
 	}
 
-	if c.AuthMethod == auth.AuthMethodBearer {
+	// Validate URL scheme. Proxy auth may use loopback http for a local proxy;
+	// all other cleartext URLs are rejected.
+	if c.AuthMethod == auth.AuthMethodProxy {
+		if err := sharedurl.RequireSecureOrLoopback(c.URL); err != nil {
+			return err
+		}
+	} else if !strings.HasPrefix(c.URL, "https://") {
+		return errors.New("url must use https unless proxy auth uses loopback http")
+	}
+
+	switch c.AuthMethod {
+	case auth.AuthMethodProxy:
+		return nil
+	case auth.AuthMethodBearer:
+		if requireToken && c.APIToken == "" {
+			return errors.New("api_token is required")
+		}
 		if c.CloudID == "" {
 			return errors.New("cloud_id is required for bearer auth")
 		}
-	} else {
+	default:
+		if requireToken && c.APIToken == "" {
+			return errors.New("api_token is required")
+		}
 		if c.Email == "" {
 			return errors.New("email is required")
 		}
-	}
-
-	// Validate URL scheme
-	if !strings.HasPrefix(c.URL, "https://") {
-		return errors.New("url must use https")
 	}
 
 	return nil
@@ -280,6 +304,11 @@ func LoadWithEnv(path string, resolveToken, loadShared bool) (*Config, error) {
 
 // ResolveToken applies the authoritative token source to cfg.
 func ResolveToken(cfg *Config) error {
+	if cfg.AuthMethod == auth.AuthMethodProxy {
+		cfg.APIToken = ""
+		return nil
+	}
+
 	// Authoritative token resolution: overwrites any token a legacy-file
 	// parse may have populated, so plaintext can never reach the client.
 	tok, _, kErr := keyring.ResolveToken(credstore.ToolCFL)

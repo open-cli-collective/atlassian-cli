@@ -2,6 +2,8 @@ module github.com/open-cli-collective/confluence-cli
 
 go 1.26
 
+toolchain go1.26.10
+
 require (
 	github.com/JohannesKaufmann/html-to-markdown/v2 v2.5.0
 	github.com/charmbracelet/huh v0.8.0

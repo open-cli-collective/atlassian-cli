@@ -13,6 +13,7 @@ import (
 	"github.com/open-cli-collective/atlassian-go/auth"
 	"github.com/open-cli-collective/atlassian-go/client"
 	"github.com/open-cli-collective/atlassian-go/testutil"
+	sharedurl "github.com/open-cli-collective/atlassian-go/url"
 )
 
 func TestNew(t *testing.T) {
@@ -472,4 +473,30 @@ func TestNew_BearerAuth(t *testing.T) {
 			t.Error("IssueURL should use instance URL, not gateway URL")
 		}
 	})
+}
+
+func TestNew_BearerAuth_GatewayBaseOverride(t *testing.T) {
+	c, err := New(ClientConfig{
+		URL:            "https://example.atlassian.net",
+		APIToken:       "scoped-token",
+		AuthMethod:     "bearer",
+		CloudID:        "abc-123",
+		GatewayBaseURL: "https://gateway.example/",
+	})
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "https://gateway.example/ex/jira/abc-123/rest/api/3", c.BaseURL)
+}
+
+func TestNew_BearerAuth_RejectsCleartextGateway(t *testing.T) {
+	c, err := New(ClientConfig{URL: "https://example.atlassian.net", APIToken: "token", AuthMethod: "bearer", CloudID: "cloud", GatewayBaseURL: "http://external.example"})
+	if !errors.Is(err, sharedurl.ErrRequiresHTTPS) || c != nil {
+		t.Fatalf("New() = (%v, %v), want secure URL error", c, err)
+	}
+}
+
+func TestNew_BearerAuth_DoesNotReadGatewayEnv(t *testing.T) {
+	t.Setenv("JIRA_GATEWAY_BASE_URL", "https://ambient.example")
+	c, err := New(ClientConfig{URL: "https://example.atlassian.net", APIToken: "token", AuthMethod: "bearer", CloudID: "cloud"})
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "https://api.atlassian.com/ex/jira/cloud/rest/api/3", c.BaseURL)
 }

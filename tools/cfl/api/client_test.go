@@ -12,6 +12,7 @@ import (
 
 	"github.com/open-cli-collective/atlassian-go/client"
 	"github.com/open-cli-collective/atlassian-go/testutil"
+	sharedurl "github.com/open-cli-collective/atlassian-go/url"
 )
 
 func TestNewClient(t *testing.T) {
@@ -242,4 +243,24 @@ func TestNewBearerClient(t *testing.T) {
 		// Base URL should be the instance URL, not gateway
 		testutil.Equal(t, "https://example.atlassian.net/wiki", c.GetBaseURL())
 	})
+}
+
+func TestNew_BearerGatewayOverride(t *testing.T) {
+	c, err := New(ClientConfig{APIToken: "scoped-token", CloudID: "abc-123", AuthMethod: "bearer", GatewayBaseURL: "https://gateway.example/"})
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "https://gateway.example/ex/confluence/abc-123/wiki", c.GetBaseURL())
+}
+
+func TestNew_BearerRejectsCleartextGateway(t *testing.T) {
+	c, err := New(ClientConfig{APIToken: "token", CloudID: "cloud", AuthMethod: "bearer", GatewayBaseURL: "http://external.example"})
+	if !errors.Is(err, sharedurl.ErrRequiresHTTPS) || c != nil {
+		t.Fatalf("New() = (%v, %v), want secure URL error", c, err)
+	}
+}
+
+func TestNew_BearerDoesNotReadGatewayEnv(t *testing.T) {
+	t.Setenv("CFL_GATEWAY_BASE_URL", "https://ambient.example")
+	c, err := New(ClientConfig{APIToken: "token", CloudID: "cloud", AuthMethod: "bearer"})
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, "https://api.atlassian.com/ex/confluence/cloud/wiki", c.GetBaseURL())
 }

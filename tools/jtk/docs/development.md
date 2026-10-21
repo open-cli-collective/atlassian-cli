@@ -77,6 +77,8 @@ Read `internal/cmd/OUTPUT_SPEC.md` before changing default output, `--id`, `--fi
 
 Basic auth uses an instance URL plus email and token. Bearer auth routes through `api.atlassian.com`, requires a cloud ID, and has Atlassian platform scope limitations for some Jira surfaces.
 
+Bearer gateway routing can be overridden with `JIRA_GATEWAY_BASE_URL` or `ATLASSIAN_GATEWAY_BASE_URL`; overrides must use HTTPS or loopback HTTP. Gateway values are resolved by commands and passed explicitly to API clients.
+
 ## Testing Notes
 
 Use `shared/testutil` for assertions. Prefer table-driven tests and `httptest.NewServer` for API client behavior. Keep tests next to implementation and use presenter-focused tests for output behavior.

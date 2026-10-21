@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/open-cli-collective/atlassian-go/auth"
+	"github.com/open-cli-collective/atlassian-go/client"
 	"github.com/open-cli-collective/atlassian-go/credstore"
 	"github.com/open-cli-collective/atlassian-go/keyring"
 	"github.com/open-cli-collective/atlassian-go/prompt"
@@ -23,14 +24,15 @@ import (
 
 // clientBuilder constructs an *api.Client from a config.
 // Pulled out as a parameter so tests can inject an httptest-pointed client
-// without depending on api.NewBearerClient's hardcoded gateway URL.
+// without depending on the bearer gateway URL.
 type clientBuilder func(cfg *config.Config) (*api.Client, error)
 
 func defaultClientBuilder(cfg *config.Config) (*api.Client, error) {
-	if cfg.AuthMethod == auth.AuthMethodBearer {
-		return api.NewBearerClient(cfg.APIToken, cfg.CloudID)
-	}
-	return api.NewClient(cfg.URL, cfg.Email, cfg.APIToken), nil
+	return api.New(api.ClientConfig{
+		URL: cfg.URL, Email: cfg.Email, APIToken: cfg.APIToken,
+		AuthMethod: cfg.AuthMethod, CloudID: cfg.CloudID,
+		GatewayBaseURL: client.GatewayBaseURLFromEnv("CFL_GATEWAY_BASE_URL"),
+	})
 }
 
 // Register adds the init command to the root command.

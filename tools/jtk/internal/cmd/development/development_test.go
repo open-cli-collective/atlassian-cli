@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/open-cli-collective/atlassian-go/testutil"
@@ -83,4 +85,45 @@ func developmentServer(t *testing.T) *httptest.Server {
 			http.NotFound(w, r)
 		}
 	}))
+}
+
+func TestRunGet_IDOnlyWarnsOnStderrWhenTruncated(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/rest/api/3/issue/PROJ-123":
+			_ = json.NewEncoder(w).Encode(map[string]any{"id": "10001", "key": "PROJ-123"})
+		case "/rest/dev-status/1.0/issue/summary":
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"summary": map[string]any{
+					"pullrequest": map[string]any{
+						"overall":        map[string]any{"count": 100, "state": "MERGED"},
+						"byInstanceType": map[string]any{"github": map[string]any{"name": "GitHub"}},
+					},
+				},
+			})
+		case "/rest/dev-status/1.0/issue/detail":
+			pullRequests := make([]map[string]any, 100)
+			for i := range pullRequests {
+				pullRequests[i] = map[string]any{"id": strconv.Itoa(i), "url": "https://github.com/owner/repo/pull/" + strconv.Itoa(i)}
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{"detail": []map[string]any{{"pullRequests": pullRequests}}})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+	client, err := api.New(api.ClientConfig{URL: server.URL, Email: "t@t.com", APIToken: "tok"})
+	testutil.RequireNoError(t, err)
+
+	var stdout, stderr bytes.Buffer
+	opts := &root.Options{Stdout: &stdout, Stderr: &stderr, IDOnly: true}
+	opts.SetAPIClient(client)
+
+	err = runGet(t.Context(), opts, "PROJ-123")
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, strings.Count(stdout.String(), "\n"), 100)
+	testutil.NotContains(t, stdout.String(), "incomplete")
+	testutil.Contains(t, stderr.String(), "may be incomplete")
 }

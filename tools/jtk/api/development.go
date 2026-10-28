@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"net/url"
 	"sort"
 	"strings"
@@ -11,7 +12,7 @@ import (
 )
 
 // Development is the issue-centric data shown in Jira's Development panel.
-// Jira exposes this through a private API, so the response types intentionally
+// Jira exposes this through private APIs, so the response types intentionally
 // contain only the fields jtk presents.
 type Development struct {
 	IssueKey         string
@@ -21,6 +22,9 @@ type Development struct {
 	SuccessfulBuilds int
 	Providers        []string
 	PullRequests     []DevelopmentPullRequest
+	// PullRequestsTruncated is set when pull requests came from the dev-status
+	// fallback and it returned its server-side maximum, so more may exist.
+	PullRequestsTruncated bool
 }
 
 // DevelopmentPullRequest is a pull request associated with a Jira issue.
@@ -33,6 +37,29 @@ type DevelopmentPullRequest struct {
 	Repository string
 	Provider   string
 }
+
+// devStatusPullRequestLimit is the most pull requests the dev-status detail
+// endpoint returns for one provider. It ignores paging parameters.
+const devStatusPullRequestLimit = 100
+
+// developmentGraphPageSize and developmentGraphMaxPages bound the Graph Store
+// walk; the page cap only guards against a cursor that never terminates.
+const (
+	developmentGraphPageSize = 50
+	developmentGraphMaxPages = 200
+)
+
+const developmentGraphQuery = `query JtkIssueAssociatedPullRequests($id: ID!, $first: Int, $after: String) {
+  graphStore_issueAssociatedPr(id: $id, first: $first, after: $after) @optIn(to: "GraphStoreIssueAssociatedPr") {
+    pageInfo { hasNextPage endCursor }
+    edges {
+      node {
+        __typename
+        ... on DevOpsPullRequestDetails { url title status repositoryName providerName lastUpdated }
+      }
+    }
+  }
+}`
 
 type developmentSummaryResponse struct {
 	Summary struct {
@@ -58,11 +85,12 @@ type developmentSummaryItem struct {
 type developmentDetailResponse struct {
 	Detail []struct {
 		PullRequests []struct {
-			ID         string `json:"id"`
-			Name       string `json:"name"`
-			URL        string `json:"url"`
-			Status     string `json:"status"`
-			LastUpdate string `json:"lastUpdate"`
+			ID             string `json:"id"`
+			Name           string `json:"name"`
+			URL            string `json:"url"`
+			Status         string `json:"status"`
+			LastUpdate     string `json:"lastUpdate"`
+			RepositoryName string `json:"repositoryName"`
 		} `json:"pullRequests"`
 		Repositories []struct {
 			ID   string `json:"id"`
@@ -76,8 +104,35 @@ type developmentDetailResponse struct {
 	Errors []json.RawMessage `json:"errors"`
 }
 
+type developmentGraphResponse struct {
+	Data struct {
+		Connection *struct {
+			PageInfo struct {
+				HasNextPage bool   `json:"hasNextPage"`
+				EndCursor   string `json:"endCursor"`
+			} `json:"pageInfo"`
+			Edges []struct {
+				Node *struct {
+					TypeName       string `json:"__typename"`
+					URL            string `json:"url"`
+					Title          string `json:"title"`
+					Status         string `json:"status"`
+					RepositoryName string `json:"repositoryName"`
+					ProviderName   string `json:"providerName"`
+					LastUpdated    string `json:"lastUpdated"`
+				} `json:"node"`
+			} `json:"edges"`
+		} `json:"graphStore_issueAssociatedPr"`
+	} `json:"data"`
+	Errors []struct {
+		Message string `json:"message"`
+	} `json:"errors"`
+}
+
 // GetDevelopment returns the pull requests and summary counts shown in an
-// issue's Jira Development panel. The /rest/dev-status API is private and may
+// issue's Jira Development panel. Pull requests come from the Graph Store
+// issue-to-PR relationship, which pages past the 100-item cap of
+// /rest/dev-status; dev-status is the fallback. Both APIs are private and may
 // change without notice.
 func (c *Client) GetDevelopment(ctx context.Context, issueKey string) (*Development, error) {
 	if issueKey == "" {
@@ -125,101 +180,216 @@ func (c *Client) GetDevelopment(ctx context.Context, issueKey string) (*Developm
 	}
 	sort.Strings(providerTypes)
 
-	type keyedPullRequest struct {
-		pr DevelopmentPullRequest
+	if summary.Summary.PullRequest.Overall.Count == 0 && len(providerTypes) == 0 {
+		return result, nil
 	}
-	byKey := make(map[string]keyedPullRequest)
 
+	pullRequests := newDevelopmentPullRequestSet()
+	if err := c.collectGraphPullRequests(ctx, issue.ID, providerNames, pullRequests); err != nil {
+		pullRequests = newDevelopmentPullRequestSet()
+		truncated, err := c.collectDevStatusPullRequests(ctx, issue.ID, providerTypes, providerNames, pullRequests)
+		if err != nil {
+			return nil, err
+		}
+		result.PullRequestsTruncated = truncated
+	}
+
+	if summary.Summary.PullRequest.Overall.Count > 0 && len(pullRequests.byKey) == 0 {
+		return nil, fmt.Errorf("development summary reports pull requests but detail returned none")
+	}
+
+	result.Providers = pullRequests.sortedProviders()
+	result.PullRequests = pullRequests.sorted()
+	return result, nil
+}
+
+// collectGraphPullRequests walks the Graph Store issue-to-PR relationship to
+// the end of its cursor.
+func (c *Client) collectGraphPullRequests(ctx context.Context, issueID string, providerNames map[string]string, set *developmentPullRequestSet) error {
+	cloudID, err := c.GetCloudID(ctx)
+	if err != nil {
+		return err
+	}
+	issueARI := fmt.Sprintf("ari:cloud:jira:%s:issue/%s", cloudID, issueID)
+	headers := map[string]string{"X-Query-Context": "ari:cloud:platform::site/" + cloudID}
+
+	defaultProvider := ""
+	for _, name := range providerNames {
+		set.addProvider(name)
+		if len(providerNames) == 1 {
+			defaultProvider = name
+		}
+	}
+
+	var after any
+	for range developmentGraphMaxPages {
+		request := map[string]any{
+			"operationName": "JtkIssueAssociatedPullRequests",
+			"query":         developmentGraphQuery,
+			"variables":     map[string]any{"id": issueARI, "first": developmentGraphPageSize, "after": after},
+		}
+		body, err := c.DoWithHeaders(ctx, http.MethodPost, c.URL+"/gateway/api/graphql", request, headers)
+		if err != nil {
+			return fmt.Errorf("fetching development pull requests from graph store: %w", err)
+		}
+
+		var response developmentGraphResponse
+		if err := json.Unmarshal(body, &response); err != nil {
+			return fmt.Errorf("parsing development pull requests from graph store: %w", err)
+		}
+		if len(response.Errors) > 0 {
+			return fmt.Errorf("graph store returned errors: %s", response.Errors[0].Message)
+		}
+		connection := response.Data.Connection
+		if connection == nil {
+			return fmt.Errorf("graph store returned no pull request connection")
+		}
+
+		for _, edge := range connection.Edges {
+			node := edge.Node
+			if node == nil || node.TypeName != "DevOpsPullRequestDetails" {
+				continue
+			}
+			normalizedURL := normalizeDevelopmentURL(node.URL)
+			provider := node.ProviderName
+			if provider == "" {
+				provider = defaultProvider
+			}
+			set.add(DevelopmentPullRequest{
+				ID:         developmentPullRequestNumberFromURL(normalizedURL),
+				Title:      node.Title,
+				URL:        normalizedURL,
+				Status:     node.Status,
+				LastUpdate: node.LastUpdated,
+				Repository: firstNonEmpty(node.RepositoryName, developmentRepositoryFromURL(normalizedURL)),
+				Provider:   provider,
+			}, normalizedURL)
+		}
+
+		if !connection.PageInfo.HasNextPage {
+			return nil
+		}
+		if connection.PageInfo.EndCursor == "" || connection.PageInfo.EndCursor == after {
+			return fmt.Errorf("graph store returned a page without a new cursor")
+		}
+		after = connection.PageInfo.EndCursor
+	}
+	return fmt.Errorf("graph store returned more than %d pages of pull requests", developmentGraphMaxPages)
+}
+
+// collectDevStatusPullRequests reads /rest/dev-status detail per provider. It
+// reports truncated when any provider returned the endpoint's maximum.
+func (c *Client) collectDevStatusPullRequests(ctx context.Context, issueID string, providerTypes []string, providerNames map[string]string, set *developmentPullRequestSet) (bool, error) {
+	truncated := false
 	for _, providerType := range providerTypes {
 		detailURL := buildURL(c.URL+"/rest/dev-status/1.0/issue/detail", map[string]string{
-			"issueId":         issue.ID,
+			"issueId":         issueID,
 			"applicationType": providerType,
 			"dataType":        "pullrequest",
 		})
 		body, err := c.Get(ctx, detailURL)
 		if err != nil {
-			return nil, fmt.Errorf("fetching development pull requests for %s: %w", providerType, err)
+			return false, fmt.Errorf("fetching development pull requests for %s: %w", providerType, err)
 		}
 
 		var response developmentDetailResponse
 		if err := json.Unmarshal(body, &response); err != nil {
-			return nil, fmt.Errorf("parsing development pull requests for %s: %w", providerType, err)
+			return false, fmt.Errorf("parsing development pull requests for %s: %w", providerType, err)
 		}
 		if len(response.Errors) > 0 {
-			return nil, fmt.Errorf("development pull requests for %s returned provider errors", providerType)
+			return false, fmt.Errorf("development pull requests for %s returned provider errors", providerType)
 		}
 
+		providerCount := 0
 		for _, detail := range response.Detail {
 			providerName := providerNames[providerType]
 			if detail.Instance.Name != "" {
 				providerName = detail.Instance.Name
 			}
-			if providerName != "" {
-				result.Providers = append(result.Providers, providerName)
-			}
+			set.addProvider(providerName)
 
-			repositoryID, repositoryName := "", ""
+			repositoryID, detailRepositoryName := "", ""
 			if len(detail.Repositories) > 0 {
 				repositoryID = detail.Repositories[0].ID
-				repositoryName = detail.Repositories[0].Name
+				detailRepositoryName = detail.Repositories[0].Name
 			}
 
+			providerCount += len(detail.PullRequests)
 			for _, raw := range detail.PullRequests {
 				normalizedURL := normalizeDevelopmentURL(raw.URL)
-				if repositoryName == "" {
-					repositoryName = developmentRepositoryFromURL(normalizedURL)
-				}
 				key := normalizedURL
 				if key == "" {
 					key = strings.Join([]string{providerType, repositoryID, raw.ID}, "\x00")
 				}
-				candidate := DevelopmentPullRequest{
+				set.add(DevelopmentPullRequest{
 					ID:         raw.ID,
 					Title:      raw.Name,
 					URL:        normalizedURL,
 					Status:     raw.Status,
 					LastUpdate: raw.LastUpdate,
-					Repository: repositoryName,
+					Repository: firstNonEmpty(raw.RepositoryName, developmentRepositoryFromURL(normalizedURL), detailRepositoryName),
 					Provider:   providerName,
-				}
-				current, ok := byKey[key]
-				if !ok || developmentTime(candidate.LastUpdate).After(developmentTime(current.pr.LastUpdate)) {
-					byKey[key] = keyedPullRequest{pr: candidate}
-				}
+				}, key)
 			}
 		}
-	}
-
-	if summary.Summary.PullRequest.Overall.Count > 0 && len(byKey) == 0 {
-		return nil, fmt.Errorf("development summary reports pull requests but detail returned none")
-	}
-
-	seenProviders := make(map[string]struct{}, len(result.Providers))
-	providers := result.Providers[:0]
-	for _, provider := range result.Providers {
-		if _, ok := seenProviders[provider]; ok {
-			continue
+		if providerCount >= devStatusPullRequestLimit {
+			truncated = true
 		}
-		seenProviders[provider] = struct{}{}
+	}
+	return truncated, nil
+}
+
+// developmentPullRequestSet deduplicates pull requests by key, keeping the
+// most recently updated copy.
+type developmentPullRequestSet struct {
+	byKey     map[string]DevelopmentPullRequest
+	providers map[string]struct{}
+}
+
+func newDevelopmentPullRequestSet() *developmentPullRequestSet {
+	return &developmentPullRequestSet{
+		byKey:     make(map[string]DevelopmentPullRequest),
+		providers: make(map[string]struct{}),
+	}
+}
+
+func (s *developmentPullRequestSet) add(candidate DevelopmentPullRequest, key string) {
+	s.addProvider(candidate.Provider)
+	current, ok := s.byKey[key]
+	if !ok || developmentTime(candidate.LastUpdate).After(developmentTime(current.LastUpdate)) {
+		s.byKey[key] = candidate
+	}
+}
+
+func (s *developmentPullRequestSet) addProvider(name string) {
+	if name != "" {
+		s.providers[name] = struct{}{}
+	}
+}
+
+func (s *developmentPullRequestSet) sortedProviders() []string {
+	providers := make([]string, 0, len(s.providers))
+	for provider := range s.providers {
 		providers = append(providers, provider)
 	}
 	sort.Strings(providers)
-	result.Providers = providers
+	return providers
+}
 
-	result.PullRequests = make([]DevelopmentPullRequest, 0, len(byKey))
-	for _, item := range byKey {
-		result.PullRequests = append(result.PullRequests, item.pr)
+func (s *developmentPullRequestSet) sorted() []DevelopmentPullRequest {
+	pullRequests := make([]DevelopmentPullRequest, 0, len(s.byKey))
+	for _, pr := range s.byKey {
+		pullRequests = append(pullRequests, pr)
 	}
-	sort.Slice(result.PullRequests, func(i, j int) bool {
-		left, right := result.PullRequests[i], result.PullRequests[j]
+	sort.Slice(pullRequests, func(i, j int) bool {
+		left, right := pullRequests[i], pullRequests[j]
 		leftTime, rightTime := developmentTime(left.LastUpdate), developmentTime(right.LastUpdate)
 		if !leftTime.Equal(rightTime) {
 			return leftTime.After(rightTime)
 		}
 		return left.URL < right.URL
 	})
-
-	return result, nil
+	return pullRequests
 }
 
 func normalizeDevelopmentURL(raw string) string {
@@ -250,6 +420,33 @@ func developmentRepositoryFromURL(raw string) string {
 		return ""
 	}
 	return parts[0] + "/" + parts[1]
+}
+
+// developmentPullRequestNumberFromURL returns the trailing number of a pull or
+// merge request URL such as https://github.com/owner/repo/pull/42.
+func developmentPullRequestNumberFromURL(raw string) string {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return ""
+	}
+	parts := strings.Split(strings.Trim(u.Path, "/"), "/")
+	if len(parts) < 2 {
+		return ""
+	}
+	switch parts[len(parts)-2] {
+	case "pull", "pulls", "pull-requests", "merge_requests":
+		return parts[len(parts)-1]
+	}
+	return ""
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if value != "" {
+			return value
+		}
+	}
+	return ""
 }
 
 func developmentTime(raw string) time.Time {

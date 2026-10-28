@@ -90,6 +90,13 @@ func newTransport() http.RoundTripper {
 // If body is not nil, it will be JSON-encoded.
 // Returns the response body or an error (which may be an *errors.APIError).
 func (c *Client) Do(ctx context.Context, method, path string, body any) ([]byte, error) {
+	return c.DoWithHeaders(ctx, method, path, body, nil)
+}
+
+// DoWithHeaders is Do with additional request headers. Extra headers are
+// applied after the defaults, so they can add to but not replace
+// Authorization, Accept, or Content-Type.
+func (c *Client) DoWithHeaders(ctx context.Context, method, path string, body any, headers map[string]string) ([]byte, error) {
 	var url string
 
 	// Check if path is an absolute URL
@@ -123,6 +130,11 @@ func (c *Client) Do(ctx context.Context, method, path string, body any) ([]byte,
 	req.Header.Set("Authorization", c.AuthHeader)
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Content-Type", "application/json")
+	for name, value := range headers {
+		if req.Header.Get(name) == "" {
+			req.Header.Set(name, value)
+		}
+	}
 
 	if c.Verbose {
 		_, _ = fmt.Fprintf(c.VerboseOut, "→ %s %s\n", method, url)

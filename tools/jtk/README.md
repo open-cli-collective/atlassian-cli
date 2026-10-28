@@ -700,7 +700,7 @@ jtk links types --id
 
 ### `jtk development get <issue-key>`
 
-Show the summary and deduplicated pull requests from an issue's Jira Development panel. This command uses Jira's private `/rest/dev-status/1.0` API, which may change without notice.
+Show the summary and deduplicated pull requests from an issue's Jira Development panel. Pull requests are read in full from Jira's Graph Store issue-to-pull-request relationship (`/gateway/api/graphql`); counts come from the private `/rest/dev-status/1.0` API. Both are unsupported by Atlassian and may change without notice. If the Graph Store lookup fails, jtk falls back to dev-status, which returns at most 100 pull requests per provider; the count then shows as `100+` and a warning goes to stderr.
 
 > Requires classic Basic authentication; Jira's private Development API is unavailable with bearer/scoped-token authentication.
 

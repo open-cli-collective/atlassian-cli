@@ -604,3 +604,27 @@ func TestOptions_timeoutOrDefault(t *testing.T) {
 		}
 	})
 }
+
+func TestClient_DoWithHeaders(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.Header.Get("X-Query-Context"); got != "site-ari" {
+			t.Errorf("X-Query-Context = %v, want site-ari", got)
+		}
+		if auth := r.Header.Get("Authorization"); !strings.HasPrefix(auth, "Basic ") {
+			t.Errorf("Authorization = %v, want default Basic header preserved", auth)
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer server.Close()
+
+	c := New(server.URL, "user@example.com", "token", nil)
+	_, err := c.DoWithHeaders(context.Background(), http.MethodPost, "/graphql", map[string]string{"query": "{}"}, map[string]string{
+		"X-Query-Context": "site-ari",
+		"Authorization":   "Bearer override",
+	})
+	if err != nil {
+		t.Fatalf("DoWithHeaders() error = %v", err)
+	}
+}

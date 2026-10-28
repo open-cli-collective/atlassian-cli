@@ -7,6 +7,8 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/open-cli-collective/atlassian-go/present"
+
 	"github.com/open-cli-collective/jira-ticket-cli/internal/cmd/root"
 	jtkpresent "github.com/open-cli-collective/jira-ticket-cli/internal/present"
 )
@@ -49,6 +51,11 @@ func runGet(ctx context.Context, opts *root.Options, issueKey string) error {
 	}
 
 	if opts.EmitIDOnly() {
+		if development.PullRequestsTruncated {
+			if err := jtkpresent.Emit(opts, &present.OutputModel{Sections: []present.Section{jtkpresent.DevelopmentTruncationWarning()}}); err != nil {
+				return err
+			}
+		}
 		urls := make([]string, len(development.PullRequests))
 		for i, pr := range development.PullRequests {
 			if pr.URL == "" {

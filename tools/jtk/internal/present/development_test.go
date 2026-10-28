@@ -48,3 +48,23 @@ func TestDevelopmentPresenter_NoPullRequests(t *testing.T) {
 	summary := model.Sections[1].(*present.MessageSection)
 	testutil.Equal(t, summary.Message, "Pull Requests: 0   Commits: 0   Builds: 0")
 }
+
+func TestDevelopmentPresenter_Truncated(t *testing.T) {
+	t.Parallel()
+
+	model := DevelopmentPresenter{}.Present(&api.Development{
+		IssueKey:              "PROJ-123",
+		PullRequestState:      "MERGED",
+		PullRequestsTruncated: true,
+		PullRequests: []api.DevelopmentPullRequest{{
+			ID:  "42",
+			URL: "https://github.com/owner/repo/pull/42",
+		}},
+	})
+
+	summary := model.Sections[1].(*present.MessageSection)
+	testutil.Equal(t, summary.Message, "Pull Requests: 1+ (MERGED)   Commits: 0   Builds: 0")
+	warning := model.Sections[2].(*present.MessageSection)
+	testutil.Equal(t, warning.Stream, present.StreamStderr)
+	testutil.Contains(t, warning.Message, "may be incomplete")
+}

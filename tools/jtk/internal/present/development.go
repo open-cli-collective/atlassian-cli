@@ -23,15 +23,23 @@ func (DevelopmentPresenter) Present(development *api.Development) *present.Outpu
 		builds += fmt.Sprintf(" (%d successful)", development.SuccessfulBuilds)
 	}
 
+	pullRequests := fmt.Sprintf("%d", len(development.PullRequests))
+	if development.PullRequestsTruncated {
+		pullRequests += "+"
+	}
+
 	sections := []present.Section{
 		msg(fmt.Sprintf("%s  Development", development.IssueKey)),
 		msg(fmt.Sprintf(
-			"Pull Requests: %d%s   Commits: %d   Builds: %s",
-			len(development.PullRequests), state, development.Commits, builds,
+			"Pull Requests: %s%s   Commits: %d   Builds: %s",
+			pullRequests, state, development.Commits, builds,
 		)),
 	}
 	if len(development.Providers) > 0 {
 		sections = append(sections, msg("Providers: "+strings.Join(development.Providers, ", ")))
+	}
+	if development.PullRequestsTruncated {
+		sections = append(sections, DevelopmentTruncationWarning())
 	}
 	if len(development.PullRequests) == 0 {
 		return &present.OutputModel{Sections: sections}
@@ -64,4 +72,14 @@ func (DevelopmentPresenter) Present(development *api.Development) *present.Outpu
 		},
 	)
 	return &present.OutputModel{Sections: sections}
+}
+
+// DevelopmentTruncationWarning is the stderr advisory for a pull request list
+// cut off at Jira's dev-status maximum.
+func DevelopmentTruncationWarning() *present.MessageSection {
+	return &present.MessageSection{
+		Kind:    present.MessageWarning,
+		Message: "Pull request list may be incomplete: Jira's dev-status API returns at most 100 per provider, and the paginated Graph Store lookup was unavailable.",
+		Stream:  present.StreamStderr,
+	}
 }

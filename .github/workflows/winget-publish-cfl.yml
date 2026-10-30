@@ -17,7 +17,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Submit WinGet package
-        uses: open-cli-collective/.github/actions/winget-submit@6ee65fbc893f13b8876f013ec0661219a3e18269
+        uses: open-cli-collective/.github/actions/winget-submit@e5d7a9a80785fc39544c3221a2c6654d35b37fcf
         with:
           package-id: OpenCLICollective.cfl
           version: ${{ inputs.version }}

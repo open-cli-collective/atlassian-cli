@@ -27,7 +27,7 @@ permissions:
 
 jobs:
   release:
-    uses: open-cli-collective/.github/.github/workflows/release.yml@v1
+    uses: open-cli-collective/.github/.github/workflows/release.yml@6ee65fbc893f13b8876f013ec0661219a3e18269
     with:
       working-directory: tools/jtk
       # tag push is live (false); workflow_dispatch honors the checkbox. Compare

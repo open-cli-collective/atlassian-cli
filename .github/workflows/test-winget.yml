@@ -1,6 +1,10 @@
 name: Test Winget Manifests
 
 on:
+  pull_request:
+    paths:
+      - 'tools/*/packaging/winget/**'
+      - '.github/workflows/test-winget.yml'
   push:
     branches: [main]
     paths:
@@ -11,6 +15,23 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Install current WinGet validator
+        shell: pwsh
+        run: |
+          $bundle = Join-Path $env:RUNNER_TEMP "Microsoft.DesktopAppInstaller.msixbundle"
+          Invoke-WebRequest "https://github.com/microsoft/winget-cli/releases/download/v1.29.380/Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle" -OutFile $bundle
+          $expected = "65dea9c01ce08ee7b763366b27c0e651f97db857c11ca9b9c301826c10092f2e"
+          if ((Get-FileHash $bundle -Algorithm SHA256).Hash -ne $expected) { throw "WinGet bundle checksum mismatch" }
+          $deps = Join-Path $env:RUNNER_TEMP "winget-dependencies.zip"
+          Invoke-WebRequest "https://github.com/microsoft/winget-cli/releases/download/v1.29.380/DesktopAppInstaller_Dependencies.zip" -OutFile $deps
+          $depsHash = "ba875afe9d190f61218985ac0292a99d1db710bf93e13c68944ca9d89f0d82d1"
+          if ((Get-FileHash $deps -Algorithm SHA256).Hash -ne $depsHash) { throw "WinGet dependencies checksum mismatch" }
+          $depsDir = Join-Path $env:RUNNER_TEMP "winget-dependencies"
+          Expand-Archive -Path $deps -DestinationPath $depsDir
+          $dependencyPaths = @(Get-ChildItem (Join-Path $depsDir "x64") -Filter "*.appx" | ForEach-Object FullName)
+          Add-AppxPackage -Path $bundle -DependencyPath $dependencyPaths
+          winget --version
 
       - name: Validate manifest schema
         shell: pwsh
@@ -52,6 +73,23 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Install current WinGet validator
+        shell: pwsh
+        run: |
+          $bundle = Join-Path $env:RUNNER_TEMP "Microsoft.DesktopAppInstaller.msixbundle"
+          Invoke-WebRequest "https://github.com/microsoft/winget-cli/releases/download/v1.29.380/Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle" -OutFile $bundle
+          $expected = "65dea9c01ce08ee7b763366b27c0e651f97db857c11ca9b9c301826c10092f2e"
+          if ((Get-FileHash $bundle -Algorithm SHA256).Hash -ne $expected) { throw "WinGet bundle checksum mismatch" }
+          $deps = Join-Path $env:RUNNER_TEMP "winget-dependencies.zip"
+          Invoke-WebRequest "https://github.com/microsoft/winget-cli/releases/download/v1.29.380/DesktopAppInstaller_Dependencies.zip" -OutFile $deps
+          $depsHash = "ba875afe9d190f61218985ac0292a99d1db710bf93e13c68944ca9d89f0d82d1"
+          if ((Get-FileHash $deps -Algorithm SHA256).Hash -ne $depsHash) { throw "WinGet dependencies checksum mismatch" }
+          $depsDir = Join-Path $env:RUNNER_TEMP "winget-dependencies"
+          Expand-Archive -Path $deps -DestinationPath $depsDir
+          $dependencyPaths = @(Get-ChildItem (Join-Path $depsDir "x64") -Filter "*.appx" | ForEach-Object FullName)
+          Add-AppxPackage -Path $bundle -DependencyPath $dependencyPaths
+          winget --version
 
       - name: Validate manifest schema
         shell: pwsh

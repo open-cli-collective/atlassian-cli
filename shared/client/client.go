@@ -44,6 +44,7 @@ func New(baseURL, email, apiToken string, opts *Options) *Client {
 	var verbose bool
 	var verboseOut io.Writer = os.Stderr
 	var authHeader string
+	var skipAuthHeader bool
 
 	if opts != nil {
 		timeout = opts.timeoutOrDefault()
@@ -52,9 +53,10 @@ func New(baseURL, email, apiToken string, opts *Options) *Client {
 			verboseOut = opts.VerboseOut
 		}
 		authHeader = opts.AuthHeader
+		skipAuthHeader = opts.SkipAuthHeader
 	}
 
-	if authHeader == "" {
+	if authHeader == "" && !skipAuthHeader {
 		authHeader = auth.BasicAuthHeader(email, apiToken)
 	}
 
@@ -127,7 +129,9 @@ func (c *Client) DoWithHeaders(ctx context.Context, method, path string, body an
 	}
 
 	// Set headers
-	req.Header.Set("Authorization", c.AuthHeader)
+	if c.AuthHeader != "" {
+		req.Header.Set("Authorization", c.AuthHeader)
+	}
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Content-Type", "application/json")
 	for name, value := range headers {

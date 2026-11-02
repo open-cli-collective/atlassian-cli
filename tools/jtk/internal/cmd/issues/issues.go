@@ -25,6 +25,7 @@ func Register(parent *cobra.Command, opts *root.Options) {
 	cmd.AddCommand(newUpdateCmd(opts))
 	cmd.AddCommand(newDeleteCmd(opts))
 	cmd.AddCommand(newAssignCmd(opts))
+	cmd.AddCommand(newRankCmd(opts))
 	cmd.AddCommand(newFieldsCmd(opts))
 	cmd.AddCommand(newFieldOptionsCmd(opts))
 	cmd.AddCommand(newTypesCmd(opts))

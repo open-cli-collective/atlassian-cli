@@ -613,6 +613,20 @@ func (IssuePresenter) PresentDeleted(key string) *present.OutputModel {
 
 // PresentAssigned creates a success message for assignment.
 // If assignee is empty, presents as unassignment.
+// PresentRanked creates a success message for issues ranked before or after
+// another issue (position is "before" or "after").
+func (IssuePresenter) PresentRanked(keys []string, position, anchor string) *present.OutputModel {
+	return &present.OutputModel{
+		Sections: []present.Section{
+			&present.MessageSection{
+				Kind:    present.MessageSuccess,
+				Message: fmt.Sprintf("Ranked %s %s %s", strings.Join(keys, ", "), position, anchor),
+				Stream:  present.StreamStdout,
+			},
+		},
+	}
+}
+
 func (IssuePresenter) PresentAssigned(key, assignee string) *present.OutputModel {
 	msg := fmt.Sprintf("Unassigned issue %s", key)
 	if assignee != "" {

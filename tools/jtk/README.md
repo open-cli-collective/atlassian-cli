@@ -450,6 +450,22 @@ jtk issues assign PROJ-123 --unassign
 |------|---------|-------------|
 | `--unassign` | `false` | Remove current assignee |
 
+---
+
+### `jtk issues rank <issue-key>... (--before <issue-key> | --after <issue-key>)`
+
+Move one or more issues to sit immediately before or after another issue in Jira's rank — the order boards and backlogs show. The issues keep the order given. Exactly one of `--before` and `--after` is required. Lists longer than the API's 50-issue limit are sent in order-preserving chunks; any issue Jira refuses is named in the error.
+
+```bash
+jtk issues rank PROJ-7 --before PROJ-3
+jtk issues rank PROJ-7 PROJ-8 PROJ-9 --after PROJ-3
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--before` | | Rank the issues immediately before this issue |
+| `--after` | | Rank the issues immediately after this issue |
+
 **Arguments:**
 - `<issue-key>` - The issue key (**required**)
 - `[user]` - Account ID, email, display name, or `"me"` (required unless `--unassign`)

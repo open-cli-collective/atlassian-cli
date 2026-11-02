@@ -63,6 +63,7 @@ jtk [resource] [action] [KEY/ID] [flags]
 | `jtk issues update PROJ-123 --assignee none` | Unassign via update |
 | `jtk issues assign PROJ-123 VALUE` | Dedicated assign command; same resolver inputs as `--assignee` (user is a positional arg, not a flag) |
 | `jtk issues assign PROJ-123 --unassign` | Unassign via dedicated command (equivalent to `--assignee none` on update) |
+| `jtk issues rank PROJ-7 [PROJ-8 ...] --before PROJ-3` | Re-order issues on Jira's rank (the board / backlog order): place them, in the order given, immediately before (`--before`) or after (`--after`) another issue. Exactly one of the two; no prompt (re-ranking loses no data). Lists over 50 go in order-preserving chunks; refused issues are named in the error |
 | `jtk issues move PROJ-1 [PROJ-2 ...] --to-project NEWPROJ` | Move one or more issues to another project (Jira Cloud only). By default synchronous — waits for completion. Max 1000 issues per request. See move flags below |
 | `jtk issues move-status TASK_ID` | Check status of an async move operation (used with `--no-wait`) |
 | `jtk issues delete PROJ-123` | Permanently delete an issue. Interactive `y/N` prompt by default (prompt goes to stderr, reads from stdin); pass `--force` to skip. Destructive and irreversible |

@@ -2,6 +2,7 @@
 package adf
 
 import (
+	"bytes"
 	"encoding/json"
 	"strings"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/yuin/goldmark/extension"
 	extast "github.com/yuin/goldmark/extension/ast"
 	"github.com/yuin/goldmark/text"
+	"github.com/yuin/goldmark/util"
 )
 
 // mdParser is a goldmark parser for standard markdown input.
@@ -369,11 +371,38 @@ func (c *converter) convertInlineChildren(n ast.Node) []*Node {
 	return nodes
 }
 
+// decodeInlineText applies CommonMark's backslash escapes and entity references,
+// which goldmark leaves in a text segment's raw source for its renderer to decode.
+// A code span or block keeps its source as written, so it does not come through here.
+func decodeInlineText(src []byte) string {
+	var out bytes.Buffer
+	for i := 0; i < len(src); i++ {
+		switch {
+		case src[i] == '\\' && i+1 < len(src) && util.IsPunct(src[i+1]):
+			i++
+			out.WriteByte(src[i])
+		case src[i] == '&':
+			if end := bytes.IndexByte(src[i:], ';'); end > 0 {
+				ref := src[i : i+end+1]
+				if decoded := util.ResolveNumericReferences(util.ResolveEntityNames(ref)); !bytes.Equal(decoded, ref) {
+					out.Write(decoded)
+					i += end
+					continue
+				}
+			}
+			out.WriteByte(src[i])
+		default:
+			out.WriteByte(src[i])
+		}
+	}
+	return out.String()
+}
+
 // convertInlineNode converts an inline AST node to ADF text node(s).
 func (c *converter) convertInlineNode(n ast.Node, marks []*Mark) []*Node {
 	switch node := n.(type) {
 	case *ast.Text:
-		txt := string(node.Segment.Value(c.source))
+		txt := decodeInlineText(node.Segment.Value(c.source))
 		if txt == "" {
 			return nil
 		}
@@ -450,7 +479,7 @@ func (c *converter) convertInlineNode(n ast.Node, marks []*Mark) []*Node {
 		var altBuilder strings.Builder
 		for child := node.FirstChild(); child != nil; child = child.NextSibling() {
 			if textNode, ok := child.(*ast.Text); ok {
-				altBuilder.Write(textNode.Segment.Value(c.source))
+				altBuilder.WriteString(decodeInlineText(textNode.Segment.Value(c.source)))
 			}
 		}
 		alt := altBuilder.String()

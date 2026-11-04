@@ -266,8 +266,8 @@ func TestRoundtrip_PlainTextThroughStorageRead(t *testing.T) {
 // character that the same markdown text would otherwise decode to stays a character.
 func TestRoundtrip_LiteralEntityThroughStorageRead(t *testing.T) {
 	t.Parallel()
-	storage := `<p>&amp;gt; &amp;amp; R&amp;D a_b &gt; c <code>&amp;gt;</code></p>`
-	want := `&gt; &amp; R&D a_b > c &gt;`
+	storage := "<p>&amp;gt; &amp;amp; R&amp;D a_b &gt; c `&amp;gt;` <code>&amp;gt;</code></p>"
+	want := "&gt; &amp; R&D a_b > c `&gt;` &gt;"
 
 	markdown, err := FromConfluenceStorage(storage)
 	testutil.RequireNoError(t, err)
@@ -281,4 +281,14 @@ func TestRoundtrip_LiteralEntityThroughStorageRead(t *testing.T) {
 		got.WriteString(n.Text)
 	}
 	testutil.Equal(t, got.String(), want)
+}
+
+// Only text nodes are marked: a link keeps its query string as it was stored.
+func TestFromConfluenceStorage_LiteralEntityMarkerStaysOutOfLinks(t *testing.T) {
+	t.Parallel()
+	markdown, err := FromConfluenceStorage(`<p><a href="http://x.io/?a=1&amp;b;c=2">l</a></p>`)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, strings.Contains(markdown, "%EE%B7%90"), false)
+	testutil.Equal(t, strings.Contains(markdown, literalAmpersand), false)
+	testutil.Contains(t, markdown, "a=1")
 }

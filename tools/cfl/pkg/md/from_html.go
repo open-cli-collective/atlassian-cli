@@ -1,6 +1,7 @@
 package md
 
 import (
+	"bytes"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -57,11 +58,13 @@ func FromConfluenceStorageWithOptions(html string, opts ConvertOptions) (string,
 		),
 	)
 
-	markdown, err := conv.ConvertString(literalEntityInStorage.ReplaceAllString(html, literalAmpersand+"$1"))
+	conv.Register.TextTransformer(markLiteralEntities, converter.PriorityEarly)
+	conv.Register.PostRenderer(escapeLiteralEntities, converter.PriorityLate)
+
+	markdown, err := conv.ConvertString(html)
 	if err != nil {
 		return "", err
 	}
-	markdown = restoreLiteralEntities(markdown)
 
 	// Replace placeholders with actual bracket syntax
 	markdown = replaceMacroPlaceholders(markdown, macroMap)
@@ -75,25 +78,25 @@ func FromConfluenceStorageWithOptions(html string, opts ConvertOptions) (string,
 	return strings.TrimSpace(markdown), nil
 }
 
-// literalEntityInStorage matches page text that shows an entity literally, such as
-// &amp;gt; for a page displaying "&gt;". The converter renders it the same as the
-// character > itself, so it is marked before conversion to tell the two apart.
-var literalEntityInStorage = regexp.MustCompile(`&amp;(#?[A-Za-z0-9]+;)`)
+// literalEntity matches text a page shows as an entity, such as "&gt;". The converter
+// writes it the same as the character > itself, so a parser reading the markdown back
+// could not tell them apart.
+var literalEntity = regexp.MustCompile(`&(#?[A-Za-z0-9]+;)`)
 
-// literalAmpersand is a private-use character standing in for the ampersand of a
-// literal entity during conversion.
-const literalAmpersand = "\uE000"
+// literalAmpersand marks a literal entity's ampersand during conversion. It is a Unicode
+// noncharacter, which page text does not hold.
+const literalAmpersand = "\uFDD0"
 
-// restoreLiteralEntities writes each marked ampersand back: escaped in text, so the
-// markdown parser keeps the entity literal, and as written in code, where it already is.
-func restoreLiteralEntities(markdown string) string {
-	if !strings.Contains(markdown, literalAmpersand) {
-		return markdown
-	}
-	protected, regions := protectCodeRegions([]byte(markdown))
-	escaped := strings.ReplaceAll(string(protected), literalAmpersand, `\&`)
-	restored := restoreCodeRegions([]byte(escaped), regions)
-	return strings.ReplaceAll(string(restored), literalAmpersand, "&")
+// markLiteralEntities runs on text nodes only, before the converter's own escaping, so
+// attributes and code are left alone.
+func markLiteralEntities(_ converter.Context, content string) string {
+	return literalEntity.ReplaceAllString(content, literalAmpersand+"$1")
+}
+
+// escapeLiteralEntities writes each marked ampersand as a markdown escape, which the
+// markdown parser keeps literal.
+func escapeLiteralEntities(_ converter.Context, markdown []byte) []byte {
+	return bytes.ReplaceAll(markdown, []byte(literalAmpersand), []byte(`\&`))
 }
 
 // macroPlaceholder stores the bracket syntax for a macro placeholder

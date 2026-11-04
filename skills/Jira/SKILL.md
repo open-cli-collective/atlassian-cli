@@ -132,6 +132,7 @@ Use that key directly — no API lookup needed.
 | Assign (me / email / display name / account ID) | `jtk issues update PROJ-123 --assignee VALUE` (or equivalently `jtk issues assign PROJ-123 VALUE`) |
 | Unassign | `jtk issues update PROJ-123 --assignee none` (or equivalently `jtk issues assign PROJ-123 --unassign`) |
 | Transition issue | `jtk transitions list PROJ-123` then `jtk transitions do PROJ-123 "Done"` |
+| Re-order the board / backlog | `jtk issues rank PROJ-7 --before PROJ-3` (or `--after`) |
 | Current user | `jtk me` (or `jtk me --id` for just the account ID) |
 | Current sprint | `jtk sprints current --board ID_OR_NAME` |
 | Add comment | `jtk comments add PROJ-123 --body "..."` |

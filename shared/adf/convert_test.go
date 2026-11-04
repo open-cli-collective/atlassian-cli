@@ -956,3 +956,11 @@ func TestToDocument_KeepsEscapesInCode(t *testing.T) {
 		t.Errorf("code block text = %q", got)
 	}
 }
+
+func TestToDocument_DecodesImageAltText(t *testing.T) {
+	t.Parallel()
+	doc := ToDocument(`![a\_b &gt;](https://example.com/i.png)`)
+	if got := doc.Content[0].Content[0].Text; got != "a_b >" {
+		t.Errorf("alt text = %q", got)
+	}
+}

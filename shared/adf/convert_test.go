@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/open-cli-collective/atlassian-go/testutil"
@@ -913,4 +914,53 @@ func TestToPlainText_NodesWithTextInAttrs(t *testing.T) {
 		"https://example.com/block\n" +
 		"https://example.com/embed\n"
 	testutil.Equal(t, doc.ToPlainText(), want)
+}
+
+func TestToDocument_DecodesMarkdownEscapesInText(t *testing.T) {
+	t.Parallel()
+	cases := []struct{ name, markdown, want string }{
+		{"escaped underscore", `:rotating\_light: x`, ":rotating_light: x"},
+		{"escaped star and bracket", `\*star* \[b]`, "*star* [b]"},
+		{"escaped backslash", `back\\slash`, `back\slash`},
+		{"backslash before a letter stays", `back\slash`, `back\slash`},
+		{"named entity", `A &gt; B &amp; C`, "A > B & C"},
+		{"numeric entities", `&#62; &#x3E;`, "> >"},
+		{"unknown entity stays", `&nosuchentity; & alone`, "&nosuchentity; & alone"},
+		{"escaped entity stays literal", `\&gt;`, "&gt;"},
+		{"bare ampersand before an escape and an entity", `R&D a\_b &gt; c`, "R&D a_b > c"},
+		{"bare ampersand before an escaped entity", `a & \&gt;`, "a & &gt;"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			doc := ToDocument(c.markdown)
+			var got strings.Builder
+			for _, n := range doc.Content[0].Content {
+				got.WriteString(n.Text)
+			}
+			if got.String() != c.want {
+				t.Errorf("text = %q, want %q", got.String(), c.want)
+			}
+		})
+	}
+}
+
+func TestToDocument_KeepsEscapesInCode(t *testing.T) {
+	t.Parallel()
+	doc := ToDocument("`a\\_b &gt;`")
+	if got := doc.Content[0].Content[0].Text; got != `a\_b &gt;` {
+		t.Errorf("code span text = %q", got)
+	}
+	doc = ToDocument("```\na\\_b &gt;\n```")
+	if got := doc.Content[0].Content[0].Text; got != "a\\_b &gt;" {
+		t.Errorf("code block text = %q", got)
+	}
+}
+
+func TestToDocument_DecodesImageAltText(t *testing.T) {
+	t.Parallel()
+	doc := ToDocument(`![a\_b &gt;](https://example.com/i.png)`)
+	if got := doc.Content[0].Content[0].Text; got != "a_b >" {
+		t.Errorf("alt text = %q", got)
+	}
 }

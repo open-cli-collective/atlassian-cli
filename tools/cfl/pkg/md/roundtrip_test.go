@@ -1,6 +1,7 @@
 package md
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -237,4 +238,57 @@ func TestRoundtrip_NestedMacroInParagraph(t *testing.T) {
 
 	testutil.True(t, infoStart < tocPos, "[INFO] should come before [TOC]")
 	testutil.True(t, tocPos < infoEnd, "[TOC] should come before [/INFO]")
+}
+
+// TestRoundtrip_PlainTextThroughStorageRead verifies that a page read as markdown
+// and written back keeps its text: the read escapes markdown punctuation and the
+// write has to decode it, or every round trip adds visible backslashes.
+func TestRoundtrip_PlainTextThroughStorageRead(t *testing.T) {
+	t.Parallel()
+	storage := `<p>:rotating_light: a_b_c *star* [b] A &gt; B 1 &amp; 2 &lt;tag&gt; back\slash</p>`
+	want := `:rotating_light: a_b_c *star* [b] A > B 1 & 2 <tag> back\slash`
+
+	markdown, err := FromConfluenceStorage(storage)
+	testutil.RequireNoError(t, err)
+	adfJSON, err := ToADF([]byte(markdown))
+	testutil.RequireNoError(t, err)
+
+	var doc ADFDocument
+	testutil.RequireNoError(t, json.Unmarshal([]byte(adfJSON), &doc))
+	var got strings.Builder
+	for _, n := range doc.Content[0].Content {
+		got.WriteString(n.Text)
+	}
+	testutil.Equal(t, got.String(), want)
+}
+
+// A page that shows an entity literally keeps it across a read and write, while the
+// character that the same markdown text would otherwise decode to stays a character.
+func TestRoundtrip_LiteralEntityThroughStorageRead(t *testing.T) {
+	t.Parallel()
+	storage := "<p>&amp;gt; &amp;amp; R&amp;D a_b &gt; c `&amp;gt;` <code>&amp;gt;</code></p>"
+	want := "&gt; &amp; R&D a_b > c `&gt;` &gt;"
+
+	markdown, err := FromConfluenceStorage(storage)
+	testutil.RequireNoError(t, err)
+	adfJSON, err := ToADF([]byte(markdown))
+	testutil.RequireNoError(t, err)
+
+	var doc ADFDocument
+	testutil.RequireNoError(t, json.Unmarshal([]byte(adfJSON), &doc))
+	var got strings.Builder
+	for _, n := range doc.Content[0].Content {
+		got.WriteString(n.Text)
+	}
+	testutil.Equal(t, got.String(), want)
+}
+
+// Only text nodes are marked: a link keeps its query string as it was stored.
+func TestFromConfluenceStorage_LiteralEntityMarkerStaysOutOfLinks(t *testing.T) {
+	t.Parallel()
+	markdown, err := FromConfluenceStorage(`<p><a href="http://x.io/?a=1&amp;b;c=2">l</a></p>`)
+	testutil.RequireNoError(t, err)
+	testutil.Equal(t, strings.Contains(markdown, "%EE%B7%90"), false)
+	testutil.Equal(t, strings.Contains(markdown, literalAmpersand), false)
+	testutil.Contains(t, markdown, "a=1")
 }

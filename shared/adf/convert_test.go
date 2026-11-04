@@ -927,6 +927,8 @@ func TestToDocument_DecodesMarkdownEscapesInText(t *testing.T) {
 		{"numeric entities", `&#62; &#x3E;`, "> >"},
 		{"unknown entity stays", `&nosuchentity; & alone`, "&nosuchentity; & alone"},
 		{"escaped entity stays literal", `\&gt;`, "&gt;"},
+		{"bare ampersand before an escape and an entity", `R&D a\_b &gt; c`, "R&D a_b > c"},
+		{"bare ampersand before an escaped entity", `a & \&gt;`, "a & &gt;"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

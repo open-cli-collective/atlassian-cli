@@ -261,3 +261,24 @@ func TestRoundtrip_PlainTextThroughStorageRead(t *testing.T) {
 	}
 	testutil.Equal(t, got.String(), want)
 }
+
+// A page that shows an entity literally keeps it across a read and write, while the
+// character that the same markdown text would otherwise decode to stays a character.
+func TestRoundtrip_LiteralEntityThroughStorageRead(t *testing.T) {
+	t.Parallel()
+	storage := `<p>&amp;gt; &amp;amp; R&amp;D a_b &gt; c <code>&amp;gt;</code></p>`
+	want := `&gt; &amp; R&D a_b > c &gt;`
+
+	markdown, err := FromConfluenceStorage(storage)
+	testutil.RequireNoError(t, err)
+	adfJSON, err := ToADF([]byte(markdown))
+	testutil.RequireNoError(t, err)
+
+	var doc ADFDocument
+	testutil.RequireNoError(t, json.Unmarshal([]byte(adfJSON), &doc))
+	var got strings.Builder
+	for _, n := range doc.Content[0].Content {
+		got.WriteString(n.Text)
+	}
+	testutil.Equal(t, got.String(), want)
+}

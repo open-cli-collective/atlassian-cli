@@ -377,25 +377,42 @@ func (c *converter) convertInlineChildren(n ast.Node) []*Node {
 func decodeInlineText(src []byte) string {
 	var out bytes.Buffer
 	for i := 0; i < len(src); i++ {
-		switch {
-		case src[i] == '\\' && i+1 < len(src) && util.IsPunct(src[i+1]):
+		if src[i] == '\\' && i+1 < len(src) && util.IsPunct(src[i+1]) {
 			i++
 			out.WriteByte(src[i])
-		case src[i] == '&':
-			if end := bytes.IndexByte(src[i:], ';'); end > 0 {
-				ref := src[i : i+end+1]
+			continue
+		}
+		if src[i] == '&' {
+			if end := entityEnd(src[i:]); end > 0 {
+				ref := src[i : i+end]
 				if decoded := util.ResolveNumericReferences(util.ResolveEntityNames(ref)); !bytes.Equal(decoded, ref) {
 					out.Write(decoded)
-					i += end
+					i += end - 1
 					continue
 				}
 			}
-			out.WriteByte(src[i])
-		default:
-			out.WriteByte(src[i])
 		}
+		out.WriteByte(src[i])
 	}
 	return out.String()
+}
+
+// entityEnd returns the length of the entity reference src starts with: an ampersand,
+// an optional #, alphanumerics and a semicolon. It returns 0 when src does not start
+// with one, so a bare ampersand never reaches past the text that follows it.
+func entityEnd(src []byte) int {
+	i := 1
+	if i < len(src) && src[i] == '#' {
+		i++
+	}
+	start := i
+	for i < len(src) && util.IsAlphaNumeric(src[i]) {
+		i++
+	}
+	if i == start || i >= len(src) || src[i] != ';' {
+		return 0
+	}
+	return i + 1
 }
 
 // convertInlineNode converts an inline AST node to ADF text node(s).

@@ -57,10 +57,11 @@ func FromConfluenceStorageWithOptions(html string, opts ConvertOptions) (string,
 		),
 	)
 
-	markdown, err := conv.ConvertString(html)
+	markdown, err := conv.ConvertString(literalEntityInStorage.ReplaceAllString(html, literalAmpersand+"$1"))
 	if err != nil {
 		return "", err
 	}
+	markdown = restoreLiteralEntities(markdown)
 
 	// Replace placeholders with actual bracket syntax
 	markdown = replaceMacroPlaceholders(markdown, macroMap)
@@ -72,6 +73,27 @@ func FromConfluenceStorageWithOptions(html string, opts ConvertOptions) (string,
 
 	// Clean up the output - trim whitespace
 	return strings.TrimSpace(markdown), nil
+}
+
+// literalEntityInStorage matches page text that shows an entity literally, such as
+// &amp;gt; for a page displaying "&gt;". The converter renders it the same as the
+// character > itself, so it is marked before conversion to tell the two apart.
+var literalEntityInStorage = regexp.MustCompile(`&amp;(#?[A-Za-z0-9]+;)`)
+
+// literalAmpersand is a private-use character standing in for the ampersand of a
+// literal entity during conversion.
+const literalAmpersand = "\uE000"
+
+// restoreLiteralEntities writes each marked ampersand back: escaped in text, so the
+// markdown parser keeps the entity literal, and as written in code, where it already is.
+func restoreLiteralEntities(markdown string) string {
+	if !strings.Contains(markdown, literalAmpersand) {
+		return markdown
+	}
+	protected, regions := protectCodeRegions([]byte(markdown))
+	escaped := strings.ReplaceAll(string(protected), literalAmpersand, `\&`)
+	restored := restoreCodeRegions([]byte(escaped), regions)
+	return strings.ReplaceAll(string(restored), literalAmpersand, "&")
 }
 
 // macroPlaceholder stores the bracket syntax for a macro placeholder

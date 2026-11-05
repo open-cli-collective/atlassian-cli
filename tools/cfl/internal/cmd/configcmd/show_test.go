@@ -83,6 +83,13 @@ func TestRunShow_ExactOutput(t *testing.T) {
 
 func TestRunShow_UsesConfiguredPath(t *testing.T) {
 	credtest.Hermetic(t)
+	for _, name := range []string{
+		"CFL_URL", "ATLASSIAN_URL", "CFL_EMAIL", "ATLASSIAN_EMAIL",
+		"CFL_DEFAULT_SPACE", "CFL_AUTH_METHOD", "ATLASSIAN_AUTH_METHOD",
+		"CFL_CLOUD_ID", "ATLASSIAN_CLOUD_ID",
+	} {
+		t.Setenv(name, "")
+	}
 	defaultPath := cflconfig.DefaultConfigPath()
 	explicitPath := filepath.Join(t.TempDir(), "explicit.yml")
 	testutil.RequireNoError(t, (&cflconfig.Config{URL: "https://default.atlassian.net/wiki", Email: "default@example.com"}).Save(defaultPath))

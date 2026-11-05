@@ -13,19 +13,71 @@ const (
 
 	// AuthMethodBearer is the authentication method for service accounts with scoped API tokens.
 	AuthMethodBearer = "bearer"
+
+	// AuthMethodProxy sends no Authorization header and relies on a local or upstream proxy.
+	AuthMethodProxy = "proxy"
 )
 
 // ErrInvalidAuthMethod is returned when an unrecognized auth method is provided.
-var ErrInvalidAuthMethod = errors.New("invalid auth method: must be \"basic\" or \"bearer\"")
+var ErrInvalidAuthMethod = errors.New("invalid auth method: must be \"basic\", \"bearer\", or \"proxy\"")
 
 // ValidateAuthMethod returns nil if method is a recognized auth method, or ErrInvalidAuthMethod otherwise.
 func ValidateAuthMethod(method string) error {
 	switch method {
-	case AuthMethodBasic, AuthMethodBearer:
+	case AuthMethodBasic, AuthMethodBearer, AuthMethodProxy:
 		return nil
 	default:
 		return fmt.Errorf("%w: got %q", ErrInvalidAuthMethod, method)
 	}
+}
+
+// Credentials groups fields governed by auth-method policy.
+type Credentials struct {
+	Method   string
+	Email    string
+	APIToken string
+	CloudID  string
+}
+
+// Normalize defaults an empty method to basic and clears direct credentials
+// for proxy auth, which sends no CLI-side credentials.
+func (c Credentials) Normalize() Credentials {
+	if c.Method == "" {
+		c.Method = AuthMethodBasic
+	}
+	if c.Method == AuthMethodProxy {
+		c.Email = ""
+		c.APIToken = ""
+		c.CloudID = ""
+	}
+	return c
+}
+
+// RequireNonInteractive validates the auth fields needed by scripted
+// init flows and names the first missing CLI value. toolHint is the
+// tool-specific set-credential command shown when the API token is absent.
+func (c Credentials) RequireNonInteractive(url, toolHint string) error {
+	if url == "" {
+		return errors.New("--non-interactive: missing required value for --url")
+	}
+
+	switch c.Method {
+	case AuthMethodProxy:
+		return nil
+	case AuthMethodBearer:
+		if c.CloudID == "" {
+			return errors.New("--non-interactive: missing required value for --cloud-id (bearer auth)")
+		}
+	default:
+		if c.Email == "" {
+			return errors.New("--non-interactive: missing required value for --email (basic auth)")
+		}
+	}
+
+	if c.APIToken == "" {
+		return fmt.Errorf("--non-interactive: missing required value for --token-stdin or --token-from-env VAR (or pre-stage with `%s`)", toolHint)
+	}
+	return nil
 }
 
 // BasicAuthHeader returns the HTTP Basic Authentication header value

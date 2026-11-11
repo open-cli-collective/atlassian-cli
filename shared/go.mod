@@ -2,7 +2,7 @@ module github.com/open-cli-collective/atlassian-go
 
 go 1.26
 
-toolchain go1.26.10
+toolchain go1.27.4
 
 require (
 	github.com/byteness/keyring v1.11.0

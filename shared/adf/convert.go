@@ -420,15 +420,21 @@ func (c *converter) convertInlineNode(n ast.Node, marks []*Mark) []*Node {
 	switch node := n.(type) {
 	case *ast.Text:
 		txt := decodeInlineText(node.Segment.Value(c.source))
-		if txt == "" {
-			return nil
-		}
-		adfNode := &Node{Type: "text", Text: txt}
-		if len(marks) > 0 {
-			adfNode.Marks = marks
+		// A soft line break separates words like a space, as CommonMark renders it.
+		// The segment excludes the line ending, so without the space the two lines join.
+		if node.SoftLineBreak() && !node.HardLineBreak() {
+			txt += " "
 		}
 		var result []*Node
-		result = append(result, adfNode)
+		// The segment is empty when the line ends right after another inline node,
+		// such as a code span; its line break still applies.
+		if txt != "" {
+			adfNode := &Node{Type: "text", Text: txt}
+			if len(marks) > 0 {
+				adfNode.Marks = marks
+			}
+			result = append(result, adfNode)
+		}
 		if node.HardLineBreak() {
 			result = append(result, &Node{Type: "hardBreak"})
 		}

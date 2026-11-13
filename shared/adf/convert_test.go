@@ -459,6 +459,40 @@ func TestToJSON_HardLineBreak(t *testing.T) {
 	testutil.True(t, foundBreak, "expected hardBreak node")
 }
 
+func TestToDocument_LineBreaks(t *testing.T) {
+	t.Parallel()
+	cases := []struct{ name, markdown, want string }{
+		{"soft break is a space", "line one\nline two", "line one line two"},
+		{"soft break inside bold", "**a\nb**", "a b"},
+		{"soft break after code span", "`x`\nnext", "x next"},
+		{"soft break in list item", "- a\n  b", "a b"},
+		{"hard break by spaces", "a  \nb", "a|b"},
+		{"hard break by backslash", "a\\\nb", "a|b"},
+		{"hard break after code span", "`x`  \nnext", "x|next"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			doc := ToDocument(c.markdown)
+			inline := doc.Content[0].Content
+			if doc.Content[0].Type == "bulletList" {
+				inline = doc.Content[0].Content[0].Content[0].Content
+			}
+			var got strings.Builder
+			for _, n := range inline {
+				if n.Type == "hardBreak" {
+					got.WriteString("|")
+				}
+				got.WriteString(n.Text)
+			}
+			if got.String() != c.want {
+				t.Errorf("text = %q, want %q", got.String(), c.want)
+			}
+			assertNoEmptyTextNodes(t, doc.Content)
+		})
+	}
+}
+
 func TestToJSON_InlineCodePreservesContent(t *testing.T) {
 	t.Parallel()
 	input := "Use `fmt.Println()` to print"

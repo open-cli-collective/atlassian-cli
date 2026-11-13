@@ -59,6 +59,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Issue and comment text with inline code inside bold, italic or strikethrough (`` **run `make`** ``) is now accepted. The code span used to keep the outer marks, which ADF forbids next to `code`, so Jira rejected the request and nothing was created or posted. The code span now keeps only a link.
 - Markdown escapes and entities in issue and comment text now decode, so `\_` is stored as `_` and `&gt;` as `>`. Code spans and code blocks keep them as written.
 - `development get` now returns every pull request linked to an issue instead of stopping at 100. Jira's dev-status detail API caps its response at 100 and ignores paging parameters, so pull requests are now paged from Jira's Graph Store issue-to-PR relationship, with dev-status kept as a fallback that reports `100+` and warns on stderr when it may be truncated. The repository column also now comes from each pull request instead of repeating the first one's repository for every row.
 - `config show` now reports values set in the shared `atlassian-cli/config.yml` store (url, email, default project) with their shared source, and its path row names the config file the runtime actually reads, including the prior shared location on macOS before `jtk init` relocates it. Previously these rows showed `-` and the legacy per-tool path even though jtk used the shared values. Thanks to @jurij for the fix. ([#483](https://github.com/open-cli-collective/atlassian-cli/pull/483))

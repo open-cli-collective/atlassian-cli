@@ -465,7 +465,16 @@ func (c *converter) convertInlineNode(n ast.Node, marks []*Mark) []*Node {
 			}
 		}
 		txt := textBuilder.String()
-		newMarks := append(copyMarks(marks), &Mark{Type: "code"})
+		// ADF allows the code mark only next to link (and annotation), and Jira
+		// rejects the whole document otherwise, so code inside bold, italic or
+		// strikethrough keeps only its link.
+		var newMarks []*Mark
+		for _, m := range marks {
+			if m.Type == "link" {
+				newMarks = append(newMarks, m)
+			}
+		}
+		newMarks = append(newMarks, &Mark{Type: "code"})
 		return []*Node{{Type: "text", Text: txt, Marks: newMarks}}
 
 	case *ast.Link:

@@ -4,6 +4,7 @@
 
 ### Fixed
 
+- `page edit` and `page create` no longer put the ADF `code` mark next to bold, italic or strikethrough, which ADF forbids; inline code inside them keeps only a link. `--legacy` storage writes are unchanged.
 - `page edit` and `page create` no longer store markdown escapes and entities as literal text. Reading a page as markdown and writing it back used to add visible backslashes and `&gt;` to its text.
 - `attachment list --unused` now reads ADF pages whose storage body is empty, matches attachment references structurally (storage `ri:attachment` elements and ADF media nodes) instead of by filename substring, and pages through all attachments until `--limit` unused results are found ([#456](https://github.com/open-cli-collective/atlassian-cli/issues/456))
 - `page view` and `page edit` now fall back to ADF format when the Confluence API returns empty storage content for cloud editor pages ([#150](https://github.com/open-cli-collective/atlassian-cli/issues/150))

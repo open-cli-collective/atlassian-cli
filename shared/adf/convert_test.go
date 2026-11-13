@@ -964,3 +964,41 @@ func TestToDocument_DecodesImageAltText(t *testing.T) {
 		t.Errorf("alt text = %q", got)
 	}
 }
+
+func TestToDocument_CodeMarkKeepsOnlyLink(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name, markdown string
+		parse          func(string) *Document
+		want           []string
+	}{
+		{"code in bold", "**a `b`**", ToDocument, []string{"code"}},
+		{"code in italic", "*a `b`*", ToDocument, []string{"code"}},
+		{"code in strikethrough", "~~a `b`~~", ToDocument, []string{"code"}},
+		{"code in link", "[a `b`](https://example.com)", ToDocument, []string{"link", "code"}},
+		{"code in link in bold", "**[a `b`](https://example.com)**", ToDocument, []string{"link", "code"}},
+		{"code in underline (wiki)", "++a `b`++", ToDocumentWiki, []string{"code"}},
+		{"code in superscript (wiki)", "^a `b`^", ToDocumentWiki, []string{"code"}},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			var code *Node
+			for _, n := range c.parse(c.markdown).Content[0].Content {
+				if n.Text == "b" {
+					code = n
+				}
+			}
+			if code == nil {
+				t.Fatalf("no text node for the code span in %q", c.markdown)
+			}
+			var got []string
+			for _, m := range code.Marks {
+				got = append(got, m.Type)
+			}
+			if strings.Join(got, ",") != strings.Join(c.want, ",") {
+				t.Errorf("code span marks = %v, want %v", got, c.want)
+			}
+		})
+	}
+}
